@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header pb-0 d-flex justify-content-between align-items-center">
+                    <h6>Listado de Inspecciones Preoperacionales</h6>
+                    <a href="{{ url_for('exportar_preoperacional_csv') }}" class="btn btn-success">
+                        <i class="fas fa-file-csv"></i> Exportar a CSV
+                    </a>
+                </div>
+                <div class="card-body px-0 pt-0 pb-2">
+                    <!-- Estadísticas -->
+                    <div class="row px-4 py-3">
+                        <div class="col-md-4">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title">Total Registros</h5>
+                                    <h2 class="card-text">{{ total_registros }}</h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title">Registros Hoy</h5>
+                                    <h2 class="card-text">{{ registros_hoy }}</h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-info text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title">Registros Semana</h5>
+                                    <h2 class="card-text">{{ registros_semana }}</h2>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de registros -->
+                    <div class="table-responsive p-0">
+                        <table class="table align-items-center mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Fecha</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Técnico</th>
+                                    <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Centro de Trabajo</th>
+                                    <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Vehículo</th>
+                                    <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Estado</th>
+                                    <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for registro in registros %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex px-2 py-1">
+                                            <div class="d-flex flex-column justify-content-center">
+                                                <h6 class="mb-0 text-sm">{{ registro.fecha.strftime('%Y-%m-%d %H:%M') }}</h6>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <p class="text-sm font-weight-bold mb-0">{{ registro.nombre_tecnico }}</p>
+                                        <p class="text-xs text-secondary mb-0">{{ registro.cargo_tecnico }}</p>
+                                    </td>
+                                    <td class="align-middle text-center text-sm">
+                                        <span class="badge badge-sm bg-gradient-success">{{ registro.centro_de_trabajo }}</span>
+                                    </td>
+                                    <td class="align-middle text-center">
+                                        <span class="text-secondary text-xs font-weight-bold">
+                                            {{ registro.placa_vehiculo }} - {{ registro.tipo_vehiculo }}
+                                        </span>
+                                    </td>
+                                    <td class="align-middle text-center">
+                                        <span class="badge badge-sm bg-gradient-{{ 'success' if registro.estado_espejos and registro.bocina_pito and registro.frenos else 'danger' }}">
+                                            {{ 'Aprobado' if registro.estado_espejos and registro.bocina_pito and registro.frenos else 'Rechazado' }}
+                                        </span>
+                                    </td>
+                                    <td class="align-middle text-center">
+                                        <button class="btn btn-link text-secondary mb-0" data-bs-toggle="modal" data-bs-target="#detalleModal{{ registro.id }}">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                <!-- Modal de Detalle -->
+                                <div class="modal fade" id="detalleModal{{ registro.id }}" tabindex="-1" aria-labelledby="detalleModalLabel{{ registro.id }}" aria-hidden="true">
+                                    <div class="modal-dialog modal-lg">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="detalleModalLabel{{ registro.id }}">Detalle de Inspección</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="row">
+                                                    <div class="col-md-6">
+                                                        <h6>Información General</h6>
+                                                        <p><strong>Fecha:</strong> {{ registro.fecha.strftime('%Y-%m-%d %H:%M') }}</p>
+                                                        <p><strong>Técnico:</strong> {{ registro.nombre_tecnico }}</p>
+                                                        <p><strong>Centro de Trabajo:</strong> {{ registro.centro_de_trabajo }}</p>
+                                                        <p><strong>Ciudad:</strong> {{ registro.ciudad }}</p>
+                                                        <p><strong>Supervisor:</strong> {{ registro.supervisor }}</p>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <h6>Información del Vehículo</h6>
+                                                        <p><strong>Placa:</strong> {{ registro.placa_vehiculo }}</p>
+                                                        <p><strong>Tipo:</strong> {{ registro.tipo_vehiculo }}</p>
+                                                        <p><strong>Modelo:</strong> {{ registro.modelo_vehiculo }}</p>
+                                                        <p><strong>Marca:</strong> {{ registro.marca_vehiculo }}</p>
+                                                        <p><strong>Kilometraje:</strong> {{ registro.kilometraje_actual }}</p>
+                                                    </div>
+                                                </div>
+                                                <div class="row mt-3">
+                                                    <div class="col-md-6">
+                                                        <h6>Estado del Vehículo</h6>
+                                                        <ul class="list-unstyled">
+                                                            <li><i class="fas fa-{{ 'check text-success' if registro.estado_espejos else 'times text-danger' }}"></i> Espejos</li>
+                                                            <li><i class="fas fa-{{ 'check text-success' if registro.bocina_pito else 'times text-danger' }}"></i> Bocina/Pito</li>
+                                                            <li><i class="fas fa-{{ 'check text-success' if registro.frenos else 'times text-danger' }}"></i> Frenos</li>
+                                                            <li><i class="fas fa-{{ 'check text-success' if registro.encendido else 'times text-danger' }}"></i> Encendido</li>
+                                                            <li><i class="fas fa-{{ 'check text-success' if registro.estado_bateria else 'times text-danger' }}"></i> Batería</li>
+                                                        </ul>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <h6>Elementos de Seguridad</h6>
+                                                        <ul class="list-unstyled">
+                                                            <li><i class="fas fa-{{ 'check text-success' if registro.elementos_prevencion_seguridad_vial_casco else 'times text-danger' }}"></i> Casco</li>
+                                                            <li><i class="fas fa-{{ 'check text-success' if registro.estado_guantes else 'times text-danger' }}"></i> Guantes</li>
+                                                            <li><i class="fas fa-{{ 'check text-success' if registro.estado_rodilleras else 'times text-danger' }}"></i> Rodilleras</li>
+                                                            <li><i class="fas fa-{{ 'check text-success' if registro.impermeable else 'times text-danger' }}"></i> Impermeable</li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                                {% if registro.observaciones %}
+                                                <div class="row mt-3">
+                                                    <div class="col-12">
+                                                        <h6>Observaciones</h6>
+                                                        <p>{{ registro.observaciones }}</p>
+                                                    </div>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

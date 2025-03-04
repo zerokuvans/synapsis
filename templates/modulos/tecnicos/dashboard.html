@@ -1,0 +1,675 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white fw-bold">
+                    <h3 class="mb-0">
+                        <i class="fas fa-wrench me-2"></i>Panel de Técnicos
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Bienvenido al panel de técnicos. Aquí podrás gestionar las órdenes de trabajo y reportes técnicos.
+                    </div>
+                    
+                    <!-- Contenido específico del módulo técnico -->
+                    <div class="row mt-4">
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-check-circle fa-3x text-info mb-3"></i>
+                                    <h5 class="card-title">Preoperacional</h5>
+                                    <p class="card-text">Realiza y consulta inspecciones preoperacionales.</p>
+                                    <a href="#" class="btn btn-info" id="preoperacionalButton" data-bs-toggle="modal" data-bs-target="#preoperacionalModal">
+                                        <i class="fas fa-clipboard-check me-2"></i>Ver Preoperacional
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-clipboard-list fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Órdenes de Trabajo</h5>
+                                    <p class="card-text">Gestiona las órdenes de trabajo asignadas.</p>
+                                    <a href="#" class="btn btn-primary">
+                                        <i class="fas fa-tasks me-2"></i>Ver Órdenes
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-tools fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">Mantenimientos</h5>
+                                    <p class="card-text">Registra y consulta mantenimientos realizados.</p>
+                                    <a href="#" class="btn btn-success">
+                                        <i class="fas fa-wrench me-2"></i>Ver Mantenimientos
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-line fa-3x text-warning mb-3"></i>
+                                    <h5 class="card-title">Reportes</h5>
+                                    <p class="card-text">Genera reportes de trabajo y estadísticas.</p>
+                                    <a href="#" class="btn btn-warning">
+                                        <i class="fas fa-file-alt me-2"></i>Ver Reportes
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        
+                    </div> <!-- Close row mt-4 -->
+                </div> <!-- Close card-body -->
+            </div> <!-- Close card -->
+        </div> <!-- Close col-12 -->
+    </div> <!-- Close row -->
+</div> <!-- Close container -->
+
+<div class="modal fade" id="preoperacionalModal" tabindex="-1" aria-labelledby="preoperacionalModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="preoperacionalModalLabel">Registrar Inspección Preoperacional</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="preoperacionalForm" method="POST" action="/preoperacional">
+                    <div class="card mb-3">
+                        <div class="card-header fw-bold">Información del Centro de Trabajo</div>
+                        <div class="card-body">
+                            
+                            <div class="mb-3">
+                                <label for="ciudad" class="form-label fw-bold">Ciudad</label>
+                                <select class="form-select" id="ciudad" name="ciudad" required>
+                                    <option value="">Seleccione una ciudad</option>
+                                    <option value="Bogotá">Bogotá</option>
+                                    <option value="Medellín">Medellín</option>
+                                    <option value="Cali">Cali</option>
+                                    <option value="Barranquilla">Barranquilla</option>
+                                    <option value="Cartagena">Cartagena</option>
+                                    <!-- Add more cities as needed -->
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="supervisor" class="form-label fw-bold">Supervisor</label>
+                                <select class="form-select" id="supervisor" name="supervisor" required>
+                                    <option value="">Seleccione un supervisor</option>
+                                    <option value="NELSON DIAZ">NELSON DIAZ</option>
+                                    <option value="DANIEL SILVA">DANIEL SILVA</option>
+                                    <option value="JORGE SOSA">JORGE SOSA</option>
+                                    <option value="CARLOS CACERES">CARLOS CACERES</option>
+                                    <option value="MAURICIO MUÑOZ">MAURICIO MUÑOZ</option>
+                                    <option value="SANDRA CORTES">SANDRA CORTES</option>
+                                    <!-- Add more supervisors as needed -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card mb-3">
+                        <div class="card-header fw-bold">Información del Vehículo</div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="vehiculo_asistio_operacion" class="form-label fw-bold">Vehículo Asistió a la Operación</label>
+                                <select class="form-select" id="vehiculo_asistio_operacion" name="vehiculo_asistio_operacion" required>
+                                    <option value="">Seleccione una opción</option>
+                                    <option value="Sí">Sí</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="tipo_vehiculo" class="form-label fw-bold">Tipo de Vehículo</label>
+                                <select class="form-select" id="tipo_vehiculo" name="tipo_vehiculo" required>
+                                    <option value="">Seleccione un tipo</option>
+                                    <option value="Moto">Moto</option>
+                                    <option value="Camioneta">Camioneta</option>
+                                    <option value="Camión">Camión</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="placa_vehiculo" class="form-label fw-bold">Placa del Vehículo</label>
+                                <input type="text" class="form-control" id="placa_vehiculo" name="placa_vehiculo" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="modelo_vehiculo" class="form-label fw-bold">Modelo del Vehículo</label>
+                                <input type="text" class="form-control" id="modelo_vehiculo" name="modelo_vehiculo" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="marca_vehiculo" class="form-label fw-bold">Marca del Vehículo</label>
+                                <select class="form-select" id="marca_vehiculo" name="marca_vehiculo" required>
+                                    <option value="">Seleccione una marca</option>
+                                    <option value="Honda">Honda</option>
+                                    <option value="Yamaha">Yamaha</option>
+                                    <option value="Suzuki">Suzuki</option>
+                                    <option value="Kawasaki">Kawasaki</option>
+                                    <option value="Ducati">Ducati</option>
+                                    <option value="AKT">AKT</option>
+                                    <option value="BAJAJ">BAJAJ</option>
+                                    <option value="HERO">HERO</option>
+                                    <option value="KYMCO">KYMCO</option>
+                                    <option value="TVS">TVS</option>
+                                    <option value="Fuso">Fuso</option>
+                                    <option value="Chevrolet">Chevrolet</option>
+                                    <option value="Ford">Ford</option>
+                                    <option value="Toyota">Toyota</option>
+
+
+                                    <!-- Add more brands as needed -->
+                                </select>
+                            </div>
+   
+                            <div class="mb-3">
+                                <label for="licencia_conduccion" class="form-label fw-bold">Licencia de Conducción</label>
+                                <select class="form-select" id="licencia_conduccion" name="licencia_conduccion" required>
+                                    <option value="">Seleccione una licencia</option>
+                                    <option value="A1">A1</option>
+                                    <option value="A2">A2</option>
+                                    <option value="B1">B1</option>
+                                    <option value="B2">B2</option>
+                                    <option value="C1">C1</option>
+                                    <option value="C2">C2</option>
+                                    <option value="C3">C3</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="fecha_vencimiento_licencia" class="form-label fw-bold">Fecha de Vencimiento de la Licencia</label>
+                                <input type="date" class="form-control" id="fecha_vencimiento_licencia" name="fecha_vencimiento_licencia" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="fecha_vencimiento_soat" class="form-label fw-bold">Fecha de Vencimiento del SOAT</label>
+                                <input type="date" class="form-control" id="fecha_vencimiento_soat" name="fecha_vencimiento_soat" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="fecha_vencimiento_tecnomecanica" class="form-label fw-bold">Fecha de Vencimiento de la Tecnomecánica</label>
+                                <input type="date" class="form-control" id="fecha_vencimiento_tecnomecanica" name="fecha_vencimiento_tecnomecanica" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card mb-3">
+                        <div class="card-header fw-bold">Estado del Vehículo</div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="estado_espejos" class="form-label fw-bold">Estado de los Espejos</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_espejos_bueno" name="estado_espejos" value="bueno">
+                                        <label for="estado_espejos_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_espejos_regular" name="estado_espejos" value="regular">
+                                        <label for="estado_espejos_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_espejos_malo" name="estado_espejos" value="malo">
+                                        <label for="estado_espejos_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="bocina_pito" class="form-label fw-bold">Bocina o Pito</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="bocina_pito_bueno" name="bocina_pito" value="bueno">
+                                        <label for="bocina_pito_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="bocina_pito_regular" name="bocina_pito" value="regular">
+                                        <label for="bocina_pito_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="bocina_pito_malo" name="bocina_pito" value="malo">
+                                        <label for="bocina_pito_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="frenos" class="form-label fw-bold">Frenos</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="frenos_bueno" name="frenos" value="bueno">
+                                        <label for="frenos_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="frenos_regular" name="frenos" value="regular">
+                                        <label for="frenos_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="frenos_malo" name="frenos" value="malo">
+                                        <label for="frenos_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="encendido" class="form-label fw-bold">Encendido</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="encendido_bueno" name="encendido" value="bueno">
+                                        <label for="encendido_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="encendido_regular" name="encendido" value="regular">
+                                        <label for="encendido_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="encendido_malo" name="encendido" value="malo">
+                                        <label for="encendido_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_bateria" class="form-label fw-bold">Estado de la Batería</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_bateria_bueno" name="estado_bateria" value="bueno">
+                                        <label for="estado_bateria_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_bateria_regular" name="estado_bateria" value="regular">
+                                        <label for="estado_bateria_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_bateria_malo" name="estado_bateria" value="malo">
+                                        <label for="estado_bateria_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_amortiguadores" class="form-label fw-bold">Estado de los Amortiguadores</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_amortiguadores_bueno" name="estado_amortiguadores" value="bueno">
+                                        <label for="estado_amortiguadores_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_amortiguadores_regular" name="estado_amortiguadores" value="regular">
+                                        <label for="estado_amortiguadores_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_amortiguadores_malo" name="estado_amortiguadores" value="malo">
+                                        <label for="estado_amortiguadores_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_llantas" class="form-label fw-bold">Estado de las Llantas</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_llantas_bueno" name="estado_llantas" value="bueno">
+                                        <label for="estado_llantas_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_llantas_regular" name="estado_llantas" value="regular">
+                                        <label for="estado_llantas_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_llantas_malo" name="estado_llantas" value="malo">
+                                        <label for="estado_llantas_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="kilometraje_actual" class="form-label fw-bold">Kilometraje Actual del Vehículo</label>
+                                <input type="text" class="form-control" id="kilometraje_actual" name="kilometraje_actual" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="luces_altas_bajas" class="form-label fw-bold">Luces Altas y Bajas</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="luces_altas_bajas_bueno" name="luces_altas_bajas" value="bueno">
+                                        <label for="luces_altas_bajas_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="luces_altas_bajas_regular" name="luces_altas_bajas" value="regular">
+                                        <label for="luces_altas_bajas_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="luces_altas_bajas_malo" name="luces_altas_bajas" value="malo">
+                                        <label for="luces_altas_bajas_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="direccionales_delanteras_traseras" class="form-label fw-bold">Direccionales Delanteras y Traseras</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="direccionales_delanteras_traseras_bueno" name="direccionales_delanteras_traseras" value="bueno">
+                                        <label for="direccionales_delanteras_traseras_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="direccionales_delanteras_traseras_regular" name="direccionales_delanteras_traseras" value="regular">
+                                        <label for="direccionales_delanteras_traseras_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="direccionales_delanteras_traseras_malo" name="direccionales_delanteras_traseras" value="malo">
+                                        <label for="direccionales_delanteras_traseras_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card mb-3">
+                        <div class="card-header fw-bold">Elementos de Prevención y Seguridad Vial</div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="elementos_prevencion_seguridad_vial_casco" class="form-label fw-bold">Elementos de Prevención y Seguridad Vial (Casco)</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="elementos_prevencion_seguridad_vial_casco_bueno" name="elementos_prevencion_seguridad_vial_casco" value="bueno">
+                                        <label for="elementos_prevencion_seguridad_vial_casco_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="elementos_prevencion_seguridad_vial_casco_regular" name="elementos_prevencion_seguridad_vial_casco" value="regular">
+                                        <label for="elementos_prevencion_seguridad_vial_casco_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="elementos_prevencion_seguridad_vial_casco_malo" name="elementos_prevencion_seguridad_vial_casco" value="malo">
+                                        <label for="elementos_prevencion_seguridad_vial_casco_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="casco_certificado" class="form-label fw-bold">Casco Certificado</label>
+                                <select class="form-select" id="casco_certificado" name="casco_certificado" required>
+                                    <option value="">Seleccione una opción</option>
+                                    <option value="Sí">Sí</option>
+                                    <option value="No">No</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="estado_guantes" class="form-label fw-bold">Guantes</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_guantes_bueno" name="estado_guantes" value="bueno">
+                                        <label for="estado_guantes_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_guantes_regular" name="estado_guantes" value="regular">
+                                        <label for="estado_guantes_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_guantes_malo" name="estado_guantes" value="malo">
+                                        <label for="estado_guantes_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_rodilleras" class="form-label fw-bold">Estado de Rodilleras</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_rodilleras_bueno" name="estado_rodilleras" value="bueno">
+                                        <label for="estado_rodilleras_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_rodilleras_regular" name="estado_rodilleras" value="regular">
+                                        <label for="estado_rodilleras_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_rodilleras_malo" name="estado_rodilleras" value="malo">
+                                        <label for="estado_rodilleras_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="impermeable" class="form-label fw-bold">Impermeable</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="impermeable_bueno" name="impermeable" value="bueno">
+                                        <label for="impermeable_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="impermeable_regular" name="impermeable" value="regular">
+                                        <label for="impermeable_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="impermeable_malo" name="impermeable" value="malo">
+                                        <label for="impermeable_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <!--
+                            <div class="mb-3">
+                                <label for="estado_fisico_vehiculo_espejos" class="form-label fw-bold">Estado Físico del Vehículo (Espejos)</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_espejos_bueno" name="estado_fisico_vehiculo_espejos" value="bueno">
+                                        <label for="estado_fisico_vehiculo_espejos_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_espejos_regular" name="estado_fisico_vehiculo_espejos" value="regular">
+                                        <label for="estado_fisico_vehiculo_espejos_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_espejos_malo" name="estado_fisico_vehiculo_espejos" value="malo">
+                                        <label for="estado_fisico_vehiculo_espejos_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_fisico_vehiculo_bocina_pito" class="form-label fw-bold">Estado Físico del Vehículo (Bocina/Pito)</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_bocina_pito_bueno" name="estado_fisico_vehiculo_bocina_pito" value="bueno">
+                                        <label for="estado_fisico_vehiculo_bocina_pito_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_bocina_pito_regular" name="estado_fisico_vehiculo_bocina_pito" value="regular">
+                                        <label for="estado_fisico_vehiculo_bocina_pito_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_bocina_pito_malo" name="estado_fisico_vehiculo_bocina_pito" value="malo">
+                                        <label for="estado_fisico_vehiculo_bocina_pito_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_fisico_vehiculo_frenos" class="form-label fw-bold">Estado Físico del Vehículo (Frenos)</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_frenos_bueno" name="estado_fisico_vehiculo_frenos" value="bueno">
+                                        <label for="estado_fisico_vehiculo_frenos_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_frenos_regular" name="estado_fisico_vehiculo_frenos" value="regular">
+                                        <label for="estado_fisico_vehiculo_frenos_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_frenos_malo" name="estado_fisico_vehiculo_frenos" value="malo">
+                                        <label for="estado_fisico_vehiculo_frenos_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_fisico_vehiculo_encendido" class="form-label fw-bold">Estado Físico del Vehículo (Encendido)</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_encendido_bueno" name="estado_fisico_vehiculo_encendido" value="bueno">
+                                        <label for="estado_fisico_vehiculo_encendido_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_encendido_regular" name="estado_fisico_vehiculo_encendido" value="regular">
+                                        <label for="estado_fisico_vehiculo_encendido_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_encendido_malo" name="estado_fisico_vehiculo_encendido" value="malo">
+                                        <label for="estado_fisico_vehiculo_encendido_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_fisico_vehiculo_bateria" class="form-label fw-bold">Estado Físico del Vehículo (Batería)</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_bateria_bueno" name="estado_fisico_vehiculo_bateria" value="bueno">
+                                        <label for="estado_fisico_vehiculo_bateria_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_bateria_regular" name="estado_fisico_vehiculo_bateria" value="regular">
+                                        <label for="estado_fisico_vehiculo_bateria_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_bateria_malo" name="estado_fisico_vehiculo_bateria" value="malo">
+                                        <label for="estado_fisico_vehiculo_bateria_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_fisico_vehiculo_amortiguadores" class="form-label fw-bold">Estado Físico del Vehículo (Amortiguadores)</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_amortiguadores_bueno" name="estado_fisico_vehiculo_amortiguadores" value="bueno">
+                                        <label for="estado_fisico_vehiculo_amortiguadores_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_amortiguadores_regular" name="estado_fisico_vehiculo_amortiguadores" value="regular">
+                                        <label for="estado_fisico_vehiculo_amortiguadores_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_amortiguadores_malo" name="estado_fisico_vehiculo_amortiguadores" value="malo">
+                                        <label for="estado_fisico_vehiculo_amortiguadores_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_fisico_vehiculo_llantas" class="form-label fw-bold">Estado Físico del Vehículo (Llantas)</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_llantas_bueno" name="estado_fisico_vehiculo_llantas" value="bueno">
+                                        <label for="estado_fisico_vehiculo_llantas_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_llantas_regular" name="estado_fisico_vehiculo_llantas" value="regular">
+                                        <label for="estado_fisico_vehiculo_llantas_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_llantas_malo" name="estado_fisico_vehiculo_llantas" value="malo">
+                                        <label for="estado_fisico_vehiculo_llantas_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_fisico_vehiculo_luces_altas" class="form-label fw-bold">Estado Físico del Vehículo (Luces Altas)</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_luces_altas_bueno" name="estado_fisico_vehiculo_luces_altas" value="bueno">
+                                        <label for="estado_fisico_vehiculo_luces_altas_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_luces_altas_regular" name="estado_fisico_vehiculo_luces_altas" value="regular">
+                                        <label for="estado_fisico_vehiculo_luces_altas_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_luces_altas_malo" name="estado_fisico_vehiculo_luces_altas" value="malo">
+                                        <label for="estado_fisico_vehiculo_luces_altas_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_fisico_vehiculo_luces_bajas" class="form-label fw-bold">Estado Físico del Vehículo (Luces Bajas)</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_luces_bajas_bueno" name="estado_fisico_vehiculo_luces_bajas" value="bueno">
+                                        <label for="estado_fisico_vehiculo_luces_bajas_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_luces_bajas_regular" name="estado_fisico_vehiculo_luces_bajas" value="regular">
+                                        <label for="estado_fisico_vehiculo_luces_bajas_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_luces_bajas_malo" name="estado_fisico_vehiculo_luces_bajas" value="malo">
+                                        <label for="estado_fisico_vehiculo_luces_bajas_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_fisico_vehiculo_direccionales_delanteras" class="form-label fw-bold">Estado Físico del Vehículo (Direccionales Delanteras)</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_direccionales_delanteras_bueno" name="estado_fisico_vehiculo_direccionales_delanteras" value="bueno">
+                                        <label for="estado_fisico_vehiculo_direccionales_delanteras_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_direccionales_delanteras_regular" name="estado_fisico_vehiculo_direccionales_delanteras" value="regular">
+                                        <label for="estado_fisico_vehiculo_direccionales_delanteras_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_direccionales_delanteras_malo" name="estado_fisico_vehiculo_direccionales_delanteras" value="malo">
+                                        <label for="estado_fisico_vehiculo_direccionales_delanteras_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="estado_fisico_vehiculo_direccionales_traseras" class="form-label fw-bold">Estado Físico del Vehículo (Direccionales Traseras)</label>
+                                <div class="d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_direccionales_traseras_bueno" name="estado_fisico_vehiculo_direccionales_traseras" value="bueno">
+                                        <label for="estado_fisico_vehiculo_direccionales_traseras_bueno" class="form-check-label">Bueno</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_direccionales_traseras_regular" name="estado_fisico_vehiculo_direccionales_traseras" value="regular">
+                                        <label for="estado_fisico_vehiculo_direccionales_traseras_regular" class="form-check-label">Regular</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" class="form-check-input" id="estado_fisico_vehiculo_direccionales_traseras_malo" name="estado_fisico_vehiculo_direccionales_traseras" value="malo">
+                                        <label for="estado_fisico_vehiculo_direccionales_traseras_malo" class="form-check-label">Malo</label>
+                                    </div>
+                                </div>
+                            </div>
+                            -->
+                        </div>
+                    </div>
+                    <div class="card mb-3">
+                        <div class="card-header fw-bold">Observaciones</div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="observaciones" class="form-label fw-bold">Observaciones</label>
+                                <textarea class="form-control" id="observaciones" name="observaciones" rows="3" required></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="id_codigo_consumidor" name="id_codigo_consumidor" value="{{ session['user_id'] }}">
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const button = document.getElementById('preoperacionalButton');
+        const userId = "{{ session['user_id'] }}";
+        const today = new Date().toISOString().split('T')[0];
+
+        fetch(`/check_submission?user_id=${userId}&date=${today}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.submitted) {
+                    button.disabled = true;
+                }
+            });
+
+        document.getElementById('preoperacionalForm').addEventListener('submit', function(event) {
+            fetch(`/submit_preoperacional`, {
+                method: 'POST',
+                body: new URLSearchParams(new FormData(event.target))
+            }).then(response => {
+                if (response.ok) {
+                    button.disabled = true;
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,65 @@
+<!-- filepath: /c:/Users/vansn/OneDrive/DESARROLLO/TECNICOS/templates/modulos/administrativo/dashboard.html -->
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h3 class="mb-0">
+                        <i class="fas fa-calculator me-2"></i>Panel de Contabilidad
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Bienvenido al panel de contabilidad. Aquí podrás gestionar las finanzas y reportes contables.
+                    </div>
+                    
+                    <!-- Contenido específico del módulo contabilidad -->
+                    <div class="row mt-4">
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-file-invoice-dollar fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Facturas</h5>
+                                    <p class="card-text">Gestión de facturas y pagos.</p>
+                                    <a href="#" class="btn btn-primary">
+                                        <i class="fas fa-receipt me-2"></i>Ver Facturas
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-pie fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">Informes Financieros</h5>
+                                    <p class="card-text">Reportes y balances financieros.</p>
+                                    <a href="#" class="btn btn-success">
+                                        <i class="fas fa-chart-line me-2"></i>Ver Informes
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-money-bill-wave fa-3x text-warning mb-3"></i>
+                                    <h5 class="card-title">Presupuestos</h5>
+                                    <p class="card-text">Control y gestión de presupuestos.</p>
+                                    <a href="#" class="btn btn-warning">
+                                        <i class="fas fa-coins me-2"></i>Ver Presupuestos
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

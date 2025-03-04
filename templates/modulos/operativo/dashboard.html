@@ -1,0 +1,65 @@
+<!-- filepath: /c:/Users/vansn/OneDrive/DESARROLLO/TECNICOS/templates/modulos/administrativo/dashboard.html -->
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-tasks me-2"></i>Panel Operativo
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Bienvenido al panel operativo. Aquí podrás gestionar las operaciones diarias.
+                    </div>
+                    
+                    <!-- Contenido específico del módulo operativo -->
+                    <div class="row mt-4">
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-calendar-check fa-3x text-info mb-3"></i>
+                                    <h5 class="card-title">Actividades Diarias</h5>
+                                    <p class="card-text">Gestiona las actividades y tareas del día.</p>
+                                    <a href="#" class="btn btn-info text-white">
+                                        <i class="fas fa-list-check me-2"></i>Ver Actividades
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-clipboard-check fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">Control de Calidad</h5>
+                                    <p class="card-text">Registra y verifica los controles de calidad.</p>
+                                    <a href="#" class="btn btn-success">
+                                        <i class="fas fa-check-double me-2"></i>Ver Controles
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-bar fa-3x text-warning mb-3"></i>
+                                    <h5 class="card-title">Reportes Operativos</h5>
+                                    <p class="card-text">Genera informes y estadísticas operativas.</p>
+                                    <a href="#" class="btn btn-warning">
+                                        <i class="fas fa-file-alt me-2"></i>Ver Reportes
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

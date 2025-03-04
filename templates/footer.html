@@ -1,0 +1,46 @@
+<!-- Footer -->
+<footer class="footer mt-auto py-3 bg-dark text-white">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6">
+                <h5>SYNAPSIS</h5>
+                <p class="mb-0">Sistema de Gestión Empresarial</p>
+                <small class="text-muted">© 2024 Todos los derechos reservados</small>
+            </div>
+            <div class="col-md-6 text-end">
+                <h5>Contacto</h5>
+                <p class="mb-0">
+                    <i class="fas fa-envelope me-2"></i>soporte@synapsis.com<br>
+                    <i class="fas fa-phone me-2"></i>(+57) 123-456-7890
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" 
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" 
+        crossorigin="anonymous"></script>
+
+<!-- Custom Scripts -->
+<script>
+// Activar los tooltips de Bootstrap
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+
+    // Marcar el enlace activo en la navegación
+    const currentPath = window.location.pathname;
+    document.querySelectorAll('.nav-link').forEach(link => {
+        if (link.getAttribute('href') === currentPath) {
+            link.classList.add('active');
+        }
+    });
+});
+</script>
+
+</body>
+</html>

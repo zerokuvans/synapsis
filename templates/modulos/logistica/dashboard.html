@@ -1,0 +1,78 @@
+<!-- filepath: /c:/Users/vansn/OneDrive/DESARROLLO/TECNICOS/templates/modulos/administrativo/dashboard.html -->
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-boxes me-2"></i>Panel de Logística
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-success">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Bienvenido al panel de logística. Aquí podrás gestionar inventarios y recursos.
+                    </div>
+                    
+                    <!-- Contenido específico del módulo logística -->
+                    <div class="row mt-4">
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-warehouse fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Inventario</h5>
+                                    <p class="card-text">Gestiona el inventario general.</p>
+                                    <a href="/logistica/inventario" class="btn btn-primary">
+                                        <i class="fas fa-boxes me-2"></i>Ver Inventario
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-truck fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">Despachos</h5>
+                                    <p class="card-text">Control de envíos y despachos.</p>
+                                    <a href="#" class="btn btn-success">
+                                        <i class="fas fa-shipping-fast me-2"></i>Ver Despachos
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-tools fa-3x text-warning mb-3"></i>
+                                    <h5 class="card-title">Equipos</h5>
+                                    <p class="card-text">Gestión de equipos y herramientas.</p>
+                                    <a href="/logistica/herramientas" class="btn btn-warning">
+                                        <i class="fas fa-wrench me-2"></i>Ver Equipos
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-line fa-3x text-info mb-3"></i>
+                                    <h5 class="card-title">Reportes</h5>
+                                    <p class="card-text">Informes y estadísticas.</p>
+                                    <a href="/logistica/reporte" class="btn btn-info text-white">
+                                        <i class="fas fa-file-alt me-2"></i>Ver Reportes
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
