@@ -11,7 +11,6 @@ import csv
 import io
 from collections import defaultdict
 import calendar
-import psycopg2.extras
 
 load_dotenv()
 
