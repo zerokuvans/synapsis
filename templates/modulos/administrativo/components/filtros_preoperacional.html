@@ -1,0 +1,24 @@
+<div class="card-body pt-0 pb-2">
+    <form id="filtrosForm" class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label for="fecha_inicio" class="form-label">Fecha Inicio</label>
+            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio if fecha_inicio }}">
+        </div>
+        <div class="col-md-3">
+            <label for="fecha_fin" class="form-label">Fecha Fin</label>
+            <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin if fecha_fin }}">
+        </div>
+        <div class="col-md-4">
+            <label for="supervisor" class="form-label">Supervisor</label>
+            <select class="form-select" id="supervisor" name="supervisor">
+                <option value="">Todos</option>
+                {% for sup in supervisores %}
+                    <option value="{{ sup }}" {% if request.args.get('supervisor') == sup %}selected{% endif %}>{{ sup }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+        </div>
+    </form>
+</div> 

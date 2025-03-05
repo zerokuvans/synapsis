@@ -647,29 +647,120 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const button = document.getElementById('preoperacionalButton');
-        const userId = "{{ session['user_id'] }}";
-        const today = new Date().toISOString().split('T')[0];
-
-        fetch(`/check_submission?user_id=${userId}&date=${today}`)
+document.addEventListener('DOMContentLoaded', function() {
+    const preoperacionalButton = document.getElementById('preoperacionalButton');
+    const preoperacionalForm = document.getElementById('preoperacionalForm');
+    const preoperacionalModal = document.getElementById('preoperacionalModal');
+    
+    // Verificar registro al cargar la página
+    verificarRegistroPreoperacional();
+    
+    // Verificar registro al hacer clic en el botón
+    preoperacionalButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        verificarRegistroPreoperacional();
+    });
+    
+    function verificarRegistroPreoperacional() {
+        fetch('/verificar_registro_preoperacional')
             .then(response => response.json())
             .then(data => {
-                if (data.submitted) {
-                    button.disabled = true;
+                if (data.tiene_registro) {
+                    // Si ya existe un registro, mostrar mensaje y deshabilitar el formulario
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Registro Existente',
+                        text: `Ya has realizado la inspección preoperacional para hoy (${data.fecha_actual}). El último registro fue a las ${new Date(data.ultimo_registro).toLocaleTimeString()}.`,
+                        confirmButtonText: 'Entendido'
+                    });
+                    
+                    if (preoperacionalForm) {
+                        const inputs = preoperacionalForm.querySelectorAll('input, select, textarea');
+                        inputs.forEach(input => input.disabled = true);
+                    }
+                } else {
+                    // Si no existe registro, habilitar el formulario
+                    if (preoperacionalForm) {
+                        const inputs = preoperacionalForm.querySelectorAll('input, select, textarea');
+                        inputs.forEach(input => input.disabled = false);
+                    }
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Ocurrió un error al verificar el registro preoperacional.',
+                    confirmButtonText: 'Cerrar'
+                });
             });
-
-        document.getElementById('preoperacionalForm').addEventListener('submit', function(event) {
-            fetch(`/submit_preoperacional`, {
-                method: 'POST',
-                body: new URLSearchParams(new FormData(event.target))
-            }).then(response => {
-                if (response.ok) {
-                    button.disabled = true;
-                }
-            });
+    }
+    
+    // Agregar validación al enviar el formulario
+    if (preoperacionalForm) {
+        preoperacionalForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Verificar nuevamente antes de enviar
+            fetch('/verificar_registro_preoperacional')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.tiene_registro) {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Registro Duplicado',
+                            text: 'Ya has realizado la inspección preoperacional para hoy.',
+                            confirmButtonText: 'Entendido'
+                        });
+                    } else {
+                        // Si no hay registro previo, enviar el formulario
+                        const formData = new FormData(preoperacionalForm);
+                        formData.append('id_codigo_consumidor', '{{ session.user_id }}');
+                        
+                        fetch('/preoperacional', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'error') {
+                                throw new Error(data.message);
+                            }
+                            
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Éxito',
+                                text: 'Inspección preoperacional registrada correctamente.',
+                                confirmButtonText: 'Aceptar'
+                            }).then(() => {
+                                // Cerrar el modal y recargar la página
+                                const modal = bootstrap.Modal.getInstance(preoperacionalModal);
+                                modal.hide();
+                                location.reload();
+                            });
+                        })
+                        .catch(error => {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: error.message || 'Error al registrar la inspección preoperacional.',
+                                confirmButtonText: 'Cerrar'
+                            });
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error al verificar el registro preoperacional.',
+                        confirmButtonText: 'Cerrar'
+                    });
+                });
         });
-    });
+    }
+});
 </script>
 {% endblock %}

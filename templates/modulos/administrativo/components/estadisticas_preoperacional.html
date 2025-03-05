@@ -1,0 +1,117 @@
+<div class="card-body px-0 pt-0 pb-2">
+    <!-- Tarjetas de estadísticas -->
+    <div class="row px-4 py-3">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Registros</h5>
+                    <h2 class="card-text">{{ total_registros }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Registros Hoy</h5>
+                    <h2 class="card-text">{{ registros_hoy }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Registros Semana</h5>
+                    <h2 class="card-text">{{ registros_semana }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="row px-4 py-3">
+        <!-- Gráfico de Estado de Vehículos -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6>Estado de Vehículos</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="estadoVehiculosChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Gráfico de Tendencias -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6>Tendencia de Registros</h6>
+                </div>
+                <div class="card-body">
+                    <canvas id="tendenciaRegistrosChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configuración del gráfico de estado de vehículos
+    const estadoVehiculosCtx = document.getElementById('estadoVehiculosChart').getContext('2d');
+    const estadoVehiculosChart = new Chart(estadoVehiculosCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Bueno', 'Regular', 'Malo'],
+            datasets: [{
+                data: [
+                    {{ (registros | selectattr('estado_total', '==', 9) | list | length) }},
+                    {{ (registros | selectattr('estado_total', '>=', 5) | selectattr('estado_total', '<', 9) | list | length) }},
+                    {{ (registros | selectattr('estado_total', '<', 5) | list | length) }}
+                ],
+                backgroundColor: ['#2dce89', '#fb6340', '#f5365c']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Configuración del gráfico de tendencias
+    const tendenciaCtx = document.getElementById('tendenciaRegistrosChart').getContext('2d');
+    const tendenciaChart = new Chart(tendenciaCtx, {
+        type: 'line',
+        data: {
+            labels: {{ fechas | tojson | safe }},
+            datasets: [{
+                label: 'Registros por día',
+                data: {{ registros_por_dia | tojson | safe }},
+                borderColor: '#5e72e4',
+                tension: 0.4,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+});
+</script> 

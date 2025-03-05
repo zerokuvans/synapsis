@@ -9,6 +9,9 @@ from datetime import datetime, timedelta
 import json
 import csv
 import io
+from collections import defaultdict
+import calendar
+import psycopg2.extras
 
 load_dotenv()
 
@@ -67,8 +70,8 @@ def login_required(role=None):
             if 'user_id' not in session:
                 flash('Please log in to access this page.', 'warning')
                 return redirect(url_for('login'))
-            if role and session.get('user_role') != role:
-                flash("You don't have permission to access this page.", 'danger')
+            if role and session.get('user_role') != role and session.get('user_role') != 'administrativo':
+                flash("No tienes permisos para acceder a esta página.", 'danger')
                 return redirect(url_for('login'))
             return f(*args, **kwargs)
         return decorated_function
@@ -121,8 +124,6 @@ def login():
             cursor = connection.cursor(dictionary=True)
             cursor.execute("SELECT id_codigo_consumidor, id_roles, recurso_operativo_password, nombre FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (username,))
             user = cursor.fetchone()
-            cursor.close()
-            connection.close()
 
             if user:
                 stored_password = user['recurso_operativo_password']
@@ -131,16 +132,53 @@ def login():
                 if bcrypt.checkpw(password, stored_password):
                     session['user_id'] = user['id_codigo_consumidor']
                     session['user_role'] = ROLES.get(str(user['id_roles']))
-                    session['user_name'] = user['nombre']  # Almacenar el nombre del usuario en la sesión
-                    flash('Login successful!', 'success')
+                    session['user_name'] = user['nombre']
+
+                    # Verificar vencimientos para el usuario
+                    cursor.execute("""
+                        SELECT 
+                            fecha_vencimiento_licencia,
+                            fecha_vencimiento_soat,
+                            fecha_vencimiento_tecnomecanica
+                        FROM preoperacional 
+                        WHERE id_codigo_consumidor = %s
+                        ORDER BY fecha DESC 
+                        LIMIT 1
+                    """, (user['id_codigo_consumidor'],))
+                    
+                    ultimo_registro = cursor.fetchone()
+                    if ultimo_registro:
+                        fecha_actual = datetime.now().date()
+                        mensajes_vencimiento = []
+                        
+                        if ultimo_registro['fecha_vencimiento_licencia']:
+                            dias_licencia = (ultimo_registro['fecha_vencimiento_licencia'] - fecha_actual).days
+                            if 0 <= dias_licencia <= 30:
+                                mensajes_vencimiento.append(f'Tu licencia de conducción vence en {dias_licencia} días')
+                        
+                        if ultimo_registro['fecha_vencimiento_soat']:
+                            dias_soat = (ultimo_registro['fecha_vencimiento_soat'] - fecha_actual).days
+                            if 0 <= dias_soat <= 30:
+                                mensajes_vencimiento.append(f'El SOAT vence en {dias_soat} días')
+                        
+                        if ultimo_registro['fecha_vencimiento_tecnomecanica']:
+                            dias_tecno = (ultimo_registro['fecha_vencimiento_tecnomecanica'] - fecha_actual).days
+                            if 0 <= dias_tecno <= 30:
+                                mensajes_vencimiento.append(f'La tecnomecánica vence en {dias_tecno} días')
+                        
+                        if mensajes_vencimiento:
+                            flash('¡ATENCIÓN! ' + '. '.join(mensajes_vencimiento), 'warning')
+
+                    cursor.close()
+                    connection.close()
                     return redirect(url_for('dashboard'))
                 else:
-                    flash('Invalid username or password', 'error')
+                    flash('Usuario o contraseña inválidos', 'error')
             else:
-                flash('Invalid username or password', 'error')
+                flash('Usuario o contraseña inválidos', 'error')
 
         except Error as e:
-            flash(f'An error occurred: {str(e)}', 'error')
+            flash(f'Ocurrió un error: {str(e)}', 'error')
             return render_template('login.html')
 
     return render_template('login.html')
@@ -659,6 +697,25 @@ def registrar_preoperacional():
             return jsonify({'status': 'error', 'message': 'Error de conexión a la base de datos.'})
 
         cursor = connection.cursor(dictionary=True)
+        
+        # Verificar si ya existe un registro para el día actual
+        id_codigo_consumidor = request.form.get('id_codigo_consumidor')
+        fecha_actual = datetime.now().date()
+        
+        cursor.execute("""
+            SELECT COUNT(*) as count 
+            FROM preoperacional 
+            WHERE id_codigo_consumidor = %s 
+            AND DATE(fecha) = %s
+        """, (id_codigo_consumidor, fecha_actual))
+        
+        resultado = cursor.fetchone()
+        if resultado['count'] > 0:
+            return jsonify({
+                'status': 'error',
+                'message': 'Ya has registrado un preoperacional para el día de hoy.'
+            })
+
         # Obtener datos del formulario
         centro_de_trabajo = request.form.get('centro_de_trabajo')
         ciudad = request.form.get('ciudad')
@@ -705,7 +762,6 @@ def registrar_preoperacional():
         elementos_prevencion_seguridad_vial_coderas = request.form.get('elementos_prevencion_seguridad_vial_coderas', 0)
         elementos_prevencion_seguridad_vial_impermeable = request.form.get('elementos_prevencion_seguridad_vial_impermeable', 0)
         casco_identificado_placa = request.form.get('casco_identificado_placa', 0)
-        id_codigo_consumidor = request.form.get('id_codigo_consumidor')
 
         # Verificar que el id_codigo_consumidor existe en la tabla recurso_operativo
         cursor.execute("SELECT id_codigo_consumidor FROM recurso_operativo WHERE id_codigo_consumidor = %s", (id_codigo_consumidor,))
@@ -764,81 +820,122 @@ def check_submission():
 @login_required(role='administrativo')
 def listado_preoperacional():
     try:
-        print("Iniciando listado_preoperacional...")
-        connection = get_db_connection()
-        if connection is None:
-            print("Error: No se pudo establecer conexión con la base de datos")
-            flash('Error de conexión a la base de datos.', 'error')
-            return redirect(url_for('dashboard'))
-            
-        cursor = connection.cursor(dictionary=True)
-        print("Conexión establecida, ejecutando consulta principal...")
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        supervisor = request.args.get('supervisor')
+        estado_vehiculo = request.args.get('estado_vehiculo')
+
+        conn = get_db_connection()
+        cur = conn.cursor(dictionary=True)
+
+        # Construir la cláusula WHERE dinámica
+        where_clauses = []
+        params = []
+
+        if fecha_inicio:
+            where_clauses.append("fecha >= %s")
+            params.append(fecha_inicio)
+        if fecha_fin:
+            where_clauses.append("fecha <= %s")
+            params.append(fecha_fin + " 23:59:59")
+        if supervisor:
+            where_clauses.append("supervisor = %s")
+            params.append(supervisor)
         
-        # Primero, verificar la estructura de la tabla
-        print("Verificando estructura de la tabla preoperacional...")
-        cursor.execute("DESCRIBE preoperacional")
-        columnas = cursor.fetchall()
-        print("Columnas de la tabla preoperacional:")
-        for columna in columnas:
-            print(f"- {columna['Field']}: {columna['Type']}")
-        
-        # Obtener todos los registros de preoperacional
+        # Agregar filtro por estado del vehículo
+        if estado_vehiculo:
+            if estado_vehiculo == 'bueno':
+                where_clauses.append("(estado_espejos + bocina_pito + frenos + encendido + estado_bateria + estado_amortiguadores + estado_llantas + luces_altas_bajas + direccionales_delanteras_traseras) = 9")
+            elif estado_vehiculo == 'regular':
+                where_clauses.append("(estado_espejos + bocina_pito + frenos + encendido + estado_bateria + estado_amortiguadores + estado_llantas + luces_altas_bajas + direccionales_delanteras_traseras) >= 5")
+                where_clauses.append("(estado_espejos + bocina_pito + frenos + encendido + estado_bateria + estado_amortiguadores + estado_llantas + luces_altas_bajas + direccionales_delanteras_traseras) < 9")
+            elif estado_vehiculo == 'malo':
+                where_clauses.append("(estado_espejos + bocina_pito + frenos + encendido + estado_bateria + estado_amortiguadores + estado_llantas + luces_altas_bajas + direccionales_delanteras_traseras) < 5")
+
+        # Construir la consulta SQL completa
         query = """
-            SELECT p.*, r.nombre as nombre_tecnico, r.cargo as cargo_tecnico
+            SELECT p.*, r.nombre as nombre_tecnico, r.cargo as cargo_tecnico,
+                   (estado_espejos + bocina_pito + frenos + encendido + estado_bateria + 
+                    estado_amortiguadores + estado_llantas + luces_altas_bajas + 
+                    direccionales_delanteras_traseras) as estado_total,
+                   CASE 
+                       WHEN (estado_espejos + bocina_pito + frenos + encendido + estado_bateria + 
+                            estado_amortiguadores + estado_llantas + luces_altas_bajas + 
+                            direccionales_delanteras_traseras) = 9 THEN 'Bueno'
+                       WHEN (estado_espejos + bocina_pito + frenos + encendido + estado_bateria + 
+                            estado_amortiguadores + estado_llantas + luces_altas_bajas + 
+                            direccionales_delanteras_traseras) >= 5 THEN 'Regular'
+                       ELSE 'Malo'
+                   END as estado_vehiculo
             FROM preoperacional p
-            JOIN recurso_operativo r ON p.id_codigo_consumidor = r.id_codigo_consumidor
-            ORDER BY p.fecha DESC
+            LEFT JOIN recurso_operativo r ON p.id_codigo_consumidor = r.id_codigo_consumidor
         """
-        print(f"Query a ejecutar: {query}")
-        try:
-            cursor.execute(query)
-            registros = cursor.fetchall()
-            print(f"Registros obtenidos: {len(registros)}")
-        except Error as e:
-            print(f"Error al ejecutar la consulta principal: {str(e)}")
-            raise
         
-        print("Ejecutando consulta de estadísticas...")
-        # Obtener estadísticas
-        stats_query = """
-            SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN DATE(fecha) = CURDATE() THEN 1 ELSE 0 END) as hoy,
-                SUM(CASE WHEN fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) as semana
-            FROM preoperacional
-        """
-        print(f"Query de estadísticas: {stats_query}")
-        try:
-            cursor.execute(stats_query)
-            stats = cursor.fetchone()
-            print(f"Estadísticas obtenidas: {stats}")
-        except Error as e:
-            print(f"Error al ejecutar la consulta de estadísticas: {str(e)}")
-            raise
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
         
-        cursor.close()
-        connection.close()
-        print("Conexión cerrada, renderizando template...")
+        query += " ORDER BY p.fecha DESC"
         
-        return render_template('modulos/administrativo/listado_preoperacional.html',
-                             registros=registros,
-                             total_registros=stats['total'] or 0,
-                             registros_hoy=stats['hoy'] or 0,
-                             registros_semana=stats['semana'] or 0)
-                             
-    except Error as e:
-        print(f"Error MySQL al obtener listado: {str(e)}")
-        print(f"Código de error: {e.errno}")
-        print(f"Estado SQL: {e.sqlstate}")
-        flash(f'Error al cargar el listado de inspecciones preoperacionales: {str(e)}', 'error')
-        return redirect(url_for('dashboard'))
+        cur.execute(query, params)
+        registros = cur.fetchall()
+
+        # Obtener lista de supervisores únicos
+        cur.execute("""
+            SELECT DISTINCT supervisor 
+            FROM preoperacional 
+            WHERE supervisor IS NOT NULL 
+            AND supervisor != '' 
+            ORDER BY supervisor
+        """)
+        supervisores = [row['supervisor'] for row in cur.fetchall()]
+
+        # Calcular estadísticas
+        total_registros = len(registros)
+        registros_hoy = sum(1 for r in registros if r['fecha'].date() == datetime.now().date())
+        registros_semana = sum(1 for r in registros if r['fecha'].date() >= (datetime.now() - timedelta(days=7)).date())
+
+        # Preparar datos para el gráfico de tendencias
+        fechas = []
+        registros_por_dia = []
+        if registros:
+            fecha_actual = datetime.now().date()
+            for i in range(7):
+                fecha = fecha_actual - timedelta(days=i)
+                fechas.append(fecha.strftime('%Y-%m-%d'))
+                registros_por_dia.append(sum(1 for r in registros if r['fecha'].date() == fecha))
+            fechas.reverse()
+            registros_por_dia.reverse()
+
+        cur.close()
+        conn.close()
+
+        return render_template('modulos/administrativo/listado_preoperacional.html', 
+                            registros=registros,
+                            supervisores=supervisores,
+                            fecha_inicio=fecha_inicio,
+                            fecha_fin=fecha_fin,
+                            supervisor=supervisor,
+                            estado_vehiculo=estado_vehiculo,
+                            total_registros=total_registros,
+                            registros_hoy=registros_hoy,
+                            registros_semana=registros_semana,
+                            fechas=fechas,
+                            registros_por_dia=registros_por_dia)
+
     except Exception as e:
-        print(f"Error general al obtener listado: {str(e)}")
-        print(f"Tipo de error: {type(e)}")
-        import traceback
-        print(f"Traceback completo: {traceback.format_exc()}")
-        flash('Error inesperado al cargar el listado de inspecciones preoperacionales', 'error')
-        return redirect(url_for('dashboard'))
+        flash('Error al cargar el listado preoperacional: ' + str(e), 'error')
+        return render_template('modulos/administrativo/listado_preoperacional.html',
+                            registros=[],
+                            supervisores=[],
+                            fecha_inicio=fecha_inicio,
+                            fecha_fin=fecha_fin,
+                            supervisor=supervisor,
+                            estado_vehiculo=estado_vehiculo,
+                            total_registros=0,
+                            registros_hoy=0,
+                            registros_semana=0,
+                            fechas=[],
+                            registros_por_dia=[])
 
 @app.route('/preoperacional/exportar_csv')
 @login_required(role='administrativo')
@@ -850,17 +947,39 @@ def exportar_preoperacional_csv():
             
         cursor = connection.cursor(dictionary=True)
         
-        # Obtener todos los registros preoperacionales con información del usuario
-        cursor.execute("""
+        # Obtener parámetros de filtro
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        supervisor = request.args.get('supervisor')
+        
+        # Construir la cláusula WHERE base
+        where_clauses = []
+        params = []
+        
+        if fecha_inicio:
+            where_clauses.append("DATE(p.fecha) >= %s")
+            params.append(fecha_inicio)
+        if fecha_fin:
+            where_clauses.append("DATE(p.fecha) <= %s")
+            params.append(fecha_fin)
+        if supervisor:
+            where_clauses.append("p.supervisor = %s")
+            params.append(supervisor)
+            
+        where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+        
+        # Obtener registros preoperacionales con información del usuario y filtros aplicados
+        query = f"""
             SELECT 
                 p.*,
                 r.nombre as nombre_tecnico,
                 r.cargo as cargo_tecnico
             FROM preoperacional p
             JOIN recurso_operativo r ON p.id_codigo_consumidor = r.id_codigo_consumidor
+            WHERE {where_sql}
             ORDER BY p.fecha DESC
-        """)
-        
+        """
+        cursor.execute(query, params)
         registros = cursor.fetchall()
         cursor.close()
         connection.close()
@@ -893,7 +1012,7 @@ def exportar_preoperacional_csv():
                 registro['centro_de_trabajo'],
                 registro['ciudad'],
                 registro['supervisor'],
-                'Sí' if registro['vehiculo_asistio_operacion'] else 'No',
+                registro['vehiculo_asistio_operacion'],
                 registro['tipo_vehiculo'],
                 registro['placa_vehiculo'],
                 registro['modelo_vehiculo'],
@@ -902,22 +1021,22 @@ def exportar_preoperacional_csv():
                 registro['fecha_vencimiento_licencia'],
                 registro['fecha_vencimiento_soat'],
                 registro['fecha_vencimiento_tecnomecanica'],
-                'Sí' if registro['estado_espejos'] else 'No',
-                'Sí' if registro['bocina_pito'] else 'No',
-                'Sí' if registro['frenos'] else 'No',
-                'Sí' if registro['encendido'] else 'No',
-                'Sí' if registro['estado_bateria'] else 'No',
-                'Sí' if registro['estado_amortiguadores'] else 'No',
-                'Sí' if registro['estado_llantas'] else 'No',
+                registro['estado_espejos'],
+                registro['bocina_pito'],
+                registro['frenos'],
+                registro['encendido'],
+                registro['estado_bateria'],
+                registro['estado_amortiguadores'],
+                registro['estado_llantas'],
                 registro['kilometraje_actual'],
-                'Sí' if registro['luces_altas_bajas'] else 'No',
-                'Sí' if registro['direccionales_delanteras_traseras'] else 'No',
-                'Sí' if registro['elementos_prevencion_seguridad_vial_casco'] else 'No',
-                'Sí' if registro['casco_certificado'] else 'No',
-                'Sí' if registro['casco_identificado'] else 'No',
-                'Sí' if registro['estado_guantes'] else 'No',
-                'Sí' if registro['estado_rodilleras'] else 'No',
-                'Sí' if registro['impermeable'] else 'No',
+                registro['luces_altas_bajas'],
+                registro['direccionales_delanteras_traseras'],
+                registro['elementos_prevencion_seguridad_vial_casco'],
+                registro['casco_certificado'],
+                registro['casco_identificado'],
+                registro['estado_guantes'],
+                registro['estado_rodilleras'],
+                registro['impermeable'],
                 registro['observaciones']
             ])
         
@@ -933,5 +1052,434 @@ def exportar_preoperacional_csv():
     except Error as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/admin/reportes')
+@login_required(role='administrativo')
+def admin_reportes():
+    return render_template('modulos/administrativo/reportes/dashboard_reportes.html')
+
+@app.route('/api/reportes/usuarios')
+@login_required(role='administrativo')
+def api_reportes_usuarios():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Estadísticas generales de usuarios
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as total_usuarios,
+                SUM(CASE WHEN estado = 'Activo' THEN 1 ELSE 0 END) as usuarios_activos,
+                id_roles,
+                COUNT(*) as cantidad
+            FROM recurso_operativo
+            GROUP BY id_roles
+        """)
+        stats_por_rol = cursor.fetchall()
+        
+        # Usuarios registrados por mes (últimos 12 meses)
+        cursor.execute("""
+            SELECT 
+                DATE_FORMAT(fecha_creacion, '%Y-%m') as mes,
+                COUNT(*) as cantidad
+            FROM recurso_operativo
+            WHERE fecha_creacion >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(fecha_creacion, '%Y-%m')
+            ORDER BY mes
+        """)
+        registros_por_mes = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        # Formatear datos para gráficos
+        roles_labels = [ROLES.get(str(stat['id_roles']), 'Desconocido') for stat in stats_por_rol]
+        roles_data = [stat['cantidad'] for stat in stats_por_rol]
+        
+        meses_labels = []
+        meses_data = []
+        for registro in registros_por_mes:
+            meses_labels.append(registro['mes'])
+            meses_data.append(registro['cantidad'])
+            
+        return jsonify({
+            'roles': {
+                'labels': roles_labels,
+                'data': roles_data
+            },
+            'registros_mensuales': {
+                'labels': meses_labels,
+                'data': meses_data
+            }
+        })
+        
+    except Error as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reportes/filtros')
+@login_required(role='administrativo')
+def api_reportes_filtros():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener supervisores únicos
+        cursor.execute("""
+            SELECT DISTINCT supervisor 
+            FROM preoperacional 
+            WHERE supervisor IS NOT NULL AND supervisor != ''
+            ORDER BY supervisor
+        """)
+        supervisores = [row['supervisor'] for row in cursor.fetchall()]
+        
+        # Obtener centros de trabajo únicos
+        cursor.execute("""
+            SELECT DISTINCT centro_de_trabajo 
+            FROM preoperacional 
+            WHERE centro_de_trabajo IS NOT NULL AND centro_de_trabajo != ''
+            ORDER BY centro_de_trabajo
+        """)
+        centros_trabajo = [row['centro_de_trabajo'] for row in cursor.fetchall()]
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'supervisores': supervisores,
+            'centros_trabajo': centros_trabajo
+        })
+        
+    except Error as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reportes/preoperacional')
+@login_required(role='administrativo')
+def api_reportes_preoperacional():
+    try:
+        # Obtener parámetros de filtro
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        supervisor = request.args.get('supervisor')
+        centro_trabajo = request.args.get('centro_trabajo')
+        
+        # Construir la cláusula WHERE base
+        where_clauses = []
+        params = []
+        
+        if fecha_inicio:
+            where_clauses.append("p.fecha >= %s")
+            params.append(fecha_inicio)
+        if fecha_fin:
+            where_clauses.append("p.fecha <= %s")
+            params.append(fecha_fin)
+        if supervisor:
+            where_clauses.append("p.supervisor = %s")
+            params.append(supervisor)
+        if centro_trabajo:
+            where_clauses.append("p.centro_de_trabajo = %s")
+            params.append(centro_trabajo)
+            
+        where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Estadísticas generales con filtros
+        stats_query = f"""
+            SELECT 
+                COUNT(*) as total_preoperacionales,
+                COUNT(DISTINCT id_codigo_consumidor) as total_tecnicos,
+                COUNT(DISTINCT DATE(fecha)) as total_dias
+            FROM preoperacional p
+            WHERE {where_sql}
+        """
+        cursor.execute(stats_query, params)
+        stats_generales = cursor.fetchone()
+        
+        # Preoperacionales por día con filtros
+        registros_query = f"""
+            SELECT 
+                DATE(fecha) as fecha,
+                COUNT(*) as cantidad
+            FROM preoperacional p
+            WHERE {where_sql}
+            GROUP BY DATE(fecha)
+            ORDER BY fecha
+        """
+        cursor.execute(registros_query, params)
+        registros_por_dia = cursor.fetchall()
+        
+        # Estado de vehículos con filtros
+        estado_query = f"""
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE 
+                    WHEN (estado_espejos + bocina_pito + frenos + encendido + estado_bateria + 
+                         estado_amortiguadores + estado_llantas + luces_altas_bajas + 
+                         direccionales_delanteras_traseras) = 9 THEN 1 
+                    ELSE 0 
+                END) as estado_bueno,
+                SUM(CASE 
+                    WHEN (estado_espejos + bocina_pito + frenos + encendido + estado_bateria + 
+                         estado_amortiguadores + estado_llantas + luces_altas_bajas + 
+                         direccionales_delanteras_traseras) >= 5 
+                    AND (estado_espejos + bocina_pito + frenos + encendido + estado_bateria + 
+                         estado_amortiguadores + estado_llantas + luces_altas_bajas + 
+                         direccionales_delanteras_traseras) < 9 THEN 1 
+                    ELSE 0 
+                END) as estado_regular,
+                SUM(CASE 
+                    WHEN (estado_espejos + bocina_pito + frenos + encendido + estado_bateria + 
+                         estado_amortiguadores + estado_llantas + luces_altas_bajas + 
+                         direccionales_delanteras_traseras) < 5 THEN 1 
+                    ELSE 0 
+                END) as estado_malo
+            FROM preoperacional p
+            WHERE {where_sql}
+        """
+        cursor.execute(estado_query, params)
+        estado_vehiculos = cursor.fetchone()
+        
+        # Estadísticas por centro de trabajo con filtros
+        centro_trabajo_query = f"""
+            SELECT 
+                COALESCE(centro_de_trabajo, 'No especificado') as centro_de_trabajo,
+                COUNT(*) as cantidad
+            FROM preoperacional p
+            WHERE {where_sql}
+            GROUP BY centro_de_trabajo
+            ORDER BY cantidad DESC
+            LIMIT 5
+        """
+        cursor.execute(centro_trabajo_query, params)
+        stats_centro_trabajo = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        # Formatear datos para la respuesta
+        dias_labels = [registro['fecha'].strftime('%Y-%m-%d') for registro in registros_por_dia]
+        dias_data = [registro['cantidad'] for registro in registros_por_dia]
+        
+        total = estado_vehiculos['total'] or 1
+        estado_labels = ['Bueno', 'Regular', 'Malo']
+        estado_data = [
+            round((estado_vehiculos['estado_bueno'] or 0) / total * 100, 2),
+            round((estado_vehiculos['estado_regular'] or 0) / total * 100, 2),
+            round((estado_vehiculos['estado_malo'] or 0) / total * 100, 2)
+        ]
+        
+        return jsonify({
+            'stats_generales': stats_generales,
+            'registros_diarios': {
+                'labels': dias_labels,
+                'data': dias_data
+            },
+            'estado_vehiculos': {
+                'labels': estado_labels,
+                'data': estado_data,
+                'colores': ['#2dce89', '#fb6340', '#f5365c']  # Verde para Bueno, Naranja para Regular, Rojo para Malo
+            },
+            'centro_trabajo': {
+                'labels': [ct['centro_de_trabajo'] for ct in stats_centro_trabajo],
+                'data': [ct['cantidad'] for ct in stats_centro_trabajo]
+            }
+        })
+        
+    except Error as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reportes/vencimientos')
+@login_required(role='administrativo')
+def api_reportes_vencimientos():
+    try:
+        # Obtener parámetros de filtro
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        supervisor = request.args.get('supervisor')
+        centro_trabajo = request.args.get('centro_trabajo')
+        
+        # Construir la cláusula WHERE base
+        where_clauses = []
+        params = []
+        
+        if fecha_inicio:
+            where_clauses.append("p.fecha >= %s")
+            params.append(fecha_inicio)
+        if fecha_fin:
+            where_clauses.append("p.fecha <= %s")
+            params.append(fecha_fin)
+        if supervisor:
+            where_clauses.append("p.supervisor = %s")
+            params.append(supervisor)
+        if centro_trabajo:
+            where_clauses.append("p.centro_de_trabajo = %s")
+            params.append(centro_trabajo)
+            
+        # Agregar condiciones de vencimiento
+        vencimiento_conditions = [
+            "p.fecha_vencimiento_licencia IS NOT NULL AND p.fecha_vencimiento_licencia >= CURDATE() AND p.fecha_vencimiento_licencia <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)",
+            "p.fecha_vencimiento_soat IS NOT NULL AND p.fecha_vencimiento_soat >= CURDATE() AND p.fecha_vencimiento_soat <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)",
+            "p.fecha_vencimiento_tecnomecanica IS NOT NULL AND p.fecha_vencimiento_tecnomecanica >= CURDATE() AND p.fecha_vencimiento_tecnomecanica <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)"
+        ]
+        
+        where_sql = f"""
+            ({" OR ".join(vencimiento_conditions)})
+            {" AND " + " AND ".join(where_clauses) if where_clauses else ""}
+        """
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        query = f"""
+            SELECT 
+                p.id_preoperacional,
+                p.placa_vehiculo,
+                p.fecha_vencimiento_licencia,
+                p.fecha_vencimiento_soat,
+                p.fecha_vencimiento_tecnomecanica,
+                r.nombre as nombre_tecnico,
+                DATEDIFF(p.fecha_vencimiento_licencia, CURDATE()) as dias_licencia,
+                DATEDIFF(p.fecha_vencimiento_soat, CURDATE()) as dias_soat,
+                DATEDIFF(p.fecha_vencimiento_tecnomecanica, CURDATE()) as dias_tecnomecanica
+            FROM preoperacional p
+            JOIN recurso_operativo r ON p.id_codigo_consumidor = r.id_codigo_consumidor
+            WHERE {where_sql}
+            ORDER BY 
+                LEAST(
+                    COALESCE(DATEDIFF(p.fecha_vencimiento_licencia, CURDATE()), 999),
+                    COALESCE(DATEDIFF(p.fecha_vencimiento_soat, CURDATE()), 999),
+                    COALESCE(DATEDIFF(p.fecha_vencimiento_tecnomecanica, CURDATE()), 999)
+                )
+        """
+        
+        cursor.execute(query, params)
+        vencimientos = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'vencimientos': vencimientos
+        })
+        
+    except Error as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/verificar_vencimientos')
+@login_required()
+def verificar_vencimientos():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener el último registro preoperacional del usuario
+        cursor.execute("""
+            SELECT 
+                fecha_vencimiento_licencia,
+                fecha_vencimiento_soat,
+                fecha_vencimiento_tecnomecanica
+            FROM preoperacional 
+            WHERE id_codigo_consumidor = %s
+            ORDER BY fecha DESC 
+            LIMIT 1
+        """, (session.get('user_id'),))
+        
+        ultimo_registro = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        if not ultimo_registro:
+            return jsonify({'tiene_vencimientos': False})
+            
+        vencimientos = []
+        fecha_actual = datetime.now().date()
+        
+        # Verificar cada tipo de vencimiento
+        if ultimo_registro['fecha_vencimiento_licencia']:
+            dias_licencia = (ultimo_registro['fecha_vencimiento_licencia'] - fecha_actual).days
+            if 0 <= dias_licencia <= 30:
+                vencimientos.append({
+                    'tipo': 'Licencia de Conducción',
+                    'fecha': ultimo_registro['fecha_vencimiento_licencia'].strftime('%Y-%m-%d'),
+                    'dias_restantes': dias_licencia
+                })
+                
+        if ultimo_registro['fecha_vencimiento_soat']:
+            dias_soat = (ultimo_registro['fecha_vencimiento_soat'] - fecha_actual).days
+            if 0 <= dias_soat <= 30:
+                vencimientos.append({
+                    'tipo': 'SOAT',
+                    'fecha': ultimo_registro['fecha_vencimiento_soat'].strftime('%Y-%m-%d'),
+                    'dias_restantes': dias_soat
+                })
+                
+        if ultimo_registro['fecha_vencimiento_tecnomecanica']:
+            dias_tecno = (ultimo_registro['fecha_vencimiento_tecnomecanica'] - fecha_actual).days
+            if 0 <= dias_tecno <= 30:
+                vencimientos.append({
+                    'tipo': 'Tecnomecánica',
+                    'fecha': ultimo_registro['fecha_vencimiento_tecnomecanica'].strftime('%Y-%m-%d'),
+                    'dias_restantes': dias_tecno
+                })
+        
+        return jsonify({
+            'tiene_vencimientos': len(vencimientos) > 0,
+            'vencimientos': vencimientos
+        })
+        
+    except Error as e:
+        print("Error en verificar_vencimientos:", str(e))
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/verificar_registro_preoperacional')
+@login_required(role='tecnicos')
+def verificar_registro_preoperacional():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Verificar si existe registro para el día actual
+        fecha_actual = datetime.now().date()
+        cursor.execute("""
+            SELECT COUNT(*) as count, 
+                   MAX(fecha) as ultimo_registro
+            FROM preoperacional 
+            WHERE id_codigo_consumidor = %s 
+            AND DATE(fecha) = %s
+        """, (session.get('user_id'), fecha_actual))
+        
+        resultado = cursor.fetchone()
+        tiene_registro = resultado['count'] > 0
+        ultimo_registro = resultado['ultimo_registro'].strftime('%Y-%m-%d %H:%M:%S') if resultado['ultimo_registro'] else None
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'tiene_registro': tiene_registro,
+            'ultimo_registro': ultimo_registro,
+            'fecha_actual': fecha_actual.strftime('%Y-%m-%d')
+        })
+        
+    except Error as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True,host='0.0.0.0',port=8080)

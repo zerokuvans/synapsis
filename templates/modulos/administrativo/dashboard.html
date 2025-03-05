@@ -49,10 +49,12 @@
                                 <div class="card-body text-center">
                                     <i class="fas fa-chart-bar fa-3x text-info mb-3"></i>
                                     <h5 class="card-title">Estadísticas</h5>
-                                    <p class="card-text">Visualiza estadísticas y reportes.</p>
-                                    <a href="#" class="btn btn-info">
-                                        <i class="fas fa-chart-line me-2"></i>Ver Estadísticas
-                                    </a>
+                                    <p class="card-text">
+                                        Total usuarios: {{ total_users }}<br>
+                                        Total roles: {{ total_roles }}<br>
+                                        Usuarios activos: {{ active_users }}
+                                    </p>
+                                    <a href="{{ url_for('admin_reportes') }}" class="btn btn-primary">Ver Reportes Detallados</a>
                                 </div>
                             </div>
                         </div>
