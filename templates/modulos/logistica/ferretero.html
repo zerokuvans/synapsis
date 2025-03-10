@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Material Ferretero{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Gestión de Material Ferretero</h1>
+    
+    <!-- Botones de acción -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalAsignacion">
+                <i class="fas fa-plus me-2"></i>Nueva Asignación
+            </button>
+            <a href="{{ url_for('exportar_ferretero_csv') }}" class="btn btn-success">
+                <i class="fas fa-file-csv me-2"></i>Exportar CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Tabla de asignaciones -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-tools me-1"></i>
+            Asignaciones de Material Ferretero
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="tablaFerretero">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Fecha</th>
+                            <th>Técnico</th>
+                            <th>Cédula</th>
+                            <th>Silicona</th>
+                            <th>Amarres Negros</th>
+                            <th>Amarres Blancos</th>
+                            <th>Cinta Aislante</th>
+                            <th>Grapas Blancas</th>
+                            <th>Grapas Negras</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asignacion in asignaciones %}
+                        <tr>
+                            <td>{{ asignacion.id_ferretero }}</td>
+                            <td>{{ asignacion.fecha_asignacion.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>{{ asignacion.nombre }}</td>
+                            <td>{{ asignacion.recurso_operativo_cedula }}</td>
+                            <td>{{ asignacion.silicona or '0' }}</td>
+                            <td>{{ asignacion.amarres_negros or '0' }}</td>
+                            <td>{{ asignacion.amarres_blancos or '0' }}</td>
+                            <td>{{ asignacion.cinta_aislante or '0' }}</td>
+                            <td>{{ asignacion.grapas_blancas or '0' }}</td>
+                            <td>{{ asignacion.grapas_negras or '0' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Nueva Asignación -->
+<div class="modal fade" id="modalAsignacion" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nueva Asignación de Material Ferretero</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formFerretero">
+                    <div class="mb-3">
+                        <label for="id_codigo_consumidor" class="form-label">Técnico</label>
+                        <select class="form-select" id="id_codigo_consumidor" name="id_codigo_consumidor" required>
+                            <option value="">Seleccione un técnico</option>
+                            {% for tecnico in tecnicos %}
+                            <option value="{{ tecnico.id_codigo_consumidor }}">
+                                {{ tecnico.nombre }} - {{ tecnico.recurso_operativo_cedula }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fecha" class="form-label">Fecha</label>
+                        <input type="datetime-local" class="form-control" id="fecha" name="fecha" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="silicona" class="form-label">Silicona</label>
+                            <input type="number" class="form-control" id="silicona" name="silicona" min="0" value="0">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="amarres_negros" class="form-label">Amarres Negros</label>
+                            <input type="number" class="form-control" id="amarres_negros" name="amarres_negros" min="0" value="0">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="amarres_blancos" class="form-label">Amarres Blancos</label>
+                            <input type="number" class="form-control" id="amarres_blancos" name="amarres_blancos" min="0" value="0">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="cinta_aislante" class="form-label">Cinta Aislante</label>
+                            <input type="number" class="form-control" id="cinta_aislante" name="cinta_aislante" min="0" value="0">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="grapas_blancas" class="form-label">Grapas Blancas</label>
+                            <input type="number" class="form-control" id="grapas_blancas" name="grapas_blancas" min="0" value="0">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="grapas_negras" class="form-label">Grapas Negras</label>
+                            <input type="number" class="form-control" id="grapas_negras" name="grapas_negras" min="0" value="0">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="registrarAsignacion()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function registrarAsignacion() {
+    const formData = new FormData(document.getElementById('formFerretero'));
+    
+    fetch('/logistica/registrar_ferretero', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            Swal.fire({
+                icon: 'success',
+                title: '¡Éxito!',
+                text: data.message,
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                window.location.reload();
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.message
+            });
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al procesar la solicitud'
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar DataTable
+    $('#tablaFerretero').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+        },
+        order: [[1, 'desc']], // Ordenar por fecha descendente
+        pageLength: 10
+    });
+
+    // Establecer fecha actual por defecto
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('fecha').value = now.toISOString().slice(0, 16);
+});
+</script>
+{% endblock %} 

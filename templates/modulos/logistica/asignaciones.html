@@ -1,0 +1,523 @@
+{% extends "base.html" %}
+
+{% block title %}Asignación de Herramientas{% endblock %}
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+<!-- SweetAlert2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="card-title">Asignaciones de Herramientas</h3>
+                        <div>
+                            <a href="{{ url_for('exportar_asignaciones_csv') }}" class="btn btn-success me-2">
+                                <i class="fas fa-file-csv"></i> Exportar CSV
+                            </a>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalAsignacion">
+                                Nueva Asignación
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="tablaAsignaciones" class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Técnico</th>
+                                    <th>Cédula</th>
+                                    <th>Cargo</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for asignacion in asignaciones %}
+                                <tr>
+                                    <td>{{ asignacion.asignacion_fecha }}</td>
+                                    <td>{{ asignacion.nombre }}</td>
+                                    <td>{{ asignacion.recurso_operativo_cedula }}</td>
+                                    <td>{{ asignacion.asignacion_cargo }}</td>
+                                    <td>
+                                        {% if asignacion.asignacion_estado == '1' %}
+                                        <span class="badge bg-success">Activo</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Inactivo</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-info btn-sm" onclick="verDetalles('{{ asignacion.id_asignacion }}')">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nueva Asignación -->
+<div class="modal fade" id="modalAsignacion" tabindex="-1" aria-labelledby="modalAsignacionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAsignacionLabel">Nueva Asignación de Herramientas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formAsignacion" onsubmit="return registrarAsignacion(event)">
+                <div class="modal-body">
+                    <!-- Información básica -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_codigo_consumidor">Técnico</label>
+                                <select class="form-control" id="id_codigo_consumidor" name="id_codigo_consumidor" required>
+                                    <option value="">Seleccione un técnico</option>
+                                    {% for tecnico in tecnicos %}
+                                    <option value="{{ tecnico.id_codigo_consumidor }}" data-cargo="{{ tecnico.cargo }}">
+                                        {{ tecnico.nombre }} - {{ tecnico.recurso_operativo_cedula }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="fecha">Fecha</label>
+                                <input type="date" class="form-control" id="fecha" name="fecha" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Herramientas Básicas -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Herramientas Básicas</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="adaptador_mandril" name="adaptador_mandril" value="1">
+                                        <label class="form-check-label" for="adaptador_mandril">Adaptador Mandril</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="alicate" name="alicate" value="1">
+                                        <label class="form-check-label" for="alicate">Alicate</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="barra_45cm" name="barra_45cm" value="1">
+                                        <label class="form-check-label" for="barra_45cm">Barra 45cm</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="bisturi_metalico" name="bisturi_metalico" value="1">
+                                        <label class="form-check-label" for="bisturi_metalico">Bisturí Metálico</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="caja_de_herramientas" name="caja_de_herramientas" value="1">
+                                        <label class="form-check-label" for="caja_de_herramientas">Caja de Herramientas</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="cortafrio" name="cortafrio" value="1">
+                                        <label class="form-check-label" for="cortafrio">Cortafrío</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="destor_de_estrella" name="destor_de_estrella" value="1">
+                                        <label class="form-check-label" for="destor_de_estrella">Destornillador Estrella</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="destor_de_pala" name="destor_de_pala" value="1">
+                                        <label class="form-check-label" for="destor_de_pala">Destornillador Pala</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="destor_tester" name="destor_tester" value="1">
+                                        <label class="form-check-label" for="destor_tester">Destornillador Tester</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="martillo_de_una" name="martillo_de_una" value="1">
+                                        <label class="form-check-label" for="martillo_de_una">Martillo de Uña</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="pinza_de_punta" name="pinza_de_punta" value="1">
+                                        <label class="form-check-label" for="pinza_de_punta">Pinza de Punta</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Herramientas Especializadas -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">Herramientas Especializadas</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="multimetro" name="multimetro" value="1">
+                                        <label class="form-check-label" for="multimetro">Multímetro</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="taladro_percutor" name="taladro_percutor" value="1">
+                                        <label class="form-check-label" for="taladro_percutor">Taladro Percutor</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="ponchadora_rg_6_y_rg_11" name="ponchadora_rg_6_y_rg_11" value="1">
+                                        <label class="form-check-label" for="ponchadora_rg_6_y_rg_11">Ponchadora RG6/RG11</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="ponchadora_rj_45_y_rj11" name="ponchadora_rj_45_y_rj11" value="1">
+                                        <label class="form-check-label" for="ponchadora_rj_45_y_rj11">Ponchadora RJ45/RJ11</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="power_miter" name="power_miter" value="1">
+                                        <label class="form-check-label" for="power_miter">Power Meter</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="bfl_laser" name="bfl_laser" value="1">
+                                        <label class="form-check-label" for="bfl_laser">BFL Laser</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="cortadora" name="cortadora" value="1">
+                                        <label class="form-check-label" for="cortadora">Cortadora</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="stripper_fibra" name="stripper_fibra" value="1">
+                                        <label class="form-check-label" for="stripper_fibra">Stripper Fibra</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Equipo de Seguridad -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-warning">
+                            <h5 class="mb-0">Equipo de Seguridad</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="arnes" name="arnes" value="1">
+                                        <label class="form-check-label" for="arnes">Arnés</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="eslinga" name="eslinga" value="1">
+                                        <label class="form-check-label" for="eslinga">Eslinga</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="casco_tipo_ii" name="casco_tipo_ii" value="1">
+                                        <label class="form-check-label" for="casco_tipo_ii">Casco Tipo II</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="arana_casco" name="arana_casco" value="1">
+                                        <label class="form-check-label" for="arana_casco">Araña Casco</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="barbuquejo" name="barbuquejo" value="1">
+                                        <label class="form-check-label" for="barbuquejo">Barbuquejo</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="guantes_de_vaqueta" name="guantes_de_vaqueta" value="1">
+                                        <label class="form-check-label" for="guantes_de_vaqueta">Guantes de Vaqueta</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="gafas" name="gafas" value="1">
+                                        <label class="form-check-label" for="gafas">Gafas</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="linea_de_vida" name="linea_de_vida" value="1">
+                                        <label class="form-check-label" for="linea_de_vida">Línea de Vida</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Asignación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalles -->
+<div class="modal fade" id="modalDetalles" tabindex="-1" aria-labelledby="modalDetallesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDetallesLabel">Detalles de la Asignación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Información Básica -->
+                <div class="card mb-3">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">Información Básica</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Fecha:</strong> <span id="detalle-fecha"></span></p>
+                                <p><strong>Técnico:</strong> <span id="detalle-tecnico"></span></p>
+                                <p><strong>Cédula:</strong> <span id="detalle-cedula"></span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Cargo:</strong> <span id="detalle-cargo"></span></p>
+                                <p><strong>Estado:</strong> <span id="detalle-estado"></span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Herramientas Básicas -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0">Herramientas Básicas</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="herramientas-basicas" class="row">
+                            <!-- Se llenará dinámicamente -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Herramientas Especializadas -->
+                <div class="card mb-3">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0">Herramientas Especializadas</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="herramientas-especializadas" class="row">
+                            <!-- Se llenará dinámicamente -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Equipo de Seguridad -->
+                <div class="card mb-3">
+                    <div class="card-header bg-warning">
+                        <h6 class="mb-0">Equipo de Seguridad</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="equipo-seguridad" class="row">
+                            <!-- Se llenará dinámicamente -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+<!-- SweetAlert2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+$(document).ready(function() {
+    $('#tablaAsignaciones').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.24/i18n/Spanish.json"
+        },
+        "order": [[0, "desc"]]
+    });
+
+    // Establecer fecha actual por defecto
+    document.getElementById('fecha').valueAsDate = new Date();
+
+    // Actualizar cargo al seleccionar técnico
+    $('#id_codigo_consumidor').change(function() {
+        var cargo = $(this).find(':selected').data('cargo');
+        // Remover input anterior si existe
+        $('input[name="cargo"]').remove();
+        // Agregar nuevo input
+        $('<input>').attr({
+            type: 'hidden',
+            name: 'cargo',
+            value: cargo
+        }).appendTo('#formAsignacion');
+    });
+});
+
+function registrarAsignacion(event) {
+    event.preventDefault();
+    
+    var formData = new FormData(event.target);
+    
+    // Mostrar indicador de carga
+    Swal.fire({
+        title: 'Registrando asignación...',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    $.ajax({
+        url: '/logistica/registrar_asignacion',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Éxito!',
+                    text: response.message,
+                    showConfirmButton: false,
+                    timer: 1500
+                }).then(function() {
+                    location.reload();
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: response.message
+                });
+            }
+        },
+        error: function(xhr) {
+            let errorMessage = 'Ocurrió un error al procesar la solicitud';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                errorMessage = xhr.responseJSON.message;
+            }
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: errorMessage
+            });
+        }
+    });
+    
+    return false;
+}
+
+function verDetalles(id) {
+    // Mostrar indicador de carga
+    Swal.fire({
+        title: 'Cargando detalles...',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    // Obtener detalles de la asignación
+    $.ajax({
+        url: `/logistica/asignacion/${id}`,
+        type: 'GET',
+        success: function(response) {
+            if (response.status === 'success') {
+                const detalles = response.data;
+                
+                // Llenar información básica
+                $('#detalle-fecha').text(detalles.info_basica.fecha);
+                $('#detalle-tecnico').text(detalles.info_basica.tecnico);
+                $('#detalle-cedula').text(detalles.info_basica.cedula);
+                $('#detalle-cargo').text(detalles.info_basica.cargo);
+                
+                // Mostrar estado
+                const estadoClass = detalles.info_basica.estado === '1' ? 'bg-success' : 'bg-danger';
+                const estadoTexto = detalles.info_basica.estado === '1' ? 'Activo' : 'Inactivo';
+                $('#detalle-estado').html(`<span class="badge ${estadoClass}">${estadoTexto}</span>`);
+                
+                // Función para mostrar herramientas
+                function mostrarHerramientas(contenedor, herramientas) {
+                    const $container = $(`#${contenedor}`);
+                    $container.empty();
+                    
+                    Object.entries(herramientas).forEach(([nombre, valor]) => {
+                        const col = $('<div>').addClass('col-md-4 mb-2');
+                        const icon = valor === '1' ? 
+                            '<i class="fas fa-check text-success"></i>' : 
+                            '<i class="fas fa-times text-danger"></i>';
+                        
+                        col.append(`
+                            <div class="d-flex align-items-center">
+                                ${icon}
+                                <span class="ms-2">${nombre.replace(/_/g, ' ').toUpperCase()}</span>
+                            </div>
+                        `);
+                        
+                        $container.append(col);
+                    });
+                }
+                
+                // Mostrar herramientas por categoría
+                mostrarHerramientas('herramientas-basicas', detalles.herramientas_basicas);
+                mostrarHerramientas('herramientas-especializadas', detalles.herramientas_especializadas);
+                mostrarHerramientas('equipo-seguridad', detalles.equipo_seguridad);
+                
+                // Cerrar indicador de carga y mostrar modal
+                Swal.close();
+                $('#modalDetalles').modal('show');
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: response.message
+                });
+            }
+        },
+        error: function(xhr) {
+            let errorMessage = 'Ocurrió un error al cargar los detalles';
+            if (xhr.responseJSON && xhr.responseJSON.message) {
+                errorMessage = xhr.responseJSON.message;
+            }
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: errorMessage
+            });
+        }
+    });
+}
+</script>
+{% endblock %} 

@@ -106,6 +106,27 @@ def setup_database():
                 )
             """)
             
+            # Crear tabla parque_automotor si no existe
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS parque_automotor (
+                    id_vehiculo INT AUTO_INCREMENT PRIMARY KEY,
+                    placa VARCHAR(10) NOT NULL,
+                    tipo_vehiculo VARCHAR(50) NOT NULL,
+                    marca VARCHAR(50) NOT NULL,
+                    modelo VARCHAR(4) NOT NULL,
+                    color VARCHAR(30) NOT NULL,
+                    id_codigo_consumidor INT,
+                    fecha_asignacion DATE NOT NULL,
+                    estado VARCHAR(20) DEFAULT 'Activo',
+                    soat_vencimiento DATE,
+                    tecnomecanica_vencimiento DATE,
+                    observaciones TEXT,
+                    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (id_codigo_consumidor) REFERENCES recurso_operativo(id_codigo_consumidor)
+                )
+            """)
+            
             # Insertar roles por defecto si no existen
             roles = {
                 1: 'administrativo',
