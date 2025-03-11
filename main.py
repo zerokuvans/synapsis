@@ -1628,16 +1628,33 @@ def registrar_asignacion():
         campos = ['id_codigo_consumidor', 'asignacion_fecha', 'asignacion_cargo']
         valores = [id_codigo_consumidor, fecha, cargo]
 
-        # Procesar campos de herramientas y equipo de seguridad
-        for campo, valor in request.form.items():
-            if campo not in ['id_codigo_consumidor', 'fecha', 'cargo']:
-                nombre_campo = f'asignacion_{campo}'
-                
-                if nombre_campo.lower() in columnas_existentes:
-                    campos.append(nombre_campo)
-                    valores.append(valor if valor == '1' else '0')
-                else:
-                    print(f"Campo ignorado (no existe en la tabla): {nombre_campo}")  # Debug log
+        # Lista de todas las herramientas posibles
+        herramientas = [
+            'adaptador_mandril', 'alicate', 'barra_45cm', 'bisturi_metalico',
+            'broca_3/8', 'broca_3/8/6_ran', 'broca_1/2/6_ran',
+            'broca_metal/madera_1/4', 'broca_metal/madera_3/8', 'broca_metal/madera_5/16',
+            'caja_de_herramientas', 'cajon_rojo', 'cinta_de_senal', 'cono_retractil',
+            'cortafrio', 'destor_de_estrella', 'destor_de_pala', 'destor_tester',
+            'espatula', 'exten_de_corr_10_mts', 'llave_locking_male', 'llave_reliance',
+            'llave_torque_rg_11', 'llave_torque_rg_6', 'llaves_mandril',
+            'mandril_para_taladro', 'martillo_de_una', 'multimetro',
+            'pelacable_rg_6y_rg_11', 'pinza_de_punta', 'pistola_de_silicona',
+            'planillero', 'ponchadora_rg_6_y_rg_11', 'ponchadora_rj_45_y_rj11',
+            'probador_de_tonos', 'probador_de_tonos_utp', 'puntas_para_multimetro',
+            'sonda_metalica', 'tacos_de_madera', 'taladro_percutor',
+            'telefono_de_pruebas', 'power_miter', 'bfl_laser', 'cortadora',
+            'stripper_fibra', 'pelachaqueta'
+        ]
+
+        # Procesar cada herramienta
+        for herramienta in herramientas:
+            nombre_campo = f'asignacion_{herramienta}'
+            if nombre_campo.lower() in columnas_existentes:
+                campos.append(nombre_campo)
+                valor = request.form.get(herramienta, '0')
+                valores.append(valor if valor == '1' else '0')
+            else:
+                print(f"Campo ignorado (no existe en la tabla): {nombre_campo}")
 
         # Agregar estado por defecto si existe la columna
         if 'asignacion_estado' in columnas_existentes:
@@ -1683,26 +1700,10 @@ def registrar_asignacion():
 @login_required()
 @role_required('logistica')
 def ver_detalle_asignacion(id_asignacion):
-    """
-    Obtiene los detalles de una asignación específica.
-    
-    Args:
-        id_asignacion (int): ID de la asignación a consultar
-        
-    Returns:
-        JSON con los detalles de la asignación o mensaje de error
-    """
     connection = None
     cursor = None
     
     try:
-        # Validar que el ID sea positivo
-        if not isinstance(id_asignacion, int) or id_asignacion <= 0:
-            return jsonify({
-                'status': 'error',
-                'message': 'El ID de asignación debe ser un número positivo'
-            }), 400
-
         connection = get_db_connection()
         if connection is None:
             return jsonify({
@@ -1712,104 +1713,96 @@ def ver_detalle_asignacion(id_asignacion):
             
         cursor = connection.cursor(dictionary=True)
         
-        try:
-            # Consulta optimizada con COALESCE para manejar valores nulos
-            cursor.execute("""
-                SELECT 
-                    a.*,
-                    COALESCE(r.nombre, 'No asignado') as nombre,
-                    COALESCE(r.recurso_operativo_cedula, 'No disponible') as recurso_operativo_cedula,
-                    COALESCE(r.cargo, 'No especificado') as cargo
-                FROM asignacion a 
-                LEFT JOIN recurso_operativo r ON a.id_codigo_consumidor = r.id_codigo_consumidor 
-                WHERE a.id_asignacion = %s
-            """, (id_asignacion,))
-            
-            asignacion = cursor.fetchone()
-            
-            if not asignacion:
-                return jsonify({
-                    'status': 'error',
-                    'message': f'No se encontró la asignación con ID {id_asignacion}'
-                }), 404
-
-            # Validar campos requeridos
-            campos_requeridos = ['id_asignacion', 'asignacion_fecha', 'id_codigo_consumidor']
-            campos_faltantes = [campo for campo in campos_requeridos if campo not in asignacion or asignacion[campo] is None]
-            
-            if campos_faltantes:
-                return jsonify({
-                    'status': 'error',
-                    'message': f'Datos de asignación incompletos: faltan los campos {", ".join(campos_faltantes)}'
-                }), 500
-            
-            # Definir las categorías de herramientas
-            herramientas_basicas = [
-                'adaptador_mandril', 'alicate', 'barra_45cm', 'bisturi_metalico',
-                'caja_de_herramientas', 'cortafrio', 'destor_de_estrella', 'destor_de_pala',
-                'destor_tester', 'martillo_de_una', 'pinza_de_punta'
-            ]
-            
-            herramientas_especializadas = [
-                'multimetro', 'taladro_percutor', 'ponchadora_rg_6_y_rg_11', 
-                'ponchadora_rj_45_y_rj11', 'power_miter', 'bfl_laser', 'cortadora', 
-                'stripper_fibra'
-            ]
-            
-            equipo_seguridad = [
-                'arnes', 'eslinga', 'casco_tipo_ii', 'arana_casco', 'barbuquejo',
-                'guantes_de_vaqueta', 'gafas', 'linea_de_vida'
-            ]
-            
-            # Organizar las herramientas por categoría
-            detalles = {
-                'info_basica': {
-                    'id_asignacion': asignacion['id_asignacion'],
-                    'fecha': asignacion['asignacion_fecha'].strftime('%Y-%m-%d %H:%M:%S') if isinstance(asignacion['asignacion_fecha'], datetime) else str(asignacion['asignacion_fecha']),
-                    'tecnico': asignacion['nombre'],
-                    'cedula': asignacion['recurso_operativo_cedula'],
-                    'cargo': asignacion.get('asignacion_cargo', 'No especificado'),
-                    'estado': 'Activo' if str(asignacion.get('asignacion_estado', '0')) == '1' else 'Inactivo'
-                },
-                'herramientas_basicas': {},
-                'herramientas_especializadas': {},
-                'equipo_seguridad': {}
-            }
-            
-            def formatear_valor_herramienta(valor):
-                """Formatea el valor de una herramienta a '1' o '0'"""
-                try:
-                    return '1' if str(valor).strip() in ['1', 'True', 'true'] else '0'
-                except (ValueError, AttributeError):
-                    return '0'
-            
-            # Llenar herramientas básicas
-            for herramienta in herramientas_basicas:
-                campo = f'asignacion_{herramienta}'
-                detalles['herramientas_basicas'][herramienta] = formatear_valor_herramienta(asignacion.get(campo))
-                    
-            # Llenar herramientas especializadas
-            for herramienta in herramientas_especializadas:
-                campo = f'asignacion_{herramienta}'
-                detalles['herramientas_especializadas'][herramienta] = formatear_valor_herramienta(asignacion.get(campo))
-                    
-            # Llenar equipo de seguridad
-            for equipo in equipo_seguridad:
-                campo = f'asignacion_{equipo}'
-                detalles['equipo_seguridad'][equipo] = formatear_valor_herramienta(asignacion.get(campo))
-            
-            return jsonify({
-                'status': 'success',
-                'data': detalles
-            })
-            
-        except mysql.connector.Error as e:
-            print(f"Error de MySQL: {str(e)}")
+        # Obtener los detalles de la asignación
+        cursor.execute("""
+            SELECT a.*, r.nombre, r.recurso_operativo_cedula, r.cargo
+            FROM asignacion a 
+            LEFT JOIN recurso_operativo r ON a.id_codigo_consumidor = r.id_codigo_consumidor 
+            WHERE a.id_asignacion = %s
+        """, (id_asignacion,))
+        
+        asignacion = cursor.fetchone()
+        
+        if not asignacion:
             return jsonify({
                 'status': 'error',
-                'message': 'Error en la base de datos al procesar la asignación'
-            }), 500
-            
+                'message': 'No se encontró la asignación'
+            }), 404
+
+        # Función auxiliar para formatear valores
+        def formatear_valor(valor):
+            if valor is None:
+                return '0'
+            return str(valor)
+
+        # Organizar los datos
+        detalles = {
+            'info_basica': {
+                'tecnico': asignacion['nombre'],
+                'cedula': asignacion['recurso_operativo_cedula'],
+                'cargo': asignacion.get('asignacion_cargo', 'No especificado'),
+                'fecha': asignacion['asignacion_fecha'].strftime('%Y-%m-%d %H:%M:%S'),
+                'estado': 'Activo' if str(asignacion.get('asignacion_estado', '0')) == '1' else 'Inactivo'
+            },
+            'herramientas_basicas': {
+                'adaptador_mandril': formatear_valor(asignacion.get('asignacion_adaptador_mandril')),
+                'alicate': formatear_valor(asignacion.get('asignacion_alicate')),
+                'barra_45cm': formatear_valor(asignacion.get('asignacion_barra_45cm')),
+                'bisturi_metalico': formatear_valor(asignacion.get('asignacion_bisturi_metalico')),
+                'caja_de_herramientas': formatear_valor(asignacion.get('asignacion_caja_de_herramientas')),
+                'cortafrio': formatear_valor(asignacion.get('asignacion_cortafrio')),
+                'destor_de_estrella': formatear_valor(asignacion.get('asignacion_destor_de_estrella')),
+                'destor_de_pala': formatear_valor(asignacion.get('asignacion_destor_de_pala')),
+                'destor_tester': formatear_valor(asignacion.get('asignacion_destor_tester')),
+                'espatula': formatear_valor(asignacion.get('asignacion_espatula')),
+                'martillo_de_una': formatear_valor(asignacion.get('asignacion_martillo_de_una')),
+                'pinza_de_punta': formatear_valor(asignacion.get('asignacion_pinza_de_punta'))
+            },
+            'brocas': {
+                'broca_3/8': formatear_valor(asignacion.get('asignacion_broca_3/8')),
+                'broca_3/8/6_ran': formatear_valor(asignacion.get('asignacion_broca_3/8/6_ran')),
+                'broca_1/2/6_ran': formatear_valor(asignacion.get('asignacion_broca_1/2/6_ran')),
+                'broca_metal/madera_1/4': formatear_valor(asignacion.get('asignacion_broca_metal/madera_1/4')),
+                'broca_metal/madera_3/8': formatear_valor(asignacion.get('asignacion_broca_metal/madera_3/8')),
+                'broca_metal/madera_5/16': formatear_valor(asignacion.get('asignacion_broca_metal/madera_5/16'))
+            },
+            'herramientas_red': {
+                'cajon_rojo': formatear_valor(asignacion.get('asignacion_cajon_rojo')),
+                'cinta_de_senal': formatear_valor(asignacion.get('asignacion_cinta_de_senal')),
+                'cono_retractil': formatear_valor(asignacion.get('asignacion_cono_retractil')),
+                'exten_de_corr_10_mts': formatear_valor(asignacion.get('asignacion_exten_de_corr_10_mts')),
+                'llave_locking_male': formatear_valor(asignacion.get('asignacion_llave_locking_male')),
+                'llave_reliance': formatear_valor(asignacion.get('asignacion_llave_reliance')),
+                'llave_torque_rg_11': formatear_valor(asignacion.get('asignacion_llave_torque_rg_11')),
+                'llave_torque_rg_6': formatear_valor(asignacion.get('asignacion_llave_torque_rg_6')),
+                'llaves_mandril': formatear_valor(asignacion.get('asignacion_llaves_mandril')),
+                'mandril_para_taladro': formatear_valor(asignacion.get('asignacion_mandril_para_taladro')),
+                'pelacable_rg_6y_rg_11': formatear_valor(asignacion.get('asignacion_pelacable_rg_6y_rg_11')),
+                'pistola_de_silicona': formatear_valor(asignacion.get('asignacion_pistola_de_silicona')),
+                'planillero': formatear_valor(asignacion.get('asignacion_planillero')),
+                'ponchadora_rg_6_y_rg_11': formatear_valor(asignacion.get('asignacion_ponchadora_rg_6_y_rg_11')),
+                'ponchadora_rj_45_y_rj11': formatear_valor(asignacion.get('asignacion_ponchadora_rj_45_y_rj11')),
+                'probador_de_tonos': formatear_valor(asignacion.get('asignacion_probador_de_tonos')),
+                'probador_de_tonos_utp': formatear_valor(asignacion.get('asignacion_probador_de_tonos_utp')),
+                'puntas_para_multimetro': formatear_valor(asignacion.get('asignacion_puntas_para_multimetro')),
+                'sonda_metalica': formatear_valor(asignacion.get('asignacion_sonda_metalica')),
+                'tacos_de_madera': formatear_valor(asignacion.get('asignacion_tacos_de_madera')),
+                'telefono_de_pruebas': formatear_valor(asignacion.get('asignacion_telefono_de_pruebas')),
+                'power_miter': formatear_valor(asignacion.get('asignacion_power_miter')),
+                'bfl_laser': formatear_valor(asignacion.get('asignacion_bfl_laser')),
+                'cortadora': formatear_valor(asignacion.get('asignacion_cortadora')),
+                'stripper_fibra': formatear_valor(asignacion.get('asignacion_stripper_fibra')),
+                'pelachaqueta': formatear_valor(asignacion.get('asignacion_pelachaqueta'))
+            }
+        }
+
+        print("Detalles a enviar:", detalles)  # Debug log
+        
+        return jsonify({
+            'status': 'success',
+            'data': detalles
+        })
+
     except Exception as e:
         print(f"Error al obtener detalles de asignación: {str(e)}")
         return jsonify({
@@ -2065,19 +2058,148 @@ def ver_asignaciones_ferretero():
 
         # Obtener lista de técnicos disponibles
         cursor.execute("""
-            SELECT id_codigo_consumidor, nombre, recurso_operativo_cedula, cargo 
+            SELECT id_codigo_consumidor, nombre, recurso_operativo_cedula, cargo, carpeta 
             FROM recurso_operativo 
             WHERE cargo LIKE '%TECNICO%' OR cargo LIKE '%TÉCNICO%'
             ORDER BY nombre
         """)
         tecnicos = cursor.fetchall()
         
+        # Preparar información de límites para cada técnico
+        fecha_actual = datetime.now()
+        tecnicos_con_limites = []
+        
+        # Definir límites según área de trabajo (igual que en registrar_ferretero)
+        limites = {
+            'FTTH INSTALACIONES': {
+                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'INSTALACIONES DOBLES': {
+                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'POSTVENTA': {
+                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'MANTENIMIENTO FTTH': {
+                'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'ARREGLOS HFC': {
+                'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            }
+        }
+        
+        for tecnico in tecnicos:
+            # Determinar área de trabajo basada en la carpeta (prioridad) o el cargo
+            carpeta = tecnico.get('carpeta', '').upper() if tecnico.get('carpeta') else ''
+            cargo = tecnico.get('cargo', '').upper()
+            
+            area_trabajo = None
+            
+            # Primero intentar determinar por carpeta
+            if carpeta:
+                for area in limites.keys():
+                    if area in carpeta:
+                        area_trabajo = area
+                        break
+            
+            # Si no se encontró por carpeta, intentar por cargo (como fallback)
+            if area_trabajo is None:
+                for area in limites.keys():
+                    if area in cargo:
+                        area_trabajo = area
+                        break
+            
+            # Si no se encuentra un área específica, usar límites por defecto
+            if area_trabajo is None:
+                area_trabajo = 'POSTVENTA'  # Usar un valor por defecto
+            
+            # Obtener asignaciones previas para este técnico
+            cursor.execute("""
+                SELECT 
+                    fecha_asignacion,
+                    silicona,
+                    amarres_negros,
+                    amarres_blancos,
+                    cinta_aislante,
+                    grapas_blancas,
+                    grapas_negras
+                FROM ferretero 
+                WHERE id_codigo_consumidor = %s
+                ORDER BY fecha_asignacion DESC
+            """, (tecnico['id_codigo_consumidor'],))
+            asignaciones_tecnico = cursor.fetchall()
+            
+            # Inicializar contadores para materiales en los períodos correspondientes
+            contadores = {
+                'cinta_aislante': 0,
+                'silicona': 0,
+                'amarres': 0,
+                'grapas': 0
+            }
+            
+            # Calcular consumo previo en los periodos correspondientes
+            for asignacion in asignaciones_tecnico:
+                fecha_asignacion = asignacion['fecha_asignacion']
+                diferencia_dias = (fecha_actual - fecha_asignacion).days
+                
+                # Verificar límite de cintas
+                if diferencia_dias <= limites[area_trabajo]['cinta_aislante']['periodo']:
+                    contadores['cinta_aislante'] += int(asignacion.get('cinta_aislante', 0) or 0)
+                    
+                # Verificar límite de siliconas
+                if diferencia_dias <= limites[area_trabajo]['silicona']['periodo']:
+                    contadores['silicona'] += int(asignacion.get('silicona', 0) or 0)
+                    
+                # Verificar límite de amarres (sumando negros y blancos)
+                if diferencia_dias <= limites[area_trabajo]['amarres']['periodo']:
+                    contadores['amarres'] += int(asignacion.get('amarres_negros', 0) or 0)
+                    contadores['amarres'] += int(asignacion.get('amarres_blancos', 0) or 0)
+                    
+                # Verificar límite de grapas (sumando blancas y negras)
+                if diferencia_dias <= limites[area_trabajo]['grapas']['periodo']:
+                    contadores['grapas'] += int(asignacion.get('grapas_blancas', 0) or 0)
+                    contadores['grapas'] += int(asignacion.get('grapas_negras', 0) or 0)
+            
+            # Calcular límites disponibles
+            limites_disponibles = {
+                'area': area_trabajo,
+                'cinta_aislante': max(0, limites[area_trabajo]['cinta_aislante']['cantidad'] - contadores['cinta_aislante']),
+                'silicona': max(0, limites[area_trabajo]['silicona']['cantidad'] - contadores['silicona']),
+                'amarres': max(0, limites[area_trabajo]['amarres']['cantidad'] - contadores['amarres']),
+                'grapas': max(0, limites[area_trabajo]['grapas']['cantidad'] - contadores['grapas']),
+                'periodos': {
+                    'cinta_aislante': f"{limites[area_trabajo]['cinta_aislante']['periodo']} {limites[area_trabajo]['cinta_aislante']['unidad']}",
+                    'silicona': f"{limites[area_trabajo]['silicona']['periodo']} {limites[area_trabajo]['silicona']['unidad']}",
+                    'amarres': f"{limites[area_trabajo]['amarres']['periodo']} {limites[area_trabajo]['amarres']['unidad']}",
+                    'grapas': f"{limites[area_trabajo]['grapas']['periodo']} {limites[area_trabajo]['grapas']['unidad']}"
+                }
+            }
+            
+            # Agregar información de límites al técnico
+            tecnico_con_limites = {**tecnico, 'limites': limites_disponibles}
+            tecnicos_con_limites.append(tecnico_con_limites)
+        
         cursor.close()
         connection.close()
 
         return render_template('modulos/logistica/ferretero.html', 
                             asignaciones=asignaciones,
-                            tecnicos=tecnicos)
+                            tecnicos=tecnicos_con_limites)
 
     except Exception as e:
         print(f"Error al obtener asignaciones ferretero: {str(e)}")
@@ -2120,8 +2242,8 @@ def registrar_ferretero():
 
         cursor = connection.cursor(dictionary=True)
 
-        # Verificar que el técnico existe
-        cursor.execute('SELECT nombre FROM recurso_operativo WHERE id_codigo_consumidor = %s', (id_codigo_consumidor,))
+        # Verificar que el técnico existe y obtener su área de trabajo (carpeta)
+        cursor.execute('SELECT nombre, cargo, carpeta FROM recurso_operativo WHERE id_codigo_consumidor = %s', (id_codigo_consumidor,))
         tecnico = cursor.fetchone()
         
         if not tecnico:
@@ -2129,7 +2251,155 @@ def registrar_ferretero():
                 'status': 'error',
                 'message': 'El técnico seleccionado no existe'
             }), 404
-
+            
+        # Obtener la fecha actual para cálculos
+        fecha_actual = datetime.now()
+        
+        # Verificar asignaciones previas del técnico para controlar los límites
+        cursor.execute("""
+            SELECT 
+                fecha_asignacion,
+                silicona,
+                amarres_negros,
+                amarres_blancos,
+                cinta_aislante,
+                grapas_blancas,
+                grapas_negras
+            FROM ferretero 
+            WHERE id_codigo_consumidor = %s
+            ORDER BY fecha_asignacion DESC
+        """, (id_codigo_consumidor,))
+        asignaciones_previas = cursor.fetchall()
+        
+        # Determinar la carpeta/área del técnico
+        carpeta = tecnico.get('carpeta', '').upper() if tecnico.get('carpeta') else ''
+        cargo = tecnico.get('cargo', '').upper()
+        
+        # Definir límites según área de trabajo
+        limites = {
+            'FTTH INSTALACIONES': {
+                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'INSTALACIONES DOBLES': {
+                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'POSTVENTA': {
+                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'MANTENIMIENTO FTTH': {
+                'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'ARREGLOS HFC': {
+                'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            }
+        }
+        
+        # Determinar área de trabajo basada en la carpeta (prioridad) o el cargo
+        area_trabajo = None
+        
+        # Primero intentar determinar por carpeta
+        if carpeta:
+            for area in limites.keys():
+                if area in carpeta:
+                    area_trabajo = area
+                    break
+        
+        # Si no se encontró por carpeta, intentar por cargo (como fallback)
+        if area_trabajo is None:
+            for area in limites.keys():
+                if area in cargo:
+                    area_trabajo = area
+                    break
+        
+        # Si no se encuentra un área específica, usar límites por defecto
+        if area_trabajo is None:
+            # Mensajes de advertencia en caso de que no se encuentre un área específica
+            print(f"ADVERTENCIA: No se identificó área específica para la carpeta '{carpeta}' o cargo '{cargo}'. Usando límites por defecto.")
+            area_trabajo = 'POSTVENTA'  # Usar un valor por defecto
+        
+        # Inicializar contadores para materiales en los períodos correspondientes
+        contadores = {
+            'cinta_aislante': 0,
+            'silicona': 0,
+            'amarres': 0,
+            'grapas': 0
+        }
+        
+        # Calcular consumo previo en los periodos correspondientes
+        for asignacion in asignaciones_previas:
+            fecha_asignacion = asignacion['fecha_asignacion']
+            diferencia_dias = (fecha_actual - fecha_asignacion).days
+            
+            # Verificar límite de cintas
+            if diferencia_dias <= limites[area_trabajo]['cinta_aislante']['periodo']:
+                contadores['cinta_aislante'] += int(asignacion.get('cinta_aislante', 0) or 0)
+                
+            # Verificar límite de siliconas
+            if diferencia_dias <= limites[area_trabajo]['silicona']['periodo']:
+                contadores['silicona'] += int(asignacion.get('silicona', 0) or 0)
+                
+            # Verificar límite de amarres (sumando negros y blancos)
+            if diferencia_dias <= limites[area_trabajo]['amarres']['periodo']:
+                contadores['amarres'] += int(asignacion.get('amarres_negros', 0) or 0)
+                contadores['amarres'] += int(asignacion.get('amarres_blancos', 0) or 0)
+                
+            # Verificar límite de grapas (sumando blancas y negras)
+            if diferencia_dias <= limites[area_trabajo]['grapas']['periodo']:
+                contadores['grapas'] += int(asignacion.get('grapas_blancas', 0) or 0)
+                contadores['grapas'] += int(asignacion.get('grapas_negras', 0) or 0)
+        
+        # Calcular cantidades de la asignación actual
+        cintas_solicitadas = int(cinta_aislante or 0)
+        siliconas_solicitadas = int(silicona or 0)
+        amarres_solicitados = int(amarres_negros or 0) + int(amarres_blancos or 0)
+        grapas_solicitadas = int(grapas_blancas or 0) + int(grapas_negras or 0)
+        
+        # Validaciones de límites
+        errores = []
+        
+        # Validar cintas
+        if contadores['cinta_aislante'] + cintas_solicitadas > limites[area_trabajo]['cinta_aislante']['cantidad']:
+            limite = limites[area_trabajo]['cinta_aislante']
+            errores.append(f"Excede el límite de {limite['cantidad']} cintas cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['cinta_aislante']}.")
+        
+        # Validar siliconas
+        if contadores['silicona'] + siliconas_solicitadas > limites[area_trabajo]['silicona']['cantidad']:
+            limite = limites[area_trabajo]['silicona']
+            errores.append(f"Excede el límite de {limite['cantidad']} siliconas cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['silicona']}.")
+        
+        # Validar amarres
+        if contadores['amarres'] + amarres_solicitados > limites[area_trabajo]['amarres']['cantidad']:
+            limite = limites[area_trabajo]['amarres']
+            errores.append(f"Excede el límite de {limite['cantidad']} amarres cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['amarres']}.")
+        
+        # Validar grapas
+        if contadores['grapas'] + grapas_solicitadas > limites[area_trabajo]['grapas']['cantidad']:
+            limite = limites[area_trabajo]['grapas']
+            errores.append(f"Excede el límite de {limite['cantidad']} grapas cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['grapas']}.")
+        
+        # Si hay errores, rechazar la asignación
+        if errores:
+            return jsonify({
+                'status': 'error',
+                'message': 'La asignación excede los límites permitidos',
+                'detalles': errores
+            }), 400
+        
         # Insertar la asignación
         cursor.execute("""
             INSERT INTO ferretero (
@@ -2157,7 +2427,7 @@ def registrar_ferretero():
 
         return jsonify({
             'status': 'success',
-            'message': 'Material ferretero asignado exitosamente'
+            'message': f'Material ferretero asignado exitosamente para {area_trabajo}'
         }), 201
 
     except mysql.connector.Error as e:

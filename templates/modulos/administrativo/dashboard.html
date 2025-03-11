@@ -15,7 +15,7 @@
                         <i class="fas fa-info-circle me-2"></i>
                         Bienvenido al panel administrativo. Aquí podrás gestionar usuarios y ver reportes.
                     </div>
-                    
+
                     <!-- Contenido específico del módulo administrativo -->
                     <div class="row mt-4">
                         <div class="col-md-3 mb-4">
@@ -79,44 +79,44 @@
                             <h5 class="mb-0">Usuarios Registrados</h5>
                         </div>
                         <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
                                     <thead>
-                                        <tr>
+                                <tr>
                                             <th>Código</th>
-                                            <th>Cédula</th>
-                                            <th>Rol</th>
-                                            <th>Estado</th>
-                                            <th>Acciones</th>
-                                        </tr>
-                                    </thead>
+                                    <th>Cédula</th>
+                                    <th>Rol</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
                                     <tbody>
-                                        {% for user in users %}
-                                        <tr>
+                                {% for user in users %}
+                                <tr>
                                             <td>{{ user.id_codigo_consumidor }}</td>
-                                            <td>{{ user.recurso_operativo_cedula }}</td>
+                                    <td>{{ user.recurso_operativo_cedula }}</td>
                                             <td>{{ ROLES[user.id_roles|string] }}</td>
                                             <td>
                                                 <span class="badge bg-{{ 'success' if user.estado == 'Activo' else 'danger' }}">
-                                                    {{ user.estado }}
-                                                </span>
-                                            </td>
-                                            <td>
+                                            {{ user.estado }}
+                                        </span>
+                                    </td>
+                                    <td>
                                                 <button class="btn btn-sm btn-primary edit-user" data-user-id="{{ user.id_codigo_consumidor }}">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
+                                                <i class="fas fa-edit"></i>
+                                            </button>
                                                 <button class="btn btn-sm btn-danger delete-user" data-user-id="{{ user.id_codigo_consumidor }}">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
+            </div>
+        </div>
             </div>
         </div>
     </div>
@@ -216,9 +216,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Funcionalidad para guardar usuario
     document.getElementById('saveUser').addEventListener('click', function() {
         const form = document.getElementById('userForm');
-        const formData = new FormData(form);
+    const formData = new FormData(form);
         const userId = document.getElementById('userId').value;
-
+    
         fetch(userId ? '/update_user' : '/create_user', {
             method: 'POST',
             body: formData
@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 location.reload();
-            } else {
+        } else {
                 alert(data.message);
             }
         });

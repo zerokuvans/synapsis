@@ -6,10 +6,179 @@
 <div class="container-fluid px-4">
     <h1 class="mt-4">Gestión de Material Ferretero</h1>
     
+    <style>
+        /* Estilos para efectos visuales mejorados */
+        .border-success {
+            border-color: #28a745 !important;
+            transition: border-color 0.3s ease;
+        }
+        
+        .border-danger {
+            border-color: #dc3545 !important;
+            transition: border-color 0.3s ease;
+        }
+        
+        .border-primary {
+            border-color: #007bff !important;
+            transition: border-color 0.3s ease;
+        }
+        
+        /* Efecto de vibración suave para el botón */
+        @keyframes btn-shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+        
+        .btn-shake {
+            animation: btn-shake 0.5s ease;
+        }
+        
+        /* Mejoras en las transiciones */
+        .form-control:focus {
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.15);
+            transition: box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+        
+        /* Estilo para los indicadores de límites */
+        .text-success, .text-warning, .text-danger {
+            transition: color 0.3s ease;
+            font-size: 0.85rem;
+        }
+        
+        /* Mejora en la visualización de badges */
+        .badge {
+            transition: background-color 0.3s ease;
+        }
+        
+        /* Efecto de hover en la tabla */
+        #tablaFerretero tbody tr:hover {
+            background-color: rgba(0, 123, 255, 0.05);
+            transition: background-color 0.3s ease;
+        }
+        
+        /* Overlay de carga */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(3px);
+        }
+        
+        .loading-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .loading-spinner {
+            margin-bottom: 10px;
+        }
+        
+        .loading-text {
+            font-size: 14px;
+            color: #333;
+        }
+        
+        /* Estilos para mejorar la visualización de límites */
+        .limits-card {
+            border-left: 4px solid #007bff;
+            background-color: #f8f9fa;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .limits-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .limits-title {
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #495057;
+        }
+        
+        .limits-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #28a745;
+        }
+        
+        .limits-period {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        
+        .limits-icon {
+            font-size: 1.5rem;
+            margin-right: 10px;
+            color: #007bff;
+        }
+        
+        /* Animación de aparición para los límites */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .fade-in-up {
+            animation: fadeInUp 0.5s ease forwards;
+        }
+        
+        /* Estilos para los indicadores de disponibilidad */
+        .availability-indicator {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        
+        .availability-high {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .availability-medium {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .availability-low {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+    
     <!-- Botones de acción -->
     <div class="row mb-4">
         <div class="col-12">
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalAsignacion">
+            <button type="button" class="btn btn-primary" id="btnNuevaAsignacion" data-bs-toggle="modal" data-bs-target="#modalAsignacion">
                 <i class="fas fa-plus me-2"></i>Nueva Asignación
             </button>
             <a href="{{ url_for('exportar_ferretero_csv') }}" class="btn btn-success">
@@ -64,21 +233,49 @@
 </div>
 
 <!-- Modal de Nueva Asignación -->
-<div class="modal fade" id="modalAsignacion" tabindex="-1">
-    <div class="modal-dialog">
+<div class="modal fade" id="modalAsignacion" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title">Nueva Asignación de Material Ferretero</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
                 <form id="formFerretero">
+                    <!-- Información de área y límites -->
+                    <div class="card mb-4 shadow-sm" id="infoLimites" style="display: none; border-radius: 8px; overflow: hidden;">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-info-circle me-2"></i>Información de límites y stock disponible
+                            </h5>
+                        </div>
+                        <div class="card-body" id="contenidoLimites">
+                            <!-- El contenido se llenará dinámicamente -->
+                        </div>
+                    </div>
+                    
+                    <!-- Alerta de validación de límites -->
+                    <div class="alert alert-danger mb-3" id="alertaLimites" style="display: none;">
+                        <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Atención:</h5>
+                        <div id="contenidoAlertaLimites"></div>
+                    </div>
+                    
                     <div class="mb-3">
                         <label for="id_codigo_consumidor" class="form-label">Técnico</label>
-                        <select class="form-select" id="id_codigo_consumidor" name="id_codigo_consumidor" required>
+                        <select class="form-select" id="id_codigo_consumidor" name="id_codigo_consumidor" required onchange="mostrarLimites()">
                             <option value="">Seleccione un técnico</option>
                             {% for tecnico in tecnicos %}
-                            <option value="{{ tecnico.id_codigo_consumidor }}">
+                            <option value="{{ tecnico.id_codigo_consumidor }}" 
+                                data-area="{{ tecnico.limites.area }}"
+                                data-cintas="{{ tecnico.limites.cinta_aislante }}"
+                                data-periodo-cintas="{{ tecnico.limites.periodos.cinta_aislante }}"
+                                data-siliconas="{{ tecnico.limites.silicona }}"
+                                data-periodo-siliconas="{{ tecnico.limites.periodos.silicona }}"
+                                data-amarres="{{ tecnico.limites.amarres }}"
+                                data-periodo-amarres="{{ tecnico.limites.periodos.amarres }}"
+                                data-grapas="{{ tecnico.limites.grapas }}"
+                                data-periodo-grapas="{{ tecnico.limites.periodos.grapas }}"
+                                data-carpeta="{{ tecnico.carpeta }}">
                                 {{ tecnico.nombre }} - {{ tecnico.recurso_operativo_cedula }}
                             </option>
                             {% endfor %}
@@ -91,38 +288,42 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="silicona" class="form-label">Silicona</label>
-                            <input type="number" class="form-control" id="silicona" name="silicona" min="0" value="0">
+                            <input type="number" class="form-control" id="silicona" name="silicona" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
+                            <small class="text-muted" id="limiteSilicona"></small>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="amarres_negros" class="form-label">Amarres Negros</label>
-                            <input type="number" class="form-control" id="amarres_negros" name="amarres_negros" min="0" value="0">
+                            <label for="cinta_aislante" class="form-label">Cinta Aislante</label>
+                            <input type="number" class="form-control" id="cinta_aislante" name="cinta_aislante" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
+                            <small class="text-muted" id="limiteCintas"></small>
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="amarres_blancos" class="form-label">Amarres Blancos</label>
-                            <input type="number" class="form-control" id="amarres_blancos" name="amarres_blancos" min="0" value="0">
+                            <label for="amarres_negros" class="form-label">Amarres Negros</label>
+                            <input type="number" class="form-control" id="amarres_negros" name="amarres_negros" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="cinta_aislante" class="form-label">Cinta Aislante</label>
-                            <input type="number" class="form-control" id="cinta_aislante" name="cinta_aislante" min="0" value="0">
+                            <label for="amarres_blancos" class="form-label">Amarres Blancos</label>
+                            <input type="number" class="form-control" id="amarres_blancos" name="amarres_blancos" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
+                            <small class="text-muted" id="limiteAmarres"></small>
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="grapas_blancas" class="form-label">Grapas Blancas</label>
-                            <input type="number" class="form-control" id="grapas_blancas" name="grapas_blancas" min="0" value="0">
+                            <input type="number" class="form-control" id="grapas_blancas" name="grapas_blancas" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="grapas_negras" class="form-label">Grapas Negras</label>
-                            <input type="number" class="form-control" id="grapas_negras" name="grapas_negras" min="0" value="0">
+                            <input type="number" class="form-control" id="grapas_negras" name="grapas_negras" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
+                            <small class="text-muted" id="limiteGrapas"></small>
                         </div>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="registrarAsignacion()">Guardar</button>
+                <button type="button" class="btn btn-primary" id="btnGuardar" onclick="registrarAsignacion()">Guardar</button>
             </div>
         </div>
     </div>
@@ -132,43 +333,536 @@
 
 {% block scripts %}
 <script>
-function registrarAsignacion() {
-    const formData = new FormData(document.getElementById('formFerretero'));
+// Variables globales para los límites
+let limitesCintas = 0;
+let limitesSiliconas = 0;
+let limitesAmarres = 0;
+let limitesGrapas = 0;
+// Variable para controlar si estamos en medio de una redirección
+let isRedirecting = false;
+// Variable para controlar si el modal ha sido inicializado
+let modalInicializado = false;
+
+// Función auxiliar para limpiar elementos residuales
+function limpiarElementosResiduales() {
+    // Eliminar cualquier backdrop existente
+    const backdrop = document.querySelector('.modal-backdrop');
+    if (backdrop) {
+        backdrop.remove();
+        console.log("Backdrop eliminado");
+    }
     
-    fetch('/logistica/registrar_ferretero', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            Swal.fire({
-                icon: 'success',
-                title: '¡Éxito!',
-                text: data.message,
-                showConfirmButton: false,
-                timer: 1500
-            }).then(() => {
-                window.location.reload();
-            });
-        } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: data.message
-            });
+    // Eliminar cualquier overlay de carga existente
+    const existingOverlay = document.querySelector('.loading-overlay');
+    if (existingOverlay) {
+        existingOverlay.remove();
+        console.log("Overlay de carga eliminado");
+    }
+}
+
+// Función auxiliar para resetear el formulario y las variables
+function resetearFormularioAsignacion() {
+    console.log("Reseteo completo del formulario de asignación");
+    
+    // Resetear variables globales
+    limitesCintas = 0;
+    limitesSiliconas = 0;
+    limitesAmarres = 0;
+    limitesGrapas = 0;
+    
+    // Obtener todos los elementos necesarios de una vez
+    const selectTecnico = document.getElementById('id_codigo_consumidor');
+    const infoLimites = document.getElementById('infoLimites');
+    const alertaLimites = document.getElementById('alertaLimites');
+    const btnGuardar = document.getElementById('btnGuardar');
+    const limiteSilicona = document.getElementById('limiteSilicona');
+    const limiteCintas = document.getElementById('limiteCintas');
+    const limiteAmarres = document.getElementById('limiteAmarres');
+    const limiteGrapas = document.getElementById('limiteGrapas');
+    
+    // Limpiar el selector de técnicos
+    if (selectTecnico) {
+        selectTecnico.value = '';
+    }
+    
+    // Ocultar paneles de información y alertas
+    if (infoLimites) infoLimites.style.display = 'none';
+    if (alertaLimites) alertaLimites.style.display = 'none';
+    
+    // Resetear valores de los campos de entrada usando un array para simplificar
+    const camposIds = ['silicona', 'cinta_aislante', 'amarres_negros', 'amarres_blancos', 'grapas_blancas', 'grapas_negras'];
+    camposIds.forEach(id => {
+        const campo = document.getElementById(id);
+        if (campo) {
+            campo.value = '0';
+            campo.classList.remove('border-success', 'border-danger', 'border-primary');
         }
-    })
-    .catch(error => {
-        Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'Error al procesar la solicitud'
-        });
     });
+    
+    // Resetear los indicadores de límites
+    [limiteSilicona, limiteCintas, limiteAmarres, limiteGrapas].forEach(limite => {
+        if (limite) {
+            limite.className = 'text-muted';
+            limite.textContent = '';
+        }
+    });
+    
+    // Habilitar el botón de guardar
+    if (btnGuardar) {
+        btnGuardar.disabled = false;
+        btnGuardar.title = '';
+    }
+    
+    // Establecer fecha actual por defecto
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    
+    const fechaInput = document.getElementById('fecha');
+    if (fechaInput) {
+        fechaInput.value = now.toISOString().slice(0, 16);
+    }
+    
+    console.log("Formulario y variables reseteados exitosamente");
+}
+
+function mostrarLimites() {
+    console.log("Función mostrarLimites() ejecutada");
+    
+    // Obtener elementos del DOM de una sola vez para mejor rendimiento
+    const selectTecnico = document.getElementById('id_codigo_consumidor');
+    const infoLimites = document.getElementById('infoLimites');
+    const contenidoLimites = document.getElementById('contenidoLimites');
+    const alertaLimites = document.getElementById('alertaLimites');
+    const btnGuardar = document.getElementById('btnGuardar');
+    
+    // Limpieza inicial
+    alertaLimites.style.display = 'none';
+    
+    // Reset de variables globales
+    limitesCintas = 0;
+    limitesSiliconas = 0;
+    limitesAmarres = 0;
+    limitesGrapas = 0;
+    
+    // Elementos para mostrar límites
+    const limiteSilicona = document.getElementById('limiteSilicona');
+    const limiteCintas = document.getElementById('limiteCintas');
+    const limiteAmarres = document.getElementById('limiteAmarres');
+    const limiteGrapas = document.getElementById('limiteGrapas');
+    
+    // Resetear los indicadores visuales de una vez
+    [limiteSilicona, limiteCintas, limiteAmarres, limiteGrapas].forEach(elemento => {
+        if (elemento) {
+            elemento.className = 'text-muted';
+            elemento.textContent = '';
+        }
+    });
+    
+    // Resetear los campos y valores
+    const camposIds = ['silicona', 'cinta_aislante', 'amarres_negros', 'amarres_blancos', 'grapas_blancas', 'grapas_negras'];
+    const campos = camposIds.map(id => document.getElementById(id));
+    
+    // Resetear valores a cero
+    campos.forEach(campo => {
+        if (campo) {
+            campo.value = '0';
+            campo.classList.remove('border-success', 'border-danger', 'border-primary');
+        }
+    });
+    
+    // Habilitar el botón de guardar
+    if (btnGuardar) {
+        btnGuardar.disabled = false;
+        btnGuardar.title = '';
+    }
+    
+    // Si no hay técnico seleccionado, ocultar panel de límites y salir
+    if (!selectTecnico || !selectTecnico.value) {
+        console.log("No se ha seleccionado ningún técnico");
+        if (infoLimites) infoLimites.style.display = 'none';
+        return;
+    }
+    
+    console.log("Técnico seleccionado:", selectTecnico.value);
+    const option = selectTecnico.options[selectTecnico.selectedIndex];
+    
+    // Verificaciones de seguridad
+    if (!option) {
+        console.error("No se encontró la opción seleccionada");
+        return;
+    }
+    
+    if (!option.dataset) {
+        console.error("El objeto dataset no está disponible");
+        return;
+    }
+    
+    // Extraer datos con valores por defecto para seguridad
+    const area = option.dataset.area || 'No definida';
+    const cintas = option.dataset.cintas || '0';
+    const periodoCintas = option.dataset.periodoCintas || 'No definido';
+    const siliconas = option.dataset.siliconas || '0';
+    const periodoSiliconas = option.dataset.periodoSiliconas || 'No definido';
+    const amarres = option.dataset.amarres || '0';
+    const periodoAmarres = option.dataset.periodoAmarres || 'No definido';
+    const grapas = option.dataset.grapas || '0';
+    const periodoGrapas = option.dataset.periodoGrapas || 'No definido';
+    const carpeta = option.dataset.carpeta || 'No asignada';
+    
+    console.log("Datos del técnico:", {
+        area, cintas, periodoCintas, siliconas, periodoSiliconas,
+        amarres, periodoAmarres, grapas, periodoGrapas, carpeta
+    });
+    
+    // Almacenar los límites en variables globales con conversión segura
+    limitesCintas = parseInt(cintas) || 0;
+    limitesSiliconas = parseInt(siliconas) || 0;
+    limitesAmarres = parseInt(amarres) || 0;
+    limitesGrapas = parseInt(grapas) || 0;
+    
+    // Preparar visualización del panel
+    if (infoLimites) {
+        infoLimites.style.opacity = '0';
+        infoLimites.style.display = 'block';
+        infoLimites.style.transition = 'opacity 0.5s ease';
+    }
+    
+    // Crear contenido HTML para el panel de información (mantenemos igual para no afectar el diseño)
+    if (contenidoLimites) {
+        contenidoLimites.innerHTML = `
+            <div class="mb-3">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <i class="fas fa-map-marker-alt fa-2x text-primary"></i>
+                    </div>
+                    <div>
+                        <h5 class="mb-1">Información del técnico</h5>
+                        <div>
+                            <span class="badge bg-primary">${area}</span>
+                            <span class="badge bg-info ms-2">${carpeta}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row fade-in-up" style="animation-delay: 0.1s">
+                <div class="col-md-6 mb-3">
+                    <div class="limits-card">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-tape limits-icon"></i>
+                            <div>
+                                <div class="limits-title">Cintas Aislantes</div>
+                                <div class="limits-value">${cintas} 
+                                    <span class="availability-indicator availability-high">Disponible</span>
+                                </div>
+                                <div class="limits-period">Periodo: ${periodoCintas}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <div class="limits-card">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-tint limits-icon"></i>
+                            <div>
+                                <div class="limits-title">Siliconas</div>
+                                <div class="limits-value">${siliconas} 
+                                    <span class="availability-indicator availability-high">Disponible</span>
+                                </div>
+                                <div class="limits-period">Periodo: ${periodoSiliconas}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row fade-in-up" style="animation-delay: 0.2s">
+                <div class="col-md-6 mb-3">
+                    <div class="limits-card">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-link limits-icon"></i>
+                            <div>
+                                <div class="limits-title">Amarres</div>
+                                <div class="limits-value">${amarres} 
+                                    <span class="availability-indicator availability-high">Disponible</span>
+                                </div>
+                                <div class="limits-period">Periodo: ${periodoAmarres}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <div class="limits-card">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-thumbtack limits-icon"></i>
+                            <div>
+                                <div class="limits-title">Grapas</div>
+                                <div class="limits-value">${grapas} 
+                                    <span class="availability-indicator availability-high">Disponible</span>
+                                </div>
+                                <div class="limits-period">Periodo: ${periodoGrapas}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <p class="mt-2 mb-0 text-center fade-in-up" style="animation-delay: 0.3s">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i> 
+                    Los límites se evalúan según la <strong>carpeta</strong> del técnico.
+                </small>
+            </p>
+        `;
+    }
+    
+    // Aplicar efecto de aparición
+    setTimeout(() => {
+        if (infoLimites) {
+            infoLimites.style.opacity = '1';
+        }
+    }, 50);
+    
+    // Inicializar los indicadores de límites con valores actualizados
+    if (limiteSilicona) {
+        limiteSilicona.className = 'text-success';
+        limiteSilicona.innerHTML = `<i class="fas fa-check-circle me-1"></i>Disponibles: ${limitesSiliconas} de ${limitesSiliconas}`;
+    }
+    
+    if (limiteCintas) {
+        limiteCintas.className = 'text-success';
+        limiteCintas.innerHTML = `<i class="fas fa-check-circle me-1"></i>Disponibles: ${limitesCintas} de ${limitesCintas}`;
+    }
+    
+    if (limiteAmarres) {
+        limiteAmarres.className = 'text-success';
+        limiteAmarres.innerHTML = `<i class="fas fa-check-circle me-1"></i>Disponibles: ${limitesAmarres} de ${limitesAmarres}`;
+    }
+    
+    if (limiteGrapas) {
+        limiteGrapas.className = 'text-success';
+        limiteGrapas.innerHTML = `<i class="fas fa-check-circle me-1"></i>Disponibles: ${limitesGrapas} de ${limitesGrapas}`;
+    }
+    
+    // Aplicar efecto de resaltado a los campos
+    campos.forEach(campo => {
+        if (campo) {
+            // Aplicar un efecto de borde sutil
+            campo.classList.add('border-primary');
+            
+            // Efecto de transición suave
+            setTimeout(() => {
+                campo.classList.remove('border-primary');
+            }, 1000);
+        }
+    });
+    
+    // Mostrar resumen detallado del stock disponible en consola
+    console.log(`---- STOCK DISPONIBLE PARA TÉCNICO ----`);
+    console.log(`Área: ${area}`);
+    console.log(`Carpeta: ${carpeta}`);
+    console.log(`Cintas: ${cintas} (${periodoCintas})`);
+    console.log(`Siliconas: ${siliconas} (${periodoSiliconas})`);
+    console.log(`Amarres: ${amarres} (${periodoAmarres})`);
+    console.log(`Grapas: ${grapas} (${periodoGrapas})`);
+}
+
+function actualizarLimites() {
+    // Verificar si se ha seleccionado un técnico
+    const selectTecnico = document.getElementById('id_codigo_consumidor');
+    if (!selectTecnico || !selectTecnico.value) return;
+    
+    // Obtener elementos del DOM de una sola vez
+    const inputSilicona = document.getElementById('silicona');
+    const inputCintas = document.getElementById('cinta_aislante');
+    const inputAmarresNegros = document.getElementById('amarres_negros');
+    const inputAmarresBlancos = document.getElementById('amarres_blancos');
+    const inputGrapasBlancas = document.getElementById('grapas_blancas');
+    const inputGrapasNegras = document.getElementById('grapas_negras');
+    const limiteSilicona = document.getElementById('limiteSilicona');
+    const limiteCintas = document.getElementById('limiteCintas');
+    const limiteAmarres = document.getElementById('limiteAmarres');
+    const limiteGrapas = document.getElementById('limiteGrapas');
+    const btnGuardar = document.getElementById('btnGuardar');
+    const alertaLimites = document.getElementById('alertaLimites');
+    const contenidoAlerta = document.getElementById('contenidoAlertaLimites');
+    
+    // Obtener valores actuales con conversión segura
+    const cintas = parseInt(inputCintas?.value) || 0;
+    const siliconas = parseInt(inputSilicona?.value) || 0;
+    const amarresNegros = parseInt(inputAmarresNegros?.value) || 0;
+    const amarresBlancos = parseInt(inputAmarresBlancos?.value) || 0;
+    const grapasBlancas = parseInt(inputGrapasBlancas?.value) || 0;
+    const grapasNegras = parseInt(inputGrapasNegras?.value) || 0;
+    
+    const totalAmarres = amarresNegros + amarresBlancos;
+    const totalGrapas = grapasBlancas + grapasNegras;
+    
+    // Validar cada límite y mostrar en rojo si se excede
+    let excedeAlgunLimite = false;
+    let mensajesError = [];
+    
+    // Función para actualizar el estilo de los campos según validación
+    function actualizarEstiloCampo(input, excedeLimite) {
+        if (!input) return;
+        
+        if (excedeLimite) {
+            input.classList.add('border-danger');
+            input.classList.remove('border-success');
+        } else if (input.value > 0) {
+            input.classList.add('border-success');
+            input.classList.remove('border-danger');
+        } else {
+            input.classList.remove('border-success', 'border-danger');
+        }
+    }
+    
+    // Función para actualizar indicador de límite
+    function actualizarIndicadorLimite(elemento, valor, limite, excede) {
+        if (!elemento) return;
+        
+        if (excede) {
+            elemento.className = 'text-danger fw-bold';
+            elemento.innerHTML = `<i class="fas fa-exclamation-circle me-1"></i>Excede el límite: ${valor}/${limite}`;
+            return true;
+        } else {
+            const porcentaje = limite > 0 ? (valor / limite) * 100 : 0;
+            const clase = porcentaje >= 80 ? 'text-warning' : 'text-success';
+            
+            elemento.className = clase;
+            elemento.innerHTML = `<i class="fas fa-check-circle me-1"></i>Disponibles: ${limite - valor} de ${limite}`;
+            return false;
+        }
+    }
+    
+    // Validar cintas
+    const excedeCintas = cintas > limitesCintas;
+    if (actualizarIndicadorLimite(limiteCintas, cintas, limitesCintas, excedeCintas)) {
+        mensajesError.push(`<li>Cintas: ${cintas} (límite: ${limitesCintas})</li>`);
+        excedeAlgunLimite = true;
+    }
+    actualizarEstiloCampo(inputCintas, excedeCintas);
+    
+    // Validar siliconas
+    const excedeSiliconas = siliconas > limitesSiliconas;
+    if (actualizarIndicadorLimite(limiteSilicona, siliconas, limitesSiliconas, excedeSiliconas)) {
+        mensajesError.push(`<li>Siliconas: ${siliconas} (límite: ${limitesSiliconas})</li>`);
+        excedeAlgunLimite = true;
+    }
+    actualizarEstiloCampo(inputSilicona, excedeSiliconas);
+    
+    // Validar amarres
+    const excedeAmarres = totalAmarres > limitesAmarres;
+    if (actualizarIndicadorLimite(limiteAmarres, totalAmarres, limitesAmarres, excedeAmarres)) {
+        mensajesError.push(`<li>Amarres: ${totalAmarres} (límite: ${limitesAmarres})</li>`);
+        excedeAlgunLimite = true;
+    }
+    actualizarEstiloCampo(inputAmarresNegros, excedeAmarres);
+    actualizarEstiloCampo(inputAmarresBlancos, excedeAmarres);
+    
+    // Validar grapas
+    const excedeGrapas = totalGrapas > limitesGrapas;
+    if (actualizarIndicadorLimite(limiteGrapas, totalGrapas, limitesGrapas, excedeGrapas)) {
+        mensajesError.push(`<li>Grapas: ${totalGrapas} (límite: ${limitesGrapas})</li>`);
+        excedeAlgunLimite = true;
+    }
+    actualizarEstiloCampo(inputGrapasBlancas, excedeGrapas);
+    actualizarEstiloCampo(inputGrapasNegras, excedeGrapas);
+    
+    // Mostrar alerta si se excede algún límite
+    if (alertaLimites) {
+        if (excedeAlgunLimite) {
+            alertaLimites.style.opacity = '0';
+            alertaLimites.style.display = 'block';
+            
+            // Obtener la carpeta del técnico seleccionado
+            const option = selectTecnico.options[selectTecnico.selectedIndex];
+            const carpeta = option?.dataset?.carpeta || 'No asignada';
+            
+            if (contenidoAlerta) {
+                contenidoAlerta.innerHTML = `
+                    <p>Las siguientes cantidades exceden los límites disponibles para la carpeta <strong>${carpeta}</strong>:</p>
+                    <ul>${mensajesError.join('')}</ul>
+                `;
+            }
+            
+            // Aplicar efecto de aparición a la alerta
+            setTimeout(() => {
+                alertaLimites.style.transition = 'opacity 0.3s';
+                alertaLimites.style.opacity = '1';
+            }, 50);
+            
+            if (btnGuardar) {
+                btnGuardar.disabled = true;
+                btnGuardar.title = 'No se puede guardar porque se exceden los límites permitidos';
+                
+                // Efecto de vibración suave en el botón para indicar que está deshabilitado
+                btnGuardar.classList.add('btn-shake');
+                setTimeout(() => {
+                    btnGuardar.classList.remove('btn-shake');
+                }, 500);
+            }
+        } else {
+            alertaLimites.style.display = 'none';
+            if (btnGuardar) {
+                btnGuardar.disabled = false;
+                btnGuardar.title = '';
+            }
+        }
+    }
+}
+
+// Función auxiliar para mostrar overlay de carga
+function mostrarOverlayCarga(mensaje = 'Cargando...') {
+    // Eliminar cualquier overlay existente primero
+    const existingOverlay = document.querySelector('.loading-overlay');
+    if (existingOverlay) existingOverlay.remove();
+    
+    // Crear nuevo overlay
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'loading-overlay';
+    loadingOverlay.innerHTML = `
+        <div class="loading-content">
+            <div class="spinner-border text-primary loading-spinner" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <span class="loading-text">${mensaje}</span>
+        </div>
+    `;
+    document.body.appendChild(loadingOverlay);
+    return loadingOverlay;
 }
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log("=== INICIALIZACIÓN DE LA PÁGINA FERRETERO ===");
+    
+    // Inicializar campos númericos para evitar valores negativos
+    const camposNumericos = [
+        document.getElementById('silicona'),
+        document.getElementById('cinta_aislante'),
+        document.getElementById('amarres_negros'),
+        document.getElementById('amarres_blancos'),
+        document.getElementById('grapas_blancas'),
+        document.getElementById('grapas_negras')
+    ];
+    
+    camposNumericos.forEach(campo => {
+        if (campo) {
+            campo.addEventListener('input', function() {
+                // Asegurarse de que no sea un valor negativo
+                if (this.value < 0) {
+                    this.value = 0;
+                }
+                // Convertir a entero
+                if (this.value !== '') {
+                    this.value = parseInt(this.value);
+                }
+            });
+        }
+    });
+    
     // Inicializar DataTable
     $('#tablaFerretero').DataTable({
         language: {
@@ -181,7 +875,238 @@ document.addEventListener('DOMContentLoaded', function() {
     // Establecer fecha actual por defecto
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    document.getElementById('fecha').value = now.toISOString().slice(0, 16);
+    
+    const fechaInput = document.getElementById('fecha');
+    if (fechaInput) {
+        fechaInput.value = now.toISOString().slice(0, 16);
+    }
+    
+    // Configurar evento para reiniciar el modal cuando se abre
+    const btnNuevaAsignacion = document.getElementById('btnNuevaAsignacion');
+    const modalAsignacion = document.getElementById('modalAsignacion');
+    
+    if (btnNuevaAsignacion && modalAsignacion) {
+        btnNuevaAsignacion.addEventListener('click', function() {
+            console.log("Botón Nueva Asignación presionado - Reiniciando modal");
+            resetearFormularioAsignacion();
+        });
+        
+        // Evento que se dispara justo antes de que se muestre el modal
+        modalAsignacion.addEventListener('show.bs.modal', function () {
+            console.log("Modal a punto de mostrarse - Preparando inicialización");
+            resetearFormularioAsignacion();
+            limpiarElementosResiduales();
+        });
+        
+        // Evento que se dispara cuando el modal se ha mostrado completamente
+        modalAsignacion.addEventListener('shown.bs.modal', function () {
+            console.log("Modal mostrado completamente - Inicializando componentes");
+            modalInicializado = true;
+            
+            // Forzar la inicialización del selector de técnicos
+            const selectTecnico = document.getElementById('id_codigo_consumidor');
+            if (selectTecnico) {
+                // Eliminar y volver a añadir el evento change
+                selectTecnico.removeEventListener('change', mostrarLimites);
+                selectTecnico.addEventListener('change', mostrarLimites);
+                console.log("Evento change establecido para el selector de técnicos");
+                
+                // Reiniciar la selección
+                selectTecnico.value = '';
+                
+                // Añadir un botón para recargar los límites (para casos problemáticos)
+                const formGroup = selectTecnico.closest('.mb-3');
+                if (formGroup) {
+                    // Verificar si ya existe el botón
+                    let btnExistente = document.getElementById('btnRecargarLimites');
+                    if (!btnExistente) {
+                        const btnRecargar = document.createElement('button');
+                        btnRecargar.id = 'btnRecargarLimites';
+                        btnRecargar.type = 'button';
+                        btnRecargar.className = 'btn btn-sm btn-outline-secondary mt-2';
+                        btnRecargar.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Recargar límites';
+                        btnRecargar.addEventListener('click', function() {
+                            if (selectTecnico.value) {
+                                console.log("Recargando límites manualmente");
+                                mostrarLimites();
+                            } else {
+                                console.log("No hay técnico seleccionado para recargar límites");
+                                Swal.fire({
+                                    icon: 'info',
+                                    title: 'Selecciona un técnico',
+                                    text: 'Debes seleccionar un técnico primero para ver sus límites.',
+                                    timer: 3000,
+                                    showConfirmButton: false
+                                });
+                            }
+                        });
+                        formGroup.appendChild(btnRecargar);
+                        console.log("Botón de recarga de límites añadido");
+                    }
+                }
+            }
+        });
+        
+        // Evento que se dispara cuando el modal se ha ocultado completamente
+        modalAsignacion.addEventListener('hidden.bs.modal', function () {
+            console.log("Modal ocultado - Limpiando recursos");
+            modalInicializado = false;
+            
+            // Limpiar elementos residuales
+            limpiarElementosResiduales();
+            
+            // Verificar si necesitamos recargar la página
+            if (!isRedirecting) {
+                console.log("Preparando recarga de página");
+                // Mostrar un nuevo overlay de carga
+                mostrarOverlayCarga('Recalculando límites...');
+                
+                // Recargar la página después de un breve retraso
+                setTimeout(() => {
+                    console.log("Recargando página");
+                    window.location.reload();
+                }, 500);
+            }
+        });
+        
+        // Añadir eventos para todos los elementos del formulario
+        const formFerretero = document.getElementById('formFerretero');
+        if (formFerretero) {
+            // Evitar que el formulario se envíe al presionar Enter
+            formFerretero.addEventListener('submit', function(e) {
+                e.preventDefault();
+                console.log("Envío del formulario interceptado");
+                return false;
+            });
+        }
+        
+        // Añadir un evento para limpiar cualquier backdrop residual cuando se cierre el modal con el botón X
+        const btnCerrarModal = modalAsignacion.querySelector('.btn-close');
+        if (btnCerrarModal) {
+            btnCerrarModal.addEventListener('click', function() {
+                console.log("Botón de cierre del modal presionado");
+                setTimeout(limpiarElementosResiduales, 500);
+            });
+        }
+    }
 });
+
+function registrarAsignacion() {
+    console.log("Iniciando registro de asignación");
+    
+    // Verificar que se haya seleccionado un técnico
+    const selectTecnico = document.getElementById('id_codigo_consumidor');
+    if (!selectTecnico || !selectTecnico.value) {
+        console.error("No se ha seleccionado un técnico");
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Debes seleccionar un técnico para realizar la asignación.'
+        });
+        return;
+    }
+    
+    const formData = new FormData(document.getElementById('formFerretero'));
+    
+    // Mostrar indicador de carga en el botón
+    const btnGuardar = document.getElementById('btnGuardar');
+    const btnText = btnGuardar.innerHTML;
+    if (btnGuardar) {
+        btnGuardar.disabled = true;
+        btnGuardar.innerHTML = `
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            Guardando...
+        `;
+    }
+    
+    console.log("Enviando datos al servidor");
+    fetch('/logistica/registrar_ferretero', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        console.log("Respuesta recibida del servidor");
+        return response.json();
+    })
+    .then(data => {
+        // Restaurar el botón
+        if (btnGuardar) {
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = btnText;
+        }
+        
+        if (data.status === 'success') {
+            console.log("Registro exitoso:", data.message);
+            
+            Swal.fire({
+                icon: 'success',
+                title: '¡Éxito!',
+                text: data.message,
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                // Indicar que estamos en proceso de redirección
+                isRedirecting = true;
+                console.log("Preparando cierre del modal y redirección");
+                
+                // Limpiar elementos residuales
+                limpiarElementosResiduales();
+                
+                // Cerrar el modal correctamente
+                const modalAsignacion = document.getElementById('modalAsignacion');
+                const modal = bootstrap.Modal.getInstance(modalAsignacion);
+                
+                if (modal) {
+                    console.log("Cerrando modal");
+                    modal.hide();
+                }
+                
+                // Mostrar overlay y redirigir
+                mostrarOverlayCarga('Actualizando asignaciones...');
+                
+                // Redirigir directamente a la página de ferretero después de un breve retraso
+                setTimeout(() => {
+                    console.log("Redirigiendo a página de ferretero");
+                    window.location.href = '/logistica/ferretero';
+                }, 300);
+            });
+        } else {
+            console.error("Error en el registro:", data.message);
+            
+            // Mostrar mensaje de error detallado
+            let mensaje = data.message;
+            
+            // Si hay detalles, mostrarlos en formato de lista
+            if (data.detalles && data.detalles.length > 0) {
+                mensaje += '<ul class="text-left mt-3">';
+                data.detalles.forEach(detalle => {
+                    mensaje += `<li>${detalle}</li>`;
+                });
+                mensaje += '</ul>';
+            }
+            
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                html: mensaje
+            });
+        }
+    })
+    .catch(error => {
+        console.error("Error en la solicitud:", error);
+        
+        // Restaurar el botón
+        if (btnGuardar) {
+            btnGuardar.disabled = false;
+            btnGuardar.innerHTML = btnText;
+        }
+        
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al procesar la solicitud. Por favor, inténtalo de nuevo.'
+        });
+    });
+}
 </script>
 {% endblock %} 
