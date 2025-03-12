@@ -329,6 +329,49 @@
     </div>
 </div>
 
+<!-- Modal para la firma de asignación -->
+<div class="modal fade" id="modalFirma" tabindex="-1" aria-labelledby="modalFirmaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalFirmaLabel">Firma de Asignación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <canvas id="signature-pad" class="signature-pad" width=400 height=200 style="border: 1px solid #000000;"></canvas>
+                <button id="clear" class="btn btn-secondary mt-2">Limpiar</button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="saveSignature">Guardar Firma</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+<script>
+    const canvas = document.getElementById('signature-pad');
+    const signaturePad = new SignaturePad(canvas);
+
+    document.getElementById('clear').addEventListener('click', function () {
+        signaturePad.clear();
+    });
+
+    document.getElementById('saveSignature').addEventListener('click', function () {
+        if (signaturePad.isEmpty()) {
+            alert('Por favor, realice la firma antes de guardar.');
+        } else {
+            const dataURL = signaturePad.toDataURL();
+            // Aquí se enviaría la firma al servidor para guardarla en la base de datos
+            console.log('Firma guardada:', dataURL);
+            // Cerrar el modal después de guardar
+            const modalFirma = bootstrap.Modal.getInstance(document.getElementById('modalFirma'));
+            modalFirma.hide();
+        }
+    });
+</script>
+
 {% endblock %}
 
 {% block scripts %}

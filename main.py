@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file, make_response
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
@@ -12,6 +12,21 @@ import io
 from collections import defaultdict
 import calendar
 import pytz
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.colors import blue
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from io import BytesIO
+import jwt
+import logging
+import base64
+import re
+import tempfile
+from PIL import Image as PILImage
 
 load_dotenv()
 
@@ -27,6 +42,15 @@ TIMEZONE = pytz.timezone('America/Bogota')
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
+
+# Configuración de logging
+logging.basicConfig(level=logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+))
+app.logger.addHandler(handler)
+app.logger.setLevel(logging.INFO)
 
 # Database configuration
 db_config = {
@@ -139,70 +163,128 @@ def register():
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password'].encode('utf-8')
+        # Añadir logging para depuración
+        app.logger.info("Intento de inicio de sesión recibido")
+        
+        # Obtener credenciales del formulario
+        username = request.form.get('username', '')
+        password = request.form.get('password', '').encode('utf-8')
+        
+        # Validación básica
+        if not username or not password:
+            app.logger.warning("Intento de inicio de sesión con campos vacíos")
+            return jsonify({
+                'status': 'error', 
+                'message': 'Por favor ingrese usuario y contraseña'
+            }), 400
 
+        connection = None
+        cursor = None
         try:
+            # Intentar conexión a la base de datos
+            app.logger.info(f"Intentando conectar a la base de datos para usuario: {username}")
             connection = get_db_connection()
+            
             if connection is None:
-                return jsonify({'status': 'error', 'message': 'Error de conexión a la base de datos'}), 500
+                app.logger.error("Error al conectar con la base de datos")
+                return jsonify({
+                    'status': 'error', 
+                    'message': 'Error de conexión a la base de datos. Por favor intente más tarde.'
+                }), 500
                 
             cursor = connection.cursor(dictionary=True)
+            
+            # Buscar usuario
+            app.logger.info(f"Consultando usuario con cedula: {username}")
             cursor.execute("SELECT id_codigo_consumidor, id_roles, recurso_operativo_password, nombre FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (username,))
             user = cursor.fetchone()
 
-            if user:
-                stored_password = user['recurso_operativo_password']
-                if isinstance(stored_password, str):
-                    stored_password = stored_password.encode('utf-8')
+            # Verificar si el usuario existe
+            if not user:
+                app.logger.warning(f"Usuario no encontrado: {username}")
+                return jsonify({
+                    'status': 'error', 
+                    'message': 'Usuario o contraseña inválidos'
+                }), 401
+            
+            # Verificar contraseña
+            app.logger.info("Verificando contraseña")
+            stored_password = user['recurso_operativo_password']
+            
+            # Asegurar que stored_password es bytes
+            if isinstance(stored_password, str):
+                stored_password = stored_password.encode('utf-8')
+            
+            # Verificar si el hash está en formato correcto
+            if not stored_password.startswith(b'$2b$') and not stored_password.startswith(b'$2a$'):
+                app.logger.error(f"Formato de contraseña inválido para usuario: {username}")
+                return jsonify({
+                    'status': 'error', 
+                    'message': 'Error en el formato de la contraseña almacenada. Contacte al administrador.'
+                }), 500
+            
+            try:
+                # Verificar contraseña con bcrypt
                 if bcrypt.checkpw(password, stored_password):
+                    app.logger.info(f"Inicio de sesión exitoso para: {username}")
+                    
+                    # Establecer variables de sesión
                     session['user_id'] = user['id_codigo_consumidor']
                     session['user_role'] = ROLES.get(str(user['id_roles']))
                     session['user_name'] = user['nombre']
+                    
+                    app.logger.info(f"Sesión establecida: ID={user['id_codigo_consumidor']}, Rol={ROLES.get(str(user['id_roles']))}")
 
                     # Verificar vencimientos para el usuario
-                    cursor.execute("""
-                        SELECT 
-                            fecha_vencimiento_licencia,
-                            fecha_vencimiento_soat,
-                            fecha_vencimiento_tecnomecanica
-                        FROM preoperacional 
-                        WHERE id_codigo_consumidor = %s
-                        ORDER BY fecha DESC 
-                        LIMIT 1
-                    """, (user['id_codigo_consumidor'],))
+                    try:
+                        cursor.execute("""
+                            SELECT 
+                                fecha_vencimiento_licencia,
+                                fecha_vencimiento_soat,
+                                fecha_vencimiento_tecnomecanica
+                            FROM preoperacional 
+                            WHERE id_codigo_consumidor = %s
+                            ORDER BY fecha DESC 
+                            LIMIT 1
+                        """, (user['id_codigo_consumidor'],))
+                        
+                        ultimo_registro = cursor.fetchone()
+                        if ultimo_registro:
+                            fecha_actual = datetime.now().date()
+                            mensajes_vencimiento = []
+                            
+                            if ultimo_registro['fecha_vencimiento_licencia']:
+                                dias_licencia = (ultimo_registro['fecha_vencimiento_licencia'] - fecha_actual).days
+                                if 0 <= dias_licencia <= 30:
+                                    mensajes_vencimiento.append(f'Tu licencia de conducción vence en {dias_licencia} días')
+                            
+                            if ultimo_registro['fecha_vencimiento_soat']:
+                                dias_soat = (ultimo_registro['fecha_vencimiento_soat'] - fecha_actual).days
+                                if 0 <= dias_soat <= 30:
+                                    mensajes_vencimiento.append(f'El SOAT vence en {dias_soat} días')
+                            
+                            if ultimo_registro['fecha_vencimiento_tecnomecanica']:
+                                dias_tecno = (ultimo_registro['fecha_vencimiento_tecnomecanica'] - fecha_actual).days
+                                if 0 <= dias_tecno <= 30:
+                                    mensajes_vencimiento.append(f'La tecnomecánica vence en {dias_tecno} días')
+                            
+                            if mensajes_vencimiento:
+                                flash('¡ATENCIÓN! ' + '. '.join(mensajes_vencimiento), 'warning')
+                    except Exception as e:
+                        app.logger.error(f"Error al verificar vencimientos: {str(e)}")
+                        # No bloqueamos el inicio de sesión por este error
                     
-                    ultimo_registro = cursor.fetchone()
-                    if ultimo_registro:
-                        fecha_actual = datetime.now().date()
-                        mensajes_vencimiento = []
-                        
-                        if ultimo_registro['fecha_vencimiento_licencia']:
-                            dias_licencia = (ultimo_registro['fecha_vencimiento_licencia'] - fecha_actual).days
-                            if 0 <= dias_licencia <= 30:
-                                mensajes_vencimiento.append(f'Tu licencia de conducción vence en {dias_licencia} días')
-                        
-                        if ultimo_registro['fecha_vencimiento_soat']:
-                            dias_soat = (ultimo_registro['fecha_vencimiento_soat'] - fecha_actual).days
-                            if 0 <= dias_soat <= 30:
-                                mensajes_vencimiento.append(f'El SOAT vence en {dias_soat} días')
-                        
-                        if ultimo_registro['fecha_vencimiento_tecnomecanica']:
-                            dias_tecno = (ultimo_registro['fecha_vencimiento_tecnomecanica'] - fecha_actual).days
-                            if 0 <= dias_tecno <= 30:
-                                mensajes_vencimiento.append(f'La tecnomecánica vence en {dias_tecno} días')
-                        
-                        if mensajes_vencimiento:
-                            flash('¡ATENCIÓN! ' + '. '.join(mensajes_vencimiento), 'warning')
-
-                    cursor.close()
-                    connection.close()
+                    # Cerrar conexión a la base de datos
+                    if cursor:
+                        cursor.close()
+                    if connection:
+                        connection.close()
 
                     # Si la solicitud espera JSON, devolver respuesta JSON
                     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                         return jsonify({
                             'status': 'success',
-                            'message': 'Login successful',
+                            'message': 'Inicio de sesión exitoso',
                             'user_id': user['id_codigo_consumidor'],
                             'user_role': ROLES.get(str(user['id_roles'])),
                             'user_name': user['nombre'],
@@ -211,13 +293,42 @@ def login():
                     # Si es una solicitud normal, redirigir
                     return redirect(url_for('dashboard'))
                 else:
-                    return jsonify({'status': 'error', 'message': 'Usuario o contraseña inválidos'}), 401
-            else:
-                return jsonify({'status': 'error', 'message': 'Usuario o contraseña inválidos'}), 401
+                    app.logger.warning(f"Contraseña incorrecta para usuario: {username}")
+                    return jsonify({
+                        'status': 'error', 
+                        'message': 'Usuario o contraseña inválidos'
+                    }), 401
+            except Exception as e:
+                app.logger.error(f"Error al verificar contraseña: {str(e)}")
+                return jsonify({
+                    'status': 'error', 
+                    'message': 'Error al verificar credenciales. Intente nuevamente.'
+                }), 500
 
-        except Error as e:
-            return jsonify({'status': 'error', 'message': str(e)}), 500
+        except mysql.connector.Error as e:
+            app.logger.error(f"Error de MySQL: {str(e)}")
+            return jsonify({
+                'status': 'error', 
+                'message': f'Error de base de datos: {str(e)}'
+            }), 500
+        except Exception as e:
+            app.logger.error(f"Error inesperado: {str(e)}")
+            # Imprimir stack trace para depuración
+            import traceback
+            app.logger.error(traceback.format_exc())
+            return jsonify({
+                'status': 'error', 
+                'message': 'Error interno del servidor. Por favor contacte al administrador.'
+            }), 500
+        finally:
+            # Asegurarse de cerrar los recursos
+            if cursor:
+                cursor.close()
+            if connection:
+                connection.close()
+            app.logger.info("Recursos de base de datos liberados")
 
+    # Para solicitudes GET simplemente mostrar la plantilla de login
     return render_template('login.html')
 
 @app.route('/logout', methods=['GET', 'POST'])
@@ -2855,6 +2966,1090 @@ def exportar_automotor_csv():
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
+
+@app.route('/logistica/ultima_asignacion')
+@login_required()
+@role_required('logistica')
+def obtener_ultima_asignacion():
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener la última asignación creada (por ID, asumiendo que es autoincremental)
+        cursor.execute("""
+            SELECT id_asignacion 
+            FROM asignacion 
+            ORDER BY id_asignacion DESC 
+            LIMIT 1
+        """)
+        
+        resultado = cursor.fetchone()
+        
+        if resultado:
+            return jsonify({
+                'status': 'success',
+                'id_asignacion': resultado['id_asignacion'],
+                'message': 'Última asignación encontrada'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'No se encontraron asignaciones'
+            }), 404
+
+    except mysql.connector.Error as e:
+        print(f"Error MySQL: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error en la base de datos: {str(e)}'
+        }), 500
+    except Exception as e:
+        print(f"Error general: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al obtener la última asignación: {str(e)}'
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/logistica/registrar_asignacion_con_firma', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def registrar_asignacion_con_firma():
+    connection = None
+    cursor = None
+    try:
+        # Obtener datos básicos
+        id_codigo_consumidor = request.form.get('id_codigo_consumidor')
+        fecha = request.form.get('fecha')
+        cargo = request.form.get('cargo')
+        firma = request.form.get('firma')
+        id_asignador = request.form.get('id_asignador')
+
+        # Validar campos requeridos
+        if not all([id_codigo_consumidor, fecha, cargo, firma, id_asignador]):
+            return jsonify({
+                'status': 'error',
+                'message': 'Faltan campos requeridos para la asignación con firma'
+            }), 400
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+
+        cursor = connection.cursor(dictionary=True)
+
+        # Verificar que el técnico existe
+        cursor.execute('SELECT nombre FROM recurso_operativo WHERE id_codigo_consumidor = %s', (id_codigo_consumidor,))
+        tecnico = cursor.fetchone()
+        
+        if not tecnico:
+            return jsonify({
+                'status': 'error',
+                'message': 'El técnico seleccionado no existe'
+            }), 404
+
+        # Obtener la estructura de la tabla
+        cursor.execute("""
+            SELECT COLUMN_NAME 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'asignacion'
+        """)
+        columnas_existentes = {row['COLUMN_NAME'].lower() for row in cursor.fetchall()}
+        
+        print("Columnas existentes:", columnas_existentes)  # Debug log
+
+        # Campos base que siempre deben existir
+        campos = ['id_codigo_consumidor', 'asignacion_fecha', 'asignacion_cargo']
+        valores = [id_codigo_consumidor, fecha, cargo]
+
+        # Lista de todas las herramientas posibles
+        herramientas = [
+            'adaptador_mandril', 'alicate', 'barra_45cm', 'bisturi_metalico',
+            'broca_3_8', 'broca_386_ran', 'broca_126_ran',
+            'broca_metalmadera_14', 'broca_metalmadera_38', 'broca_metalmadera_516',
+            'caja_de_herramientas', 'cajon_rojo', 'cinta_de_senal', 'cono_retractil',
+            'cortafrio', 'destor_de_estrella', 'destor_de_pala', 'destor_tester',
+            'espatula', 'exten_de_corr_10_mts', 'llave_locking_male', 'llave_reliance',
+            'llave_torque_rg_11', 'llave_torque_rg_6', 'llaves_mandril',
+            'mandril_para_taladro', 'martillo_de_una', 'multimetro',
+            'pelacable_rg_6y_rg_11', 'pinza_de_punta', 'pistola_de_silicona',
+            'planillero', 'ponchadora_rg_6_y_rg_11', 'ponchadora_rj_45_y_rj11',
+            'probador_de_tonos', 'probador_de_tonos_utp', 'puntas_para_multimetro',
+            'sonda_metalica', 'tacos_de_madera', 'taladro_percutor',
+            'telefono_de_pruebas', 'power_miter', 'bfl_laser', 'cortadora',
+            'stripper_fibra', 'pelachaqueta'
+        ]
+
+        # Procesar cada herramienta
+        for herramienta in herramientas:
+            nombre_campo = f'asignacion_{herramienta}'
+            if nombre_campo.lower() in columnas_existentes:
+                campos.append(nombre_campo)
+                valor = request.form.get(herramienta, '0')
+                valores.append(valor if valor == '1' else '0')
+            else:
+                print(f"Campo ignorado (no existe en la tabla): {nombre_campo}")
+
+        # Agregar estado por defecto si existe la columna
+        if 'asignacion_estado' in columnas_existentes:
+            campos.append('asignacion_estado')
+            valores.append('1')
+            
+        # Agregar campos de firma y asignador
+        if 'asignacion_firma' in columnas_existentes:
+            campos.append('asignacion_firma')
+            valores.append(firma)
+            
+        if 'id_asignador' in columnas_existentes:
+            campos.append('id_asignador')
+            valores.append(id_asignador)
+
+        # Construir y ejecutar la consulta SQL
+        sql = f"""
+            INSERT INTO asignacion ({', '.join(campos)})
+            VALUES ({', '.join(['%s'] * len(valores))})
+        """
+        
+        print("SQL Query:", sql)  # Debug log
+        print("Valores:", valores)  # Debug log
+
+        cursor.execute(sql, tuple(valores))
+        connection.commit()
+        
+        # Obtener el ID de la asignación recién creada
+        cursor.execute("SELECT LAST_INSERT_ID() as id_asignacion")
+        id_asignacion = cursor.fetchone()['id_asignacion']
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Asignación con firma registrada exitosamente',
+            'id_asignacion': id_asignacion
+        }), 201
+
+    except mysql.connector.Error as e:
+        print(f"Error MySQL: {str(e)}")  # Debug log
+        return jsonify({
+            'status': 'error',
+            'message': f'Error en la base de datos: {str(e)}'
+        }), 500
+    except Exception as e:
+        print(f"Error general: {str(e)}")  # Debug log
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al registrar la asignación con firma: {str(e)}'
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/logistica/guardar_firma', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def guardar_firma():
+    connection = None
+    cursor = None
+    try:
+        # Obtener datos del JSON
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'status': 'error',
+                'message': 'No se recibieron datos JSON'
+            }), 400
+            
+        id_asignacion = data.get('id_asignacion')
+        firma = data.get('firma')
+        id_asignador = data.get('id_asignador')
+
+        # Validar campos requeridos
+        if not all([id_asignacion, firma, id_asignador]):
+            return jsonify({
+                'status': 'error',
+                'message': 'Faltan campos requeridos (id_asignacion, firma, id_asignador)'
+            }), 400
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+
+        cursor = connection.cursor(dictionary=True)
+
+        # Verificar que la asignación existe
+        cursor.execute('SELECT id_asignacion FROM asignacion WHERE id_asignacion = %s', (id_asignacion,))
+        asignacion = cursor.fetchone()
+        
+        if not asignacion:
+            return jsonify({
+                'status': 'error',
+                'message': 'La asignación no existe'
+            }), 404
+
+        # Actualizar la asignación con la firma
+        cursor.execute("""
+            UPDATE asignacion 
+            SET asignacion_firma = %s, id_asignador = %s 
+            WHERE id_asignacion = %s
+        """, (firma, id_asignador, id_asignacion))
+        
+        connection.commit()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Firma guardada exitosamente'
+        })
+
+    except mysql.connector.Error as e:
+        print(f"Error MySQL: {str(e)}")  # Debug log
+        return jsonify({
+            'status': 'error',
+            'message': f'Error en la base de datos: {str(e)}'
+        }), 500
+    except Exception as e:
+        print(f"Error general: {str(e)}")  # Debug log
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al guardar la firma: {str(e)}'
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/logistica/guardar_asignacion', methods=['POST'])
+def guardar_asignacion():
+    connection = None
+    cursor = None
+    try:
+        # Obtener datos básicos del formulario
+        id_codigo_consumidor = request.form.get('id_codigo_consumidor')
+        fecha = request.form.get('fecha')
+        cargo = request.form.get('cargo')
+        
+        # Validar datos requeridos
+        if not id_codigo_consumidor or not fecha or not cargo:
+            return jsonify({
+                'status': 'error',
+                'message': 'Faltan campos obligatorios'
+            }), 400
+            
+        # Obtener conexión a la base de datos
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error al conectar con la base de datos'
+            }), 500
+            
+        # Obtener información del técnico desde la base de datos
+        query_tecnico = """
+            SELECT nombre, recurso_operativo_cedula 
+            FROM recurso_operativo
+            WHERE id_codigo_consumidor = %s
+        """
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(query_tecnico, (id_codigo_consumidor,))
+        tecnico = cursor.fetchone()
+        
+        if not tecnico:
+            return jsonify({
+                'status': 'error',
+                'message': 'Técnico no encontrado'
+            }), 404
+        
+        # Convertir fecha a formato datetime
+        try:
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%dT%H:%M')
+            fecha_formateada = fecha_obj.strftime('%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return jsonify({
+                'status': 'error',
+                'message': 'Formato de fecha inválido'
+            }), 400
+            
+        # Mapeo entre nombres de campos del formulario y nombres de campos en la base de datos (sin prefijo)
+        mapeo_herramientas = {
+            'adaptador_mandril': 'adaptador_mandril',
+            'alicate': 'alicate',
+            'barra_45cm': 'barra_45cm',
+            'bisturi_metalico': 'bisturi_metalico',
+            # Para las brocas, usamos nombres sin caracteres especiales
+            'broca_3_8': 'broca_38',
+            'broca_386_ran': 'broca_386_ran',
+            'broca_126_ran': 'broca_126_ran',
+            'broca_metalmadera_14': 'broca_metalmadera_14',
+            'broca_metalmadera_38': 'broca_metalmadera_38',
+            'broca_metalmadera_516': 'broca_metalmadera_516',
+            'caja_de_herramientas': 'caja_de_herramientas',
+            'cajon_rojo': 'cajon_rojo',
+            'cinta_de_senal': 'cinta_de_senal',
+            'cono_retractil': 'cono_retractil',
+            'cortafrio': 'cortafrio',
+            'destor_de_estrella': 'destor_de_estrella',
+            'destor_de_pala': 'destor_de_pala',
+            'destor_tester': 'destor_tester',
+            'espatula': 'espatula',
+            'exten_de_corr_10_mts': 'exten_de_corr_10_mts',
+            'llave_locking_male': 'llave_locking_male',
+            'llave_reliance': 'llave_reliance',
+            'llave_torque_rg_11': 'llave_torque_rg_11',
+            'llave_torque_rg_6': 'llave_torque_rg_6',
+            'llaves_mandril': 'llaves_mandril',
+            'mandril_para_taladro': 'mandril_para_taladro',
+            'martillo_de_una': 'martillo_de_una',
+            'multimetro': 'multimetro',
+            'pelacable_rg_6y_rg_11': 'pelacable_rg_6y_rg_11',
+            'pinza_de_punta': 'pinza_de_punta',
+            'pistola_de_silicona': 'pistola_de_silicona',
+            'planillero': 'planillero',
+            'ponchadora_rg_6_y_rg_11': 'ponchadora_rg_6_y_rg_11',
+            'ponchadora_rj_45_y_rj11': 'ponchadora_rj_45_y_rj11',
+            'probador_de_tonos': 'probador_de_tonos',
+            'probador_de_tonos_utp': 'probador_de_tonos_utp',
+            'puntas_para_multimetro': 'puntas_para_multimetro',
+            'sonda_metalica': 'sonda_metalica',
+            'tacos_de_madera': 'tacos_de_madera',
+            'taladro_percutor': 'taladro_percutor',
+            'telefono_de_pruebas': 'telefono_de_pruebas',
+            'power_miter': 'power_miter',
+            'bfl_laser': 'bfl_laser',
+            'cortadora': 'cortadora',
+            'stripper_fibra': 'stripper_fibra',
+            'pelachaqueta': 'pelachaqueta'
+        }
+            
+        # Construir los valores para la consulta
+        valores = {
+            'id_codigo_consumidor': id_codigo_consumidor,
+            'cedula': tecnico['recurso_operativo_cedula'],
+            'nombre': tecnico['nombre'],
+            'fecha': fecha_formateada,
+            'cargo': cargo,
+            'estado': '1'  # Activo por defecto
+        }
+        
+        # Agregar herramientas con valor '0' por defecto
+        for clave_form, clave_db in mapeo_herramientas.items():
+            valores[clave_db] = '0'
+        
+        # Actualizar valores según lo seleccionado en el formulario
+        for nombre_campo, valor in request.form.items():
+            if nombre_campo in mapeo_herramientas and valor == '1':
+                clave_db = mapeo_herramientas[nombre_campo]
+                valores[clave_db] = '1'
+        
+        # Construir la consulta SQL
+        nombres_columnas = []
+        placeholders = []
+        valores_lista = []
+        
+        # Campo id_codigo_consumidor (sin prefijo)
+        nombres_columnas.append('id_codigo_consumidor')
+        placeholders.append('%s')
+        valores_lista.append(valores['id_codigo_consumidor'])
+        
+        # Campos con prefijo 'asignacion_'
+        for campo, valor in valores.items():
+            if campo != 'id_codigo_consumidor':
+                # Usar prefijo asignacion_ para todos los demás campos
+                nombre_columna = f"asignacion_{campo}"
+                nombres_columnas.append(nombre_columna)
+                placeholders.append('%s')
+                valores_lista.append(valor)
+        
+        query = f"""
+            INSERT INTO asignacion (
+                {', '.join(nombres_columnas)}
+            ) VALUES (
+                {', '.join(placeholders)}
+            )
+        """
+        
+        # Ejecutar la consulta
+        cursor.execute(query, valores_lista)
+        id_asignacion = cursor.lastrowid
+        connection.commit()
+        
+        # Registrar acción en log
+        app.logger.info(
+            f"Asignación {id_asignacion} creada para técnico "
+            f"{tecnico['nombre']} ({tecnico['recurso_operativo_cedula']})"
+        )
+        
+        # Responder con éxito y el ID de la asignación
+        return jsonify({
+            'status': 'success',
+            'message': 'Asignación guardada correctamente',
+            'id_asignacion': id_asignacion
+        }), 200
+         
+    except mysql.connector.Error as e:
+        print(f"Error MySQL en guardar_asignacion: {str(e)}")  # Debug log
+        
+        # En caso de error, hacer rollback
+        if connection:
+            try:
+                connection.rollback()
+            except:
+                pass
+                
+        return jsonify({
+            'status': 'error',
+            'message': f'Error en la base de datos: {str(e)}'
+        }), 500
+    except Exception as e:
+        print(f"Error general en guardar_asignacion: {str(e)}")  # Debug log
+        
+        # En caso de error, hacer rollback
+        if connection:
+            try:
+                connection.rollback()
+            except:
+                pass
+                
+        # Log detallado para diagnóstico
+        import traceback
+        app.logger.error(traceback.format_exc())
+        
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al guardar la asignación: {str(e)}'
+        }), 500
+    finally:
+        # Asegurarse de cerrar cursor y conexión
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+# Endpoint para guardar asignaciones simplificado
+@app.route('/logistica/guardar_asignacion_simple', methods=['POST'])
+def guardar_asignacion_simple():
+    connection = None
+    cursor = None
+    try:
+        # Obtener datos básicos del formulario
+        id_codigo_consumidor = request.form.get('id_codigo_consumidor')
+        fecha = request.form.get('fecha')
+        cargo = request.form.get('cargo')
+        
+        # Validar datos requeridos
+        if not id_codigo_consumidor or not fecha or not cargo:
+            return jsonify({
+                'status': 'error',
+                'message': 'Faltan campos obligatorios'
+            }), 400
+            
+        # Obtener conexión a la base de datos
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error al conectar con la base de datos'
+            }), 500
+            
+        # Obtener información del técnico
+        cursor = connection.cursor(dictionary=True)
+        
+        query_tecnico = """
+            SELECT nombre, recurso_operativo_cedula 
+            FROM recurso_operativo 
+            WHERE id_codigo_consumidor = %s
+        """
+        cursor.execute(query_tecnico, (id_codigo_consumidor,))
+        tecnico = cursor.fetchone()
+        
+        if not tecnico:
+            return jsonify({
+                'status': 'error',
+                'message': 'Técnico no encontrado'
+            }), 404
+            
+        # Convertir fecha a formato datetime
+        try:
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%dT%H:%M')
+            fecha_formateada = fecha_obj.strftime('%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return jsonify({
+                'status': 'error',
+                'message': 'Formato de fecha inválido'
+            }), 400
+        
+        # Construir la consulta SQL solo con información básica
+        query = """
+            INSERT INTO asignacion (
+                id_codigo_consumidor, 
+                asignacion_cedula, 
+                asignacion_nombre, 
+                asignacion_fecha, 
+                asignacion_cargo, 
+                asignacion_estado
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        
+        # Ejecutar consulta
+        try:
+            cursor.execute(query, [
+                id_codigo_consumidor,
+                tecnico['recurso_operativo_cedula'],  # cedula
+                tecnico['nombre'],  # nombre
+                fecha_formateada,
+                cargo,
+                '1'  # Estado activo
+            ])
+            
+            # Obtener ID y hacer commit
+            id_asignacion = cursor.lastrowid
+            connection.commit()
+                
+            return jsonify({
+                'status': 'success',
+                'message': 'Asignación básica guardada correctamente',
+                'id_asignacion': id_asignacion
+            }), 200
+            
+        except Exception as e:
+            app.logger.error(f"Error al guardar asignación simple: {str(e)}")
+            
+            if connection:
+                connection.rollback()
+                    
+            return jsonify({
+                'status': 'error',
+                'message': f'Error al guardar la asignación simple: {str(e)}'
+            }), 500
+        
+    except Exception as e:
+        app.logger.error(f"Error general en guardar_asignacion_simple: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al procesar la solicitud: {str(e)}'
+        }), 500
+    finally:
+        # Asegurarse de cerrar cursor y conexión
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/logistica/asignacion/<int:id_asignacion>/pdf', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def generar_pdf_asignacion(id_asignacion):
+    try:
+        # Verificar si se solicitó el PDF firmado
+        mostrar_firma = request.args.get('firmado', 'false').lower() == 'true'
+        app.logger.info(f"Generando PDF para asignación {id_asignacion} - Con firma: {mostrar_firma}")
+
+        # Obtener la conexión a la base de datos
+        connection = get_db_connection()
+        if not connection:
+            app.logger.error("Error al conectar con la base de datos para generar PDF")
+            return jsonify({'status': 'error', 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+
+        # Consultar información de la asignación
+        query = """
+            SELECT a.*, 
+                r.nombre AS recurso_nombre, 
+                r.recurso_operativo_cedula
+            FROM asignacion a
+            JOIN recurso_operativo r ON a.id_codigo_consumidor = r.id_codigo_consumidor
+            WHERE a.id_asignacion = %s
+        """
+        cursor.execute(query, (id_asignacion,))
+        asignacion = cursor.fetchone()
+
+        if not asignacion:
+            cursor.close()
+            connection.close()
+            app.logger.warning(f"Asignación no encontrada para PDF: {id_asignacion}")
+            return jsonify({'status': 'error', 'message': 'Asignación no encontrada'}), 404
+
+        # En lugar de consultar una tabla inexistente, procesamos las herramientas desde la misma tabla de asignación
+        # Las herramientas están almacenadas como columnas en la tabla asignacion con prefijo asignacion_
+        herramientas_basicas = []
+        brocas = []
+        herramientas_red = []
+        
+        # Prefijos para identificar los tipos de herramientas (definidos aquí para usarlos en todo el método)
+        prefijos_brocas = ['broca']
+        prefijos_red = ['cajon', 'cinta', 'cono', 'exten', 'llave', 'mandril', 
+                        'pelacable', 'ponchadora', 'probador', 'sonda', 'telefono',
+                        'power', 'laser', 'cortadora', 'stripper']
+        
+        # Recorremos los campos de la asignación y extraemos las herramientas
+        for key, value in asignacion.items():
+            if (key.startswith('asignacion_') and 
+                value == '1' and 
+                not key in ['asignacion_fecha', 'asignacion_estado', 'asignacion_cargo',
+                           'asignacion_cedula', 'asignacion_nombre']):
+                # Quitar el prefijo asignacion_
+                nombre_campo = key[11:]
+                nombre_herramienta = nombre_campo.replace('_', ' ').title()
+                
+                # Clasificar por tipo
+                es_broca = any(prefijo in nombre_campo.lower() for prefijo in prefijos_brocas)
+                es_red = any(prefijo in nombre_campo.lower() for prefijo in prefijos_red)
+                
+                item_herramienta = {
+                    'id_codigo_herramienta': nombre_campo,
+                    'referencia': nombre_herramienta,
+                    'herramienta_cedula': '',
+                    'marca': '',
+                    'modelo': '',
+                    'serial': ''
+                }
+                
+                if es_broca:
+                    brocas.append(item_herramienta)
+                elif es_red:
+                    herramientas_red.append(item_herramienta)
+                else:
+                    herramientas_basicas.append(item_herramienta)
+        
+        # Combinamos todas las herramientas para mostrarlas en el PDF
+        herramientas = herramientas_basicas + brocas + herramientas_red
+
+        # Si se solicitó firmado, buscar firma en la base de datos
+        firma_imagen = None
+        if mostrar_firma:
+            try:
+                query_firma = """
+                    SELECT firma_imagen, fecha_firma 
+                    FROM firmas_asignaciones 
+                    WHERE id_asignacion = %s 
+                    ORDER BY fecha_firma DESC LIMIT 1
+                """
+                cursor.execute(query_firma, (id_asignacion,))
+                resultado_firma = cursor.fetchone()
+                
+                if resultado_firma and resultado_firma['firma_imagen']:
+                    app.logger.info(f"Firma encontrada para asignación {id_asignacion}")
+                    firma_imagen = resultado_firma['firma_imagen']
+                else:
+                    app.logger.warning(f"No se encontró firma para la asignación {id_asignacion}")
+            except Exception as e:
+                app.logger.error(f"Error al buscar firma: {str(e)}")
+                # Continuamos sin firma
+
+        cursor.close()
+        connection.close()
+
+        # Crear buffer para el PDF
+        buffer = BytesIO()
+        
+        # Crear PDF con ReportLab
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=letter,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=72,
+            bottomMargin=72
+        )
+        
+        # Contenido del PDF
+        contenido = []
+        
+        # Añadir logo si existe
+        try:
+            logo_path = os.path.join(app.root_path, 'static', 'img', 'logo.png')
+            if os.path.exists(logo_path):
+                logo = RLImage(logo_path, width=150, height=50)
+                contenido.append(logo)
+                contenido.append(Spacer(1, 20))
+            else:
+                app.logger.warning("Logo no encontrado en: " + logo_path)
+        except Exception as e:
+            app.logger.error(f"Error al cargar logo: {str(e)}")
+            # Continuar sin logo
+            
+        # Título
+        estilos = getSampleStyleSheet()
+        estilo_titulo = estilos['Heading1']
+        estilo_titulo.alignment = 1  # Centrado
+        titulo = Paragraph("DETALLE DE ASIGNACIÓN", estilo_titulo)
+        contenido.append(titulo)
+        contenido.append(Spacer(1, 20))
+        
+        # Información de la asignación
+        estilo_normal = estilos['Normal']
+        estilo_heading = estilos['Heading2']
+        
+        # Datos del recurso operativo
+        contenido.append(Paragraph("Información de la Asignación", estilo_heading))
+        contenido.append(Spacer(1, 10))
+        
+        datos_recurso = [
+            ["Nombre", asignacion['recurso_nombre'] or ""],
+            ["Cédula", asignacion['recurso_operativo_cedula'] or ""]
+        ]
+        
+        tabla_recurso = Table(datos_recurso, colWidths=[100, 350])
+        tabla_recurso.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('PADDING', (0, 0), (-1, -1), 6),
+        ]))
+        contenido.append(tabla_recurso)
+        contenido.append(Spacer(1, 20))
+        
+        # Detalles de la asignación
+        contenido.append(Paragraph("Detalles de la Asignación", estilo_heading))
+        contenido.append(Spacer(1, 10))
+        
+        # Formatear la fecha
+        fecha_asignacion = asignacion.get('asignacion_fecha')
+        if fecha_asignacion:
+            fecha_str = fecha_asignacion.strftime("%d/%m/%Y %H:%M") if isinstance(fecha_asignacion, datetime) else str(fecha_asignacion)
+        else:
+            fecha_str = "No especificada"
+            
+        datos_asignacion = [
+            ["ID Asignación", str(asignacion['id_asignacion']) or ""],
+            ["Fecha", fecha_str],
+            ["Proyecto", asignacion.get('proyecto', "") or ""],
+            ["Ubicación", asignacion.get('ubicacion', "") or ""],
+            ["Observaciones", asignacion.get('observaciones', "") or ""]
+        ]
+        
+        tabla_asignacion = Table(datos_asignacion, colWidths=[100, 350])
+        tabla_asignacion.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('PADDING', (0, 0), (-1, -1), 6),
+        ]))
+        contenido.append(tabla_asignacion)
+        contenido.append(Spacer(1, 20))
+        
+        # Lista de herramientas
+        contenido.append(Paragraph("Herramientas Asignadas", estilo_heading))
+        contenido.append(Spacer(1, 10))
+        
+        if herramientas:
+            # Agrupar herramientas por tipo
+            herramientas_por_tipo = {}
+            for h in herramientas:
+                tipo = 'Herramientas Básicas'
+                if any(prefijo in h['id_codigo_herramienta'].lower() for prefijo in prefijos_brocas):
+                    tipo = 'Brocas'
+                elif any(prefijo in h['id_codigo_herramienta'].lower() for prefijo in prefijos_red):
+                    tipo = 'Herramientas de Red'
+                
+                if tipo not in herramientas_por_tipo:
+                    herramientas_por_tipo[tipo] = []
+                herramientas_por_tipo[tipo].append(h)
+            
+            # Mostrar cada tipo de herramienta
+            for tipo, items in herramientas_por_tipo.items():
+                if items:
+                    # Título del tipo
+                    contenido.append(Paragraph(tipo, estilos['Heading3']))
+                    contenido.append(Spacer(1, 5))
+                    
+                    # Tablas con hasta 3 columnas
+                    filas = []
+                    fila_actual = []
+                    
+                    for item in items:
+                        fila_actual.append(item['referencia'])
+                        if len(fila_actual) == 3:
+                            filas.append(fila_actual)
+                            fila_actual = []
+                    
+                    # Añadir la última fila si quedaron elementos
+                    if fila_actual:
+                        # Rellenar con espacios vacíos si es necesario
+                        while len(fila_actual) < 3:
+                            fila_actual.append("")
+                        filas.append(fila_actual)
+                    
+                    # Crear tabla para este tipo
+                    tabla = Table(filas, colWidths=[150, 150, 150])
+                    tabla.setStyle(TableStyle([
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                        ('PADDING', (0, 0), (-1, -1), 4),
+                    ]))
+                    contenido.append(tabla)
+                    contenido.append(Spacer(1, 10))
+        else:
+            contenido.append(Paragraph("No hay herramientas asignadas", estilo_normal))
+        
+        contenido.append(Spacer(1, 30))
+        
+        # Sección de firma si se solicitó
+        if mostrar_firma and firma_imagen:
+            try:
+                contenido.append(Paragraph("Firma de Aceptación", estilo_heading))
+                contenido.append(Spacer(1, 10))
+                
+                # Manejamos la imagen en memoria, evitando archivos temporales
+                if firma_imagen.startswith('data:image'):
+                    # Extraer la parte base64
+                    firma_base64 = re.sub(r'^data:image/[^;]+;base64,', '', firma_imagen)
+                    
+                    # Decodificar a bytes
+                    firma_bytes = base64.b64decode(firma_base64)
+                    
+                    # Crear buffer de memoria para la imagen
+                    firma_buffer = BytesIO(firma_bytes)
+                    
+                    # Crear imagen para ReportLab
+                    firma_img = RLImage(firma_buffer, width=200, height=100)
+                    
+                    # Añadir al contenido
+                    contenido.append(firma_img)
+                    app.logger.info("Firma añadida al PDF correctamente")
+                else:
+                    contenido.append(Paragraph("(Formato de firma no válido)", estilo_normal))
+                    app.logger.warning("Formato de firma no válido para incluir en PDF")
+            except Exception as e:
+                app.logger.error(f"Error al procesar firma para PDF: {str(e)}")
+                contenido.append(Paragraph("(Error al cargar firma)", estilo_normal))
+                import traceback
+                app.logger.error(traceback.format_exc())
+        
+        contenido.append(Spacer(1, 20))
+        
+        # Pie de página con fecha de generación
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        pie = Paragraph(f"Documento generado el {fecha_generacion}", estilo_normal)
+        contenido.append(pie)
+        
+        # Construir el PDF
+        doc.build(contenido)
+        
+        # Obtener los datos del buffer
+        pdf_data = buffer.getvalue()
+        buffer.close()
+        
+        # Crear respuesta
+        response = make_response(pdf_data)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'inline; filename=asignacion_{id_asignacion}.pdf'
+        
+        app.logger.info(f"PDF generado correctamente para asignación {id_asignacion}")
+        return response
+        
+    except Exception as e:
+        app.logger.error(f"Error al generar PDF: {str(e)}")
+        import traceback
+        app.logger.error(traceback.format_exc())
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al generar el PDF: {str(e)}'
+        }), 500
+
+@app.route('/logistica/asignacion/<int:id_asignacion>/firmar', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def firmar_asignacion(id_asignacion):
+    try:
+        # Verificar que el usuario tiene derechos para firmar
+        usuario_id = session.get('user_id')
+        app.logger.info(f"Intento de firma para asignación {id_asignacion} por usuario {usuario_id}")
+        
+        # Obtener la conexión a la base de datos
+        connection = get_db_connection()
+        if not connection:
+            app.logger.error("Error al conectar con la base de datos al intentar firmar")
+            return jsonify({
+                'status': 'error',
+                'message': 'Error al conectar con la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener información de la asignación para verificar permisos
+        query = """
+            SELECT a.*, r.nombre, r.recurso_operativo_cedula
+            FROM asignacion a
+            JOIN recurso_operativo r ON a.id_codigo_consumidor = r.id_codigo_consumidor
+            WHERE a.id_asignacion = %s
+        """
+        cursor.execute(query, (id_asignacion,))
+        asignacion = cursor.fetchone()
+        
+        if not asignacion:
+            cursor.close()
+            connection.close()
+            app.logger.warning(f"Intento de firma para asignación inexistente: {id_asignacion}")
+            return jsonify({
+                'status': 'error',
+                'message': 'Asignación no encontrada'
+            }), 404
+        
+        # Obtener los datos de la firma manuscrita
+        data = request.json
+        if not data or 'signature' not in data:
+            app.logger.warning("Datos de firma incompletos o inválidos")
+            return jsonify({
+                'status': 'error',
+                'message': 'No se recibieron datos de firma'
+            }), 400
+        
+        # Validar formato de la firma
+        firma_imagen = data['signature']
+        if not firma_imagen.startswith('data:image/'):
+            app.logger.warning("Formato de imagen de firma inválido")
+            return jsonify({
+                'status': 'error',
+                'message': 'Formato de imagen de firma inválido'
+            }), 400
+        
+        # Verificar el tamaño de la firma (para evitar datos demasiado grandes)
+        if len(firma_imagen) > 500000:  # Limitar a ~500KB
+            app.logger.warning("Imagen de firma demasiado grande")
+            return jsonify({
+                'status': 'error',
+                'message': 'La imagen de firma es demasiado grande'
+            }), 400
+            
+        fecha_firma = datetime.now()
+        app.logger.info(f"Firma recibida correctamente para asignación {id_asignacion}")
+        
+        # Verificar que la firma se puede procesar correctamente
+        try:
+            # Extraer la parte base64 de la firma
+            if 'data:image' in firma_imagen:
+                imagen_base64 = re.sub(r'^data:image/[^;]+;base64,', '', firma_imagen)
+            
+            # Verificar que la decodificación funciona
+            imagen_bytes = base64.b64decode(imagen_base64)
+            
+            # Verificar que la imagen es válida creando un objeto Image con ella
+            with PILImage.open(BytesIO(imagen_bytes)) as img:
+                formato = img.format
+                width, height = img.size
+                app.logger.info(f"Imagen de firma validada: formato={formato}, dimensiones={width}x{height}")
+        except Exception as e:
+            app.logger.error(f"Error al validar la imagen de firma: {str(e)}")
+            return jsonify({
+                'status': 'error',
+                'message': f'Error al procesar la imagen de firma: {str(e)}'
+            }), 400
+        
+        # Primero verificar si existe la tabla para firmas
+        try:
+            check_table_query = """
+                CREATE TABLE IF NOT EXISTS firmas_asignaciones (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id_asignacion INT NOT NULL,
+                    id_usuario INT NOT NULL,
+                    firma_imagen LONGTEXT,
+                    fecha_firma DATETIME,
+                    FOREIGN KEY (id_asignacion) REFERENCES asignacion(id_asignacion)
+                )
+            """
+            cursor.execute(check_table_query)
+            connection.commit()
+            app.logger.info("Tabla firmas_asignaciones verificada/creada correctamente")
+        except Exception as e:
+            app.logger.error(f"Error al verificar tabla de firmas: {str(e)}")
+            # Continuar aún si falla la verificación, ya que podría existir
+        
+        # Guardar la firma en la base de datos
+        firma_guardada = False
+        try:
+            # Verificar si ya existe una firma para esta asignación
+            cursor.execute("SELECT id FROM firmas_asignaciones WHERE id_asignacion = %s", (id_asignacion,))
+            firma_existente = cursor.fetchone()
+            
+            if firma_existente:
+                # Actualizar firma existente
+                update_query = """
+                    UPDATE firmas_asignaciones 
+                    SET firma_imagen = %s, fecha_firma = %s, id_usuario = %s
+                    WHERE id_asignacion = %s
+                """
+                cursor.execute(update_query, (firma_imagen, fecha_firma, usuario_id, id_asignacion))
+                app.logger.info(f"Firma actualizada para asignación {id_asignacion}")
+            else:
+                # Insertar nueva firma
+                insert_query = """
+                    INSERT INTO firmas_asignaciones 
+                    (id_asignacion, id_usuario, firma_imagen, fecha_firma) 
+                    VALUES (%s, %s, %s, %s)
+                """
+                cursor.execute(insert_query, (id_asignacion, usuario_id, firma_imagen, fecha_firma))
+                app.logger.info(f"Nueva firma guardada para asignación {id_asignacion}")
+            
+            connection.commit()
+            firma_guardada = True
+        except Exception as e:
+            app.logger.error(f"Error al guardar firma en base de datos: {str(e)}")
+            connection.rollback()
+            # Si falla, seguimos para intentar generar el PDF igualmente
+            import traceback
+            app.logger.error(traceback.format_exc())
+            
+        # Generar un token JWT como respaldo o para verificación alternativa
+        payload = {
+            'asignacion_id': id_asignacion,
+            'usuario_id': usuario_id,
+            'fecha': fecha_firma.strftime('%Y-%m-%d %H:%M:%S'),
+            'firma_guardada': firma_guardada,
+            'iat': fecha_firma.timestamp(),
+            'exp': (fecha_firma + timedelta(days=365)).timestamp()
+        }
+        
+        # En un entorno real, este secreto estaría almacenado de manera segura
+        clave_secreta = os.getenv('JWT_SECRET_KEY', 'clave_secreta_para_firmas')
+        token = jwt.encode(payload, clave_secreta, algorithm='HS256')
+        
+        # Cerrar cursor y conexión
+        cursor.close()
+        connection.close()
+        
+        # Devolver URL al PDF firmado
+        url_pdf_firmado = url_for('generar_pdf_asignacion', id_asignacion=id_asignacion, firmado='true', _external=True)
+        
+        app.logger.info(f"Proceso de firma completado exitosamente para asignación {id_asignacion}")
+        return jsonify({
+            'status': 'success',
+            'message': 'Documento firmado correctamente',
+            'token': token,
+            'url_pdf': url_pdf_firmado,
+            'firma_guardada': firma_guardada
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error inesperado al firmar documento: {str(e)}")
+        
+        # Log detallado para diagnóstico
+        import traceback
+        app.logger.error(traceback.format_exc())
+        
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al firmar el documento: {str(e)}'
+        }), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=8080)
