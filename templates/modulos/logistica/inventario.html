@@ -6,169 +6,61 @@
 <div class="container-fluid px-4">
     <h1 class="mt-4">Inventario</h1>
     
-    <!-- Selector de tipo de inventario -->
+    <!-- Filtros de búsqueda -->
     <div class="row mb-4">
         <div class="col-md-4">
-            <select class="form-select" id="tipoInventario" onchange="cambiarInventario()">
-                <option value="herramientas">Herramientas</option>
-                <option value="ferretero">Material Ferretero</option>
-                <option value="epps">EPPs</option>
-                <option value="dotaciones">Dotaciones</option>
+            <input type="text" class="form-control" id="buscarInventario" placeholder="Buscar por nombre...">
+        </div>
+        <div class="col-md-4">
+            <select class="form-select" id="familiaInventario">
+                <option value="todos">Todas las familias</option>
+                <option value="cables">Cables</option>
+                <option value="fibras">Fibras</option>
+                <option value="herrajes">Herrajes</option>
+                <!-- Agregar más opciones según las familias disponibles -->
             </select>
         </div>
-    </div>
-
-    <!-- Sección de Herramientas -->
-    <div id="inventarioHerramientas" class="seccion-inventario">
-        <div class="row">
-            <!-- Herramientas Básicas -->
-            <div class="col-lg-4">
-                <div class="card mb-4">
-                    <div class="card-header bg-primary text-white">
-                        <i class="fas fa-tools me-1"></i>
-                        Herramientas Básicas
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Herramienta</th>
-                                        <th>Cantidad</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr><td>Adaptador Mandril</td><td>{{ herramientas_basicas.adaptador_mandril or 0 }}</td></tr>
-                                    <tr><td>Alicate</td><td>{{ herramientas_basicas.alicate or 0 }}</td></tr>
-                                    <tr><td>Barra 45cm</td><td>{{ herramientas_basicas.barra_45cm or 0 }}</td></tr>
-                                    <tr><td>Bisturí Metálico</td><td>{{ herramientas_basicas.bisturi_metalico or 0 }}</td></tr>
-                                    <tr><td>Caja de Herramientas</td><td>{{ herramientas_basicas.caja_herramientas or 0 }}</td></tr>
-                                    <tr><td>Cortafrío</td><td>{{ herramientas_basicas.cortafrio or 0 }}</td></tr>
-                                    <tr><td>Destornillador Estrella</td><td>{{ herramientas_basicas.destornillador_estrella or 0 }}</td></tr>
-                                    <tr><td>Destornillador Pala</td><td>{{ herramientas_basicas.destornillador_pala or 0 }}</td></tr>
-                                    <tr><td>Destornillador Tester</td><td>{{ herramientas_basicas.destornillador_tester or 0 }}</td></tr>
-                                    <tr><td>Martillo</td><td>{{ herramientas_basicas.martillo or 0 }}</td></tr>
-                                    <tr><td>Pinza de Punta</td><td>{{ herramientas_basicas.pinza_punta or 0 }}</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Herramientas Especializadas -->
-            <div class="col-lg-4">
-                <div class="card mb-4">
-                    <div class="card-header bg-success text-white">
-                        <i class="fas fa-wrench me-1"></i>
-                        Herramientas Especializadas
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Herramienta</th>
-                                        <th>Cantidad</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr><td>Multímetro</td><td>{{ herramientas_especializadas.multimetro or 0 }}</td></tr>
-                                    <tr><td>Taladro Percutor</td><td>{{ herramientas_especializadas.taladro_percutor or 0 }}</td></tr>
-                                    <tr><td>Ponchadora RG6/RG11</td><td>{{ herramientas_especializadas.ponchadora_rg6_rg11 or 0 }}</td></tr>
-                                    <tr><td>Ponchadora RJ45/RJ11</td><td>{{ herramientas_especializadas.ponchadora_rj45_rj11 or 0 }}</td></tr>
-                                    <tr><td>Power Meter</td><td>{{ herramientas_especializadas.power_meter or 0 }}</td></tr>
-                                    <tr><td>BFL Laser</td><td>{{ herramientas_especializadas.bfl_laser or 0 }}</td></tr>
-                                    <tr><td>Cortadora</td><td>{{ herramientas_especializadas.cortadora or 0 }}</td></tr>
-                                    <tr><td>Stripper Fibra</td><td>{{ herramientas_especializadas.stripper_fibra or 0 }}</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Equipo de Seguridad -->
-            <div class="col-lg-4">
-                <div class="card mb-4">
-                    <div class="card-header bg-warning">
-                        <i class="fas fa-hard-hat me-1"></i>
-                        Equipo de Seguridad
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Equipo</th>
-                                        <th>Cantidad</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr><td>Arnés</td><td>{{ equipo_seguridad.arnes or 0 }}</td></tr>
-                                    <tr><td>Eslinga</td><td>{{ equipo_seguridad.eslinga or 0 }}</td></tr>
-                                    <tr><td>Casco Tipo II</td><td>{{ equipo_seguridad.casco_tipo_ii or 0 }}</td></tr>
-                                    <tr><td>Araña Casco</td><td>{{ equipo_seguridad.arana_casco or 0 }}</td></tr>
-                                    <tr><td>Barbuquejo</td><td>{{ equipo_seguridad.barbuquejo or 0 }}</td></tr>
-                                    <tr><td>Guantes de Vaqueta</td><td>{{ equipo_seguridad.guantes_vaqueta or 0 }}</td></tr>
-                                    <tr><td>Gafas</td><td>{{ equipo_seguridad.gafas or 0 }}</td></tr>
-                                    <tr><td>Línea de Vida</td><td>{{ equipo_seguridad.linea_vida or 0 }}</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="col-md-4">
+            <button class="btn btn-primary" onclick="filtrarInventario()">Filtrar</button>
         </div>
     </div>
 
-    <!-- Sección de Material Ferretero -->
-    <div id="inventarioFerretero" class="seccion-inventario" style="display: none;">
-        <div class="row">
-            <div class="col-lg-6 mx-auto">
-                <div class="card mb-4">
-                    <div class="card-header bg-info text-white">
-                        <i class="fas fa-screwdriver me-1"></i>
-                        Material Ferretero
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Material</th>
-                                        <th>Cantidad</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr><td>Silicona</td><td>{{ material_ferretero.silicona or 0 }}</td></tr>
-                                    <tr><td>Amarres Negros</td><td>{{ material_ferretero.amarres_negros or 0 }}</td></tr>
-                                    <tr><td>Amarres Blancos</td><td>{{ material_ferretero.amarres_blancos or 0 }}</td></tr>
-                                    <tr><td>Cinta Aislante</td><td>{{ material_ferretero.cinta_aislante or 0 }}</td></tr>
-                                    <tr><td>Grapas Blancas</td><td>{{ material_ferretero.grapas_blancas or 0 }}</td></tr>
-                                    <tr><td>Grapas Negras</td><td>{{ material_ferretero.grapas_negras or 0 }}</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
+    <!-- Gráfico de distribución de suministros -->
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <canvas id="graficoDistribucionSuministros" width="800" height="400"></canvas>
+        </div>
+    </div>
+
+    <!-- Tabla de inventario -->
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <i class="fas fa-table me-1"></i>
+                    Detalle de Inventario
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Familia</th>
+                                    <th>Cantidad</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for suministro in suministros %}
+                                <tr>
+                                    <td>{{ suministro.suministros_familia }}</td>
+                                    <td>{{ suministro.suministros_cantidad }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Sección de EPPs (placeholder) -->
-    <div id="inventarioEPPs" class="seccion-inventario" style="display: none;">
-        <div class="alert alert-info">
-            <i class="fas fa-info-circle me-2"></i>
-            Módulo de EPPs en desarrollo
-        </div>
-    </div>
-
-    <!-- Sección de Dotaciones (placeholder) -->
-    <div id="inventarioDotaciones" class="seccion-inventario" style="display: none;">
-        <div class="alert alert-info">
-            <i class="fas fa-info-circle me-2"></i>
-            Módulo de Dotaciones en desarrollo
         </div>
     </div>
 </div>
@@ -176,23 +68,42 @@
 
 {% block scripts %}
 <script>
-function cambiarInventario() {
-    // Ocultar todas las secciones
-    document.querySelectorAll('.seccion-inventario').forEach(seccion => {
-        seccion.style.display = 'none';
-    });
-
-    // Mostrar la sección seleccionada
-    const tipoSeleccionado = document.getElementById('tipoInventario').value;
-    const seccionMostrar = document.getElementById('inventario' + tipoSeleccionado.charAt(0).toUpperCase() + tipoSeleccionado.slice(1));
-    if (seccionMostrar) {
-        seccionMostrar.style.display = 'block';
-    }
+function filtrarInventario() {
+    // Lógica para filtrar el inventario
+    console.log('Filtrando inventario...');
 }
 
-// Inicializar mostrando la sección de herramientas
-document.addEventListener('DOMContentLoaded', function() {
-    cambiarInventario();
+// Inicialización de gráfico de distribución de suministros
+var ctxDistribucionSuministros = document.getElementById('graficoDistribucionSuministros').getContext('2d');
+var graficoDistribucionSuministros = new Chart(ctxDistribucionSuministros, {
+    type: 'bar',
+    data: {
+        labels: Object.keys({{ categorias|tojson|safe }}),
+        datasets: [{
+            label: 'Distribución de Suministros',
+            data: Object.values({{ categorias|tojson|safe }}),
+            backgroundColor: [
+                'rgba(255, 99, 132, 0.2)',
+                'rgba(54, 162, 235, 0.2)',
+                'rgba(255, 206, 86, 0.2)',
+                'rgba(75, 192, 192, 0.2)'
+            ],
+            borderColor: [
+                'rgba(255, 99, 132, 1)',
+                'rgba(54, 162, 235, 1)',
+                'rgba(255, 206, 86, 1)',
+                'rgba(75, 192, 192, 1)'
+            ],
+            borderWidth: 1
+        }]
+    },
+    options: {
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
 });
 </script>
 {% endblock %} 

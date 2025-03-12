@@ -7,7 +7,7 @@
             <div class="card mb-4">
                 <div class="card-header pb-0 d-flex justify-content-between align-items-center">
                     <h6>Listado de Inspecciones Preoperacionales</h6>
-                    <a href="{{ url_for('exportar_preoperacional_csv') }}" class="btn btn-success" id="exportarCSV">
+                    <a href="{{ url_for('exportar_preoperacional_csv', fecha_inicio=request.args.get('fecha_inicio', ''), fecha_fin=request.args.get('fecha_fin', ''), supervisor=request.args.get('supervisor', '')) }}" class="btn btn-success" id="exportarCSV">
                         <i class="fas fa-file-csv"></i> Exportar a CSV
                     </a>
                 </div>

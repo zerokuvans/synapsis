@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file, make_response, Response
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
@@ -27,6 +27,18 @@ import base64
 import re
 import tempfile
 from PIL import Image as PILImage
+import secrets
+import string
+import hashlib
+import uuid
+import pandas as pd
+import json
+from datetime import datetime, timedelta
+import io
+import time
+import zipfile
+import re
+import logging
 
 load_dotenv()
 
@@ -983,6 +995,10 @@ def listado_preoperacional():
         fecha_fin = request.args.get('fecha_fin')
         supervisor = request.args.get('supervisor')
         estado_vehiculo = request.args.get('estado_vehiculo')
+        
+        # Parámetro de paginación
+        pagina = request.args.get('pagina', 1, type=int)
+        registros_por_pagina = 10
 
         conn = get_db_connection()
         cur = conn.cursor(dictionary=True)
@@ -1038,6 +1054,21 @@ def listado_preoperacional():
         cur.execute(query, params)
         registros = cur.fetchall()
 
+        # Calcular paginación
+        total_registros = len(registros)
+        total_paginas = (total_registros + registros_por_pagina - 1) // registros_por_pagina
+        
+        # Ajustar página actual si está fuera de rango
+        if pagina < 1:
+            pagina = 1
+        elif pagina > total_paginas and total_paginas > 0:
+            pagina = total_paginas
+        
+        # Obtener registros de la página actual
+        inicio = (pagina - 1) * registros_por_pagina
+        fin = inicio + registros_por_pagina
+        pagina_actual = registros[inicio:fin]
+
         # Obtener lista de supervisores únicos
         cur.execute("""
             SELECT DISTINCT supervisor 
@@ -1048,10 +1079,10 @@ def listado_preoperacional():
         """)
         supervisores = [row['supervisor'] for row in cur.fetchall()]
 
-        # Calcular estadísticas
-        total_registros = len(registros)
+        # Calcular estadísticas básicas
         registros_hoy = sum(1 for r in registros if r['fecha'].date() == datetime.now().date())
         registros_semana = sum(1 for r in registros if r['fecha'].date() >= (datetime.now() - timedelta(days=7)).date())
+        registros_mes = sum(1 for r in registros if r['fecha'].date() >= (datetime.now() - timedelta(days=30)).date())
 
         # Preparar datos para el gráfico de tendencias
         fechas = []
@@ -1065,26 +1096,126 @@ def listado_preoperacional():
             fechas.reverse()
             registros_por_dia.reverse()
 
+        # ESTADÍSTICAS ADICIONALES
+
+        # 1. Distribución por tipo de vehículo
+        tipos_vehiculo = {}
+        for r in registros:
+            tipo = r['tipo_vehiculo'] or 'No especificado'
+            if tipo in tipos_vehiculo:
+                tipos_vehiculo[tipo] += 1
+            else:
+                tipos_vehiculo[tipo] = 1
+        
+        # Ordenar por cantidad y tomar los 5 principales
+        tipos_vehiculo_top = sorted(tipos_vehiculo.items(), key=lambda x: x[1], reverse=True)[:5]
+        labels_tipo_vehiculo = [t[0] for t in tipos_vehiculo_top]
+        datos_tipo_vehiculo = [t[1] for t in tipos_vehiculo_top]
+
+        # 2. Top 5 técnicos con más registros
+        tecnicos = {}
+        for r in registros:
+            tecnico = r['nombre_tecnico'] or 'No especificado'
+            if tecnico in tecnicos:
+                tecnicos[tecnico] += 1
+            else:
+                tecnicos[tecnico] = 1
+        
+        tecnicos_top = sorted(tecnicos.items(), key=lambda x: x[1], reverse=True)[:5]
+        labels_tecnicos = [t[0] for t in tecnicos_top]
+        datos_tecnicos = [t[1] for t in tecnicos_top]
+
+        # 3. Top 5 centros de trabajo con más registros
+        centros_trabajo = {}
+        for r in registros:
+            centro = r['centro_de_trabajo'] or 'No especificado'
+            if centro in centros_trabajo:
+                centros_trabajo[centro] += 1
+            else:
+                centros_trabajo[centro] = 1
+        
+        centros_top = sorted(centros_trabajo.items(), key=lambda x: x[1], reverse=True)[:5]
+        labels_centros = [c[0] for c in centros_top]
+        datos_centros = [c[1] for c in centros_top]
+
+        # 4. Elementos críticos en mal estado (conteo)
+        elementos_mal_estado = {
+            'Frenos': sum(1 for r in registros if r.get('frenos') == '0'),
+            'Luces': sum(1 for r in registros if r.get('luces_altas_bajas') == '0'),
+            'Direccionales': sum(1 for r in registros if r.get('direccionales_delanteras_traseras') == '0'),
+            'Espejos': sum(1 for r in registros if r.get('estado_espejos') == '0'),
+            'Llantas': sum(1 for r in registros if r.get('estado_llantas') == '0')
+        }
+        
+        labels_elementos = list(elementos_mal_estado.keys())
+        datos_elementos = list(elementos_mal_estado.values())
+
+        # 5. Distribución por ciudad
+        ciudades = {}
+        for r in registros:
+            ciudad = r['ciudad'] or 'No especificado'
+            if ciudad in ciudades:
+                ciudades[ciudad] += 1
+            else:
+                ciudades[ciudad] = 1
+        
+        ciudades_top = sorted(ciudades.items(), key=lambda x: x[1], reverse=True)[:5]
+        labels_ciudades = [c[0] for c in ciudades_top]
+        datos_ciudades = [c[1] for c in ciudades_top]
+
+        # 6. Comparativa mes actual vs mes anterior
+        fecha_actual = datetime.now().date()
+        primer_dia_mes_actual = fecha_actual.replace(day=1)
+        ultimo_dia_mes_anterior = primer_dia_mes_actual - timedelta(days=1)
+        primer_dia_mes_anterior = ultimo_dia_mes_anterior.replace(day=1)
+        
+        registros_mes_actual = sum(1 for r in registros if r['fecha'].date() >= primer_dia_mes_actual)
+        registros_mes_anterior = sum(1 for r in registros if r['fecha'].date() >= primer_dia_mes_anterior and r['fecha'].date() < primer_dia_mes_actual)
+        
+        comparativa_meses = {
+            'labels': [primer_dia_mes_anterior.strftime('%B %Y'), primer_dia_mes_actual.strftime('%B %Y')],
+            'datos': [registros_mes_anterior, registros_mes_actual]
+        }
+
         cur.close()
         conn.close()
 
         return render_template('modulos/administrativo/listado_preoperacional.html', 
                             registros=registros,
+                            pagina_actual=pagina_actual,
+                            pagina_actual_num=pagina,
+                            total_paginas=total_paginas,
+                            total_registros=total_registros,
                             supervisores=supervisores,
                             fecha_inicio=fecha_inicio,
                             fecha_fin=fecha_fin,
                             supervisor=supervisor,
                             estado_vehiculo=estado_vehiculo,
-                            total_registros=total_registros,
                             registros_hoy=registros_hoy,
                             registros_semana=registros_semana,
+                            registros_mes=registros_mes,
                             fechas=fechas,
-                            registros_por_dia=registros_por_dia)
+                            registros_por_dia=registros_por_dia,
+                            # Nuevas estadísticas
+                            labels_tipo_vehiculo=labels_tipo_vehiculo,
+                            datos_tipo_vehiculo=datos_tipo_vehiculo,
+                            labels_tecnicos=labels_tecnicos,
+                            datos_tecnicos=datos_tecnicos,
+                            labels_centros=labels_centros,
+                            datos_centros=datos_centros,
+                            labels_elementos=labels_elementos,
+                            datos_elementos=datos_elementos,
+                            labels_ciudades=labels_ciudades,
+                            datos_ciudades=datos_ciudades,
+                            comparativa_meses=comparativa_meses)
 
     except Exception as e:
         flash('Error al cargar el listado preoperacional: ' + str(e), 'error')
         return render_template('modulos/administrativo/listado_preoperacional.html',
                             registros=[],
+                            pagina_actual=[],
+                            pagina_actual_num=1,
+                            total_paginas=0,
                             supervisores=[],
                             fecha_inicio=fecha_inicio,
                             fecha_fin=fecha_fin,
@@ -1093,8 +1224,21 @@ def listado_preoperacional():
                             total_registros=0,
                             registros_hoy=0,
                             registros_semana=0,
+                            registros_mes=0,
                             fechas=[],
-                            registros_por_dia=[])
+                            registros_por_dia=[],
+                            # Valores vacíos para nuevas estadísticas
+                            labels_tipo_vehiculo=[],
+                            datos_tipo_vehiculo=[],
+                            labels_tecnicos=[],
+                            datos_tecnicos=[],
+                            labels_centros=[],
+                            datos_centros=[],
+                            labels_elementos=[],
+                            datos_elementos=[],
+                            labels_ciudades=[],
+                            datos_ciudades=[],
+                            comparativa_meses={'labels': [], 'datos': []})
 
 @app.route('/preoperacional/exportar_csv')
 @login_required(role='administrativo')
@@ -1146,7 +1290,8 @@ def exportar_preoperacional_csv():
         
         # Crear archivo CSV en memoria con codificación UTF-8-SIG (con BOM)
         output = io.StringIO()
-        writer = csv.writer(output, dialect='excel')
+        # Usar csv.excel con delimitador explícito para garantizar correcta separación de columnas
+        writer = csv.writer(output, delimiter=',', quotechar='"', quoting=csv.QUOTE_ALL)
         
         # Escribir el BOM de UTF-8
         output.write('\ufeff')
@@ -1165,40 +1310,45 @@ def exportar_preoperacional_csv():
         
         # Escribir datos
         for registro in registros:
+            # Convertir fechas a cadena o valor nulo para evitar errores
+            fecha_lic = registro['fecha_vencimiento_licencia'].strftime('%Y-%m-%d') if registro['fecha_vencimiento_licencia'] else ''
+            fecha_soat = registro['fecha_vencimiento_soat'].strftime('%Y-%m-%d') if registro['fecha_vencimiento_soat'] else ''
+            fecha_tec = registro['fecha_vencimiento_tecnomecanica'].strftime('%Y-%m-%d') if registro['fecha_vencimiento_tecnomecanica'] else ''
+            
             writer.writerow([
                 registro['fecha'].strftime('%Y-%m-%d %H:%M:%S'),
                 registro['nombre_tecnico'],
                 registro['cedula_tecnico'],
                 registro['cargo_tecnico'],
-                registro['centro_de_trabajo'],
-                registro['ciudad'],
-                registro['supervisor'],
-                registro['vehiculo_asistio_operacion'],
-                registro['tipo_vehiculo'],
-                registro['placa_vehiculo'],
-                registro['modelo_vehiculo'],
-                registro['marca_vehiculo'],
-                registro['licencia_conduccion'],
-                registro['fecha_vencimiento_licencia'],
-                registro['fecha_vencimiento_soat'],
-                registro['fecha_vencimiento_tecnomecanica'],
-                registro['estado_espejos'],
-                registro['bocina_pito'],
-                registro['frenos'],
-                registro['encendido'],
-                registro['estado_bateria'],
-                registro['estado_amortiguadores'],
-                registro['estado_llantas'],
-                registro['kilometraje_actual'],
-                registro['luces_altas_bajas'],
-                registro['direccionales_delanteras_traseras'],
-                registro['elementos_prevencion_seguridad_vial_casco'],
-                registro['casco_certificado'],
-                registro['casco_identificado'],
-                registro['estado_guantes'],
-                registro['estado_rodilleras'],
-                registro['impermeable'],
-                registro['observaciones']
+                registro['centro_de_trabajo'] or '',
+                registro['ciudad'] or '',
+                registro['supervisor'] or '',
+                registro['vehiculo_asistio_operacion'] or '',
+                registro['tipo_vehiculo'] or '',
+                registro['placa_vehiculo'] or '',
+                registro['modelo_vehiculo'] or '',
+                registro['marca_vehiculo'] or '',
+                registro['licencia_conduccion'] or '',
+                fecha_lic,
+                fecha_soat,
+                fecha_tec,
+                registro['estado_espejos'] or '',
+                registro['bocina_pito'] or '',
+                registro['frenos'] or '',
+                registro['encendido'] or '',
+                registro['estado_bateria'] or '',
+                registro['estado_amortiguadores'] or '',
+                registro['estado_llantas'] or '',
+                registro['kilometraje_actual'] or '',
+                registro['luces_altas_bajas'] or '',
+                registro['direccionales_delanteras_traseras'] or '',
+                registro['elementos_prevencion_seguridad_vial_casco'] or '',
+                registro['casco_certificado'] or '',
+                registro['casco_identificado'] or '',
+                registro['estado_guantes'] or '',
+                registro['estado_rodilleras'] or '',
+                registro['impermeable'] or '',
+                registro['observaciones'] or ''
             ])
         
         # Preparar respuesta
@@ -2022,14 +2172,7 @@ def exportar_asignaciones_csv():
                 asignacion.get('asignacion_bfl_laser', '0'),
                 asignacion.get('asignacion_cortadora', '0'),
                 asignacion.get('asignacion_stripper_fibra', '0'),
-                asignacion.get('asignacion_arnes', '0'),
-                asignacion.get('asignacion_eslinga', '0'),
-                asignacion.get('asignacion_casco_tipo_ii', '0'),
-                asignacion.get('asignacion_arana_casco', '0'),
-                asignacion.get('asignacion_barbuquejo', '0'),
-                asignacion.get('asignacion_guantes_de_vaqueta', '0'),
-                asignacion.get('asignacion_gafas', '0'),
-                asignacion.get('asignacion_linea_de_vida', '0')
+                
             ])
         
         # Preparar respuesta
@@ -2099,22 +2242,7 @@ def ver_inventario():
         cursor.execute(herramientas_especializadas_query)
         herramientas_especializadas = cursor.fetchone()
         
-        # Obtener conteo de equipo de seguridad asignado
-        equipo_seguridad_query = """
-            SELECT 
-                SUM(asignacion_arnes) as arnes,
-                SUM(asignacion_eslinga) as eslinga,
-                SUM(asignacion_casco_tipo_ii) as casco_tipo_ii,
-                SUM(asignacion_arana_casco) as arana_casco,
-                SUM(asignacion_barbuquejo) as barbuquejo,
-                SUM(asignacion_guantes_de_vaqueta) as guantes_vaqueta,
-                SUM(asignacion_gafas) as gafas,
-                SUM(asignacion_linea_de_vida) as linea_vida
-            FROM asignacion 
-            WHERE asignacion_estado = '1'
-        """
-        cursor.execute(equipo_seguridad_query)
-        equipo_seguridad = cursor.fetchone()
+       
 
         # Obtener conteo de material ferretero asignado
         material_ferretero_query = """
@@ -2130,14 +2258,136 @@ def ver_inventario():
         cursor.execute(material_ferretero_query)
         material_ferretero = cursor.fetchone()
         
+        # Obtener historial de movimientos de inventario (para gráficos de tendencia)
+        historial_movimientos_query = """
+            SELECT 
+                DATE(fecha_movimiento) as fecha,
+                tipo_movimiento,
+                item_afectado,
+                cantidad,
+                usuario,
+                ubicacion
+            FROM movimientos_inventario
+            ORDER BY fecha_movimiento DESC
+            LIMIT 100
+        """
+        cursor.execute(historial_movimientos_query)
+        historial_movimientos = cursor.fetchall()
+        
+        # Generar datos para gráficos de tendencias
+        ultimos_30_dias = []
+        hoy = datetime.now().date()
+        for i in range(30, -1, -1):
+            fecha = hoy - timedelta(days=i)
+            ultimos_30_dias.append(fecha.strftime('%Y-%m-%d'))
+        
+        # Conteo de movimientos por fecha para gráfico de tendencia
+        movimientos_por_dia = {}
+        for fecha in ultimos_30_dias:
+            movimientos_por_dia[fecha] = 0
+            
+        for movimiento in historial_movimientos:
+            fecha_str = movimiento['fecha'].strftime('%Y-%m-%d')
+            if fecha_str in movimientos_por_dia:
+                movimientos_por_dia[fecha_str] += 1
+                
+        # Conteo por categoría para gráficos de distribución
+        categorias = {
+            'Herramientas Básicas': sum(value for key, value in herramientas_basicas.items() if value is not None),
+            'Herramientas Especializadas': sum(value for key, value in herramientas_especializadas.items() if value is not None),
+            'Material Ferretero': sum(value for key, value in material_ferretero.items() if value is not None)
+        }
+        
+        # Información para alertas (items con nivel crítico)
+        items_criticos = []
+        
+        # Definir umbrales para cada tipo de elemento
+        umbrales_minimos = {
+            'adaptador_mandril': 5, 'alicate': 10, 'barra_45cm': 5,
+            'bisturi_metalico': 15, 'caja_herramientas': 10, 'cortafrio': 10,
+            'destornillador_estrella': 15, 'destornillador_pala': 15,
+            'destornillador_tester': 10, 'martillo': 10, 'pinza_punta': 10,
+            'multimetro': 5, 'taladro_percutor': 3, 'ponchadora_rg6_rg11': 5,
+            'ponchadora_rj45_rj11': 5, 'power_meter': 3, 'bfl_laser': 3,
+            'cortadora': 3, 'stripper_fibra': 3, 'arnes': 10, 'eslinga': 10,
+            'casco_tipo_ii': 20, 'arana_casco': 20, 'barbuquejo': 20,
+            'guantes_vaqueta': 30, 'gafas': 30, 'linea_vida': 5,
+            'silicona': 10, 'amarres_negros': 50, 'amarres_blancos': 50,
+            'cinta_aislante': 20, 'grapas_blancas': 100, 'grapas_negras': 100
+        }
+        
+        # Verificar herramientas básicas bajo umbral
+        for key, value in herramientas_basicas.items():
+            if key in umbrales_minimos and value is not None:
+                if value <= umbrales_minimos[key]:
+                    nombre_item = key.replace('_', ' ').title()
+                    items_criticos.append({
+                        'item': nombre_item, 
+                        'actual': value, 
+                        'minimo': umbrales_minimos[key],
+                        'categoria': 'Herramientas Básicas'
+                    })
+        
+        # Verificar herramientas especializadas bajo umbral
+        for key, value in herramientas_especializadas.items():
+            if key in umbrales_minimos and value is not None:
+                if value <= umbrales_minimos[key]:
+                    nombre_item = key.replace('_', ' ').title()
+                    items_criticos.append({
+                        'item': nombre_item, 
+                        'actual': value, 
+                        'minimo': umbrales_minimos[key],
+                        'categoria': 'Herramientas Especializadas'
+                    })
+        
+      
+        
+        # Verificar material ferretero bajo umbral
+        for key, value in material_ferretero.items():
+            if key in umbrales_minimos and value is not None:
+                if value <= umbrales_minimos[key]:
+                    nombre_item = key.replace('_', ' ').title()
+                    items_criticos.append({
+                        'item': nombre_item, 
+                        'actual': value, 
+                        'minimo': umbrales_minimos[key],
+                        'categoria': 'Material Ferretero'
+                    })
+        
+        # Obtener datos para comparativa periódica (mes actual vs mes anterior)
+        # Esta es una simulación - en un caso real se obtendría de los registros históricos
+        mes_actual = datetime.now().month
+        año_actual = datetime.now().year
+        
+        comparativa_meses = {
+            'labels': ['Mes Anterior', 'Mes Actual'],
+            'datos': [215, 243]  # Datos de ejemplo
+        }
+        
+        # Simulación de datos para ubicaciones
+        ubicaciones = [
+            {'nombre': 'Almacén Principal', 'items': 452},
+            {'nombre': 'Bodega Norte', 'items': 230},
+            {'nombre': 'Bodega Sur', 'items': 195},
+            {'nombre': 'Vehículos', 'items': 123},
+            {'nombre': 'Personal', 'items': 87}
+        ]
+        
         cursor.close()
         connection.close()
 
         return render_template('modulos/logistica/inventario.html',
                            herramientas_basicas=herramientas_basicas,
                            herramientas_especializadas=herramientas_especializadas,
-                           equipo_seguridad=equipo_seguridad,
-                           material_ferretero=material_ferretero)
+                           
+                           material_ferretero=material_ferretero,
+                           historial_movimientos=historial_movimientos,
+                           movimientos_por_dia=movimientos_por_dia,
+                           ultimos_30_dias=ultimos_30_dias,
+                           categorias=categorias,
+                           items_criticos=items_criticos,
+                           comparativa_meses=comparativa_meses,
+                           ubicaciones=ubicaciones)
 
     except Exception as e:
         print(f"Error al obtener inventario: {str(e)}")
@@ -4049,6 +4299,195 @@ def firmar_asignacion(id_asignacion):
             'status': 'error',
             'message': f'Error al firmar el documento: {str(e)}'
         }), 500
+
+@app.route('/api/inventario/filtrar', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def filtrar_inventario():
+    try:
+        # Obtener parámetros del filtro
+        filtros = request.json
+        categoria = filtros.get('categoria', 'todos')
+        ubicacion = filtros.get('ubicacion', 'todos')
+        fecha_inicio = filtros.get('fecha_inicio')
+        fecha_fin = filtros.get('fecha_fin')
+        estado = filtros.get('estado', 'todos')
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Construir consultas según filtros
+        params = []
+        where_clauses = []
+        
+        # Base de la consulta para movimientos
+        movimientos_query = """
+            SELECT 
+                DATE(fecha_movimiento) as fecha,
+                tipo_movimiento,
+                item_afectado,
+                cantidad,
+                usuario,
+                ubicacion
+            FROM movimientos_inventario
+            WHERE 1=1
+        """
+        
+        # Aplicar filtros de fecha
+        if fecha_inicio:
+            where_clauses.append("fecha_movimiento >= %s")
+            params.append(fecha_inicio)
+        
+        if fecha_fin:
+            where_clauses.append("fecha_movimiento <= %s")
+            params.append(fecha_fin)
+        
+        # Aplicar filtro de categoría
+        if categoria != 'todos':
+            # Mapeo de categorías a items
+            categoria_items = {
+                'herramientas_basicas': ['Adaptador Mandril', 'Alicate', 'Barra 45cm', 'Bisturí Metálico', 
+                                         'Caja de Herramientas', 'Cortafrío', 'Destornillador Estrella', 
+                                         'Destornillador Pala', 'Destornillador Tester', 'Martillo', 'Pinza de Punta'],
+                'herramientas_especializadas': ['Multímetro', 'Taladro Percutor', 'Ponchadora RG6/RG11', 
+                                               'Ponchadora RJ45/RJ11', 'Power Meter', 'BFL Laser', 
+                                               'Cortadora', 'Stripper Fibra'],
+               'material_ferretero': ['Silicona', 'Amarres Negros', 'Amarres Blancos', 
+                                      'Cinta Aislante', 'Grapas Blancas', 'Grapas Negras']
+            }
+            
+            if categoria in categoria_items:
+                item_placeholders = ', '.join(['%s'] * len(categoria_items[categoria]))
+                where_clauses.append(f"item_afectado IN ({item_placeholders})")
+                params.extend(categoria_items[categoria])
+        
+        # Aplicar filtro de ubicación
+        if ubicacion != 'todos':
+            where_clauses.append("ubicacion = %s")
+            params.append(ubicacion)
+        
+        # Construir consulta final
+        if where_clauses:
+            movimientos_query += " AND " + " AND ".join(where_clauses)
+        
+        movimientos_query += " ORDER BY fecha_movimiento DESC LIMIT 100"
+        
+        # Ejecutar consulta
+        cursor.execute(movimientos_query, params)
+        movimientos = cursor.fetchall()
+        
+        # Procesar datos para el gráfico de tendencia
+        ultimos_30_dias = []
+        hoy = datetime.now().date()
+        for i in range(30, -1, -1):
+            fecha = hoy - timedelta(days=i)
+            ultimos_30_dias.append(fecha.strftime('%Y-%m-%d'))
+        
+        movimientos_por_dia = {}
+        for fecha in ultimos_30_dias:
+            movimientos_por_dia[fecha] = 0
+            
+        for movimiento in movimientos:
+            fecha_str = movimiento['fecha'].strftime('%Y-%m-%d')
+            if fecha_str in movimientos_por_dia:
+                movimientos_por_dia[fecha_str] += 1
+        
+        # Preparar datos del gráfico de tendencia
+        datos_tendencia = {
+            'labels': ultimos_30_dias,
+            'datos': [movimientos_por_dia.get(fecha, 0) for fecha in ultimos_30_dias]
+        }
+        
+        # Simular estadísticas según los filtros
+        # En una implementación real, estos datos se obtendrían de la base de datos
+        estadisticas = {
+            'total_items': len(movimientos),
+            'entradas': sum(1 for m in movimientos if m['tipo_movimiento'] == 'entrada'),
+            'salidas': sum(1 for m in movimientos if m['tipo_movimiento'] == 'salida'),
+            'transferencias': sum(1 for m in movimientos if m['tipo_movimiento'] == 'transferencia'),
+            'ajustes': sum(1 for m in movimientos if m['tipo_movimiento'] == 'ajuste')
+        }
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'movimientos': movimientos,
+            'tendencia': datos_tendencia,
+            'estadisticas': estadisticas
+        })
+        
+    except Exception as e:
+        print(f"Error al filtrar inventario: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/inventario/exportar-csv', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def exportar_inventario_csv():
+    try:
+        # Obtener parámetros del filtro (similar a filtrar_inventario)
+        filtros = request.json
+        
+        # Obtener datos según filtros...
+        # (Código similar a filtrar_inventario para obtener los datos)
+        
+        # Para este ejemplo, usaremos datos simulados
+        datos = []
+        
+        # Herramientas básicas
+        for item in ['Adaptador Mandril', 'Alicate', 'Barra 45cm', 'Bisturí Metálico', 
+                    'Caja de Herramientas', 'Cortafrío', 'Destornillador Estrella']:
+            datos.append({
+                'categoria': 'Herramientas Básicas',
+                'item': item,
+                'cantidad': 15,
+                'ubicacion': 'Almacén Principal',
+                'estado': 'Disponible'
+            })
+        
+        # Herramientas especializadas
+        for item in ['Multímetro', 'Taladro Percutor', 'Ponchadora RG6/RG11']:
+            datos.append({
+                'categoria': 'Herramientas Especializadas',
+                'item': item,
+                'cantidad': 8,
+                'ubicacion': 'Bodega Norte',
+                'estado': 'Disponible'
+            })
+        
+        # Material ferretero
+        for item in ['Silicona', 'Amarres Negros', 'Amarres Blancos']:
+            datos.append({
+                'categoria': 'Material Ferretero',
+                'item': item,
+                'cantidad': 50,
+                'ubicacion': 'Bodega Sur',
+                'estado': 'Disponible'
+            })
+        
+        # Crear DataFrame y exportar a CSV
+        df = pd.DataFrame(datos)
+        csv_data = df.to_csv(index=False, sep=';')
+        
+        # Crear un objeto de archivo en memoria
+        output = io.StringIO()
+        output.write(csv_data)
+        output.seek(0)
+        
+        # Devolver el archivo CSV
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-disposition": "attachment; filename=inventario.csv"}
+        )
+        
+    except Exception as e:
+        print(f"Error al exportar inventario a CSV: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
