@@ -393,9 +393,22 @@ function actualizarTabla(indicadores) {
     // Agregar filas
     indicadores.forEach(item => {
         const porcentaje = parseFloat(item.porcentaje_cumplimiento) || 0;
-        const colorClase = porcentaje >= 90 ? 'success' : 
-                         porcentaje >= 70 ? 'warning' : 
-                         'danger';
+        
+        // Determinar color según porcentaje - Con colores más intensos
+        let colorClase, colorEstilo, textoEstado;
+        if (porcentaje >= 90) {
+            colorClase = 'success';
+            colorEstilo = 'linear-gradient(310deg, #2dce89 0%, #26adab 100%)';
+            textoEstado = 'Óptimo';
+        } else if (porcentaje >= 70) {
+            colorClase = 'warning';
+            colorEstilo = 'linear-gradient(310deg, #fb6340 0%, #fbb140 100%)';
+            textoEstado = 'Aceptable';
+        } else {
+            colorClase = 'danger';
+            colorEstilo = 'linear-gradient(310deg, #f5365c 0%, #f56036 100%)';
+            textoEstado = 'Por mejorar';
+        }
         
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -419,17 +432,20 @@ function actualizarTabla(indicadores) {
                 <div class="d-flex align-items-center">
                     <span class="me-2" style="color: #344767 !important; font-weight: bold;">${porcentaje.toFixed(2)}%</span>
                     <div>
-                        <div class="progress">
-                            <div class="progress-bar bg-gradient-${colorClase}" role="progressbar" 
-                                 style="width: ${porcentaje}%" aria-valuenow="${porcentaje}" 
-                                 aria-valuemin="0" aria-valuemax="100"></div>
+                        <div class="progress" style="height: 10px; border-radius: 5px; box-shadow: 0 1px 5px rgba(0,0,0,0.1);">
+                            <div class="progress-bar" 
+                                 role="progressbar" 
+                                 style="width: ${porcentaje}%; background: ${colorEstilo}; height: 10px; border-radius: 5px;" 
+                                 aria-valuenow="${porcentaje}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100"></div>
                         </div>
                     </div>
                 </div>
             </td>
             <td>
-                <span class="badge bg-gradient-${colorClase}" style="color: #344767 !important;">
-                    ${porcentaje >= 90 ? 'Óptimo' : porcentaje >= 70 ? 'Aceptable' : 'Por mejorar'}
+                <span class="badge" style="background: ${colorEstilo}; color: white !important;">
+                    ${textoEstado}
                 </span>
             </td>
         `;
