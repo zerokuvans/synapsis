@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from datetime import date
 from flask_sqlalchemy import SQLAlchemy
 
@@ -86,6 +86,14 @@ def registrar_asignacion_con_firma():
         return jsonify({'status': 'success', 'message': 'Asignación y firma guardadas correctamente', 'id_asignacion': nueva_asignacion.id_asignacion})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+#@app.route('/indicadores/api')
+#def indicadores_api():
+    # Obtener la lista de supervisores (esto debe adaptarse a tu modelo de datos)
+    #supervisores = ["Juan Pérez", "María García", "Carlos Rodríguez"]
+    
+    #return render_template('modulos/administrativo/api_indicadores_cumplimiento.html', 
+     #                     supervisores=supervisores)
 
 if __name__ == '__main__':
     app.run(debug=True)

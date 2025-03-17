@@ -3492,340 +3492,567 @@ def guardar_firma():
             connection.close()
 
 @app.route('/logistica/guardar_asignacion', methods=['POST'])
-@login_required(role=['administrativo', 'logistica'])
 def guardar_asignacion():
+    connection = None
+    cursor = None
     try:
-        connection = get_db_connection()
-        if connection is None:
-            return jsonify({'status': 'error', 'message': 'Error de conexión a la base de datos'})
-            
-        cursor = connection.cursor()
-        
-        # Obtener datos del formulario
+        # Obtener datos básicos del formulario
         id_codigo_consumidor = request.form.get('id_codigo_consumidor')
         fecha = request.form.get('fecha')
         cargo = request.form.get('cargo')
         
-        # Manejar la imagen si se proporcionó una
-        imagen_path = None
-        if 'imagen' in request.files:
-            imagen = request.files['imagen']
-            if imagen and imagen.filename:
-                # Generar nombre único para la imagen
-                extension = os.path.splitext(imagen.filename)[1]
-                nuevo_nombre = f"asignacion_{datetime.now().strftime('%Y%m%d_%H%M%S')}{extension}"
-                
-                # Asegurar que el directorio existe
-                upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'asignacion')
-                os.makedirs(upload_dir, exist_ok=True)
-                
-                # Guardar la imagen
-                imagen_path = os.path.join('uploads', 'asignacion', nuevo_nombre)
-                imagen.save(os.path.join(app.root_path, 'static', imagen_path))
+        # Validar datos requeridos
+        if not id_codigo_consumidor or not fecha or not cargo:
+            return jsonify({
+                'status': 'error',
+                'message': 'Faltan campos obligatorios'
+            }), 400
+            
+        # Obtener conexión a la base de datos
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error al conectar con la base de datos'
+            }), 500
+            
+        # Obtener información del técnico desde la base de datos
+        query_tecnico = """
+            SELECT nombre, recurso_operativo_cedula 
+            FROM recurso_operativo
+            WHERE id_codigo_consumidor = %s
+        """
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(query_tecnico, (id_codigo_consumidor,))
+        tecnico = cursor.fetchone()
         
-        # Insertar asignación con imagen
-        cursor.execute("""
+        if not tecnico:
+            return jsonify({
+                'status': 'error',
+                'message': 'Técnico no encontrado'
+            }), 404
+        
+        # Convertir fecha a formato datetime
+        try:
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%dT%H:%M')
+            fecha_formateada = fecha_obj.strftime('%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return jsonify({
+                'status': 'error',
+                'message': 'Formato de fecha inválido'
+            }), 400
+            
+        # Mapeo entre nombres de campos del formulario y nombres de campos en la base de datos (sin prefijo)
+        mapeo_herramientas = {
+            'adaptador_mandril': 'adaptador_mandril',
+            'alicate': 'alicate',
+            'barra_45cm': 'barra_45cm',
+            'bisturi_metalico': 'bisturi_metalico',
+            # Para las brocas, usamos nombres sin caracteres especiales
+            'broca_3_8': 'broca_38',
+            'broca_386_ran': 'broca_386_ran',
+            'broca_126_ran': 'broca_126_ran',
+            'broca_metalmadera_14': 'broca_metalmadera_14',
+            'broca_metalmadera_38': 'broca_metalmadera_38',
+            'broca_metalmadera_516': 'broca_metalmadera_516',
+            'caja_de_herramientas': 'caja_de_herramientas',
+            'cajon_rojo': 'cajon_rojo',
+            'cinta_de_senal': 'cinta_de_senal',
+            'cono_retractil': 'cono_retractil',
+            'cortafrio': 'cortafrio',
+            'destor_de_estrella': 'destor_de_estrella',
+            'destor_de_pala': 'destor_de_pala',
+            'destor_tester': 'destor_tester',
+            'espatula': 'espatula',
+            'exten_de_corr_10_mts': 'exten_de_corr_10_mts',
+            'llave_locking_male': 'llave_locking_male',
+            'llave_reliance': 'llave_reliance',
+            'llave_torque_rg_11': 'llave_torque_rg_11',
+            'llave_torque_rg_6': 'llave_torque_rg_6',
+            'llaves_mandril': 'llaves_mandril',
+            'mandril_para_taladro': 'mandril_para_taladro',
+            'martillo_de_una': 'martillo_de_una',
+            'multimetro': 'multimetro',
+            'pelacable_rg_6y_rg_11': 'pelacable_rg_6y_rg_11',
+            'pinza_de_punta': 'pinza_de_punta',
+            'pistola_de_silicona': 'pistola_de_silicona',
+            'planillero': 'planillero',
+            'ponchadora_rg_6_y_rg_11': 'ponchadora_rg_6_y_rg_11',
+            'ponchadora_rj_45_y_rj11': 'ponchadora_rj_45_y_rj11',
+            'probador_de_tonos': 'probador_de_tonos',
+            'probador_de_tonos_utp': 'probador_de_tonos_utp',
+            'puntas_para_multimetro': 'puntas_para_multimetro',
+            'sonda_metalica': 'sonda_metalica',
+            'tacos_de_madera': 'tacos_de_madera',
+            'taladro_percutor': 'taladro_percutor',
+            'telefono_de_pruebas': 'telefono_de_pruebas',
+            'power_miter': 'power_miter',
+            'bfl_laser': 'bfl_laser',
+            'cortadora': 'cortadora',
+            'stripper_fibra': 'stripper_fibra',
+            'pelachaqueta': 'pelachaqueta'
+        }
+            
+        # Construir los valores para la consulta
+        valores = {
+            'id_codigo_consumidor': id_codigo_consumidor,
+            'cedula': tecnico['recurso_operativo_cedula'],
+            'nombre': tecnico['nombre'],
+            'fecha': fecha_formateada,
+            'cargo': cargo,
+            'estado': '1'  # Activo por defecto
+        }
+        
+        # Agregar herramientas con valor '0' por defecto
+        for clave_form, clave_db in mapeo_herramientas.items():
+            valores[clave_db] = '0'
+        
+        # Actualizar valores según lo seleccionado en el formulario
+        for nombre_campo, valor in request.form.items():
+            if nombre_campo in mapeo_herramientas and valor == '1':
+                clave_db = mapeo_herramientas[nombre_campo]
+                valores[clave_db] = '1'
+        
+        # Construir la consulta SQL
+        nombres_columnas = []
+        placeholders = []
+        valores_lista = []
+        
+        # Campo id_codigo_consumidor (sin prefijo)
+        nombres_columnas.append('id_codigo_consumidor')
+        placeholders.append('%s')
+        valores_lista.append(valores['id_codigo_consumidor'])
+        
+        # Campos con prefijo 'asignacion_'
+        for campo, valor in valores.items():
+            if campo != 'id_codigo_consumidor':
+                # Usar prefijo asignacion_ para todos los demás campos
+                nombre_columna = f"asignacion_{campo}"
+                nombres_columnas.append(nombre_columna)
+                placeholders.append('%s')
+                valores_lista.append(valor)
+        
+        query = f"""
             INSERT INTO asignacion (
-                id_codigo_consumidor, asignacion_fecha, asignacion_cargo, 
-                asignacion_estado, asignacion_imagen
-            ) VALUES (%s, %s, %s, %s, %s)
-        """, (
-            id_codigo_consumidor, fecha, cargo, '1', 
-            imagen_path if imagen_path else None
-        ))
+                {', '.join(nombres_columnas)}
+            ) VALUES (
+                {', '.join(placeholders)}
+            )
+        """
         
+        # Ejecutar la consulta
+        cursor.execute(query, valores_lista)
         id_asignacion = cursor.lastrowid
-        
-        # Procesar herramientas (código existente)
-        for key, value in request.form.items():
-            if key not in ['id_codigo_consumidor', 'fecha', 'cargo'] and value == '1':
-                campo = f"asignacion_{key}"
-                query = f"""
-                    UPDATE asignacion 
-                    SET {campo} = '1'
-                    WHERE id_asignacion = %s
-                """
-                cursor.execute(query, (id_asignacion,))
-        
         connection.commit()
+        
+        # Registrar acción en log
+        app.logger.info(
+            f"Asignación {id_asignacion} creada para técnico "
+            f"{tecnico['nombre']} ({tecnico['recurso_operativo_cedula']})"
+        )
+        
+        # Responder con éxito y el ID de la asignación
         return jsonify({
             'status': 'success',
             'message': 'Asignación guardada correctamente',
             'id_asignacion': id_asignacion
-        })
-        
+        }), 200
+         
     except mysql.connector.Error as e:
-        return jsonify({'status': 'error', 'message': f'Error al guardar la asignación: {str(e)}'})
+        print(f"Error MySQL en guardar_asignacion: {str(e)}")  # Debug log
+        
+        # En caso de error, hacer rollback
+        if connection:
+            try:
+                connection.rollback()
+            except:
+                pass
+                
+        return jsonify({
+            'status': 'error',
+            'message': f'Error en la base de datos: {str(e)}'
+        }), 500
+    except Exception as e:
+        print(f"Error general en guardar_asignacion: {str(e)}")  # Debug log
+        
+        # En caso de error, hacer rollback
+        if connection:
+            try:
+                connection.rollback()
+            except:
+                pass
+                
+        # Log detallado para diagnóstico
+        import traceback
+        app.logger.error(traceback.format_exc())
+        
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al guardar la asignación: {str(e)}'
+        }), 500
     finally:
+        # Asegurarse de cerrar cursor y conexión
         if cursor:
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
 
-# Modificar la ruta de obtener detalles para incluir la imagen
-@app.route('/logistica/asignacion/<int:id>')
-@login_required(role=['administrativo', 'logistica'])
-def obtener_detalle_asignacion(id):
+# Endpoint para guardar asignaciones simplificado
+@app.route('/logistica/guardar_asignacion_simple', methods=['POST'])
+def guardar_asignacion_simple():
+    connection = None
+    cursor = None
     try:
-        connection = get_db_connection()
-        if connection is None:
-            return jsonify({'status': 'error', 'message': 'Error de conexión a la base de datos'})
+        # Obtener datos básicos del formulario
+        id_codigo_consumidor = request.form.get('id_codigo_consumidor')
+        fecha = request.form.get('fecha')
+        cargo = request.form.get('cargo')
+        
+        # Validar datos requeridos
+        if not id_codigo_consumidor or not fecha or not cargo:
+            return jsonify({
+                'status': 'error',
+                'message': 'Faltan campos obligatorios'
+            }), 400
             
+        # Obtener conexión a la base de datos
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error al conectar con la base de datos'
+            }), 500
+            
+        # Obtener información del técnico
         cursor = connection.cursor(dictionary=True)
         
-        # Obtener información básica incluyendo la imagen
-        cursor.execute("""
-            SELECT a.*, ro.nombre, ro.recurso_operativo_cedula
-            FROM asignaciones a
-            JOIN recurso_operativo ro ON a.id_codigo_consumidor = ro.id_codigo_consumidor
-            WHERE a.id_asignacion = %s
-        """, (id,))
+        query_tecnico = """
+            SELECT nombre, recurso_operativo_cedula 
+            FROM recurso_operativo 
+            WHERE id_codigo_consumidor = %s
+        """
+        cursor.execute(query_tecnico, (id_codigo_consumidor,))
+        tecnico = cursor.fetchone()
         
-        asignacion = cursor.fetchone()
-        if not asignacion:
-            return jsonify({'status': 'error', 'message': 'Asignación no encontrada'})
+        if not tecnico:
+            return jsonify({
+                'status': 'error',
+                'message': 'Técnico no encontrado'
+            }), 404
             
-        # Convertir la ruta de la imagen a URL si existe
-        imagen_url = None
-        if asignacion.get('asignacion_imagen'):
-            imagen_url = url_for('static', filename=asignacion['asignacion_imagen'])
+        # Convertir fecha a formato datetime
+        try:
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%dT%H:%M')
+            fecha_formateada = fecha_obj.strftime('%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return jsonify({
+                'status': 'error',
+                'message': 'Formato de fecha inválido'
+            }), 400
         
-        info_basica = {
-            'tecnico': asignacion['nombre'],
-            'cedula': asignacion['recurso_operativo_cedula'],
-            'cargo': asignacion['asignacion_cargo'],
-            'fecha': asignacion['asignacion_fecha'].strftime('%Y-%m-%d %H:%M:%S'),
-            'estado': 'Activo' if asignacion['asignacion_estado'] == '1' else 'Inactivo',
-            'imagen': imagen_url
-        }
+        # Construir la consulta SQL solo con información básica
+        query = """
+            INSERT INTO asignacion (
+                id_codigo_consumidor, 
+                asignacion_cedula, 
+                asignacion_nombre, 
+                asignacion_fecha, 
+                asignacion_cargo, 
+                asignacion_estado
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+        """
         
-        # Obtener detalles de herramientas
-        cursor.execute("""
-            SELECT codigo, descripcion, estado
-            FROM asignacion_herramientas
-            WHERE id_asignacion = %s
-        """, (id,))
-        
-        herramientas = cursor.fetchall()
-        
-        # Clasificar herramientas
-        herramientas_basicas = {}
-        brocas = {}
-        herramientas_red = {}
-        
-        for h in herramientas:
-            nombre = h['descripcion']
-            estado = h['estado']
-            codigo = h['codigo']
+        # Ejecutar consulta
+        try:
+            cursor.execute(query, [
+                id_codigo_consumidor,
+                tecnico['recurso_operativo_cedula'],  # cedula
+                tecnico['nombre'],  # nombre
+                fecha_formateada,
+                cargo,
+                '1'  # Estado activo
+            ])
             
-            if 'broca' in nombre.lower():
-                brocas[nombre] = {'estado': estado, 'codigo': codigo}
-            elif any(red in nombre.lower() for red in ['cajon', 'cinta', 'cono', 'llave', 'ponchadora']):
-                herramientas_red[nombre] = {'estado': estado, 'codigo': codigo}
-            else:
-                herramientas_basicas[nombre] = {'estado': estado, 'codigo': codigo}
+            # Obtener ID y hacer commit
+            id_asignacion = cursor.lastrowid
+            connection.commit()
+                
+            return jsonify({
+                'status': 'success',
+                'message': 'Asignación básica guardada correctamente',
+                'id_asignacion': id_asignacion
+            }), 200
+            
+        except Exception as e:
+            app.logger.error(f"Error al guardar asignación simple: {str(e)}")
+            
+            if connection:
+                connection.rollback()
+                    
+            return jsonify({
+                'status': 'error',
+                'message': f'Error al guardar la asignación simple: {str(e)}'
+            }), 500
         
-        return jsonify({
-            'status': 'success',
-            'data': {
-                'info_basica': info_basica,
-                'herramientas_basicas': herramientas_basicas,
-                'brocas': brocas,
-                'herramientas_red': herramientas_red
-            }
-        })
-        
-    except mysql.connector.Error as e:
-        return jsonify({'status': 'error', 'message': f'Error de base de datos: {str(e)}'})
     except Exception as e:
-        return jsonify({'status': 'error', 'message': f'Error inesperado: {str(e)}'})
+        app.logger.error(f"Error general en guardar_asignacion_simple: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al procesar la solicitud: {str(e)}'
+        }), 500
     finally:
-        if 'cursor' in locals():
+        # Asegurarse de cerrar cursor y conexión
+        if cursor:
             cursor.close()
-        if 'connection' in locals() and connection.is_connected():
+        if connection and connection.is_connected():
             connection.close()
 
 @app.route('/logistica/asignacion/<int:id_asignacion>/pdf', methods=['GET'])
-@login_required(role=['administrativo', 'logistica'])
+@login_required()
+@role_required('logistica')
 def generar_pdf_asignacion(id_asignacion):
     try:
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import letter
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-        from reportlab.lib.units import inch
-        from reportlab.platypus import Image as RLImage
-        import base64
-        import re
-        from io import BytesIO
-        
-        # Obtener parámetros de la URL
+        # Verificar si se solicitó el PDF firmado
         mostrar_firma = request.args.get('firmado', 'false').lower() == 'true'
-        
+        app.logger.info(f"Generando PDF para asignación {id_asignacion} - Con firma: {mostrar_firma}")
+
+        # Obtener la conexión a la base de datos
         connection = get_db_connection()
         if not connection:
-            return jsonify({'status': 'error', 'message': 'Error de conexión a la base de datos'})
+            app.logger.error("Error al conectar con la base de datos para generar PDF")
+            return jsonify({'status': 'error', 'message': 'Error de conexión a la base de datos'}), 500
             
         cursor = connection.cursor(dictionary=True)
-        
-        # Obtener información de la asignación incluyendo la firma
-        cursor.execute("""
-            SELECT a.*, ro.nombre, ro.recurso_operativo_cedula, fa.firma_imagen
+
+        # Consultar información de la asignación
+        query = """
+            SELECT a.*, 
+                r.nombre AS recurso_nombre, 
+                r.recurso_operativo_cedula
             FROM asignacion a
-            JOIN recurso_operativo ro ON a.id_codigo_consumidor = ro.id_codigo_consumidor
-            LEFT JOIN firmas_asignaciones fa ON a.id_asignacion = fa.id_asignacion
+            JOIN recurso_operativo r ON a.id_codigo_consumidor = r.id_codigo_consumidor
             WHERE a.id_asignacion = %s
-        """, (id_asignacion,))
-        
+        """
+        cursor.execute(query, (id_asignacion,))
         asignacion = cursor.fetchone()
+
         if not asignacion:
-            return jsonify({'status': 'error', 'message': 'Asignación no encontrada'})
-            
-        # Obtener la firma si existe
-        firma_imagen = asignacion.get('firma_imagen') if mostrar_firma else None
+            cursor.close()
+            connection.close()
+            app.logger.warning(f"Asignación no encontrada para PDF: {id_asignacion}")
+            return jsonify({'status': 'error', 'message': 'Asignación no encontrada'}), 404
+
+        # En lugar de consultar una tabla inexistente, procesamos las herramientas desde la misma tabla de asignación
+        # Las herramientas están almacenadas como columnas en la tabla asignacion con prefijo asignacion_
+        herramientas_basicas = []
+        brocas = []
+        herramientas_red = []
+        
+        # Prefijos para identificar los tipos de herramientas (definidos aquí para usarlos en todo el método)
+        prefijos_brocas = ['broca']
+        prefijos_red = ['cajon', 'cinta', 'cono', 'exten', 'llave', 'mandril', 
+                        'pelacable', 'ponchadora', 'probador', 'sonda', 'telefono',
+                        'power', 'laser', 'cortadora', 'stripper']
+        
+        # Recorremos los campos de la asignación y extraemos las herramientas
+        for key, value in asignacion.items():
+            if (key.startswith('asignacion_') and 
+                value == '1' and 
+                not key in ['asignacion_fecha', 'asignacion_estado', 'asignacion_cargo',
+                           'asignacion_cedula', 'asignacion_nombre']):
+                # Quitar el prefijo asignacion_
+                nombre_campo = key[11:]
+                nombre_herramienta = nombre_campo.replace('_', ' ').title()
+                
+                # Clasificar por tipo
+                es_broca = any(prefijo in nombre_campo.lower() for prefijo in prefijos_brocas)
+                es_red = any(prefijo in nombre_campo.lower() for prefijo in prefijos_red)
+                
+                item_herramienta = {
+                    'id_codigo_herramienta': nombre_campo,
+                    'referencia': nombre_herramienta,
+                    'herramienta_cedula': '',
+                    'marca': '',
+                    'modelo': '',
+                    'serial': ''
+                }
+                
+                if es_broca:
+                    brocas.append(item_herramienta)
+                elif es_red:
+                    herramientas_red.append(item_herramienta)
+                else:
+                    herramientas_basicas.append(item_herramienta)
+        
+        # Combinamos todas las herramientas para mostrarlas en el PDF
+        herramientas = herramientas_basicas + brocas + herramientas_red
+
+        # Si se solicitó firmado, buscar firma en la base de datos
+        firma_imagen = None
+        if mostrar_firma:
+            try:
+                query_firma = """
+                    SELECT firma_imagen, fecha_firma 
+                    FROM firmas_asignaciones 
+                    WHERE id_asignacion = %s 
+                    ORDER BY fecha_firma DESC LIMIT 1
+                """
+                cursor.execute(query_firma, (id_asignacion,))
+                resultado_firma = cursor.fetchone()
+                
+                if resultado_firma and resultado_firma['firma_imagen']:
+                    app.logger.info(f"Firma encontrada para asignación {id_asignacion}")
+                    firma_imagen = resultado_firma['firma_imagen']
+                else:
+                    app.logger.warning(f"No se encontró firma para la asignación {id_asignacion}")
+            except Exception as e:
+                app.logger.error(f"Error al buscar firma: {str(e)}")
+                # Continuamos sin firma
+
+        cursor.close()
+        connection.close()
+
+        # Crear buffer para el PDF
+        buffer = BytesIO()
         
         # Crear PDF con ReportLab
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=letter,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=72,
+            bottomMargin=72
+        )
+        
+        # Contenido del PDF
         contenido = []
         
-        # Definir todos los estilos necesarios
-        styles = getSampleStyleSheet()
-        estilo_heading = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading1'],
-            fontSize=14,
-            spaceAfter=12,
-            spaceBefore=12,
-            textColor=colors.black,
-            alignment=1  # Centrado
-        )
-        
-        estilo_normal = ParagraphStyle(
-            'CustomNormal',
-            parent=styles['Normal'],
-            fontSize=10,
-            spaceBefore=6,
-            spaceAfter=6
-        )
-        
-        estilo_titulo = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Title'],
-            fontSize=16,
-            spaceAfter=30,
-            alignment=1  # Centrado
-        )
-        
+        # Añadir logo si existe
+        try:
+            logo_path = os.path.join(app.root_path, 'static', 'img', 'logo.png')
+            if os.path.exists(logo_path):
+                logo = RLImage(logo_path, width=150, height=50)
+                contenido.append(logo)
+                contenido.append(Spacer(1, 20))
+            else:
+                app.logger.warning("Logo no encontrado en: " + logo_path)
+        except Exception as e:
+            app.logger.error(f"Error al cargar logo: {str(e)}")
+            # Continuar sin logo
+            
         # Título
-        contenido.append(Paragraph("Formato de Asignación de Herramientas", estilo_titulo))
+        estilos = getSampleStyleSheet()
+        estilo_titulo = estilos['Heading1']
+        estilo_titulo.alignment = 1  # Centrado
+        titulo = Paragraph("DETALLE DE ASIGNACIÓN", estilo_titulo)
+        contenido.append(titulo)
+        contenido.append(Spacer(1, 20))
         
-        # Información básica
-        data = [
-            ["Técnico:", asignacion['nombre']],
-            ["Cédula:", asignacion['recurso_operativo_cedula']],
-            ["Cargo:", asignacion['asignacion_cargo']],
-            ["Fecha:", asignacion['asignacion_fecha'].strftime('%Y-%m-%d %H:%M:%S')],
-            ["Estado:", "Activo" if asignacion['asignacion_estado'] == '1' else "Inactivo"]
-        ]
+        # Información de la asignación
+        estilo_normal = estilos['Normal']
+        estilo_heading = estilos['Heading2']
         
-        # Crear tabla de información básica
-        table = Table(data, colWidths=[100, 400])
-        table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('PADDING', (0, 0), (-1, -1), 4)
-        ]))
-        contenido.append(table)
+        # Datos del recurso operativo
+        contenido.append(Paragraph("Información de la Asignación", estilo_heading))
         contenido.append(Spacer(1, 10))
         
-        # Sección de herramientas
+        datos_recurso = [
+            ["Nombre", asignacion['recurso_nombre'] or ""],
+            ["Cédula", asignacion['recurso_operativo_cedula'] or ""]
+        ]
+        
+        tabla_recurso = Table(datos_recurso, colWidths=[100, 350])
+        tabla_recurso.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('PADDING', (0, 0), (-1, -1), 6),
+        ]))
+        contenido.append(tabla_recurso)
+        contenido.append(Spacer(1, 20))
+        
+        # Detalles de la asignación
+        contenido.append(Paragraph("Detalles de la Asignación", estilo_heading))
+        contenido.append(Spacer(1, 10))
+        
+        # Formatear la fecha
+        fecha_asignacion = asignacion.get('asignacion_fecha')
+        if fecha_asignacion:
+            fecha_str = fecha_asignacion.strftime("%d/%m/%Y %H:%M") if isinstance(fecha_asignacion, datetime) else str(fecha_asignacion)
+        else:
+            fecha_str = "No especificada"
+            
+        datos_asignacion = [
+            ["ID Asignación", str(asignacion['id_asignacion']) or ""],
+            ["Fecha", fecha_str],
+            ["Proyecto", asignacion.get('proyecto', "") or ""],
+            ["Ubicación", asignacion.get('ubicacion', "") or ""],
+            ["Observaciones", asignacion.get('observaciones', "") or ""]
+        ]
+        
+        tabla_asignacion = Table(datos_asignacion, colWidths=[100, 350])
+        tabla_asignacion.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('PADDING', (0, 0), (-1, -1), 6),
+        ]))
+        contenido.append(tabla_asignacion)
+        contenido.append(Spacer(1, 20))
+        
+        # Lista de herramientas
         contenido.append(Paragraph("Herramientas Asignadas", estilo_heading))
         contenido.append(Spacer(1, 10))
         
-        # Lista de herramientas conocidas y sus descripciones
-        herramientas_mapping = {
-            'adaptador_mandril': 'Adaptador Mandril',
-            'alicate': 'Alicate',
-            'barra_45cm': 'Barra 45cm',
-            'bisturi_metalico': 'Bisturí Metálico',
-            'broca_3_8': 'Broca 3/8',
-            'broca_386_ran': 'Broca 3/8 6 Ranuras',
-            'broca_126_ran': 'Broca 1/2 6 Ranuras',
-            'broca_metalmadera_14': 'Broca Metal/Madera 1/4',
-            'broca_metalmadera_38': 'Broca Metal/Madera 3/8',
-            'broca_metalmadera_516': 'Broca Metal/Madera 5/16',
-            'caja_de_herramientas': 'Caja de Herramientas',
-            'cajon_rojo': 'Cajón Rojo',
-            'cinta_de_senal': 'Cinta de Señal',
-            'cono_retractil': 'Cono Retráctil',
-            'cortafrio': 'Cortafrío',
-            'destor_de_estrella': 'Destornillador de Estrella',
-            'destor_de_pala': 'Destornillador de Pala',
-            'destor_tester': 'Destornillador Tester',
-            'espatula': 'Espátula',
-            'exten_de_corr_10_mts': 'Extensión de Corriente 10mts',
-            'llave_locking_male': 'Llave Locking Male',
-            'llave_reliance': 'Llave Reliance',
-            'llave_torque_rg_11': 'Llave Torque RG-11',
-            'llave_torque_rg_6': 'Llave Torque RG-6',
-            'llaves_mandril': 'Llaves Mandril',
-            'mandril_para_taladro': 'Mandril para Taladro',
-            'martillo_de_una': 'Martillo de Una',
-            'multimetro': 'Multímetro',
-            'pelacable_rg_6y_rg_11': 'Pelacable RG-6 y RG-11',
-            'pinza_de_punta': 'Pinza de Punta',
-            'pistola_de_silicona': 'Pistola de Silicona',
-            'planillero': 'Planillero',
-            'ponchadora_rg_6_y_rg_11': 'Ponchadora RG-6 y RG-11',
-            'ponchadora_rj_45_y_rj11': 'Ponchadora RJ-45 y RJ-11',
-            'probador_de_tonos': 'Probador de Tonos',
-            'probador_de_tonos_utp': 'Probador de Tonos UTP',
-            'puntas_para_multimetro': 'Puntas para Multímetro',
-            'sonda_metalica': 'Sonda Metálica',
-            'tacos_de_madera': 'Tacos de Madera',
-            'taladro_percutor': 'Taladro Percutor',
-            'telefono_de_pruebas': 'Teléfono de Pruebas',
-            'power_miter': 'Power Miter',
-            'bfl_laser': 'BFL Laser',
-            'cortadora': 'Cortadora',
-            'stripper_fibra': 'Stripper Fibra',
-            'pelachaqueta': 'Pelachaqueta'
-        }
-        
-        # Crear lista de herramientas asignadas
-        herramientas_asignadas = []
-        for campo, valor in asignacion.items():
-            if campo.startswith('asignacion_') and campo not in ['asignacion_fecha', 'asignacion_cargo', 'asignacion_estado', 'asignacion_firma']:
-                nombre_herramienta = campo.replace('asignacion_', '')
-                if valor == '1' and nombre_herramienta in herramientas_mapping:
-                    herramientas_asignadas.append([
-                        nombre_herramienta,
-                        herramientas_mapping[nombre_herramienta],
-                        'Asignada'
-                    ])
-        
-        if herramientas_asignadas:
-            # Crear tabla de herramientas
-            headers = ['Código', 'Descripción', 'Estado']
-            data_herramientas = [headers] + herramientas_asignadas
+        if herramientas:
+            # Agrupar herramientas por tipo
+            herramientas_por_tipo = {}
+            for h in herramientas:
+                tipo = 'Herramientas Básicas'
+                if any(prefijo in h['id_codigo_herramienta'].lower() for prefijo in prefijos_brocas):
+                    tipo = 'Brocas'
+                elif any(prefijo in h['id_codigo_herramienta'].lower() for prefijo in prefijos_red):
+                    tipo = 'Herramientas de Red'
+                
+                if tipo not in herramientas_por_tipo:
+                    herramientas_por_tipo[tipo] = []
+                herramientas_por_tipo[tipo].append(h)
             
-            tabla_herramientas = Table(data_herramientas, colWidths=[100, 300, 100])
-            tabla_herramientas.setStyle(TableStyle([
-                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 10),
-                ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('PADDING', (0, 0), (-1, -1), 4),
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey)
-            ]))
-            contenido.append(tabla_herramientas)
+            # Mostrar cada tipo de herramienta
+            for tipo, items in herramientas_por_tipo.items():
+                if items:
+                    # Título del tipo
+                    contenido.append(Paragraph(tipo, estilos['Heading3']))
+                    contenido.append(Spacer(1, 5))
+                    
+                    # Tablas con hasta 3 columnas
+                    filas = []
+                    fila_actual = []
+                    
+                    for item in items:
+                        fila_actual.append(item['referencia'])
+                        if len(fila_actual) == 3:
+                            filas.append(fila_actual)
+                            fila_actual = []
+                    
+                    # Añadir la última fila si quedaron elementos
+                    if fila_actual:
+                        # Rellenar con espacios vacíos si es necesario
+                        while len(fila_actual) < 3:
+                            fila_actual.append("")
+                        filas.append(fila_actual)
+                    
+                    # Crear tabla para este tipo
+                    tabla = Table(filas, colWidths=[150, 150, 150])
+                    tabla.setStyle(TableStyle([
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                        ('PADDING', (0, 0), (-1, -1), 4),
+                    ]))
+                    contenido.append(tabla)
+                    contenido.append(Spacer(1, 10))
         else:
-            contenido.append(Paragraph("No hay herramientas asignadas", styles['Normal']))
+            contenido.append(Paragraph("No hay herramientas asignadas", estilo_normal))
         
         contenido.append(Spacer(1, 30))
         
@@ -3853,11 +4080,11 @@ def generar_pdf_asignacion(id_asignacion):
                     contenido.append(firma_img)
                     app.logger.info("Firma añadida al PDF correctamente")
                 else:
-                    contenido.append(Paragraph("(Formato de firma no válido)", styles['Normal']))
+                    contenido.append(Paragraph("(Formato de firma no válido)", estilo_normal))
                     app.logger.warning("Formato de firma no válido para incluir en PDF")
             except Exception as e:
                 app.logger.error(f"Error al procesar firma para PDF: {str(e)}")
-                contenido.append(Paragraph("(Error al cargar firma)", styles['Normal']))
+                contenido.append(Paragraph("(Error al cargar firma)", estilo_normal))
                 import traceback
                 app.logger.error(traceback.format_exc())
         
@@ -3865,7 +4092,7 @@ def generar_pdf_asignacion(id_asignacion):
         
         # Pie de página con fecha de generación
         fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        pie = Paragraph(f"Documento generado el {fecha_generacion}", styles['Normal'])
+        pie = Paragraph(f"Documento generado el {fecha_generacion}", estilo_normal)
         contenido.append(pie)
         
         # Construir el PDF
@@ -4918,12 +5145,11 @@ def estadisticas_inventario():
             'ferretero': categorias_ferretero['ferretero'] or 0
         }
         
-        # Convertir valores a float para evitar problemas con Decimal
         datos_categorias = json.dumps([
-            float(categorias['herramientas'] or 0), 
-            float(categorias['dotaciones'] or 0), 
-            float(categorias['epps'] or 0), 
-            float(categorias['ferretero'] or 0)
+            categorias['herramientas'], 
+            categorias['dotaciones'], 
+            categorias['epps'], 
+            categorias['ferretero']
         ])
         
         # Obtener datos para el gráfico de distribución por estado
@@ -4937,12 +5163,11 @@ def estadisticas_inventario():
         """)
         estados = cursor.fetchone()
         
-        # Convertir valores a float para evitar problemas con Decimal
         datos_estados = json.dumps([
-            float(estados['disponibles'] or 0), 
-            float(estados['asignados'] or 0), 
-            float(estados['en_mantenimiento'] or 0), 
-            float(estados['de_baja'] or 0)
+            estados['disponibles'] or 0, 
+            estados['asignados'] or 0, 
+            estados['en_mantenimiento'] or 0, 
+            estados['de_baja'] or 0
         ])
         
         # Obtener datos para el gráfico de elementos más asignados
@@ -4987,10 +5212,11 @@ def estadisticas_inventario():
         """)
         mas_asignados = cursor.fetchall()
         
+        import json
         
         if mas_asignados:
             labels_mas_asignados = json.dumps([item['descripcion'] for item in mas_asignados])
-            datos_mas_asignados = json.dumps([float(item['total_asignaciones'] or 0) for item in mas_asignados])
+            datos_mas_asignados = json.dumps([item['total_asignaciones'] for item in mas_asignados])
         else:
             labels_mas_asignados = json.dumps(["Taladro", "Guantes", "Martillo", "Pulidora", "Destornillador", "Llaves"])
             datos_mas_asignados = json.dumps([120, 98, 85, 74, 65, 60])
@@ -5044,7 +5270,7 @@ def estadisticas_inventario():
         
         if tendencia:
             labels_tendencia = json.dumps([item['mes'] for item in tendencia])
-            datos_tendencia = json.dumps([float(item['total'] or 0) for item in tendencia])
+            datos_tendencia = json.dumps([item['total'] for item in tendencia])
         else:
             labels_tendencia = json.dumps(["Ene", "Feb", "Mar", "Abr", "May", "Jun"])
             datos_tendencia = json.dumps([65, 72, 78, 90, 85, 95])
@@ -5391,351 +5617,6 @@ def api_estadisticas_inventario():
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
-
-@app.route('/asistencia', methods=['GET'])
-@login_required(role='administrativo')
-def ver_asistencia():
-    try:
-        connection = get_db_connection()
-        if connection is None:
-            flash('Error de conexión a la base de datos', 'danger')
-            return redirect(url_for('dashboard'))
-            
-        cursor = connection.cursor(dictionary=True)
-        
-        # Crear tablas si no existen
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS tipificacion_asistencia (
-                id_tipificacion INT AUTO_INCREMENT PRIMARY KEY,
-                codigo_tipificacion VARCHAR(50) NOT NULL,
-                nombre_tipificacion VARCHAR(200),
-                estado CHAR(1) DEFAULT '1',
-                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS asistencia (
-                id_asistencia INT AUTO_INCREMENT PRIMARY KEY,
-                cedula VARCHAR(20),
-                tecnico VARCHAR(100),
-                carpeta_dia VARCHAR(50),
-                carpeta VARCHAR(50),
-                super VARCHAR(100),
-                fecha_asistencia TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                id_codigo_consumidor INT
-            )
-        """)
-        connection.commit()
-        
-        # Insertar tipificaciones por defecto si no existen
-        #tipificaciones_default = [
-        #    ('VACACIONES', 'Vacaciones'),
-        #    ('PERMISO', 'Permiso'),
-        #    ('INCAPACIDAD', 'Incapacidad'),
-        #    ('CAPACITACION', 'Capacitación'),
-        #    ('AUSENCIA', 'Ausencia'),
-        #    ('PRESENTE', 'Presente')
-        #]
-        
-        #for codigo, descripcion in tipificaciones_default:
-        #    cursor.execute("""
-        #        INSERT IGNORE INTO tipificacion_asistencia 
-        #        (codigo_tipificacion, nombre_tipificacion) 
-        #        VALUES (%s, %s)
-        #    """, (codigo, descripcion))
-        #connection.commit()
-        
-        # Obtener lista de técnicos
-        cursor.execute("""
-           SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta
-            FROM capired.recurso_operativo
-            WHERE estado = 'Activo'
-            ORDER BY nombre
-        """)
-        tecnicos = cursor.fetchall()
-        
-        # Obtener lista de tipificaciones para carpeta_dia
-        cursor.execute("""
-            SELECT codigo_tipificacion, nombre_tipificacion
-            FROM tipificacion_asistencia
-            WHERE estado = '1'
-            ORDER BY codigo_tipificacion
-        """)
-        carpetas_dia = cursor.fetchall()
-        
-        # Obtener lista de supervisores
-        cursor.execute("""
-            SELECT DISTINCT super
-            FROM recurso_operativo 
-            WHERE super IS NOT NULL AND super != ''
-            ORDER BY super
-        """)
-        supervisores = cursor.fetchall()
-        
-        return render_template('modulos/administrativo/asistencia.html',
-                           tecnicos=tecnicos,
-                           carpetas_dia=carpetas_dia,
-                           supervisores=supervisores)
-                           
-    except mysql.connector.Error as e:
-        flash(f'Error al cargar datos: {str(e)}', 'danger')
-        return redirect(url_for('dashboard'))
-    finally:
-        if cursor:
-            cursor.close()
-        if connection and connection.is_connected():
-            connection.close()
-
-@app.route('/api/asistencia/guardar', methods=['POST'])
-@login_required(role='administrativo')
-def guardar_asistencias():
-    try:
-        data = request.get_json()
-        if not data or 'asistencias' not in data:
-            return jsonify({'success': False, 'message': 'No se recibieron datos de asistencia'})
-            
-        connection = get_db_connection()
-        if connection is None:
-            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
-            
-        cursor = connection.cursor()
-        
-        # Primero, crear la tabla si no existe con AUTO_INCREMENT
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS asistencia (
-                id_asistencia INT AUTO_INCREMENT PRIMARY KEY,
-                cedula VARCHAR(20),
-                tecnico VARCHAR(100),
-                carpeta_dia VARCHAR(50),
-                carpeta VARCHAR(50),
-                super VARCHAR(100),
-                fecha_asistencia TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                id_codigo_consumidor INT
-            )
-        """)
-        connection.commit()
-        
-        # Insertar cada asistencia
-        for asistencia in data['asistencias']:
-            cursor.execute("""
-                INSERT INTO asistencia (
-                    cedula, tecnico, carpeta_dia, carpeta, super, 
-                    id_codigo_consumidor
-                ) VALUES (%s, %s, %s, %s, %s, %s)
-            """, (
-                asistencia['cedula'],
-                asistencia['tecnico'],
-                asistencia['carpeta_dia'],
-                asistencia['carpeta'],
-                asistencia['super'],
-                asistencia['id_codigo_consumidor'],
-                
-            ))
-        
-        connection.commit()
-        return jsonify({'success': True, 'message': 'Asistencias guardadas correctamente'})
-        
-    except mysql.connector.Error as e:
-        return jsonify({'success': False, 'message': f'Error al guardar asistencias: {str(e)}'})
-    finally:
-        if cursor:
-            cursor.close()
-        if connection and connection.is_connected():
-            connection.close()
-
-
-@app.route('/api/indicadores/cumplimiento')
-@login_required(role='administrativo')
-def obtener_indicadores_cumplimiento():
-    try:
-        # Obtener los parámetros de fecha
-        fecha_inicio = request.args.get('fecha_inicio')
-        fecha_fin = request.args.get('fecha_fin')
-        supervisor_filtro = request.args.get('supervisor')
-        
-        # Para compatibilidad con versiones anteriores
-        fecha = request.args.get('fecha')
-        
-        # Mostrar información de debug sobre parámetros recibidos
-        print(f"Parámetros recibidos en API:")
-        print(f"- fecha_inicio: {fecha_inicio}")
-        print(f"- fecha_fin: {fecha_fin}")
-        print(f"- supervisor: {supervisor_filtro}")
-        print(f"- fecha (compatibilidad): {fecha}")
-        
-        # Validar fechas
-        if fecha:
-            # Modo compatibilidad - una sola fecha
-            try:
-                fecha_inicio = fecha_fin = datetime.strptime(fecha, '%Y-%m-%d').date()
-                print(f"Usando modo compatibilidad con fecha: {fecha_inicio}")
-            except ValueError:
-                print(f"Error: Formato de fecha inválido: {fecha}")
-                return jsonify({
-                    'success': False,
-                    'error': 'Formato de fecha inválido. Use YYYY-MM-DD'
-                }), 400
-        elif fecha_inicio and fecha_fin:
-            # Nuevo modo - rango de fechas
-            try:
-                fecha_inicio = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
-                fecha_fin = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
-                print(f"Usando rango de fechas: {fecha_inicio} a {fecha_fin}")
-            except ValueError:
-                print(f"Error: Formato de fecha inválido en rango: {fecha_inicio} - {fecha_fin}")
-                return jsonify({
-                    'success': False,
-                    'error': 'Formato de fecha inválido. Use YYYY-MM-DD'
-                }), 400
-        else:
-            # Si no se proporcionan fechas, usar la fecha actual
-            fecha_actual = get_bogota_datetime().date()
-            fecha_inicio = fecha_fin = fecha_actual
-            print(f"Usando fecha actual: {fecha_actual}")
-        
-        connection = get_db_connection()
-        if connection is None:
-            print("Error: No se pudo establecer conexión a la base de datos")
-            return jsonify({
-                'success': False,
-                'error': 'Error de conexión a la base de datos'
-            }), 500
-            
-        cursor = connection.cursor(dictionary=True)
-        
-        # Verificar datos para el rango de fechas
-        cursor.execute("SELECT COUNT(*) as total FROM asistencia WHERE DATE(fecha_asistencia) BETWEEN %s AND %s", 
-                      (fecha_inicio, fecha_fin))
-        total_asistencia = cursor.fetchone()['total']
-        
-        cursor.execute("SELECT COUNT(*) as total FROM preoperacional WHERE DATE(fecha) BETWEEN %s AND %s", 
-                      (fecha_inicio, fecha_fin))
-        total_preop = cursor.fetchone()['total']
-        
-        print(f"Datos encontrados en el rango {fecha_inicio} a {fecha_fin}:")
-        print(f"- Total asistencia: {total_asistencia}")
-        print(f"- Total preoperacional: {total_preop}")
-        
-        if total_asistencia == 0 and total_preop == 0:
-            print("No hay datos para el rango de fechas")
-            return jsonify({
-                'success': True,
-                'indicadores': [],
-                'mensaje': f'No hay datos para el período {fecha_inicio} - {fecha_fin}'
-            })
-        
-        # Obtener asistencia válida por supervisor
-        query_asistencia = """
-            SELECT a.super as supervisor, COUNT(*) as total_asistencia 
-            FROM asistencia a 
-            JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
-            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s AND t.valor = '1'
-            GROUP BY a.super
-        """
-        params_asistencia = [fecha_inicio, fecha_fin]
-        
-        # Obtener preoperacionales por supervisor
-        query_preoperacional = """
-            SELECT supervisor, COUNT(*) as total_preoperacional
-            FROM preoperacional 
-            WHERE DATE(fecha) BETWEEN %s AND %s
-            GROUP BY supervisor
-        """
-        params_preoperacional = [fecha_inicio, fecha_fin]
-        
-        # Aplicar filtro por supervisor si existe
-        if supervisor_filtro:
-            print(f"Aplicando filtro por supervisor: {supervisor_filtro}")
-            query_asistencia += " HAVING a.super = %s"
-            params_asistencia.append(supervisor_filtro)
-            
-            query_preoperacional += " HAVING supervisor = %s"
-            params_preoperacional.append(supervisor_filtro)
-        
-        print(f"Ejecutando consulta de asistencia: {query_asistencia}")
-        print(f"Parámetros: {params_asistencia}")
-        
-        # Ejecutar consultas
-        cursor.execute(query_asistencia, tuple(params_asistencia))
-        asistencia_por_supervisor = {row['supervisor']: row['total_asistencia'] for row in cursor.fetchall()}
-        
-        print(f"Ejecutando consulta de preoperacional: {query_preoperacional}")
-        print(f"Parámetros: {params_preoperacional}")
-        
-        cursor.execute(query_preoperacional, tuple(params_preoperacional))
-        preop_por_supervisor = {row['supervisor']: row['total_preoperacional'] for row in cursor.fetchall()}
-        
-        print(f"Asistencia por supervisor: {asistencia_por_supervisor}")
-        print(f"Preoperacional por supervisor: {preop_por_supervisor}")
-        
-        # Calcular indicadores
-        indicadores = []
-        supervisores = set(list(asistencia_por_supervisor.keys()) + list(preop_por_supervisor.keys()))
-        
-        for supervisor in supervisores:
-            if supervisor:  # Ignorar supervisores nulos
-                total_asistencia = asistencia_por_supervisor.get(supervisor, 0)
-                total_preoperacional = preop_por_supervisor.get(supervisor, 0)
-                porcentaje = (total_preoperacional * 100) / total_asistencia if total_asistencia > 0 else 0
-                
-                indicador = {
-                    'supervisor': supervisor,
-                    'total_asistencia': total_asistencia,
-                    'total_preoperacional': total_preoperacional,
-                    'porcentaje_cumplimiento': porcentaje
-                }
-                indicadores.append(indicador)
-        
-        # Ordenar por porcentaje de cumplimiento descendente
-        indicadores.sort(key=lambda x: x['porcentaje_cumplimiento'], reverse=True)
-        
-        print(f"Se calcularon {len(indicadores)} indicadores")
-        
-        cursor.close()
-        connection.close()
-        
-        # Incluir información del período consultado en la respuesta
-        return jsonify({
-            'success': True,
-            'indicadores': indicadores,
-            'periodo': {
-                'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
-                'fecha_fin': fecha_fin.strftime('%Y-%m-%d')
-            }
-        })
-        
-    except Exception as e:
-        import traceback
-        print(f"Error en indicadores de cumplimiento: {str(e)}")
-        print(f"Traceback: {traceback.format_exc()}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/indicadores/api')
-@login_required(role='administrativo')
-def indicadores_api():
-    # Obtener la lista de supervisores para el selector del formulario
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # Consulta para obtener supervisores únicos de recurso_operativo
-        cursor.execute("SELECT DISTINCT super as supervisor FROM recurso_operativo WHERE super IS NOT NULL AND super != ''")
-        supervisores_db = cursor.fetchall()
-        
-        supervisores = [sup['supervisor'] for sup in supervisores_db]
-        
-        cursor.close()
-        connection.close()
-    except Exception as e:
-        logging.error(f"Error al obtener supervisores: {str(e)}")
-        supervisores = []
-    
-    return render_template('modulos/administrativo/api_indicadores_cumplimiento.html', 
-                          supervisores=supervisores)
 
 
 if __name__ == '__main__':

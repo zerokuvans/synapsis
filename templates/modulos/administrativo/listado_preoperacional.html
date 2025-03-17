@@ -11,7 +11,10 @@
                         <i class="fas fa-file-csv"></i> Exportar a CSV
                     </a>
                 </div>
-                {% include 'modulos/administrativo/components/filtros_preoperacional.html' %}
+                
+                <!-- Eliminamos la sección de Indicadores de Cumplimiento, ya que ahora estará solo en estadisticas_preoperacional.html -->
+                
+                {% include 'modulos/administrativo/components/filtros_preoperacional.html' %}              
                 {% include 'modulos/administrativo/components/estadisticas_preoperacional.html' %}
                 {% include 'modulos/administrativo/components/tabla_preoperacional.html' %}
             </div>
@@ -23,6 +26,8 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Ya no llamamos a cargarIndicadores() aquí
+    
     // Obtener parámetros de la URL
     const urlParams = new URLSearchParams(window.location.search);
     

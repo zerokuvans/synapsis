@@ -171,21 +171,21 @@
                                     <div class="card shadow-none border mb-3">
                                         <div class="card-header bg-light">
                                             <h6 class="mb-0">Estado de Vehículos</h6>
-                </div>
-                <div class="card-body">
-                    <canvas id="estadoVehiculosChart"></canvas>
-                </div>
-            </div>
-        </div>
-        <!-- Gráfico de Tendencias -->
-        <div class="col-md-6">
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="estadoVehiculosChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Gráfico de Tendencias -->
+                                <div class="col-md-6">
                                     <div class="card shadow-none border mb-3">
                                         <div class="card-header bg-light">
                                             <h6 class="mb-0">Tendencia de Registros</h6>
-                </div>
-                <div class="card-body">
-                    <canvas id="tendenciaRegistrosChart"></canvas>
-                </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="tendenciaRegistrosChart"></canvas>
+                                        </div>
                                     </div>
                                 </div>
                                 <!-- Comparativa Mes Actual vs Anterior -->
@@ -304,7 +304,7 @@
                                                             <td>
                                                                 <div class="progress" style="height: 6px;">
                                                                     <div class="progress-bar bg-{{ 'danger' if porcentaje > 25 else 'warning' if porcentaje > 10 else 'success' }}" 
-                                                                         role="progressbar" 
+                                                                         role="progressbar"
                                                                          style="width: {{ porcentaje }}%;" 
                                                                          aria-valuenow="{{ porcentaje }}" 
                                                                          aria-valuemin="0" 
@@ -1246,11 +1246,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div>
                     <span class="badge bg-${elemento.nivel === 'critico' ? 'danger' : 'warning'} me-2">${textoNivel}</span>
                     <strong>${elemento.elemento}</strong>
-                </div>
+                        </div>
                 <div>
                     <span class="${iconoClase}">${elemento.porcentaje.toFixed(1)}% en mal estado</span>
                     <small class="text-muted ms-2">(${elemento.cantidad} registros)</small>
-                </div>
+                    </div>
             `;
             
             listaAlertas.appendChild(li);

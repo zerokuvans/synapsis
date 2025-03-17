@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Registro de Asistencia</h1>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-user-clock me-1"></i>
+            Registrar Nueva Asistencia
+        </div>
+        <div class="card-body">
+            <form id="formAsistencia" class="row g-3">
+                <div class="col-md-4">
+                    <label for="tecnico" class="form-label">Técnico</label>
+                    <select class="form-select" id="tecnico" required>
+                        <option value="">Seleccione un técnico...</option>
+                        {% for tecnico in tecnicos %}
+                        <option value="{{ tecnico.id_codigo_consumidor }}" 
+                                data-cedula="{{ tecnico.recurso_operativo_cedula }}"
+                                data-nombre="{{ tecnico.nombre }}"
+                                data-carpeta="{{ tecnico.carpeta }}">
+                            {{ tecnico.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-4">
+                    <label for="carpeta_dia" class="form-label">Carpeta Día</label>
+                    <select class="form-select" id="carpeta_dia" required>
+                        <option value="">Seleccione carpeta día...</option>
+                        {% for carpeta in carpetas_dia %}
+                        <option value="{{ carpeta.codigo_tipificacion }}">
+                            {{ carpeta.codigo_tipificacion }} - {{ carpeta.nombre_tipificacion }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-4">
+                    <label for="super" class="form-label">Supervisor</label>
+                    <select class="form-select" id="super" required>
+                        <option value="">Seleccione supervisor...</option>
+                        {% for supervisor in supervisores %}
+                        <option value="{{ supervisor.super }}">
+                            {{ supervisor.super }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-12">
+                    <button type="button" class="btn btn-primary" onclick="agregarAsistencia()">
+                        <i class="fas fa-plus me-1"></i> Agregar a la Lista
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-table me-1"></i>
+            Asistencias por Registrar
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="tablaAsistencias">
+                    <thead>
+                        <tr>
+                            <th>Cédula</th>
+                            <th>Técnico</th>
+                            <th>Carpeta Día</th>
+                            <th>Carpeta</th>
+                            <th>Supervisor</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+            
+            <button type="button" class="btn btn-success" onclick="guardarAsistencias()" id="btnGuardar" disabled>
+                <i class="fas fa-save me-1"></i> Guardar Todas las Asistencias
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let asistencias = [];
+
+function agregarAsistencia() {
+    const tecnicoSelect = document.getElementById('tecnico');
+    const tecnicoOption = tecnicoSelect.selectedOptions[0];
+    
+    if (!validarFormulario()) {
+        return;
+    }
+    
+    const asistencia = {
+        id_codigo_consumidor: tecnicoSelect.value,
+        cedula: tecnicoOption.dataset.cedula,
+        tecnico: tecnicoOption.dataset.nombre,
+        carpeta_dia: document.getElementById('carpeta_dia').value,
+        carpeta: tecnicoOption.dataset.carpeta,
+        super: document.getElementById('super').value
+    };
+    
+    asistencias.push(asistencia);
+    actualizarTabla();
+    limpiarFormulario();
+    document.getElementById('btnGuardar').disabled = false;
+}
+
+function validarFormulario() {
+    const campos = ['tecnico', 'carpeta_dia', 'super'];
+    let valido = true;
+    
+    campos.forEach(campo => {
+        const elemento = document.getElementById(campo);
+        if (!elemento.value) {
+            elemento.classList.add('is-invalid');
+            valido = false;
+        } else {
+            elemento.classList.remove('is-invalid');
+        }
+    });
+    
+    if (!valido) {
+        mostrarAlerta('Por favor complete todos los campos requeridos', 'danger');
+    }
+    
+    return valido;
+}
+
+function actualizarTabla() {
+    const tbody = document.querySelector('#tablaAsistencias tbody');
+    tbody.innerHTML = '';
+    
+    asistencias.forEach((asistencia, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${asistencia.cedula}</td>
+            <td>${asistencia.tecnico}</td>
+            <td>${asistencia.carpeta_dia}</td>
+            <td>${asistencia.carpeta}</td>
+            <td>${asistencia.super}</td>
+            <td>
+                <button class="btn btn-danger btn-sm" onclick="eliminarAsistencia(${index})">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function eliminarAsistencia(index) {
+    asistencias.splice(index, 1);
+    actualizarTabla();
+    document.getElementById('btnGuardar').disabled = asistencias.length === 0;
+}
+
+function limpiarFormulario() {
+    document.getElementById('formAsistencia').reset();
+}
+
+function guardarAsistencias() {
+    if (asistencias.length === 0) {
+        mostrarAlerta('No hay asistencias para guardar', 'warning');
+        return;
+    }
+    
+    fetch('/api/asistencia/guardar', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ asistencias: asistencias })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarAlerta('Asistencias guardadas correctamente', 'success');
+            asistencias = [];
+            actualizarTabla();
+            document.getElementById('btnGuardar').disabled = true;
+        } else {
+            mostrarAlerta(data.message, 'danger');
+        }
+    })
+    .catch(error => {
+        mostrarAlerta('Error al guardar las asistencias', 'danger');
+        console.error('Error:', error);
+    });
+}
+
+function mostrarAlerta(mensaje, tipo) {
+    const alertaDiv = document.createElement('div');
+    alertaDiv.className = `alert alert-${tipo} alert-dismissible fade show`;
+    alertaDiv.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertaDiv, container.firstChild);
+    
+    setTimeout(() => {
+        alertaDiv.remove();
+    }, 5000);
+}
+</script>
+{% endblock %} 

@@ -21,11 +21,11 @@
                         <div class="col-md-3 mb-4">
                             <div class="card h-100">
                                 <div class="card-body text-center">
-                                    <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                                    <i class="fas fa-users fa-3x text-info mb-3"></i>
                                     <h5 class="card-title">Gestión de Usuarios</h5>
-                                    <p class="card-text">Administra usuarios y permisos del sistema.</p>
-                                    <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#userModal">
-                                        <i class="fas fa-user-plus me-2"></i>Gestionar Usuarios
+                                    <p class="card-text">Administrar usuarios del sistema.</p>
+                                    <a href="{{ url_for('usuarios') }}" class="btn btn-info">
+                                        <i class="fas fa-user-cog me-2"></i>Administrar Usuarios
                                     </a>
                                 </div>
                             </div>
@@ -71,12 +71,82 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-boxes fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Suministros</h5>
+                                    <p class="card-text">Administrar suministros y materiales.</p>
+                                    <a href="{{ url_for('suministros') }}" class="btn btn-primary">
+                                        <i class="fas fa-box-open me-2"></i>Gestionar Suministros
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-pie fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">Estadísticas de Inventario</h5>
+                                    <p class="card-text">Visualizar estadísticas de herramientas, EPPs y materiales.</p>
+                                    <a href="{{ url_for('estadisticas_inventario') }}" class="btn btn-success">
+                                        <i class="fas fa-chart-line me-2"></i>Ver Estadísticas
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cards -->
+                    <!--<div class="row">-->
+                        <!-- Card Gestión de Usuarios 
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100 border-0 shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-users fa-3x text-info mb-3"></i>
+                                    <h5 class="card-title">Gestión de Usuarios</h5>
+                                    <p class="card-text">Administra los usuarios del sistema, permisos y roles.</p>
+                                    <a href="{{ url_for('buscar_usuarios') }}" class="btn btn-info">Administrar Usuarios</a>
+                                </div>
+                            </div>
+                        </div>
+                    -->
+                        <!-- Card Estadísticas de Inventario -->
+                        <!--<div class="col-md-4 mb-4">
+                            <div class="card h-100 border-0 shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-bar fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">Estadísticas de Inventario</h5>
+                                    <p class="card-text">Visualiza datos y gráficos sobre el inventario de herramientas y materiales.</p>
+                                    <a href="{{ url_for('estadisticas_inventario') }}" class="btn btn-success">Ver Estadísticas</a>
+                                </div>
+                            </div>
+                        </div>
+                    -->
+                        <!-- Card Estadísticas de Usuarios -->
+                       <!-- <div class="col-md-4 mb-4">
+                            <div class="card h-100 border-0 shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-line fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Estadísticas de Usuarios</h5>
+                                    <p class="card-text">Visualiza datos y gráficos sobre el uso del sistema por parte de los usuarios.</p>
+                                    <a href="{{ url_for('estadisticas_usuarios') }}" class="btn btn-primary">Ver Estadísticas</a>
+                                </div>
+                            </div>
+                        </div>
+                    -->
+                        <!-- Más cards aquí -->
                     </div>
 
                     <!-- Tabla de usuarios -->
                     <div class="card mt-4">
-                        <div class="card-header bg-light">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">Usuarios Registrados</h5>
+                            <button class="btn btn-sm btn-success" onclick="abrirModalNuevoUsuario()">
+                                <i class="fas fa-user-plus me-1"></i> Nuevo Usuario
+                            </button>
                         </div>
                         <div class="card-body">
                     <div class="table-responsive">
@@ -233,5 +303,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+// Función para abrir el modal de creación de usuario
+function abrirModalNuevoUsuario() {
+    // Limpiar formulario
+    document.getElementById('userForm').reset();
+    document.getElementById('userId').value = '';
+    document.getElementById('userModalLabel').textContent = 'Crear Nuevo Usuario';
+    
+    // Mostrar modal
+    new bootstrap.Modal(document.getElementById('userModal')).show();
+}
 </script>
 {% endblock %}

@@ -1,0 +1,45 @@
+/* Estilos para barras de progreso */
+.progress {
+    height: 6px;
+    margin-bottom: 0;
+    background-color: #e9ecef;
+    border-radius: 0.25rem;
+}
+
+.progress-bar {
+    transition: width 0.3s ease;
+}
+
+.progress-bar-success {
+    background-color: #2dce89;
+}
+
+.progress-bar-warning {
+    background-color: #fb6340;
+}
+
+.progress-bar-danger {
+    background-color: #f5365c;
+}
+
+/* Estilos para tablas */
+.table-responsive {
+    margin-bottom: 1rem;
+}
+
+/* Estilos para contenedores */
+.flex-grow-1 {
+    flex-grow: 1;
+}
+
+.me-2 {
+    margin-right: 0.5rem;
+}
+
+.d-flex {
+    display: flex;
+}
+
+.align-items-center {
+    align-items: center;
+} 

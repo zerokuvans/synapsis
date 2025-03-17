@@ -1,0 +1,717 @@
+{% extends "base.html" %}
+
+{% block title %}Indicadores de Cumplimiento - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header pb-0 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Dashboard de Indicadores de Cumplimiento</h5>
+                    <div>
+                        <button class="btn btn-sm btn-info" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDebug" aria-expanded="false">
+                            <i class="fas fa-tools me-1"></i> Herramientas
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filtros -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <label for="fecha_filtro" class="form-label">Fecha</label>
+                            <input type="date" class="form-control" id="fecha_filtro" value="2025-03-17">
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="button" class="btn btn-primary" id="btn-cargar">
+                                <i class="fas fa-sync me-1"></i> Cargar Datos
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Estado de carga -->
+                    <div id="status-container" class="alert alert-info mb-4">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-info-circle fa-2x me-3"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="alert-heading mb-1">Información</h6>
+                                <p class="mb-0">Seleccione una fecha y haga clic en "Cargar Datos" para visualizar los indicadores.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Resumen -->
+                    <div id="resumen-container" class="row mb-4" style="display: none;">
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card bg-gradient-primary mb-3">
+                                <div class="card-body p-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon icon-shape bg-white shadow text-center rounded-circle">
+                                            <i class="fas fa-users text-primary"></i>
+                                        </div>
+                                        <div class="ms-3">
+                                            <p class="text-black text-sm mb-0">Supervisores</p>
+                                            <h5 class="text-black mb-0" id="total-supervisores">0</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card bg-gradient-success mb-3">
+                                <div class="card-body p-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon icon-shape bg-white shadow text-center rounded-circle">
+                                            <i class="fas fa-check-circle text-success"></i>
+                                        </div>
+                                        <div class="ms-3">
+                                            <p class="text-black text-sm mb-0">Cumplimiento Promedio</p>
+                                            <h5 class="text-black mb-0" id="promedio-cumplimiento">0%</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card bg-gradient-info mb-3">
+                                <div class="card-body p-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon icon-shape bg-white shadow text-center rounded-circle">
+                                            <i class="fas fa-calendar-check text-info"></i>
+                                        </div>
+                                        <div class="ms-3">
+                                            <p class="text-black text-sm mb-0">Total Asistencias</p>
+                                            <h5 class="text-black mb-0" id="total-asistencias">0</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card bg-gradient-warning mb-3">
+                                <div class="card-body p-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon icon-shape bg-white shadow text-center rounded-circle">
+                                            <i class="fas fa-clipboard-check text-warning"></i>
+                                        </div>
+                                        <div class="ms-3">
+                                            <p class="text-black text-sm mb-0">Total Preoperacionales</p>
+                                            <h5 class="text-black mb-0" id="total-preoperacionales">0</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                     <!-- Tabla de indicadores -->
+                     <div class="col-12">
+                        <div class="card">
+                            <div class="card-header pb-0">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6>Detalles de Indicadores</h6>
+                                    <div class="input-group w-25">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-search"></i>
+                                        </span>
+                                        <input type="text" class="form-control" id="tabla-busqueda" placeholder="Buscar...">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body px-0 pt-0 pb-2">
+                                <div class="table-responsive p-0">
+                                    <table class="table align-items-center mb-0" id="indicadores-tabla">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7" data-sort="supervisor">Supervisor</th>
+                                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2" data-sort="asistencia">Total Asistencia</th>
+                                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2" data-sort="preoperacional">Total Preoperacional</th>
+                                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2" data-sort="porcentaje">% Cumplimiento</th>
+                                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Las filas se generarán dinámicamente -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Gráficos y Tablas -->
+                    <div class="row" id="visualizacion-container" style="display: none;">
+                        <!-- Gráfico de barras -->
+                        <div class="col-lg-8 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header pb-0">
+                                    <h6>Porcentaje de Cumplimiento por Supervisor</h6>
+                                </div>
+                                <div class="card-body p-3">
+                                    <div class="chart">
+                                        <canvas id="cumplimiento-chart" class="chart-canvas" height="300"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Gráfico de dona -->
+                        <div class="col-lg-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header pb-0">
+                                    <h6>Distribución de Cumplimiento</h6>
+                                </div>
+                                <div class="card-body p-3">
+                                    <div class="chart">
+                                        <canvas id="distribucion-chart" class="chart-canvas" height="300"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                       
+                    </div>
+                    
+                    <!-- Panel de depuración (colapsado por defecto) -->
+                    <div class="collapse mt-4" id="collapseDebug">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">Panel de Diagnóstico</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Respuesta JSON</label>
+                                            <pre id="debug-json" class="bg-light p-3 rounded" style="max-height: 300px; overflow-y: auto; font-size: 12px;">// Los datos JSON se mostrarán aquí</pre>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Log de eventos</label>
+                                            <div id="debug-log" class="bg-light p-3 rounded" style="max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px;">
+                                                <!-- Los logs se añadirán aquí dinámicamente -->
+                                            </div>
+                                        </div>
+                                        <div class="d-flex justify-content-end">
+                                            <button class="btn btn-sm btn-danger" id="btn-limpiar-log">
+                                                <i class="fas fa-trash me-1"></i> Limpiar log
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Script principal -->
+<script>
+// Variables globales
+let barChart = null;
+let doughnutChart = null;
+let lastData = null;
+
+// Función para agregar logs
+function addLog(mensaje, tipo = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    const logElement = document.getElementById('debug-log');
+    
+    // Colores para diferentes tipos de log
+    const colorMap = {
+        'info': '#0d6efd',
+        'success': '#198754',
+        'warning': '#ffc107',
+        'error': '#dc3545'
+    };
+    
+    // Crear el texto del log con color
+    const logText = `[${timestamp}] [${tipo.toUpperCase()}] ${mensaje}`;
+    
+    // Añadir al log
+    if (logElement) {
+        const logLine = document.createElement('div');
+        logLine.style.color = colorMap[tipo] || '#000';
+        logLine.textContent = logText;
+        logElement.appendChild(logLine);
+        logElement.scrollTop = logElement.scrollHeight;
+    }
+    
+    // También log en consola
+    console.log(logText);
+}
+
+// Actualizar el estado
+function updateStatus(mensaje, tipo = 'info') {
+    const statusContainer = document.getElementById('status-container');
+    const tipoClase = `alert-${tipo}`;
+    const iconMap = {
+        'info': 'fas fa-info-circle',
+        'success': 'fas fa-check-circle',
+        'warning': 'fas fa-exclamation-triangle',
+        'danger': 'fas fa-times-circle'
+    };
+    
+    if (statusContainer) {
+        // Eliminar clases de alerta anteriores
+        statusContainer.className = 'alert mb-4';
+        // Agregar la nueva clase
+        statusContainer.classList.add(tipoClase);
+        // Actualizar contenido
+        statusContainer.innerHTML = `
+            <div class="d-flex">
+                <div class="flex-shrink-0">
+                    <i class="${iconMap[tipo] || iconMap.info} fa-2x me-3"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h6 class="alert-heading mb-1">${tipo.charAt(0).toUpperCase() + tipo.slice(1)}</h6>
+                    <p class="mb-0">${mensaje}</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Cargar datos de la API
+function cargarDatos() {
+    try {
+        addLog('Iniciando carga de datos', 'info');
+        updateStatus('Cargando datos...', 'info');
+        
+        // Mostrar indicador de carga
+        document.getElementById('resumen-container').style.display = 'none';
+        document.getElementById('visualizacion-container').style.display = 'none';
+        
+        // Obtener fecha del filtro
+        const fecha = document.getElementById('fecha_filtro').value || '2025-03-17';
+        const url = window.location.origin + '/api/indicadores/cumplimiento?fecha=' + fecha;
+        
+        addLog(`URL: ${url}`, 'info');
+        
+        // Hacer la petición fetch
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            addLog(`Respuesta recibida: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+            
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            
+            return response.json();
+        })
+        .then(data => {
+            addLog(`Datos recibidos correctamente`, 'success');
+            
+            // Guardar datos para uso posterior
+            lastData = data;
+            
+            // Mostrar datos en el panel de depuración
+            document.getElementById('debug-json').textContent = JSON.stringify(data, null, 2);
+            
+            // Procesar y mostrar datos
+            if (data.success === true && data.indicadores && data.indicadores.length > 0) {
+                updateStatus(`Datos cargados correctamente para ${data.periodo || fecha}`, 'success');
+                mostrarDatos(data.indicadores);
+            } else {
+                updateStatus('No se encontraron indicadores para la fecha seleccionada', 'warning');
+            }
+        })
+        .catch(error => {
+            addLog(`Error: ${error.message}`, 'error');
+            updateStatus(`Error al cargar datos: ${error.message}`, 'danger');
+        });
+        
+    } catch (e) {
+        addLog(`Error en función cargarDatos: ${e.message}`, 'error');
+        updateStatus(`Error: ${e.message}`, 'danger');
+    }
+}
+
+// Función para mostrar los datos
+function mostrarDatos(indicadores) {
+    try {
+        // Mostrar contenedores
+        document.getElementById('resumen-container').style.display = 'flex';
+        document.getElementById('visualizacion-container').style.display = 'block';
+        
+        // Calcular estadísticas generales
+        const totalSupervisores = indicadores.length;
+        let totalAsistencias = 0;
+        let totalPreoperacionales = 0;
+        let sumaPorcentajes = 0;
+        
+        indicadores.forEach(item => {
+            totalAsistencias += parseInt(item.total_asistencia || 0);
+            totalPreoperacionales += parseInt(item.total_preoperacional || 0);
+            sumaPorcentajes += parseFloat(item.porcentaje_cumplimiento || 0);
+        });
+        
+        const promedioCumplimiento = sumaPorcentajes / totalSupervisores;
+        
+        // Actualizar resumen
+        document.getElementById('total-supervisores').textContent = totalSupervisores;
+        document.getElementById('promedio-cumplimiento').textContent = promedioCumplimiento.toFixed(2) + '%';
+        document.getElementById('total-asistencias').textContent = totalAsistencias;
+        document.getElementById('total-preoperacionales').textContent = totalPreoperacionales;
+        
+        // Actualizar tabla
+        actualizarTabla(indicadores);
+        
+        // Actualizar gráficos
+        actualizarGraficos(indicadores);
+        
+        addLog(`Visualización actualizada con ${indicadores.length} indicadores`, 'success');
+        
+    } catch (e) {
+        addLog(`Error al mostrar datos: ${e.message}`, 'error');
+    }
+}
+
+// Función para actualizar la tabla
+function actualizarTabla(indicadores) {
+    const tabla = document.getElementById('indicadores-tabla');
+    const tbody = tabla.querySelector('tbody');
+    
+    // Limpiar tabla
+    tbody.innerHTML = '';
+    
+    // Agregar filas
+    indicadores.forEach(item => {
+        const porcentaje = parseFloat(item.porcentaje_cumplimiento) || 0;
+        const colorClase = porcentaje >= 90 ? 'success' : 
+                         porcentaje >= 70 ? 'warning' : 
+                         'danger';
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <div class="d-flex px-2 py-1">
+                    <div>
+                        <i class="fas fa-user text-secondary me-2"></i>
+                    </div>
+                    <div class="d-flex flex-column justify-content-center">
+                        <h6 class="mb-0 text-sm" style="color: #344767 !important; font-weight: bold;">${item.supervisor || 'Sin asignar'}</h6>
+                    </div>
+                </div>
+            </td>
+            <td class="text-center">
+                <span class="badge bg-gradient-info" style="color: #344767 !important;">${item.total_asistencia || 0}</span>
+            </td>
+            <td class="text-center">
+                <span class="badge bg-gradient-warning" style="color: #344767 !important;">${item.total_preoperacional || 0}</span>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <span class="me-2" style="color: #344767 !important; font-weight: bold;">${porcentaje.toFixed(2)}%</span>
+                    <div>
+                        <div class="progress">
+                            <div class="progress-bar bg-gradient-${colorClase}" role="progressbar" 
+                                 style="width: ${porcentaje}%" aria-valuenow="${porcentaje}" 
+                                 aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <span class="badge bg-gradient-${colorClase}" style="color: #344767 !important;">
+                    ${porcentaje >= 90 ? 'Óptimo' : porcentaje >= 70 ? 'Aceptable' : 'Por mejorar'}
+                </span>
+            </td>
+        `;
+        
+        tbody.appendChild(tr);
+    });
+    
+    // Configurar búsqueda en tabla
+    const inputBusqueda = document.getElementById('tabla-busqueda');
+    inputBusqueda.addEventListener('keyup', function() {
+        const texto = this.value.toLowerCase();
+        const filas = tbody.querySelectorAll('tr');
+        
+        filas.forEach(fila => {
+            const contenido = fila.textContent.toLowerCase();
+            fila.style.display = contenido.includes(texto) ? '' : 'none';
+        });
+    });
+    
+    // Configurar ordenamiento
+    tabla.querySelectorAll('th[data-sort]').forEach(th => {
+        th.style.cursor = 'pointer';
+        th.addEventListener('click', function() {
+            const campo = this.dataset.sort;
+            ordenarTabla(tbody, campo);
+        });
+    });
+}
+
+// Función para ordenar tabla
+function ordenarTabla(tbody, campo) {
+    const filas = Array.from(tbody.querySelectorAll('tr'));
+    const orden = tbody.dataset.orden === 'asc' ? 'desc' : 'asc';
+    
+    filas.sort((a, b) => {
+        let valA, valB;
+        
+        if (campo === 'supervisor') {
+            valA = a.querySelector('h6').textContent.trim();
+            valB = b.querySelector('h6').textContent.trim();
+            return orden === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else {
+            if (campo === 'asistencia') {
+                valA = parseInt(a.querySelectorAll('td')[1].textContent.trim());
+                valB = parseInt(b.querySelectorAll('td')[1].textContent.trim());
+            } else if (campo === 'preoperacional') {
+                valA = parseInt(a.querySelectorAll('td')[2].textContent.trim());
+                valB = parseInt(b.querySelectorAll('td')[2].textContent.trim());
+            } else if (campo === 'porcentaje') {
+                valA = parseFloat(a.querySelectorAll('td')[3].querySelector('span').textContent);
+                valB = parseFloat(b.querySelectorAll('td')[3].querySelector('span').textContent);
+            }
+            
+            return orden === 'asc' ? valA - valB : valB - valA;
+        }
+    });
+    
+    // Actualizar el tbody con las filas ordenadas
+    filas.forEach(fila => tbody.appendChild(fila));
+    
+    // Actualizar el orden actual
+    tbody.dataset.orden = orden;
+}
+
+// Función para actualizar gráficos
+function actualizarGraficos(indicadores) {
+    try {
+        // Preparar datos para gráfico de barras
+        const labels = indicadores.map(item => item.supervisor || 'Sin asignar');
+        const porcentajes = indicadores.map(item => parseFloat(item.porcentaje_cumplimiento) || 0);
+        const colores = porcentajes.map(porcentaje => 
+            porcentaje >= 90 ? 'rgba(40, 167, 69, 0.8)' : 
+            porcentaje >= 70 ? 'rgba(255, 193, 7, 0.8)' : 
+            'rgba(220, 53, 69, 0.8)'
+        );
+        
+        // Preparar datos para gráfico de distribución
+        const optimos = indicadores.filter(i => (parseFloat(i.porcentaje_cumplimiento) || 0) >= 90).length;
+        const aceptables = indicadores.filter(i => {
+            const p = parseFloat(i.porcentaje_cumplimiento) || 0;
+            return p >= 70 && p < 90;
+        }).length;
+        const porMejorar = indicadores.filter(i => (parseFloat(i.porcentaje_cumplimiento) || 0) < 70).length;
+        
+        // Actualizar o crear gráfico de barras
+        const ctxBar = document.getElementById('cumplimiento-chart').getContext('2d');
+        
+        if (barChart) {
+            barChart.data.labels = labels;
+            barChart.data.datasets[0].data = porcentajes;
+            barChart.data.datasets[0].backgroundColor = colores;
+            barChart.update();
+        } else {
+            barChart = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '% Cumplimiento',
+                        data: porcentajes,
+                        backgroundColor: colores,
+                        borderColor: colores.map(c => c.replace('0.8', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Cumplimiento: ${context.raw.toFixed(2)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Porcentaje de Cumplimiento'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Actualizar o crear gráfico de dona
+        const ctxDoughnut = document.getElementById('distribucion-chart').getContext('2d');
+        
+        if (doughnutChart) {
+            doughnutChart.data.datasets[0].data = [optimos, aceptables, porMejorar];
+            doughnutChart.update();
+        } else {
+            doughnutChart = new Chart(ctxDoughnut, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Óptimo (≥90%)', 'Aceptable (≥70% y <90%)', 'Por mejorar (<70%)'],
+                    datasets: [{
+                        data: [optimos, aceptables, porMejorar],
+                        backgroundColor: [
+                            'rgba(40, 167, 69, 0.8)',
+                            'rgba(255, 193, 7, 0.8)',
+                            'rgba(220, 53, 69, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(40, 167, 69, 1)',
+                            'rgba(255, 193, 7, 1)',
+                            'rgba(220, 53, 69, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        addLog('Gráficos actualizados correctamente', 'success');
+        
+    } catch (e) {
+        addLog(`Error al actualizar gráficos: ${e.message}`, 'error');
+    }
+}
+
+// Limpiar log
+function limpiarLog() {
+    const logElement = document.getElementById('debug-log');
+    if (logElement) {
+        logElement.innerHTML = '';
+    }
+    addLog('Log limpiado', 'info');
+}
+
+// Inicialización cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        addLog('Página cargada correctamente', 'success');
+        
+        // Configurar evento del botón de carga
+        document.getElementById('btn-cargar').addEventListener('click', cargarDatos);
+        
+        // Configurar evento del botón de limpiar log
+        document.getElementById('btn-limpiar-log').addEventListener('click', limpiarLog);
+        
+        // Cargar datos iniciales
+        cargarDatos();
+        
+    } catch (e) {
+        addLog(`Error en inicialización: ${e.message}`, 'error');
+        updateStatus(`Error al inicializar la página: ${e.message}`, 'danger');
+    }
+});
+</script>
+
+<style>
+.icon-shape {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.progress {
+    height: 8px;
+    margin-bottom: 0;
+    width: 120px;
+}
+
+/* Estilos reforzados para la tabla */
+#indicadores-tabla,
+#indicadores-tabla th,
+#indicadores-tabla td,
+#indicadores-tabla h6,
+#indicadores-tabla span {
+    color: #344767 !important;
+}
+
+.table td, 
+.table th {
+    white-space: nowrap;
+    color: #344767 !important; /* Hacerlo más fuerte con !important */
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 0.35em 0.65em;
+}
+
+/* Badges de colores con texto blanco explícito */
+.badge.bg-gradient-info,
+.badge.bg-gradient-success,
+.badge.bg-gradient-warning,
+.badge.bg-gradient-danger,
+.badge.bg-gradient-primary {
+    color: white !important;
+}
+
+/* Títulos y headers */
+.card-header h6 {
+    color: #344767 !important;
+}
+
+/* Encabezados de tabla */
+.text-uppercase.text-secondary {
+    color: #344767 !important;
+}
+
+/* Cambiar el color del texto del resumen */
+#resumen-container p.text-black,
+#resumen-container h5.text-black {
+    color: black !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Los scripts ahora están directamente en el bloque content -->
+{% endblock %} 

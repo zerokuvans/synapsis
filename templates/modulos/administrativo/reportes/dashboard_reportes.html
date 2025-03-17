@@ -266,6 +266,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Función para actualizar las estadísticas
     const actualizarEstadisticas = (data) => {
+        // Verificar que data existe
+        if (!data) {
+            console.error('Error: No hay datos para actualizar las estadísticas');
+            return;
+        }
+        
         if (data.stats_generales) {
             document.getElementById('total-preoperacionales').textContent = 
                 data.stats_generales.total_preoperacionales || '0';
@@ -278,6 +284,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Función para actualizar los gráficos
     const actualizarGraficos = (data) => {
+        // Verificar que data existe
+        if (!data) {
+            console.error('Error: No hay datos para actualizar los gráficos');
+            return;
+        }
+        
         // Destruir gráficos existentes
         Object.values(chartsInstances).forEach(chart => chart.destroy());
         chartsInstances = {};

@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Usuarios{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Gestión de Usuarios</h1>
+    
+    <!-- Filtros de búsqueda -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-search me-1"></i>
+            Buscar Usuarios
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <input type="text" class="form-control" id="buscarUsuario" placeholder="Buscar por cédula o nombre...">
+                </div>
+                <div class="col-md-3 mb-3">
+                    <select class="form-select" id="filtroRol">
+                        <option value="">Todos los roles</option>
+                        {% for id, rol in ROLES.items() %}
+                        <option value="{{ rol }}">{{ rol|title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <select class="form-select" id="filtroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="Activo">Activo</option>
+                        <option value="Inactivo">Inactivo</option>
+                    </select>
+                </div>
+                <div class="col-md-2 mb-3">
+                    <button class="btn btn-primary w-100" onclick="filtrarUsuarios()">
+                        <i class="fas fa-filter me-2"></i>Filtrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de usuarios -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <div>
+                <i class="fas fa-users me-1"></i>
+                Usuarios Registrados
+            </div>
+            <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#crearUsuarioModal">
+                <i class="fas fa-user-plus me-1"></i> Crear Usuario
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover" id="tablaUsuarios">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Cédula</th>
+                            <th>Nombre</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for usuario in usuarios %}
+                        <tr>
+                            <td>{{ usuario.id_codigo_consumidor }}</td>
+                            <td>{{ usuario.recurso_operativo_cedula }}</td>
+                            <td>{{ usuario.nombre }}</td>
+                            <td>{{ usuario.role|title }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if usuario.estado == 'Activo' else 'danger' }}">
+                                    {{ usuario.estado }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-sm btn-warning editar-usuario" 
+                                            data-id="{{ usuario.id_codigo_consumidor }}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger eliminar-usuario" 
+                                            data-id="{{ usuario.id_codigo_consumidor }}"
+                                            data-cedula="{{ usuario.recurso_operativo_cedula }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Paginación -->
+            <nav aria-label="Navegación de páginas" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item {{ 'disabled' if current_page == 1 else '' }}">
+                        <a class="page-link" href="{{ url_for('usuarios', page=current_page-1) if current_page > 1 else '#' }}" aria-label="Anterior">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    
+                    {% for i in range(1, total_pages + 1) %}
+                        {% if i == current_page %}
+                            <li class="page-item active"><a class="page-link" href="#">{{ i }}</a></li>
+                        {% else %}
+                            <li class="page-item"><a class="page-link" href="{{ url_for('usuarios', page=i) }}">{{ i }}</a></li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <li class="page-item {{ 'disabled' if current_page == total_pages else '' }}">
+                        <a class="page-link" href="{{ url_for('usuarios', page=current_page+1) if current_page < total_pages else '#' }}" aria-label="Siguiente">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para editar usuario -->
+<div class="modal fade" id="editarUsuarioModal" tabindex="-1" aria-labelledby="editarUsuarioModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="editarUsuarioModalLabel">Editar Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formEditarUsuario" method="post" action="{{ url_for('actualizar_usuario') }}">
+                    <input type="hidden" id="edit_id_codigo_consumidor" name="id_codigo_consumidor">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="edit_recurso_operativo_cedula" class="form-label">Cédula *</label>
+                            <input type="text" class="form-control" id="edit_recurso_operativo_cedula" name="recurso_operativo_cedula" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="edit_nombre" class="form-label">Nombre *</label>
+                            <input type="text" class="form-control" id="edit_nombre" name="nombre" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="edit_id_roles" class="form-label">Rol *</label>
+                            <select class="form-select" id="edit_id_roles" name="id_roles" required>
+                                {% for id, rol in ROLES.items() %}
+                                <option value="{{ id }}">{{ rol|title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="edit_estado" class="form-label">Estado *</label>
+                            <select class="form-select" id="edit_estado" name="estado" required>
+                                <option value="Activo">Activo</option>
+                                <option value="Inactivo">Inactivo</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarEdicionUsuario">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para crear usuario -->
+<div class="modal fade" id="crearUsuarioModal" tabindex="-1" aria-labelledby="crearUsuarioModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="crearUsuarioModalLabel">Crear Nuevo Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCrearUsuario" method="post" action="{{ url_for('create_user') }}">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="nuevo_recurso_operativo_cedula" class="form-label">Cédula *</label>
+                            <input type="text" class="form-control" id="nuevo_recurso_operativo_cedula" name="username" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="nuevo_nombre" class="form-label">Nombre *</label>
+                            <input type="text" class="form-control" id="nuevo_nombre" name="nombre" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="nuevo_password" class="form-label">Contraseña *</label>
+                            <input type="password" class="form-control" id="nuevo_password" name="password" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="nuevo_id_roles" class="form-label">Rol *</label>
+                            <select class="form-select" id="nuevo_id_roles" name="role_id" required>
+                                {% for id, rol in ROLES.items() %}
+                                <option value="{{ id }}">{{ rol|title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="nuevo_estado" class="form-label">Estado</label>
+                            <select class="form-select" id="nuevo_estado" name="estado">
+                                <option value="Activo">Activo</option>
+                                <option value="Inactivo">Inactivo</option>
+                            </select>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarNuevoUsuario">Crear Usuario</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Filtrar usuarios
+        window.filtrarUsuarios = function() {
+            var busqueda = document.getElementById('buscarUsuario').value.toLowerCase();
+            var rol = document.getElementById('filtroRol').value;
+            var estado = document.getElementById('filtroEstado').value;
+            
+            var filas = document.getElementById('tablaUsuarios').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+            
+            for (var i = 0; i < filas.length; i++) {
+                var mostrar = true;
+                var celdas = filas[i].getElementsByTagName('td');
+                
+                // Filtrar por búsqueda (cédula o nombre)
+                if (busqueda) {
+                    var cedula = celdas[1].textContent.toLowerCase();
+                    var nombre = celdas[2].textContent.toLowerCase();
+                    if (!cedula.includes(busqueda) && !nombre.includes(busqueda)) {
+                        mostrar = false;
+                    }
+                }
+                
+                // Filtrar por rol
+                if (rol && !celdas[3].textContent.toLowerCase().includes(rol.toLowerCase())) {
+                    mostrar = false;
+                }
+                
+                // Filtrar por estado
+                if (estado && !celdas[4].textContent.includes(estado)) {
+                    mostrar = false;
+                }
+                
+                filas[i].style.display = mostrar ? '' : 'none';
+            }
+        };
+        
+        // Editar usuario
+        document.querySelectorAll('.editar-usuario').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var id = this.getAttribute('data-id');
+                obtenerUsuario(id);
+            });
+        });
+        
+        // Eliminar usuario
+        document.querySelectorAll('.eliminar-usuario').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var id = this.getAttribute('data-id');
+                var cedula = this.getAttribute('data-cedula');
+                if (confirm('¿Está seguro que desea eliminar el usuario con cédula ' + cedula + '?')) {
+                    eliminarUsuario(id);
+                }
+            });
+        });
+        
+        // Guardar edición
+        document.getElementById('btnGuardarEdicionUsuario').addEventListener('click', function() {
+            document.getElementById('formEditarUsuario').submit();
+        });
+        
+        // Guardar nuevo usuario
+        document.getElementById('btnGuardarNuevoUsuario').addEventListener('click', function() {
+            document.getElementById('formCrearUsuario').submit();
+        });
+    });
+    
+    function obtenerUsuario(id) {
+        fetch('/obtener_usuario/' + id)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('edit_id_codigo_consumidor').value = data.id_codigo_consumidor;
+                document.getElementById('edit_recurso_operativo_cedula').value = data.recurso_operativo_cedula;
+                document.getElementById('edit_nombre').value = data.nombre;
+                document.getElementById('edit_id_roles').value = data.id_roles;
+                document.getElementById('edit_estado').value = data.estado;
+                
+                var modal = new bootstrap.Modal(document.getElementById('editarUsuarioModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Error al obtener datos del usuario:', error);
+                alert('Error al obtener datos del usuario');
+            });
+    }
+    
+    function eliminarUsuario(id) {
+        fetch('/eliminar_usuario/' + id, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Usuario eliminado correctamente');
+                location.reload();
+            } else {
+                alert('Error al eliminar usuario: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error al eliminar usuario:', error);
+            alert('Error al eliminar usuario');
+        });
+    }
+</script>
+{% endblock %} 
