@@ -85,6 +85,19 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <!-- Información de horario permitido -->
+                <div class="alert alert-info mb-3">
+                    <div class="d-flex align-items-center">
+                        <div>
+                            <i class="fas fa-info-circle fa-2x me-3"></i>
+                        </div>
+                        <div>
+                            <p class="mb-1"><strong>Horario permitido:</strong> Hasta las 10:00 AM (hora de Bogotá).</p>
+                            <p class="mb-0">Hora actual: <span id="reloj-bogota" class="badge bg-secondary"></span></p>
+                        </div>
+                    </div>
+                </div>
+                
                 <form id="preoperacionalForm" method="POST" action="/preoperacional">
                     <div class="card mb-3">
                         <div class="card-header fw-bold">Información del Centro de Trabajo</div>
@@ -651,15 +664,99 @@ document.addEventListener('DOMContentLoaded', function() {
     const preoperacionalButton = document.getElementById('preoperacionalButton');
     const preoperacionalForm = document.getElementById('preoperacionalForm');
     const preoperacionalModal = document.getElementById('preoperacionalModal');
+    const relojBogota = document.getElementById('reloj-bogota');
     
-    // Verificar registro al cargar la página
-    verificarRegistroPreoperacional();
+    // Iniciar reloj en tiempo real de Bogotá
+    actualizarRelojBogota();
+    // Actualizar cada segundo
+    setInterval(actualizarRelojBogota, 1000);
     
-    // Verificar registro al hacer clic en el botón
+    function actualizarRelojBogota() {
+        if (relojBogota) {
+            const ahora = new Date();
+            // Formato de hora para Colombia (Bogotá)
+            const opcionesBogota = { 
+                timeZone: 'America/Bogota',
+                hour12: true,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            
+            // Obtener hora actual en formato de Colombia
+            const horaFormateada = ahora.toLocaleTimeString('es-CO', opcionesBogota);
+            
+            // Determinar si está dentro del horario permitido
+            const dentroHorario = estaEnHorarioPermitido();
+            
+            // Cambiar color según horario
+            relojBogota.className = 'badge ' + (dentroHorario ? 'bg-success' : 'bg-danger');
+            relojBogota.innerHTML = horaFormateada;
+        }
+    }
+    
+    // Verificar horario y registro al cargar la página
+    verificarHorarioYRegistro();
+    
+    // Verificar horario y registro al hacer clic en el botón
     preoperacionalButton.addEventListener('click', function(e) {
         e.preventDefault();
-        verificarRegistroPreoperacional();
+        verificarHorarioYRegistro();
     });
+    
+    // Función para verificar si la hora actual es antes de las 10:00 AM (hora de Bogotá)
+    function estaEnHorarioPermitido() {
+        // Crear fecha con la zona horaria de Bogotá (América/Bogota)
+        const ahora = new Date();
+        
+        // Opciones para obtener la hora en Colombia (Bogotá)
+        const opcionesBogota = { timeZone: 'America/Bogota' };
+        
+        // Obtener hora en formato de Bogotá
+        const horaBogota = new Date(ahora.toLocaleString('es-CO', opcionesBogota));
+        
+        // Extraer solo la hora y minutos para comparar
+        const hora = horaBogota.getHours();
+        const minutos = horaBogota.getMinutes();
+        
+        // Comprobar si es antes de las 10:00 AM
+        return (hora < 10) || (hora === 10 && minutos === 0);
+    }
+    
+    function verificarHorarioYRegistro() {
+        // Primero verificar si estamos en el horario permitido
+        if (!estaEnHorarioPermitido()) {
+            // Si no está en horario permitido, mostrar mensaje y bloquear acceso
+            Swal.fire({
+                icon: 'warning',
+                title: 'Fuera de Horario',
+                text: 'Las inspecciones preoperacionales solo pueden registrarse hasta las 10:00 AM (hora de Bogotá).',
+                confirmButtonText: 'Entendido'
+            });
+            
+            // Deshabilitar el formulario
+            if (preoperacionalForm) {
+                const inputs = preoperacionalForm.querySelectorAll('input, select, textarea');
+                inputs.forEach(input => input.disabled = true);
+            }
+            
+            // Agregar mensaje en el modal
+            const modalBody = preoperacionalModal.querySelector('.modal-body');
+            if (modalBody) {
+                // Verificar si ya existe el mensaje
+                if (!modalBody.querySelector('.horario-alerta')) {
+                    const alertaHorario = document.createElement('div');
+                    alertaHorario.className = 'alert alert-warning mb-3 horario-alerta';
+                    alertaHorario.innerHTML = '<i class="fas fa-clock me-2"></i> <strong>Fuera de horario:</strong> Las inspecciones preoperacionales solo pueden registrarse hasta las 10:00 AM.';
+                    modalBody.insertBefore(alertaHorario, modalBody.firstChild);
+                }
+            }
+            return;
+        }
+        
+        // Si está en horario permitido, continuar con la verificación de registro
+        verificarRegistroPreoperacional();
+    }
     
     function verificarRegistroPreoperacional() {
         fetch('/verificar_registro_preoperacional')
@@ -701,6 +798,17 @@ document.addEventListener('DOMContentLoaded', function() {
     if (preoperacionalForm) {
         preoperacionalForm.addEventListener('submit', function(e) {
             e.preventDefault();
+            
+            // Verificar horario antes de enviar
+            if (!estaEnHorarioPermitido()) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Fuera de Horario',
+                    text: 'Las inspecciones preoperacionales solo pueden registrarse hasta las 10:00 AM (hora de Bogotá).',
+                    confirmButtonText: 'Entendido'
+                });
+                return;
+            }
             
             // Verificar nuevamente antes de enviar
             fetch('/verificar_registro_preoperacional')
