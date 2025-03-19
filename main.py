@@ -1721,7 +1721,9 @@ def verificar_vencimientos():
             return jsonify({'tiene_vencimientos': False})
             
         vencimientos = []
-        fecha_actual = datetime.now().date()
+        # Usar fecha de Bogotá en lugar de la fecha del servidor
+        fecha_actual = get_bogota_datetime().date()
+        print(f"Verificando vencimientos con fecha de Bogotá: {fecha_actual}")
         
         # Verificar cada tipo de vencimiento
         if ultimo_registro['fecha_vencimiento_licencia']:
@@ -1753,7 +1755,8 @@ def verificar_vencimientos():
         
         return jsonify({
             'tiene_vencimientos': len(vencimientos) > 0,
-            'vencimientos': vencimientos
+            'vencimientos': vencimientos,
+            'fecha_bogota': fecha_actual.strftime('%Y-%m-%d')
         })
         
     except Error as e:
@@ -1770,30 +1773,40 @@ def verificar_registro_preoperacional():
             
         cursor = connection.cursor(dictionary=True)
         
-        # Verificar si existe registro para el día actual
-        fecha_actual = datetime.now().date()
+        # Verificar si existe registro para el día actual en zona horaria de Bogotá
+        fecha_actual = get_bogota_datetime().date()
+        print(f"Verificando registro preoperacional para fecha Bogotá: {fecha_actual}")
+        
         cursor.execute("""
             SELECT COUNT(*) as count, 
                    MAX(fecha) as ultimo_registro
             FROM preoperacional 
             WHERE id_codigo_consumidor = %s 
-            AND DATE(fecha) = %s
+            AND DATE(CONVERT_TZ(fecha, '+00:00', '-05:00')) = %s
         """, (session.get('user_id'), fecha_actual))
         
         resultado = cursor.fetchone()
         tiene_registro = resultado['count'] > 0
-        ultimo_registro = resultado['ultimo_registro'].strftime('%Y-%m-%d %H:%M:%S') if resultado['ultimo_registro'] else None
+        ultimo_registro = resultado['ultimo_registro']
+        
+        # Convertir el último registro a zona horaria de Bogotá si existe
+        ultimo_registro_str = None
+        if ultimo_registro:
+            ultimo_registro_bogota = convert_to_bogota_time(ultimo_registro)
+            ultimo_registro_str = ultimo_registro_bogota.strftime('%Y-%m-%d %H:%M:%S')
         
         cursor.close()
         connection.close()
         
         return jsonify({
             'tiene_registro': tiene_registro,
-            'ultimo_registro': ultimo_registro,
-            'fecha_actual': fecha_actual.strftime('%Y-%m-%d')
+            'ultimo_registro': ultimo_registro_str,
+            'fecha_actual': fecha_actual.strftime('%Y-%m-%d'),
+            'hora_bogota': get_bogota_datetime().strftime('%H:%M:%S')
         })
         
     except Error as e:
+        print(f"Error en verificar_registro_preoperacional: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/logistica/asignaciones')

@@ -671,27 +671,72 @@ document.addEventListener('DOMContentLoaded', function() {
     // Actualizar cada segundo
     setInterval(actualizarRelojBogota, 1000);
     
+    // Función para obtener la fecha y hora de Bogotá de forma confiable
+    function obtenerFechaHoraBogota() {
+        try {
+            const ahora = new Date();
+            const opcionesBogota = {
+                timeZone: 'America/Bogota',
+                hour12: false, // Usar formato 24 horas internamente para cálculos
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hourCycle: 'h23' // Asegurar formato 24 horas
+            };
+            
+            // Formato para mostrar: 15:30:45
+            const horaFormateada = ahora.toLocaleTimeString('es-CO', opcionesBogota);
+            
+            // Obtener componentes para uso interno
+            const fechaHoraCompleta = ahora.toLocaleString('es-CO', opcionesBogota);
+            const fechaBogota = new Date(fechaHoraCompleta.replace(/(\d+)\/(\d+)\/(\d+)/, '$3/$2/$1'));
+            
+            console.log("Fecha y hora en Bogotá:", fechaHoraCompleta);
+            console.log("Hora formateada:", horaFormateada);
+            
+            return {
+                fechaCompleta: fechaBogota,
+                horaFormateada: horaFormateada,
+                hora: fechaBogota.getHours(),
+                minutos: fechaBogota.getMinutes()
+            };
+        } catch (error) {
+            console.error("Error al obtener fecha y hora de Bogotá:", error);
+            // Fallback en caso de error
+            const ahora = new Date();
+            return {
+                fechaCompleta: ahora,
+                horaFormateada: ahora.toLocaleTimeString('es-CO'),
+                hora: ahora.getHours(),
+                minutos: ahora.getMinutes()
+            };
+        }
+    }
+    
     function actualizarRelojBogota() {
         if (relojBogota) {
-            const ahora = new Date();
-            // Formato de hora para Colombia (Bogotá)
-            const opcionesBogota = { 
+            // Obtener fecha y hora de Bogotá
+            const datosBogota = obtenerFechaHoraBogota();
+            
+            // Formato amigable para mostrar (con AM/PM)
+            const opcionesMostrar = { 
                 timeZone: 'America/Bogota',
                 hour12: true,
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit'
             };
-            
-            // Obtener hora actual en formato de Colombia
-            const horaFormateada = ahora.toLocaleTimeString('es-CO', opcionesBogota);
+            const horaMostrar = new Date().toLocaleTimeString('es-CO', opcionesMostrar);
             
             // Determinar si está dentro del horario permitido
             const dentroHorario = estaEnHorarioPermitido();
             
             // Cambiar color según horario
             relojBogota.className = 'badge ' + (dentroHorario ? 'bg-success' : 'bg-danger');
-            relojBogota.innerHTML = horaFormateada;
+            relojBogota.innerHTML = horaMostrar;
         }
     }
     
@@ -706,21 +751,19 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Función para verificar si la hora actual es antes de las 10:00 AM (hora de Bogotá)
     function estaEnHorarioPermitido() {
-        // Crear fecha con la zona horaria de Bogotá (América/Bogota)
-        const ahora = new Date();
-        
-        // Opciones para obtener la hora en Colombia (Bogotá)
-        const opcionesBogota = { timeZone: 'America/Bogota' };
-        
-        // Obtener hora en formato de Bogotá
-        const horaBogota = new Date(ahora.toLocaleString('es-CO', opcionesBogota));
-        
-        // Extraer solo la hora y minutos para comparar
-        const hora = horaBogota.getHours();
-        const minutos = horaBogota.getMinutes();
-        
-        // Comprobar si es antes de las 10:00 AM
-        return (hora < 10) || (hora === 10 && minutos === 0);
+        try {
+            // Obtener datos de Bogotá usando nuestra función mejorada
+            const datosBogota = obtenerFechaHoraBogota();
+            
+            console.log(`Validando horario: Hora en Bogotá ${datosBogota.hora}:${datosBogota.minutos} - Permitido hasta las 10:00 AM`);
+            
+            // Comprobar si es antes de las 10:00 AM
+            return (datosBogota.hora < 10) || (datosBogota.hora === 10 && datosBogota.minutos === 0);
+        } catch (error) {
+            console.error("Error al validar horario:", error);
+            // En caso de error, permitir el acceso
+            return true;
+        }
     }
     
     function verificarHorarioYRegistro() {
@@ -764,10 +807,18 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.tiene_registro) {
                     // Si ya existe un registro, mostrar mensaje y deshabilitar el formulario
+                    let mensajeHora = '';
+                    
+                    if (data.ultimo_registro) {
+                        // Convertir la hora del último registro a formato local
+                        const fechaRegistro = new Date(data.ultimo_registro);
+                        mensajeHora = ` El último registro fue a las ${fechaRegistro.toLocaleTimeString('es-CO')}.`;
+                    }
+                    
                     Swal.fire({
                         icon: 'info',
                         title: 'Registro Existente',
-                        text: `Ya has realizado la inspección preoperacional para hoy (${data.fecha_actual}). El último registro fue a las ${new Date(data.ultimo_registro).toLocaleTimeString()}.`,
+                        text: `Ya has realizado la inspección preoperacional para hoy (${data.fecha_actual}).${mensajeHora}`,
                         confirmButtonText: 'Entendido'
                     });
                     
