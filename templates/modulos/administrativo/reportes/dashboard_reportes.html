@@ -1,0 +1,585 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2 class="mb-4">Dashboard de Reportes</h2>
+
+    <!-- Panel de Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form id="filtros-form" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label for="fecha-inicio" class="form-label">Fecha Inicio</label>
+                    <input type="date" class="form-control" id="fecha-inicio" name="fecha_inicio">
+                </div>
+                <div class="col-md-3">
+                    <label for="fecha-fin" class="form-label">Fecha Fin</label>
+                    <input type="date" class="form-control" id="fecha-fin" name="fecha_fin">
+                </div>
+                <div class="col-md-3">
+                    <label for="supervisor" class="form-label">Supervisor</label>
+                    <select class="form-select" id="supervisor" name="supervisor">
+                        <option value="">Todos los supervisores</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="centro-trabajo" class="form-label">Centro de Trabajo</label>
+                    <select class="form-select" id="centro-trabajo" name="centro_trabajo">
+                        <option value="">Todos los centros</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-filter"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tarjetas de Resumen -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-clipboard-list fa-2x text-primary mb-2"></i>
+                    <h5 class="card-title">Total Preoperacionales</h5>
+                    <h2 class="card-text" id="total-preoperacionales">0</h2>
+                    <p class="text-muted">Últimos 30 días</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-users fa-2x text-success mb-2"></i>
+                    <h5 class="card-title">Técnicos Activos</h5>
+                    <h2 class="card-text" id="total-tecnicos">0</h2>
+                    <p class="text-muted">Con registros en 30 días</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-calendar-check fa-2x text-info mb-2"></i>
+                    <h5 class="card-title">Días con Registros</h5>
+                    <h2 class="card-text" id="total-dias">0</h2>
+                    <p class="text-muted">Últimos 30 días</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
+                    <h5 class="card-title">Próximos Vencimientos</h5>
+                    <h2 class="card-text" id="total-vencimientos">0</h2>
+                    <p class="text-muted">Próximos 30 días</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Vencimientos Próximos -->
+    <div class="row mb-4">
+        <!-- Columna SOAT -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-car me-2"></i>Vencimientos SOAT
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Técnico</th>
+                                    <th>Placa</th>
+                                    <th>Vence</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-vencimientos-soat">
+                                <!-- Los datos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Columna Tecnomecánica -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title text-success">
+                        <i class="fas fa-wrench me-2"></i>Vencimientos Tecnomecánica
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Técnico</th>
+                                    <th>Placa</th>
+                                    <th>Vence</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-vencimientos-tecno">
+                                <!-- Los datos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Columna Licencia -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title text-warning">
+                        <i class="fas fa-id-card me-2"></i>Vencimientos Licencia
+                    </h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Técnico</th>
+                                    <th>Placa</th>
+                                    <th>Vence</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-vencimientos-licencia">
+                                <!-- Los datos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="row mb-4">
+        <!-- Gráfico de Preoperacionales por Día -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Preoperacionales por Día</h5>
+                    <canvas id="chart-preoperacionales-dia"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Gráfico de Estado de Vehículos -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Estado de Vehículos</h5>
+                    <canvas id="chart-estado-vehiculos"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nueva fila para gráficos adicionales -->
+    <div class="row mb-4">
+        <!-- Gráfico de Centro de Trabajo -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Top 5 Centros de Trabajo</h5>
+                    <canvas id="chart-centro-trabajo"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Distribución de Usuarios por Rol -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Usuarios por Rol</h5>
+                    <canvas id="chart-usuarios-rol"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Última fila de gráficos -->
+    <div class="row mb-4">
+        <!-- Registros de Usuarios por Mes -->
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Registros de Usuarios por Mes</h5>
+                    <canvas id="chart-usuarios-mes"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Custom Dashboard Script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let chartsInstances = {};
+    
+    // Función para obtener los filtros actuales
+    const obtenerFiltros = () => {
+        return {
+            fecha_inicio: document.getElementById('fecha-inicio').value,
+            fecha_fin: document.getElementById('fecha-fin').value,
+            supervisor: document.getElementById('supervisor').value,
+            centro_trabajo: document.getElementById('centro-trabajo').value
+        };
+    };
+
+    // Función para cargar los selectores
+    const cargarSelectores = async () => {
+        try {
+            const response = await fetch('/api/reportes/filtros');
+            const data = await response.json();
+            
+            const supervisorSelect = document.getElementById('supervisor');
+            const centroTrabajoSelect = document.getElementById('centro-trabajo');
+            
+            // Limpiar opciones existentes
+            supervisorSelect.innerHTML = '<option value="">Todos los supervisores</option>';
+            centroTrabajoSelect.innerHTML = '<option value="">Todos los centros</option>';
+            
+            // Agregar nuevas opciones
+            data.supervisores.forEach(supervisor => {
+                supervisorSelect.add(new Option(supervisor, supervisor));
+            });
+            
+            data.centros_trabajo.forEach(centro => {
+                centroTrabajoSelect.add(new Option(centro, centro));
+            });
+        } catch (error) {
+            console.error('Error al cargar selectores:', error);
+        }
+    };
+
+    // Función para actualizar las estadísticas
+    const actualizarEstadisticas = (data) => {
+        // Verificar que data existe
+        if (!data) {
+            console.error('Error: No hay datos para actualizar las estadísticas');
+            return;
+        }
+        
+        if (data.stats_generales) {
+            document.getElementById('total-preoperacionales').textContent = 
+                data.stats_generales.total_preoperacionales || '0';
+            document.getElementById('total-tecnicos').textContent = 
+                data.stats_generales.total_tecnicos || '0';
+            document.getElementById('total-dias').textContent = 
+                data.stats_generales.total_dias || '0';
+        }
+    };
+
+    // Función para actualizar los gráficos
+    const actualizarGraficos = (data) => {
+        // Verificar que data existe
+        if (!data) {
+            console.error('Error: No hay datos para actualizar los gráficos');
+            return;
+        }
+        
+        // Destruir gráficos existentes
+        Object.values(chartsInstances).forEach(chart => chart.destroy());
+        chartsInstances = {};
+
+        // Gráfico de Preoperacionales por Día
+        if (data.registros_diarios) {
+            const ctxDia = document.getElementById('chart-preoperacionales-dia');
+            chartsInstances.preoperacionalesDia = new Chart(ctxDia, {
+                type: 'line',
+                data: {
+                    labels: data.registros_diarios.labels,
+                    datasets: [{
+                        label: 'Preoperacionales',
+                        data: data.registros_diarios.data,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Registros Diarios'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Gráfico de Estado de Vehículos
+        if (data.estado_vehiculos) {
+            const ctxEstado = document.getElementById('chart-estado-vehiculos');
+            chartsInstances.estadoVehiculos = new Chart(ctxEstado, {
+                type: 'doughnut',
+                data: {
+                    labels: data.estado_vehiculos.labels,
+                    datasets: [{
+                        data: data.estado_vehiculos.data,
+                        backgroundColor: [
+                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 206, 86, 0.8)',
+                            'rgba(255, 99, 132, 0.8)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Gráfico de Centro de Trabajo
+        if (data.centro_trabajo) {
+            const ctxCentro = document.getElementById('chart-centro-trabajo');
+            chartsInstances.centroTrabajo = new Chart(ctxCentro, {
+                type: 'bar',
+                data: {
+                    labels: data.centro_trabajo.labels,
+                    datasets: [{
+                        label: 'Registros',
+                        data: data.centro_trabajo.data,
+                        backgroundColor: 'rgba(54, 162, 235, 0.8)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    };
+
+    // Función para actualizar las tablas de vencimientos
+    const actualizarTablasVencimientos = (data) => {
+        if (!data.vencimientos) return;
+
+        document.getElementById('total-vencimientos').textContent = data.vencimientos.length;
+
+        const formatearFecha = (fecha) => {
+            return new Date(fecha).toLocaleDateString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: '2-digit'
+            });
+        };
+
+        const getEstado = (dias) => {
+            if (dias <= 5) return ['danger', 'Crítico'];
+            if (dias <= 15) return ['warning', 'Atención'];
+            return ['success', 'Normal'];
+        };
+
+        // Limpiar tablas
+        ['soat', 'tecno', 'licencia'].forEach(tipo => {
+            document.getElementById(`tabla-vencimientos-${tipo}`).innerHTML = '';
+        });
+
+        // Llenar tablas con datos filtrados
+        data.vencimientos.forEach(item => {
+            if (item.fecha_vencimiento_soat) {
+                const [clase, estado] = getEstado(item.dias_soat);
+                const row = `
+                    <tr>
+                        <td>${item.nombre_tecnico}</td>
+                        <td>${item.placa_vehiculo}</td>
+                        <td>${formatearFecha(item.fecha_vencimiento_soat)}</td>
+                        <td><span class="badge bg-${clase}">${estado}</span></td>
+                    </tr>
+                `;
+                document.getElementById('tabla-vencimientos-soat').innerHTML += row;
+            }
+
+            if (item.fecha_vencimiento_tecnomecanica) {
+                const [clase, estado] = getEstado(item.dias_tecnomecanica);
+                const row = `
+                    <tr>
+                        <td>${item.nombre_tecnico}</td>
+                        <td>${item.placa_vehiculo}</td>
+                        <td>${formatearFecha(item.fecha_vencimiento_tecnomecanica)}</td>
+                        <td><span class="badge bg-${clase}">${estado}</span></td>
+                    </tr>
+                `;
+                document.getElementById('tabla-vencimientos-tecno').innerHTML += row;
+            }
+
+            if (item.fecha_vencimiento_licencia) {
+                const [clase, estado] = getEstado(item.dias_licencia);
+                const row = `
+                    <tr>
+                        <td>${item.nombre_tecnico}</td>
+                        <td>${item.placa_vehiculo}</td>
+                        <td>${formatearFecha(item.fecha_vencimiento_licencia)}</td>
+                        <td><span class="badge bg-${clase}">${estado}</span></td>
+                    </tr>
+                `;
+                document.getElementById('tabla-vencimientos-licencia').innerHTML += row;
+            }
+        });
+    };
+
+    // Función principal para cargar datos
+    const cargarDatos = async () => {
+        try {
+            const filtros = obtenerFiltros();
+            const queryParams = new URLSearchParams(filtros);
+
+            // Cargar datos preoperacionales
+            const responsePreop = await fetch(`/api/reportes/preoperacional?${queryParams}`);
+            const dataPreop = await responsePreop.json();
+            
+            if (dataPreop.error) {
+                throw new Error(dataPreop.error);
+            }
+            
+            actualizarEstadisticas(dataPreop);
+            actualizarGraficos(dataPreop);
+
+            // Cargar datos de vencimientos
+            const responseVenc = await fetch(`/api/reportes/vencimientos?${queryParams}`);
+            const dataVenc = await responseVenc.json();
+            
+            if (dataVenc.error) {
+                throw new Error(dataVenc.error);
+            }
+            
+            actualizarTablasVencimientos(dataVenc);
+
+            // Cargar datos de usuarios
+            const responseUsers = await fetch('/api/reportes/usuarios');
+            const dataUsers = await responseUsers.json();
+            
+            if (dataUsers.error) {
+                throw new Error(dataUsers.error);
+            }
+
+            // Actualizar gráficos de usuarios
+            if (dataUsers.roles) {
+                const ctxRoles = document.getElementById('chart-usuarios-rol');
+                if (chartsInstances.usuariosRol) {
+                    chartsInstances.usuariosRol.destroy();
+                }
+                chartsInstances.usuariosRol = new Chart(ctxRoles, {
+                    type: 'pie',
+                    data: {
+                        labels: dataUsers.roles.labels,
+                        datasets: [{
+                            data: dataUsers.roles.data,
+                            backgroundColor: [
+                                'rgba(255, 99, 132, 0.8)',
+                                'rgba(54, 162, 235, 0.8)',
+                                'rgba(255, 206, 86, 0.8)',
+                                'rgba(75, 192, 192, 0.8)',
+                                'rgba(153, 102, 255, 0.8)'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (dataUsers.registros_mensuales) {
+                const ctxMes = document.getElementById('chart-usuarios-mes');
+                if (chartsInstances.usuariosMes) {
+                    chartsInstances.usuariosMes.destroy();
+                }
+                chartsInstances.usuariosMes = new Chart(ctxMes, {
+                    type: 'bar',
+                    data: {
+                        labels: dataUsers.registros_mensuales.labels,
+                        datasets: [{
+                            label: 'Usuarios Registrados',
+                            data: dataUsers.registros_mensuales.data,
+                            backgroundColor: 'rgba(75, 192, 192, 0.8)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+        } catch (error) {
+            console.error('Error al cargar datos:', error);
+            // Mostrar mensaje de error al usuario
+            const alertPlaceholder = document.createElement('div');
+            alertPlaceholder.className = 'alert alert-danger alert-dismissible fade show';
+            alertPlaceholder.innerHTML = `
+                <strong>Error:</strong> ${error.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            document.querySelector('.container-fluid').prepend(alertPlaceholder);
+        }
+    };
+
+    // Event Listeners
+    document.getElementById('filtros-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        cargarDatos();
+    });
+
+    // Inicialización
+    const inicializar = async () => {
+        // Establecer fechas por defecto
+        const hoy = new Date();
+        const hace30Dias = new Date(hoy);
+        hace30Dias.setDate(hoy.getDate() - 30);
+        
+        document.getElementById('fecha-fin').value = hoy.toISOString().split('T')[0];
+        document.getElementById('fecha-inicio').value = hace30Dias.toISOString().split('T')[0];
+
+        // Cargar selectores y datos iniciales
+        await cargarSelectores();
+        await cargarDatos();
+    };
+
+    inicializar();
+});
+</script>
+{% endblock %} 

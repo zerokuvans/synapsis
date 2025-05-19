@@ -1,0 +1,318 @@
+<!-- filepath: /c:/Users/vansn/OneDrive/DESARROLLO/TECNICOS/templates/modulos/administrativo/dashboard.html -->
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white fw-bold">
+                    <h3 class="mb-0">
+                        <i class="fas fa-user-shield me-2"></i>Panel Administrativo
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Bienvenido al panel administrativo. Aquí podrás gestionar usuarios y ver reportes.
+                    </div>
+
+                    <!-- Contenido específico del módulo administrativo -->
+                    <div class="row mt-4">
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-users fa-3x text-info mb-3"></i>
+                                    <h5 class="card-title">Gestión de Usuarios</h5>
+                                    <p class="card-text">Administrar usuarios del sistema.</p>
+                                    <a href="{{ url_for('usuarios') }}" class="btn btn-info">
+                                        <i class="fas fa-user-cog me-2"></i>Administrar Usuarios
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-clipboard-check fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">Inspecciones Preoperacionales</h5>
+                                    <p class="card-text">Ver listado y reportes de inspecciones.</p>
+                                    <a href="{{ url_for('listado_preoperacional') }}" class="btn btn-success">
+                                        <i class="fas fa-list me-2"></i>Ver Listado
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-bar fa-3x text-info mb-3"></i>
+                                    <h5 class="card-title">Estadísticas</h5>
+                                    <p class="card-text">
+                                        Total usuarios: {{ total_users }}<br>
+                                        Total roles: {{ total_roles }}<br>
+                                        Usuarios activos: {{ active_users }}
+                                    </p>
+                                    <a href="{{ url_for('admin_reportes') }}" class="btn btn-primary">Ver Reportes Detallados</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-cog fa-3x text-warning mb-3"></i>
+                                    <h5 class="card-title">Configuración</h5>
+                                    <p class="card-text">Configura parámetros del sistema.</p>
+                                    <a href="#" class="btn btn-warning">
+                                        <i class="fas fa-sliders-h me-2"></i>Configurar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-boxes fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Suministros</h5>
+                                    <p class="card-text">Administrar suministros y materiales.</p>
+                                    <a href="{{ url_for('suministros') }}" class="btn btn-primary">
+                                        <i class="fas fa-box-open me-2"></i>Gestionar Suministros
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-pie fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">Estadísticas de Inventario</h5>
+                                    <p class="card-text">Visualizar estadísticas de herramientas, EPPs y materiales.</p>
+                                    <a href="{{ url_for('estadisticas_inventario') }}" class="btn btn-success">
+                                        <i class="fas fa-chart-line me-2"></i>Ver Estadísticas
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cards -->
+                    <!--<div class="row">-->
+                        <!-- Card Gestión de Usuarios 
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100 border-0 shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-users fa-3x text-info mb-3"></i>
+                                    <h5 class="card-title">Gestión de Usuarios</h5>
+                                    <p class="card-text">Administra los usuarios del sistema, permisos y roles.</p>
+                                    <a href="{{ url_for('buscar_usuarios') }}" class="btn btn-info">Administrar Usuarios</a>
+                                </div>
+                            </div>
+                        </div>
+                    -->
+                        <!-- Card Estadísticas de Inventario -->
+                        <!--<div class="col-md-4 mb-4">
+                            <div class="card h-100 border-0 shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-bar fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">Estadísticas de Inventario</h5>
+                                    <p class="card-text">Visualiza datos y gráficos sobre el inventario de herramientas y materiales.</p>
+                                    <a href="{{ url_for('estadisticas_inventario') }}" class="btn btn-success">Ver Estadísticas</a>
+                                </div>
+                            </div>
+                        </div>
+                    -->
+                        <!-- Card Estadísticas de Usuarios -->
+                       <!-- <div class="col-md-4 mb-4">
+                            <div class="card h-100 border-0 shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-line fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Estadísticas de Usuarios</h5>
+                                    <p class="card-text">Visualiza datos y gráficos sobre el uso del sistema por parte de los usuarios.</p>
+                                    <a href="{{ url_for('estadisticas_usuarios') }}" class="btn btn-primary">Ver Estadísticas</a>
+                                </div>
+                            </div>
+                        </div>
+                    -->
+                        <!-- Más cards aquí -->
+                    </div>
+
+                    <!-- Tabla de usuarios -->
+                    <div class="card mt-4">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Usuarios Registrados</h5>
+                            <button class="btn btn-sm btn-success" onclick="abrirModalNuevoUsuario()">
+                                <i class="fas fa-user-plus me-1"></i> Nuevo Usuario
+                            </button>
+                        </div>
+                        <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                                    <thead>
+                                <tr>
+                                            <th>Código</th>
+                                    <th>Cédula</th>
+                                    <th>Rol</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                                    <tbody>
+                                {% for user in users %}
+                                <tr>
+                                            <td>{{ user.id_codigo_consumidor }}</td>
+                                    <td>{{ user.recurso_operativo_cedula }}</td>
+                                            <td>{{ ROLES[user.id_roles|string] }}</td>
+                                            <td>
+                                                <span class="badge bg-{{ 'success' if user.estado == 'Activo' else 'danger' }}">
+                                            {{ user.estado }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                                <button class="btn btn-sm btn-primary edit-user" data-user-id="{{ user.id_codigo_consumidor }}">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                                <button class="btn btn-sm btn-danger delete-user" data-user-id="{{ user.id_codigo_consumidor }}">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Usuario -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userModalLabel">Gestionar Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <input type="hidden" id="userId" name="id_codigo_consumidor">
+                    <div class="mb-3">
+                        <label for="cedula" class="form-label">Cédula</label>
+                        <input type="text" class="form-control" id="cedula" name="cedula" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cargo" class="form-label">Cargo</label>
+                        <input type="text" class="form-control" id="cargo" name="cargo" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="rol" class="form-label">Rol</label>
+                        <select class="form-select" id="rol" name="rol" required>
+                            {% for key, value in ROLES.items() %}
+                            <option value="{{ key }}">{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="estado" class="form-label">Estado</label>
+                        <select class="form-select" id="estado" name="estado" required>
+                            <option value="Activo">Activo</option>
+                            <option value="Inactivo">Inactivo</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="password" name="password">
+                        <small class="text-muted">Dejar en blanco para mantener la contraseña actual</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="saveUser">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Funcionalidad para editar usuario
+    document.querySelectorAll('.edit-user').forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            fetch(`/get_user/${userId}`)
+                .then(response => response.json())
+                .then(user => {
+                    document.getElementById('userId').value = user.id_codigo_consumidor;
+                    document.getElementById('cedula').value = user.recurso_operativo_cedula;
+                    document.getElementById('rol').value = user.id_roles;
+                    document.getElementById('estado').value = user.estado;
+                    new bootstrap.Modal(document.getElementById('userModal')).show();
+                });
+        });
+    });
+
+    // Funcionalidad para eliminar usuario
+    document.querySelectorAll('.delete-user').forEach(button => {
+        button.addEventListener('click', function() {
+            if (confirm('¿Está seguro de eliminar este usuario?')) {
+                const userId = this.dataset.userId;
+                fetch(`/user/delete/${userId}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                });
+            }
+        });
+    });
+
+    // Funcionalidad para guardar usuario
+    document.getElementById('saveUser').addEventListener('click', function() {
+        const form = document.getElementById('userForm');
+    const formData = new FormData(form);
+        const userId = document.getElementById('userId').value;
+    
+        fetch(userId ? '/update_user' : '/create_user', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+        } else {
+                alert(data.message);
+            }
+        });
+    });
+});
+
+// Función para abrir el modal de creación de usuario
+function abrirModalNuevoUsuario() {
+    // Limpiar formulario
+    document.getElementById('userForm').reset();
+    document.getElementById('userId').value = '';
+    document.getElementById('userModalLabel').textContent = 'Crear Nuevo Usuario';
+    
+    // Mostrar modal
+    new bootstrap.Modal(document.getElementById('userModal')).show();
+}
+</script>
+{% endblock %}

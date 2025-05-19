@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header pb-0 d-flex justify-content-between align-items-center">
+                    <h6>Listado de Inspecciones Preoperacionales</h6>
+                    <a href="{{ url_for('exportar_preoperacional_csv', fecha_inicio=request.args.get('fecha_inicio', ''), fecha_fin=request.args.get('fecha_fin', ''), supervisor=request.args.get('supervisor', '')) }}" class="btn btn-success" id="exportarCSV">
+                        <i class="fas fa-file-csv"></i> Exportar a CSV
+                    </a>
+                </div>
+                
+                <!-- Eliminamos la sección de Indicadores de Cumplimiento, ya que ahora estará solo en estadisticas_preoperacional.html -->
+                
+                {% include 'modulos/administrativo/components/filtros_preoperacional.html' %}              
+                {% include 'modulos/administrativo/components/estadisticas_preoperacional.html' %}
+                {% include 'modulos/administrativo/components/tabla_preoperacional.html' %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Ya no llamamos a cargarIndicadores() aquí
+    
+    // Obtener parámetros de la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Establecer valores de los filtros desde la URL
+    if (urlParams.has('fecha_inicio')) {
+        document.getElementById('fecha_inicio').value = urlParams.get('fecha_inicio');
+    }
+    if (urlParams.has('fecha_fin')) {
+        document.getElementById('fecha_fin').value = urlParams.get('fecha_fin');
+    }
+    if (urlParams.has('supervisor')) {
+        document.getElementById('supervisor').value = urlParams.get('supervisor');
+    }
+
+    // Manejar envío del formulario
+    document.getElementById('filtrosForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const fecha_inicio = document.getElementById('fecha_inicio').value;
+        const fecha_fin = document.getElementById('fecha_fin').value;
+        const supervisor = document.getElementById('supervisor').value;
+        
+        // Construir URL con parámetros
+        let url = window.location.pathname + '?';
+        const params = [];
+        
+        if (fecha_inicio) params.push(`fecha_inicio=${fecha_inicio}`);
+        if (fecha_fin) params.push(`fecha_fin=${fecha_fin}`);
+        if (supervisor) params.push(`supervisor=${encodeURIComponent(supervisor)}`);
+        
+        url += params.join('&');
+        
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: 'Actualizando registros...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Redirigir a la URL con filtros
+        window.location.href = url;
+    });
+});
+</script>
+{% endblock %} 

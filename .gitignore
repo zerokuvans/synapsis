@@ -1,0 +1,30 @@
+# Entornos virtuales y configuraciones
+venv/
+.env
+.env.local
+
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*.log
+
+# IDE/Editores
+.vscode/
+.idea/
+
+# Base de datos
+*.db
+*.sql
+/database/
+
+# Archivos temporales
+*.tmp
+*.bak
+
+# Seguridad
+*.key
+*.pem
+
+# Entorno específico del proyecto
+env/
+.env

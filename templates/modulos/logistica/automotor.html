@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Parque Automotor{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Gestión del Parque Automotor</h1>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalRegistroVehiculo">
+                <i class="fas fa-plus me-2"></i>Registrar Nuevo Vehículo
+            </button>
+            <a href="{{ url_for('exportar_automotor_csv') }}" class="btn btn-success ms-2">
+                <i class="fas fa-file-csv me-2"></i>Exportar a CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Tabla de Vehículos -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-car me-1"></i>
+            Vehículos Registrados
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped" id="tablaVehiculos">
+                    <thead>
+                        <tr>
+                            <th>Placa</th>
+                            <th>Tipo</th>
+                            <th>Marca</th>
+                            <th>Modelo</th>
+                            <th>Color</th>
+                            <th>Técnico Asignado</th>
+                            <th>Fecha Asignación</th>
+                            <th>Estado</th>
+                            <th>SOAT</th>
+                            <th>Tecnomecánica</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vehiculo in vehiculos %}
+                        <tr>
+                            <td>{{ vehiculo.placa }}</td>
+                            <td>{{ vehiculo.tipo_vehiculo }}</td>
+                            <td>{{ vehiculo.marca }}</td>
+                            <td>{{ vehiculo.modelo }}</td>
+                            <td>{{ vehiculo.color }}</td>
+                            <td>{{ vehiculo.nombre or 'No asignado' }}</td>
+                            <td>{{ vehiculo.fecha_asignacion.strftime('%Y-%m-%d') if vehiculo.fecha_asignacion else 'No asignado' }}</td>
+                            <td>
+                                <span class="badge {% if vehiculo.estado == 'Activo' %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ vehiculo.estado }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if vehiculo.soat_vencimiento %}
+                                    {% set dias_soat = (vehiculo.soat_vencimiento - fecha_actual).days %}
+                                    <span class="badge {% if dias_soat <= 0 %}bg-danger{% elif dias_soat <= 30 %}bg-warning{% else %}bg-success{% endif %}">
+                                        {{ vehiculo.soat_vencimiento.strftime('%Y-%m-%d') }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">No registrado</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if vehiculo.tecnomecanica_vencimiento %}
+                                    {% set dias_tecno = (vehiculo.tecnomecanica_vencimiento - fecha_actual).days %}
+                                    <span class="badge {% if dias_tecno <= 0 %}bg-danger{% elif dias_tecno <= 30 %}bg-warning{% else %}bg-success{% endif %}">
+                                        {{ vehiculo.tecnomecanica_vencimiento.strftime('%Y-%m-%d') }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">No registrado</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="editarVehiculo({{ vehiculo.id_parque_automotor }})">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Registro de Vehículo -->
+<div class="modal fade" id="modalRegistroVehiculo" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Registrar Nuevo Vehículo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formVehiculo">
+                    <input type="hidden" id="id_parque_automotor" name="id_parque_automotor">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="placa" class="form-label">Placa *</label>
+                            <input type="text" class="form-control" id="placa" name="placa" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="tipo_vehiculo" class="form-label">Tipo de Vehículo *</label>
+                            <select class="form-select" id="tipo_vehiculo" name="tipo_vehiculo" required>
+                                <option value="">Seleccione...</option>
+                                <option value="Moto">Moto</option>
+                                <option value="Carro">Carro</option>
+                                <option value="Camioneta">Camioneta</option>
+                                <option value="Camión">Camión</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="marca" class="form-label">Marca *</label>
+                            <input type="text" class="form-control" id="marca" name="marca" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="modelo" class="form-label">Modelo *</label>
+                            <input type="text" class="form-control" id="modelo" name="modelo" required maxlength="4">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="color" class="form-label">Color *</label>
+                            <input type="text" class="form-control" id="color" name="color" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="id_codigo_consumidor" class="form-label">Técnico Asignado</label>
+                            <select class="form-select" id="id_codigo_consumidor" name="id_codigo_consumidor">
+                                <option value="">Seleccione...</option>
+                                {% for tecnico in tecnicos %}
+                                <option value="{{ tecnico.id_codigo_consumidor }}">{{ tecnico.nombre }} - {{ tecnico.recurso_operativo_cedula }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="fecha_asignacion" class="form-label">Fecha de Asignación *</label>
+                            <input type="date" class="form-control" id="fecha_asignacion" name="fecha_asignacion" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="estado" class="form-label">Estado</label>
+                            <select class="form-select" id="estado" name="estado">
+                                <option value="Activo">Activo</option>
+                                <option value="Inactivo">Inactivo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="soat_vencimiento" class="form-label">Vencimiento SOAT</label>
+                            <input type="date" class="form-control" id="soat_vencimiento" name="soat_vencimiento">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="tecnomecanica_vencimiento" class="form-label">Vencimiento Tecnomecánica</label>
+                            <input type="date" class="form-control" id="tecnomecanica_vencimiento" name="tecnomecanica_vencimiento">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="observaciones" name="observaciones" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarVehiculo()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const vehiculos = JSON.parse('{{ vehiculos|tojson|safe }}');
+let modo = 'crear';
+
+$(document).ready(function() {
+    $('#tablaVehiculos').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+        }
+    });
+
+    // Establecer fecha actual por defecto
+    document.getElementById('fecha_asignacion').value = new Date().toISOString().split('T')[0];
+});
+
+function editarVehiculo(id) {
+    modo = 'editar';
+    const vehiculo = vehiculos.find(v => v.id_parque_automotor === id);
+    if (vehiculo) {
+        document.getElementById('id_parque_automotor').value = vehiculo.id_parque_automotor;
+        document.getElementById('placa').value = vehiculo.placa;
+        document.getElementById('tipo_vehiculo').value = vehiculo.tipo_vehiculo;
+        document.getElementById('marca').value = vehiculo.marca;
+        document.getElementById('modelo').value = vehiculo.modelo;
+        document.getElementById('color').value = vehiculo.color;
+        document.getElementById('id_codigo_consumidor').value = vehiculo.id_codigo_consumidor || '';
+        document.getElementById('fecha_asignacion').value = vehiculo.fecha_asignacion ? new Date(vehiculo.fecha_asignacion).toISOString().split('T')[0] : '';
+        document.getElementById('estado').value = vehiculo.estado || 'Activo';
+        document.getElementById('soat_vencimiento').value = vehiculo.soat_vencimiento ? new Date(vehiculo.soat_vencimiento).toISOString().split('T')[0] : '';
+        document.getElementById('tecnomecanica_vencimiento').value = vehiculo.tecnomecanica_vencimiento ? new Date(vehiculo.tecnomecanica_vencimiento).toISOString().split('T')[0] : '';
+        document.getElementById('observaciones').value = vehiculo.observaciones || '';
+        
+        document.getElementById('modalTitle').textContent = 'Editar Vehículo';
+        $('#modalRegistroVehiculo').modal('show');
+    }
+}
+
+function guardarVehiculo() {
+    const formData = new FormData(document.getElementById('formVehiculo'));
+    const id = document.getElementById('id_parque_automotor').value;
+    
+    const url = modo === 'crear' 
+        ? '/logistica/registrar_vehiculo'
+        : `/logistica/actualizar_vehiculo/${id}`;
+    
+    fetch(url, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Éxito',
+                text: data.message,
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                window.location.reload();
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.message
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Ha ocurrido un error al procesar la solicitud'
+        });
+    });
+}
+
+// Limpiar formulario al abrir el modal de registro
+$('#modalRegistroVehiculo').on('show.bs.modal', function (e) {
+    if (!e.relatedTarget) return;
+    modo = 'crear';
+    document.getElementById('formVehiculo').reset();
+    document.getElementById('id_parque_automotor').value = '';
+    document.getElementById('modalTitle').textContent = 'Registrar Nuevo Vehículo';
+    document.getElementById('fecha_asignacion').value = new Date().toISOString().split('T')[0];
+    document.getElementById('estado').value = 'Activo';
+});
+</script>
+{% endblock %} 

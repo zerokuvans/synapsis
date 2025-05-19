@@ -1,0 +1,1323 @@
+<div class="card-body px-0 pt-0 pb-2">
+    <!-- Tarjetas de estadísticas -->
+    <div class="row px-4 py-3">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Registros</h5>
+                    <h2 class="card-text">{{ total_registros }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Registros Hoy</h5>
+                    <h2 class="card-text">{{ registros_hoy }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Registros Semana</h5>
+                    <h2 class="card-text">{{ registros_semana }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Registros Mes</h5>
+                    <h2 class="card-text">{{ registros_mes }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sistema de Alertas Automáticas -->
+    <div class="row px-4 mb-3">
+        <div class="col-12">
+            <div class="card border-danger" id="alertas-automaticas" style="display: none;">
+                <div class="card-header bg-danger text-white">
+                    <h6 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i> Alertas de Elementos Críticos</h6>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush" id="lista-alertas">
+                        <!-- Se llenará dinámicamente con JavaScript -->
+                    </ul>
+                </div>
+                <div class="card-footer bg-light">
+                    <button class="btn btn-sm btn-outline-secondary" id="descartar-alertas">Descartar todas</button>
+                    <button class="btn btn-sm btn-outline-primary" id="configurar-alertas" data-bs-toggle="modal" data-bs-target="#configuracionAlertasModal">
+                        Configurar umbrales
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botón para generar PDF -->
+    <div class="row px-4 mb-3">
+        <div class="col-12 text-end">
+            <button id="generar-pdf" class="btn btn-danger">
+                <i class="fas fa-file-pdf me-1"></i> Generar Reporte PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabs para Gráficos -->
+    <div class="row px-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="graficosTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button" role="tab" aria-controls="general" aria-selected="true">General</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="vehiculos-tab" data-bs-toggle="tab" data-bs-target="#vehiculos" type="button" role="tab" aria-controls="vehiculos" aria-selected="false">Vehículos</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="personal-tab" data-bs-toggle="tab" data-bs-target="#personal" type="button" role="tab" aria-controls="personal" aria-selected="false">Personal</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="ubicacion-tab" data-bs-toggle="tab" data-bs-target="#ubicacion" type="button" role="tab" aria-controls="ubicacion" aria-selected="false">Ubicación</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="problemas-tab" data-bs-toggle="tab" data-bs-target="#problemas" type="button" role="tab" aria-controls="problemas" aria-selected="false">Problemas</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="predictivo-tab" data-bs-toggle="tab" data-bs-target="#predictivo" type="button" role="tab" aria-controls="predictivo" aria-selected="false">Análisis Predictivo</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="comparativa-tab" data-bs-toggle="tab" data-bs-target="#comparativa" type="button" role="tab" aria-controls="comparativa" aria-selected="false">Comparativa Períodos</button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="graficosTabContent">
+                        <!-- Tab General -->
+                        <div class="tab-pane fade show active" id="general" role="tabpanel" aria-labelledby="general-tab">
+                            <!-- Filtros Interactivos -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <div class="card shadow-none border">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Filtros Interactivos</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <label for="filtro-periodo">Período</label>
+                                                        <select id="filtro-periodo" class="form-control">
+                                                            <option value="7">Última semana</option>
+                                                            <option value="30" selected>Último mes</option>
+                                                            <option value="90">Último trimestre</option>
+                                                            <option value="180">Último semestre</option>
+                                                            <option value="365">Último año</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <label for="filtro-vehiculo">Tipo de Vehículo</label>
+                                                        <select id="filtro-vehiculo" class="form-control">
+                                                            <option value="">Todos</option>
+                                                            {% for tipo in labels_tipo_vehiculo %}
+                                                            <option value="{{ tipo }}">{{ tipo }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <label for="filtro-ciudad">Ciudad</label>
+                                                        <select id="filtro-ciudad" class="form-control">
+                                                            <option value="">Todas</option>
+                                                            {% for ciudad in labels_ciudades %}
+                                                            <option value="{{ ciudad }}">{{ ciudad }}</option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="form-group">
+                                                        <label for="filtro-estado">Estado</label>
+                                                        <select id="filtro-estado" class="form-control">
+                                                            <option value="">Todos</option>
+                                                            <option value="Bueno">Bueno</option>
+                                                            <option value="Regular">Regular</option>
+                                                            <option value="Malo">Malo</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row mt-2">
+                                                <div class="col-12 text-center">
+                                                    <button id="aplicar-filtros" class="btn btn-primary btn-sm">Aplicar Filtros</button>
+                                                    <button id="resetear-filtros" class="btn btn-secondary btn-sm">Resetear</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <!-- Gráfico de Estado de Vehículos -->
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Estado de Vehículos</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="estadoVehiculosChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Gráfico de Tendencias -->
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Tendencia de Registros</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="tendenciaRegistrosChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Comparativa Mes Actual vs Anterior -->
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Comparativa Mensual</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="comparativaMensualChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab Vehículos -->
+                        <div class="tab-pane fade" id="vehiculos" role="tabpanel" aria-labelledby="vehiculos-tab">
+                            <div class="row">
+                                <!-- Distribución por Tipo de Vehículo -->
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Distribución por Tipo de Vehículo</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="tipoVehiculoChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Elementos Críticos en Mal Estado -->
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Elementos Críticos en Mal Estado</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="elementosCriticosChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab Personal -->
+                        <div class="tab-pane fade" id="personal" role="tabpanel" aria-labelledby="personal-tab">
+                            <div class="row">
+                                <!-- Top Técnicos -->
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Top 5 Técnicos con Más Registros</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="tecnicosTopChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab Ubicación -->
+                        <div class="tab-pane fade" id="ubicacion" role="tabpanel" aria-labelledby="ubicacion-tab">
+                            <div class="row">
+                                <!-- Centros de Trabajo -->
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Top 5 Centros de Trabajo</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="centrosTrabajoChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Ciudades -->
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Top 5 Ciudades</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="ciudadesChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab Problemas -->
+                        <div class="tab-pane fade" id="problemas" role="tabpanel" aria-labelledby="problemas-tab">
+                            <div class="row">
+                                <!-- Elementos Críticos en Mal Estado (Detallado) -->
+                                <div class="col-md-12">
+                                    <div class="card shadow-none border mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Elementos en Mal Estado</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-sm">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Elemento</th>
+                                                            <th>Cantidad</th>
+                                                            <th>Porcentaje</th>
+                                                            <th>Nivel</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for i in range(labels_elementos|length) %}
+                                                        {% set porcentaje = (datos_elementos[i] / total_registros * 100)|round|int if total_registros > 0 else 0 %}
+                                                        <tr>
+                                                            <td>{{ labels_elementos[i] }}</td>
+                                                            <td>{{ datos_elementos[i] }}</td>
+                                                            <td>
+                                                                <div class="progress" style="height: 6px;">
+                                                                    <div class="progress-bar bg-{{ 'danger' if porcentaje > 25 else 'warning' if porcentaje > 10 else 'success' }}" 
+                                                                         role="progressbar"
+                                                                         style="width: {{ porcentaje }}%;" 
+                                                                         aria-valuenow="{{ porcentaje }}" 
+                                                                         aria-valuemin="0" 
+                                                                         aria-valuemax="100">
+                                                                    </div>
+                                                                </div>
+                                                                <small>{{ porcentaje }}%</small>
+                                                            </td>
+                                                            <td>
+                                                                <span class="badge bg-{{ 'danger' if porcentaje > 25 else 'warning' if porcentaje > 10 else 'success' }}">
+                                                                    {{ 'Crítico' if porcentaje > 25 else 'Alerta' if porcentaje > 10 else 'Normal' }}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab Análisis Predictivo -->
+                        <div class="tab-pane fade" id="predictivo" role="tabpanel" aria-labelledby="predictivo-tab">
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        El análisis predictivo utiliza los datos históricos para proyectar tendencias futuras y anticipar posibles problemas.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <!-- Predicción de Registros -->
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Proyección de Registros (30 días)</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="prediccionRegistrosChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Probabilidad de Fallos -->
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Probabilidad de Fallos Críticos</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="prediccionFallosChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <!-- Alertas Predictivas -->
+                                <div class="col-12">
+                                    <div class="card shadow-none border">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Alertas Predictivas</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive">
+                                                <table class="table table-sm">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Elemento</th>
+                                                            <th>Probabilidad de Fallo</th>
+                                                            <th>Plazo Estimado</th>
+                                                            <th>Nivel de Riesgo</th>
+                                                            <th>Acción Recomendada</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="alertas-predictivas">
+                                                        <!-- Se llenará dinámicamente con JavaScript -->
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab Comparativa Períodos -->
+                        <div class="tab-pane fade" id="comparativa" role="tabpanel" aria-labelledby="comparativa-tab">
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Selección de Períodos</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-4">
+                                                    <div class="form-group mb-3">
+                                                        <label for="periodo-comparacion">Tipo de Comparación</label>
+                                                        <select id="periodo-comparacion" class="form-control">
+                                                            <option value="mensual">Mensual</option>
+                                                            <option value="trimestral">Trimestral</option>
+                                                            <option value="semestral">Semestral</option>
+                                                            <option value="anual">Anual</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="form-group mb-3">
+                                                        <label for="metrica-comparacion">Métrica</label>
+                                                        <select id="metrica-comparacion" class="form-control">
+                                                            <option value="registros">Cantidad de Registros</option>
+                                                            <option value="estado">Estado de Vehículos</option>
+                                                            <option value="fallos">Elementos en Mal Estado</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4 d-flex align-items-end">
+                                                    <button id="generar-comparativa" class="btn btn-primary w-100">
+                                                        Generar Comparativa
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="card shadow-none border mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Comparativa de Períodos</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="comparativaPeriodosChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="card shadow-none border">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Análisis Comparativo</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="analisis-comparativo">
+                                                <p class="text-muted text-center">Seleccione los parámetros y haga clic en "Generar Comparativa" para ver el análisis.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Configuración de Alertas -->
+<div class="modal fade" id="configuracionAlertasModal" tabindex="-1" aria-labelledby="configuracionAlertasModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="configuracionAlertasModalLabel">Configuración de Umbrales de Alerta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label for="umbral-critico">Umbral Crítico (%)</label>
+                    <input type="range" class="form-range" id="umbral-critico" min="10" max="50" step="5" value="25">
+                    <div class="d-flex justify-content-between">
+                        <span>10%</span>
+                        <span id="valor-umbral-critico">25%</span>
+                        <span>50%</span>
+                    </div>
+                    <small class="text-muted">Porcentaje de fallos a partir del cual se considera crítico</small>
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label for="umbral-alerta">Umbral de Alerta (%)</label>
+                    <input type="range" class="form-range" id="umbral-alerta" min="5" max="30" step="5" value="10">
+                    <div class="d-flex justify-content-between">
+                        <span>5%</span>
+                        <span id="valor-umbral-alerta">10%</span>
+                        <span>30%</span>
+                    </div>
+                    <small class="text-muted">Porcentaje de fallos a partir del cual se emite una alerta</small>
+                </div>
+                
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="alertas-automaticas-switch" checked>
+                    <label class="form-check-label" for="alertas-automaticas-switch">Mostrar alertas automáticamente</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="guardar-configuracion">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plantilla para los scripts -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicialización de gráficos principales
+    inicializarGraficos();
+    
+    // Configuración de alertas automáticas
+    inicializarConfiguracionAlertas();
+    
+    // Configuración de filtros interactivos
+    inicializarFiltros();
+    
+    // Configuración de análisis predictivo
+    inicializarAnalisisPredictivo();
+    
+    // Configuración de comparativa de períodos
+    inicializarComparativaPeriodos();
+    
+    // Configuración de generación de PDF
+    inicializarGeneracionPDF();
+    
+    // Funciones de inicialización
+    
+    function inicializarGraficos() {
+        // Paleta de colores para los gráficos
+        const colores = [
+            '#5e72e4', '#2dce89', '#fb6340', '#f5365c', '#11cdef', 
+            '#ffd600', '#fb6340', '#8965e0', '#f3a4b5', '#adb5bd'
+        ];
+
+        // Almacenar datos originales para filtrar
+        const datosOriginales = {
+            registros: {{ registros | tojson | safe }},
+            fechas: {{ fechas | tojson | safe }},
+            registrosPorDia: {{ registros_por_dia | tojson | safe }},
+            comparativaMeses: {{ comparativa_meses | tojson | safe }},
+            labelsTipoVehiculo: {{ labels_tipo_vehiculo | tojson | safe }},
+            datosTipoVehiculo: {{ datos_tipo_vehiculo | tojson | safe }},
+            labelsTecnicos: {{ labels_tecnicos | tojson | safe }},
+            datosTecnicos: {{ datos_tecnicos | tojson | safe }},
+            labelsCentros: {{ labels_centros | tojson | safe }},
+            datosCentros: {{ datos_centros | tojson | safe }},
+            labelsElementos: {{ labels_elementos | tojson | safe }},
+            datosElementos: {{ datos_elementos | tojson | safe }},
+            labelsCiudades: {{ labels_ciudades | tojson | safe }},
+            datosCiudades: {{ datos_ciudades | tojson | safe }}
+        };
+        
+    // Configuración del gráfico de estado de vehículos
+    const estadoVehiculosCtx = document.getElementById('estadoVehiculosChart').getContext('2d');
+    const estadoVehiculosChart = new Chart(estadoVehiculosCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Bueno', 'Regular', 'Malo'],
+            datasets: [{
+                data: [
+                    {{ (registros | selectattr('estado_total', '==', 9) | list | length) }},
+                    {{ (registros | selectattr('estado_total', '>=', 5) | selectattr('estado_total', '<', 9) | list | length) }},
+                    {{ (registros | selectattr('estado_total', '<', 5) | list | length) }}
+                ],
+                backgroundColor: ['#2dce89', '#fb6340', '#f5365c']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Configuración del gráfico de tendencias
+    const tendenciaCtx = document.getElementById('tendenciaRegistrosChart').getContext('2d');
+    const tendenciaChart = new Chart(tendenciaCtx, {
+        type: 'line',
+        data: {
+            labels: {{ fechas | tojson | safe }},
+            datasets: [{
+                label: 'Registros por día',
+                data: {{ registros_por_dia | tojson | safe }},
+                borderColor: '#5e72e4',
+                tension: 0.4,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+        
+        // Configuración del gráfico comparativa mensual
+        const comparativaCtx = document.getElementById('comparativaMensualChart').getContext('2d');
+        const comparativaChart = new Chart(comparativaCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ comparativa_meses.labels | tojson | safe }},
+                datasets: [{
+                    label: 'Registros',
+                    data: {{ comparativa_meses.datos | tojson | safe }},
+                    backgroundColor: ['#11cdef', '#5e72e4'],
+                    borderColor: ['#11cdef', '#5e72e4'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+
+        // Configuración del gráfico de distribución por tipo de vehículo
+        const tipoVehiculoCtx = document.getElementById('tipoVehiculoChart').getContext('2d');
+        const tipoVehiculoChart = new Chart(tipoVehiculoCtx, {
+            type: 'pie',
+            data: {
+                labels: {{ labels_tipo_vehiculo | tojson | safe }},
+                datasets: [{
+                    data: {{ datos_tipo_vehiculo | tojson | safe }},
+                    backgroundColor: colores.slice(0, {{ labels_tipo_vehiculo | length }}),
+                    borderColor: 'white',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Configuración del gráfico de elementos críticos
+        const elementosCriticosCtx = document.getElementById('elementosCriticosChart').getContext('2d');
+        const elementosCriticosChart = new Chart(elementosCriticosCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ labels_elementos | tojson | safe }},
+                datasets: [{
+                    label: 'Elementos en mal estado',
+                    data: {{ datos_elementos | tojson | safe }},
+                    backgroundColor: '#f5365c',
+                    borderColor: '#f5365c',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+
+        // Configuración del gráfico de técnicos top
+        const tecnicosTopCtx = document.getElementById('tecnicosTopChart').getContext('2d');
+        const tecnicosTopChart = new Chart(tecnicosTopCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ labels_tecnicos | tojson | safe }},
+                datasets: [{
+                    label: 'Registros',
+                    data: {{ datos_tecnicos | tojson | safe }},
+                    backgroundColor: '#5e72e4',
+                    borderColor: '#5e72e4',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+
+        // Configuración del gráfico de centros de trabajo
+        const centrosTrabajoCtx = document.getElementById('centrosTrabajoChart').getContext('2d');
+        const centrosTrabajoChart = new Chart(centrosTrabajoCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ labels_centros | tojson | safe }},
+                datasets: [{
+                    label: 'Registros',
+                    data: {{ datos_centros | tojson | safe }},
+                    backgroundColor: '#2dce89',
+                    borderColor: '#2dce89',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+
+        // Configuración del gráfico de ciudades
+        const ciudadesCtx = document.getElementById('ciudadesChart').getContext('2d');
+        const ciudadesChart = new Chart(ciudadesCtx, {
+            type: 'doughnut',
+            data: {
+                labels: {{ labels_ciudades | tojson | safe }},
+                datasets: [{
+                    data: {{ datos_ciudades | tojson | safe }},
+                    backgroundColor: colores.slice(0, {{ labels_ciudades | length }}),
+                    borderColor: 'white',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+    
+    function inicializarConfiguracionAlertas() {
+        // Cargar configuración guardada o usar valores por defecto
+        let configuracion = JSON.parse(localStorage.getItem('configuracionAlertas')) || {
+            umbralCritico: 25,
+            umbralAlerta: 10,
+            mostrarAutomaticamente: true
+        };
+        
+        // Establecer valores en los controles
+        document.getElementById('umbral-critico').value = configuracion.umbralCritico;
+        document.getElementById('valor-umbral-critico').textContent = configuracion.umbralCritico + '%';
+        
+        document.getElementById('umbral-alerta').value = configuracion.umbralAlerta;
+        document.getElementById('valor-umbral-alerta').textContent = configuracion.umbralAlerta + '%';
+        
+        document.getElementById('alertas-automaticas-switch').checked = configuracion.mostrarAutomaticamente;
+        
+        // Eventos para actualizar los valores mostrados
+        document.getElementById('umbral-critico').addEventListener('input', function() {
+            document.getElementById('valor-umbral-critico').textContent = this.value + '%';
+        });
+        
+        document.getElementById('umbral-alerta').addEventListener('input', function() {
+            document.getElementById('valor-umbral-alerta').textContent = this.value + '%';
+        });
+        
+        // Manejo de botones de configuración de alertas
+        document.getElementById('guardar-configuracion').addEventListener('click', guardarConfiguracionAlertas);
+        document.getElementById('descartar-alertas').addEventListener('click', descartarAlertas);
+        
+        // Verificar si hay alertas
+        verificarAlertas();
+    }
+    
+    function inicializarFiltros() {
+        // Obtener referencias a los elementos de filtro
+        const filtroPeriodo = document.getElementById('filtro-periodo');
+        const filtroVehiculo = document.getElementById('filtro-vehiculo');
+        const filtroCiudad = document.getElementById('filtro-ciudad');
+        const filtroEstado = document.getElementById('filtro-estado');
+        const btnAplicarFiltros = document.getElementById('aplicar-filtros');
+        const btnResetearFiltros = document.getElementById('resetear-filtros');
+        
+        // Configurar eventos
+        if (btnAplicarFiltros) btnAplicarFiltros.addEventListener('click', aplicarFiltros);
+        if (btnResetearFiltros) btnResetearFiltros.addEventListener('click', resetearFiltros);
+    }
+    
+    function aplicarFiltros() {
+        // Obtener valores de los filtros
+        const periodo = parseInt(document.getElementById('filtro-periodo').value);
+        const tipoVehiculo = document.getElementById('filtro-vehiculo').value;
+        const ciudad = document.getElementById('filtro-ciudad').value;
+        const estado = document.getElementById('filtro-estado').value;
+        
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: 'Aplicando filtros...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Obtener datos originales
+        const registros = {{ registros | tojson | safe }};
+        
+        if (!registros || registros.length === 0) {
+            Swal.fire({
+                title: 'Sin datos',
+                text: 'No hay datos disponibles para filtrar',
+                icon: 'info',
+                confirmButtonText: 'Aceptar'
+            });
+            return;
+        }
+        
+        // Simular procesamiento asíncrono
+        setTimeout(() => {
+            // Filtrar datos según criterios
+            let registrosFiltrados = registros.filter(registro => {
+                // Filtro por fecha (período)
+                const fechaRegistro = new Date(registro.fecha);
+                const fechaLimite = new Date();
+                fechaLimite.setDate(fechaLimite.getDate() - periodo);
+                if (fechaRegistro < fechaLimite) return false;
+                
+                // Filtro por tipo de vehículo
+                if (tipoVehiculo && registro.tipo_vehiculo !== tipoVehiculo) return false;
+                
+                // Filtro por ciudad
+                if (ciudad && registro.ciudad !== ciudad) return false;
+                
+                // Filtro por estado
+                if (estado && registro.estado !== estado) return false;
+                
+                return true;
+            });
+            
+            // Actualizar gráficos con los datos filtrados
+            actualizarGraficos(registrosFiltrados);
+            
+            // Cerrar indicador de carga
+            Swal.close();
+            
+            // Mostrar notificación
+            Swal.fire({
+                title: 'Filtros aplicados',
+                text: `Mostrando ${registrosFiltrados.length} registros filtrados`,
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }, 800);
+    }
+    
+    function resetearFiltros() {
+        // Resetear controles de filtro
+        document.getElementById('filtro-periodo').value = '30';
+        document.getElementById('filtro-vehiculo').value = '';
+        document.getElementById('filtro-ciudad').value = '';
+        document.getElementById('filtro-estado').value = '';
+        
+        // Obtener datos originales
+        const registros = {{ registros | tojson | safe }};
+        
+        // Actualizar gráficos con los datos originales
+        actualizarGraficos(registros);
+        
+        // Mostrar notificación
+        Swal.fire({
+            title: 'Filtros reseteados',
+            text: 'Mostrando datos originales',
+            icon: 'info',
+            timer: 2000,
+            showConfirmButton: false
+        });
+    }
+    
+    function actualizarGraficos(registrosFiltrados) {
+        // Referencias a los gráficos
+        const estadoVehiculosChart = Chart.getChart('estadoVehiculosChart');
+        const tendenciaChart = Chart.getChart('tendenciaRegistrosChart');
+        const comparativaChart = Chart.getChart('comparativaMensualChart');
+        const tipoVehiculoChart = Chart.getChart('tipoVehiculoChart');
+        const elementosCriticosChart = Chart.getChart('elementosCriticosChart');
+        
+        if (!registrosFiltrados || registrosFiltrados.length === 0) {
+            console.warn('No hay datos filtrados para actualizar los gráficos');
+            return;
+        }
+        
+        // Actualizar gráfico de estado de vehículos
+        if (estadoVehiculosChart) {
+            const buenos = registrosFiltrados.filter(r => r.estado_total == 9 || r.estado === 'Bueno').length;
+            const regulares = registrosFiltrados.filter(r => (r.estado_total >= 5 && r.estado_total < 9) || r.estado === 'Regular').length;
+            const malos = registrosFiltrados.filter(r => (r.estado_total < 5) || r.estado === 'Malo').length;
+            
+            estadoVehiculosChart.data.datasets[0].data = [buenos, regulares, malos];
+            estadoVehiculosChart.update();
+        }
+        
+        // Actualizar gráfico de tendencias
+        if (tendenciaChart) {
+            // Agrupar registros por fecha
+            const registrosPorFecha = {};
+            
+            registrosFiltrados.forEach(registro => {
+                const fecha = registro.fecha.split('T')[0]; // Obtener solo la parte de la fecha
+                registrosPorFecha[fecha] = (registrosPorFecha[fecha] || 0) + 1;
+            });
+            
+            // Ordenar fechas
+            const fechasOrdenadas = Object.keys(registrosPorFecha).sort();
+            const datosPorFecha = fechasOrdenadas.map(fecha => registrosPorFecha[fecha]);
+            
+            tendenciaChart.data.labels = fechasOrdenadas;
+            tendenciaChart.data.datasets[0].data = datosPorFecha;
+            tendenciaChart.update();
+        }
+        
+        // Actualizar gráfico de comparativa mensual si existe
+        if (comparativaChart) {
+            // Obtener mes actual y anterior
+            const ahora = new Date();
+            const mesActual = ahora.getMonth();
+            const mesAnterior = mesActual === 0 ? 11 : mesActual - 1;
+            const añoMesAnterior = mesActual === 0 ? ahora.getFullYear() - 1 : ahora.getFullYear();
+            
+            // Contar registros por mes
+            const registrosMesActual = registrosFiltrados.filter(r => {
+                const fecha = new Date(r.fecha);
+                return fecha.getMonth() === mesActual && fecha.getFullYear() === ahora.getFullYear();
+            }).length;
+            
+            const registrosMesAnterior = registrosFiltrados.filter(r => {
+                const fecha = new Date(r.fecha);
+                return fecha.getMonth() === mesAnterior && fecha.getFullYear() === añoMesAnterior;
+            }).length;
+            
+            const nombreMesActual = new Date(ahora.getFullYear(), mesActual, 1).toLocaleString('es', { month: 'long' });
+            const nombreMesAnterior = new Date(añoMesAnterior, mesAnterior, 1).toLocaleString('es', { month: 'long' });
+            
+            comparativaChart.data.labels = [nombreMesAnterior, nombreMesActual];
+            comparativaChart.data.datasets[0].data = [registrosMesAnterior, registrosMesActual];
+            comparativaChart.update();
+        }
+        
+        // Actualizar gráfico de distribución por tipo de vehículo
+        if (tipoVehiculoChart) {
+            // Contar registros por tipo de vehículo
+            const tiposVehiculo = {};
+            
+            registrosFiltrados.forEach(registro => {
+                if (registro.tipo_vehiculo) {
+                    tiposVehiculo[registro.tipo_vehiculo] = (tiposVehiculo[registro.tipo_vehiculo] || 0) + 1;
+                }
+            });
+            
+            // Convertir a arrays para el gráfico
+            const labelsTipoVehiculo = Object.keys(tiposVehiculo);
+            const datosTipoVehiculo = labelsTipoVehiculo.map(tipo => tiposVehiculo[tipo]);
+            
+            tipoVehiculoChart.data.labels = labelsTipoVehiculo;
+            tipoVehiculoChart.data.datasets[0].data = datosTipoVehiculo;
+            tipoVehiculoChart.update();
+        }
+        
+        // Actualizar gráfico de elementos críticos
+        if (elementosCriticosChart && registrosFiltrados.length > 0) {
+            // Contar elementos en mal estado
+            const elementosMalEstado = {};
+            
+            registrosFiltrados.forEach(registro => {
+                if (registro.elementos) {
+                    Object.entries(registro.elementos).forEach(([elemento, estado]) => {
+                        if (estado === 'Malo') {
+                            elementosMalEstado[elemento] = (elementosMalEstado[elemento] || 0) + 1;
+                        }
+                    });
+                }
+            });
+            
+            // Convertir a arrays para el gráfico
+            const labelsElementos = Object.keys(elementosMalEstado);
+            const datosElementos = labelsElementos.map(elemento => elementosMalEstado[elemento]);
+            
+            // Ordenar por cantidad descendente
+            const elementosOrdenados = labelsElementos.map((elemento, i) => ({
+                elemento,
+                cantidad: datosElementos[i]
+            })).sort((a, b) => b.cantidad - a.cantidad);
+            
+            // Tomar los top 10 elementos
+            const topElementos = elementosOrdenados.slice(0, 10);
+            
+            elementosCriticosChart.data.labels = topElementos.map(e => e.elemento);
+            elementosCriticosChart.data.datasets[0].data = topElementos.map(e => e.cantidad);
+            elementosCriticosChart.update();
+        }
+        
+        // Verificar si hay elementos críticos según los nuevos datos filtrados
+        const configuracion = JSON.parse(localStorage.getItem('configuracionAlertas')) || {
+            umbralCritico: 25,
+            umbralAlerta: 10,
+            mostrarAutomaticamente: true
+        };
+        
+        if (configuracion.mostrarAutomaticamente) {
+            const elementosCriticos = analizarElementosCriticos(registrosFiltrados, configuracion);
+            if (elementosCriticos.length > 0) {
+                mostrarAlertas(elementosCriticos);
+            } else {
+                const alertasAutomaticas = document.getElementById('alertas-automaticas');
+                if (alertasAutomaticas) alertasAutomaticas.style.display = 'none';
+            }
+        }
+    }
+    
+    function inicializarAnalisisPredictivo() {
+        // Inicialización de gráficos predictivos
+    }
+    
+    function inicializarComparativaPeriodos() {
+        // Configuración de comparativa de períodos
+        let comparativaPeriodosChart = null;
+        
+        const btnGenerarComparativa = document.getElementById('generar-comparativa');
+        if (btnGenerarComparativa) {
+            btnGenerarComparativa.addEventListener('click', generarComparativa);
+        }
+    }
+    
+    function inicializarGeneracionPDF() {
+        // Configuración del botón de generación de PDF
+        const btnGenerarPDF = document.getElementById('generar-pdf');
+        if (btnGenerarPDF) {
+            btnGenerarPDF.addEventListener('click', generarReportePDF);
+        }
+    }
+    
+    // Funciones para alertas
+    
+    function guardarConfiguracionAlertas() {
+        const configuracion = {
+            umbralCritico: parseInt(document.getElementById('umbral-critico').value),
+            umbralAlerta: parseInt(document.getElementById('umbral-alerta').value),
+            mostrarAutomaticamente: document.getElementById('alertas-automaticas-switch').checked
+        };
+        
+        // Guardar en localStorage
+        localStorage.setItem('configuracionAlertas', JSON.stringify(configuracion));
+        
+        // Cerrar modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('configuracionAlertasModal'));
+        if (modal) modal.hide();
+        
+        // Mostrar confirmación
+        Swal.fire({
+            title: 'Configuración guardada',
+            text: 'La configuración de alertas ha sido guardada correctamente',
+            icon: 'success',
+            confirmButtonText: 'Aceptar'
+        }).then(() => {
+            // Verificar alertas con la nueva configuración
+            verificarAlertas();
+        });
+    }
+    
+    function descartarAlertas() {
+        const alertasAutomaticas = document.getElementById('alertas-automaticas');
+        const listaAlertas = document.getElementById('lista-alertas');
+        
+        if (alertasAutomaticas) alertasAutomaticas.style.display = 'none';
+        if (listaAlertas) listaAlertas.innerHTML = '';
+        
+        // Guardar en localStorage que las alertas fueron descartadas
+        localStorage.setItem('alertasDescartadas', new Date().toISOString());
+        
+        // Mostrar confirmación
+        Swal.fire({
+            title: 'Alertas descartadas',
+            text: 'Las alertas han sido descartadas correctamente',
+            icon: 'info',
+            confirmButtonText: 'Aceptar'
+        });
+    }
+    
+    function verificarAlertas() {
+        // Obtener datos
+        const registros = {{ registros | tojson | safe }};
+        
+        if (!registros || registros.length === 0) {
+            return;
+        }
+        
+        // Obtener configuración
+        const configuracion = JSON.parse(localStorage.getItem('configuracionAlertas')) || {
+            umbralCritico: 25,
+            umbralAlerta: 10,
+            mostrarAutomaticamente: true
+        };
+        
+        // Verificar si las alertas fueron descartadas recientemente
+        const ultimaDescartada = localStorage.getItem('alertasDescartadas');
+        if (ultimaDescartada) {
+            const fechaDescartada = new Date(ultimaDescartada);
+            const ahora = new Date();
+            
+            // Si se descartaron hace menos de 24 horas, no mostrar automáticamente
+            if ((ahora - fechaDescartada) / (1000 * 60 * 60) < 24) {
+                return;
+            }
+        }
+        
+        // Analizar datos para encontrar elementos críticos
+        const elementosCriticos = analizarElementosCriticos(registros, configuracion);
+        
+        // Si hay elementos críticos, mostrar alertas
+        if (elementosCriticos.length > 0 && configuracion.mostrarAutomaticamente) {
+            mostrarAlertas(elementosCriticos);
+        }
+    }
+    
+    function analizarElementosCriticos(registros, configuracion) {
+        // Contador de elementos en mal estado
+        const contadorElementos = {};
+        
+        // Contar ocurrencias de elementos en mal estado
+        registros.forEach(registro => {
+            if (registro.elementos) {
+                Object.entries(registro.elementos).forEach(([elemento, estado]) => {
+                    if (estado === 'Malo') {
+                        contadorElementos[elemento] = (contadorElementos[elemento] || 0) + 1;
+                    }
+                });
+            }
+        });
+        
+        // Calcular porcentajes y determinar elementos críticos
+        const totalRegistros = registros.length;
+        const elementosCriticos = [];
+        
+        Object.entries(contadorElementos).forEach(([elemento, cantidad]) => {
+            const porcentaje = (cantidad / totalRegistros) * 100;
+            
+            if (porcentaje >= configuracion.umbralCritico) {
+                elementosCriticos.push({
+                    elemento,
+                    cantidad,
+                    porcentaje,
+                    nivel: 'critico'
+                });
+            } else if (porcentaje >= configuracion.umbralAlerta) {
+                elementosCriticos.push({
+                    elemento,
+                    cantidad,
+                    porcentaje,
+                    nivel: 'alerta'
+                });
+            }
+        });
+        
+        // Ordenar por porcentaje descendente
+        return elementosCriticos.sort((a, b) => b.porcentaje - a.porcentaje);
+    }
+    
+    function mostrarAlertas(elementosCriticos) {
+        const contenedorAlertas = document.getElementById('alertas-automaticas');
+        const listaAlertas = document.getElementById('lista-alertas');
+        
+        if (!contenedorAlertas || !listaAlertas) return;
+        
+        // Limpiar lista anterior
+        listaAlertas.innerHTML = '';
+        
+        // Añadir cada alerta
+        elementosCriticos.forEach(elemento => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center py-3';
+            
+            const iconoClase = elemento.nivel === 'critico' ? 'text-danger' : 'text-warning';
+            const textoNivel = elemento.nivel === 'critico' ? 'CRÍTICO' : 'ALERTA';
+            
+            li.innerHTML = `
+                <div>
+                    <span class="badge bg-${elemento.nivel === 'critico' ? 'danger' : 'warning'} me-2">${textoNivel}</span>
+                    <strong>${elemento.elemento}</strong>
+                        </div>
+                <div>
+                    <span class="${iconoClase}">${elemento.porcentaje.toFixed(1)}% en mal estado</span>
+                    <small class="text-muted ms-2">(${elemento.cantidad} registros)</small>
+                    </div>
+            `;
+            
+            listaAlertas.appendChild(li);
+        });
+        
+        // Mostrar contenedor de alertas
+        contenedorAlertas.style.display = 'block';
+    }
+    
+    // Funciones para comparativa de períodos
+    
+    function generarComparativa() {
+        // Obtener parámetros
+        const tipoComparacion = document.getElementById('periodo-comparacion').value;
+        const metrica = document.getElementById('metrica-comparacion').value;
+        
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: 'Generando comparativa...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Simular procesamiento asíncrono
+        setTimeout(() => {
+            // Generar datos para la comparativa
+            const datosComparativa = generarDatosComparativa(tipoComparacion, metrica);
+            
+            // Actualizar gráfico
+            actualizarGraficoComparativa(datosComparativa);
+            
+            // Generar análisis
+            generarAnalisisComparativo(datosComparativa);
+            
+            // Cerrar indicador de carga
+            Swal.close();
+        }, 800);
+    }
+    
+    function generarDatosComparativa(tipoComparacion, metrica) {
+        // Implementación de la función
+    }
+    
+    function actualizarGraficoComparativa(datosComparativa) {
+        // Implementación de la función
+    }
+    
+    function generarAnalisisComparativo(datosComparativa) {
+        // Implementación de la función
+    }
+    
+    // Funciones para generación de PDF
+    
+    function generarReportePDF() {
+        // Mostrar mensaje de carga
+        Swal.fire({
+            title: 'Generando PDF...',
+            text: 'Por favor espere mientras se genera el reporte',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Implementación del resto de la función
+    }
+});
+</script> 

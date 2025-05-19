@@ -1,0 +1,683 @@
+{% extends "base.html" %}
+
+{% block title %}Estadísticas de Inventario{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Estadísticas de Inventario</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Estadísticas de Inventario</li>
+    </ol>
+    
+    <!-- Filtros para estadísticas -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-filter me-1"></i>
+            Filtros de Estadísticas
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <label for="filtroFecha" class="form-label">Rango de fechas</label>
+                    <select class="form-select" id="filtroFecha" onchange="actualizarEstadisticas()">
+                        <option value="7">Últimos 7 días</option>
+                        <option value="30" selected>Últimos 30 días</option>
+                        <option value="90">Últimos 3 meses</option>
+                        <option value="180">Últimos 6 meses</option>
+                        <option value="365">Último año</option>
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="filtroCategoria" class="form-label">Categoría</label>
+                    <select class="form-select" id="filtroCategoria" onchange="actualizarEstadisticas()">
+                        <option value="todos" selected>Todas las categorías</option>
+                        <option value="herramientas">Herramientas</option>
+                        <option value="dotaciones">Dotaciones</option>
+                        <option value="epps">EPPs</option>
+                        <option value="ferretero">Ferretero</option>
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="filtroEstado" class="form-label">Estado</label>
+                    <select class="form-select" id="filtroEstado" onchange="actualizarEstadisticas()">
+                        <option value="todos" selected>Todos los estados</option>
+                        <option value="disponible">Disponible</option>
+                        <option value="asignado">Asignado</option>
+                        <option value="mantenimiento">En mantenimiento</option>
+                        <option value="baja">De baja</option>
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label for="filtroUsuario" class="form-label">Técnico/Usuario</label>
+                    <select class="form-select" id="filtroUsuario" onchange="actualizarEstadisticas()">
+                        <option value="todos" selected>Todos los usuarios</option>
+                        {% for usuario in usuarios %}
+                        <option value="{{ usuario.id_codigo_consumidor }}">{{ usuario.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Resumen General -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-primary text-white mb-4">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="mb-0">Total de Elementos</h5>
+                        <h2 class="mt-2 mb-0" id="totalElementos">{{ total_elementos }}</h2>
+                    </div>
+                    <i class="fas fa-boxes fa-3x"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-success text-white mb-4">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="mb-0">Disponibles</h5>
+                        <h2 class="mt-2 mb-0" id="elementosDisponibles">{{ elementos_disponibles }}</h2>
+                    </div>
+                    <i class="fas fa-check-circle fa-3x"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-warning text-white mb-4">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="mb-0">Asignados</h5>
+                        <h2 class="mt-2 mb-0" id="elementosAsignados">{{ elementos_asignados }}</h2>
+                    </div>
+                    <i class="fas fa-user-check fa-3x"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-danger text-white mb-4">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="mb-0">En Mantenimiento</h5>
+                        <h2 class="mt-2 mb-0" id="elementosMantenimiento">{{ elementos_mantenimiento }}</h2>
+                    </div>
+                    <i class="fas fa-tools fa-3x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gráficos -->
+    <div class="row">
+        <!-- Distribución por categorías -->
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-chart-pie me-1"></i>
+                    Distribución por Categorías
+                </div>
+                <div class="card-body">
+                    <canvas id="graficoDistribucionCategorias" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Distribución por estado -->
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-chart-pie me-1"></i>
+                    Distribución por Estado
+                </div>
+                <div class="card-body">
+                    <canvas id="graficoDistribucionEstados" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Elementos más asignados -->
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-chart-bar me-1"></i>
+                    Elementos Más Asignados
+                </div>
+                <div class="card-body">
+                    <canvas id="graficoElementosMasAsignados" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tendencia de asignaciones -->
+        <div class="col-lg-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-chart-line me-1"></i>
+                    Tendencia de Asignaciones
+                </div>
+                <div class="card-body">
+                    <canvas id="graficoTendenciaAsignaciones" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tablas de los 10 elementos más utilizados por categoría -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <i class="fas fa-table me-1"></i>
+            Top 10 Elementos Más Utilizados
+        </div>
+        <div class="card-body">
+            <ul class="nav nav-tabs" id="elementosTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="herramientas-tab" data-bs-toggle="tab" data-bs-target="#herramientas" type="button" role="tab" aria-controls="herramientas" aria-selected="true">Herramientas</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="dotaciones-tab" data-bs-toggle="tab" data-bs-target="#dotaciones" type="button" role="tab" aria-controls="dotaciones" aria-selected="false">Dotaciones</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="epps-tab" data-bs-toggle="tab" data-bs-target="#epps" type="button" role="tab" aria-controls="epps" aria-selected="false">EPPs</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="ferretero-tab" data-bs-toggle="tab" data-bs-target="#ferretero" type="button" role="tab" aria-controls="ferretero" aria-selected="false">Ferretero</button>
+                </li>
+            </ul>
+            <div class="tab-content" id="elementosTabContent">
+                <div class="tab-pane fade show active" id="herramientas" role="tabpanel" aria-labelledby="herramientas-tab">
+                    <div class="table-responsive mt-3">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th>Cantidad Total</th>
+                                    <th>Asignados</th>
+                                    <th>Disponibles</th>
+                                    <th>Frecuencia de Uso</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaTopHerramientas">
+                                {% for herramienta in top_herramientas %}
+                                <tr>
+                                    <td>{{ herramienta.codigo }}</td>
+                                    <td>{{ herramienta.descripcion }}</td>
+                                    <td>{{ herramienta.cantidad_total }}</td>
+                                    <td>{{ herramienta.asignados }}</td>
+                                    <td>{{ herramienta.disponibles }}</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-success" role="progressbar" 
+                                                 data-width="{{ herramienta.frecuencia_uso }}" 
+                                                 aria-valuenow="{{ herramienta.frecuencia_uso }}" 
+                                                 aria-valuemin="0" aria-valuemax="100">
+                                                {{ herramienta.frecuencia_uso }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="dotaciones" role="tabpanel" aria-labelledby="dotaciones-tab">
+                    <div class="table-responsive mt-3">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th>Cantidad Total</th>
+                                    <th>Asignados</th>
+                                    <th>Disponibles</th>
+                                    <th>Frecuencia de Uso</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaTopDotaciones">
+                                {% for dotacion in top_dotaciones %}
+                                <tr>
+                                    <td>{{ dotacion.codigo }}</td>
+                                    <td>{{ dotacion.descripcion }}</td>
+                                    <td>{{ dotacion.cantidad_total }}</td>
+                                    <td>{{ dotacion.asignados }}</td>
+                                    <td>{{ dotacion.disponibles }}</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-success" role="progressbar" 
+                                                 data-width="{{ dotacion.frecuencia_uso }}" 
+                                                 aria-valuenow="{{ dotacion.frecuencia_uso }}" 
+                                                 aria-valuemin="0" aria-valuemax="100">
+                                                {{ dotacion.frecuencia_uso }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="epps" role="tabpanel" aria-labelledby="epps-tab">
+                    <div class="table-responsive mt-3">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th>Cantidad Total</th>
+                                    <th>Asignados</th>
+                                    <th>Disponibles</th>
+                                    <th>Frecuencia de Uso</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaTopEPPs">
+                                {% for epp in top_epps %}
+                                <tr>
+                                    <td>{{ epp.codigo }}</td>
+                                    <td>{{ epp.descripcion }}</td>
+                                    <td>{{ epp.cantidad_total }}</td>
+                                    <td>{{ epp.asignados }}</td>
+                                    <td>{{ epp.disponibles }}</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-success" role="progressbar" 
+                                                 data-width="{{ epp.frecuencia_uso }}" 
+                                                 aria-valuenow="{{ epp.frecuencia_uso }}" 
+                                                 aria-valuemin="0" aria-valuemax="100">
+                                                {{ epp.frecuencia_uso }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="ferretero" role="tabpanel" aria-labelledby="ferretero-tab">
+                    <div class="table-responsive mt-3">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th>Cantidad Total</th>
+                                    <th>Asignados</th>
+                                    <th>Disponibles</th>
+                                    <th>Frecuencia de Uso</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaTopFerretero">
+                                {% for ferretero in top_ferretero %}
+                                <tr>
+                                    <td>{{ ferretero.codigo }}</td>
+                                    <td>{{ ferretero.descripcion }}</td>
+                                    <td>{{ ferretero.cantidad_total }}</td>
+                                    <td>{{ ferretero.asignados }}</td>
+                                    <td>{{ ferretero.disponibles }}</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-success" role="progressbar" 
+                                                 data-width="{{ ferretero.frecuencia_uso }}" 
+                                                 aria-valuenow="{{ ferretero.frecuencia_uso }}" 
+                                                 aria-valuemin="0" aria-valuemax="100">
+                                                {{ ferretero.frecuencia_uso }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            // Aplicar anchos a las barras de progreso
+            document.querySelectorAll('.progress-bar').forEach(function(bar) {
+                const width = bar.getAttribute('data-width') || 0;
+                bar.style.width = width + '%';
+            });
+            
+            // Inicializar gráficos
+            inicializarGraficos();
+            
+            // Configurar evento para actualizar estadísticas
+            document.querySelectorAll('#filtroFecha, #filtroCategoria, #filtroEstado, #filtroUsuario').forEach(elemento => {
+                elemento.addEventListener('change', actualizarEstadisticas);
+            });
+        } catch (error) {
+            console.error("Error en la inicialización:", error);
+            alert("Ocurrió un error durante la inicialización. Por favor, consulta la consola para más detalles.");
+        }
+    });
+    
+    // Función para verificar si un string es JSON válido
+    function esJsonValido(str) {
+        try {
+            JSON.parse(str);
+            return true;
+        } catch (e) {
+            console.error("JSON inválido:", str, e);
+            return false;
+        }
+    }
+    
+    // Función para parsear datos numéricos separados por coma
+    function parseNumericData(dataStr) {
+        try {
+            if (!dataStr) return [0, 0, 0, 0];
+            
+            // Intentar parsear como JSON primero
+            if (esJsonValido(dataStr)) {
+                return JSON.parse(dataStr);
+            }
+            
+            // Si no es JSON, intentar como string separado por comas (compatibilidad con versiones anteriores)
+            return dataStr.split(',').map(n => parseInt(n.trim()) || 0);
+        } catch (e) {
+            console.error("Error al parsear datos numéricos:", dataStr, e);
+            return [0, 0, 0, 0];
+        }
+    }
+    
+    // Función para parsear datos JSON con manejo de errores
+    function parseJsonData(jsonStr, defaultValue) {
+        try {
+            if (esJsonValido(jsonStr)) {
+                return JSON.parse(jsonStr);
+            } else {
+                console.warn("Usando valor por defecto para JSON inválido:", jsonStr);
+                return defaultValue;
+            }
+        } catch (e) {
+            console.error("Error al parsear JSON:", jsonStr, e);
+            return defaultValue;
+        }
+    }
+    
+    function inicializarGraficos() {
+        try {
+            console.log("Iniciando inicialización de gráficos...");
+            
+            // Datos para los gráficos (datos crudos)
+            const datosCategoriasRaw = "{{ datos_categorias|default('30, 25, 20, 25') }}";
+            const datosEstadosRaw = "{{ datos_estados|default('40, 35, 15, 10') }}";
+            const labelsMasAsignadosRaw = '{{ labels_mas_asignados|default("[\\"Taladro\\", \\"Guantes\\", \\"Martillo\\", \\"Pulidora\\", \\"Destornillador\\", \\"Llaves\\"]")|safe }}';
+            const datosMasAsignadosRaw = '{{ datos_mas_asignados|default("[120, 98, 85, 74, 65, 60]") }}';
+            const labelsTendenciaRaw = '{{ labels_tendencia|default("[\\"Ene\\", \\"Feb\\", \\"Mar\\", \\"Abr\\", \\"May\\", \\"Jun\\"]")|safe }}';
+            const datosTendenciaRaw = '{{ datos_tendencia|default("[65, 72, 78, 90, 85, 95]") }}';
+            
+            // Mostrar los datos crudos en consola para diagnóstico
+            console.log("Datos crudos:", {
+                categorias: datosCategoriasRaw,
+                estados: datosEstadosRaw,
+                labelsMasAsignados: labelsMasAsignadosRaw,
+                datosMasAsignados: datosMasAsignadosRaw,
+                labelsTendencia: labelsTendenciaRaw,
+                datosTendencia: datosTendenciaRaw
+            });
+            
+            // Parsear datos con manejo de errores
+            const datosCategorias = {
+                labels: ['Herramientas', 'Dotaciones', 'EPPs', 'Ferretero'],
+                datasets: [{
+                    data: parseNumericData(datosCategoriasRaw),
+                    backgroundColor: ['#0275d8', '#5cb85c', '#f0ad4e', '#d9534f']
+                }]
+            };
+            
+            const datosEstados = {
+                labels: ['Disponible', 'Asignado', 'Mantenimiento', 'Baja'],
+                datasets: [{
+                    data: parseNumericData(datosEstadosRaw),
+                    backgroundColor: ['#5cb85c', '#f0ad4e', '#d9534f', '#292b2c']
+                }]
+            };
+            
+            const defaultLabelsAsignados = ["Taladro", "Guantes", "Martillo", "Pulidora", "Destornillador", "Llaves"];
+            const defaultDatosAsignados = [120, 98, 85, 74, 65, 60];
+            
+            const datosElementosMasAsignados = {
+                labels: parseJsonData(labelsMasAsignadosRaw, defaultLabelsAsignados),
+                datasets: [{
+                    label: 'Frecuencia de asignación',
+                    data: parseJsonData(datosMasAsignadosRaw, defaultDatosAsignados),
+                    backgroundColor: '#0275d8'
+                }]
+            };
+            
+            const defaultLabelsTendencia = ["Ene", "Feb", "Mar", "Abr", "May", "Jun"];
+            const defaultDatosTendencia = [65, 72, 78, 90, 85, 95];
+            
+            const datosTendencia = {
+                labels: parseJsonData(labelsTendenciaRaw, defaultLabelsTendencia),
+                datasets: [{
+                    label: 'Asignaciones',
+                    data: parseJsonData(datosTendenciaRaw, defaultDatosTendencia),
+                    borderColor: '#5cb85c',
+                    tension: 0.1,
+                    fill: false
+                }]
+            };
+            
+            console.log("Datos procesados correctamente");
+            
+            // Crear gráficos
+            try {
+                console.log("Creando gráfico: Distribución por Categorías");
+                new Chart(
+                    document.getElementById('graficoDistribucionCategorias').getContext('2d'),
+                    {
+                        type: 'pie',
+                        data: datosCategorias,
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Distribución por Categorías'
+                                }
+                            }
+                        }
+                    }
+                );
+                
+                console.log("Creando gráfico: Distribución por Estados");
+                new Chart(
+                    document.getElementById('graficoDistribucionEstados').getContext('2d'),
+                    {
+                        type: 'pie',
+                        data: datosEstados,
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Distribución por Estado'
+                                }
+                            }
+                        }
+                    }
+                );
+                
+                console.log("Creando gráfico: Elementos Más Asignados");
+                new Chart(
+                    document.getElementById('graficoElementosMasAsignados').getContext('2d'),
+                    {
+                        type: 'bar',
+                        data: datosElementosMasAsignados,
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Elementos Más Asignados'
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    }
+                );
+                
+                console.log("Creando gráfico: Tendencia de Asignaciones");
+                new Chart(
+                    document.getElementById('graficoTendenciaAsignaciones').getContext('2d'),
+                    {
+                        type: 'line',
+                        data: datosTendencia,
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Tendencia de Asignaciones'
+                                }
+                            }
+                        }
+                    }
+                );
+                console.log("Todos los gráficos creados correctamente");
+            } catch (chartError) {
+                console.error("Error al crear los gráficos:", chartError);
+                alert("Error al crear los gráficos. Revisa la consola para más detalles.");
+            }
+        } catch (mainError) {
+            console.error("Error principal en inicializarGraficos:", mainError);
+            alert("Error en la inicialización de gráficos. Consulta la consola para más detalles.");
+        }
+    }
+    
+    function actualizarEstadisticas() {
+        try {
+            const filtroFecha = document.getElementById('filtroFecha').value;
+            const filtroCategoria = document.getElementById('filtroCategoria').value;
+            const filtroEstado = document.getElementById('filtroEstado').value;
+            const filtroUsuario = document.getElementById('filtroUsuario').value;
+            
+            console.log("Actualizando estadísticas con filtros:", {
+                dias: filtroFecha,
+                categoria: filtroCategoria,
+                estado: filtroEstado,
+                usuario: filtroUsuario
+            });
+            
+            // Mostrar indicador de carga
+            document.querySelectorAll('.card-body canvas').forEach(canvas => {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.font = '20px Arial';
+                ctx.fillText('Cargando datos...', canvas.width/4, canvas.height/2);
+            });
+            
+            // Realizar petición AJAX para obtener datos actualizados
+            fetch(`/api/estadisticas/inventario?dias=${filtroFecha}&categoria=${filtroCategoria}&estado=${filtroEstado}&usuario=${filtroUsuario}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Error HTTP: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Datos recibidos del servidor:", data);
+                    
+                    // Actualizar contadores
+                    document.getElementById('totalElementos').textContent = data.total_elementos;
+                    document.getElementById('elementosDisponibles').textContent = data.elementos_disponibles;
+                    document.getElementById('elementosAsignados').textContent = data.elementos_asignados;
+                    document.getElementById('elementosMantenimiento').textContent = data.elementos_mantenimiento;
+                    
+                    // Actualizar tablas
+                    actualizarTabla('tablaTopHerramientas', data.top_herramientas);
+                    actualizarTabla('tablaTopDotaciones', data.top_dotaciones);
+                    actualizarTabla('tablaTopEPPs', data.top_epps);
+                    actualizarTabla('tablaTopFerretero', data.top_ferretero);
+                    
+                    // Actualizar gráficos
+                    inicializarGraficos();
+                })
+                .catch(error => {
+                    console.error('Error al actualizar estadísticas:', error);
+                    alert('Error al cargar las estadísticas. Por favor, intente nuevamente más tarde.');
+                });
+        } catch (error) {
+            console.error("Error en actualizarEstadisticas:", error);
+            alert("Error al actualizar las estadísticas. Consulta la consola para más detalles.");
+        }
+    }
+    
+    function actualizarTabla(idTabla, datos) {
+        try {
+            const tabla = document.getElementById(idTabla);
+            if (!tabla) {
+                console.error(`No se encontró la tabla con id ${idTabla}`);
+                return;
+            }
+            
+            // Limpiar tabla
+            tabla.innerHTML = '';
+            
+            // Si no hay datos, mostrar mensaje
+            if (!datos || datos.length === 0) {
+                const fila = document.createElement('tr');
+                fila.innerHTML = '<td colspan="6" class="text-center">No hay datos disponibles</td>';
+                tabla.appendChild(fila);
+                return;
+            }
+            
+            // Añadir nuevos datos
+            datos.forEach(item => {
+                const fila = document.createElement('tr');
+                const frecuencia = item.frecuencia_uso || 0;
+                fila.innerHTML = `
+                    <td>${item.codigo || '-'}</td>
+                    <td>${item.descripcion || '-'}</td>
+                    <td>${item.cantidad_total || 0}</td>
+                    <td>${item.asignados || 0}</td>
+                    <td>${item.disponibles || 0}</td>
+                    <td>
+                        <div class="progress">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: ${frecuencia}%" 
+                                aria-valuenow="${frecuencia}" aria-valuemin="0" aria-valuemax="100">
+                                ${frecuencia}%
+                            </div>
+                        </div>
+                    </td>
+                `;
+                tabla.appendChild(fila);
+            });
+        } catch (error) {
+            console.error("Error en actualizarTabla:", error, "Datos:", datos);
+            alert("Error al actualizar la tabla. Consulta la consola para más detalles.");
+        }
+    }
+</script>
+{% endblock %} 

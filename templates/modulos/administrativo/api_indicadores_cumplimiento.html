@@ -1,0 +1,1906 @@
+{% extends "base.html" %}
+
+{% block title %}Indicadores de Cumplimiento - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header pb-0 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Dashboard de Indicadores de Cumplimiento</h5>
+                    <div>
+                        <button class="btn btn-sm btn-info" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDebug" aria-expanded="false">
+                            <i class="fas fa-tools me-1"></i> Herramientas
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filtros -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <label for="fecha_filtro" class="form-label">Fecha</label>
+                            <input type="date" class="form-control" id="fecha_filtro" value="2025-03-17">
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="button" class="btn btn-primary" id="btn-cargar">
+                                <i class="fas fa-sync me-1"></i> Cargar Datos
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Estado de carga -->
+                    <div id="status-container" class="alert alert-info mb-4">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-info-circle fa-2x me-3"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="alert-heading mb-1">Información</h6>
+                                <p class="mb-0">Seleccione una fecha y haga clic en "Cargar Datos" para visualizar los indicadores.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Resumen -->
+                    <div id="resumen-container" class="row mb-4" style="display: none;">
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card bg-gradient-primary mb-3">
+                                <div class="card-body p-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon icon-shape bg-white shadow text-center rounded-circle">
+                                            <i class="fas fa-users text-primary"></i>
+                                        </div>
+                                        <div class="ms-3">
+                                            <p class="text-black text-sm mb-0">Supervisores</p>
+                                            <h5 class="text-black mb-0" id="total-supervisores">0</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card bg-gradient-success mb-3">
+                                <div class="card-body p-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon icon-shape bg-white shadow text-center rounded-circle">
+                                            <i class="fas fa-check-circle text-success"></i>
+                                        </div>
+                                        <div class="ms-3">
+                                            <p class="text-black text-sm mb-0">Cumplimiento Promedio</p>
+                                            <h5 class="text-black mb-0" id="promedio-cumplimiento">0%</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card bg-gradient-info mb-3">
+                                <div class="card-body p-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon icon-shape bg-white shadow text-center rounded-circle">
+                                            <i class="fas fa-calendar-check text-info"></i>
+                                        </div>
+                                        <div class="ms-3">
+                                            <p class="text-black text-sm mb-0">Total Asistencias</p>
+                                            <h5 class="text-black mb-0" id="total-asistencias">0</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <div class="card bg-gradient-warning mb-3">
+                                <div class="card-body p-3">
+                                    <div class="d-flex align-items-center">
+                                        <div class="icon icon-shape bg-white shadow text-center rounded-circle">
+                                            <i class="fas fa-clipboard-check text-warning"></i>
+                                        </div>
+                                        <div class="ms-3">
+                                            <p class="text-black text-sm mb-0">Total Preoperacionales</p>
+                                            <h5 class="text-black mb-0" id="total-preoperacionales">0</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                     <!-- Tabla de indicadores -->
+                     <div class="col-12">
+                        <div class="card">
+                            <div class="card-header pb-0">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6>Detalles de Indicadores</h6>
+                                    <div class="input-group w-25">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-search"></i>
+                                        </span>
+                                        <input type="text" class="form-control" id="tabla-busqueda" placeholder="Buscar...">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body px-0 pt-0 pb-2">
+                                <div class="table-responsive p-0">
+                                    <table class="table align-items-center mb-0" id="indicadores-tabla">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7" data-sort="supervisor">Supervisor</th>
+                                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2" data-sort="asistencia">Total Asistencia</th>
+                                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2" data-sort="preoperacional">Total Preoperacional</th>
+                                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2" data-sort="porcentaje">% Cumplimiento</th>
+                                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Estado</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- Las filas se generarán dinámicamente -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Gráficos y Tablas -->
+                    <div class="row" id="visualizacion-container" style="display: none;">
+                        <!-- Gráfico de barras -->
+                        <div class="col-lg-8 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header pb-0">
+                                    <h6>Porcentaje de Cumplimiento por Supervisor</h6>
+                                </div>
+                                <div class="card-body p-3">
+                                    <div class="chart">
+                                        <canvas id="cumplimiento-chart" class="chart-canvas" height="300"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Gráfico de dona -->
+                        <div class="col-lg-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header pb-0">
+                                    <h6>Distribución de Cumplimiento</h6>
+                                </div>
+                                <div class="card-body p-3">
+                                    <div class="chart">
+                                        <canvas id="distribucion-chart" class="chart-canvas" height="300"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Nuevo gráfico acumulado mensual -->
+                        <div class="col-12 mb-4">
+                            <div class="card">
+                                <div class="card-header pb-0 d-flex justify-content-between">
+                                    <h6>Acumulado Mensual por Supervisor</h6>
+                                    <div class="d-flex">
+                                        <div class="me-2">
+                                            <select class="form-select form-select-sm" id="selector-mes">
+                                                <option value="1">Enero</option>
+                                                <option value="2">Febrero</option>
+                                                <option value="3">Marzo</option>
+                                                <option value="4">Abril</option>
+                                                <option value="5">Mayo</option>
+                                                <option value="6">Junio</option>
+                                                <option value="7">Julio</option>
+                                                <option value="8">Agosto</option>
+                                                <option value="9">Septiembre</option>
+                                                <option value="10">Octubre</option>
+                                                <option value="11">Noviembre</option>
+                                                <option value="12">Diciembre</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <select class="form-select form-select-sm" id="selector-anio">
+                                                <option value="2023">2023</option>
+                                                <option value="2024">2024</option>
+                                                <option value="2025">2025</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body p-3">
+                                    <div id="mensual-loader" class="text-center py-5" style="display: none;">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Cargando...</span>
+                                        </div>
+                                        <p class="mt-2">Cargando datos mensuales...</p>
+                                    </div>
+                                    <div class="chart">
+                                        <canvas id="mensual-chart" class="chart-canvas" height="350"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Nueva sección: Detalle de técnicos por supervisor -->
+                        <div class="col-12 mb-4">
+                            <div class="card">
+                                <div class="card-header pb-0 d-flex justify-content-between">
+                                    <h6>Detalle de Preoperacionales por Técnicos</h6>
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-2">
+                                            <span class="text-sm">Fecha:</span>
+                                        </div>
+                                        <div class="me-3">
+                                            <input type="date" class="form-control form-control-sm" id="fecha-tecnicos" value="">
+                                        </div>
+                                        <div class="me-2">
+                                            <span class="text-sm">Supervisor:</span>
+                                        </div>
+                                        <div>
+                                            <select class="form-select form-select-sm" id="selector-supervisor">
+                                                <option value="">Seleccione un supervisor</option>
+                                                <!-- Las opciones se cargarán dinámicamente -->
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body p-3">
+                                    <div id="tecnicos-loader" class="text-center py-5" style="display: none;">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Cargando...</span>
+                                        </div>
+                                        <p class="mt-2">Cargando detalle de técnicos...</p>
+                                    </div>
+                                    <div id="tecnicos-container" style="display: none;">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover" id="tabla-tecnicos">
+                                                <thead>
+                                                    <tr>
+                                                        <th class="text-center">Técnico</th>
+                                                        <th class="text-center">Asistencia</th>
+                                                        <th class="text-center">Preoperacional</th>
+                                                        <th class="text-center">Estado</th>
+                                                        <th class="text-center">Hora Registro</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <!-- Filas generadas dinámicamente -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div id="tecnicos-empty" class="text-center py-5">
+                                        <i class="fas fa-info-circle fa-3x text-secondary mb-3"></i>
+                                        <p>Seleccione un supervisor y una fecha para ver el detalle de técnicos</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Nueva sección: Estadísticas de vehículos por tipo -->
+                        <div class="row">
+                            <div class="col-lg-6 mb-4">
+                                <div class="card h-100">
+                                    <div class="card-header pb-0 d-flex justify-content-between">
+                                        <h6>Tipos de Vehículos</h6>
+                                        <div>
+                                            <select class="form-select form-select-sm" id="periodo-vehiculos">
+                                                <option value="7">Últimos 7 días</option>
+                                                <option value="30" selected>Últimos 30 días</option>
+                                                <option value="90">Últimos 90 días</option>
+                                                <option value="365">Último año</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <div id="tipos-vehiculos-loader" class="text-center py-5" style="display: none;">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Cargando...</span>
+                                            </div>
+                                            <p class="mt-2">Cargando datos de vehículos...</p>
+                                        </div>
+                                        <div class="chart">
+                                            <canvas id="tipos-vehiculos-chart" class="chart-canvas" height="300"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-6 mb-4">
+                                <div class="card h-100">
+                                    <div class="card-header pb-0 d-flex justify-content-between align-items-center">
+                                        <h6>Estado de Vehículos por Supervisor</h6>
+                                        <button class="btn btn-sm btn-outline-primary" id="btn-actualizar-estado-vehiculos">
+                                            <i class="fas fa-sync-alt me-1"></i> Actualizar
+                                        </button>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <div id="estado-vehiculos-loader" class="text-center py-5" style="display: none;">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Cargando...</span>
+                                            </div>
+                                            <p class="mt-2">Cargando estadísticas de estado...</p>
+                                        </div>
+                                        <div class="table-responsive" id="estado-vehiculos-container">
+                                            <table class="table table-sm align-items-center mb-0" id="tabla-estado-vehiculos">
+                                                <thead>
+                                                    <tr>
+                                                        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Supervisor</th>
+                                                        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 text-center">Bueno</th>
+                                                        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 text-center">Regular</th>
+                                                        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 text-center">Malo</th>
+                                                        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 text-center">Total</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <!-- Filas generadas dinámicamente -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                       
+                    </div>
+                    
+                    <!-- Panel de depuración (colapsado por defecto) -->
+                    <div class="collapse mt-4" id="collapseDebug">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">Panel de Diagnóstico</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Respuesta JSON</label>
+                                            <pre id="debug-json" class="bg-light p-3 rounded" style="max-height: 300px; overflow-y: auto; font-size: 12px;">// Los datos JSON se mostrarán aquí</pre>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Log de eventos</label>
+                                            <div id="debug-log" class="bg-light p-3 rounded" style="max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px;">
+                                                <!-- Los logs se añadirán aquí dinámicamente -->
+                                            </div>
+                                        </div>
+                                        <div class="d-flex justify-content-end">
+                                            <button class="btn btn-sm btn-danger" id="btn-limpiar-log">
+                                                <i class="fas fa-trash me-1"></i> Limpiar log
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Script principal -->
+<script>
+// Variables globales
+let barChart = null;
+let doughnutChart = null;
+let mensualChart = null;
+let tiposVehiculosChart = null;
+let lastData = null;
+
+// Función para agregar logs
+function addLog(mensaje, tipo = 'info') {
+    const timestamp = new Date().toLocaleTimeString();
+    const logElement = document.getElementById('debug-log');
+    
+    // Colores para diferentes tipos de log
+    const colorMap = {
+        'info': '#0d6efd',
+        'success': '#198754',
+        'warning': '#ffc107',
+        'error': '#dc3545'
+    };
+    
+    // Crear el texto del log con color
+    const logText = `[${timestamp}] [${tipo.toUpperCase()}] ${mensaje}`;
+    
+    // Añadir al log
+    if (logElement) {
+        const logLine = document.createElement('div');
+        logLine.style.color = colorMap[tipo] || '#000';
+        logLine.textContent = logText;
+        logElement.appendChild(logLine);
+        logElement.scrollTop = logElement.scrollHeight;
+    }
+    
+    // También log en consola
+    console.log(logText);
+}
+
+// Actualizar el estado
+function updateStatus(mensaje, tipo = 'info') {
+    const statusContainer = document.getElementById('status-container');
+    const tipoClase = `alert-${tipo}`;
+    const iconMap = {
+        'info': 'fas fa-info-circle',
+        'success': 'fas fa-check-circle',
+        'warning': 'fas fa-exclamation-triangle',
+        'danger': 'fas fa-times-circle'
+    };
+    
+    if (statusContainer) {
+        // Eliminar clases de alerta anteriores
+        statusContainer.className = 'alert mb-4';
+        // Agregar la nueva clase
+        statusContainer.classList.add(tipoClase);
+        // Actualizar contenido
+        statusContainer.innerHTML = `
+            <div class="d-flex">
+                <div class="flex-shrink-0">
+                    <i class="${iconMap[tipo] || iconMap.info} fa-2x me-3"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h6 class="alert-heading mb-1">${tipo.charAt(0).toUpperCase() + tipo.slice(1)}</h6>
+                    <p class="mb-0">${mensaje}</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Cargar datos de la API
+function cargarDatos() {
+    try {
+        addLog('Iniciando carga de datos', 'info');
+        updateStatus('Cargando datos...', 'info');
+        
+        // Mostrar indicador de carga
+        document.getElementById('resumen-container').style.display = 'none';
+        document.getElementById('visualizacion-container').style.display = 'none';
+        
+        // Obtener fecha del filtro
+        const fecha = document.getElementById('fecha_filtro').value || '2025-03-17';
+        const url = window.location.origin + '/api/indicadores/cumplimiento?fecha=' + fecha;
+        
+        addLog(`URL: ${url}`, 'info');
+        
+        // Hacer la petición fetch
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            addLog(`Respuesta recibida: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+            
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            
+            return response.json();
+        })
+        .then(data => {
+            addLog(`Datos recibidos correctamente`, 'success');
+            
+            // Guardar datos para uso posterior
+            lastData = data;
+            
+            // Mostrar datos en el panel de depuración
+            document.getElementById('debug-json').textContent = JSON.stringify(data, null, 2);
+            
+            // Procesar y mostrar datos
+            if (data.success === true && data.indicadores && data.indicadores.length > 0) {
+                updateStatus(`Datos cargados correctamente para ${data.periodo || fecha}`, 'success');
+                mostrarDatos(data.indicadores);
+            } else {
+                updateStatus('No se encontraron indicadores para la fecha seleccionada', 'warning');
+            }
+        })
+        .catch(error => {
+            addLog(`Error: ${error.message}`, 'error');
+            updateStatus(`Error al cargar datos: ${error.message}`, 'danger');
+        });
+        
+    } catch (e) {
+        addLog(`Error en función cargarDatos: ${e.message}`, 'error');
+        updateStatus(`Error: ${e.message}`, 'danger');
+    }
+}
+
+// Función para mostrar los datos
+function mostrarDatos(indicadores) {
+    try {
+        // Mostrar contenedores
+        document.getElementById('resumen-container').style.display = 'flex';
+        document.getElementById('visualizacion-container').style.display = 'block';
+        
+        // Calcular estadísticas generales
+        const totalSupervisores = indicadores.length;
+        let totalAsistencias = 0;
+        let totalPreoperacionales = 0;
+        let sumaPorcentajes = 0;
+        
+        indicadores.forEach(item => {
+            totalAsistencias += parseInt(item.total_asistencia || 0);
+            totalPreoperacionales += parseInt(item.total_preoperacional || 0);
+            sumaPorcentajes += parseFloat(item.porcentaje_cumplimiento || 0);
+        });
+        
+        const promedioCumplimiento = sumaPorcentajes / totalSupervisores;
+        
+        // Actualizar resumen
+        document.getElementById('total-supervisores').textContent = totalSupervisores;
+        document.getElementById('promedio-cumplimiento').textContent = promedioCumplimiento.toFixed(2) + '%';
+        document.getElementById('total-asistencias').textContent = totalAsistencias;
+        document.getElementById('total-preoperacionales').textContent = totalPreoperacionales;
+        
+        // Actualizar tabla
+        actualizarTabla(indicadores);
+        
+        // Actualizar gráficos
+        actualizarGraficos(indicadores);
+        
+        addLog(`Visualización actualizada con ${indicadores.length} indicadores`, 'success');
+        
+    } catch (e) {
+        addLog(`Error al mostrar datos: ${e.message}`, 'error');
+    }
+}
+
+// Función para actualizar la tabla
+function actualizarTabla(indicadores) {
+    const tabla = document.getElementById('indicadores-tabla');
+    const tbody = tabla.querySelector('tbody');
+    
+    // Limpiar tabla
+    tbody.innerHTML = '';
+    
+    // Agregar filas
+    indicadores.forEach(item => {
+        const porcentaje = parseFloat(item.porcentaje_cumplimiento) || 0;
+        
+        // Determinar color según porcentaje - Con colores más intensos
+        let colorClase, colorEstilo, textoEstado;
+        if (porcentaje >= 90) {
+            colorClase = 'success';
+            colorEstilo = 'linear-gradient(310deg, #2dce89 0%, #26adab 100%)';
+            textoEstado = 'Óptimo';
+        } else if (porcentaje >= 70) {
+            colorClase = 'warning';
+            colorEstilo = 'linear-gradient(310deg, #fb6340 0%, #fbb140 100%)';
+            textoEstado = 'Aceptable';
+        } else {
+            colorClase = 'danger';
+            colorEstilo = 'linear-gradient(310deg, #f5365c 0%, #f56036 100%)';
+            textoEstado = 'Por mejorar';
+        }
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <div class="d-flex px-2 py-1">
+                    <div>
+                        <i class="fas fa-user text-secondary me-2"></i>
+                    </div>
+                    <div class="d-flex flex-column justify-content-center">
+                        <h6 class="mb-0 text-sm" style="color: #344767 !important; font-weight: bold;">${item.supervisor || 'Sin asignar'}</h6>
+                    </div>
+                </div>
+            </td>
+            <td class="text-center">
+                <span class="badge bg-gradient-info" style="color: #344767 !important;">${item.total_asistencia || 0}</span>
+            </td>
+            <td class="text-center">
+                <span class="badge bg-gradient-warning" style="color: #344767 !important;">${item.total_preoperacional || 0}</span>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <span class="me-2" style="color: #344767 !important; font-weight: bold;">${porcentaje.toFixed(2)}%</span>
+                    <div>
+                        <div class="progress" style="height: 10px; border-radius: 5px; box-shadow: 0 1px 5px rgba(0,0,0,0.1);">
+                            <div class="progress-bar" 
+                                 role="progressbar" 
+                                 style="width: ${porcentaje}%; background: ${colorEstilo}; height: 10px; border-radius: 5px;" 
+                                 aria-valuenow="${porcentaje}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <span class="badge" style="background: ${colorEstilo}; color: white !important;">
+                    ${textoEstado}
+                </span>
+            </td>
+        `;
+        
+        tbody.appendChild(tr);
+    });
+    
+    // Configurar búsqueda en tabla
+    const inputBusqueda = document.getElementById('tabla-busqueda');
+    inputBusqueda.addEventListener('keyup', function() {
+        const texto = this.value.toLowerCase();
+        const filas = tbody.querySelectorAll('tr');
+        
+        filas.forEach(fila => {
+            const contenido = fila.textContent.toLowerCase();
+            fila.style.display = contenido.includes(texto) ? '' : 'none';
+        });
+    });
+    
+    // Configurar ordenamiento
+    tabla.querySelectorAll('th[data-sort]').forEach(th => {
+        th.style.cursor = 'pointer';
+        th.addEventListener('click', function() {
+            const campo = this.dataset.sort;
+            ordenarTabla(tbody, campo);
+        });
+    });
+}
+
+// Función para ordenar tabla
+function ordenarTabla(tbody, campo) {
+    const filas = Array.from(tbody.querySelectorAll('tr'));
+    const orden = tbody.dataset.orden === 'asc' ? 'desc' : 'asc';
+    
+    filas.sort((a, b) => {
+        let valA, valB;
+        
+        if (campo === 'supervisor') {
+            valA = a.querySelector('h6').textContent.trim();
+            valB = b.querySelector('h6').textContent.trim();
+            return orden === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else {
+            if (campo === 'asistencia') {
+                valA = parseInt(a.querySelectorAll('td')[1].textContent.trim());
+                valB = parseInt(b.querySelectorAll('td')[1].textContent.trim());
+            } else if (campo === 'preoperacional') {
+                valA = parseInt(a.querySelectorAll('td')[2].textContent.trim());
+                valB = parseInt(b.querySelectorAll('td')[2].textContent.trim());
+            } else if (campo === 'porcentaje') {
+                valA = parseFloat(a.querySelectorAll('td')[3].querySelector('span').textContent);
+                valB = parseFloat(b.querySelectorAll('td')[3].querySelector('span').textContent);
+            }
+            
+            return orden === 'asc' ? valA - valB : valB - valA;
+        }
+    });
+    
+    // Actualizar el tbody con las filas ordenadas
+    filas.forEach(fila => tbody.appendChild(fila));
+    
+    // Actualizar el orden actual
+    tbody.dataset.orden = orden;
+}
+
+// Función para actualizar gráficos
+function actualizarGraficos(indicadores) {
+    try {
+        // Preparar datos para gráfico de barras
+        const labels = indicadores.map(item => item.supervisor || 'Sin asignar');
+        const porcentajes = indicadores.map(item => parseFloat(item.porcentaje_cumplimiento) || 0);
+        const colores = porcentajes.map(porcentaje => 
+            porcentaje >= 90 ? 'rgba(40, 167, 69, 0.8)' : 
+            porcentaje >= 70 ? 'rgba(255, 193, 7, 0.8)' : 
+            'rgba(220, 53, 69, 0.8)'
+        );
+        
+        // Preparar datos para gráfico de distribución
+        const optimos = indicadores.filter(i => (parseFloat(i.porcentaje_cumplimiento) || 0) >= 90).length;
+        const aceptables = indicadores.filter(i => {
+            const p = parseFloat(i.porcentaje_cumplimiento) || 0;
+            return p >= 70 && p < 90;
+        }).length;
+        const porMejorar = indicadores.filter(i => (parseFloat(i.porcentaje_cumplimiento) || 0) < 70).length;
+        
+        // Actualizar o crear gráfico de barras
+        const ctxBar = document.getElementById('cumplimiento-chart').getContext('2d');
+        
+        if (barChart) {
+            barChart.data.labels = labels;
+            barChart.data.datasets[0].data = porcentajes;
+            barChart.data.datasets[0].backgroundColor = colores;
+            barChart.update();
+        } else {
+            barChart = new Chart(ctxBar, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '% Cumplimiento',
+                        data: porcentajes,
+                        backgroundColor: colores,
+                        borderColor: colores.map(c => c.replace('0.8', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Cumplimiento: ${context.raw.toFixed(2)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Porcentaje de Cumplimiento'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Actualizar o crear gráfico de dona
+        const ctxDoughnut = document.getElementById('distribucion-chart').getContext('2d');
+        
+        if (doughnutChart) {
+            doughnutChart.data.datasets[0].data = [optimos, aceptables, porMejorar];
+            doughnutChart.update();
+        } else {
+            doughnutChart = new Chart(ctxDoughnut, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Óptimo (≥90%)', 'Aceptable (≥70% y <90%)', 'Por mejorar (<70%)'],
+                    datasets: [{
+                        data: [optimos, aceptables, porMejorar],
+                        backgroundColor: [
+                            'rgba(40, 167, 69, 0.8)',
+                            'rgba(255, 193, 7, 0.8)',
+                            'rgba(220, 53, 69, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(40, 167, 69, 1)',
+                            'rgba(255, 193, 7, 1)',
+                            'rgba(220, 53, 69, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        addLog('Gráficos actualizados correctamente', 'success');
+        
+    } catch (e) {
+        addLog(`Error al actualizar gráficos: ${e.message}`, 'error');
+    }
+}
+
+// Limpiar log
+function limpiarLog() {
+    const logElement = document.getElementById('debug-log');
+    if (logElement) {
+        logElement.innerHTML = '';
+    }
+    addLog('Log limpiado', 'info');
+}
+
+// Inicialización cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        addLog('Página cargada correctamente', 'success');
+        
+        // Configurar evento del botón de carga
+        document.getElementById('btn-cargar').addEventListener('click', cargarDatos);
+        
+        // Configurar evento del botón de limpiar log
+        document.getElementById('btn-limpiar-log').addEventListener('click', limpiarLog);
+        
+        // Configurar evento de cambio para selector de mes y año
+        document.getElementById('selector-mes').addEventListener('change', cargarDatosMensuales);
+        document.getElementById('selector-anio').addEventListener('change', cargarDatosMensuales);
+        
+        // Configurar eventos para sección de técnicos
+        document.getElementById('fecha-tecnicos').addEventListener('change', function() {
+            cargarSupervisores();
+            document.getElementById('selector-supervisor').value = '';
+            document.getElementById('tecnicos-container').style.display = 'none';
+            document.getElementById('tecnicos-empty').style.display = 'block';
+        });
+        
+        document.getElementById('selector-supervisor').addEventListener('change', cargarDetalleTecnicos);
+        
+        // Configurar eventos para estadísticas de vehículos
+        document.getElementById('periodo-vehiculos').addEventListener('change', cargarTiposVehiculos);
+        document.getElementById('btn-actualizar-estado-vehiculos').addEventListener('click', cargarEstadoVehiculos);
+        
+        // Establecer fecha actual en los selectores
+        const fechaActual = new Date();
+        const fechaString = fechaActual.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        
+        document.getElementById('fecha_filtro').value = fechaString;
+        document.getElementById('fecha-tecnicos').value = fechaString;
+        
+        document.getElementById('selector-mes').value = fechaActual.getMonth() + 1;
+        document.getElementById('selector-anio').value = fechaActual.getFullYear();
+        
+        // Cargar datos iniciales
+        cargarDatos();
+        
+        // Cargar datos mensuales iniciales
+        cargarDatosMensuales();
+        
+        // Cargar lista de supervisores
+        cargarSupervisores();
+        
+        // Cargar estadísticas de vehículos
+        cargarTiposVehiculos();
+        cargarEstadoVehiculos();
+        
+    } catch (e) {
+        addLog(`Error en inicialización: ${e.message}`, 'error');
+        updateStatus(`Error al inicializar la página: ${e.message}`, 'danger');
+    }
+});
+
+// Función para cargar datos mensuales
+function cargarDatosMensuales() {
+    try {
+        addLog('Iniciando carga de datos mensuales acumulados', 'info');
+        
+        // Mostrar loader
+        document.getElementById('mensual-loader').style.display = 'block';
+        
+        // Obtener mes y año de los selectores
+        const mes = parseInt(document.getElementById('selector-mes').value);
+        const anio = parseInt(document.getElementById('selector-anio').value);
+        
+        // Determinar cuántos días tiene el mes seleccionado
+        const diasEnMes = new Date(anio, mes, 0).getDate();
+        
+        addLog(`Cargando datos para ${obtenerNombreMes(mes)} ${anio} (${diasEnMes} días)`, 'info');
+        
+        // Acumulador para los datos mensuales por supervisor
+        const acumuladorMensual = {};
+        let promesasCarga = [];
+        
+        // Crear promesas para cargar datos de cada día del mes
+        for (let dia = 1; dia <= diasEnMes; dia++) {
+            // Formatear la fecha como YYYY-MM-DD
+            const fecha = `${anio}-${mes.toString().padStart(2, '0')}-${dia.toString().padStart(2, '0')}`;
+            
+            // URL para cargar datos de este día específico
+            const url = window.location.origin + `/api/indicadores/cumplimiento?fecha=${fecha}`;
+            
+            // Crear una promesa para esta fecha
+            const promesa = fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Error HTTP en día ${dia}: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success === true && data.indicadores && data.indicadores.length > 0) {
+                    // Procesar y acumular datos por supervisor
+                    data.indicadores.forEach(indicador => {
+                        const supervisor = indicador.supervisor || 'Sin asignar';
+                        
+                        if (!acumuladorMensual[supervisor]) {
+                            acumuladorMensual[supervisor] = {
+                                supervisor: supervisor,
+                                total_asistencia: 0,
+                                total_preoperacional: 0,
+                                dias_con_datos: 0
+                            };
+                        }
+                        
+                        // Acumular datos
+                        acumuladorMensual[supervisor].total_asistencia += parseInt(indicador.total_asistencia || 0);
+                        acumuladorMensual[supervisor].total_preoperacional += parseInt(indicador.total_preoperacional || 0);
+                        acumuladorMensual[supervisor].dias_con_datos += 1;
+                    });
+                    
+                    addLog(`Datos cargados para ${fecha}`, 'success');
+                }
+                return true;
+            })
+            .catch(error => {
+                addLog(`Error al cargar datos del día ${dia}: ${error.message}`, 'warning');
+                return false; // Continuar con otros días aunque haya errores
+            });
+            
+            promesasCarga.push(promesa);
+        }
+        
+        // Esperar que todas las promesas terminen
+        Promise.allSettled(promesasCarga)
+            .then(() => {
+                // Procesar datos acumulados
+                const indicadoresAcumulados = Object.values(acumuladorMensual).map(item => {
+                    // Calcular el porcentaje de cumplimiento basado en los datos acumulados
+                    const porcentaje = item.total_asistencia > 0 
+                        ? (item.total_preoperacional / item.total_asistencia * 100).toFixed(2) 
+                        : 0;
+                    
+                    return {
+                        supervisor: item.supervisor,
+                        total_asistencia: item.total_asistencia,
+                        total_preoperacional: item.total_preoperacional,
+                        porcentaje_cumplimiento: porcentaje,
+                        dias_con_datos: item.dias_con_datos
+                    };
+                });
+                
+                // Ordenar por porcentaje de cumplimiento (de mayor a menor)
+                indicadoresAcumulados.sort((a, b) => 
+                    parseFloat(b.porcentaje_cumplimiento) - parseFloat(a.porcentaje_cumplimiento)
+                );
+                
+                // Ocultar loader
+                document.getElementById('mensual-loader').style.display = 'none';
+                
+                // Mostrar datos en el panel de depuración
+                const datosParaMostrar = {
+                    success: true,
+                    periodo: `${obtenerNombreMes(mes)} ${anio}`,
+                    indicadores: indicadoresAcumulados
+                };
+                document.getElementById('debug-json').textContent = JSON.stringify(datosParaMostrar, null, 2);
+                
+                addLog(`Procesados datos mensuales para ${indicadoresAcumulados.length} supervisores`, 'success');
+                
+                // Actualizar gráfico mensual
+                if (indicadoresAcumulados.length > 0) {
+                    mostrarGraficoMensual(indicadoresAcumulados);
+                } else {
+                    // Si no hay datos, mostrar gráfico vacío con mensaje
+                    mostrarGraficoMensualVacio();
+                }
+            });
+        
+    } catch (e) {
+        addLog(`Error en función cargarDatosMensuales: ${e.message}`, 'error');
+        document.getElementById('mensual-loader').style.display = 'none';
+        mostrarGraficoMensualVacio();
+    }
+}
+
+// Función para mostrar gráfico mensual con datos
+function mostrarGraficoMensual(indicadores) {
+    try {
+        // Preparar datos para el gráfico
+        const labels = indicadores.map(item => item.supervisor || 'Sin asignar');
+        const porcentajes = indicadores.map(item => parseFloat(item.porcentaje_cumplimiento) || 0);
+        const asistencias = indicadores.map(item => parseInt(item.total_asistencia) || 0);
+        const preoperacionales = indicadores.map(item => parseInt(item.total_preoperacional) || 0);
+        const diasConDatos = indicadores.map(item => parseInt(item.dias_con_datos) || 0);
+        
+        // Colores para las barras según el porcentaje
+        const colores = porcentajes.map(porcentaje => 
+            porcentaje >= 90 ? 'rgba(40, 167, 69, 0.8)' : 
+            porcentaje >= 70 ? 'rgba(255, 193, 7, 0.8)' : 
+            'rgba(220, 53, 69, 0.8)'
+        );
+        
+        // Obtener el contexto del canvas
+        const ctx = document.getElementById('mensual-chart').getContext('2d');
+        
+        // Si ya existe un gráfico, destruirlo
+        if (mensualChart) {
+            mensualChart.destroy();
+        }
+        
+        // Crear nuevo gráfico
+        mensualChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '% Cumplimiento',
+                        data: porcentajes,
+                        backgroundColor: colores,
+                        borderColor: colores.map(c => c.replace('0.8', '1')),
+                        borderWidth: 1,
+                        yAxisID: 'y',
+                        order: 1
+                    },
+                    {
+                        label: 'Asistencias',
+                        data: asistencias,
+                        backgroundColor: 'rgba(13, 110, 253, 0.5)',
+                        borderColor: 'rgba(13, 110, 253, 1)',
+                        borderWidth: 1,
+                        type: 'line',
+                        yAxisID: 'y1',
+                        order: 0
+                    },
+                    {
+                        label: 'Preoperacionales',
+                        data: preoperacionales,
+                        backgroundColor: 'rgba(255, 193, 7, 0.5)',
+                        borderColor: 'rgba(255, 193, 7, 1)',
+                        borderWidth: 1,
+                        type: 'line',
+                        yAxisID: 'y1',
+                        order: 0
+                    },
+                    {
+                        label: 'Días con Datos',
+                        data: diasConDatos,
+                        backgroundColor: 'rgba(108, 117, 125, 0.5)',
+                        borderColor: 'rgba(108, 117, 125, 1)',
+                        borderWidth: 1,
+                        type: 'line',
+                        yAxisID: 'y1',
+                        hidden: true, // Oculto por defecto pero disponible para mostrar
+                        order: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Acumulado Mensual - ${obtenerNombreMes(parseInt(document.getElementById('selector-mes').value))} ${document.getElementById('selector-anio').value}`,
+                        font: {
+                            size: 16
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.dataset.label === '% Cumplimiento') {
+                                    return label + context.raw.toFixed(2) + '%';
+                                } else {
+                                    return label + context.raw;
+                                }
+                            },
+                            afterLabel: function(context) {
+                                if (context.dataset.label === '% Cumplimiento') {
+                                    const supervisor = labels[context.dataIndex];
+                                    const item = indicadores.find(i => i.supervisor === supervisor);
+                                    if (item) {
+                                        return `Datos de ${item.dias_con_datos} días del mes`;
+                                    }
+                                }
+                                return '';
+                            }
+                        }
+                    },
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Porcentaje de Cumplimiento'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        beginAtZero: true,
+                        grid: {
+                            drawOnChartArea: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Cantidad'
+                        }
+                    }
+                }
+            }
+        });
+        
+        addLog('Gráfico mensual actualizado correctamente con datos reales', 'success');
+        
+    } catch (e) {
+        addLog(`Error al mostrar gráfico mensual: ${e.message}`, 'error');
+    }
+}
+
+// Función para obtener nombre del mes
+function obtenerNombreMes(numeroMes) {
+    const meses = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    return meses[parseInt(numeroMes) - 1];
+}
+
+// Función para mostrar gráfico mensual vacío
+function mostrarGraficoMensualVacio() {
+    const ctx = document.getElementById('mensual-chart').getContext('2d');
+    
+    if (mensualChart) {
+        mensualChart.destroy();
+    }
+    
+    mensualChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['No hay datos disponibles'],
+            datasets: [{
+                label: '% Cumplimiento Mensual',
+                data: [0],
+                backgroundColor: 'rgba(200, 200, 200, 0.5)',
+                borderColor: 'rgba(200, 200, 200, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'No hay datos disponibles';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Porcentaje de Cumplimiento'
+                    }
+                }
+            }
+        }
+    });
+    
+    addLog('Mostrado gráfico mensual vacío - No se encontraron datos', 'warning');
+}
+
+// Función para cargar lista de supervisores en el selector
+function cargarSupervisores() {
+    try {
+        // Obtener fecha seleccionada
+        const fecha = document.getElementById('fecha-tecnicos').value;
+        if (!fecha) {
+            addLog('Error: No se ha seleccionado una fecha para filtrar supervisores', 'error');
+            return;
+        }
+        
+        // Obtener selector
+        const selectorSupervisor = document.getElementById('selector-supervisor');
+        
+        // Limpiar opciones actuales
+        selectorSupervisor.innerHTML = '<option value="">Seleccione un supervisor</option>';
+        
+        // Mostrar mensaje de carga
+        addLog('Cargando lista de supervisores...', 'info');
+        
+        // URL para obtener lista de supervisores
+        const url = window.location.origin + `/api/indicadores/cumplimiento?fecha_inicio=${fecha}&fecha_fin=${fecha}`;
+        
+        // Hacer petición fetch
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success === true && data.indicadores) {
+                // Obtener lista de supervisores de los indicadores
+                const supervisores = data.indicadores.map(item => item.supervisor);
+                
+                // Agregar opciones al selector
+                supervisores.forEach(supervisor => {
+                    const option = document.createElement('option');
+                    option.value = supervisor;
+                    option.textContent = supervisor;
+                    selectorSupervisor.appendChild(option);
+                });
+                
+                addLog(`Lista de supervisores cargada: ${supervisores.length} supervisores encontrados`, 'success');
+            } else {
+                addLog(`Error al cargar supervisores: ${data.error || 'No hay datos disponibles para esta fecha'}`, 'error');
+            }
+        })
+        .catch(error => {
+            addLog(`Error al cargar supervisores: ${error.message}`, 'error');
+        });
+        
+    } catch (e) {
+        addLog(`Error en función cargarSupervisores: ${e.message}`, 'error');
+    }
+}
+
+// Función para cargar detalle de técnicos por supervisor
+function cargarDetalleTecnicos() {
+    try {
+        // Obtener valores seleccionados
+        const fecha = document.getElementById('fecha-tecnicos').value;
+        const supervisor = document.getElementById('selector-supervisor').value;
+        
+        // Validar selección
+        if (!fecha || !supervisor) {
+            document.getElementById('tecnicos-container').style.display = 'none';
+            document.getElementById('tecnicos-empty').style.display = 'block';
+            return;
+        }
+        
+        // Mostrar loader y ocultar contenedores
+        document.getElementById('tecnicos-loader').style.display = 'block';
+        document.getElementById('tecnicos-container').style.display = 'none';
+        document.getElementById('tecnicos-empty').style.display = 'none';
+        
+        addLog(`Cargando detalle de técnicos para supervisor "${supervisor}" en fecha ${fecha}`, 'info');
+
+        // Realizar consulta AJAX a la API para obtener datos de tecnicos y sus registros
+        $.ajax({
+            url: `/api/indicadores/detalle_tecnicos?fecha=${fecha}&supervisor=${encodeURIComponent(supervisor)}`,
+            type: 'GET',
+            dataType: 'json',
+            success: function(data) {
+                // Ocultar loader
+                document.getElementById('tecnicos-loader').style.display = 'none';
+                
+                if (data.success === true && data.tecnicos && data.tecnicos.length > 0) {
+                    // Mostrar tabla y actualizar datos
+                    document.getElementById('tecnicos-container').style.display = 'block';
+                    document.getElementById('tecnicos-empty').style.display = 'none';
+                    
+                    // Actualizar tabla con datos reales
+                    actualizarTablaDetalleTecnicos(data.tecnicos);
+                    
+                    addLog(`Datos reales cargados: ${data.tecnicos.length} técnicos encontrados para ${supervisor}`, 'success');
+                } else {
+                    mostrarMensajeSinDatos(supervisor, fecha);
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.warn(`Error al obtener datos del servidor: ${textStatus}. Usando datos simulados como respaldo.`);
+                addLog(`Error del servidor: ${textStatus}. Usando simulación.`, 'warning');
+                
+                // Si falla, usar datos simulados como respaldo
+                setTimeout(() => {
+                    // Ocultar loader
+                    document.getElementById('tecnicos-loader').style.display = 'none';
+                    
+                    // Mostrar datos de demostración
+                    document.getElementById('tecnicos-container').style.display = 'block';
+                    document.getElementById('tecnicos-empty').style.display = 'none';
+                    
+                    // Datos simulados para demostrar la funcionalidad
+                    const datosTecnicos = generarDatosDemostracion(supervisor);
+                    
+                    // Actualizar tabla con datos simulados
+                    actualizarTablaDetalleTecnicos(datosTecnicos);
+                    
+                    addLog(`Mostrando datos simulados para supervisor "${supervisor}" (${datosTecnicos.length} técnicos)`, 'warning');
+                }, 300);
+            }
+        });
+    } catch (e) {
+        addLog(`Error en función cargarDetalleTecnicos: ${e.message}`, 'error');
+        console.error('Excepción en cargarDetalleTecnicos:', e);
+    }
+}
+
+// Función auxiliar para mostrar mensaje cuando no hay datos
+function mostrarMensajeSinDatos(supervisor, fecha) {
+    // Mostrar mensaje de no hay datos
+    document.getElementById('tecnicos-container').style.display = 'none';
+    document.getElementById('tecnicos-empty').style.display = 'block';
+    
+    // Actualizar mensaje
+    document.getElementById('tecnicos-empty').innerHTML = `
+        <i class="fas fa-info-circle fa-3x text-secondary mb-3"></i>
+        <p>No se encontraron técnicos asignados al supervisor "${supervisor}" para la fecha ${fecha}</p>
+    `;
+    
+    addLog(`No se encontraron técnicos para el supervisor "${supervisor}" en la fecha ${fecha}`, 'warning');
+}
+
+// Función para generar datos de demostración según el supervisor
+function generarDatosDemostracion(supervisor) {
+    // Lista base de nombres
+    const nombres = [
+        'Juan Pérez', 'María López', 'Carlos Rodríguez', 'Ana Martínez', 'Luis González',
+        'Laura Sánchez', 'Pedro Ramírez', 'Sofía Torres', 'Miguel Flores', 'Isabel Castro'
+    ];
+    
+    // Configuración según el supervisor
+    let cantidad = 3 + Math.floor(Math.random() * 5); // Entre 3 y 7 técnicos
+    let porcentajeCompletos = 0.6; // 60% de técnicos con todo completo
+    
+    if (supervisor === 'NELSON DIAZ') {
+        cantidad = 8;
+        porcentajeCompletos = 0.75;
+    } else if (supervisor === 'CARLOS CACERES') {
+        cantidad = 6;
+        porcentajeCompletos = 0.5;
+    } else if (supervisor === 'SANDRA CORTES') {
+        cantidad = 5;
+        porcentajeCompletos = 0.8;
+    } else if (supervisor === 'DANIEL SILVA') {
+        cantidad = 7;
+        porcentajeCompletos = 0.4;
+    }
+    
+    // Generar datos simulados
+    const tecnicos = [];
+    for (let i = 0; i < cantidad; i++) {
+        const nombre = nombres[i % nombres.length];
+        const documento = '1' + Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
+        
+        // Determinar estado según porcentaje de completitud
+        let asistencia, preoperacional;
+        const random = Math.random();
+        
+        if (random < porcentajeCompletos) {
+            // Completo
+            asistencia = true;
+            preoperacional = true;
+        } else if (random < porcentajeCompletos + 0.3) {
+            // Solo asistencia
+            asistencia = true;
+            preoperacional = false;
+        } else {
+            // Ninguno
+            asistencia = false;
+            preoperacional = false;
+        }
+        
+        // Generar hora de registro para los que tienen asistencia
+        const hora_registro = asistencia ? 
+            `${8 + Math.floor(Math.random() * 3)}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}:00` 
+            : null;
+        
+        tecnicos.push({
+            id: i + 1,
+            nombre: nombre,
+            documento: documento,
+            asistencia: asistencia,
+            preoperacional: preoperacional,
+            hora_registro: hora_registro
+        });
+    }
+    
+    return tecnicos;
+}
+
+// Función para actualizar tabla de detalle de técnicos
+function actualizarTablaDetalleTecnicos(tecnicos) {
+    try {
+        // Obtener tbody de la tabla
+        const tbody = document.getElementById('tabla-tecnicos').querySelector('tbody');
+        
+        // Limpiar tabla
+        tbody.innerHTML = '';
+        
+        // Agregar filas con los datos de técnicos
+        tecnicos.forEach(tecnico => {
+            // Crear fila
+            const tr = document.createElement('tr');
+            
+            // Determinar estado y clase
+            let estado = 'Pendiente';
+            let claseEstado = 'bg-danger';
+            
+            if (tecnico.asistencia && tecnico.preoperacional) {
+                estado = 'Completo';
+                claseEstado = 'bg-success';
+            } else if (tecnico.asistencia && !tecnico.preoperacional) {
+                estado = 'Falta Preoperacional';
+                claseEstado = 'bg-warning';
+            } else if (!tecnico.asistencia && tecnico.preoperacional) {
+                estado = 'Falta Asistencia';
+                claseEstado = 'bg-warning';
+            }
+            
+            // Crear contenido de la fila
+            tr.innerHTML = `
+                <td class="text-center">
+                    <div>
+                        <h6 class="mb-0 text-sm">${tecnico.nombre}</h6>
+                        <p class="text-xs text-secondary mb-0">CC: ${tecnico.documento || 'No registrada'}</p>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <span class="badge ${tecnico.asistencia ? 'bg-gradient-success' : 'bg-gradient-danger'}" style="width: 80px;">
+                        ${tecnico.asistencia ? 'Registrada' : 'Pendiente'}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <span class="badge ${tecnico.preoperacional ? 'bg-gradient-success' : 'bg-gradient-danger'}" style="width: 80px;">
+                        ${tecnico.preoperacional ? 'Registrado' : 'Pendiente'}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-gradient-${claseEstado.replace('bg-', '')}" style="width: 120px;">
+                        ${estado}
+                    </span>
+                </td>
+                <td class="text-center">
+                    ${tecnico.hora_registro ? tecnico.hora_registro : 'No registrada'}
+                </td>
+            `;
+            
+            tbody.appendChild(tr);
+        });
+        
+    } catch (e) {
+        addLog(`Error al actualizar tabla de detalle de técnicos: ${e.message}`, 'error');
+    }
+}
+
+// Función para simular datos de técnicos (si el endpoint no existe aún)
+function simularDatosTecnicos(supervisor) {
+    try {
+        // Crear datos de demostración
+        const nombresTecnicos = [
+            'Juan Pérez', 'María González', 'Carlos Rodríguez', 'Ana Martínez', 
+            'Luis Sánchez', 'Laura López', 'José Díaz', 'Patricia García'
+        ];
+        
+        const tecnicos = [];
+        
+        // Generar entre 5 y 10 técnicos
+        const cantidadTecnicos = Math.floor(Math.random() * 6) + 5;
+        
+        for (let i = 0; i < cantidadTecnicos; i++) {
+            // Generar un índice aleatorio para seleccionar un nombre
+            const nombreIndex = Math.floor(Math.random() * nombresTecnicos.length);
+            
+            // Determinar aleatoriamente si tiene asistencia y preoperacional
+            const tieneAsistencia = Math.random() > 0.2; // 80% probabilidad de tener asistencia
+            const tienePreoperacional = tieneAsistencia ? Math.random() > 0.3 : false; // 70% probabilidad si tiene asistencia
+            
+            // Generar hora aleatoria
+            const hora = String(Math.floor(Math.random() * 12) + 7).padStart(2, '0');
+            const minutos = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+            
+            tecnicos.push({
+                nombre: nombresTecnicos[nombreIndex],
+                documento: `10${Math.floor(Math.random() * 10000000)}`,
+                asistencia: tieneAsistencia,
+                preoperacional: tienePreoperacional,
+                hora_registro: tieneAsistencia ? `${hora}:${minutos}` : 'N/A'
+            });
+            
+            // Eliminar el nombre usado para evitar duplicados
+            nombresTecnicos.splice(nombreIndex, 1);
+            
+            // Si ya no quedan nombres, salir del bucle
+            if (nombresTecnicos.length === 0) break;
+        }
+        
+        // Mostrar contenedor de tabla
+        document.getElementById('tecnicos-container').style.display = 'block';
+        document.getElementById('tecnicos-empty').style.display = 'none';
+        
+        // Actualizar tabla con datos simulados
+        actualizarTablaTecnicos(tecnicos);
+        
+        addLog(`Simulados datos de ${tecnicos.length} técnicos para demostración`, 'warning');
+    } catch (e) {
+        addLog(`Error al simular datos de técnicos: ${e.message}`, 'error');
+    }
+}
+
+// Función para cargar tipos de vehículos
+function cargarTiposVehiculos() {
+    try {
+        // Mostrar loader
+        document.getElementById('tipos-vehiculos-loader').style.display = 'block';
+        
+        // Obtener período seleccionado (en días)
+        const dias = document.getElementById('periodo-vehiculos').value;
+        
+        addLog(`Cargando tipos de vehículos para los últimos ${dias} días`, 'info');
+        
+        // URL para obtener datos
+        const url = window.location.origin + `/api/indicadores/tipos_vehiculos?dias=${dias}`;
+        
+        // Hacer la petición fetch
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Ocultar loader
+            document.getElementById('tipos-vehiculos-loader').style.display = 'none';
+            
+            if (data.success === true) {
+                // Mostrar datos
+                mostrarGraficoTiposVehiculos(data.tipos_vehiculos);
+                addLog(`Datos de tipos de vehículos cargados correctamente: ${data.tipos_vehiculos.length} tipos`, 'success');
+            } else {
+                addLog(`Error al cargar tipos de vehículos: ${data.error || 'Error desconocido'}`, 'error');
+                
+                // Simular datos para demostración
+                const datosDemostracion = [
+                    { tipo: 'Moto', cantidad: 45 },
+                    { tipo: 'Camioneta', cantidad: 25 },
+                    { tipo: 'Camión', cantidad: 18 },
+                    { tipo: 'Auto', cantidad: 12 }
+                ];
+                
+                mostrarGraficoTiposVehiculos(datosDemostracion);
+                addLog('Usando datos de demostración para tipos de vehículos', 'warning');
+            }
+        })
+        .catch(error => {
+            // Ocultar loader
+            document.getElementById('tipos-vehiculos-loader').style.display = 'none';
+            
+            addLog(`Error al cargar tipos de vehículos: ${error.message}`, 'error');
+            
+            // Simular datos para demostración
+            const datosDemostracion = [
+                { tipo: 'Moto', cantidad: 45 },
+                { tipo: 'Camioneta', cantidad: 25 },
+                { tipo: 'Camión', cantidad: 18 },
+                { tipo: 'Auto', cantidad: 12 }
+            ];
+            
+            mostrarGraficoTiposVehiculos(datosDemostracion);
+            addLog('Usando datos de demostración para tipos de vehículos', 'warning');
+        });
+        
+    } catch (e) {
+        addLog(`Error en función cargarTiposVehiculos: ${e.message}`, 'error');
+        document.getElementById('tipos-vehiculos-loader').style.display = 'none';
+    }
+}
+
+// Función para mostrar gráfico de tipos de vehículos
+function mostrarGraficoTiposVehiculos(tiposVehiculos) {
+    try {
+        // Preparar datos para el gráfico
+        const labels = tiposVehiculos.map(item => item.tipo || 'No especificado');
+        const datos = tiposVehiculos.map(item => item.cantidad);
+        
+        // Colores para las secciones del gráfico
+        const colores = [
+            'rgba(75, 192, 192, 0.8)',
+            'rgba(54, 162, 235, 0.8)',
+            'rgba(153, 102, 255, 0.8)',
+            'rgba(255, 159, 64, 0.8)',
+            'rgba(255, 99, 132, 0.8)',
+            'rgba(255, 205, 86, 0.8)',
+            'rgba(201, 203, 207, 0.8)'
+        ];
+        
+        // Asegurar que haya suficientes colores
+        while (colores.length < labels.length) {
+            colores.push(...colores);
+        }
+        
+        // Obtener contexto del canvas
+        const ctx = document.getElementById('tipos-vehiculos-chart').getContext('2d');
+        
+        // Si ya existe un gráfico, destruirlo
+        if (tiposVehiculosChart) {
+            tiposVehiculosChart.destroy();
+        }
+        
+        // Crear nuevo gráfico
+        tiposVehiculosChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: datos,
+                    backgroundColor: colores.slice(0, labels.length),
+                    borderColor: colores.map(c => c.replace('0.8', '1')).slice(0, labels.length),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Distribución de Tipos de Vehículos`,
+                        font: {
+                            size: 16
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = Math.round((value / total) * 100);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    },
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            boxWidth: 15
+                        }
+                    }
+                },
+                layout: {
+                    padding: 10
+                }
+            }
+        });
+        
+    } catch (e) {
+        addLog(`Error al mostrar gráfico de tipos de vehículos: ${e.message}`, 'error');
+    }
+}
+
+// Función para cargar estado de vehículos por supervisor
+function cargarEstadoVehiculos() {
+    try {
+        // Mostrar loader
+        document.getElementById('estado-vehiculos-loader').style.display = 'block';
+        document.getElementById('estado-vehiculos-container').style.display = 'none';
+        
+        addLog('Cargando estadísticas de estado de vehículos por supervisor', 'info');
+        
+        // URL para obtener datos
+        const url = window.location.origin + '/api/indicadores/estado_vehiculos';
+        
+        // Hacer la petición fetch
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Error HTTP: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Ocultar loader
+            document.getElementById('estado-vehiculos-loader').style.display = 'none';
+            document.getElementById('estado-vehiculos-container').style.display = 'block';
+            
+            if (data.success === true && data.estadisticas) {
+                // Mostrar datos
+                actualizarTablaEstadoVehiculos(data.estadisticas);
+                addLog(`Datos de estado de vehículos cargados correctamente para ${data.estadisticas.length} supervisores`, 'success');
+            } else {
+                addLog(`Error al cargar estado de vehículos: ${data.error || 'Error desconocido'}`, 'error');
+                
+                // Simular datos para demostración
+                const datosDemostracion = [
+                    { supervisor: 'NELSON DIAZ', bueno: 12, regular: 5, malo: 2, total: 19 },
+                    { supervisor: 'SANDRA CORTES', bueno: 8, regular: 4, malo: 1, total: 13 },
+                    { supervisor: 'CARLOS CACERES', bueno: 15, regular: 3, malo: 0, total: 18 },
+                    { supervisor: 'DANIEL SILVA', bueno: 7, regular: 6, malo: 3, total: 16 },
+                    { supervisor: 'MAURICIO MUÑOZ', bueno: 10, regular: 2, malo: 1, total: 13 }
+                ];
+                
+                actualizarTablaEstadoVehiculos(datosDemostracion);
+                addLog('Usando datos de demostración para estado de vehículos', 'warning');
+            }
+        })
+        .catch(error => {
+            // Ocultar loader
+            document.getElementById('estado-vehiculos-loader').style.display = 'none';
+            document.getElementById('estado-vehiculos-container').style.display = 'block';
+            
+            addLog(`Error al cargar estado de vehículos: ${error.message}`, 'error');
+            
+            // Simular datos para demostración
+            const datosDemostracion = [
+                { supervisor: 'NELSON DIAZ', bueno: 12, regular: 5, malo: 2, total: 19 },
+                { supervisor: 'SANDRA CORTES', bueno: 8, regular: 4, malo: 1, total: 13 },
+                { supervisor: 'CARLOS CACERES', bueno: 15, regular: 3, malo: 0, total: 18 },
+                { supervisor: 'DANIEL SILVA', bueno: 7, regular: 6, malo: 3, total: 16 },
+                { supervisor: 'MAURICIO MUÑOZ', bueno: 10, regular: 2, malo: 1, total: 13 }
+            ];
+            
+            actualizarTablaEstadoVehiculos(datosDemostracion);
+            addLog('Usando datos de demostración para estado de vehículos', 'warning');
+        });
+        
+    } catch (e) {
+        addLog(`Error en función cargarEstadoVehiculos: ${e.message}`, 'error');
+        document.getElementById('estado-vehiculos-loader').style.display = 'none';
+        document.getElementById('estado-vehiculos-container').style.display = 'block';
+    }
+}
+
+// Función para actualizar tabla de estado de vehículos
+function actualizarTablaEstadoVehiculos(estadisticas) {
+    try {
+        // Obtener tbody de la tabla
+        const tbody = document.getElementById('tabla-estado-vehiculos').querySelector('tbody');
+        
+        // Limpiar tabla
+        tbody.innerHTML = '';
+        
+        // Ordenar estadísticas por total (de mayor a menor)
+        estadisticas.sort((a, b) => b.total - a.total);
+        
+        // Agregar filas
+        estadisticas.forEach(item => {
+            // Calcular porcentajes
+            const porcentajeBueno = item.total > 0 ? Math.round((item.bueno / item.total) * 100) : 0;
+            const porcentajeRegular = item.total > 0 ? Math.round((item.regular / item.total) * 100) : 0;
+            const porcentajeMalo = item.total > 0 ? Math.round((item.malo / item.total) * 100) : 0;
+            
+            // Crear fila
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>
+                    <div class="d-flex px-2 py-1">
+                        <div class="d-flex flex-column justify-content-center">
+                            <h6 class="mb-0 text-sm" style="color: #344767 !important;">${item.supervisor || 'No asignado'}</h6>
+                        </div>
+                    </div>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-gradient-success" style="width: 33px;">${item.bueno}</span>
+                    <div class="mt-1" style="font-size: 10px;">${porcentajeBueno}%</div>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-gradient-warning" style="width: 33px;">${item.regular}</span>
+                    <div class="mt-1" style="font-size: 10px;">${porcentajeRegular}%</div>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-gradient-danger" style="width: 33px;">${item.malo}</span>
+                    <div class="mt-1" style="font-size: 10px;">${porcentajeMalo}%</div>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-gradient-info">${item.total}</span>
+                </td>
+            `;
+            
+            tbody.appendChild(tr);
+        });
+        
+    } catch (e) {
+        addLog(`Error al actualizar tabla de estado de vehículos: ${e.message}`, 'error');
+    }
+}
+</script>
+
+<style>
+.icon-shape {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.progress {
+    height: 8px;
+    margin-bottom: 0;
+    width: 120px;
+}
+
+/* Estilos reforzados para la tabla */
+#indicadores-tabla,
+#indicadores-tabla th,
+#indicadores-tabla td,
+#indicadores-tabla h6,
+#indicadores-tabla span {
+    color: #344767 !important;
+}
+
+.table td, 
+.table th {
+    white-space: nowrap;
+    color: #344767 !important; /* Hacerlo más fuerte con !important */
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 0.35em 0.65em;
+}
+
+/* Badges de colores con texto blanco explícito */
+.badge.bg-gradient-info,
+.badge.bg-gradient-success,
+.badge.bg-gradient-warning,
+.badge.bg-gradient-danger,
+.badge.bg-gradient-primary {
+    color: white !important;
+}
+
+/* Títulos y headers */
+.card-header h6 {
+    color: #344767 !important;
+}
+
+/* Encabezados de tabla */
+.text-uppercase.text-secondary {
+    color: #344767 !important;
+}
+
+/* Cambiar el color del texto del resumen */
+#resumen-container p.text-black,
+#resumen-container h5.text-black {
+    color: black !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Los scripts ahora están directamente en el bloque content -->
+{% endblock %} 
