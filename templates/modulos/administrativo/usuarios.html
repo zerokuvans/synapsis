@@ -133,16 +133,26 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="formEditarUsuario" method="post" action="{{ url_for('actualizar_usuario') }}">
+                <!-- Indicador de carga -->
+                <div id="loadingSpinner" class="text-center my-3 d-none">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando datos del usuario...</p>
+                </div>
+                
+                <form id="formEditarUsuario" method="post" action="{{ url_for('actualizar_usuario') }}" class="needs-validation" novalidate>
                     <input type="hidden" id="edit_id_codigo_consumidor" name="id_codigo_consumidor">
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="edit_recurso_operativo_cedula" class="form-label">Cédula *</label>
                             <input type="text" class="form-control" id="edit_recurso_operativo_cedula" name="recurso_operativo_cedula" required>
+                            <div class="invalid-feedback">Por favor ingrese la cédula del usuario.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="edit_nombre" class="form-label">Nombre *</label>
                             <input type="text" class="form-control" id="edit_nombre" name="nombre" required>
+                            <div class="invalid-feedback">Por favor ingrese el nombre del usuario.</div>
                         </div>
                     </div>
                     <div class="row mb-3">
@@ -153,6 +163,7 @@
                                 <option value="{{ id }}">{{ rol|title }}</option>
                                 {% endfor %}
                             </select>
+                            <div class="invalid-feedback">Por favor seleccione un rol.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="edit_estado" class="form-label">Estado *</label>
@@ -160,13 +171,40 @@
                                 <option value="Activo">Activo</option>
                                 <option value="Inactivo">Inactivo</option>
                             </select>
+                            <div class="invalid-feedback">Por favor seleccione un estado.</div>
                         </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="edit_cargo" class="form-label">Cargo</label>
+                            <select class="form-select" id="edit_cargo" name="cargo">
+                                <option value="">Seleccione un cargo</option>
+                                <option value="Administrador">Administrador</option>
+                                <option value="ANALISTA">ANALISTA</option>
+                                <option value="ANALISTA LOGISTICA">ANALISTA LOGISTICA</option>
+                                <option value="CONDUCTOR">CONDUCTOR</option>
+                                <option value="DESARROLLADOR">DESARROLLADOR</option>
+                                <option value="TECNICO">TECNICO</option>
+                                <option value="TECNICO CONDUCTOR">TECNICO CONDUCTOR</option>
+                                <option value="TECNICO DE TELECOMUNICACIONES">TECNICO DE TELECOMUNICACIONES</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="edit_password" class="form-label">Contraseña</label>
+                            <input type="password" class="form-control" id="edit_password" name="password" placeholder="Dejar en blanco para mantener la actual">
+                            <div class="form-text">Dejar en blanco para mantener la contraseña actual.</div>
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i> Los campos marcados con * son obligatorios.
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btnGuardarEdicionUsuario">Guardar Cambios</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarEdicionUsuario">
+                    <i class="fas fa-save me-1"></i> Guardar Cambios
+                </button>
             </div>
         </div>
     </div>
@@ -181,21 +219,32 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="formCrearUsuario" method="post" action="{{ url_for('create_user') }}">
+                <!-- Indicador de carga para creación -->
+                <div id="loadingSpinnerCrear" class="text-center my-3 d-none">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Procesando...</span>
+                    </div>
+                    <p class="mt-2">Procesando solicitud...</p>
+                </div>
+                
+                <form id="formCrearUsuario" method="post" action="{{ url_for('create_user') }}" class="needs-validation" novalidate>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="nuevo_recurso_operativo_cedula" class="form-label">Cédula *</label>
-                            <input type="text" class="form-control" id="nuevo_recurso_operativo_cedula" name="username" required>
+                            <input type="text" class="form-control" id="nuevo_recurso_operativo_cedula" name="recurso_operativo_cedula" required>
+                            <div class="invalid-feedback">Por favor ingrese la cédula del usuario.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="nuevo_nombre" class="form-label">Nombre *</label>
                             <input type="text" class="form-control" id="nuevo_nombre" name="nombre" required>
+                            <div class="invalid-feedback">Por favor ingrese el nombre del usuario.</div>
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="nuevo_password" class="form-label">Contraseña *</label>
                             <input type="password" class="form-control" id="nuevo_password" name="password" required>
+                            <div class="invalid-feedback">Por favor ingrese una contraseña.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="nuevo_id_roles" class="form-label">Rol *</label>
@@ -204,6 +253,7 @@
                                 <option value="{{ id }}">{{ rol|title }}</option>
                                 {% endfor %}
                             </select>
+                            <div class="invalid-feedback">Por favor seleccione un rol.</div>
                         </div>
                     </div>
                     <div class="row mb-3">
@@ -214,12 +264,31 @@
                                 <option value="Inactivo">Inactivo</option>
                             </select>
                         </div>
+                        <div class="col-md-6">
+                            <label for="nuevo_cargo" class="form-label">Cargo</label>
+                            <select class="form-select" id="nuevo_cargo" name="cargo">
+                                <option value="">Seleccione un cargo</option>
+                                <option value="Administrador">Administrador</option>
+                                <option value="ANALISTA">ANALISTA</option>
+                                <option value="ANALISTA LOGISTICA">ANALISTA LOGISTICA</option>
+                                <option value="CONDUCTOR">CONDUCTOR</option>
+                                <option value="DESARROLLADOR">DESARROLLADOR</option>
+                                <option value="TECNICO">TECNICO</option>
+                                <option value="TECNICO CONDUCTOR">TECNICO CONDUCTOR</option>
+                                <option value="TECNICO DE TELECOMUNICACIONES">TECNICO DE TELECOMUNICACIONES</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i> Los campos marcados con * son obligatorios.
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btnGuardarNuevoUsuario">Crear Usuario</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarNuevoUsuario">
+                    <i class="fas fa-user-plus me-1"></i> Crear Usuario
+                </button>
             </div>
         </div>
     </div>
@@ -228,6 +297,28 @@
 
 {% block scripts %}
 <script>
+    // Función para mostrar alertas
+    function mostrarAlerta(mensaje, tipo) {
+        // Crear elemento de alerta
+        const alertaDiv = document.createElement('div');
+        alertaDiv.className = `alert alert-${tipo} alert-dismissible fade show`;
+        alertaDiv.setAttribute('role', 'alert');
+        alertaDiv.innerHTML = `
+            ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // Insertar alerta al principio del contenedor principal
+        const contenedor = document.querySelector('.container-fluid');
+        contenedor.insertBefore(alertaDiv, contenedor.firstChild);
+        
+        // Eliminar automáticamente después de 5 segundos
+        setTimeout(() => {
+            alertaDiv.classList.remove('show');
+            setTimeout(() => alertaDiv.remove(), 300);
+        }, 5000);
+    }
+    
     document.addEventListener('DOMContentLoaded', function() {
         // Filtrar usuarios
         window.filtrarUsuarios = function() {
@@ -285,54 +376,195 @@
         
         // Guardar edición
         document.getElementById('btnGuardarEdicionUsuario').addEventListener('click', function() {
-            document.getElementById('formEditarUsuario').submit();
+            // Validar el formulario antes de enviar
+            const form = document.getElementById('formEditarUsuario');
+            if (form.checkValidity()) {
+                // Mostrar indicador de carga
+                const btnGuardar = document.getElementById('btnGuardarEdicionUsuario');
+                const textoOriginal = btnGuardar.innerHTML;
+                btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
+                btnGuardar.disabled = true;
+                
+                // Recopilar datos del formulario
+                const formData = new FormData(form);
+                
+                // Si la contraseña está vacía, eliminarla del formData para no actualizarla
+                if (formData.get('password') === '') {
+                    formData.delete('password');
+                }
+                
+                // Enviar datos mediante fetch en lugar de submit normal
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Mostrar mensaje de éxito
+                        mostrarAlerta('Usuario actualizado correctamente', 'success');
+                        // Cerrar el modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('editarUsuarioModal'));
+                        modal.hide();
+                        // Recargar la página para mostrar los cambios
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        // Mostrar mensaje de error
+                        mostrarAlerta('Error al actualizar usuario: ' + data.message, 'danger');
+                        btnGuardar.innerHTML = textoOriginal;
+                        btnGuardar.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al actualizar usuario:', error);
+                    mostrarAlerta('Error al actualizar usuario', 'danger');
+                    btnGuardar.innerHTML = textoOriginal;
+                    btnGuardar.disabled = false;
+                });
+            } else {
+                // Mostrar validaciones del formulario
+                form.classList.add('was-validated');
+            }
         });
         
         // Guardar nuevo usuario
         document.getElementById('btnGuardarNuevoUsuario').addEventListener('click', function() {
-            document.getElementById('formCrearUsuario').submit();
+            // Validar el formulario antes de enviar
+            const form = document.getElementById('formCrearUsuario');
+            if (form.checkValidity()) {
+                // Mostrar indicador de carga
+                const btnGuardar = document.getElementById('btnGuardarNuevoUsuario');
+                const textoOriginal = btnGuardar.innerHTML;
+                btnGuardar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creando...';
+                btnGuardar.disabled = true;
+                
+                // Recopilar datos del formulario
+                const formData = new FormData(form);
+                
+                // Enviar datos mediante fetch en lugar de submit normal
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Mostrar mensaje de éxito
+                        mostrarAlerta('Usuario creado correctamente', 'success');
+                        // Cerrar el modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('crearUsuarioModal'));
+                        modal.hide();
+                        // Recargar la página para mostrar los cambios
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        // Mostrar mensaje de error
+                        mostrarAlerta('Error al crear usuario: ' + data.message, 'danger');
+                        btnGuardar.innerHTML = textoOriginal;
+                        btnGuardar.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al crear usuario:', error);
+                    mostrarAlerta('Error al crear usuario', 'danger');
+                    btnGuardar.innerHTML = textoOriginal;
+                    btnGuardar.disabled = false;
+                });
+            } else {
+                // Mostrar validaciones del formulario
+                form.classList.add('was-validated');
+            }
         });
     });
     
     function obtenerUsuario(id) {
+        // Mostrar indicador de carga
+        document.getElementById('loadingSpinner').classList.remove('d-none');
+        
         fetch('/obtener_usuario/' + id)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor: ' + response.status);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Datos recibidos:', data); // Para depuración
+                
+                // Llenar el formulario con los datos recibidos
                 document.getElementById('edit_id_codigo_consumidor').value = data.id_codigo_consumidor;
                 document.getElementById('edit_recurso_operativo_cedula').value = data.recurso_operativo_cedula;
                 document.getElementById('edit_nombre').value = data.nombre;
                 document.getElementById('edit_id_roles').value = data.id_roles;
                 document.getElementById('edit_estado').value = data.estado;
                 
+                // Llenar los nuevos campos si existen en la respuesta
+                if (data.cargo) {
+                    // Seleccionar el cargo en el dropdown
+                    const cargoSelect = document.getElementById('edit_cargo');
+                    // Buscar la opción que coincida con el cargo del usuario
+                    for (let i = 0; i < cargoSelect.options.length; i++) {
+                        if (cargoSelect.options[i].value === data.cargo) {
+                            cargoSelect.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+                
+                // Limpiar el campo de contraseña ya que no se muestra por seguridad
+                document.getElementById('edit_password').value = '';
+                
+                // Ocultar indicador de carga
+                document.getElementById('loadingSpinner').classList.add('d-none');
+                
+                // Mostrar el modal
                 var modal = new bootstrap.Modal(document.getElementById('editarUsuarioModal'));
                 modal.show();
             })
             .catch(error => {
                 console.error('Error al obtener datos del usuario:', error);
-                alert('Error al obtener datos del usuario');
+                mostrarAlerta('Error al obtener datos del usuario: ' + error.message, 'danger');
+                document.getElementById('loadingSpinner').classList.add('d-none');
             });
     }
     
     function eliminarUsuario(id) {
+        // Mostrar indicador de carga en el botón de eliminar
+        const btnEliminar = document.querySelector(`.eliminar-usuario[data-id="${id}"]`);
+        const iconoOriginal = btnEliminar.innerHTML;
+        btnEliminar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+        btnEliminar.disabled = true;
+        
         fetch('/eliminar_usuario/' + id, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Error en la respuesta del servidor: ' + response.status);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
-                alert('Usuario eliminado correctamente');
-                location.reload();
+                // Mostrar mensaje de éxito
+                mostrarAlerta('Usuario eliminado correctamente', 'success');
+                // Recargar la página después de un breve retraso
+                setTimeout(() => location.reload(), 1500);
             } else {
-                alert('Error al eliminar usuario: ' + data.message);
+                // Mostrar mensaje de error
+                mostrarAlerta('Error al eliminar usuario: ' + data.message, 'danger');
+                btnEliminar.innerHTML = iconoOriginal;
+                btnEliminar.disabled = false;
             }
         })
         .catch(error => {
             console.error('Error al eliminar usuario:', error);
-            alert('Error al eliminar usuario');
+            mostrarAlerta('Error al eliminar usuario: ' + error.message, 'danger');
+            btnEliminar.innerHTML = iconoOriginal;
+            btnEliminar.disabled = false;
         });
     }
 </script>
-{% endblock %} 
+{% endblock %}
