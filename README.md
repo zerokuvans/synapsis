@@ -9,7 +9,7 @@ Plataforma de gestión operativa para recursos de movilidad
 
 ## Instalación
 ```bash
-git clone https://github.com/vanaranjos/synapsis.git
+git clone https://github.com/zerokuvans/synapsis.git
 cd synapsis
 pip install -r requirements.txt
 ```

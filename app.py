@@ -1,9 +1,25 @@
-from flask import Flask, request, jsonify, render_template
-from datetime import date
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash
+from datetime import date, datetime
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import login_required, current_user
+import mysql.connector
 
 app = Flask(__name__)
 db = SQLAlchemy()
+
+# Función para obtener conexión a la base de datos
+def get_db_connection():
+    try:
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='',
+            database='capired'
+        )
+        return connection
+    except mysql.connector.Error as e:
+        print(f"Error al conectar a la base de datos: {e}")
+        return None
 
 @app.route('/check_submission', methods=['GET'])
 def check_submission():
@@ -95,5 +111,110 @@ def registrar_asignacion_con_firma():
     #return render_template('modulos/administrativo/api_indicadores_cumplimiento.html', 
      #                     supervisores=supervisores)
 
-if __name__ == '__main__':
-    app.run(debug=True)
+@app.route('/operativo/asistencia', methods=['GET'])
+@login_required
+def operativo_asistencia():
+    # Verificar que el usuario tenga rol de supervisor (operativo)
+    if not current_user.has_role(3):
+        flash('No tienes permisos para acceder a esta página', 'danger')
+        return redirect(url_for('dashboard'))
+        
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'danger')
+            return redirect(url_for('dashboard'))
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener el nombre del supervisor actual (usuario logueado)
+        supervisor_nombre = current_user.nombre
+        
+        # Obtener lista de técnicos filtrados por el supervisor actual
+        cursor.execute("""
+           SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta
+            FROM capired.recurso_operativo
+            WHERE estado = 'Activo' AND super = %s
+            ORDER BY nombre
+        """, (supervisor_nombre,))
+        tecnicos = cursor.fetchall()
+        
+        # Obtener lista de tipificaciones para carpeta_dia
+        cursor.execute("""
+            SELECT codigo_tipificacion, nombre_tipificacion
+            FROM tipificacion_asistencia
+            WHERE estado = '1'
+            ORDER BY codigo_tipificacion
+        """)
+        carpetas_dia = cursor.fetchall()
+        
+        return render_template('modulos/operativo/asistencia.html',
+                           tecnicos=tecnicos,
+                           carpetas_dia=carpetas_dia,
+                           supervisor_nombre=supervisor_nombre)
+                           
+    except mysql.connector.Error as e:
+        flash(f'Error al cargar datos: {str(e)}', 'danger')
+        return redirect(url_for('dashboard'))
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/operativo/asistencia/guardar', methods=['POST'])
+def guardar_asistencia_operativo():
+    try:
+        data = request.get_json()
+        # Validar campos requeridos
+        if not data.get('asistencias'):
+            return jsonify({"success": False, "message": "Datos de asistencias faltantes"}), 400
+            
+        # Insertar en base de datos
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+            
+        cursor = connection.cursor()
+        
+        # Verificar que las asistencias correspondan al supervisor actual
+        supervisor_nombre = current_user.nombre
+        for asistencia in data['asistencias']:
+            if asistencia['super'] != supervisor_nombre:
+                return jsonify({'success': False, 'message': 'No puedes registrar asistencia para técnicos que no están bajo tu supervisión'}), 403
+        
+        # Insertar cada asistencia
+        for asistencia in data['asistencias']:
+            cursor.execute("""
+                INSERT INTO asistencia (
+                    cedula, tecnico, carpeta_dia, carpeta, super, 
+                    id_codigo_consumidor
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                asistencia['cedula'],
+                asistencia['tecnico'],
+                asistencia['carpeta_dia'],
+                asistencia['carpeta'],
+                asistencia['super'],
+                asistencia['id_codigo_consumidor'],
+            ))
+        
+        connection.commit()
+        return jsonify({'success': True, 'message': 'Asistencias guardadas correctamente'})
+        
+    except Exception as e:
+        logging.error(f"Error guardando asistencias: {str(e)}")
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+class Asignacion(db.Model):
+    id_asignacion = db.Column(db.Integer, primary_key=True)
+    id_codigo_consumidor = db.Column(db.String(50))
+    fecha = db.Column(db.DateTime)
+    cargo = db.Column(db.String(100))
+    asignacion_firma = db.Column(db.Text)
+    id_asignador = db.Column(db.Integer)

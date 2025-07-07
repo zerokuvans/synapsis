@@ -213,7 +213,10 @@
                     </div>
                     <div class="mb-3">
                         <label for="cargo" class="form-label">Cargo</label>
-                        <input type="text" class="form-control" id="cargo" name="cargo" required>
+                        <select class="form-select" id="cargo" name="cargo" required>
+                            <option value="">Seleccione un cargo</option>
+                            <!-- Los cargos se cargarán dinámicamente desde la API -->
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label for="rol" class="form-label">Rol</label>
@@ -247,15 +250,45 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Cargar cargos desde la API
+    function cargarCargos() {
+        fetch('/api/cargos')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const cargoSelect = document.getElementById('cargo');
+                    // Mantener solo la primera opción (Seleccione un cargo)
+                    cargoSelect.innerHTML = '<option value="">Seleccione un cargo</option>';
+                    
+                    // Agregar los cargos obtenidos de la API
+                    data.cargos.forEach(cargo => {
+                        const option = document.createElement('option');
+                        option.value = cargo;
+                        option.textContent = cargo;
+                        cargoSelect.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => console.error('Error al cargar cargos:', error));
+    }
+    
+    // Cargar cargos al iniciar la página
+    cargarCargos();
+    
     // Funcionalidad para editar usuario
     document.querySelectorAll('.edit-user').forEach(button => {
         button.addEventListener('click', function() {
             const userId = this.dataset.userId;
+            // Asegurarse de que los cargos estén cargados
+            cargarCargos();
+            
             fetch(`/get_user/${userId}`)
                 .then(response => response.json())
                 .then(user => {
                     document.getElementById('userId').value = user.id_codigo_consumidor;
                     document.getElementById('cedula').value = user.recurso_operativo_cedula;
+                    document.getElementById('nombre').value = user.nombre;
+                    document.getElementById('cargo').value = user.cargo;
                     document.getElementById('rol').value = user.id_roles;
                     document.getElementById('estado').value = user.estado;
                     new bootstrap.Modal(document.getElementById('userModal')).show();
@@ -310,6 +343,26 @@ function abrirModalNuevoUsuario() {
     document.getElementById('userForm').reset();
     document.getElementById('userId').value = '';
     document.getElementById('userModalLabel').textContent = 'Crear Nuevo Usuario';
+    
+    // Cargar cargos disponibles
+    fetch('/api/cargos')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const cargoSelect = document.getElementById('cargo');
+                // Mantener solo la primera opción (Seleccione un cargo)
+                cargoSelect.innerHTML = '<option value="">Seleccione un cargo</option>';
+                
+                // Agregar los cargos obtenidos de la API
+                data.cargos.forEach(cargo => {
+                    const option = document.createElement('option');
+                    option.value = cargo;
+                    option.textContent = cargo;
+                    cargoSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => console.error('Error al cargar cargos:', error));
     
     // Mostrar modal
     new bootstrap.Modal(document.getElementById('userModal')).show();

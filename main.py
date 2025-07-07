@@ -2478,6 +2478,12 @@ def ver_asignaciones_ferretero():
                 'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
                 'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
                 'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'CONDUCTOR': {
+                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'grapas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
             }
         }
         
@@ -2684,6 +2690,12 @@ def registrar_ferretero():
                 'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
                 'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
                 'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'CONDUCTOR': {
+                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'grapas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
             }
         }
         
@@ -5876,6 +5888,33 @@ def register_endpoint(app, get_db_connection, login_required):
             }), 500
     
     return obtener_detalle_tecnicos 
+
+@app.route('/api/cargos', methods=['GET'])
+@login_required(role='administrativo')
+def get_cargos():
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener cargos distintos de la tabla recurso_operativo
+        cursor.execute("SELECT DISTINCT cargo FROM recurso_operativo WHERE cargo IS NOT NULL AND cargo != '' ORDER BY cargo")
+        cargos = [row['cargo'] for row in cursor.fetchall()]
+        
+        return jsonify({'success': True, 'cargos': cargos})
+        
+    except Error as e:
+        return jsonify({'success': False, 'message': f'Error al obtener cargos: {str(e)}'}), 500
+        
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=8080)

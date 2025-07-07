@@ -2465,6 +2465,12 @@ def ver_asignaciones_ferretero():
                 'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
                 'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
                 'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'CONDUCTOR': {
+                'cinta_aislante': {'cantidad': 100, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 100, 'periodo': 15, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             }
         }
         
@@ -2670,6 +2676,12 @@ def registrar_ferretero():
                 'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
                 'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'CONDUCTOR': {
+                'cinta_aislante': {'cantidad': 100, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 100, 'periodo': 15, 'unidad': 'días'},
                 'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             }
         }
