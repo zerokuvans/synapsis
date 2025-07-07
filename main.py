@@ -4592,7 +4592,8 @@ def obtener_usuario(id):
                 recurso_operativo_cedula,
                 nombre,
                 id_roles,
-                estado
+                estado,
+                cargo
             FROM recurso_operativo 
             WHERE id_codigo_consumidor = %s
         """, (id,))
@@ -4625,6 +4626,7 @@ def actualizar_usuario():
         nombre = request.form.get('nombre')
         id_roles = request.form.get('id_roles')
         estado = request.form.get('estado', 'Activo')
+        cargo = request.form.get('cargo', '')
         
         # Validar datos requeridos
         if not all([id_codigo_consumidor, recurso_operativo_cedula, nombre, id_roles]):
@@ -4645,7 +4647,8 @@ def actualizar_usuario():
             recurso_operativo_cedula = %s, 
             nombre = %s, 
             id_roles = %s,
-            estado = %s
+            estado = %s,
+            cargo = %s
         WHERE id_codigo_consumidor = %s
         """
         values = (
@@ -4653,6 +4656,7 @@ def actualizar_usuario():
             nombre, 
             id_roles,
             estado,
+            cargo,
             id_codigo_consumidor
         )
         
