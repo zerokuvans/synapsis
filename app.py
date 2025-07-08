@@ -3,6 +3,7 @@ from datetime import date, datetime
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import login_required, current_user
 import mysql.connector
+import logging
 
 app = Flask(__name__)
 db = SQLAlchemy()
@@ -13,7 +14,7 @@ def get_db_connection():
         connection = mysql.connector.connect(
             host='localhost',
             user='root',
-            password='',
+            password='732137A031E4b@',
             database='capired'
         )
         return connection
@@ -115,9 +116,15 @@ def registrar_asignacion_con_firma():
 @login_required
 def operativo_asistencia():
     # Verificar que el usuario tenga rol de supervisor (operativo)
-    if not current_user.has_role(3):
-        flash('No tienes permisos para acceder a esta página', 'danger')
-        return redirect(url_for('dashboard'))
+    app.logger.info(f"Accediendo a /operativo/asistencia")
+    try:
+        app.logger.info(f"Usuario actual: {current_user.nombre}, Rol: {current_user.role}")
+        if not current_user.has_role('operativo'):
+            flash('No tienes permisos para acceder a esta página', 'danger')
+            return redirect(url_for('dashboard'))
+    except Exception as e:
+        app.logger.error(f"Error en verificación de rol: {str(e)}")
+        return redirect(url_for('login'))
         
     try:
         connection = get_db_connection()
