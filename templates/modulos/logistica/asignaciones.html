@@ -201,10 +201,16 @@
 
                     <!-- Herramientas Básicas -->
                     <div class="card mb-4">
-                        <div class="card-header bg-light">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
                             <h6 class="mb-0">
                                 <i class="fas fa-wrench me-2"></i>Herramientas Básicas
                             </h6>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="seleccionar_todas_herramientas_basicas">
+                                <label class="form-check-label" for="seleccionar_todas_herramientas_basicas">
+                                    <i class="fas fa-check-double me-1"></i>Seleccionar Todo
+                                </label>
+                            </div>
                         </div>
                         <div class="card-body">
                             <div class="row">
@@ -310,10 +316,16 @@
 
                     <!-- Brocas -->
                     <div class="card mb-4">
-                        <div class="card-header bg-light">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
                             <h6 class="mb-0">
                                 <i class="fas fa-drill me-2"></i>Brocas
                             </h6>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="seleccionar_todas_brocas">
+                                <label class="form-check-label" for="seleccionar_todas_brocas">
+                                    <i class="fas fa-check-double me-1"></i>Seleccionar Todo
+                                </label>
+                            </div>
                         </div>
                         <div class="card-body">
                             <div class="row">
@@ -371,10 +383,16 @@
 
                     <!-- Herramientas de Red -->
                     <div class="card mb-4">
-                        <div class="card-header bg-light">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center">
                             <h6 class="mb-0">
                                 <i class="fas fa-network-wired me-2"></i>Herramientas de Red
                             </h6>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="seleccionar_todas_herramientas_red">
+                                <label class="form-check-label" for="seleccionar_todas_herramientas_red">
+                                    <i class="fas fa-check-double me-1"></i>Seleccionar Todo
+                                </label>
+                            </div>
                         </div>
                         <div class="card-body">
                             <div class="row">
@@ -674,6 +692,48 @@ $(document).ready(function() {
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     document.getElementById('fecha').value = now.toISOString().slice(0,16);
+    
+    // Evento para obtener el cargo del técnico cuando se selecciona
+    $('#id_codigo_consumidor').on('change', function() {
+        const tecnicoId = $(this).val();
+        if (tecnicoId) {
+            // Obtener el cargo del técnico desde la lista de técnicos
+            {% for tecnico in tecnicos %}
+            if (tecnicoId === "{{ tecnico.id_codigo_consumidor }}") {
+                // Establecer el cargo automáticamente
+                $('#cargo').val("{{ tecnico.cargo }}");
+                console.log("Cargo establecido automáticamente: {{ tecnico.cargo }}");
+            }
+            {% endfor %}
+        } else {
+            // Limpiar el campo cargo si no hay técnico seleccionado
+            $('#cargo').val('');
+        }
+    });
+    
+    // Funcionalidad de seleccionar todas las herramientas básicas
+    $('#seleccionar_todas_herramientas_basicas').on('change', function() {
+        const isChecked = $(this).prop('checked');
+        // Seleccionar o deseleccionar todos los checkboxes de herramientas básicas
+        $('.card:contains("Herramientas Básicas") .form-check-input').not(this).prop('checked', isChecked);
+        console.log('Herramientas Básicas - Seleccionar todo:', isChecked);
+    });
+    
+    // Funcionalidad de seleccionar todas las brocas
+    $('#seleccionar_todas_brocas').on('change', function() {
+        const isChecked = $(this).prop('checked');
+        // Seleccionar o deseleccionar todos los checkboxes de brocas
+        $('.card:contains("Brocas") .form-check-input').not(this).prop('checked', isChecked);
+        console.log('Brocas - Seleccionar todo:', isChecked);
+    });
+    
+    // Funcionalidad de seleccionar todas las herramientas de red
+    $('#seleccionar_todas_herramientas_red').on('change', function() {
+        const isChecked = $(this).prop('checked');
+        // Seleccionar o deseleccionar todos los checkboxes de herramientas de red
+        $('.card:contains("Herramientas de Red") .form-check-input').not(this).prop('checked', isChecked);
+        console.log('Herramientas de Red - Seleccionar todo:', isChecked);
+    });
 });
 
 // Mapeo de nombres problemáticos a nombres seguros para SQL
@@ -828,7 +888,7 @@ function guardarAsignacion() {
                     </div>
                 `,
                 footer: '<div class="text-muted">El sistema intentará usar un método alternativo de guardado</div>',
-                confirmButtonText: 'Intentar método simple',
+                confirmButtonText: 'Usar método alternativo',
                 showCancelButton: true,
                 cancelButtonText: 'Cancelar',
                 cancelButtonColor: '#d33'
@@ -856,7 +916,7 @@ function guardarAsignacion() {
                 `,
                 confirmButtonText: 'Intentar nuevamente',
                 showCancelButton: true,
-                cancelButtonText: 'Guardar solo datos básicos',
+                cancelButtonText: 'Usar método alternativo',
                 cancelButtonColor: '#f0ad4e'
             }).then((result) => {
                 if (result.dismiss === Swal.DismissReason.cancel) {
@@ -873,7 +933,7 @@ function guardarAsignacion() {
     });
 }
 
-// Función para guardar solo la información básica (alternativa más simple)
+// Función para guardar asignación con herramientas (versión mejorada)
 function guardarAsignacionSimple() {
     // Obtener y validar el formulario
     const form = document.getElementById('formAsignacion');
@@ -893,19 +953,43 @@ function guardarAsignacionSimple() {
     
     // Mostrar indicador de carga
     Swal.fire({
-        title: 'Guardando datos básicos...',
-        text: 'Se guardarán solo los datos esenciales',
+        title: 'Guardando asignación...',
+        text: 'Procesando la asignación con herramientas',
         allowOutsideClick: false,
         didOpen: () => {
             Swal.showLoading();
         }
     });
 
-    // Crear FormData solo con datos básicos
+    // Crear FormData con datos básicos
     const formData = new FormData();
     formData.append('id_codigo_consumidor', form.elements['id_codigo_consumidor'].value);
     formData.append('fecha', form.elements['fecha'].value);
     formData.append('cargo', form.elements['cargo'].value);
+    
+    // Agregar herramientas seleccionadas
+    const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(checkbox => {
+        // Solo incluir los checkboxes de herramientas (no los de seleccionar todo)
+        if (checkbox.id !== 'seleccionar_todas_herramientas_basicas' && 
+            checkbox.id !== 'seleccionar_todas_brocas' && 
+            checkbox.id !== 'seleccionar_todas_herramientas_red') {
+            formData.append(checkbox.name, checkbox.checked ? '1' : '0');
+        }
+    });
+    
+    // Log para depuración
+    console.log('Enviando datos de asignación simple:', {
+        id_codigo_consumidor: form.elements['id_codigo_consumidor'].value,
+        fecha: form.elements['fecha'].value,
+        cargo: form.elements['cargo'].value,
+        herramientas_seleccionadas: Array.from(checkboxes)
+            .filter(cb => cb.checked && 
+                    cb.id !== 'seleccionar_todas_herramientas_basicas' && 
+                    cb.id !== 'seleccionar_todas_brocas' && 
+                    cb.id !== 'seleccionar_todas_herramientas_red')
+            .map(cb => cb.name)
+    });
     
     // Endpoint para guardado simple
     fetch('/logistica/guardar_asignacion_simple', {
@@ -940,8 +1024,8 @@ function guardarAsignacionSimple() {
             
             Swal.fire({
                 icon: 'success',
-                title: 'Datos básicos guardados',
-                text: 'Se guardó la información básica de la asignación sin incluir herramientas',
+                title: 'Asignación guardada',
+                text: 'Se guardó la asignación con las herramientas seleccionadas',
                 confirmButtonText: 'Aceptar'
             }).then(() => {
                 try {
@@ -955,7 +1039,7 @@ function guardarAsignacionSimple() {
                 }, 500);
             });
         } else {
-            let mensaje = 'Error al guardar los datos básicos';
+            let mensaje = 'Error al guardar la asignación';
             if (typeof data === 'object' && data.message) {
                 mensaje = data.message;
             } else if (typeof data === 'string' && data.length > 0) {
@@ -976,7 +1060,7 @@ function guardarAsignacionSimple() {
         Swal.fire({
             icon: 'error',
             title: 'Error',
-            text: 'Ha ocurrido un error al guardar los datos básicos: ' + error.message
+            text: 'Ha ocurrido un error al guardar la asignación: ' + error.message
         });
     });
 }
@@ -1296,4 +1380,4 @@ $(document).on('click', '.ver-detalle', function() {
     verDetalle(id);
 });
 </script>
-{% endblock %} 
+{% endblock %}

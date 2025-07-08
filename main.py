@@ -734,16 +734,22 @@ def create_user():
         cursor = connection.cursor()
         
         # Obtener datos del formulario
-        cedula = request.form.get('cedula')
+        cedula = request.form.get('recurso_operativo_cedula')  # Nombre corregido según el formulario
         password = request.form.get('password')
-        rol = request.form.get('rol')
+        rol = request.form.get('role_id')  # Nombre corregido según el formulario
         estado = request.form.get('estado', 'Activo')  # Por defecto 'Activo'
         nombre = request.form.get('nombre')
         cargo = request.form.get('cargo')
+        
+        # Obtener los nuevos campos
+        carpeta = request.form.get('carpeta')
+        cliente = request.form.get('cliente')
+        ciudad = request.form.get('ciudad')
+        super_valor = request.form.get('super')  # Usando super_valor porque 'super' es palabra reservada
 
         # Validar datos requeridos
-        if not all([cedula, password, rol, nombre, cargo]):
-            return jsonify({'success': False, 'message': 'Todos los campos son requeridos'}), 400
+        if not all([cedula, password, rol, nombre]):
+            return jsonify({'success': False, 'message': 'Los campos cédula, contraseña, rol y nombre son requeridos'}), 400
 
         # Verificar si la cédula ya existe
         cursor.execute("SELECT id_codigo_consumidor FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
@@ -753,12 +759,12 @@ def create_user():
         # Encriptar contraseña
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
-        # Insertar nuevo usuario
+        # Insertar nuevo usuario con los campos adicionales
         cursor.execute("""
             INSERT INTO recurso_operativo 
-            (recurso_operativo_cedula, recurso_operativo_password, id_roles, estado, nombre, cargo)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (cedula, hashed_password.decode('utf-8'), rol, estado, nombre, cargo))
+            (recurso_operativo_cedula, recurso_operativo_password, id_roles, estado, nombre, cargo, carpeta, cliente, ciudad, super)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (cedula, hashed_password.decode('utf-8'), rol, estado, nombre, cargo, carpeta, cliente, ciudad, super_valor))
 
         connection.commit()
         cursor.close()
@@ -3548,29 +3554,71 @@ def guardar_asignacion():
                 imagen_path = os.path.join('uploads', 'asignacion', nuevo_nombre)
                 imagen.save(os.path.join(app.root_path, 'static', imagen_path))
         
-        # Insertar asignación con imagen
+        # Insertar asignación sin imagen (campo no existe en la tabla)
         cursor.execute("""
             INSERT INTO asignacion (
                 id_codigo_consumidor, asignacion_fecha, asignacion_cargo, 
-                asignacion_estado, asignacion_imagen
-            ) VALUES (%s, %s, %s, %s, %s)
+                asignacion_estado
+            ) VALUES (%s, %s, %s, %s)
         """, (
-            id_codigo_consumidor, fecha, cargo, '1', 
-            imagen_path if imagen_path else None
+            id_codigo_consumidor, fecha, cargo, '1'
         ))
         
         id_asignacion = cursor.lastrowid
         
-        # Procesar herramientas (código existente)
+        # Procesar herramientas usando la nueva tabla asignacion_herramientas
         for key, value in request.form.items():
-            if key not in ['id_codigo_consumidor', 'fecha', 'cargo'] and value == '1':
-                campo = f"asignacion_{key}"
-                query = f"""
-                    UPDATE asignacion 
-                    SET {campo} = '1'
-                    WHERE id_asignacion = %s
-                """
-                cursor.execute(query, (id_asignacion,))
+            if key not in ['id_codigo_consumidor', 'fecha', 'cargo'] and value == '1' and key.strip():
+                # Verificar que la clave no esté vacía
+                if key.strip():
+                    try:
+                        # Mantener compatibilidad con el enfoque anterior
+                        campo = f"asignacion_{key}"
+                        if len(campo) > 11:  # 'asignacion_' tiene 11 caracteres
+                            try:
+                                # Actualizar la columna en la tabla asignacion si existe
+                                query = f"""
+                                    UPDATE asignacion 
+                                    SET {campo} = '1'
+                                    WHERE id_asignacion = %s
+                                """
+                                cursor.execute(query, (id_asignacion,))
+                            except mysql.connector.Error as e:
+                                # Si hay error, es probable que la columna no exista
+                                # Continuamos con el nuevo enfoque
+                                print(f"Columna {campo} no encontrada: {str(e)}")
+                        
+                        # Insertar en la nueva tabla asignacion_herramientas
+                        cursor.execute("""
+                            INSERT INTO asignacion_herramientas 
+                            (id_asignacion, codigo, descripcion, estado) 
+                            VALUES (%s, %s, %s, %s)
+                        """, (
+                            id_asignacion, 
+                            key,  # Usar la clave como código
+                            key.replace('_', ' ').title(),  # Convertir a formato legible
+                            '1'  # Estado activo
+                        ))
+                    except mysql.connector.Error as e:
+                        # Registrar el error pero continuar con otras herramientas
+                        print(f"Error al guardar herramienta {key}: {str(e)}")
+                        continue
+        
+        # Si hay imagen, guardarla en la tabla asignacion_herramientas como un registro especial
+        if imagen_path:
+            try:
+                cursor.execute("""
+                    INSERT INTO asignacion_herramientas 
+                    (id_asignacion, codigo, descripcion, estado) 
+                    VALUES (%s, %s, %s, %s)
+                """, (
+                    id_asignacion, 
+                    'imagen',  
+                    imagen_path,  # Guardar la ruta de la imagen
+                    '1'  # Estado activo
+                ))
+            except mysql.connector.Error as e:
+                print(f"Error al guardar imagen: {str(e)}")
         
         connection.commit()
         return jsonify({
@@ -3588,6 +3636,133 @@ def guardar_asignacion():
             connection.close()
 
 # Modificar la ruta de obtener detalles para incluir la imagen
+@app.route('/logistica/guardar_asignacion_simple', methods=['POST'])
+@login_required(role=['administrativo', 'logistica'])
+def guardar_asignacion_simple():
+    connection = None
+    cursor = None
+    try:
+        # Obtener datos básicos del formulario
+        id_codigo_consumidor = request.form.get('id_codigo_consumidor')
+        fecha = request.form.get('fecha')
+        cargo = request.form.get('cargo')
+        
+        # Validar datos requeridos
+        if not id_codigo_consumidor or not fecha or not cargo:
+            return jsonify({
+                'status': 'error',
+                'message': 'Faltan campos obligatorios'
+            }), 400
+            
+        # Obtener conexión a la base de datos
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error al conectar con la base de datos'
+            }), 500
+            
+        # Obtener información del técnico
+        cursor = connection.cursor(dictionary=True)
+        
+        query_tecnico = """
+            SELECT nombre, recurso_operativo_cedula 
+            FROM recurso_operativo 
+            WHERE id_codigo_consumidor = %s
+        """
+        cursor.execute(query_tecnico, (id_codigo_consumidor,))
+        tecnico = cursor.fetchone()
+        
+        if not tecnico:
+            return jsonify({
+                'status': 'error',
+                'message': 'Técnico no encontrado'
+            }), 404
+            
+        # Convertir fecha a formato datetime
+        try:
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%dT%H:%M')
+            fecha_formateada = fecha_obj.strftime('%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return jsonify({
+                'status': 'error',
+                'message': 'Formato de fecha inválido'
+            }), 400
+        
+        # Insertar asignación básica
+        query = """
+            INSERT INTO asignacion (
+                id_codigo_consumidor, 
+                asignacion_cedula, 
+                asignacion_nombre, 
+                asignacion_fecha, 
+                asignacion_cargo, 
+                asignacion_estado
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        
+        # Ejecutar consulta
+        cursor.execute(query, [
+            id_codigo_consumidor,
+            tecnico['recurso_operativo_cedula'],  # cedula
+            tecnico['nombre'],  # nombre
+            fecha_formateada,
+            cargo,
+            '1'  # Estado activo
+        ])
+        
+        # Obtener ID de la asignación
+        id_asignacion = cursor.lastrowid
+        
+        # Procesar herramientas seleccionadas
+        for key, value in request.form.items():
+            if key not in ['id_codigo_consumidor', 'fecha', 'cargo'] and value == '1' and key.strip():
+                try:
+                    # Insertar en la tabla asignacion_herramientas
+                    cursor.execute("""
+                        INSERT INTO asignacion_herramientas 
+                        (id_asignacion, codigo, descripcion, estado) 
+                        VALUES (%s, %s, %s, %s)
+                    """, (
+                        id_asignacion, 
+                        key,  # Usar la clave como código
+                        key.replace('_', ' ').title(),  # Convertir a formato legible
+                        '1'  # Estado activo
+                    ))
+                except mysql.connector.Error as e:
+                    # Registrar el error pero continuar con otras herramientas
+                    print(f"Error al guardar herramienta {key}: {str(e)}")
+                    continue
+        
+        # Hacer commit y devolver respuesta exitosa
+        connection.commit()
+        return jsonify({
+            'status': 'success',
+            'message': 'Asignación básica guardada correctamente',
+            'id_asignacion': id_asignacion
+        }), 200
+            
+    except mysql.connector.Error as e:
+        if connection:
+            connection.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al guardar la asignación simple: {str(e)}'
+        }), 500
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al procesar la solicitud: {str(e)}'
+        }), 500
+    finally:
+        # Asegurarse de cerrar cursor y conexión
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
 @app.route('/logistica/asignacion/<int:id>')
 @login_required(role=['administrativo', 'logistica'])
 def obtener_detalle_asignacion(id):
@@ -3598,10 +3773,10 @@ def obtener_detalle_asignacion(id):
             
         cursor = connection.cursor(dictionary=True)
         
-        # Obtener información básica incluyendo la imagen
+        # Obtener información básica
         cursor.execute("""
             SELECT a.*, ro.nombre, ro.recurso_operativo_cedula
-            FROM asignaciones a
+            FROM asignacion a
             JOIN recurso_operativo ro ON a.id_codigo_consumidor = ro.id_codigo_consumidor
             WHERE a.id_asignacion = %s
         """, (id,))
@@ -3610,10 +3785,8 @@ def obtener_detalle_asignacion(id):
         if not asignacion:
             return jsonify({'status': 'error', 'message': 'Asignación no encontrada'})
             
-        # Convertir la ruta de la imagen a URL si existe
+        # No hay campo de imagen en la tabla asignacion
         imagen_url = None
-        if asignacion.get('asignacion_imagen'):
-            imagen_url = url_for('static', filename=asignacion['asignacion_imagen'])
         
         info_basica = {
             'tecnico': asignacion['nombre'],
@@ -3821,17 +3994,41 @@ def generar_pdf_asignacion(id_asignacion):
             'pelachaqueta': 'Pelachaqueta'
         }
         
+        # Obtener herramientas de la nueva tabla asignacion_herramientas
+        cursor.execute("""
+            SELECT codigo, descripcion, estado
+            FROM asignacion_herramientas
+            WHERE id_asignacion = %s AND codigo != 'imagen'
+        """, (id_asignacion,))
+        
+        herramientas_db = cursor.fetchall()
+        
         # Crear lista de herramientas asignadas
         herramientas_asignadas = []
-        for campo, valor in asignacion.items():
-            if campo.startswith('asignacion_') and campo not in ['asignacion_fecha', 'asignacion_cargo', 'asignacion_estado', 'asignacion_firma']:
-                nombre_herramienta = campo.replace('asignacion_', '')
-                if valor == '1' and nombre_herramienta in herramientas_mapping:
-                    herramientas_asignadas.append([
-                        nombre_herramienta,
-                        herramientas_mapping[nombre_herramienta],
-                        'Asignada'
-                    ])
+        
+        # Primero intentar usar las herramientas de la nueva tabla
+        if herramientas_db:
+            for herramienta in herramientas_db:
+                codigo = herramienta['codigo']
+                descripcion = herramienta['descripcion']
+                estado = 'Asignada' if herramienta['estado'] == '1' else 'Inactiva'
+                
+                herramientas_asignadas.append([
+                    codigo,
+                    descripcion,
+                    estado
+                ])
+        else:
+            # Compatibilidad con el enfoque anterior
+            for campo, valor in asignacion.items():
+                if campo.startswith('asignacion_') and campo not in ['asignacion_fecha', 'asignacion_cargo', 'asignacion_estado', 'asignacion_firma']:
+                    nombre_herramienta = campo.replace('asignacion_', '')
+                    if valor == '1' and nombre_herramienta in herramientas_mapping:
+                        herramientas_asignadas.append([
+                            nombre_herramienta,
+                            herramientas_mapping[nombre_herramienta],
+                            'Asignada'
+                        ])
         
         if herramientas_asignadas:
             # Crear tabla de herramientas
@@ -4523,8 +4720,7 @@ def usuarios():
     cursor = None
     try:
         page = request.args.get('page', 1, type=int)
-        items_per_page = 10  # Número de usuarios por página
-        offset = (page - 1) * items_per_page
+        items_per_page = 10  # Número de usuarios por página (solo para referencia en la plantilla)
         
         connection = get_db_connection()
         if connection is None:
@@ -4538,19 +4734,19 @@ def usuarios():
         total_users = cursor.fetchone()['total']
         total_pages = (total_users + items_per_page - 1) // items_per_page  # Redondeo hacia arriba
         
-        # Obtener usuarios con paginación
+        # Obtener TODOS los usuarios sin paginación para permitir filtrado completo
         query = """
             SELECT 
                 id_codigo_consumidor,
                 recurso_operativo_cedula,
                 nombre,
                 id_roles,
-                estado
+                estado,
+                cargo
             FROM recurso_operativo
             ORDER BY id_codigo_consumidor
-            LIMIT %s OFFSET %s
         """
-        cursor.execute(query, (items_per_page, offset))
+        cursor.execute(query)
         usuarios = cursor.fetchall()
         
         # Convertir id_roles a nombres legibles
@@ -4561,6 +4757,7 @@ def usuarios():
                               usuarios=usuarios, 
                               current_page=page, 
                               total_pages=total_pages,
+                              items_per_page=items_per_page,
                               ROLES=ROLES)  # Pasar el diccionario ROLES al contexto
         
     except mysql.connector.Error as e:
@@ -4585,7 +4782,7 @@ def obtener_usuario(id):
         
         cursor = connection.cursor(dictionary=True)
         
-        # Obtener usuario por ID
+        # Obtener usuario por ID incluyendo los nuevos campos
         cursor.execute("""
             SELECT 
                 id_codigo_consumidor,
@@ -4593,7 +4790,11 @@ def obtener_usuario(id):
                 nombre,
                 id_roles,
                 estado,
-                cargo
+                cargo,
+                carpeta,
+                cliente,
+                ciudad,
+                super
             FROM recurso_operativo 
             WHERE id_codigo_consumidor = %s
         """, (id,))
@@ -4604,6 +4805,50 @@ def obtener_usuario(id):
             return jsonify({'error': 'Usuario no encontrado'}), 404
         
         return jsonify(usuario)
+        
+    except mysql.connector.Error as e:
+        return jsonify({'error': str(e)}), 500
+    
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/obtener_opciones_usuario', methods=['GET'])
+@login_required(role='administrativo')
+def obtener_opciones_usuario():
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener valores únicos para carpeta
+        cursor.execute("SELECT DISTINCT carpeta FROM recurso_operativo WHERE carpeta IS NOT NULL AND carpeta != '' ORDER BY carpeta")
+        carpetas = [row['carpeta'] for row in cursor.fetchall()]
+        
+        # Obtener valores únicos para cliente
+        cursor.execute("SELECT DISTINCT cliente FROM recurso_operativo WHERE cliente IS NOT NULL AND cliente != '' ORDER BY cliente")
+        clientes = [row['cliente'] for row in cursor.fetchall()]
+        
+        # Obtener valores únicos para ciudad
+        cursor.execute("SELECT DISTINCT ciudad FROM recurso_operativo WHERE ciudad IS NOT NULL AND ciudad != '' ORDER BY ciudad")
+        ciudades = [row['ciudad'] for row in cursor.fetchall()]
+        
+        # Obtener valores únicos para super
+        cursor.execute("SELECT DISTINCT super FROM recurso_operativo WHERE super IS NOT NULL AND super != '' ORDER BY super")
+        supers = [row['super'] for row in cursor.fetchall()]
+        
+        return jsonify({
+            'carpetas': carpetas,
+            'clientes': clientes,
+            'ciudades': ciudades,
+            'supers': supers
+        })
         
     except mysql.connector.Error as e:
         return jsonify({'error': str(e)}), 500
@@ -4627,17 +4872,19 @@ def actualizar_usuario():
         id_roles = request.form.get('id_roles')
         estado = request.form.get('estado', 'Activo')
         cargo = request.form.get('cargo', '')
+        carpeta = request.form.get('carpeta', '')
+        cliente = request.form.get('cliente', '')
+        ciudad = request.form.get('ciudad', '')
+        super_valor = request.form.get('super', '')
         
         # Validar datos requeridos
         if not all([id_codigo_consumidor, recurso_operativo_cedula, nombre, id_roles]):
-            flash('Por favor complete todos los campos requeridos.', 'error')
-            return redirect(url_for('usuarios'))
+            return jsonify({'success': False, 'message': 'Por favor complete todos los campos requeridos.'})
         
         # Conectar a la base de datos
         connection = get_db_connection()
         if connection is None:
-            flash('Error de conexión a la base de datos.', 'error')
-            return redirect(url_for('usuarios'))
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos.'})
         
         cursor = connection.cursor()
         
@@ -4648,7 +4895,11 @@ def actualizar_usuario():
             nombre = %s, 
             id_roles = %s,
             estado = %s,
-            cargo = %s
+            cargo = %s,
+            carpeta = %s,
+            cliente = %s,
+            ciudad = %s,
+            super = %s
         WHERE id_codigo_consumidor = %s
         """
         values = (
@@ -4657,18 +4908,20 @@ def actualizar_usuario():
             id_roles,
             estado,
             cargo,
+            carpeta,
+            cliente,
+            ciudad,
+            super_valor,
             id_codigo_consumidor
         )
         
         cursor.execute(query, values)
         connection.commit()
         
-        flash('Usuario actualizado exitosamente.', 'success')
-        return redirect(url_for('usuarios'))
+        return jsonify({'success': True, 'message': 'Usuario actualizado exitosamente.'})
         
     except mysql.connector.Error as e:
-        flash(f'Error al actualizar usuario: {str(e)}', 'error')
-        return redirect(url_for('usuarios'))
+        return jsonify({'success': False, 'message': f'Error al actualizar usuario: {str(e)}'})
     
     finally:
         if cursor:
