@@ -3855,8 +3855,16 @@ def obtener_detalle_asignacion(id):
         if not asignacion:
             return jsonify({'status': 'error', 'message': 'Asignación no encontrada'})
             
-        # No hay campo de imagen en la tabla asignacion
-        imagen_url = None
+        # Buscar imagen en la tabla asignacion_herramientas
+        cursor.execute("""
+            SELECT descripcion
+            FROM asignacion_herramientas
+            WHERE id_asignacion = %s AND codigo = 'imagen'
+        """, (id,))
+        
+        imagen_result = cursor.fetchone()
+        imagen_path = imagen_result['descripcion'] if imagen_result else None
+        imagen_url = url_for('static', filename=imagen_path) if imagen_path else None
         
         info_basica = {
             'tecnico': asignacion['nombre'],
@@ -3952,6 +3960,16 @@ def generar_pdf_asignacion(id_asignacion):
         # Obtener la firma si existe
         firma_imagen = asignacion.get('firma_imagen') if mostrar_firma else None
         
+        # Obtener la imagen de la asignación si existe
+        cursor.execute("""
+            SELECT descripcion
+            FROM asignacion_herramientas
+            WHERE id_asignacion = %s AND codigo = 'imagen'
+        """, (id_asignacion,))
+        
+        imagen_result = cursor.fetchone()
+        imagen_path = imagen_result['descripcion'] if imagen_result else None
+        
         # Crear PDF con ReportLab
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
@@ -4009,6 +4027,31 @@ def generar_pdf_asignacion(id_asignacion):
         ]))
         contenido.append(table)
         contenido.append(Spacer(1, 10))
+        
+        # Agregar imagen de la asignación si existe
+        if imagen_path:
+            try:
+                contenido.append(Paragraph("Imagen de Herramientas", estilo_heading))
+                contenido.append(Spacer(1, 10))
+                
+                # Ruta completa de la imagen
+                ruta_completa = os.path.join(app.root_path, 'static', imagen_path)
+                
+                if os.path.exists(ruta_completa):
+                    # Crear imagen para ReportLab con tamaño controlado
+                    imagen_asignacion = RLImage(ruta_completa, width=400, height=200, kind='proportional')
+                    contenido.append(imagen_asignacion)
+                    app.logger.info(f"Imagen añadida al PDF correctamente: {ruta_completa}")
+                else:
+                    contenido.append(Paragraph("(Imagen no encontrada)", styles['Normal']))
+                    app.logger.warning(f"Imagen no encontrada en la ruta: {ruta_completa}")
+                
+                contenido.append(Spacer(1, 10))
+            except Exception as e:
+                app.logger.error(f"Error al procesar imagen para PDF: {str(e)}")
+                contenido.append(Paragraph("(Error al cargar imagen)", styles['Normal']))
+                import traceback
+                app.logger.error(traceback.format_exc())
         
         # Sección de herramientas
         contenido.append(Paragraph("Herramientas Asignadas", estilo_heading))
