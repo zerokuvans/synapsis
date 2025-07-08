@@ -42,6 +42,7 @@ import re
 import logging
 from decimal import Decimal
 #from models import Suministro  # Asegúrate de importar el modelo correcto
+from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 
 load_dotenv()
 
@@ -67,6 +68,49 @@ handler.setFormatter(logging.Formatter(
 ))
 app.logger.addHandler(handler)
 app.logger.setLevel(logging.INFO)
+
+# Configuración de Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+# Definición de la clase User para Flask-Login
+class User(UserMixin):
+    def __init__(self, id, nombre, role):
+        self.id = id
+        self.nombre = nombre
+        self.role = role
+    
+    def has_role(self, role):
+        return self.role == role
+
+# Función para cargar usuario para Flask-Login
+@login_manager.user_loader
+def load_user(user_id):
+    connection = get_db_connection()
+    if connection is None:
+        return None
+        
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT id_codigo_consumidor, nombre, id_roles FROM recurso_operativo WHERE id_codigo_consumidor = %s", (user_id,))
+    user_data = cursor.fetchone()
+    cursor.close()
+    connection.close()
+    
+    if user_data:
+        return User(
+            id=user_data['id_codigo_consumidor'],
+            nombre=user_data['nombre'],
+            role=ROLES.get(str(user_data['id_roles']))
+        )
+    return None
+
+# Importar rutas desde app.py
+from app import operativo_asistencia, guardar_asistencia_operativo
+
+# Registrar rutas de app.py
+app.route('/operativo/asistencia')(operativo_asistencia)
+app.route('/api/operativo/asistencia/guardar', methods=['POST'])(guardar_asistencia_operativo)
 
 # Database configuration
 db_config = {
@@ -129,7 +173,20 @@ def role_required(role):
         return decorated_function
     return decorator
 
-# Login required decorator
+# Login required decorator personalizado para roles
+def role_required_login(role=None):
+    def decorator(f):
+        @wraps(f)
+        @login_required
+        def decorated_function(*args, **kwargs):
+            if role and not current_user.has_role(role) and current_user.role != 'administrativo':
+                flash("No tienes permisos para acceder a esta página.", 'danger')
+                return redirect(url_for('login'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+# Mantener el decorador original para compatibilidad con código existente
 def login_required(role=None):
     def decorator(f):
         @wraps(f)
@@ -213,10 +270,10 @@ def login():
             # Buscar usuario
             app.logger.info(f"Consultando usuario con cedula: {username}")
             cursor.execute("SELECT id_codigo_consumidor, id_roles, recurso_operativo_password, nombre FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (username,))
-            user = cursor.fetchone()
+            user_data = cursor.fetchone()
 
             # Verificar si el usuario existe
-            if not user:
+            if not user_data:
                 app.logger.warning(f"Usuario no encontrado: {username}")
                 return jsonify({
                     'status': 'error', 
@@ -225,7 +282,7 @@ def login():
             
             # Verificar contraseña
             app.logger.info("Verificando contraseña")
-            stored_password = user['recurso_operativo_password']
+            stored_password = user_data['recurso_operativo_password']
             
             # Asegurar que stored_password es bytes
             if isinstance(stored_password, str):
@@ -244,12 +301,22 @@ def login():
                 if bcrypt.checkpw(password, stored_password):
                     app.logger.info(f"Inicio de sesión exitoso para: {username}")
                     
-                    # Establecer variables de sesión
-                    session['user_id'] = user['id_codigo_consumidor']
-                    session['user_role'] = ROLES.get(str(user['id_roles']))
-                    session['user_name'] = user['nombre']
+                    # Crear objeto User para Flask-Login
+                    user = User(
+                        id=user_data['id_codigo_consumidor'],
+                        nombre=user_data['nombre'],
+                        role=ROLES.get(str(user_data['id_roles']))
+                    )
                     
-                    app.logger.info(f"Sesión establecida: ID={user['id_codigo_consumidor']}, Rol={ROLES.get(str(user['id_roles']))}")
+                    # Iniciar sesión con Flask-Login
+                    login_user(user)
+                    
+                    # Mantener también las variables de sesión para compatibilidad
+                    session['user_id'] = user_data['id_codigo_consumidor']
+                    session['user_role'] = ROLES.get(str(user_data['id_roles']))
+                    session['user_name'] = user_data['nombre']
+                    
+                    app.logger.info(f"Sesión establecida: ID={user_data['id_codigo_consumidor']}, Rol={ROLES.get(str(user_data['id_roles']))}")
 
                     # Verificar vencimientos para el usuario
                     try:
@@ -262,7 +329,7 @@ def login():
                             WHERE id_codigo_consumidor = %s
                             ORDER BY fecha DESC 
                             LIMIT 1
-                        """, (user['id_codigo_consumidor'],))
+                        """, (user_data['id_codigo_consumidor'],))
                         
                         ultimo_registro = cursor.fetchone()
                         if ultimo_registro:
@@ -301,9 +368,9 @@ def login():
                         return jsonify({
                             'status': 'success',
                             'message': 'Inicio de sesión exitoso',
-                            'user_id': user['id_codigo_consumidor'],
-                            'user_role': ROLES.get(str(user['id_roles'])),
-                            'user_name': user['nombre'],
+                            'user_id': user_data['id_codigo_consumidor'],
+                            'user_role': ROLES.get(str(user_data['id_roles'])),
+                            'user_name': user_data['nombre'],
                             'redirect_url': url_for('dashboard')
                         })
                     # Si es una solicitud normal, redirigir
@@ -351,6 +418,9 @@ def login():
 def logout():
     # Obtener el rol del usuario antes de cerrar sesión para personalizar el mensaje
     user_role = session.get('user_role', '')
+    
+    # Cerrar sesión con Flask-Login
+    logout_user()
     
     # Limpiar todas las variables de sesión
     session.clear()
@@ -6172,6 +6242,39 @@ def get_cargos():
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
+
+# Importar y registrar las rutas de app.py
+from app import operativo_asistencia, guardar_asistencia_operativo
+
+# Registrar las rutas de app.py en la aplicación principal
+app.add_url_rule('/operativo/asistencia', 'operativo_asistencia', operativo_asistencia, methods=['GET'])
+app.add_url_rule('/api/operativo/asistencia/guardar', 'guardar_asistencia_operativo', guardar_asistencia_operativo, methods=['POST'])
+
+# Definir la clase User para Flask-Login
+class User(UserMixin):
+    def __init__(self, id, nombre, role):
+        self.id = id
+        self.nombre = nombre
+        self.role = role
+    
+    def has_role(self, role_id):
+        return str(self.role) == str(role_id) or self.role == 'administrativo'
+
+@login_manager.user_loader
+def load_user(user_id):
+    connection = get_db_connection()
+    if connection is None:
+        return None
+    
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT id_codigo_consumidor, nombre, id_roles FROM recurso_operativo WHERE id_codigo_consumidor = %s", (user_id,))
+    user_data = cursor.fetchone()
+    cursor.close()
+    connection.close()
+    
+    if user_data:
+        return User(user_data['id_codigo_consumidor'], user_data['nombre'], ROLES.get(str(user_data['id_roles'])))
+    return None
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=8080)
