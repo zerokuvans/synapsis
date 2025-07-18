@@ -742,7 +742,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Éxito',
-                                text: 'Inspección preoperacional registrada correctamente.',
+                                text: `Inspección preoperacional registrada correctamente el ${data.fecha_registro} a las ${data.hora_registro}.`,
                                 confirmButtonText: 'Aceptar'
                             }).then(() => {
                                 // Cerrar el modal y recargar la página

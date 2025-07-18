@@ -950,13 +950,13 @@ def registrar_preoperacional():
         
         # Verificar si ya existe un registro para el día actual
         id_codigo_consumidor = request.form.get('id_codigo_consumidor')
-        fecha_actual = get_bogota_datetime().date()
+        fecha_actual = datetime.now(pytz.UTC).date()
         
         cursor.execute("""
             SELECT COUNT(*) as count 
             FROM preoperacional 
             WHERE id_codigo_consumidor = %s 
-            AND DATE(CONVERT_TZ(fecha, '+00:00', '-05:00')) = %s
+            AND DATE(fecha) = %s
         """, (id_codigo_consumidor, fecha_actual))
         
         resultado = cursor.fetchone()
@@ -1020,17 +1020,25 @@ def registrar_preoperacional():
             )
         """
         
-        # Agregar la fecha actual de Bogotá a los valores
-        values.append(get_bogota_datetime())
+        # Agregar la fecha actual en UTC a los valores
+        values.append(datetime.now(pytz.UTC))
         
         cursor.execute(sql, tuple(values))
         connection.commit()
         cursor.close()
         connection.close()
 
+        # Obtener la fecha y hora actual en UTC formateada
+        fecha_hora_actual_utc = datetime.now(pytz.UTC)
+        fecha_formateada = fecha_hora_actual_utc.strftime('%d/%m/%Y')
+        hora_formateada = fecha_hora_actual_utc.strftime('%I:%M:%S %p')
+        
         return jsonify({
             'status': 'success',
-            'message': 'Preoperacional registrado exitosamente'
+            'message': 'Preoperacional registrado exitosamente',
+            'hora_registro': hora_formateada,
+            'fecha_registro': fecha_formateada,
+            'es_utc': True
         }), 201
 
     except Error as e:
@@ -1797,9 +1805,9 @@ def verificar_vencimientos():
             return jsonify({'tiene_vencimientos': False})
             
         vencimientos = []
-        # Usar fecha de Bogotá en lugar de la fecha del servidor
-        fecha_actual = get_bogota_datetime().date()
-        print(f"Verificando vencimientos con fecha de Bogotá: {fecha_actual}")
+        # Usar fecha UTC en lugar de la fecha del servidor
+        fecha_actual = datetime.now(pytz.UTC).date()
+        print(f"Verificando vencimientos con fecha UTC: {fecha_actual}")
         
         # Verificar cada tipo de vencimiento
         if ultimo_registro['fecha_vencimiento_licencia']:
@@ -1849,27 +1857,26 @@ def verificar_registro_preoperacional():
             
         cursor = connection.cursor(dictionary=True)
         
-        # Verificar si existe registro para el día actual en zona horaria de Bogotá
-        fecha_actual = get_bogota_datetime().date()
-        print(f"Verificando registro preoperacional para fecha Bogotá: {fecha_actual}")
+        # Verificar si existe registro para el día actual en UTC
+        fecha_actual_utc = datetime.now(pytz.UTC).date()
+        print(f"Verificando registro preoperacional para fecha UTC: {fecha_actual_utc}")
         
         cursor.execute("""
             SELECT COUNT(*) as count, 
                    MAX(fecha) as ultimo_registro
             FROM preoperacional 
             WHERE id_codigo_consumidor = %s 
-            AND DATE(CONVERT_TZ(fecha, '+00:00', '-05:00')) = %s
-        """, (session.get('user_id'), fecha_actual))
+            AND DATE(fecha) = %s
+        """, (session.get('user_id'), fecha_actual_utc))
         
         resultado = cursor.fetchone()
         tiene_registro = resultado['count'] > 0
         ultimo_registro = resultado['ultimo_registro']
         
-        # Convertir el último registro a zona horaria de Bogotá si existe
+        # Mantener el último registro en UTC
         ultimo_registro_str = None
         if ultimo_registro:
-            ultimo_registro_bogota = convert_to_bogota_time(ultimo_registro)
-            ultimo_registro_str = ultimo_registro_bogota.strftime('%Y-%m-%d %H:%M:%S')
+            ultimo_registro_str = ultimo_registro.strftime('%Y-%m-%d %H:%M:%S')
         
         cursor.close()
         connection.close()
@@ -1877,8 +1884,9 @@ def verificar_registro_preoperacional():
         return jsonify({
             'tiene_registro': tiene_registro,
             'ultimo_registro': ultimo_registro_str,
-            'fecha_actual': fecha_actual.strftime('%Y-%m-%d'),
-            'hora_bogota': get_bogota_datetime().strftime('%H:%M:%S')
+            'fecha_actual': fecha_actual_utc.strftime('%Y-%m-%d'),
+            'hora_utc': datetime.now(pytz.UTC).strftime('%H:%M:%S'),
+            'es_utc': True
         })
         
     except Error as e:
@@ -3864,7 +3872,33 @@ def obtener_detalle_asignacion(id):
         
         imagen_result = cursor.fetchone()
         imagen_path = imagen_result['descripcion'] if imagen_result else None
-        imagen_url = url_for('static', filename=imagen_path) if imagen_path else None
+        
+        # Depuración detallada de la ruta de la imagen
+        app.logger.info(f"Imagen path desde BD: {imagen_path}")
+        
+        if imagen_path:
+            # Verificar si el archivo existe físicamente
+            ruta_completa = os.path.join(app.root_path, 'static', imagen_path)
+            app.logger.info(f"Ruta completa del archivo: {ruta_completa}")
+            existe_archivo = os.path.exists(ruta_completa)
+            app.logger.info(f"¿Existe el archivo?: {existe_archivo}")
+            
+            # Construir URL
+            imagen_url = url_for('static', filename=imagen_path)
+            app.logger.info(f"URL generada: {imagen_url}")
+            
+            # Verificar si la ruta en la BD incluye 'uploads/asignacion'
+            if not imagen_path.startswith('uploads/asignacion') and existe_archivo:
+                app.logger.warning(f"La ruta de la imagen no tiene el formato esperado: {imagen_path}")
+                # Intentar corregir la ruta si es necesario
+                if os.path.basename(imagen_path).startswith('asignacion_'):
+                    nuevo_path = os.path.join('uploads', 'asignacion', os.path.basename(imagen_path))
+                    app.logger.info(f"Ruta corregida: {nuevo_path}")
+                    imagen_url = url_for('static', filename=nuevo_path)
+                    app.logger.info(f"URL corregida: {imagen_url}")
+        else:
+            imagen_url = None
+            app.logger.info("No se encontró imagen para esta asignación")
         
         info_basica = {
             'tecnico': asignacion['nombre'],
@@ -5984,10 +6018,10 @@ def obtener_indicadores_cumplimiento():
                     'error': 'Formato de fecha inválido. Use YYYY-MM-DD'
                 }), 400
         else:
-            # Si no se proporcionan fechas, usar la fecha actual
-            fecha_actual = get_bogota_datetime().date()
+            # Si no se proporcionan fechas, usar la fecha actual en UTC
+            fecha_actual = datetime.now(pytz.UTC).date()
             fecha_inicio = fecha_fin = fecha_actual
-            print(f"Usando fecha actual: {fecha_actual}")
+            print(f"Usando fecha actual UTC: {fecha_actual}")
         
         connection = get_db_connection()
         if connection is None:
