@@ -1,0 +1,1418 @@
+{% extends "base.html" %}
+{% block title %}Estadísticas de Material Ferretero{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Estadísticas de Material Ferretero</h1>
+    <ol class="breadcrumb mb-4">
+       <!-- <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('ver_asignaciones_ferretero') }}">Material Ferretero</a></li>
+        <li class="breadcrumb-item active">Estadísticas</li>-->
+    </ol>
+    
+    <!-- Filtros para estadísticas -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <i class="fas fa-filter me-1"></i>
+            Filtros de Estadísticas
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label for="filtroMes" class="form-label">Mes</label>
+                    <select class="form-select" id="filtroMes">
+                        <option value="todos">Todos los meses</option>
+                        <option value="1">Enero</option>
+                        <option value="2">Febrero</option>
+                        <option value="3">Marzo</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Mayo</option>
+                        <option value="6">Junio</option>
+                        <option value="7">Julio</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Septiembre</option>
+                        <option value="10">Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="filtroMaterial" class="form-label">Material</label>
+                    <select class="form-select" id="filtroMaterial">
+                        <option value="todos">Todos los materiales</option>
+                        <option value="silicona">Silicona</option>
+                        <option value="amarres">Amarres</option>
+                        <option value="cinta">Cinta Aislante</option>
+                        <option value="grapas">Grapas</option>
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label for="filtroArea" class="form-label">Área</label>
+                    <select class="form-select" id="filtroArea">
+                        <option value="todos">Todas las áreas</option>
+                        <option value="FTTH Instalaciones">FTTH Instalaciones</option>
+                        <option value="Instalaciones Dobles">Instalaciones Dobles</option>
+                        <option value="Postventa">Postventa</option>
+                        <option value="Mantenimiento FTTH">Mantenimiento FTTH</option>
+                        <option value="Arreglos HFC">Arreglos HFC</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-12 text-end">
+                    <button type="button" class="btn btn-primary" id="btnActualizarEstadisticas">
+                        <i class="fas fa-sync-alt me-1"></i> Actualizar Estadísticas
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnExportarExcel">
+                        <i class="fas fa-file-excel me-1"></i> Exportar a Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stock General de Material Ferretero -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <i class="fas fa-warehouse me-1"></i>
+            Stock General de Material Ferretero
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-12 text-end">
+                    <button type="button" class="btn btn-primary" id="btnActualizarStock">
+                        <i class="fas fa-sync-alt me-1"></i> Actualizar Stock
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnRegistrarEntrada" data-bs-toggle="modal" data-bs-target="#modalRegistrarEntrada">
+                        <i class="fas fa-plus me-1"></i> Registrar Entrada
+                    </button>
+                    <button type="button" class="btn btn-warning" id="btnTransferirSuministro" data-bs-toggle="modal" data-bs-target="#modalTransferirSuministro">
+                        <i class="fas fa-exchange-alt me-1"></i> Transferir desde Suministros
+                    </button>
+                    <button type="button" class="btn btn-info" id="btnVerMovimientos" data-bs-toggle="modal" data-bs-target="#modalMovimientos">
+                        <i class="fas fa-history me-1"></i> Ver Movimientos
+                    </button>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Material</th>
+                                    <th>Stock Actual</th>
+                                    <th>Stock Mínimo</th>
+                                    <th>Estado</th>
+                                    <th>Última Actualización</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaStockBody">
+                                <tr>
+                                    <td colspan="5" class="text-center">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Cargando...</span>
+                                        </div>
+                                        <p class="mt-2">Cargando stock...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <i class="fas fa-chart-line me-1"></i>
+                            Asignado Este Mes
+                        </div>
+                        <div class="card-body">
+                            <div id="asignadoMesActual">
+                                <div class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Cargando...</span>
+                                    </div>
+                                    <p class="mt-2">Cargando datos...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Resumen de Inventario -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <i class="fas fa-calculator me-1"></i>
+            Resumen de Inventario y Cálculos
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Material</th>
+                            <th>Total Recibido</th>
+                            <th>Total Asignado</th>
+                            <th>Stock Actual</th>
+                            <th>Diferencia Teórica</th>
+                            <th>Diferencia Real</th>
+                            <th>Valor Entradas</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaResumenInventario">
+                        <tr>
+                            <td colspan="8" class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2">Cargando resumen de inventario...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Resumen de Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-chart-bar me-1"></i>
+                    Estadísticas por Técnico
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Técnico</th>
+                                    <th>Área</th>
+                                    <th>Silicona</th>
+                                    <th>Amarres</th>
+                                    <th>Cinta</th>
+                                    <th>Grapas</th>
+                                    <th>Total</th>
+                                    <th>Promedio Mensual</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaEstadisticasBody">
+                                <tr>
+                                    <td colspan="8" class="text-center">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Cargando...</span>
+                                        </div>
+                                        <p class="mt-2">Cargando estadísticas...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <i class="fas fa-trophy me-1"></i>
+                            Top 5 Técnicos con Mayor Asignación
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Técnico</th>
+                                        <th>Total</th>
+                                        <th>Porcentaje</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="topTecnicosBody">
+                                    <!-- Contenido dinámico -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <i class="fas fa-chart-pie me-1"></i>
+                            Distribución por Área
+                        </div>
+                        <div class="card-body">
+                            <canvas id="graficoDistribucion"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Variable global para el gráfico de distribución
+    let graficoDistribucion = null;
+    
+    // Función para cargar las estadísticas al cargar la página
+    document.addEventListener('DOMContentLoaded', function() {
+        cargarEstadisticasFerretero();
+        
+        // Eventos para los filtros
+        document.getElementById('btnActualizarEstadisticas').addEventListener('click', cargarEstadisticasFerretero);
+        document.getElementById('btnExportarExcel').addEventListener('click', exportarEstadisticasExcel);
+    });
+    
+    // Función para cargar las estadísticas de asignación de ferretero
+    function cargarEstadisticasFerretero() {
+        const filtroMes = document.getElementById('filtroMes').value;
+        const filtroMaterial = document.getElementById('filtroMaterial').value;
+        const filtroArea = document.getElementById('filtroArea').value;
+        
+        // Mostrar indicador de carga
+        document.getElementById('tablaEstadisticasBody').innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-2">Cargando estadísticas...</p>
+                </td>
+            </tr>
+        `;
+        
+        // Limpiar el top 5 y el gráfico mientras se carga
+        document.getElementById('topTecnicosBody').innerHTML = '';
+        if (graficoDistribucion) {
+            graficoDistribucion.destroy();
+        }
+        
+        // Realizar la petición al servidor
+        fetch(`/logistica/estadisticas_ferretero?mes=${filtroMes}&material=${filtroMaterial}&area=${filtroArea}`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                if (data.message && data.estadisticas.length === 0) {
+                    // Mostrar mensaje cuando no hay datos
+                    document.getElementById('tablaEstadisticasBody').innerHTML = `
+                        <tr>
+                            <td colspan="8" class="text-center">
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    ${data.message}
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    
+                    // Limpiar el top 5 y el gráfico
+                    document.getElementById('topTecnicosBody').innerHTML = `
+                        <div class="alert alert-warning text-center">
+                            <i class="fas fa-users me-2"></i>
+                            No hay datos disponibles para mostrar el top de técnicos.
+                        </div>
+                    `;
+                    
+                    // Mostrar gráfico vacío
+                    generarGraficoDistribucion([], []);
+                } else {
+                    // Llenar la tabla de estadísticas
+                    llenarTablaEstadisticas(data.estadisticas);
+                    
+                    // Llenar el top 5 de técnicos
+                    llenarTopTecnicos(data.top_tecnicos);
+                    
+                    // Generar el gráfico de distribución por área
+                    generarGraficoDistribucion(
+                        data.distribucion_area.map(item => item.area),
+                        data.distribucion_area.map(item => item.total)
+                    );
+                }
+            } else {
+                // Mostrar mensaje de error
+                document.getElementById('tablaEstadisticasBody').innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                ${data.message || 'Error al cargar los datos.'}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar estadísticas:', error);
+            document.getElementById('tablaEstadisticasBody').innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Error al cargar los datos. Por favor, intenta de nuevo.
+                    </td>
+                </tr>
+            `;
+        });
+    }
+    
+    // Función para llenar la tabla de estadísticas
+    function llenarTablaEstadisticas(estadisticas) {
+        const tbody = document.getElementById('tablaEstadisticasBody');
+        tbody.innerHTML = '';
+        
+        if (estadisticas.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center">
+                        No se encontraron datos para los filtros seleccionados.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        estadisticas.forEach(item => {
+            const fila = document.createElement('tr');
+            
+            // Destacar los técnicos con asignaciones por encima del promedio
+            if (item.por_encima_promedio) {
+                fila.classList.add('table-warning');
+            }
+            
+            // Si está muy por encima del promedio (>50%), destacar más
+            if (item.muy_por_encima_promedio) {
+                fila.classList.add('table-danger');
+            }
+            
+            fila.innerHTML = `
+                <td>${item.nombre}</td>
+                <td>${item.area || 'No especificada'}</td>
+                <td>${item.silicona || 0}</td>
+                <td>${(item.amarres_negros || 0) + (item.amarres_blancos || 0)}</td>
+                <td>${item.cinta_aislante || 0}</td>
+                <td>${(item.grapas_blancas || 0) + (item.grapas_negras || 0)}</td>
+                <td><strong>${item.total_asignaciones || 0}</strong></td>
+                <td>${item.promedio_mensual ? item.promedio_mensual.toFixed(2) : '0.00'}</td>
+            `;
+            
+            tbody.appendChild(fila);
+        });
+    }
+    
+    // Función para llenar el top 5 de técnicos
+    function llenarTopTecnicos(topTecnicos) {
+        const tbody = document.getElementById('topTecnicosBody');
+        tbody.innerHTML = '';
+        
+        if (!topTecnicos || topTecnicos.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center">
+                        No hay datos disponibles para mostrar el top de técnicos.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        topTecnicos.forEach(tecnico => {
+            const fila = document.createElement('tr');
+            fila.innerHTML = `
+                <td>${tecnico.nombre}</td>
+                <td>${tecnico.total_asignaciones}</td>
+                <td>
+                    <div class="progress">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: ${tecnico.porcentaje}%" 
+                            aria-valuenow="${tecnico.porcentaje}" aria-valuemin="0" aria-valuemax="100">
+                            ${tecnico.porcentaje}%
+                        </div>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(fila);
+        });
+    }
+    
+    // Función para generar el gráfico de distribución por área
+    function generarGraficoDistribucion(labels, data) {
+        const ctx = document.getElementById('graficoDistribucion').getContext('2d');
+        
+        // Destruir el gráfico anterior si existe
+        if (graficoDistribucion) {
+            graficoDistribucion.destroy();
+        }
+        
+        // Colores para el gráfico
+        const backgroundColors = [
+            '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
+            '#5a5c69', '#6f42c1', '#fd7e14', '#20c997', '#6c757d'
+        ];
+        
+        // Crear el nuevo gráfico
+        graficoDistribucion = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels.length > 0 ? labels : ['Sin datos'],
+                datasets: [{
+                    data: data.length > 0 ? data : [1],
+                    backgroundColor: backgroundColors,
+                    hoverBackgroundColor: backgroundColors,
+                    hoverBorderColor: "rgba(234, 236, 244, 1)",
+                }],
+            },
+            options: {
+                maintainAspectRatio: false,
+                tooltips: {
+                    backgroundColor: "rgb(255,255,255)",
+                    bodyFontColor: "#858796",
+                    borderColor: '#dddfeb',
+                    borderWidth: 1,
+                    xPadding: 15,
+                    yPadding: 15,
+                    displayColors: false,
+                    caretPadding: 10,
+                },
+                legend: {
+                    display: true,
+                    position: 'bottom'
+                },
+                cutoutPercentage: 0,
+            },
+        });
+    }
+    
+    // Función para exportar estadísticas a Excel
+    function exportarEstadisticasExcel() {
+        const filtroMes = document.getElementById('filtroMes').value;
+        const filtroMaterial = document.getElementById('filtroMaterial').value;
+        const filtroArea = document.getElementById('filtroArea').value;
+        
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: 'Generando Excel',
+            text: 'Por favor espere mientras se genera el archivo...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Realizar la petición al servidor
+        fetch(`/logistica/exportar_estadisticas_ferretero?mes=${filtroMes}&material=${filtroMaterial}&area=${filtroArea}`, {
+            method: 'GET',
+            credentials: 'include'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            // Crear un objeto URL para el blob
+            const url = window.URL.createObjectURL(blob);
+            
+            // Crear un elemento <a> para descargar el archivo
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            
+            // Obtener el nombre del archivo de las cabeceras de respuesta o usar uno predeterminado
+            const contentDisposition = response.headers.get('content-disposition');
+            let filename = 'Estadisticas_Ferretero.xlsx';
+            
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="(.+)"/i);
+                if (filenameMatch && filenameMatch[1]) {
+                    filename = filenameMatch[1];
+                }
+            }
+            
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Limpiar
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Excel Generado',
+                text: 'El archivo se ha descargado correctamente.',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        })
+        .catch(error => {
+            console.error('Error al exportar a Excel:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'No se pudo generar el archivo Excel. Por favor, intente nuevamente.',
+            });
+        });
+    }
+    
+    // ===== FUNCIONES PARA GESTIÓN DE STOCK =====
+    
+    // Cargar stock al cargar la página
+    document.addEventListener('DOMContentLoaded', function() {
+        cargarStockFerretero();
+        
+        // Eventos para stock
+        document.getElementById('btnActualizarStock').addEventListener('click', cargarStockFerretero);
+        document.getElementById('btnGuardarEntrada').addEventListener('click', registrarEntradaFerretero);
+        document.getElementById('btnTransferirSuministro').addEventListener('click', function() {
+            cargarSuministrosDisponibles();
+        });
+        document.getElementById('btnCargarMovimientos').addEventListener('click', cargarMovimientosFerretero);
+    });
+    
+    // Función para cargar el stock de material ferretero
+    function cargarStockFerretero() {
+        fetch('/logistica/stock_ferretero', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                llenarTablaStock(data.stock);
+                mostrarAsignadoMesActual(data.asignado_mes_actual);
+                mostrarResumenInventario(data.resumen_inventario);
+            } else {
+                document.getElementById('tablaStockBody').innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                ${data.message || 'Error al cargar el stock.'}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar stock:', error);
+            document.getElementById('tablaStockBody').innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center">
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            Error al cargar el stock. Por favor, intente nuevamente.
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+    
+    // Función para llenar la tabla de stock
+    function llenarTablaStock(stock) {
+        const tbody = document.getElementById('tablaStockBody');
+        tbody.innerHTML = '';
+        
+        if (stock.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center">
+                        No hay datos de stock disponibles.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        const materialNames = {
+            'silicona': 'Silicona',
+            'amarres_negros': 'Amarres Negros',
+            'amarres_blancos': 'Amarres Blancos',
+            'cinta_aislante': 'Cinta Aislante',
+            'grapas_blancas': 'Grapas Blancas',
+            'grapas_negras': 'Grapas Negras'
+        };
+        
+        stock.forEach(item => {
+            const fila = document.createElement('tr');
+            
+            // Determinar estado del stock
+            let estadoClass = 'success';
+            let estadoTexto = 'Normal';
+            let estadoIcon = 'check-circle';
+            
+            if (item.cantidad_actual <= item.cantidad_minima) {
+                estadoClass = 'danger';
+                estadoTexto = 'Stock Bajo';
+                estadoIcon = 'exclamation-triangle';
+            } else if (item.cantidad_actual <= item.cantidad_minima * 1.5) {
+                estadoClass = 'warning';
+                estadoTexto = 'Stock Medio';
+                estadoIcon = 'exclamation-circle';
+            }
+            
+            const fechaActualizacion = new Date(item.ultima_actualizacion).toLocaleString('es-CO');
+            
+            fila.innerHTML = `
+                <td>${materialNames[item.material_tipo] || item.material_tipo}</td>
+                <td><strong>${item.cantidad_actual}</strong></td>
+                <td>${item.cantidad_minima}</td>
+                <td>
+                    <span class="badge bg-${estadoClass}">
+                        <i class="fas fa-${estadoIcon} me-1"></i>
+                        ${estadoTexto}
+                    </span>
+                </td>
+                <td>${fechaActualizacion}</td>
+            `;
+            
+            tbody.appendChild(fila);
+        });
+    }
+    
+    // Función para mostrar material asignado en el mes actual
+    function mostrarAsignadoMesActual(asignado) {
+        const container = document.getElementById('asignadoMesActual');
+        
+        if (!asignado) {
+            container.innerHTML = `
+                <div class="alert alert-warning text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No hay asignaciones este mes.
+                </div>
+            `;
+            return;
+        }
+        
+        const materialNames = {
+            'total_silicona': 'Silicona',
+            'total_amarres_negros': 'Amarres Negros',
+            'total_amarres_blancos': 'Amarres Blancos',
+            'total_cinta_aislante': 'Cinta Aislante',
+            'total_grapas_blancas': 'Grapas Blancas',
+            'total_grapas_negras': 'Grapas Negras'
+        };
+        
+        let html = '<div class="row">';
+        
+        Object.keys(materialNames).forEach(key => {
+            const cantidad = asignado[key] || 0;
+            html += `
+                <div class="col-12 mb-2">
+                    <div class="d-flex justify-content-between">
+                        <span>${materialNames[key]}:</span>
+                        <strong>${cantidad}</strong>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+    
+    // Función para registrar entrada de material
+    function registrarEntradaFerretero() {
+        const formData = {
+            material_tipo: document.getElementById('materialTipo').value,
+            cantidad: document.getElementById('cantidadEntrada').value,
+            precio_unitario: document.getElementById('precioUnitario').value,
+            proveedor: document.getElementById('proveedor').value,
+            numero_factura: document.getElementById('numeroFactura').value,
+            observaciones: document.getElementById('observacionesEntrada').value
+        };
+        
+        // Validar campos requeridos
+        if (!formData.material_tipo || !formData.cantidad || !formData.precio_unitario) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Por favor complete todos los campos requeridos.'
+            });
+            return;
+        }
+        
+        fetch('/logistica/entradas_ferretero', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Éxito',
+                    text: data.message,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                
+                // Cerrar modal y limpiar formulario
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalRegistrarEntrada'));
+                modal.hide();
+                document.getElementById('formRegistrarEntrada').reset();
+                
+                // Recargar stock
+                cargarStockFerretero();
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.message || 'Error al registrar la entrada.'
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error al registrar entrada:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al registrar la entrada. Por favor, intente nuevamente.'
+            });
+        });
+    }
+    
+    // Función para cargar movimientos de stock
+    function cargarMovimientosFerretero() {
+        const material = document.getElementById('filtroMaterialMovimientos').value;
+        const fechaInicio = document.getElementById('fechaInicioMovimientos').value;
+        const fechaFin = document.getElementById('fechaFinMovimientos').value;
+        
+        let url = '/logistica/movimientos_ferretero?';
+        const params = new URLSearchParams();
+        
+        if (material) params.append('material', material);
+        if (fechaInicio) params.append('fecha_inicio', fechaInicio);
+        if (fechaFin) params.append('fecha_fin', fechaFin);
+        
+        url += params.toString();
+        
+        fetch(url, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                llenarTablaMovimientos(data.movimientos);
+            } else {
+                document.getElementById('tablaMovimientosBody').innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                ${data.message || 'Error al cargar los movimientos.'}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar movimientos:', error);
+            document.getElementById('tablaMovimientosBody').innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center">
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            Error al cargar los movimientos. Por favor, intente nuevamente.
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+    
+    // Función para llenar la tabla de movimientos
+    function llenarTablaMovimientos(movimientos) {
+        const tbody = document.getElementById('tablaMovimientosBody');
+        tbody.innerHTML = '';
+        
+        if (movimientos.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center">
+                        No se encontraron movimientos para los filtros seleccionados.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        const materialNames = {
+            'silicona': 'Silicona',
+            'amarres_negros': 'Amarres Negros',
+            'amarres_blancos': 'Amarres Blancos',
+            'cinta_aislante': 'Cinta Aislante',
+            'grapas_blancas': 'Grapas Blancas',
+            'grapas_negras': 'Grapas Negras'
+        };
+        
+        movimientos.forEach(movimiento => {
+            const fila = document.createElement('tr');
+            
+            // Determinar color según tipo de movimiento
+            let tipoClass = movimiento.tipo_movimiento === 'entrada' ? 'success' : 'danger';
+            let tipoIcon = movimiento.tipo_movimiento === 'entrada' ? 'arrow-up' : 'arrow-down';
+            
+            const fechaMovimiento = new Date(movimiento.fecha_movimiento).toLocaleString('es-CO');
+            
+            fila.innerHTML = `
+                <td>${materialNames[movimiento.material_tipo] || movimiento.material_tipo}</td>
+                <td>
+                    <span class="badge bg-${tipoClass}">
+                        <i class="fas fa-${tipoIcon} me-1"></i>
+                        ${movimiento.tipo_movimiento.charAt(0).toUpperCase() + movimiento.tipo_movimiento.slice(1)}
+                    </span>
+                </td>
+                <td>${movimiento.cantidad}</td>
+                <td>${fechaMovimiento}</td>
+                <td>${movimiento.referencia_id || '-'}</td>
+                <td>${movimiento.observaciones || '-'}</td>
+            `;
+            
+            tbody.appendChild(fila);
+        });
+    }
+    
+    // ===== FUNCIONES PARA TRANSFERENCIA DESDE SUMINISTROS =====
+    
+    // Función para cargar suministros disponibles
+    function cargarSuministrosDisponibles() {
+        fetch('/logistica/suministros_ferretero', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                llenarSuministrosDisponibles(data.suministros);
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.message || 'Error al cargar suministros disponibles.'
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar suministros:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al cargar suministros disponibles. Por favor, intente nuevamente.'
+            });
+        });
+    }
+    
+    // Función para llenar la tabla de suministros disponibles
+    function llenarSuministrosDisponibles(suministros) {
+        const tbody = document.getElementById('tablaSuministrosBody');
+        tbody.innerHTML = '';
+        
+        if (suministros.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center">
+                        No hay suministros disponibles para transferir.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        suministros.forEach(suministro => {
+             const fila = document.createElement('tr');
+             
+             fila.innerHTML = `
+                 <td>
+                     <input type="radio" name="suministroSeleccionado" value="${suministro.id_suministros}" 
+                            data-nombre="${suministro.suministros_descripcion}" data-stock="${suministro.suministros_cantidad}">
+                 </td>
+                 <td>${suministro.suministros_descripcion}</td>
+                 <td>${suministro.suministros_codigo || '-'}</td>
+                 <td><strong>${suministro.suministros_cantidad}</strong></td>
+                 <td>Unidad</td>
+             `;
+             
+             tbody.appendChild(fila);
+         });
+        
+        // Agregar evento para actualizar cantidad máxima
+        document.querySelectorAll('input[name="suministroSeleccionado"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const stockDisponible = this.getAttribute('data-stock');
+                const cantidadInput = document.getElementById('cantidadTransferir');
+                cantidadInput.max = stockDisponible;
+                cantidadInput.value = '';
+                cantidadInput.placeholder = `Máximo: ${stockDisponible}`;
+            });
+        });
+    }
+    
+    // Función para procesar la transferencia
+    function procesarTransferencia() {
+        const suministroSeleccionado = document.querySelector('input[name="suministroSeleccionado"]:checked');
+        const cantidad = document.getElementById('cantidadTransferir').value;
+        const materialDestino = document.getElementById('materialDestinoFerretero').value;
+        const observaciones = document.getElementById('observacionesTransferencia').value;
+        
+        // Validaciones
+        if (!suministroSeleccionado) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Por favor seleccione un suministro.'
+            });
+            return;
+        }
+        
+        if (!cantidad || cantidad <= 0) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Por favor ingrese una cantidad válida.'
+            });
+            return;
+        }
+        
+        if (!materialDestino) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Por favor seleccione el material de destino.'
+            });
+            return;
+        }
+        
+        const stockDisponible = parseInt(suministroSeleccionado.getAttribute('data-stock'));
+        if (parseInt(cantidad) > stockDisponible) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: `La cantidad no puede ser mayor al stock disponible (${stockDisponible}).`
+            });
+            return;
+        }
+        
+        const formData = {
+             id_suministro: suministroSeleccionado.value,
+             cantidad: parseInt(cantidad),
+             material_tipo: materialDestino,
+             observaciones: observaciones
+         };
+        
+        fetch('/logistica/transferir_suministro_ferretero', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Éxito',
+                    text: data.message,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                
+                // Cerrar modal y limpiar formulario
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalTransferirSuministro'));
+                modal.hide();
+                document.getElementById('formTransferirSuministro').reset();
+                
+                // Recargar stock
+                cargarStockFerretero();
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.message || 'Error al procesar la transferencia.'
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error al procesar transferencia:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Error al procesar la transferencia. Por favor, intente nuevamente.'
+            });
+        });
+    }
+
+    // Función para mostrar el resumen de inventario
+    function mostrarResumenInventario(resumenInventario) {
+        const tbody = document.getElementById('tablaResumenInventario');
+        tbody.innerHTML = '';
+        
+        if (!resumenInventario || resumenInventario.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center">
+                        <div class="alert alert-warning">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No hay datos de inventario disponibles.
+                        </div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        const materialNames = {
+            'silicona': 'Silicona',
+            'amarres_negros': 'Amarres Negros',
+            'amarres_blancos': 'Amarres Blancos',
+            'cinta_aislante': 'Cinta Aislante',
+            'grapas_blancas': 'Grapas Blancas',
+            'grapas_negras': 'Grapas Negras'
+        };
+        
+        resumenInventario.forEach(item => {
+            const fila = document.createElement('tr');
+            
+            // Determinar clase de estado
+            let estadoClass = 'success';
+            let estadoTexto = item.estado_stock;
+            
+            if (item.estado_stock === 'Crítico') {
+                estadoClass = 'danger';
+            } else if (item.diferencia_real !== 0) {
+                estadoClass = 'warning';
+                estadoTexto = 'Diferencia';
+            }
+            
+            // Formatear valores monetarios
+            const valorEntradas = new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP'
+            }).format(item.valor_entradas || 0);
+            
+            // Formatear fecha de última entrada
+            const ultimaEntrada = item.ultima_entrada ? 
+                new Date(item.ultima_entrada).toLocaleDateString('es-CO') : 'N/A';
+            
+            fila.innerHTML = `
+                <td>
+                    <strong>${materialNames[item.material_tipo] || item.material_tipo}</strong>
+                    <br><small class="text-muted">Última entrada: ${ultimaEntrada}</small>
+                </td>
+                <td>
+                    <span class="badge bg-primary">${item.total_recibido}</span>
+                    <br><small class="text-muted">${item.numero_entradas} entradas</small>
+                </td>
+                <td>
+                    <span class="badge bg-secondary">${item.total_asignado}</span>
+                </td>
+                <td>
+                    <span class="badge bg-info">${item.stock_actual}</span>
+                    <br><small class="text-muted">Mín: ${item.stock_minimo}</small>
+                </td>
+                <td>
+                    <span class="badge ${item.diferencia_teorica >= 0 ? 'bg-success' : 'bg-danger'}">
+                        ${item.diferencia_teorica >= 0 ? '+' : ''}${item.diferencia_teorica}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge ${item.diferencia_real === 0 ? 'bg-success' : 'bg-warning'}">
+                        ${item.diferencia_real >= 0 ? '+' : ''}${item.diferencia_real}
+                    </span>
+                </td>
+                <td>
+                    <strong>${valorEntradas}</strong>
+                </td>
+                <td>
+                    <span class="badge bg-${estadoClass}">
+                        <i class="fas fa-${item.estado_stock === 'Crítico' ? 'exclamation-triangle' : 'check-circle'} me-1"></i>
+                        ${estadoTexto}
+                    </span>
+                </td>
+            `;
+            
+            tbody.appendChild(fila);
+        });
+    }
+</script>
+
+<!-- Modal para Registrar Entrada -->
+<div class="modal fade" id="modalRegistrarEntrada" tabindex="-1" aria-labelledby="modalRegistrarEntradaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalRegistrarEntradaLabel">
+                    <i class="fas fa-plus me-2"></i>Registrar Entrada de Material
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formRegistrarEntrada">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="materialTipo" class="form-label">Material *</label>
+                            <select class="form-select" id="materialTipo" required>
+                                <option value="">Seleccione un material</option>
+                                <option value="silicona">Silicona</option>
+                                <option value="amarres_negros">Amarres Negros</option>
+                                <option value="amarres_blancos">Amarres Blancos</option>
+                                <option value="cinta_aislante">Cinta Aislante</option>
+                                <option value="grapas_blancas">Grapas Blancas</option>
+                                <option value="grapas_negras">Grapas Negras</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="cantidadEntrada" class="form-label">Cantidad *</label>
+                            <input type="number" class="form-control" id="cantidadEntrada" min="1" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="precioUnitario" class="form-label">Precio Unitario *</label>
+                            <input type="number" class="form-control" id="precioUnitario" step="0.01" min="0" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="proveedor" class="form-label">Proveedor</label>
+                            <input type="text" class="form-control" id="proveedor">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="numeroFactura" class="form-label">Número de Factura</label>
+                            <input type="text" class="form-control" id="numeroFactura">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="observacionesEntrada" class="form-label">Observaciones</label>
+                            <textarea class="form-control" id="observacionesEntrada" rows="2"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btnGuardarEntrada">
+                    <i class="fas fa-save me-1"></i>Guardar Entrada
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Transferir desde Suministros -->
+<div class="modal fade" id="modalTransferirSuministro" tabindex="-1" aria-labelledby="modalTransferirSuministroLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTransferirSuministroLabel">
+                    <i class="fas fa-exchange-alt me-2"></i>Transferir desde Suministros
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formTransferirSuministro">
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <h6 class="text-primary">Seleccionar Suministro</h6>
+                            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th width="50">Seleccionar</th>
+                                            <th>Nombre</th>
+                                            <th>Descripción</th>
+                                            <th>Stock</th>
+                                            <th>Unidad</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaSuministrosBody">
+                                        <tr>
+                                            <td colspan="5" class="text-center">
+                                                <div class="spinner-border text-primary" role="status">
+                                                    <span class="visually-hidden">Cargando...</span>
+                                                </div>
+                                                <p class="mt-2">Cargando suministros...</p>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="cantidadTransferir" class="form-label">Cantidad a Transferir *</label>
+                            <input type="number" class="form-control" id="cantidadTransferir" min="1" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="materialDestinoFerretero" class="form-label">Material Destino *</label>
+                            <select class="form-select" id="materialDestinoFerretero" required>
+                                <option value="">Seleccione destino</option>
+                                <option value="silicona">Silicona</option>
+                                <option value="amarres_negros">Amarres Negros</option>
+                                <option value="amarres_blancos">Amarres Blancos</option>
+                                <option value="cinta_aislante">Cinta Aislante</option>
+                                <option value="grapas_blancas">Grapas Blancas</option>
+                                <option value="grapas_negras">Grapas Negras</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="observacionesTransferencia" class="form-label">Observaciones</label>
+                            <textarea class="form-control" id="observacionesTransferencia" rows="2"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" onclick="procesarTransferencia()">
+                    <i class="fas fa-exchange-alt me-1"></i>Procesar Transferencia
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Ver Movimientos -->
+<div class="modal fade" id="modalMovimientos" tabindex="-1" aria-labelledby="modalMovimientosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalMovimientosLabel">
+                    <i class="fas fa-history me-2"></i>Movimientos de Stock
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Filtros para movimientos -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="filtroMaterialMovimientos" class="form-label">Material</label>
+                        <select class="form-select" id="filtroMaterialMovimientos">
+                            <option value="todos">Todos los materiales</option>
+                            <option value="silicona">Silicona</option>
+                            <option value="amarres_negros">Amarres Negros</option>
+                            <option value="amarres_blancos">Amarres Blancos</option>
+                            <option value="cinta_aislante">Cinta Aislante</option>
+                            <option value="grapas_blancas">Grapas Blancas</option>
+                            <option value="grapas_negras">Grapas Negras</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fechaInicioMovimientos" class="form-label">Fecha Inicio</label>
+                        <input type="date" class="form-control" id="fechaInicioMovimientos">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fechaFinMovimientos" class="form-label">Fecha Fin</label>
+                        <input type="date" class="form-control" id="fechaFinMovimientos">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="button" class="btn btn-primary" id="btnCargarMovimientos">
+                            <i class="fas fa-search me-1"></i>Buscar
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Tabla de movimientos -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Material</th>
+                                <th>Tipo</th>
+                                <th>Cantidad</th>
+                                <th>Fecha</th>
+                                <th>Referencia</th>
+                                <th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaMovimientosBody">
+                            <tr>
+                                <td colspan="6" class="text-center">
+                                    <div class="text-muted">
+                                        <i class="fas fa-search me-2"></i>
+                                        Haga clic en "Buscar" para cargar los movimientos.
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
