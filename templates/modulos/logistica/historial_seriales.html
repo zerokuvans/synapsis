@@ -1,0 +1,1377 @@
+{% extends "base.html" %}
+
+{% block title %}Historial de Seriales{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-card {
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        margin-bottom: 1rem;
+    }
+    .search-card .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        font-weight: 600;
+    }
+    .file-upload-area {
+        border: 2px dashed #dee2e6;
+        border-radius: 0.375rem;
+        padding: 2rem;
+        text-align: center;
+        transition: border-color 0.15s ease-in-out;
+        cursor: pointer;
+    }
+    .file-upload-area:hover {
+        border-color: #0d6efd;
+        background-color: #f8f9fa;
+    }
+    .file-upload-area.dragover {
+        border-color: #28a745;
+        background-color: #d4edda;
+        transform: scale(1.02);
+    }
+    .results-table {
+        font-size: 0.875rem;
+    }
+    .loading-spinner {
+        display: none;
+    }
+    .file-upload-area-admin {
+        border: 2px dashed #ffc107;
+        border-radius: 0.375rem;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.15s ease-in-out;
+        cursor: pointer;
+        background-color: #fff9e6;
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .file-upload-area-admin:hover {
+        border-color: #ffb300;
+        background-color: #fff3cd;
+        transform: scale(1.01);
+    }
+    .file-upload-area-admin.dragover {
+        border-color: #28a745;
+        background-color: #d4edda;
+        transform: scale(1.02);
+    }
+    #uploadAreaSelected {
+        border: 2px solid #28a745;
+        background-color: #d4edda;
+    }
+    #uploadAreaSelectedMasivo {
+        border: 2px solid #28a745;
+        background-color: #d4edda;
+        border-radius: 0.375rem;
+        padding: 2rem;
+    }
+    .file-check-icon {
+        animation: checkBounce 0.6s ease-in-out;
+    }
+    @keyframes checkBounce {
+        0% { transform: scale(0); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+    #uploadAreaSelected:hover {
+        border-color: #1e7e34;
+        background-color: #c3e6cb;
+    }
+    .file-check-icon {
+        animation: checkmark 0.5s ease-in-out;
+    }
+    @keyframes checkmark {
+        0% {
+            transform: scale(0);
+            opacity: 0;
+        }
+        50% {
+            transform: scale(1.2);
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    .modal-lg {
+        max-width: 800px;
+    }
+    .progress {
+        height: 25px;
+    }
+    .progress-bar {
+        font-size: 14px;
+        line-height: 25px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-search me-2"></i>Historial de Seriales</h2>
+                <div class="d-flex align-items-center">
+                    <button type="button" class="btn btn-warning me-3" id="btnAdministracion" data-bs-toggle="modal" data-bs-target="#modalAdministracion">
+                        <i class="fas fa-cogs me-2"></i>Administración
+                    </button>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="/logistica">Logística</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">Historial de Seriales</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formularios de Búsqueda -->
+    <div class="row">
+        <!-- Búsqueda Individual -->
+        <div class="col-md-6">
+            <div class="card search-card">
+                <div class="card-header">
+                    <i class="fas fa-barcode me-2"></i>Búsqueda Individual
+                </div>
+                <div class="card-body">
+                    <form id="formBusquedaIndividual">
+                        <div class="mb-3">
+                            <label for="tipoConsulta" class="form-label">Tipo de Consulta</label>
+                            <select class="form-select" id="tipoConsulta" name="tipo_consulta" required>
+                                <option value="">Seleccione...</option>
+                                <option value="serial">Por Serial</option>
+                                <option value="cuenta_ot">Por Cuenta y OT</option>
+                            </select>
+                        </div>
+                        
+                        <div id="campoSerial" class="mb-3" style="display: none;">
+                            <label for="serial" class="form-label">Serial</label>
+                            <input type="text" class="form-control" id="serial" name="serial" placeholder="Ingrese el serial">
+                        </div>
+                        
+                        <div id="camposCuentaOT" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="cuenta" class="form-label">Cuenta</label>
+                                        <input type="text" class="form-control" id="cuenta" name="cuenta" placeholder="Ingrese la cuenta">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="ot" class="form-label">OT</label>
+                                        <input type="text" class="form-control" id="ot" name="ot" placeholder="Ingrese la OT">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-2"></i>Buscar
+                        </button>
+                        <button type="button" class="btn btn-secondary ms-2" id="btnLimpiarIndividual">
+                            <i class="fas fa-eraser me-2"></i>Limpiar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Búsqueda Masiva -->
+        <div class="col-md-6">
+            <div class="card search-card">
+                <div class="card-header">
+                    <i class="fas fa-file-upload me-2"></i>Búsqueda Masiva
+                </div>
+                <div class="card-body">
+                    <form id="formBusquedaMasiva" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="tipoConsultaMasiva" class="form-label">Tipo de Consulta Masiva</label>
+                            <select class="form-select" id="tipoConsultaMasiva" name="tipo_consulta_masiva" required>
+                                <option value="">Seleccione...</option>
+                                <option value="seriales">Lista de Seriales</option>
+                                <option value="cuentas">Lista de Cuentas</option>
+                                <option value="ot">Lista de OT</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Archivo de Datos</label>
+                            <div class="file-upload-area" id="fileUploadArea">
+                                <div id="uploadAreaDefaultMasivo">
+                                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                    <p class="mb-2">Arrastra y suelta tu archivo aquí o</p>
+                                    <input type="file" class="form-control" id="archivoMasivo" name="archivo_masivo" accept=".txt" style="display: none;">
+                                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('archivoMasivo').click()">
+                                        <i class="fas fa-folder-open me-2"></i>Seleccionar Archivo
+                                    </button>
+                                    <small class="form-text text-muted d-block mt-2">
+                                        Formato: archivo .txt con un elemento por línea
+                                    </small>
+                                </div>
+                                <div id="uploadAreaSelectedMasivo" style="display: none;">
+                                    <div class="text-center">
+                                        <i class="fas fa-file-check fa-4x text-success mb-3 file-check-icon"></i>
+                                        <h5 class="text-success mb-2">Archivo Seleccionado</h5>
+                                        <p class="mb-2 fw-bold" id="selectedFileNameMasivo"></p>
+                                        <div class="d-flex justify-content-center gap-2">
+                                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('archivoMasivo').click()">
+                                                <i class="fas fa-exchange-alt me-2"></i>Cambiar Archivo
+                                            </button>
+                                            <button type="button" class="btn btn-outline-danger btn-sm" id="btnRemoveFileMasivo">
+                                                <i class="fas fa-trash me-2"></i>Quitar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="archivoSeleccionado" class="mt-2" style="display: none;">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-file-alt me-2"></i>
+                                    <span id="nombreArchivo"></span>
+                                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="btnEliminarArchivo">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-search me-2"></i>Consultar Masivamente
+                        </button>
+                        <button type="button" class="btn btn-secondary ms-2" id="btnLimpiarMasivo">
+                            <i class="fas fa-eraser me-2"></i>Limpiar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Área de Resultados -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-table me-2"></i>Resultados de Búsqueda
+                    </h5>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-success" id="btnExportarExcel" style="display: none;">
+                            <i class="fas fa-file-excel me-2"></i>Exportar a Excel
+                        </button>
+                        <div class="spinner-border spinner-border-sm text-primary loading-spinner" role="status" id="loadingSpinner">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="mensajeResultados" class="alert alert-info" style="display: none;">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Realice una búsqueda para ver los resultados.
+                    </div>
+                    
+                    <div id="estadisticasResultados" style="display: none;">
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="totalRegistros">0</h4>
+                                        <small>Total Registros</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="serialesUnicos">0</h4>
+                                        <small>Seriales Únicos</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-info text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="cuentasUnicas">0</h4>
+                                        <small>Cuentas Únicas</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card bg-warning text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="otUnicas">0</h4>
+                                        <small>OT Únicas</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive" id="tablaResultados" style="display: none;">
+                        <table class="table table-striped table-hover results-table" id="tablaHistorial">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Serial</th>
+                                    <th>Fecha</th>
+                                    <th>Estado</th>
+                                    <th>OT</th>
+                                    <th>Cuenta</th>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaHistorialBody">
+                                <!-- Los datos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Administración -->
+<div class="modal fade" id="modalAdministracion" tabindex="-1" aria-labelledby="modalAdministracionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="modalAdministracionLabel">
+                    <i class="fas fa-cogs me-2"></i>Administración - Carga de Datos QRY
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Información:</strong> Esta función permite cargar datos masivamente a la tabla QRY.
+                    Asegúrese de que el archivo tenga el formato correcto.
+                </div>
+                
+                <form id="formCargaQry" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="archivoQry" class="form-label">Archivo de Datos</label>
+                        <div class="file-upload-area-admin" id="fileUploadAreaAdmin">
+                            <div id="uploadAreaDefault">
+                                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                <p class="mb-2">Arrastra y suelta tu archivo aquí o</p>
+                                <input type="file" class="form-control" id="archivoQry" name="archivo_qry" accept=".csv,.xlsx,.xls" style="display: none;">
+                                <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('archivoQry').click()">
+                                    <i class="fas fa-folder-open me-2"></i>Seleccionar Archivo
+                                </button>
+                                <small class="form-text text-muted d-block mt-2">
+                                    Formatos soportados: CSV, Excel (.xlsx, .xls)<br>
+                                    Columnas requeridas: serial, fecha, estado, ot, cuenta, codigo, descripcion
+                                </small>
+                            </div>
+                            <div id="uploadAreaSelected" style="display: none;">
+                                 <div class="text-center">
+                                     <i class="fas fa-file-check fa-4x text-success mb-3 file-check-icon"></i>
+                                     <h5 class="text-success mb-2">Archivo Seleccionado</h5>
+                                     <p class="mb-2 fw-bold" id="selectedFileName"></p>
+                                     <div class="d-flex justify-content-center gap-2">
+                                         <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('archivoQry').click()">
+                                             <i class="fas fa-exchange-alt me-2"></i>Cambiar Archivo
+                                         </button>
+                                         <button type="button" class="btn btn-outline-danger btn-sm" id="btnRemoveFileQry">
+                                             <i class="fas fa-trash me-2"></i>Quitar
+                                         </button>
+                                     </div>
+                                 </div>
+                             </div>
+                        </div>
+                        <div id="archivoQrySeleccionado" class="mt-2" style="display: none;">
+                            <div class="alert alert-success">
+                                <i class="fas fa-file-alt me-2"></i>
+                                <span id="nombreArchivoQry"></span>
+                                <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="btnEliminarArchivoQry">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="validarDatos" checked>
+                            <label class="form-check-label" for="validarDatos">
+                                Validar datos antes de insertar
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="actualizarExistentes">
+                            <label class="form-check-label" for="actualizarExistentes">
+                                Actualizar registros existentes (basado en serial)
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Área de progreso -->
+                    <div id="areaProgreso" style="display: none;">
+                        <div class="mb-3">
+                            <label class="form-label">Progreso de carga:</label>
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     id="barraProgreso" role="progressbar" style="width: 0%" 
+                                     aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                            </div>
+                        </div>
+                        <div id="estadoCarga" class="text-muted">
+                            <i class="fas fa-spinner fa-spin me-2"></i>Preparando carga...
+                        </div>
+                    </div>
+                    
+                    <!-- Área de resultados -->
+                    <div id="resultadosCarga" style="display: none;">
+                        <div class="alert" id="alertaResultados">
+                            <div id="contenidoResultados"></div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnCerrarModal">
+                    <i class="fas fa-times me-2"></i>Cerrar
+                </button>
+                <button type="button" class="btn btn-success" id="btnIniciarCarga">
+                    <i class="fas fa-upload me-2"></i>Iniciar Carga
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Variable global para almacenar todos los datos de búsqueda
+let datosCompletos = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Verificar que todos los elementos existan antes de inicializar
+    const elementosRequeridos = [
+        'mensajeResultados', 'tipoConsulta', 'campoSerial', 'camposCuentaOT',
+        'formBusquedaIndividual', 'formBusquedaMasiva', 'archivoMasivo',
+        'btnLimpiarIndividual', 'btnLimpiarMasivo', 'btnExportarExcel'
+    ];
+    
+    let todosElementosExisten = true;
+    elementosRequeridos.forEach(id => {
+        if (!document.getElementById(id)) {
+            console.error(`Elemento no encontrado: ${id}`);
+            todosElementosExisten = false;
+        }
+    });
+    
+    if (!todosElementosExisten) {
+        console.error('No se pudieron encontrar todos los elementos requeridos');
+        return;
+    }
+    
+    // Mostrar mensaje inicial
+    const mensajeElement = document.getElementById('mensajeResultados');
+    if (mensajeElement) {
+        mensajeElement.style.display = 'block';
+    }
+    
+    // Manejar cambio de tipo de consulta individual
+    const tipoConsultaElement = document.getElementById('tipoConsulta');
+    console.log('Elemento tipoConsulta encontrado en DOMContentLoaded:', tipoConsultaElement);
+    
+    if (tipoConsultaElement) {
+        tipoConsultaElement.addEventListener('change', function() {
+            console.log('Event listener tipoConsulta ejecutado');
+            const tipo = this.value;
+            console.log('Tipo seleccionado:', tipo);
+            
+            const campoSerial = document.getElementById('campoSerial');
+            const camposCuentaOT = document.getElementById('camposCuentaOT');
+            
+            console.log('Elemento campoSerial encontrado:', campoSerial);
+            console.log('Elemento camposCuentaOT encontrado:', camposCuentaOT);
+            
+            if (campoSerial) campoSerial.style.display = 'none';
+            if (camposCuentaOT) camposCuentaOT.style.display = 'none';
+            
+            if (tipo === 'serial') {
+                console.log('Mostrando campo serial');
+                if (campoSerial) {
+                    campoSerial.style.display = 'block';
+                    console.log('Campo serial mostrado, display:', campoSerial.style.display);
+                }
+                const serialInput = document.getElementById('serial');
+                const cuentaInput = document.getElementById('cuenta');
+                const otInput = document.getElementById('ot');
+                
+                if (serialInput) serialInput.setAttribute('required', true);
+                if (cuentaInput) cuentaInput.removeAttribute('required');
+                if (otInput) otInput.removeAttribute('required');
+            } else if (tipo === 'cuenta_ot') {
+                console.log('Mostrando campos cuenta y OT');
+                if (camposCuentaOT) {
+                    camposCuentaOT.style.display = 'block';
+                    console.log('Campos cuenta/OT mostrados, display:', camposCuentaOT.style.display);
+                }
+                // Hacer campos opcionales - al menos uno debe estar lleno
+                const cuentaInput = document.getElementById('cuenta');
+                const otInput = document.getElementById('ot');
+                const serialInput = document.getElementById('serial');
+                
+                if (cuentaInput) cuentaInput.removeAttribute('required');
+                if (otInput) otInput.removeAttribute('required');
+                if (serialInput) serialInput.removeAttribute('required');
+            }
+        });
+        
+        // Disparar el evento change manualmente para manejar valores preseleccionados
+        tipoConsultaElement.dispatchEvent(new Event('change'));
+    } else {
+        console.error('Elemento tipoConsulta no encontrado en el DOM');
+    }
+    
+    // Manejar envío de formulario individual
+    const formBusquedaIndividual = document.getElementById('formBusquedaIndividual');
+    if (formBusquedaIndividual) {
+        formBusquedaIndividual.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Validación personalizada para cuenta y OT
+            const tipoConsulta = document.getElementById('tipoConsulta').value;
+            if (tipoConsulta === 'cuenta_ot') {
+                const cuenta = document.getElementById('cuenta').value.trim();
+                const ot = document.getElementById('ot').value.trim();
+                
+                if (!cuenta && !ot) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Campos requeridos',
+                        text: 'Debe ingresar al menos una Cuenta o una OT para realizar la búsqueda.'
+                    });
+                    return;
+                }
+            }
+            
+            realizarBusqueda('individual', new FormData(this));
+        });
+    }
+    
+    // Manejar envío de formulario masivo
+    const formBusquedaMasiva = document.getElementById('formBusquedaMasiva');
+    if (formBusquedaMasiva) {
+        formBusquedaMasiva.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const archivo = document.getElementById('archivoMasivo').files[0];
+        const tipoConsultaMasiva = document.getElementById('tipoConsultaMasiva').value;
+        
+        if (!archivo) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Archivo requerido',
+                text: 'Por favor seleccione un archivo para la consulta masiva.'
+            });
+            return;
+        }
+        
+        if (!tipoConsultaMasiva) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Tipo de consulta requerido',
+                text: 'Por favor seleccione el tipo de consulta masiva.'
+            });
+            return;
+        }
+        
+        realizarBusqueda('masiva', new FormData(this));
+        });
+    }
+    
+    // Manejar carga de archivos
+    const archivoMasivo = document.getElementById('archivoMasivo');
+    if (archivoMasivo) {
+        archivoMasivo.addEventListener('change', function() {
+        const archivo = this.files[0];
+        if (archivo) {
+            // Ocultar área por defecto y mostrar área seleccionada
+            document.getElementById('uploadAreaDefaultMasivo').style.display = 'none';
+            document.getElementById('uploadAreaSelectedMasivo').style.display = 'block';
+            
+            // Actualizar nombre del archivo
+            document.getElementById('nombreArchivoMasivo').textContent = archivo.name;
+            
+            // Mantener compatibilidad con código existente
+            document.getElementById('nombreArchivo').textContent = archivo.name;
+            document.getElementById('archivoSeleccionado').style.display = 'block';
+        }
+        });
+    }
+    
+    // Eliminar archivo seleccionado
+    const btnEliminarArchivo = document.getElementById('btnEliminarArchivo');
+    if (btnEliminarArchivo) {
+        btnEliminarArchivo.addEventListener('click', function() {
+        document.getElementById('archivoMasivo').value = '';
+        
+        // Mostrar área por defecto y ocultar área seleccionada
+        document.getElementById('uploadAreaDefaultMasivo').style.display = 'block';
+        document.getElementById('uploadAreaSelectedMasivo').style.display = 'none';
+        
+        // Mantener compatibilidad con código existente
+        document.getElementById('archivoSeleccionado').style.display = 'none';
+        });
+    }
+    
+    // Cambiar archivo seleccionado
+    const btnCambiarArchivoMasivo = document.getElementById('btnCambiarArchivoMasivo');
+    if (btnCambiarArchivoMasivo) {
+        btnCambiarArchivoMasivo.addEventListener('click', function() {
+            document.getElementById('archivoMasivo').click();
+        });
+    }
+    
+    // Eliminar archivo desde nueva interfaz
+    const btnEliminarArchivoMasivo = document.getElementById('btnEliminarArchivoMasivo');
+    if (btnEliminarArchivoMasivo) {
+        btnEliminarArchivoMasivo.addEventListener('click', function() {
+        document.getElementById('archivoMasivo').value = '';
+        
+        // Mostrar área por defecto y ocultar área seleccionada
+        document.getElementById('uploadAreaDefaultMasivo').style.display = 'block';
+        document.getElementById('uploadAreaSelectedMasivo').style.display = 'none';
+        
+        // Mantener compatibilidad con código existente
+        document.getElementById('archivoSeleccionado').style.display = 'none';
+        });
+    }
+    
+    // Drag and drop para archivos
+    const fileUploadArea = document.getElementById('fileUploadArea');
+    
+    if (fileUploadArea) {
+        fileUploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.add('dragover');
+    });
+    
+    fileUploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.remove('dragover');
+    });
+    
+    fileUploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            
+            // Verificar que sea un archivo .txt
+            if (!file.name.toLowerCase().endsWith('.txt')) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Formato de archivo incorrecto',
+                    text: 'Por favor seleccione un archivo .txt'
+                });
+                return;
+            }
+            
+            // Crear un nuevo DataTransfer y asignar el archivo
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            document.getElementById('archivoMasivo').files = dt.files;
+            
+            // Disparar evento change
+            document.getElementById('archivoMasivo').dispatchEvent(new Event('change'));
+        }
+        });
+    }
+    
+    // Limpiar formularios
+    const btnLimpiarIndividual = document.getElementById('btnLimpiarIndividual');
+    if (btnLimpiarIndividual) {
+        btnLimpiarIndividual.addEventListener('click', function() {
+        document.getElementById('formBusquedaIndividual').reset();
+        document.getElementById('campoSerial').style.display = 'none';
+        document.getElementById('camposCuentaOT').style.display = 'none';
+        limpiarResultados();
+        });
+    }
+    
+    const btnLimpiarMasivo = document.getElementById('btnLimpiarMasivo');
+    if (btnLimpiarMasivo) {
+        btnLimpiarMasivo.addEventListener('click', function() {
+        document.getElementById('formBusquedaMasiva').reset();
+        
+        // Resetear áreas de archivo
+        document.getElementById('uploadAreaDefaultMasivo').style.display = 'block';
+        document.getElementById('uploadAreaSelectedMasivo').style.display = 'none';
+        
+        // Mantener compatibilidad con código existente
+        document.getElementById('archivoSeleccionado').style.display = 'none';
+        
+        limpiarResultados();
+        });
+    }
+    
+    // Exportar a Excel
+    const btnExportarExcel = document.getElementById('btnExportarExcel');
+    if (btnExportarExcel) {
+        btnExportarExcel.addEventListener('click', function() {
+            console.log('Botón exportar Excel clickeado');
+            exportarExcel();
+        });
+    }
+    
+    // Event listeners para Enter en los campos de texto
+    const serialField = document.getElementById('serial');
+    if (serialField) {
+        serialField.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('formBusquedaIndividual').dispatchEvent(new Event('submit'));
+            }
+        });
+    }
+    
+    const cuentaField = document.getElementById('cuenta');
+    if (cuentaField) {
+        cuentaField.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('formBusquedaIndividual').dispatchEvent(new Event('submit'));
+            }
+        });
+    }
+    
+    const otField = document.getElementById('ot');
+    if (otField) {
+        otField.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('formBusquedaIndividual').dispatchEvent(new Event('submit'));
+            }
+        });
+    }
+    
+    // Funcionalidad del modal de administración
+    initModalAdministracion();
+});
+
+function realizarBusqueda(tipo, formData) {
+    // Mostrar loading - con verificaciones de null
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const mensajeResultados = document.getElementById('mensajeResultados');
+    const tablaResultados = document.getElementById('tablaResultados');
+    const estadisticasResultados = document.getElementById('estadisticasResultados');
+    const btnExportarExcel = document.getElementById('btnExportarExcel');
+    
+    if (loadingSpinner) loadingSpinner.style.display = 'inline-block';
+    if (mensajeResultados) mensajeResultados.style.display = 'none';
+    if (tablaResultados) tablaResultados.style.display = 'none';
+    if (estadisticasResultados) estadisticasResultados.style.display = 'none';
+    if (btnExportarExcel) btnExportarExcel.style.display = 'none';
+    
+    let url = '';
+     if (tipo === 'individual') {
+         const tipoConsulta = document.getElementById('tipoConsulta').value;
+         if (tipoConsulta === 'serial') {
+             url = '/logistica/buscar_serial';
+         } else if (tipoConsulta === 'cuenta_ot') {
+             const cuenta = document.getElementById('cuenta').value.trim();
+             const ot = document.getElementById('ot').value.trim();
+             
+             // Validar que al menos uno esté lleno
+             if (!cuenta && !ot) {
+                 mostrarMensaje('Debe ingresar al menos una Cuenta o una OT para realizar la búsqueda.', 'warning');
+                 return;
+             }
+             
+             if (cuenta && ot) {
+                 // Para búsqueda combinada, usar endpoint de cuenta
+                 url = '/logistica/buscar_cuenta';
+             } else if (cuenta) {
+                 url = '/logistica/buscar_cuenta';
+             } else if (ot) {
+                 url = '/logistica/buscar_ot';
+             }
+         }
+     } else {
+         url = '/logistica/buscar_masivo';
+     }
+    
+    fetch(url, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        if (loadingSpinner) loadingSpinner.style.display = 'none';
+        
+        if (data.success) {
+            if (data.data && data.data.length > 0) {
+                mostrarResultados(data.data, data.estadisticas);
+            } else {
+                mostrarMensaje('No se encontraron resultados para la búsqueda realizada.', 'warning');
+            }
+        } else {
+            mostrarMensaje(data.message || 'Error al realizar la búsqueda.', 'error');
+        }
+    })
+    .catch(error => {
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        if (loadingSpinner) loadingSpinner.style.display = 'none';
+        console.error('Error en la búsqueda:', error);
+        mostrarMensaje('Error de conexión. Por favor, intente nuevamente.', 'error');
+    });
+}
+
+function mostrarResultados(data, estadisticas) {
+    // Almacenar datos completos en variable global para exportación
+    datosCompletos = data || [];
+    console.log('mostrarResultados llamada con data:', data);
+    console.log('datosCompletos asignado:', datosCompletos);
+    console.log('datosCompletos.length:', datosCompletos.length);
+    
+    // Mostrar estadísticas - con verificaciones de null
+    if (estadisticas) {
+        const totalRegistros = document.getElementById('totalRegistros');
+        const serialesUnicos = document.getElementById('serialesUnicos');
+        const cuentasUnicas = document.getElementById('cuentasUnicas');
+        const otUnicas = document.getElementById('otUnicas');
+        const estadisticasResultados = document.getElementById('estadisticasResultados');
+        
+        if (totalRegistros) totalRegistros.textContent = estadisticas.total_registros || 0;
+        if (serialesUnicos) serialesUnicos.textContent = estadisticas.seriales_unicos || 0;
+        if (cuentasUnicas) cuentasUnicas.textContent = estadisticas.cuentas_unicas || 0;
+        if (otUnicas) otUnicas.textContent = estadisticas.ot_unicas || 0;
+        if (estadisticasResultados) estadisticasResultados.style.display = 'block';
+    }
+    
+    // Limpiar tabla anterior - con verificación de null
+    const tablaBody = document.getElementById('tablaHistorialBody');
+    if (!tablaBody) {
+        console.error('No se encontró el elemento tablaHistorialBody');
+        return;
+    }
+    tablaBody.innerHTML = '';
+    
+    // Llenar tabla con datos
+    data.forEach(function(registro) {
+        const fila = `
+            <tr>
+                <td>${registro.id}</td>
+                <td>${registro.serial || ''}</td>
+                <td>${formatearFechaGMT(registro.fecha) || ''}</td>
+                <td><span class="badge bg-${getEstadoColor(registro.estado)}">${registro.estado || ''}</span></td>
+                <td>${registro.ot || ''}</td>
+                <td>${registro.cuenta || ''}</td>
+                <td>${registro.codigo || ''}</td>
+                <td>${registro.descripcion || ''}</td>
+            </tr>
+        `;
+        tablaBody.insertAdjacentHTML('beforeend', fila);
+    });
+    
+    // Mostrar tabla y botón de exportar - con verificaciones de null
+    const tablaResultados = document.getElementById('tablaResultados');
+    const btnExportarExcel = document.getElementById('btnExportarExcel');
+    
+    if (tablaResultados) tablaResultados.style.display = 'block';
+    if (btnExportarExcel) btnExportarExcel.style.display = 'inline-block';
+    
+    // Inicializar DataTable si no existe
+    if (typeof DataTable !== 'undefined' && !DataTable.isDataTable('#tablaHistorial')) {
+        new DataTable('#tablaHistorial', {
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+            },
+            order: [[0, 'desc']],
+            pageLength: 25,
+            responsive: true
+        });
+    }
+}
+
+function formatearFechaGMT(fechaString) {
+    if (!fechaString) return '';
+    
+    // Si la fecha viene en formato GMT como "Sun, 10 Aug 2025 00:00:00 GMT"
+    if (fechaString.includes('GMT')) {
+        try {
+            // Crear objeto Date desde el string GMT
+            const fecha = new Date(fechaString);
+            
+            // Extraer día, mes y año
+            const dia = fecha.getUTCDate();
+            const mes = fecha.getUTCMonth() + 1; // +1 porque getUTCMonth() retorna 0-11
+            const año = fecha.getUTCFullYear();
+            
+            // Formatear como DD/MM/YYYY
+            const diaFormateado = dia.toString().padStart(2, '0');
+            const mesFormateado = mes.toString().padStart(2, '0');
+            
+            return `${diaFormateado}/${mesFormateado}/${año}`;
+        } catch (error) {
+            console.warn('Error al formatear fecha GMT:', fechaString, error);
+            return fechaString;
+        }
+    }
+    
+    // Si la fecha viene en formato YYYY-MM-DD, la parseamos manualmente
+    const partes = fechaString.split('-');
+    if (partes.length === 3) {
+        const año = parseInt(partes[0]);
+        const mes = parseInt(partes[1]);
+        const dia = parseInt(partes[2]);
+        
+        // Formatear directamente sin crear objeto Date
+        const diaFormateado = dia.toString().padStart(2, '0');
+        const mesFormateado = mes.toString().padStart(2, '0');
+        
+        return `${diaFormateado}/${mesFormateado}/${año}`;
+    }
+    
+    // Fallback para otros formatos
+    return fechaString;
+}
+
+function getEstadoColor(estado) {
+    if (!estado) return 'secondary';
+    
+    switch(estado.toUpperCase()) {
+        case 'AS':
+        case 'ACTIVO':
+        case 'INSTALADO':
+            return 'success';
+        case 'PE':
+        case 'PENDIENTE':
+        case 'PROCESO':
+            return 'warning';
+        case 'CA':
+        case 'CANCELADO':
+        case 'ERROR':
+            return 'danger';
+        default:
+            return 'info';
+    }
+}
+
+function mostrarMensaje(mensaje, tipo) {
+    const iconos = {
+        'info': 'fas fa-info-circle',
+        'warning': 'fas fa-exclamation-triangle',
+        'error': 'fas fa-times-circle',
+        'success': 'fas fa-check-circle'
+    };
+    
+    // Esperar un poco si el elemento no está disponible inmediatamente
+    const intentarMostrarMensaje = (intentos = 0) => {
+        const mensajeElement = document.getElementById('mensajeResultados');
+        
+        if (mensajeElement) {
+            mensajeElement.className = 'alert';
+            mensajeElement.classList.add(`alert-${tipo === 'error' ? 'danger' : tipo}`);
+            mensajeElement.innerHTML = `<i class="${iconos[tipo] || iconos.info} me-2"></i>${mensaje}`;
+            mensajeElement.style.display = 'block';
+        } else if (intentos < 5) {
+            console.warn(`Intento ${intentos + 1}: Elemento mensajeResultados no encontrado, reintentando...`);
+            setTimeout(() => intentarMostrarMensaje(intentos + 1), 100);
+        } else {
+            console.error('No se pudo encontrar el elemento mensajeResultados después de varios intentos');
+            // Fallback: mostrar alerta
+            alert(mensaje);
+        }
+    };
+    
+    intentarMostrarMensaje();
+}
+
+function limpiarResultados() {
+    const mensajeElement = document.getElementById('mensajeResultados');
+    if (mensajeElement) {
+        mensajeElement.className = 'alert alert-info';
+        mensajeElement.innerHTML = '<i class="fas fa-info-circle me-2"></i>Realice una búsqueda para ver los resultados.';
+        mensajeElement.style.display = 'block';
+    }
+    
+    const tablaResultados = document.getElementById('tablaResultados');
+    const estadisticasResultados = document.getElementById('estadisticasResultados');
+    const btnExportarExcel = document.getElementById('btnExportarExcel');
+    
+    if (tablaResultados) tablaResultados.style.display = 'none';
+    if (estadisticasResultados) estadisticasResultados.style.display = 'none';
+    if (btnExportarExcel) btnExportarExcel.style.display = 'none';
+    
+    if (typeof DataTable !== 'undefined' && DataTable.isDataTable('#tablaHistorial')) {
+        const table = DataTable('#tablaHistorial');
+        table.clear().draw();
+    }
+}
+
+function exportarExcel() {
+     console.log('Función exportarExcel llamada');
+     console.log('datosCompletos:', datosCompletos);
+     console.log('datosCompletos.length:', datosCompletos ? datosCompletos.length : 'undefined');
+     
+     // Verificar si hay datos completos para exportar
+     if (!datosCompletos || datosCompletos.length === 0) {
+         console.log('No hay datos para exportar');
+         Swal.fire({
+             icon: 'warning',
+             title: 'Sin datos',
+             text: 'No hay datos para exportar. Realice una búsqueda primero.'
+         });
+         return;
+     }
+     
+     // Crear CSV con todos los datos filtrados
+     let csv = 'ID,Serial,Fecha,Estado,OT,Cuenta,Código,Descripción\n';
+     console.log('Iniciando creación de CSV');
+     
+     datosCompletos.forEach(function(registro, index) {
+           console.log(`Procesando registro ${index + 1}:`, registro);
+           const filaData = [
+               '"' + (registro.id || '') + '"',
+               '"' + (registro.serial || '') + '"',
+               '"' + (formatearFechaGMT(registro.fecha) || '') + '"',
+               '"' + (registro.estado || '') + '"',
+               '"' + (registro.ot || '') + '"',
+               '"' + (registro.cuenta || '') + '"',
+               '"' + (registro.codigo || '') + '"',
+               '"' + (registro.descripcion || '') + '"'
+           ].join(',');
+           csv += filaData + '\n';
+       });
+     
+     console.log('CSV generado:', csv.substring(0, 200) + '...');
+     
+     // Crear y descargar archivo
+     console.log('Creando blob y descarga...');
+     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+     console.log('Blob creado:', blob);
+     const link = document.createElement('a');
+     const url = URL.createObjectURL(blob);
+     console.log('URL creada:', url);
+     link.setAttribute('href', url);
+     link.setAttribute('download', `historial_seriales_${new Date().toISOString().split('T')[0]}.csv`);
+     link.style.visibility = 'hidden';
+     document.body.appendChild(link);
+     console.log('Iniciando descarga...');
+     link.click();
+     document.body.removeChild(link);
+     console.log('Descarga completada');
+     
+     Swal.fire({
+         icon: 'success',
+         title: 'Exportado',
+         text: 'Los datos se han exportado correctamente.',
+         timer: 2000,
+         showConfirmButton: false
+     });
+}
+
+// Funciones del Modal de Administración
+function initModalAdministracion() {
+    const fileUploadAreaAdmin = document.getElementById('fileUploadAreaAdmin');
+    const archivoQry = document.getElementById('archivoQry');
+    const btnIniciarCarga = document.getElementById('btnIniciarCarga');
+    const btnEliminarArchivoQry = document.getElementById('btnEliminarArchivoQry');
+    
+    // Verificar que los elementos existen antes de agregar event listeners
+    if (!fileUploadAreaAdmin || !archivoQry || !btnIniciarCarga || !btnEliminarArchivoQry) {
+        console.warn('Algunos elementos del modal de administración no están disponibles');
+        return;
+    }
+    
+    // Drag and drop para el modal de administración
+    fileUploadAreaAdmin.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.classList.add('dragover');
+    });
+    
+    fileUploadAreaAdmin.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+    });
+    
+    fileUploadAreaAdmin.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (validarArchivoQry(file)) {
+                archivoQry.files = files;
+                mostrarArchivoQrySeleccionado(file);
+            }
+        }
+    });
+    
+    // Cambio de archivo
+    archivoQry.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file && validarArchivoQry(file)) {
+            mostrarArchivoQrySeleccionado(file);
+        }
+    });
+    
+    // Eliminar archivo seleccionado
+    btnEliminarArchivoQry.addEventListener('click', function() {
+        archivoQry.value = '';
+        document.getElementById('archivoQrySeleccionado').style.display = 'none';
+        // Restaurar interfaz visual
+        document.getElementById('uploadAreaDefault').style.display = 'block';
+        document.getElementById('uploadAreaSelected').style.display = 'none';
+        btnIniciarCarga.disabled = true;
+    });
+    
+    // Botón quitar archivo en nueva interfaz
+    document.getElementById('btnRemoveFileQry').addEventListener('click', function() {
+        archivoQry.value = '';
+        document.getElementById('archivoQrySeleccionado').style.display = 'none';
+        // Restaurar interfaz visual
+        document.getElementById('uploadAreaDefault').style.display = 'block';
+        document.getElementById('uploadAreaSelected').style.display = 'none';
+        btnIniciarCarga.disabled = true;
+    });
+    
+    // Iniciar carga
+    btnIniciarCarga.addEventListener('click', function() {
+        iniciarCargaQry();
+    });
+    
+    // Reset modal al cerrar
+    document.getElementById('modalAdministracion').addEventListener('hidden.bs.modal', function() {
+        resetModalAdministracion();
+    });
+}
+
+function validarArchivoQry(file) {
+    const tiposPermitidos = ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+    const extensionesPermitidas = ['.csv', '.xls', '.xlsx'];
+    
+    const extension = '.' + file.name.split('.').pop().toLowerCase();
+    
+    if (!extensionesPermitidas.includes(extension)) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Archivo no válido',
+            text: 'Solo se permiten archivos CSV y Excel (.csv, .xls, .xlsx)'
+        });
+        return false;
+    }
+    
+    if (file.size > 10 * 1024 * 1024) { // 10MB
+        Swal.fire({
+            icon: 'error',
+            title: 'Archivo muy grande',
+            text: 'El archivo no puede ser mayor a 10MB'
+        });
+        return false;
+    }
+    
+    return true;
+}
+
+function mostrarArchivoQrySeleccionado(file) {
+    // Mostrar nueva interfaz visual
+    document.getElementById('uploadAreaDefault').style.display = 'none';
+    document.getElementById('uploadAreaSelected').style.display = 'block';
+    document.getElementById('selectedFileName').textContent = file.name;
+    
+    // Mantener funcionalidad existente
+    document.getElementById('nombreArchivoQry').textContent = file.name;
+    document.getElementById('archivoQrySeleccionado').style.display = 'block';
+    document.getElementById('btnIniciarCarga').disabled = false;
+}
+
+function iniciarCargaQry() {
+    const archivo = document.getElementById('archivoQry').files[0];
+    if (!archivo) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Sin archivo',
+            text: 'Debe seleccionar un archivo para cargar'
+        });
+        return;
+    }
+    
+    const validarDatos = document.getElementById('validarDatos').checked;
+    const actualizarExistentes = document.getElementById('actualizarExistentes').checked;
+    
+    // Mostrar área de progreso
+    document.getElementById('areaProgreso').style.display = 'block';
+    document.getElementById('resultadosCarga').style.display = 'none';
+    document.getElementById('btnIniciarCarga').disabled = true;
+    document.getElementById('btnCerrarModal').disabled = true;
+    
+    // Preparar FormData
+    const formData = new FormData();
+    formData.append('archivo_qry', archivo);
+    formData.append('validar_datos', validarDatos);
+    formData.append('actualizar_existentes', actualizarExistentes);
+    
+    // Actualizar progreso
+    actualizarProgreso(10, 'Subiendo archivo...');
+    
+    // Enviar archivo
+    fetch('/logistica/cargar_qry', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        actualizarProgreso(50, 'Procesando archivo...');
+        
+        // Verificar si la respuesta es válida
+        if (!response.ok) {
+            // Si hay error HTTP, intentar obtener el mensaje del servidor
+            return response.json().then(errorData => {
+                throw new Error(errorData.message || `Error HTTP ${response.status}: ${response.statusText}`);
+            }).catch(() => {
+                // Si no se puede parsear el JSON, usar mensaje genérico
+                throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
+            });
+        }
+        
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            actualizarProgreso(100, 'Carga completada exitosamente');
+            mostrarResultadosCarga(data, 'success');
+        } else {
+            actualizarProgreso(100, 'Error en la carga');
+            mostrarResultadosCarga(data, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        actualizarProgreso(100, 'Error en el proceso');
+        mostrarResultadosCarga({
+            message: error.message || 'Error inesperado. Por favor, intente nuevamente.',
+            details: error.stack || 'Sin detalles adicionales'
+        }, 'error');
+    })
+    .finally(() => {
+        document.getElementById('btnCerrarModal').disabled = false;
+    });
+}
+
+function actualizarProgreso(porcentaje, mensaje) {
+    const barraProgreso = document.getElementById('barraProgreso');
+    const estadoCarga = document.getElementById('estadoCarga');
+    
+    barraProgreso.style.width = porcentaje + '%';
+    barraProgreso.setAttribute('aria-valuenow', porcentaje);
+    barraProgreso.textContent = porcentaje + '%';
+    
+    if (porcentaje === 100) {
+        barraProgreso.classList.remove('progress-bar-animated');
+    }
+    
+    estadoCarga.innerHTML = `<i class="fas fa-${porcentaje === 100 ? 'check' : 'spinner fa-spin'} me-2"></i>${mensaje}`;
+}
+
+function mostrarResultadosCarga(data, tipo) {
+    // Función auxiliar para esperar a que los elementos estén disponibles
+    function esperarElementos(intentos = 0) {
+        const maxIntentos = 10;
+        const resultadosCarga = document.getElementById('resultadosCarga');
+        const alertaResultados = document.getElementById('alertaResultados');
+        const contenidoResultados = document.getElementById('contenidoResultados');
+        
+        // Si todos los elementos están disponibles, proceder
+        if (resultadosCarga && alertaResultados && contenidoResultados) {
+            mostrarResultadosInterno(resultadosCarga, alertaResultados, contenidoResultados, data, tipo);
+            return;
+        }
+        
+        // Si no están disponibles y aún hay intentos, esperar y reintentar
+        if (intentos < maxIntentos) {
+            setTimeout(() => esperarElementos(intentos + 1), 100);
+        } else {
+            // Si se agotaron los intentos, solo registrar en consola
+            console.error('Error: No se pudieron encontrar los elementos del modal de resultados después de múltiples intentos');
+            // La carga funciona correctamente, no mostrar mensaje de error al usuario
+        }
+    }
+    
+    // Iniciar el proceso de espera
+    esperarElementos();
+}
+
+function mostrarResultadosInterno(resultadosCarga, alertaResultados, contenidoResultados, data, tipo) {
+    
+    // Configurar alerta según el tipo
+    alertaResultados.className = `alert alert-${tipo === 'success' ? 'success' : 'danger'}`;
+    
+    let contenido = `<h6><i class="fas fa-${tipo === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>${data.message || 'Operación completada'}</h6>`;
+    
+    if (data.registros_procesados !== undefined) {
+        contenido += `<p><strong>Registros procesados:</strong> ${data.registros_procesados}</p>`;
+    }
+    
+    if (data.registros_insertados !== undefined) {
+        contenido += `<p><strong>Registros insertados:</strong> ${data.registros_insertados}</p>`;
+    }
+    
+    if (data.registros_actualizados !== undefined) {
+        contenido += `<p><strong>Registros actualizados:</strong> ${data.registros_actualizados}</p>`;
+    }
+    
+    if (data.errores && data.errores.length > 0) {
+        contenido += `<p><strong>Errores encontrados:</strong></p><ul>`;
+        data.errores.slice(0, 5).forEach(error => {
+            contenido += `<li>${error}</li>`;
+        });
+        if (data.errores.length > 5) {
+            contenido += `<li>... y ${data.errores.length - 5} errores más</li>`;
+        }
+        contenido += `</ul>`;
+    }
+    
+    if (data.details) {
+        contenido += `<p><small class="text-muted">${data.details}</small></p>`;
+    }
+    
+    contenidoResultados.innerHTML = contenido;
+    resultadosCarga.style.display = 'block';
+    
+    // Habilitar botón de nueva carga si fue exitoso
+    if (tipo === 'success') {
+        setTimeout(() => {
+            document.getElementById('btnIniciarCarga').disabled = false;
+            document.getElementById('btnIniciarCarga').innerHTML = '<i class="fas fa-upload me-2"></i>Nueva Carga';
+        }, 2000);
+    }
+}
+
+function resetModalAdministracion() {
+    // Limpiar archivo
+    document.getElementById('archivoQry').value = '';
+    document.getElementById('archivoQrySeleccionado').style.display = 'none';
+    
+    // Restaurar interfaz visual
+    document.getElementById('uploadAreaDefault').style.display = 'block';
+    document.getElementById('uploadAreaSelected').style.display = 'none';
+    
+    // Ocultar áreas
+    document.getElementById('areaProgreso').style.display = 'none';
+    document.getElementById('areaResultados').style.display = 'none';
+    
+    // Resetear botón
+    document.getElementById('btnIniciarCarga').disabled = true;
+    document.getElementById('btnIniciarCarga').innerHTML = '<i class="fas fa-upload me-2"></i>Iniciar Carga';
+}
+</script>
+{% endblock %}

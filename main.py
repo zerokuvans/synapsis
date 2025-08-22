@@ -950,13 +950,13 @@ def registrar_preoperacional():
         
         # Verificar si ya existe un registro para el día actual
         id_codigo_consumidor = request.form.get('id_codigo_consumidor')
-        fecha_actual = datetime.now(pytz.UTC).date()
+        fecha_actual = get_bogota_datetime().date()
         
         cursor.execute("""
             SELECT COUNT(*) as count 
             FROM preoperacional 
             WHERE id_codigo_consumidor = %s 
-            AND DATE(fecha) = %s
+            AND DATE(CONVERT_TZ(fecha, '+00:00', '-05:00')) = %s
         """, (id_codigo_consumidor, fecha_actual))
         
         resultado = cursor.fetchone()
@@ -1020,25 +1020,17 @@ def registrar_preoperacional():
             )
         """
         
-        # Agregar la fecha actual en UTC a los valores
-        values.append(datetime.now(pytz.UTC))
+        # Agregar la fecha actual de Bogotá a los valores
+        values.append(get_bogota_datetime())
         
         cursor.execute(sql, tuple(values))
         connection.commit()
         cursor.close()
         connection.close()
 
-        # Obtener la fecha y hora actual en UTC formateada
-        fecha_hora_actual_utc = datetime.now(pytz.UTC)
-        fecha_formateada = fecha_hora_actual_utc.strftime('%d/%m/%Y')
-        hora_formateada = fecha_hora_actual_utc.strftime('%I:%M:%S %p')
-        
         return jsonify({
             'status': 'success',
-            'message': 'Preoperacional registrado exitosamente',
-            'hora_registro': hora_formateada,
-            'fecha_registro': fecha_formateada,
-            'es_utc': True
+            'message': 'Preoperacional registrado exitosamente'
         }), 201
 
     except Error as e:
@@ -1805,9 +1797,9 @@ def verificar_vencimientos():
             return jsonify({'tiene_vencimientos': False})
             
         vencimientos = []
-        # Usar fecha UTC en lugar de la fecha del servidor
-        fecha_actual = datetime.now(pytz.UTC).date()
-        print(f"Verificando vencimientos con fecha UTC: {fecha_actual}")
+        # Usar fecha de Bogotá en lugar de la fecha del servidor
+        fecha_actual = get_bogota_datetime().date()
+        print(f"Verificando vencimientos con fecha de Bogotá: {fecha_actual}")
         
         # Verificar cada tipo de vencimiento
         if ultimo_registro['fecha_vencimiento_licencia']:
@@ -1857,26 +1849,27 @@ def verificar_registro_preoperacional():
             
         cursor = connection.cursor(dictionary=True)
         
-        # Verificar si existe registro para el día actual en UTC
-        fecha_actual_utc = datetime.now(pytz.UTC).date()
-        print(f"Verificando registro preoperacional para fecha UTC: {fecha_actual_utc}")
+        # Verificar si existe registro para el día actual en zona horaria de Bogotá
+        fecha_actual = get_bogota_datetime().date()
+        print(f"Verificando registro preoperacional para fecha Bogotá: {fecha_actual}")
         
         cursor.execute("""
             SELECT COUNT(*) as count, 
                    MAX(fecha) as ultimo_registro
             FROM preoperacional 
             WHERE id_codigo_consumidor = %s 
-            AND DATE(fecha) = %s
-        """, (session.get('user_id'), fecha_actual_utc))
+            AND DATE(CONVERT_TZ(fecha, '+00:00', '-05:00')) = %s
+        """, (session.get('user_id'), fecha_actual))
         
         resultado = cursor.fetchone()
         tiene_registro = resultado['count'] > 0
         ultimo_registro = resultado['ultimo_registro']
         
-        # Mantener el último registro en UTC
+        # Convertir el último registro a zona horaria de Bogotá si existe
         ultimo_registro_str = None
         if ultimo_registro:
-            ultimo_registro_str = ultimo_registro.strftime('%Y-%m-%d %H:%M:%S')
+            ultimo_registro_bogota = convert_to_bogota_time(ultimo_registro)
+            ultimo_registro_str = ultimo_registro_bogota.strftime('%Y-%m-%d %H:%M:%S')
         
         cursor.close()
         connection.close()
@@ -1884,9 +1877,8 @@ def verificar_registro_preoperacional():
         return jsonify({
             'tiene_registro': tiene_registro,
             'ultimo_registro': ultimo_registro_str,
-            'fecha_actual': fecha_actual_utc.strftime('%Y-%m-%d'),
-            'hora_utc': datetime.now(pytz.UTC).strftime('%H:%M:%S'),
-            'es_utc': True
+            'fecha_actual': fecha_actual.strftime('%Y-%m-%d'),
+            'hora_bogota': get_bogota_datetime().strftime('%H:%M:%S')
         })
         
     except Error as e:
@@ -3000,6 +2992,882 @@ def exportar_ferretero_csv():
         if connection and connection.is_connected():
             connection.close()
 
+@app.route('/logistica/estadisticas_ferretero_page')
+@login_required()
+@role_required('logistica')
+def estadisticas_ferretero_page():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return render_template('error.html', 
+                               mensaje='Error de conexión a la base de datos',
+                               error='No se pudo establecer conexión con la base de datos')
+        
+        # Obtener lista de técnicos disponibles para filtros
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT id_codigo_consumidor, nombre, recurso_operativo_cedula, cargo, carpeta 
+            FROM recurso_operativo 
+            WHERE cargo LIKE '%TECNICO%' OR cargo LIKE '%TÉCNICO%'
+            ORDER BY nombre
+        """)
+        tecnicos = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return render_template('modulos/logistica/estadisticas_ferretero.html', tecnicos=tecnicos)
+    
+    except Exception as e:
+        print(f"Error al cargar página de estadísticas ferretero: {str(e)}")
+        return render_template('error.html', 
+                           mensaje='Error al cargar la página de estadísticas de material ferretero',
+                           error=str(e))
+
+@app.route('/logistica/estadisticas_ferretero')
+@login_required()
+@role_required('logistica')
+def estadisticas_ferretero():
+    connection = None
+    cursor = None
+    try:
+        # Obtener parámetros de filtro
+        mes = request.args.get('mes', '')
+        material = request.args.get('material', '')
+        area = request.args.get('area', '')
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Construir la consulta base
+        query = """
+            SELECT 
+                f.*,
+                r.nombre,
+                r.recurso_operativo_cedula,
+                r.cargo,
+                r.carpeta
+            FROM ferretero f 
+            LEFT JOIN recurso_operativo r ON f.id_codigo_consumidor = r.id_codigo_consumidor 
+            WHERE 1=1
+        """
+        params = []
+        
+        # Aplicar filtro por mes (independiente del año)
+        if mes and mes != 'todos':
+            # Extraer el mes del formato 'YYYY-MM' o usar directamente si es solo el número
+            try:
+                if '-' in mes:
+                    # Formato 'YYYY-MM'
+                    mes_numero = int(mes.split('-')[1])
+                else:
+                    # Solo el número del mes
+                    mes_numero = int(mes)
+                query += " AND MONTH(f.fecha_asignacion) = %s"
+                params.append(mes_numero)
+            except (ValueError, IndexError) as e:
+                print(f"Error al procesar el parámetro mes '{mes}': {e}")
+                # Continuar sin filtro de mes si hay error
+                pass
+            
+        # Asegurarse de que se muestren datos incluso si son de años futuros
+        # No filtrar por año para permitir ver datos de cualquier año
+        
+        # Aplicar filtro por área
+        if area and area != 'todos':
+            query += " AND (r.carpeta LIKE %s OR r.cargo LIKE %s)"
+            area_param = f'%{area}%'
+            params.append(area_param)
+            params.append(area_param)
+        
+        # Ejecutar consulta
+        cursor.execute(query, params)
+        asignaciones = cursor.fetchall()
+        
+        # Procesar los datos para estadísticas
+        estadisticas_por_tecnico = {}
+        areas_distribucion = {}
+        
+        for asignacion in asignaciones:
+            id_tecnico = asignacion['id_codigo_consumidor']
+            nombre = asignacion.get('nombre', 'Técnico sin nombre')
+            
+            # Determinar área de trabajo
+            carpeta = asignacion.get('carpeta', '')
+            carpeta = carpeta.upper() if carpeta else ''
+            cargo = asignacion.get('cargo', '')
+            cargo = cargo.upper() if cargo else ''
+            
+            area_trabajo = 'No especificada'
+            areas_posibles = ['FTTH INSTALACIONES', 'INSTALACIONES DOBLES', 'POSTVENTA', 
+                             'MANTENIMIENTO FTTH', 'ARREGLOS HFC', 'CONDUCTOR']
+            
+            for area_posible in areas_posibles:
+                if area_posible in carpeta or area_posible in cargo:
+                    area_trabajo = area_posible
+                    break
+            
+            # Inicializar estadísticas para este técnico si no existe
+            if id_tecnico not in estadisticas_por_tecnico:
+                estadisticas_por_tecnico[id_tecnico] = {
+                    'nombre': nombre,
+                    'area': area_trabajo,
+                    'silicona': 0,
+                    'amarres_negros': 0,
+                    'amarres_blancos': 0,
+                    'cinta_aislante': 0,
+                    'grapas_blancas': 0,
+                    'grapas_negras': 0,
+                    'total_asignaciones': 0
+                }
+            
+            # Inicializar estadísticas para esta área si no existe
+            if area_trabajo not in areas_distribucion:
+                areas_distribucion[area_trabajo] = 0
+            
+            # Actualizar contadores
+            estadisticas_por_tecnico[id_tecnico]['silicona'] += int(asignacion.get('silicona', 0) or 0)
+            estadisticas_por_tecnico[id_tecnico]['amarres_negros'] += int(asignacion.get('amarres_negros', 0) or 0)
+            estadisticas_por_tecnico[id_tecnico]['amarres_blancos'] += int(asignacion.get('amarres_blancos', 0) or 0)
+            estadisticas_por_tecnico[id_tecnico]['cinta_aislante'] += int(asignacion.get('cinta_aislante', 0) or 0)
+            estadisticas_por_tecnico[id_tecnico]['grapas_blancas'] += int(asignacion.get('grapas_blancas', 0) or 0)
+            estadisticas_por_tecnico[id_tecnico]['grapas_negras'] += int(asignacion.get('grapas_negras', 0) or 0)
+            estadisticas_por_tecnico[id_tecnico]['total_asignaciones'] += 1
+            
+            # Actualizar distribución por área
+            areas_distribucion[area_trabajo] += 1
+        
+        # Aplicar filtro por material después de procesar todos los datos
+        if material and material != 'todos':
+            estadisticas_filtradas = {}
+            for id_tecnico, stats in estadisticas_por_tecnico.items():
+                incluir_tecnico = False
+                if material == 'silicona' and stats['silicona'] > 0:
+                    incluir_tecnico = True
+                elif material == 'amarres' and (stats['amarres_negros'] + stats['amarres_blancos']) > 0:
+                    incluir_tecnico = True
+                elif material == 'cintas' and stats['cinta_aislante'] > 0:
+                    incluir_tecnico = True
+                elif material == 'grapas' and (stats['grapas_blancas'] + stats['grapas_negras']) > 0:
+                    incluir_tecnico = True
+                
+                if incluir_tecnico:
+                    estadisticas_filtradas[id_tecnico] = stats
+            
+            estadisticas_por_tecnico = estadisticas_filtradas
+        
+        # Calcular promedios y determinar técnicos por encima del promedio
+        estadisticas_lista = list(estadisticas_por_tecnico.values())
+        
+        # Verificar si hay datos para mostrar
+        if not estadisticas_lista:
+            # No hay datos para los filtros seleccionados
+            print(f"No hay datos para los filtros: mes={mes}, material={material}, area={area}")
+            return jsonify({
+                'status': 'success',
+                'estadisticas': [],
+                'top_tecnicos': [],
+                'distribucion_area': [],
+                'message': 'No hay datos disponibles para los filtros seleccionados'
+            })
+        
+        # Calcular promedio de asignaciones por técnico
+        total_asignaciones = sum(item['total_asignaciones'] for item in estadisticas_lista)
+        promedio_asignaciones = total_asignaciones / len(estadisticas_lista) if estadisticas_lista else 0
+        
+        # Marcar técnicos por encima del promedio
+        for item in estadisticas_lista:
+            item['promedio_mensual'] = round(item['total_asignaciones'], 2)
+            item['por_encima_promedio'] = item['total_asignaciones'] > promedio_asignaciones
+            item['muy_por_encima_promedio'] = item['total_asignaciones'] > (promedio_asignaciones * 1.5)
+        
+        # Ordenar por total de asignaciones (descendente)
+        estadisticas_lista.sort(key=lambda x: x['total_asignaciones'], reverse=True)
+        
+        # Preparar top 5 técnicos
+        top_tecnicos = estadisticas_lista[:5] if len(estadisticas_lista) >= 5 else estadisticas_lista
+        
+        # Calcular porcentajes para el top 5
+        max_asignaciones = max([item['total_asignaciones'] for item in top_tecnicos]) if top_tecnicos else 1
+        for item in top_tecnicos:
+            item['porcentaje'] = round((item['total_asignaciones'] / max_asignaciones) * 100)
+        
+        # Preparar distribución por área
+        distribucion_area = [{'area': area, 'total': total} for area, total in areas_distribucion.items()]
+        
+        return jsonify({
+            'status': 'success',
+            'estadisticas': estadisticas_lista,
+            'top_tecnicos': top_tecnicos,
+            'distribucion_area': distribucion_area
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener estadísticas ferretero: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/logistica/exportar_estadisticas_ferretero')
+@login_required()
+@role_required('logistica')
+def exportar_estadisticas_ferretero():
+    connection = None
+    cursor = None
+    try:
+        # Obtener parámetros de filtro (igual que en estadisticas_ferretero)
+        mes = request.args.get('mes', '')
+        material = request.args.get('material', '')
+        area = request.args.get('area', '')
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Construir la consulta base (igual que en estadisticas_ferretero)
+        query = """
+            SELECT 
+                f.*,
+                r.nombre,
+                r.recurso_operativo_cedula,
+                r.cargo,
+                r.carpeta
+            FROM ferretero f 
+            LEFT JOIN recurso_operativo r ON f.id_codigo_consumidor = r.id_codigo_consumidor 
+            WHERE 1=1
+        """
+        params = []
+        
+        # Aplicar filtro por mes (independiente del año)
+        if mes and mes != 'todos':
+            # Extraer el mes del formato 'YYYY-MM' o usar directamente si es solo el número
+            try:
+                if '-' in mes:
+                    # Formato 'YYYY-MM'
+                    mes_numero = int(mes.split('-')[1])
+                else:
+                    # Solo el número del mes
+                    mes_numero = int(mes)
+                query += " AND MONTH(f.fecha_asignacion) = %s"
+                params.append(mes_numero)
+            except (ValueError, IndexError) as e:
+                print(f"Error al procesar el parámetro mes '{mes}': {e}")
+                # Continuar sin filtro de mes si hay error
+                pass
+            
+        # Asegurarse de que se muestren datos incluso si son de años futuros
+        # No filtrar por año para permitir ver datos de cualquier año
+        
+        # Aplicar filtro por área
+        if area and area != 'todos':
+            query += " AND (r.carpeta LIKE %s OR r.cargo LIKE %s)"
+            area_param = f'%{area}%'
+            params.append(area_param)
+            params.append(area_param)
+        
+        # Ejecutar consulta
+        cursor.execute(query, params)
+        asignaciones = cursor.fetchall()
+        
+        # Procesar los datos para estadísticas (igual que en estadisticas_ferretero)
+        estadisticas_por_tecnico = {}
+        
+        for asignacion in asignaciones:
+            id_tecnico = asignacion['id_codigo_consumidor']
+            nombre = asignacion.get('nombre', 'Técnico sin nombre')
+            
+            # Determinar área de trabajo
+            carpeta = asignacion.get('carpeta', '').upper() if asignacion.get('carpeta') else ''
+            cargo = asignacion.get('cargo', '').upper()
+            
+            area_trabajo = 'No especificada'
+            areas_posibles = ['FTTH INSTALACIONES', 'INSTALACIONES DOBLES', 'POSTVENTA', 
+                             'MANTENIMIENTO FTTH', 'ARREGLOS HFC', 'CONDUCTOR']
+            
+            for area_posible in areas_posibles:
+                if area_posible in carpeta or area_posible in cargo:
+                    area_trabajo = area_posible
+                    break
+            
+            # Inicializar estadísticas para este técnico si no existe
+            if id_tecnico not in estadisticas_por_tecnico:
+                estadisticas_por_tecnico[id_tecnico] = {
+                    'nombre': nombre,
+                    'cedula': asignacion.get('recurso_operativo_cedula', 'No disponible'),
+                    'area': area_trabajo,
+                    'silicona': 0,
+                    'amarres_negros': 0,
+                    'amarres_blancos': 0,
+                    'cinta_aislante': 0,
+                    'grapas_blancas': 0,
+                    'grapas_negras': 0,
+                    'total_asignaciones': 0
+                }
+            
+            # Actualizar contadores
+            estadisticas_por_tecnico[id_tecnico]['silicona'] += int(asignacion.get('silicona', 0) or 0)
+            estadisticas_por_tecnico[id_tecnico]['amarres_negros'] += int(asignacion.get('amarres_negros', 0) or 0)
+            estadisticas_por_tecnico[id_tecnico]['amarres_blancos'] += int(asignacion.get('amarres_blancos', 0) or 0)
+            estadisticas_por_tecnico[id_tecnico]['cinta_aislante'] += int(asignacion.get('cinta_aislante', 0) or 0)
+            estadisticas_por_tecnico[id_tecnico]['grapas_blancas'] += int(asignacion.get('grapas_blancas', 0) or 0)
+            estadisticas_por_tecnico[id_tecnico]['grapas_negras'] += int(asignacion.get('grapas_negras', 0) or 0)
+            estadisticas_por_tecnico[id_tecnico]['total_asignaciones'] += 1
+        
+        # Aplicar filtro por material después de procesar todos los datos
+        if material and material != 'todos':
+            estadisticas_filtradas = {}
+            for id_tecnico, stats in estadisticas_por_tecnico.items():
+                incluir_tecnico = False
+                if material == 'silicona' and stats['silicona'] > 0:
+                    incluir_tecnico = True
+                elif material == 'amarres' and (stats['amarres_negros'] + stats['amarres_blancos']) > 0:
+                    incluir_tecnico = True
+                elif material == 'cintas' and stats['cinta_aislante'] > 0:
+                    incluir_tecnico = True
+                elif material == 'grapas' and (stats['grapas_blancas'] + stats['grapas_negras']) > 0:
+                    incluir_tecnico = True
+                
+                if incluir_tecnico:
+                    estadisticas_filtradas[id_tecnico] = stats
+            
+            estadisticas_por_tecnico = estadisticas_filtradas
+        
+        # Calcular promedios y determinar técnicos por encima del promedio
+        estadisticas_lista = list(estadisticas_por_tecnico.values())
+        
+        # Calcular promedio de asignaciones por técnico
+        total_asignaciones = sum(item['total_asignaciones'] for item in estadisticas_lista)
+        promedio_asignaciones = total_asignaciones / len(estadisticas_lista) if estadisticas_lista else 0
+        
+        # Marcar técnicos por encima del promedio
+        for item in estadisticas_lista:
+            item['promedio_mensual'] = round(item['total_asignaciones'], 2)
+            item['por_encima_promedio'] = item['total_asignaciones'] > promedio_asignaciones
+            item['muy_por_encima_promedio'] = item['total_asignaciones'] > (promedio_asignaciones * 1.5)
+        
+        # Ordenar por total de asignaciones (descendente)
+        estadisticas_lista.sort(key=lambda x: x['total_asignaciones'], reverse=True)
+        
+        # Crear un DataFrame de pandas para generar el Excel
+        df = pd.DataFrame(estadisticas_lista)
+        
+        # Renombrar columnas para el Excel
+        columnas = {
+            'nombre': 'Nombre',
+            'cedula': 'Cédula',
+            'area': 'Área',
+            'silicona': 'Silicona',
+            'amarres_negros': 'Amarres Negros',
+            'amarres_blancos': 'Amarres Blancos',
+            'cinta_aislante': 'Cinta Aislante',
+            'grapas_blancas': 'Grapas Blancas',
+            'grapas_negras': 'Grapas Negras',
+            'total_asignaciones': 'Total Asignaciones',
+            'promedio_mensual': 'Promedio Mensual'
+        }
+        df = df.rename(columns=columnas)
+        
+        # Seleccionar y ordenar columnas para el Excel
+        columnas_excel = [
+            'Nombre', 'Cédula', 'Área', 'Silicona', 'Amarres Negros', 'Amarres Blancos',
+            'Cinta Aislante', 'Grapas Blancas', 'Grapas Negras', 'Total Asignaciones', 'Promedio Mensual'
+        ]
+        df = df[columnas_excel]
+        
+        # Crear un objeto BytesIO para guardar el Excel
+        output = io.BytesIO()
+        
+        # Crear un objeto ExcelWriter
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, sheet_name='Estadísticas', index=False)
+            
+            # Obtener el objeto workbook y worksheet
+            workbook = writer.book
+            worksheet = writer.sheets['Estadísticas']
+            
+            # Definir formatos
+            header_format = workbook.add_format({
+                'bold': True,
+                'text_wrap': True,
+                'valign': 'top',
+                'fg_color': '#D7E4BC',
+                'border': 1
+            })
+            
+            # Aplicar formato a los encabezados
+            for col_num, value in enumerate(df.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+                
+            # Ajustar ancho de columnas
+            for i, col in enumerate(df.columns):
+                column_width = max(df[col].astype(str).map(len).max(), len(col) + 2)
+                worksheet.set_column(i, i, column_width)
+        
+        # Preparar respuesta
+        output.seek(0)
+        
+        # Generar nombre de archivo con fecha actual
+        fecha_actual = datetime.now().strftime("%d-%m-%Y")
+        nombre_archivo = f'Estadisticas_Ferretero_{fecha_actual}.xlsx'
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=nombre_archivo
+        )
+        
+    except Exception as e:
+        print(f"Error al exportar estadísticas ferretero a Excel: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+# ===== RUTAS PARA GESTIÓN DE STOCK DE MATERIAL FERRETERO =====
+
+@app.route('/logistica/stock_ferretero')
+@login_required()
+@role_required('logistica')
+def obtener_stock_ferretero():
+    """Obtener el stock actual de material ferretero con cálculos de inventario"""
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener stock actual
+        cursor.execute("""
+            SELECT 
+                material_tipo,
+                cantidad_disponible as cantidad_actual,
+                cantidad_minima,
+                fecha_actualizacion
+            FROM stock_ferretero 
+            ORDER BY material_tipo
+        """)
+        stock = cursor.fetchall()
+        
+        # Calcular total asignado por mes actual
+        cursor.execute("""
+            SELECT 
+                SUM(silicona) as total_silicona,
+                SUM(amarres_negros) as total_amarres_negros,
+                SUM(amarres_blancos) as total_amarres_blancos,
+                SUM(cinta_aislante) as total_cinta_aislante,
+                SUM(grapas_blancas) as total_grapas_blancas,
+                SUM(grapas_negras) as total_grapas_negras
+            FROM ferretero 
+            WHERE MONTH(fecha_asignacion) = MONTH(CURDATE()) 
+            AND YEAR(fecha_asignacion) = YEAR(CURDATE())
+        """)
+        asignado_mes = cursor.fetchone()
+        
+        # Obtener total de entradas por material
+        cursor.execute("""
+            SELECT 
+                material_tipo,
+                SUM(cantidad_entrada) as total_entradas,
+                COUNT(*) as numero_entradas,
+                MAX(fecha_entrada) as ultima_entrada,
+                SUM(precio_total) as valor_total_entradas
+            FROM entradas_ferretero
+            GROUP BY material_tipo
+            ORDER BY material_tipo
+        """)
+        total_entradas = cursor.fetchall()
+        
+        # Obtener total asignado histórico por material
+        cursor.execute("""
+            SELECT 
+                'silicona' as material_tipo,
+                COALESCE(SUM(silicona), 0) as total_asignado
+            FROM ferretero WHERE silicona > 0
+            UNION ALL
+            SELECT 
+                'amarres_negros' as material_tipo,
+                COALESCE(SUM(amarres_negros), 0) as total_asignado
+            FROM ferretero WHERE amarres_negros > 0
+            UNION ALL
+            SELECT 
+                'amarres_blancos' as material_tipo,
+                COALESCE(SUM(amarres_blancos), 0) as total_asignado
+            FROM ferretero WHERE amarres_blancos > 0
+            UNION ALL
+            SELECT 
+                'cinta_aislante' as material_tipo,
+                COALESCE(SUM(cinta_aislante), 0) as total_asignado
+            FROM ferretero WHERE cinta_aislante > 0
+            UNION ALL
+            SELECT 
+                'grapas_blancas' as material_tipo,
+                COALESCE(SUM(grapas_blancas), 0) as total_asignado
+            FROM ferretero WHERE grapas_blancas > 0
+            UNION ALL
+            SELECT 
+                'grapas_negras' as material_tipo,
+                COALESCE(SUM(grapas_negras), 0) as total_asignado
+            FROM ferretero WHERE grapas_negras > 0
+            ORDER BY material_tipo
+        """)
+        total_asignado_historico = cursor.fetchall()
+        
+        # Calcular resumen de inventario
+        resumen_inventario = []
+        materiales = ['silicona', 'amarres_negros', 'amarres_blancos', 'cinta_aislante', 'grapas_blancas', 'grapas_negras']
+        
+        for material in materiales:
+            # Buscar datos de entrada
+            entrada = next((item for item in total_entradas if item['material_tipo'] == material), None)
+            total_recibido = entrada['total_entradas'] if entrada else 0
+            valor_entradas = entrada['valor_total_entradas'] if entrada else 0
+            ultima_entrada = entrada['ultima_entrada'] if entrada else None
+            numero_entradas = entrada['numero_entradas'] if entrada else 0
+            
+            # Buscar total asignado
+            asignado = next((item for item in total_asignado_historico if item['material_tipo'] == material), None)
+            total_asignado = asignado['total_asignado'] if asignado else 0
+            
+            # Buscar stock actual
+            stock_item = next((item for item in stock if item['material_tipo'] == material), None)
+            stock_actual = stock_item['cantidad_actual'] if stock_item else 0
+            stock_minimo = stock_item['cantidad_minima'] if stock_item else 0
+            
+            # Calcular diferencia teórica vs real
+            diferencia_teorica = total_recibido - total_asignado
+            diferencia_real = diferencia_teorica - stock_actual
+            
+            resumen_inventario.append({
+                'material_tipo': material,
+                'total_recibido': total_recibido or 0,
+                'total_asignado': total_asignado or 0,
+                'stock_actual': stock_actual or 0,
+                'stock_minimo': stock_minimo or 0,
+                'diferencia_teorica': diferencia_teorica,
+                'diferencia_real': diferencia_real,
+                'valor_entradas': valor_entradas or 0,
+                'ultima_entrada': ultima_entrada,
+                'numero_entradas': numero_entradas or 0,
+                'estado_stock': 'Crítico' if stock_actual <= stock_minimo else 'Normal'
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'stock': stock,
+            'asignado_mes_actual': asignado_mes,
+            'resumen_inventario': resumen_inventario,
+            'total_entradas': total_entradas,
+            'total_asignado_historico': total_asignado_historico
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener stock ferretero: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/logistica/entradas_ferretero', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def registrar_entrada_ferretero():
+    """Registrar entrada de material ferretero"""
+    connection = None
+    cursor = None
+    try:
+        data = request.get_json()
+        
+        # Validar datos requeridos
+        required_fields = ['material_tipo', 'cantidad', 'precio_unitario']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'El campo {field} es requerido'
+                }), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Insertar entrada
+        cursor.execute("""
+            INSERT INTO entradas_ferretero (
+                material_tipo, cantidad_entrada, precio_unitario, precio_total,
+                proveedor, numero_factura, observaciones, fecha_entrada
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+        """, (
+            data['material_tipo'],
+            data['cantidad'],
+            data['precio_unitario'],
+            float(data['cantidad']) * float(data['precio_unitario']),
+            data.get('proveedor', ''),
+            data.get('numero_factura', ''),
+            data.get('observaciones', '')
+        ))
+        
+        connection.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Entrada registrada correctamente'
+        })
+        
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        print(f"Error al registrar entrada ferretero: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/logistica/movimientos_ferretero')
+@login_required()
+@role_required('logistica')
+def obtener_movimientos_ferretero():
+    """Obtener movimientos de stock de material ferretero"""
+    connection = None
+    cursor = None
+    try:
+        # Obtener parámetros de filtro
+        material = request.args.get('material', '')
+        fecha_inicio = request.args.get('fecha_inicio', '')
+        fecha_fin = request.args.get('fecha_fin', '')
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Construir consulta con filtros
+        query = """
+            SELECT 
+                material_tipo,
+                tipo_movimiento,
+                cantidad,
+                fecha_movimiento,
+                referencia_id,
+                observaciones
+            FROM movimientos_stock_ferretero 
+            WHERE 1=1
+        """
+        params = []
+        
+        if material and material != 'todos':
+            query += " AND material_tipo = %s"
+            params.append(material)
+            
+        if fecha_inicio:
+            query += " AND DATE(fecha_movimiento) >= %s"
+            params.append(fecha_inicio)
+            
+        if fecha_fin:
+            query += " AND DATE(fecha_movimiento) <= %s"
+            params.append(fecha_fin)
+            
+        query += " ORDER BY fecha_movimiento DESC LIMIT 100"
+        
+        cursor.execute(query, params)
+        movimientos = cursor.fetchall()
+        
+        return jsonify({
+            'status': 'success',
+            'movimientos': movimientos
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener movimientos ferretero: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/logistica/suministros_ferretero', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def obtener_suministros_ferretero():
+    """Obtener suministros de la familia 'Material Ferretero'"""
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener suministros de material ferretero
+        query = """
+        SELECT 
+            id_suministros,
+            suministros_codigo,
+            suministros_descripcion,
+            suministros_cantidad,
+            suministros_costo_unitario,
+            fecha_registro
+        FROM suministros 
+        WHERE suministros_familia = 'Material Ferretero' 
+        AND suministros_estado = 'Activo'
+        ORDER BY suministros_descripcion
+        """
+        
+        cursor.execute(query)
+        suministros = cursor.fetchall()
+        
+        return jsonify({
+            'status': 'success',
+            'suministros': suministros
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener suministros ferretero: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+    
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/logistica/transferir_suministro_ferretero', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def transferir_suministro_ferretero():
+    """Transferir suministro a stock ferretero"""
+    connection = None
+    cursor = None
+    try:
+        data = request.get_json()
+        id_suministro = data.get('id_suministro')
+        cantidad_transferir = data.get('cantidad')
+        material_tipo = data.get('material_tipo')  # silicona, amarres_negros, etc.
+        
+        if not all([id_suministro, cantidad_transferir, material_tipo]):
+            return jsonify({
+                'status': 'error',
+                'message': 'Faltan datos requeridos'
+            }), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Verificar que el suministro existe y tiene cantidad suficiente
+        cursor.execute("""
+            SELECT suministros_cantidad, suministros_descripcion 
+            FROM suministros 
+            WHERE id_suministros = %s AND suministros_familia = 'Material Ferretero'
+        """, (id_suministro,))
+        
+        suministro = cursor.fetchone()
+        if not suministro:
+            return jsonify({
+                'status': 'error',
+                'message': 'Suministro no encontrado'
+            }), 404
+        
+        if suministro['suministros_cantidad'] < cantidad_transferir:
+            return jsonify({
+                'status': 'error',
+                'message': 'Cantidad insuficiente en suministros'
+            }), 400
+        
+        # Iniciar transacción
+        cursor.execute("START TRANSACTION")
+        
+        # Actualizar cantidad en suministros
+        nueva_cantidad_suministro = suministro['suministros_cantidad'] - cantidad_transferir
+        cursor.execute("""
+            UPDATE suministros 
+            SET suministros_cantidad = %s 
+            WHERE id_suministros = %s
+        """, (nueva_cantidad_suministro, id_suministro))
+        
+        # Registrar entrada en entradas_ferretero
+        cursor.execute("""
+            INSERT INTO entradas_ferretero 
+            (material_tipo, cantidad, precio_unitario, proveedor, numero_factura, observaciones, fecha_entrada)
+            VALUES (%s, %s, 0, 'Transferencia desde Suministros', %s, %s, NOW())
+        """, (
+            material_tipo, 
+            cantidad_transferir, 
+            f'SUM-{id_suministro}',
+            f'Transferido desde: {suministro["suministros_descripcion"]}'
+        ))
+        
+        # Confirmar transacción
+        connection.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Transferencia exitosa: {cantidad_transferir} unidades de {material_tipo}'
+        })
+        
+    except Exception as e:
+        print(f"Error al transferir suministro: {str(e)}")
+        if connection:
+            connection.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+    
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
 @app.route('/logistica/automotor')
 @login_required()
 @role_required('logistica')
@@ -3872,33 +4740,7 @@ def obtener_detalle_asignacion(id):
         
         imagen_result = cursor.fetchone()
         imagen_path = imagen_result['descripcion'] if imagen_result else None
-        
-        # Depuración detallada de la ruta de la imagen
-        app.logger.info(f"Imagen path desde BD: {imagen_path}")
-        
-        if imagen_path:
-            # Verificar si el archivo existe físicamente
-            ruta_completa = os.path.join(app.root_path, 'static', imagen_path)
-            app.logger.info(f"Ruta completa del archivo: {ruta_completa}")
-            existe_archivo = os.path.exists(ruta_completa)
-            app.logger.info(f"¿Existe el archivo?: {existe_archivo}")
-            
-            # Construir URL
-            imagen_url = url_for('static', filename=imagen_path)
-            app.logger.info(f"URL generada: {imagen_url}")
-            
-            # Verificar si la ruta en la BD incluye 'uploads/asignacion'
-            if not imagen_path.startswith('uploads/asignacion') and existe_archivo:
-                app.logger.warning(f"La ruta de la imagen no tiene el formato esperado: {imagen_path}")
-                # Intentar corregir la ruta si es necesario
-                if os.path.basename(imagen_path).startswith('asignacion_'):
-                    nuevo_path = os.path.join('uploads', 'asignacion', os.path.basename(imagen_path))
-                    app.logger.info(f"Ruta corregida: {nuevo_path}")
-                    imagen_url = url_for('static', filename=nuevo_path)
-                    app.logger.info(f"URL corregida: {imagen_url}")
-        else:
-            imagen_url = None
-            app.logger.info("No se encontró imagen para esta asignación")
+        imagen_url = url_for('static', filename=imagen_path) if imagen_path else None
         
         info_basica = {
             'tecnico': asignacion['nombre'],
@@ -6018,10 +6860,10 @@ def obtener_indicadores_cumplimiento():
                     'error': 'Formato de fecha inválido. Use YYYY-MM-DD'
                 }), 400
         else:
-            # Si no se proporcionan fechas, usar la fecha actual en UTC
-            fecha_actual = datetime.now(pytz.UTC).date()
+            # Si no se proporcionan fechas, usar la fecha actual
+            fecha_actual = get_bogota_datetime().date()
             fecha_inicio = fecha_fin = fecha_actual
-            print(f"Usando fecha actual UTC: {fecha_actual}")
+            print(f"Usando fecha actual: {fecha_actual}")
         
         connection = get_db_connection()
         if connection is None:
@@ -6319,6 +7161,800 @@ def get_cargos():
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
+
+# Rutas para el módulo de historial de seriales
+@app.route('/logistica/historial_seriales')
+@login_required()
+@role_required('logistica')
+def historial_seriales():
+    """Página principal del módulo de historial de seriales"""
+    return render_template('modulos/logistica/historial_seriales.html')
+
+@app.route('/logistica/buscar_serial', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def buscar_serial():
+    """Buscar historial de un serial específico"""
+    try:
+        # Manejar tanto JSON como form data
+        if request.is_json:
+            data = request.get_json()
+            serial = data.get('serial', '').strip()
+        else:
+            serial = request.form.get('serial', '').strip()
+        
+        if not serial:
+            return jsonify({
+                'success': False,
+                'message': 'El número de serial es requerido'
+            })
+        
+        # Conectar a la base de datos capired
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Buscar el serial en la tabla qry
+        cursor.execute("""
+            SELECT id, serial, fecha, estado, ot, cuenta, codigo, descripcion
+            FROM qry 
+            WHERE serial = %s
+            ORDER BY fecha DESC
+        """, (serial,))
+        
+        resultados = cursor.fetchall()
+        
+        # Calcular estadísticas
+        estadisticas = {
+            'total_registros': len(resultados),
+            'seriales_unicos': len(set(r['serial'] for r in resultados if r['serial'])),
+            'cuentas_unicas': len(set(r['cuenta'] for r in resultados if r['cuenta'])),
+            'ot_unicas': len(set(r['ot'] for r in resultados if r['ot']))
+        }
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'data': resultados,
+            'estadisticas': estadisticas
+        })
+        
+    except Exception as e:
+        print(f"Error al buscar serial: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al buscar el serial: {str(e)}'
+        })
+
+@app.route('/logistica/buscar_cuenta', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def buscar_cuenta():
+    """Buscar historial por cuenta y/o OT (búsqueda flexible)"""
+    try:
+        # Manejar tanto JSON como form data
+        if request.is_json:
+            data = request.get_json()
+            cuenta = data.get('cuenta', '').strip()
+            ot = data.get('ot', '').strip()
+        else:
+            cuenta = request.form.get('cuenta', '').strip()
+            ot = request.form.get('ot', '').strip()
+        
+        # Validar que al menos uno de los campos esté presente
+        if not cuenta and not ot:
+            return jsonify({
+                'success': False,
+                'message': 'Debe proporcionar al menos una Cuenta o una OT para realizar la búsqueda'
+            })
+        
+        # Conectar a la base de datos capired
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Construir consulta dinámica según los parámetros proporcionados
+        if cuenta and ot:
+            # Buscar por cuenta Y OT
+            cursor.execute("""
+                SELECT id, serial, fecha, estado, ot, cuenta, codigo, descripcion
+                FROM qry 
+                WHERE cuenta = %s AND ot = %s
+                ORDER BY fecha DESC
+            """, (cuenta, ot))
+        elif cuenta:
+            # Buscar solo por cuenta
+            cursor.execute("""
+                SELECT id, serial, fecha, estado, ot, cuenta, codigo, descripcion
+                FROM qry 
+                WHERE cuenta = %s
+                ORDER BY fecha DESC
+            """, (cuenta,))
+        else:
+            # Buscar solo por OT
+            cursor.execute("""
+                SELECT id, serial, fecha, estado, ot, cuenta, codigo, descripcion
+                FROM qry 
+                WHERE ot = %s
+                ORDER BY fecha DESC
+            """, (ot,))
+        
+        resultados = cursor.fetchall()
+        
+        # Calcular estadísticas
+        estadisticas = {
+            'total_registros': len(resultados),
+            'seriales_unicos': len(set(r['serial'] for r in resultados if r['serial'])),
+            'cuentas_unicas': len(set(r['cuenta'] for r in resultados if r['cuenta'])),
+            'ot_unicas': len(set(r['ot'] for r in resultados if r['ot']))
+        }
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'data': resultados,
+            'estadisticas': estadisticas
+        })
+        
+    except Exception as e:
+        print(f"Error al buscar cuenta/OT: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al buscar la cuenta/OT: {str(e)}'
+        })
+
+@app.route('/logistica/buscar_ot', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def buscar_ot():
+    """Buscar historial por OT y/o cuenta (búsqueda flexible)"""
+    try:
+        # Manejar tanto JSON como form data
+        if request.is_json:
+            data = request.get_json()
+            ot = data.get('ot', '').strip()
+            cuenta = data.get('cuenta', '').strip()
+        else:
+            ot = request.form.get('ot', '').strip()
+            cuenta = request.form.get('cuenta', '').strip()
+        
+        # Validar que al menos uno de los campos esté presente
+        if not ot and not cuenta:
+            return jsonify({
+                'success': False,
+                'message': 'Debe proporcionar al menos una OT o una Cuenta para realizar la búsqueda'
+            })
+        
+        # Conectar a la base de datos capired
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Construir consulta dinámica según los parámetros proporcionados
+        if ot and cuenta:
+            # Buscar por OT Y cuenta
+            cursor.execute("""
+                SELECT id, serial, fecha, estado, ot, cuenta, codigo, descripcion
+                FROM qry 
+                WHERE ot = %s AND cuenta = %s
+                ORDER BY fecha DESC
+            """, (ot, cuenta))
+        elif ot:
+            # Buscar solo por OT
+            cursor.execute("""
+                SELECT id, serial, fecha, estado, ot, cuenta, codigo, descripcion
+                FROM qry 
+                WHERE ot = %s
+                ORDER BY fecha DESC
+            """, (ot,))
+        else:
+            # Buscar solo por cuenta
+            cursor.execute("""
+                SELECT id, serial, fecha, estado, ot, cuenta, codigo, descripcion
+                FROM qry 
+                WHERE cuenta = %s
+                ORDER BY fecha DESC
+            """, (cuenta,))
+        
+        resultados = cursor.fetchall()
+        
+        # Calcular estadísticas
+        estadisticas = {
+            'total_registros': len(resultados),
+            'seriales_unicos': len(set(r['serial'] for r in resultados if r['serial'])),
+            'cuentas_unicas': len(set(r['cuenta'] for r in resultados if r['cuenta'])),
+            'ot_unicas': len(set(r['ot'] for r in resultados if r['ot']))
+        }
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'data': resultados,
+            'estadisticas': estadisticas
+        })
+        
+    except Exception as e:
+        print(f"Error al buscar OT/cuenta: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al buscar la OT/cuenta: {str(e)}'
+        })
+
+@app.route('/logistica/buscar_masivo', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def buscar_masivo():
+    """Buscar historial masivo desde archivo TXT"""
+    try:
+        if 'archivo_masivo' not in request.files:
+            return jsonify({
+                'success': False,
+                'message': 'No se ha seleccionado ningún archivo'
+            })
+        
+        archivo = request.files['archivo_masivo']
+        tipo_busqueda = request.form.get('tipo_consulta_masiva', 'seriales')
+        
+        if archivo.filename == '':
+            return jsonify({
+                'success': False,
+                'message': 'No se ha seleccionado ningún archivo'
+            })
+        
+        # Leer el contenido del archivo
+        contenido = archivo.read().decode('utf-8')
+        lineas = [linea.strip() for linea in contenido.split('\n') if linea.strip()]
+        
+        if not lineas:
+            return jsonify({
+                'success': False,
+                'message': 'El archivo está vacío o no contiene datos válidos'
+            })
+        
+        # Conectar a la base de datos capired
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        resultados = []
+        
+        # Buscar cada elemento según el tipo
+        for item in lineas:
+            if tipo_busqueda == 'seriales':
+                cursor.execute("""
+                    SELECT id, serial, fecha, estado, ot, cuenta, codigo, descripcion
+                    FROM qry 
+                    WHERE serial = %s
+                    ORDER BY fecha DESC
+                """, (item,))
+            elif tipo_busqueda == 'cuentas':
+                cursor.execute("""
+                    SELECT id, serial, fecha, estado, ot, cuenta, codigo, descripcion
+                    FROM qry 
+                    WHERE cuenta = %s
+                    ORDER BY fecha DESC
+                """, (item,))
+            elif tipo_busqueda == 'ot':
+                cursor.execute("""
+                    SELECT id, serial, fecha, estado, ot, cuenta, codigo, descripcion
+                    FROM qry 
+                    WHERE ot = %s
+                    ORDER BY fecha DESC
+                """, (item,))
+            
+            resultados.extend(cursor.fetchall())
+        
+        cursor.close()
+        connection.close()
+        
+        # Calcular estadísticas
+        estadisticas = {
+            'total_registros': len(resultados),
+            'seriales_unicos': len(set(r['serial'] for r in resultados if r['serial'])),
+            'cuentas_unicas': len(set(r['cuenta'] for r in resultados if r['cuenta'])),
+            'ot_unicas': len(set(r['ot'] for r in resultados if r['ot']))
+        }
+        
+        return jsonify({
+            'success': True,
+            'data': resultados,
+            'estadisticas': estadisticas,
+            'total': len(resultados),
+            'items_procesados': len(lineas)
+        })
+        
+    except Exception as e:
+        print(f"Error en búsqueda masiva: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error en la búsqueda masiva: {str(e)}'
+        })
+
+@app.route('/logistica/cargar_qry', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def cargar_qry():
+    """Cargar datos masivamente a la tabla qry desde archivo CSV/Excel"""
+    connection = None
+    cursor = None
+    
+    try:
+        if 'archivo_qry' not in request.files:
+            return jsonify({
+                'success': False,
+                'message': 'No se ha seleccionado ningún archivo'
+            })
+        
+        archivo = request.files['archivo_qry']
+        validar_datos = request.form.get('validar_datos', 'false').lower() == 'true'
+        actualizar_existentes = request.form.get('actualizar_existentes', 'false').lower() == 'true'
+        
+        if archivo.filename == '':
+            return jsonify({
+                'success': False,
+                'message': 'No se ha seleccionado ningún archivo'
+            })
+        
+        # Validar extensión del archivo
+        extension = archivo.filename.lower().split('.')[-1]
+        if extension not in ['csv', 'xlsx', 'xls']:
+            return jsonify({
+                'success': False,
+                'message': 'Formato de archivo no soportado. Use CSV o Excel (.xlsx, .xls)'
+            })
+        
+        # Procesar archivo según su tipo
+        datos = []
+        errores = []
+        
+        try:
+            if extension == 'csv':
+                import csv
+                import io
+                
+                # Intentar múltiples codificaciones para archivos CSV
+                contenido_bytes = archivo.read()
+                contenido = None
+                
+                # Lista de codificaciones a probar
+                encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
+                
+                for encoding in encodings:
+                    try:
+                        contenido = contenido_bytes.decode(encoding)
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                
+                if contenido is None:
+                    return jsonify({
+                        'success': False,
+                        'message': 'No se pudo decodificar el archivo CSV. Verifique la codificación del archivo.'
+                    })
+                
+                reader = csv.DictReader(io.StringIO(contenido))
+                datos = list(reader)
+            else:
+                import pandas as pd
+                df = pd.read_excel(archivo)
+                datos = df.to_dict('records')
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'message': f'Error al leer el archivo: {str(e)}'
+            })
+        
+        if not datos:
+            return jsonify({
+                'success': False,
+                'message': 'El archivo está vacío o no contiene datos válidos'
+            })
+        
+        # Validar columnas requeridas
+        columnas_requeridas = ['serial', 'fecha', 'estado', 'ot', 'cuenta', 'codigo', 'descripcion']
+        primera_fila = datos[0]
+        columnas_archivo = list(primera_fila.keys())
+        
+        # Verificar que todas las columnas requeridas estén presentes
+        columnas_faltantes = [col for col in columnas_requeridas if col not in columnas_archivo]
+        if columnas_faltantes:
+            return jsonify({
+                'success': False,
+                'message': f'Faltan las siguientes columnas en el archivo: {", ".join(columnas_faltantes)}'
+            })
+        
+        # Conectar a la base de datos usando la función centralizada
+        from datetime import datetime
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False,
+                'message': 'Error de conexión a la base de datos. Por favor, inténtelo más tarde.'
+            })
+        
+        cursor = connection.cursor()
+        
+        registros_procesados = 0
+        registros_insertados = 0
+        registros_actualizados = 0
+        
+        for i, fila in enumerate(datos, 1):
+            try:
+                # Extraer datos de la fila
+                serial = str(fila.get('serial', '')).strip()
+                fecha = fila.get('fecha', '')
+                estado = str(fila.get('estado', '')).strip()
+                ot = str(fila.get('ot', '')).strip()
+                cuenta = str(fila.get('cuenta', '')).strip()
+                codigo = str(fila.get('codigo', '')).strip()
+                descripcion = str(fila.get('descripcion', '')).strip()
+                
+                # Validaciones básicas si está habilitado
+                if validar_datos:
+                    if not serial:
+                        errores.append(f'Fila {i}: Serial es requerido')
+                        continue
+                    
+                    # Validar formato de fecha si es necesario
+                    if fecha:
+                        try:
+                            if isinstance(fecha, str):
+                                # Intentar parsear diferentes formatos de fecha
+                                from dateutil import parser
+                                fecha = parser.parse(fecha).strftime('%Y-%m-%d')
+                            elif hasattr(fecha, 'strftime'):
+                                fecha = fecha.strftime('%Y-%m-%d')
+                        except:
+                            errores.append(f'Fila {i}: Formato de fecha inválido')
+                            continue
+                
+                # Verificar si el registro ya existe (por serial)
+                if actualizar_existentes:
+                    cursor.execute("SELECT id FROM qry WHERE serial = %s", (serial,))
+                    existe = cursor.fetchone()
+                    
+                    if existe:
+                        # Actualizar registro existente
+                        cursor.execute("""
+                            UPDATE qry 
+                            SET fecha = %s, estado = %s, ot = %s, cuenta = %s, codigo = %s, descripcion = %s
+                            WHERE serial = %s
+                        """, (fecha, estado, ot, cuenta, codigo, descripcion, serial))
+                        registros_actualizados += 1
+                    else:
+                        # Insertar nuevo registro
+                        cursor.execute("""
+                            INSERT INTO qry (serial, fecha, estado, ot, cuenta, codigo, descripcion)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """, (serial, fecha, estado, ot, cuenta, codigo, descripcion))
+                        registros_insertados += 1
+                else:
+                    # Solo insertar (puede generar duplicados)
+                    cursor.execute("""
+                        INSERT INTO qry (serial, fecha, estado, ot, cuenta, codigo, descripcion)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """, (serial, fecha, estado, ot, cuenta, codigo, descripcion))
+                    registros_insertados += 1
+                
+                registros_procesados += 1
+                
+            except Exception as e:
+                errores.append(f'Fila {i}: Error al procesar - {str(e)}')
+                continue
+        
+        # Confirmar transacción
+        connection.commit()
+        
+        # Preparar respuesta
+        mensaje = f'Carga completada. Procesados: {registros_procesados}'
+        if registros_insertados > 0:
+            mensaje += f', Insertados: {registros_insertados}'
+        if registros_actualizados > 0:
+            mensaje += f', Actualizados: {registros_actualizados}'
+        if errores:
+            mensaje += f', Errores: {len(errores)}'
+        
+        # Asegurar que los mensajes de error no contengan caracteres problemáticos
+        errores_limpios = []
+        for error in errores[:10]:
+            try:
+                # Intentar codificar y decodificar para limpiar caracteres problemáticos
+                error_limpio = str(error).encode('utf-8', errors='replace').decode('utf-8')
+                errores_limpios.append(error_limpio)
+            except:
+                errores_limpios.append('Error de codificación en mensaje')
+        
+        return jsonify({
+            'success': True,
+            'message': mensaje,
+            'registros_procesados': registros_procesados,
+            'registros_insertados': registros_insertados,
+            'registros_actualizados': registros_actualizados,
+            'errores': errores_limpios
+        })
+        
+    except mysql.connector.Error as db_error:
+        if connection:
+            connection.rollback()
+        # Limpiar mensaje de error de base de datos
+        try:
+            error_msg = str(db_error).encode('utf-8', errors='replace').decode('utf-8')
+        except:
+            error_msg = 'Error de base de datos (problema de codificación)'
+        
+        return jsonify({
+            'success': False,
+            'message': f'Error de base de datos: {error_msg}'
+        })
+    
+    except Exception as e:
+        print(f"Error en carga de QRY: {str(e)}")
+        # Limpiar mensaje de error general
+        try:
+            error_msg = str(e).encode('utf-8', errors='replace').decode('utf-8')
+        except:
+            error_msg = 'Error interno del servidor (problema de codificación)'
+        
+        return jsonify({
+            'success': False,
+            'message': f'Error interno del servidor: {error_msg}'
+        })
+    
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+@app.route('/logistica/limites_tecnico/<int:id_codigo_consumidor>')
+@login_required()
+@role_required('logistica')
+def obtener_limites_tecnico(id_codigo_consumidor):
+    """Endpoint para obtener los límites actualizados de un técnico específico"""
+    try:
+        print(f"\n=== DEPURACIÓN LÍMITES TÉCNICO ===")
+        print(f"ID recibido: {id_codigo_consumidor} (tipo: {type(id_codigo_consumidor)})")
+        
+        connection = get_db_connection()
+        if connection is None:
+            print("ERROR: No se pudo conectar a la base de datos")
+            return jsonify({
+                'success': False,
+                'mensaje': 'Error de conexión a la base de datos'
+            })
+                               
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener información del técnico
+        print(f"Ejecutando consulta para técnico ID: {id_codigo_consumidor}")
+        cursor.execute("""
+            SELECT id_codigo_consumidor, nombre, recurso_operativo_cedula, cargo, carpeta 
+            FROM recurso_operativo 
+            WHERE id_codigo_consumidor = %s
+        """, (id_codigo_consumidor,))
+        
+        tecnico = cursor.fetchone()
+        print(f"Resultado consulta técnico: {tecnico}")
+        
+        if not tecnico:
+            print(f"ERROR: Técnico con ID {id_codigo_consumidor} no encontrado")
+            return jsonify({
+                'success': False,
+                'mensaje': 'Técnico no encontrado'
+            })
+        
+        # Definir límites según área de trabajo
+        limites = {
+            'FTTH INSTALACIONES': {
+                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'INSTALACIONES DOBLES': {
+                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'POSTVENTA': {
+                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'MANTENIMIENTO FTTH': {
+                'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'ARREGLOS HFC': {
+                'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'grapas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+            },
+            'CONDUCTOR': {
+                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'amarres': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'grapas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
+            }
+        }
+        
+        # Determinar área de trabajo
+        carpeta = tecnico.get('carpeta', '').upper() if tecnico.get('carpeta') else ''
+        cargo = tecnico.get('cargo', '').upper()
+        
+        print(f"Datos del técnico:")
+        print(f"  - Nombre: {tecnico.get('nombre')}")
+        print(f"  - Carpeta: '{carpeta}' (original: '{tecnico.get('carpeta')}')")
+        print(f"  - Cargo: '{cargo}' (original: '{tecnico.get('cargo')}')")
+        
+        area_trabajo = None
+        
+        # Primero intentar determinar por carpeta
+        if carpeta:
+            print(f"Buscando área por carpeta: '{carpeta}'")
+            for area in limites.keys():
+                print(f"  - Comparando con área: '{area}' -> {area in carpeta}")
+                if area in carpeta:
+                    area_trabajo = area
+                    print(f"  - ¡ENCONTRADA! Área asignada: {area_trabajo}")
+                    break
+        
+        # Si no se encontró por carpeta, intentar por cargo
+        if area_trabajo is None:
+            print(f"Buscando área por cargo: '{cargo}'")
+            for area in limites.keys():
+                print(f"  - Comparando con área: '{area}' -> {area in cargo}")
+                if area in cargo:
+                    area_trabajo = area
+                    print(f"  - ¡ENCONTRADA! Área asignada: {area_trabajo}")
+                    break
+        
+        # Si no se encuentra un área específica, usar límites por defecto
+        if area_trabajo is None:
+            print("No se encontró área específica, usando POSTVENTA por defecto")
+            area_trabajo = 'POSTVENTA'
+        
+        print(f"Área de trabajo final: {area_trabajo}")
+        
+        # Obtener asignaciones previas para este técnico
+        fecha_actual = datetime.now()
+        print(f"\nConsultando asignaciones previas para técnico ID: {id_codigo_consumidor}")
+        cursor.execute("""
+            SELECT 
+                fecha_asignacion,
+                silicona,
+                amarres_negros,
+                amarres_blancos,
+                cinta_aislante,
+                grapas_blancas,
+                grapas_negras
+            FROM ferretero 
+            WHERE id_codigo_consumidor = %s
+            ORDER BY fecha_asignacion DESC
+        """, (id_codigo_consumidor,))
+        asignaciones_tecnico = cursor.fetchall()
+        print(f"Asignaciones encontradas: {len(asignaciones_tecnico)}")
+        
+        if asignaciones_tecnico:
+            print("Primeras 3 asignaciones:")
+            for i, asig in enumerate(asignaciones_tecnico[:3]):
+                print(f"  {i+1}. Fecha: {asig['fecha_asignacion']}, Silicona: {asig['silicona']}, Cintas: {asig['cinta_aislante']}")
+        
+        # Inicializar contadores para materiales en los períodos correspondientes
+        contadores = {
+            'cinta_aislante': 0,
+            'silicona': 0,
+            'amarres': 0,
+            'grapas': 0
+        }
+        
+        # Calcular consumo previo en los periodos correspondientes
+        for asignacion in asignaciones_tecnico:
+            fecha_asignacion = asignacion['fecha_asignacion']
+            diferencia_dias = (fecha_actual - fecha_asignacion).days
+            
+            # Verificar límite de cintas
+            if diferencia_dias <= limites[area_trabajo]['cinta_aislante']['periodo']:
+                contadores['cinta_aislante'] += int(asignacion.get('cinta_aislante', 0) or 0)
+                
+            # Verificar límite de siliconas
+            if diferencia_dias <= limites[area_trabajo]['silicona']['periodo']:
+                contadores['silicona'] += int(asignacion.get('silicona', 0) or 0)
+                
+            # Verificar límite de amarres (sumando negros y blancos)
+            if diferencia_dias <= limites[area_trabajo]['amarres']['periodo']:
+                contadores['amarres'] += int(asignacion.get('amarres_negros', 0) or 0)
+                contadores['amarres'] += int(asignacion.get('amarres_blancos', 0) or 0)
+                
+            # Verificar límite de grapas (sumando blancas y negras)
+            if diferencia_dias <= limites[area_trabajo]['grapas']['periodo']:
+                contadores['grapas'] += int(asignacion.get('grapas_blancas', 0) or 0)
+                contadores['grapas'] += int(asignacion.get('grapas_negras', 0) or 0)
+        
+        # Calcular límites disponibles
+        print(f"\nContadores finales:")
+        print(f"  - Cintas consumidas: {contadores['cinta_aislante']} / {limites[area_trabajo]['cinta_aislante']['cantidad']}")
+        print(f"  - Siliconas consumidas: {contadores['silicona']} / {limites[area_trabajo]['silicona']['cantidad']}")
+        print(f"  - Amarres consumidos: {contadores['amarres']} / {limites[area_trabajo]['amarres']['cantidad']}")
+        print(f"  - Grapas consumidas: {contadores['grapas']} / {limites[area_trabajo]['grapas']['cantidad']}")
+        
+        limites_disponibles = {
+            'area': area_trabajo,
+            'cinta_aislante': max(0, limites[area_trabajo]['cinta_aislante']['cantidad'] - contadores['cinta_aislante']),
+            'silicona': max(0, limites[area_trabajo]['silicona']['cantidad'] - contadores['silicona']),
+            'amarres': max(0, limites[area_trabajo]['amarres']['cantidad'] - contadores['amarres']),
+            'grapas': max(0, limites[area_trabajo]['grapas']['cantidad'] - contadores['grapas']),
+            'periodos': {
+                'cinta_aislante': f"{limites[area_trabajo]['cinta_aislante']['periodo']} {limites[area_trabajo]['cinta_aislante']['unidad']}",
+                'silicona': f"{limites[area_trabajo]['silicona']['periodo']} {limites[area_trabajo]['silicona']['unidad']}",
+                'amarres': f"{limites[area_trabajo]['amarres']['periodo']} {limites[area_trabajo]['amarres']['unidad']}",
+                'grapas': f"{limites[area_trabajo]['grapas']['periodo']} {limites[area_trabajo]['grapas']['unidad']}"
+            }
+        }
+        
+        print(f"\nLímites disponibles calculados:")
+        print(f"  - Cintas disponibles: {limites_disponibles['cinta_aislante']}")
+        print(f"  - Siliconas disponibles: {limites_disponibles['silicona']}")
+        print(f"  - Amarres disponibles: {limites_disponibles['amarres']}")
+        print(f"  - Grapas disponibles: {limites_disponibles['grapas']}")
+        print(f"=== FIN DEPURACIÓN ===\n")
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'tecnico': tecnico,
+            'limites': limites_disponibles
+        })
+        
+    except Exception as e:
+        print(f"\n=== ERROR EN LÍMITES TÉCNICO ===")
+        print(f"ID técnico: {id_codigo_consumidor}")
+        print(f"Error: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        print(f"=== FIN ERROR ===\n")
+        return jsonify({
+            'success': False,
+            'mensaje': f'Error al obtener límites: {str(e)}'
+        })
 
 # Importar y registrar las rutas de app.py
 from app import operativo_asistencia, guardar_asistencia_operativo

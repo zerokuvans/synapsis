@@ -119,14 +119,14 @@
                                 <label for="supervisor" class="form-label fw-bold">Supervisor</label>
                                 <select class="form-select" id="supervisor" name="supervisor" required>
                                     <option value="">Seleccione un supervisor</option>
-                                    <option value="NELSON DIAZ">NELSON DIAZ</option>
+                                    <option value="JAVIER MALDONADO">JAVIER MALDONADO</option>
                                     <option value="DANIEL SILVA">DANIEL SILVA</option>
                                     <option value="JORGE SOSA">JORGE SOSA</option>
                                     <option value="CARLOS CACERES">CARLOS CACERES</option>
                                     <option value="MAURICIO MUÑOZ">MAURICIO MUÑOZ</option>
                                     <option value="SANDRA CORTES">SANDRA CORTES</option>
-                                    <option value="DAVID BENAVIDES">DAVID BENAVIDES</option>
-                                    <option value="ALFONSO HORTUA">ALFONSO HORTUA</option>
+                                    <option value="DAVID LANCHEROS">DAVID LANCHEROS</option>
+                                    
                                     <!-- Add more supervisors as needed -->
                                 </select>
                             </div>
@@ -610,7 +610,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log(`Validando horario: Hora en Bogotá ${datosBogota.hora}:${datosBogota.minutos} - Permitido hasta las 10:00 AM`);
             
             // Comprobar si es antes de las 10:00 AM
-            return (datosBogota.hora < 10) || (datosBogota.hora === 10 && datosBogota.minutos === 0);
+            return (datosBogota.hora > 10) || (datosBogota.hora === 10 && datosBogota.minutos === 0);
         } catch (error) {
             console.error("Error al validar horario:", error);
             // En caso de error, permitir el acceso
