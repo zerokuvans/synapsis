@@ -3542,19 +3542,19 @@ def obtener_stock_ferretero():
         for material in materiales:
             # Buscar datos de entrada
             entrada = next((item for item in total_entradas if item['material_tipo'] == material), None)
-            total_recibido = entrada['total_entradas'] if entrada else 0
-            valor_entradas = entrada['valor_total_entradas'] if entrada else 0
+            total_recibido = float(entrada['total_entradas']) if entrada and entrada['total_entradas'] else 0.0
+            valor_entradas = float(entrada['valor_total_entradas']) if entrada and entrada['valor_total_entradas'] else 0.0
             ultima_entrada = entrada['ultima_entrada'] if entrada else None
-            numero_entradas = entrada['numero_entradas'] if entrada else 0
+            numero_entradas = int(entrada['numero_entradas']) if entrada and entrada['numero_entradas'] else 0
             
             # Buscar total asignado
             asignado = next((item for item in total_asignado_historico if item['material_tipo'] == material), None)
-            total_asignado = asignado['total_asignado'] if asignado else 0
+            total_asignado = float(asignado['total_asignado']) if asignado and asignado['total_asignado'] else 0.0
             
             # Buscar stock actual
             stock_item = next((item for item in stock if item['material_tipo'] == material), None)
-            stock_actual = stock_item['cantidad_actual'] if stock_item else 0
-            stock_minimo = stock_item['cantidad_minima'] if stock_item else 0
+            stock_actual = float(stock_item['cantidad_actual']) if stock_item and stock_item['cantidad_actual'] else 0.0
+            stock_minimo = float(stock_item['cantidad_minima']) if stock_item and stock_item['cantidad_minima'] else 0.0
             
             # Calcular diferencia teórica vs real
             diferencia_teorica = total_recibido - total_asignado
@@ -3562,15 +3562,15 @@ def obtener_stock_ferretero():
             
             resumen_inventario.append({
                 'material_tipo': material,
-                'total_recibido': total_recibido or 0,
-                'total_asignado': total_asignado or 0,
-                'stock_actual': stock_actual or 0,
-                'stock_minimo': stock_minimo or 0,
-                'diferencia_teorica': diferencia_teorica,
-                'diferencia_real': diferencia_real,
-                'valor_entradas': valor_entradas or 0,
+                'total_recibido': int(total_recibido),
+                'total_asignado': int(total_asignado),
+                'stock_actual': int(stock_actual),
+                'stock_minimo': int(stock_minimo),
+                'diferencia_teorica': int(diferencia_teorica),
+                'diferencia_real': int(diferencia_real),
+                'valor_entradas': float(valor_entradas),
                 'ultima_entrada': ultima_entrada,
-                'numero_entradas': numero_entradas or 0,
+                'numero_entradas': numero_entradas,
                 'estado_stock': 'Crítico' if stock_actual <= stock_minimo else 'Normal'
             })
         
