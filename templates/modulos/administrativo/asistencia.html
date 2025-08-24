@@ -25,54 +25,48 @@
         <div class="card-body">
             <form id="formAsistencia" class="row g-3">
                 <div class="col-md-4">
-                    <label for="tecnico" class="form-label">Técnico</label>
-                    <select class="form-select" id="tecnico" required>
-                        <option value="">Seleccione un técnico...</option>
-                        {% for tecnico in tecnicos %}
-                        <option value="{{ tecnico.id_codigo_consumidor }}" 
-                                data-cedula="{{ tecnico.recurso_operativo_cedula }}"
-                                data-nombre="{{ tecnico.nombre }}"
-                                data-carpeta="{{ tecnico.carpeta }}">
-                            {{ tecnico.nombre }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-4">
-                    <label for="carpeta_dia" class="form-label">Carpeta Día</label>
-                    <select class="form-select" id="carpeta_dia" required>
-                        <option value="">Seleccione carpeta día...</option>
-                        {% for carpeta in carpetas_dia %}
-                        <option value="{{ carpeta.codigo_tipificacion }}">
-                            {{ carpeta.codigo_tipificacion }} - {{ carpeta.nombre_tipificacion }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="col-md-4">
-                    <label for="super" class="form-label">Supervisor</label>
-                    <select class="form-select" id="super" required>
-                        <option value="">Seleccione supervisor...</option>
+                    <label for="supervisor" class="form-label">Supervisor</label>
+                    <select class="form-select" id="supervisor" name="supervisor" required onchange="cargarTecnicosPorSupervisor()">
+                        <option value="">Seleccione un supervisor</option>
                         {% for supervisor in supervisores %}
-                        <option value="{{ supervisor.super }}">
-                            {{ supervisor.super }}
-                        </option>
+                        <option value="{{ supervisor }}">{{ supervisor }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 
-                <div class="col-12">
-                    <button type="button" class="btn btn-primary" onclick="agregarAsistencia()">
-                        <i class="fas fa-plus me-1"></i> Agregar a la Lista
-                    </button>
                 </div>
             </form>
         </div>
     </div>
+
+    <!-- Tabla de técnicos del supervisor seleccionado -->
+    <div class="card mt-4" id="tablaTecnicosCard" style="display: none;">
+        <div class="card-header pb-0">
+            <h6>Técnicos del Supervisor</h6>
+            <p class="text-sm mb-0">Seleccione la carpeta día para cada técnico</p>
+        </div>
+        <div class="card-body px-0 pt-0 pb-2">
+            <div class="table-responsive p-0">
+                <table class="table align-items-center mb-0" id="tablaTecnicos">
+                    <thead>
+                        <tr>
+                            <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Técnico</th>
+                            <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Cédula</th>
+                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Carpeta Día</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpoTablaTecnicos">
+                        <!-- Los técnicos se cargarán dinámicamente aquí -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-center mt-3">
+                <button type="button" class="btn btn-primary" id="btnRegistrarAsistencia" onclick="registrarAsistenciaCompleta()" disabled>
+                    <i class="fas fa-save me-2"></i>Registrar Asistencia
+                </button>
+            </div>
     
-    <div class="card mb-4">
+    <div class="card mb-4" style="display: none;">
         <div class="card-header">
             <i class="fas fa-table me-1"></i>
             Asistencias por Registrar
@@ -176,6 +170,166 @@ function obtenerFechaHoraBogota() {
         console.error("Error al calcular fecha de Bogotá:", error);
         // En caso de error, enviar un objeto con información sobre el error
         return new Date().toLocaleString('es-CO');
+    }
+}
+
+// Variable global para almacenar técnicos del supervisor
+let tecnicosDelSupervisor = [];
+
+// Función para cargar técnicos por supervisor
+async function cargarTecnicosPorSupervisor() {
+    const supervisorSelect = document.getElementById('supervisor');
+    const supervisor = supervisorSelect.value;
+    
+    if (!supervisor) {
+        document.getElementById('tablaTecnicosCard').style.display = 'none';
+        document.getElementById('btnRegistrarAsistencia').disabled = true;
+        tecnicosDelSupervisor = [];
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/tecnicos_por_supervisor?supervisor=${encodeURIComponent(supervisor)}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            tecnicosDelSupervisor = data.tecnicos;
+            console.log('Técnicos cargados:', tecnicosDelSupervisor.length);
+            mostrarTablaTecnicos(data.tecnicos);
+            document.getElementById('tablaTecnicosCard').style.display = 'block';
+            // Validar después de cargar los técnicos
+            validarFormularioCompleto();
+        } else {
+            alert('Error al cargar técnicos: ' + data.message);
+            tecnicosDelSupervisor = [];
+            document.getElementById('btnRegistrarAsistencia').disabled = true;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al cargar técnicos del supervisor');
+        tecnicosDelSupervisor = [];
+        document.getElementById('btnRegistrarAsistencia').disabled = true;
+    }
+}
+
+// Función para mostrar la tabla de técnicos
+function mostrarTablaTecnicos(tecnicos) {
+    const cuerpoTabla = document.getElementById('cuerpoTablaTecnicos');
+    cuerpoTabla.innerHTML = '';
+    
+    tecnicos.forEach(tecnico => {
+        const fila = document.createElement('tr');
+        fila.innerHTML = `
+            <td>
+                <div class="d-flex px-2 py-1">
+                    <div class="d-flex flex-column justify-content-center">
+                        <h6 class="mb-0 text-sm">${tecnico.nombre}</h6>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <p class="text-xs font-weight-bold mb-0">${tecnico.recurso_operativo_cedula}</p>
+            </td>
+            <td class="align-middle text-center">
+                <select class="form-select form-select-sm" id="carpeta_${tecnico.id_codigo_consumidor}" onchange="validarFormularioCompleto()">
+                    <option value="">Seleccione carpeta día...</option>
+                    {% for carpeta in carpetas_dia %}
+                    <option value="{{ carpeta.codigo_tipificacion }}">
+                        {{ carpeta.codigo_tipificacion }} - {{ carpeta.nombre_tipificacion }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </td>
+        `;
+        cuerpoTabla.appendChild(fila);
+    });
+}
+
+// Función para validar que todos los técnicos tengan carpeta día seleccionada
+function validarFormularioCompleto() {
+    const supervisor = document.getElementById('supervisor').value;
+    
+    // Si no hay supervisor seleccionado, deshabilitar botón
+    if (!supervisor) {
+        document.getElementById('btnRegistrarAsistencia').disabled = true;
+        return;
+    }
+    
+    // Si no hay técnicos cargados, deshabilitar botón
+    if (!tecnicosDelSupervisor || tecnicosDelSupervisor.length === 0) {
+        document.getElementById('btnRegistrarAsistencia').disabled = true;
+        return;
+    }
+    
+    let todoCompleto = true;
+    
+    tecnicosDelSupervisor.forEach(tecnico => {
+        const select = document.getElementById(`carpeta_${tecnico.id_codigo_consumidor}`);
+        if (!select || !select.value) {
+            todoCompleto = false;
+        }
+    });
+    
+    console.log('Validación completa:', {
+        supervisor: supervisor,
+        tecnicosCount: tecnicosDelSupervisor.length,
+        todoCompleto: todoCompleto
+    });
+    
+    document.getElementById('btnRegistrarAsistencia').disabled = !todoCompleto;
+}
+
+// Función para registrar asistencia completa
+async function registrarAsistenciaCompleta() {
+    const supervisor = document.getElementById('supervisor').value;
+    const fechaAsistencia = obtenerFechaHoraBogota();
+    
+    const asistenciasCompletas = [];
+    
+    tecnicosDelSupervisor.forEach(tecnico => {
+        const carpetaSelect = document.getElementById(`carpeta_${tecnico.id_codigo_consumidor}`);
+        if (carpetaSelect && carpetaSelect.value) {
+            asistenciasCompletas.push({
+                id_codigo_consumidor: tecnico.id_codigo_consumidor,
+                cedula: tecnico.recurso_operativo_cedula,
+                tecnico: tecnico.nombre,
+                carpeta_dia: carpetaSelect.value,
+                carpeta: tecnico.carpeta || '',
+                super: supervisor,
+                fecha_registro_bogota: fechaAsistencia
+            });
+        }
+    });
+    
+    if (asistenciasCompletas.length === 0) {
+        alert('No hay asistencias para registrar');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/asistencia/guardar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ asistencias: asistenciasCompletas })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`Asistencias registradas exitosamente: ${asistenciasCompletas.length} técnicos`);
+            // Limpiar formulario
+            document.getElementById('supervisor').value = '';
+            document.getElementById('tablaTecnicosCard').style.display = 'none';
+            document.getElementById('btnRegistrarAsistencia').disabled = true;
+            tecnicosDelSupervisor = [];
+        } else {
+            alert('Error al guardar asistencias: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error al guardar las asistencias');
     }
 }
 
@@ -330,4 +484,4 @@ function mostrarAlerta(mensaje, tipo) {
     }, 5000);
 }
 </script>
-{% endblock %} 
+{% endblock %}

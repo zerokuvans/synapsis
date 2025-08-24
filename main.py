@@ -106,11 +106,15 @@ def load_user(user_id):
     return None
 
 # Importar rutas desde app.py
-from app import operativo_asistencia, guardar_asistencia_operativo
+from app import operativo_asistencia, guardar_asistencia_operativo, administrativo_asistencia, obtener_supervisores, obtener_tecnicos_por_supervisor, guardar_asistencia_administrativa
 
 # Registrar rutas de app.py
 app.route('/operativo/asistencia')(operativo_asistencia)
 app.route('/api/operativo/asistencia/guardar', methods=['POST'])(guardar_asistencia_operativo)
+app.route('/administrativo/asistencia')(administrativo_asistencia)
+app.route('/api/supervisores', methods=['GET'])(obtener_supervisores)
+app.route('/api/tecnicos_por_supervisor', methods=['GET'])(obtener_tecnicos_por_supervisor)
+app.route('/api/asistencia/guardar', methods=['POST'])(guardar_asistencia_administrativa)
 
 # Database configuration
 db_config = {
@@ -6816,6 +6820,9 @@ def guardar_asistencias():
             connection.close()
 
 
+
+
+
 @app.route('/api/indicadores/cumplimiento')
 @login_required(role='administrativo')
 def obtener_indicadores_cumplimiento():
@@ -6906,12 +6913,16 @@ def obtener_indicadores_cumplimiento():
         """
         params_asistencia = [fecha_inicio, fecha_fin]
         
-        # Obtener preoperacionales por supervisor
+        # Obtener preoperacionales por supervisor - SOLO de técnicos con asistencia
         query_preoperacional = """
-            SELECT supervisor, COUNT(*) as total_preoperacional
-            FROM preoperacional 
-            WHERE DATE(fecha) BETWEEN %s AND %s
-            GROUP BY supervisor
+            SELECT p.supervisor, COUNT(*) as total_preoperacional
+            FROM preoperacional p
+            INNER JOIN asistencia a ON p.id_codigo_consumidor = a.id_codigo_consumidor 
+                AND DATE(p.fecha) = DATE(a.fecha_asistencia)
+            INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE DATE(p.fecha) BETWEEN %s AND %s 
+                AND t.valor = '1'
+            GROUP BY p.supervisor
         """
         params_preoperacional = [fecha_inicio, fecha_fin]
         
@@ -6979,6 +6990,151 @@ def obtener_indicadores_cumplimiento():
     except Exception as e:
         import traceback
         print(f"Error en indicadores de cumplimiento: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/indicadores/detalle_tecnicos')
+@login_required(role='administrativo')
+def obtener_detalle_tecnicos():
+    """Obtener detalle de técnicos por supervisor con estado de asistencia y preoperacional"""
+    try:
+        # Obtener parámetros
+        fecha = request.args.get('fecha')
+        supervisor = request.args.get('supervisor')
+        
+        print(f"Parámetros recibidos en detalle_tecnicos:")
+        print(f"- fecha: {fecha}")
+        print(f"- supervisor: {supervisor}")
+        
+        # Validar parámetros
+        if not fecha or not supervisor:
+            return jsonify({
+                'success': False,
+                'error': 'Se requieren los parámetros fecha y supervisor'
+            }), 400
+        
+        # Validar formato de fecha
+        try:
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'error': 'Formato de fecha inválido. Use YYYY-MM-DD'
+            }), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False,
+                'error': 'Error de conexión a la base de datos'
+            }), 500
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener técnicos del supervisor
+        cursor.execute("""
+            SELECT DISTINCT id_codigo_consumidor, nombre 
+            FROM recurso_operativo 
+            WHERE super = %s AND id_codigo_consumidor IS NOT NULL
+            ORDER BY nombre
+        """, (supervisor,))
+        
+        tecnicos_supervisor = cursor.fetchall()
+        
+        if not tecnicos_supervisor:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': True,
+                'tecnicos': [],
+                'mensaje': f'No se encontraron técnicos para el supervisor {supervisor}'
+            })
+        
+        # Para cada técnico, verificar asistencia y preoperacional
+        tecnicos_detalle = []
+        
+        for tecnico in tecnicos_supervisor:
+            id_tecnico = tecnico['id_codigo_consumidor']
+            nombre_tecnico = tecnico['nombre']
+            
+            # Verificar asistencia válida
+            cursor.execute("""
+                SELECT a.*, t.valor as asistencia_valida
+                FROM asistencia a
+                JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+                WHERE a.id_codigo_consumidor = %s 
+                    AND DATE(a.fecha_asistencia) = %s
+                    AND t.valor = '1'
+            """, (id_tecnico, fecha_obj))
+            
+            asistencia = cursor.fetchone()
+            tiene_asistencia = asistencia is not None
+            hora_asistencia = None
+            
+            if tiene_asistencia:
+                # Convertir a hora de Bogotá para mostrar
+                fecha_asistencia_utc = asistencia['fecha_asistencia']
+                if fecha_asistencia_utc:
+                    fecha_bogota = convert_to_bogota_time(fecha_asistencia_utc)
+                    hora_asistencia = fecha_bogota.strftime('%H:%M')
+            
+            # Verificar preoperacional
+            cursor.execute("""
+                SELECT * FROM preoperacional 
+                WHERE id_codigo_consumidor = %s 
+                    AND DATE(fecha) = %s
+            """, (id_tecnico, fecha_obj))
+            
+            preoperacional = cursor.fetchone()
+            tiene_preoperacional = preoperacional is not None
+            hora_preoperacional = None
+            
+            if tiene_preoperacional:
+                # Convertir a hora de Bogotá para mostrar
+                fecha_preop_utc = preoperacional['fecha']
+                if fecha_preop_utc:
+                    fecha_bogota = convert_to_bogota_time(fecha_preop_utc)
+                    hora_preoperacional = fecha_bogota.strftime('%H:%M')
+            
+            # Determinar estado general
+            if tiene_asistencia and tiene_preoperacional:
+                estado = "Completo"
+            elif tiene_asistencia:
+                estado = "Solo Asistencia"
+            elif tiene_preoperacional:
+                estado = "Solo Preoperacional"
+            else:
+                estado = "Sin Registros"
+            
+            tecnicos_detalle.append({
+                'id_codigo_consumidor': id_tecnico,
+                'nombre': nombre_tecnico,
+                'asistencia': tiene_asistencia,
+                'preoperacional': tiene_preoperacional,
+                'estado': estado,
+                'hora_asistencia': hora_asistencia or 'N/A',
+                'hora_preoperacional': hora_preoperacional or 'N/A',
+                'hora_registro': hora_asistencia or hora_preoperacional or 'N/A'
+            })
+        
+        cursor.close()
+        connection.close()
+        
+        print(f"Se encontraron {len(tecnicos_detalle)} técnicos para el supervisor {supervisor}")
+        
+        return jsonify({
+            'success': True,
+            'tecnicos': tecnicos_detalle,
+            'supervisor': supervisor,
+            'fecha': fecha
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"Error en detalle_tecnicos: {str(e)}")
         print(f"Traceback: {traceback.format_exc()}")
         return jsonify({
             'success': False,

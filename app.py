@@ -218,6 +218,187 @@ def guardar_asistencia_operativo():
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
+# Ruta para renderizar el template administrativo de asistencia
+@app.route('/administrativo/asistencia', methods=['GET'])
+def administrativo_asistencia():
+    """Renderizar el template administrativo de asistencia con datos necesarios"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'danger')
+            return redirect(url_for('dashboard'))
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener lista de supervisores únicos
+        cursor.execute("""
+            SELECT DISTINCT super
+            FROM recurso_operativo
+            WHERE super IS NOT NULL AND super != '' AND estado = 'Activo'
+            ORDER BY super
+        """)
+        supervisores_result = cursor.fetchall()
+        supervisores = [row['super'] for row in supervisores_result]
+        
+        # Obtener lista de tipificaciones para carpeta_dia
+        cursor.execute("""
+            SELECT codigo_tipificacion, nombre_tipificacion
+            FROM tipificacion_asistencia
+            WHERE estado = '1'
+            ORDER BY codigo_tipificacion
+        """)
+        carpetas_dia = cursor.fetchall()
+        
+        return render_template('modulos/administrativo/asistencia.html',
+                           supervisores=supervisores,
+                           carpetas_dia=carpetas_dia)
+                           
+    except mysql.connector.Error as e:
+        flash(f'Error al cargar datos: {str(e)}', 'danger')
+        return redirect(url_for('dashboard'))
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# Endpoints para el sistema administrativo de asistencia
+@app.route('/api/supervisores', methods=['GET'])
+def obtener_supervisores():
+    """Obtener lista única de supervisores desde la tabla recurso_operativo"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+            
+        cursor = connection.cursor()
+        
+        # Obtener supervisores únicos de la tabla recurso_operativo
+        cursor.execute("""
+            SELECT DISTINCT super
+            FROM recurso_operativo
+            WHERE super IS NOT NULL AND super != '' AND estado = 'Activo'
+            ORDER BY super
+        """)
+        
+        supervisores = [row[0] for row in cursor.fetchall()]
+        
+        return jsonify({
+            'success': True,
+            'supervisores': supervisores
+        })
+        
+    except mysql.connector.Error as e:
+        return jsonify({'success': False, 'message': f'Error de base de datos: {str(e)}'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/tecnicos_por_supervisor', methods=['GET'])
+def obtener_tecnicos_por_supervisor():
+    """Obtener técnicos asociados a un supervisor específico desde recurso_operativo"""
+    try:
+        supervisor = request.args.get('supervisor')
+        if not supervisor:
+            return jsonify({'success': False, 'message': 'Supervisor no especificado'})
+            
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener técnicos del supervisor especificado
+        cursor.execute("""
+            SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta, super
+            FROM recurso_operativo
+            WHERE super = %s AND estado = 'Activo'
+            ORDER BY nombre
+        """, (supervisor,))
+        
+        tecnicos = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'tecnicos': tecnicos,
+            'supervisor': supervisor
+        })
+        
+    except mysql.connector.Error as e:
+        return jsonify({'success': False, 'message': f'Error de base de datos: {str(e)}'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/guardar', methods=['POST'])
+def guardar_asistencia_administrativa():
+    """Guardar asistencias desde el sistema administrativo"""
+    try:
+        data = request.get_json()
+        
+        # Validar campos requeridos
+        if not data.get('asistencias'):
+            return jsonify({"success": False, "message": "Datos de asistencias faltantes"}), 400
+            
+        # Insertar en base de datos
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+            
+        cursor = connection.cursor()
+        
+        # Insertar cada asistencia
+        asistencias_guardadas = 0
+        for asistencia in data['asistencias']:
+            try:
+                cursor.execute("""
+                    INSERT INTO asistencia (
+                        cedula, tecnico, carpeta_dia, carpeta, super, 
+                        id_codigo_consumidor, fecha_asistencia
+                    ) VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                """, (
+                    asistencia['cedula'],
+                    asistencia['tecnico'],
+                    asistencia['carpeta_dia'],
+                    asistencia.get('carpeta', ''),
+                    asistencia['super'],
+                    asistencia['id_codigo_consumidor']
+                ))
+                asistencias_guardadas += 1
+            except mysql.connector.Error as e:
+                logging.error(f"Error insertando asistencia para {asistencia.get('tecnico', 'N/A')}: {str(e)}")
+                continue
+        
+        connection.commit()
+        
+        if asistencias_guardadas > 0:
+            return jsonify({
+                'success': True, 
+                'message': f'Se guardaron {asistencias_guardadas} asistencias correctamente'
+            })
+        else:
+            return jsonify({
+                'success': False, 
+                'message': 'No se pudo guardar ninguna asistencia'
+            })
+        
+    except Exception as e:
+        logging.error(f"Error guardando asistencias administrativas: {str(e)}")
+        return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
 class Asignacion(db.Model):
     id_asignacion = db.Column(db.Integer, primary_key=True)
     id_codigo_consumidor = db.Column(db.String(50))
