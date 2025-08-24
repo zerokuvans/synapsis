@@ -2,11 +2,11 @@
     <form id="filtrosForm" class="row g-3 align-items-end">
         <div class="col-md-3">
             <label for="fecha_inicio" class="form-label">Fecha Inicio</label>
-            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio if fecha_inicio }}">
+            <input type="date" class="form-control" id="fecha_inicio" name="fecha_inicio" value="{{ fecha_inicio if fecha_inicio else fecha_actual }}">
         </div>
         <div class="col-md-3">
             <label for="fecha_fin" class="form-label">Fecha Fin</label>
-            <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin if fecha_fin }}">
+            <input type="date" class="form-control" id="fecha_fin" name="fecha_fin" value="{{ fecha_fin if fecha_fin else fecha_actual }}">
         </div>
         <div class="col-md-4">
             <label for="supervisor" class="form-label">Supervisor</label>
@@ -21,4 +21,4 @@
             <button type="submit" class="btn btn-primary w-100">Filtrar</button>
         </div>
     </form>
-</div> 
+</div>

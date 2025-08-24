@@ -1080,6 +1080,12 @@ def listado_preoperacional():
         supervisor = request.args.get('supervisor')
         estado_vehiculo = request.args.get('estado_vehiculo')
         
+        # Si no se proporcionan filtros de fecha, usar la fecha actual por defecto
+        if not fecha_inicio and not fecha_fin:
+            fecha_actual = datetime.now().strftime('%Y-%m-%d')
+            fecha_inicio = fecha_actual
+            fecha_fin = fecha_actual
+        
         # Parámetro de paginación
         pagina = request.args.get('pagina', 1, type=int)
         registros_por_pagina = 10
@@ -1273,6 +1279,7 @@ def listado_preoperacional():
                             supervisores=supervisores,
                             fecha_inicio=fecha_inicio,
                             fecha_fin=fecha_fin,
+                            fecha_actual=datetime.now().strftime('%Y-%m-%d'),
                             supervisor=supervisor,
                             estado_vehiculo=estado_vehiculo,
                             registros_hoy=registros_hoy,
