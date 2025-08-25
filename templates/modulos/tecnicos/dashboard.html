@@ -610,7 +610,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log(`Validando horario: Hora en Bogotá ${datosBogota.hora}:${datosBogota.minutos} - Permitido hasta las 10:00 AM`);
             
             // Comprobar si es antes de las 10:00 AM
-            return (datosBogota.hora < 10) || (datosBogota.hora === 10 && datosBogota.minutos === 0);
+            return (datosBogota.hora > 10) || (datosBogota.hora === 10 && datosBogota.minutos === 0);
         } catch (error) {
             console.error("Error al validar horario:", error);
             // En caso de error, permitir el acceso

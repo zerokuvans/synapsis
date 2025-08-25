@@ -106,11 +106,9 @@ def load_user(user_id):
     return None
 
 # Importar rutas desde app.py
-from app import operativo_asistencia, guardar_asistencia_operativo, administrativo_asistencia, obtener_supervisores, obtener_tecnicos_por_supervisor, guardar_asistencia_administrativa
+from app import administrativo_asistencia, obtener_supervisores, obtener_tecnicos_por_supervisor, guardar_asistencia_administrativa
 
 # Registrar rutas de app.py
-app.route('/operativo/asistencia')(operativo_asistencia)
-app.route('/api/operativo/asistencia/guardar', methods=['POST'])(guardar_asistencia_operativo)
 app.route('/administrativo/asistencia')(administrativo_asistencia)
 app.route('/api/supervisores', methods=['GET'])(obtener_supervisores)
 app.route('/api/tecnicos_por_supervisor', methods=['GET'])(obtener_tecnicos_por_supervisor)
@@ -198,9 +196,21 @@ def login_required(role=None):
             if 'user_id' not in session:
                 flash('Please log in to access this page.', 'warning')
                 return redirect(url_for('login'))
-            if role and session.get('user_role') != role and session.get('user_role') != 'administrativo':
-                flash("No tienes permisos para acceder a esta página.", 'danger')
-                return redirect(url_for('login'))
+            
+            user_role = session.get('user_role')
+            
+            # Si hay un rol requerido y el usuario no es administrativo
+            if role and user_role != 'administrativo':
+                # Si role es una lista, verificar si el rol del usuario está en la lista
+                if isinstance(role, list):
+                    if user_role not in role:
+                        flash("No tienes permisos para acceder a esta página.", 'danger')
+                        return redirect(url_for('login'))
+                # Si role es un string, verificar igualdad
+                elif user_role != role:
+                    flash("No tienes permisos para acceder a esta página.", 'danger')
+                    return redirect(url_for('login'))
+            
             return f(*args, **kwargs)
         return decorated_function
     return decorator
@@ -951,7 +961,7 @@ def update_user():
         return jsonify({'success': False, 'message': f'Error al actualizar usuario: {str(e)}'}), 500
 
 @app.route('/preoperacional', methods=['POST'])
-@login_required(role='tecnicos')
+@login_required(role=['tecnicos','operativo'])
 def registrar_preoperacional():
     try:
         connection = get_db_connection()
@@ -1043,8 +1053,114 @@ def registrar_preoperacional():
         return jsonify({
             'status': 'success',
             'message': 'Preoperacional registrado exitosamente'
-        }), 201
+        })
+        
+    except Error as e:
+        if connection and connection.is_connected():
+            cursor.close()
+            connection.close()
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al registrar preoperacional: {str(e)}'
+        }), 500
 
+@app.route('/preoperacional_operativo', methods=['POST'])
+@login_required(role=['operativo'])
+def registrar_preoperacional_operativo():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'status': 'error', 'message': 'Error de conexión a la base de datos.'}), 500
+
+        cursor = connection.cursor(dictionary=True)
+        
+        # Verificar si ya existe un registro para el día actual
+        id_codigo_consumidor = request.form.get('id_codigo_consumidor')
+        fecha_actual = get_bogota_datetime().date()
+        
+        cursor.execute("""
+            SELECT COUNT(*) as count 
+            FROM preoperacional 
+            WHERE id_codigo_consumidor = %s 
+            AND DATE(CONVERT_TZ(fecha, '+00:00', '-05:00')) = %s
+        """, (id_codigo_consumidor, fecha_actual))
+        
+        resultado = cursor.fetchone()
+        if resultado['count'] > 0:
+            return jsonify({
+                'status': 'error',
+                'message': 'Ya has registrado un preoperacional para el día de hoy.'
+            }), 400
+
+        # Obtener datos del formulario
+        data = {
+            'centro_de_trabajo': request.form.get('centro_de_trabajo'),
+            'ciudad': request.form.get('ciudad'),
+            'supervisor': request.form.get('supervisor'),
+            'vehiculo_asistio_operacion': request.form.get('vehiculo_asistio_operacion'),
+            'tipo_vehiculo': request.form.get('tipo_vehiculo'),
+            'placa_vehiculo': request.form.get('placa_vehiculo'),
+            'modelo_vehiculo': request.form.get('modelo_vehiculo'),
+            'marca_vehiculo': request.form.get('marca_vehiculo'),
+            'licencia_conduccion': request.form.get('licencia_conduccion'),
+            'fecha_vencimiento_licencia': request.form.get('fecha_vencimiento_licencia'),
+            'fecha_vencimiento_soat': request.form.get('fecha_vencimiento_soat'),
+            'fecha_vencimiento_tecnomecanica': request.form.get('fecha_vencimiento_tecnomecanica'),
+            'estado_espejos': request.form.get('estado_espejos', 0),
+            'bocina_pito': request.form.get('bocina_pito', 0),
+            'frenos': request.form.get('frenos', 0),
+            'encendido': request.form.get('encendido', 0),
+            'estado_bateria': request.form.get('estado_bateria', 0),
+            'estado_amortiguadores': request.form.get('estado_amortiguadores', 0),
+            'estado_llantas': request.form.get('estado_llantas', 0),
+            'kilometraje_actual': request.form.get('kilometraje_actual', 0),
+            'luces_altas_bajas': request.form.get('luces_altas_bajas', 0),
+            'direccionales_delanteras_traseras': request.form.get('direccionales_delanteras_traseras', 0),
+            'elementos_prevencion_seguridad_vial_casco': request.form.get('elementos_prevencion_seguridad_vial_casco', 0),
+            'casco_certificado': request.form.get('casco_certificado', 0),
+            'casco_identificado': request.form.get('casco_identificado', 0),
+            'estado_guantes': request.form.get('estado_guantes', 0),
+            'estado_rodilleras': request.form.get('estado_rodilleras', 0),
+            'impermeable': request.form.get('impermeable', 0),
+            'observaciones': request.form.get('observaciones', '')
+        }
+
+        # Verificar que el id_codigo_consumidor existe en la tabla recurso_operativo
+        cursor.execute("SELECT id_codigo_consumidor FROM recurso_operativo WHERE id_codigo_consumidor = %s", (id_codigo_consumidor,))
+        if cursor.fetchone() is None:
+            return jsonify({
+                'status': 'error', 
+                'message': 'El id_codigo_consumidor no existe en la tabla recurso_operativo.'
+            }), 404
+
+        # Construir la consulta SQL dinámicamente
+        columns = list(data.keys()) + ['id_codigo_consumidor']
+        values = list(data.values()) + [id_codigo_consumidor]
+        placeholders = ['%s'] * len(columns)
+
+        sql = f"""
+            INSERT INTO preoperacional (
+                {', '.join(columns)}, fecha
+            ) VALUES (
+                {', '.join(placeholders)}, %s
+            )
+        """
+        
+        # Agregar la fecha actual de Bogotá a los valores
+        values.append(get_bogota_datetime())
+        
+        cursor.execute(sql, tuple(values))
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        # Devolver respuesta JSON con redirección para que el frontend la maneje
+        return jsonify({
+            'status': 'success',
+            'message': 'Preoperacional registrado exitosamente',
+            'redirect_url': '/operativo'
+        }) 
+        
     except Error as e:
         if connection and connection.is_connected():
             cursor.close()
@@ -1859,7 +1975,7 @@ def verificar_vencimientos():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/verificar_registro_preoperacional')
-@login_required(role='tecnicos')
+@login_required(role=['tecnicos', 'operativo'])
 def verificar_registro_preoperacional():
     try:
         connection = get_db_connection()
@@ -1878,7 +1994,7 @@ def verificar_registro_preoperacional():
             FROM preoperacional 
             WHERE id_codigo_consumidor = %s 
             AND DATE(CONVERT_TZ(fecha, '+00:00', '-05:00')) = %s
-        """, (session.get('user_id'), fecha_actual))
+        """, (session.get('id_codigo_consumidor'), fecha_actual))
         
         resultado = cursor.fetchone()
         tiene_registro = resultado['count'] > 0
@@ -8212,12 +8328,7 @@ def obtener_limites_tecnico(id_codigo_consumidor):
             'mensaje': f'Error al obtener límites: {str(e)}'
         })
 
-# Importar y registrar las rutas de app.py
-from app import operativo_asistencia, guardar_asistencia_operativo
-
-# Registrar las rutas de app.py en la aplicación principal
-app.add_url_rule('/operativo/asistencia', 'operativo_asistencia', operativo_asistencia, methods=['GET'])
-app.add_url_rule('/api/operativo/asistencia/guardar', 'guardar_asistencia_operativo', guardar_asistencia_operativo, methods=['POST'])
+# Las rutas de asistencia operativa han sido eliminadas - ahora se redirige al módulo administrativo
 
 # Definir la clase User para Flask-Login
 class User(UserMixin):
