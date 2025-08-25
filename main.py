@@ -273,7 +273,7 @@ def login():
             
             # Buscar usuario
             app.logger.info(f"Consultando usuario con cedula: {username}")
-            cursor.execute("SELECT id_codigo_consumidor, id_roles, recurso_operativo_password, nombre FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (username,))
+            cursor.execute("SELECT id_codigo_consumidor, id_roles, recurso_operativo_password, nombre, estado FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (username,))
             user_data = cursor.fetchone()
 
             # Verificar si el usuario existe
@@ -283,6 +283,14 @@ def login():
                     'status': 'error', 
                     'message': 'Usuario o contraseña inválidos'
                 }), 401
+            
+            # Verificar si el usuario está activo
+            if user_data['estado'] != 'Activo':
+                app.logger.warning(f"Intento de acceso de usuario inactivo: {username} - Estado: {user_data['estado']}")
+                return jsonify({
+                    'status': 'error', 
+                    'message': 'Su cuenta se encuentra inactiva. Contacte al administrador para más información.'
+                }), 403
             
             # Verificar contraseña
             app.logger.info("Verificando contraseña")
@@ -3163,7 +3171,7 @@ def estadisticas_ferretero():
                     incluir_tecnico = True
                 elif material == 'amarres' and (stats['amarres_negros'] + stats['amarres_blancos']) > 0:
                     incluir_tecnico = True
-                elif material == 'cintas' and stats['cinta_aislante'] > 0:
+                elif material == 'cinta' and stats['cinta_aislante'] > 0:
                     incluir_tecnico = True
                 elif material == 'grapas' and (stats['grapas_blancas'] + stats['grapas_negras']) > 0:
                     incluir_tecnico = True
@@ -3198,8 +3206,20 @@ def estadisticas_ferretero():
             item['por_encima_promedio'] = item['total_asignaciones'] > promedio_asignaciones
             item['muy_por_encima_promedio'] = item['total_asignaciones'] > (promedio_asignaciones * 1.5)
         
-        # Ordenar por total de asignaciones (descendente)
-        estadisticas_lista.sort(key=lambda x: x['total_asignaciones'], reverse=True)
+        # Ordenar según el filtro de material aplicado
+        if material and material != 'todos':
+            # Ordenar por el material específico seleccionado
+            if material == 'silicona':
+                estadisticas_lista.sort(key=lambda x: x['silicona'], reverse=True)
+            elif material == 'amarres':
+                estadisticas_lista.sort(key=lambda x: (x['amarres_negros'] + x['amarres_blancos']), reverse=True)
+            elif material == 'cinta':
+                estadisticas_lista.sort(key=lambda x: x['cinta_aislante'], reverse=True)
+            elif material == 'grapas':
+                estadisticas_lista.sort(key=lambda x: (x['grapas_blancas'] + x['grapas_negras']), reverse=True)
+        else:
+            # Ordenar por total de asignaciones (descendente) cuando no hay filtro de material
+            estadisticas_lista.sort(key=lambda x: x['total_asignaciones'], reverse=True)
         
         # Preparar top 5 técnicos
         top_tecnicos = estadisticas_lista[:5] if len(estadisticas_lista) >= 5 else estadisticas_lista
@@ -3546,6 +3566,53 @@ def obtener_stock_ferretero():
         """)
         total_asignado_historico = cursor.fetchall()
         
+        # Obtener datos para calcular promedio de consumo diario
+        cursor.execute("""
+            SELECT 
+                'silicona' as material_tipo,
+                COALESCE(SUM(silicona), 0) as total_consumido,
+                COUNT(DISTINCT DATE(fecha_asignacion)) as dias_con_consumo
+            FROM ferretero 
+            WHERE silicona > 0 AND fecha_asignacion >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+            UNION ALL
+            SELECT 
+                'amarres_negros' as material_tipo,
+                COALESCE(SUM(amarres_negros), 0) as total_consumido,
+                COUNT(DISTINCT DATE(fecha_asignacion)) as dias_con_consumo
+            FROM ferretero 
+            WHERE amarres_negros > 0 AND fecha_asignacion >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+            UNION ALL
+            SELECT 
+                'amarres_blancos' as material_tipo,
+                COALESCE(SUM(amarres_blancos), 0) as total_consumido,
+                COUNT(DISTINCT DATE(fecha_asignacion)) as dias_con_consumo
+            FROM ferretero 
+            WHERE amarres_blancos > 0 AND fecha_asignacion >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+            UNION ALL
+            SELECT 
+                'cinta_aislante' as material_tipo,
+                COALESCE(SUM(cinta_aislante), 0) as total_consumido,
+                COUNT(DISTINCT DATE(fecha_asignacion)) as dias_con_consumo
+            FROM ferretero 
+            WHERE cinta_aislante > 0 AND fecha_asignacion >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+            UNION ALL
+            SELECT 
+                'grapas_blancas' as material_tipo,
+                COALESCE(SUM(grapas_blancas), 0) as total_consumido,
+                COUNT(DISTINCT DATE(fecha_asignacion)) as dias_con_consumo
+            FROM ferretero 
+            WHERE grapas_blancas > 0 AND fecha_asignacion >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+            UNION ALL
+            SELECT 
+                'grapas_negras' as material_tipo,
+                COALESCE(SUM(grapas_negras), 0) as total_consumido,
+                COUNT(DISTINCT DATE(fecha_asignacion)) as dias_con_consumo
+            FROM ferretero 
+            WHERE grapas_negras > 0 AND fecha_asignacion >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+            ORDER BY material_tipo
+        """)
+        consumo_historico = cursor.fetchall()
+        
         # Calcular resumen de inventario
         resumen_inventario = []
         materiales = ['silicona', 'amarres_negros', 'amarres_blancos', 'cinta_aislante', 'grapas_blancas', 'grapas_negras']
@@ -3567,7 +3634,31 @@ def obtener_stock_ferretero():
             stock_actual = float(stock_item['cantidad_actual']) if stock_item and stock_item['cantidad_actual'] else 0.0
             stock_minimo = float(stock_item['cantidad_minima']) if stock_item and stock_item['cantidad_minima'] else 0.0
             
-            # Calcular diferencia teórica vs real
+            # Buscar datos de consumo histórico
+            consumo = next((item for item in consumo_historico if item['material_tipo'] == material), None)
+            total_consumido = float(consumo['total_consumido']) if consumo and consumo['total_consumido'] else 0.0
+            dias_con_consumo = int(consumo['dias_con_consumo']) if consumo and consumo['dias_con_consumo'] else 0
+            
+            # Calcular promedio de consumo diario y días de alcance
+            if dias_con_consumo > 0:
+                promedio_consumo_diario = total_consumido / dias_con_consumo
+            else:
+                promedio_consumo_diario = 0.0
+            
+            if promedio_consumo_diario > 0:
+                dias_alcance = stock_actual / promedio_consumo_diario
+            else:
+                dias_alcance = float('inf') if stock_actual > 0 else 0
+            
+            # Formatear días de alcance para mostrar
+            if dias_alcance == float('inf'):
+                dias_alcance_display = "∞"
+            elif dias_alcance > 999:
+                dias_alcance_display = ">999"
+            else:
+                dias_alcance_display = round(dias_alcance, 1)
+            
+            # Calcular diferencia teórica vs real (mantener para compatibilidad)
             diferencia_teorica = total_recibido - total_asignado
             diferencia_real = diferencia_teorica - stock_actual
             
@@ -3579,6 +3670,8 @@ def obtener_stock_ferretero():
                 'stock_minimo': int(stock_minimo),
                 'diferencia_teorica': int(diferencia_teorica),
                 'diferencia_real': int(diferencia_real),
+                'dias_alcance': dias_alcance_display,
+                'promedio_consumo_diario': round(promedio_consumo_diario, 2),
                 'valor_entradas': float(valor_entradas),
                 'ultima_entrada': ultima_entrada,
                 'numero_entradas': numero_entradas,

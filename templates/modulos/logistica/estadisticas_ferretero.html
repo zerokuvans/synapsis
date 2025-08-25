@@ -1,5 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Estadísticas de Material Ferretero{% endblock %}
+
+{% block title %}Estadísticas Ferretero{% endblock %}
+
+<style>
+.material-destacado {
+    background-color: #fff3cd !important;
+    border: 2px solid #ffc107 !important;
+    font-weight: bold !important;
+    color: #856404 !important;
+}
+</style>
 
 {% block content %}
 <div class="container-fluid px-4">
@@ -157,7 +167,7 @@
                             <th>Total Recibido</th>
                             <th>Total Asignado</th>
                             <th>Stock Actual</th>
-                            <th>Diferencia Teórica</th>
+                            <th>Días de Alcance</th>
                             <th>Diferencia Real</th>
                             <th>Valor Entradas</th>
                             <th>Estado</th>
@@ -381,6 +391,33 @@
         const tbody = document.getElementById('tablaEstadisticasBody');
         tbody.innerHTML = '';
         
+        // Obtener el material filtrado para destacar la columna correspondiente
+        const filtroMaterial = document.getElementById('filtroMaterial').value;
+        
+        // Limpiar clases de columnas destacadas anteriores
+        document.querySelectorAll('.material-destacado').forEach(el => {
+            el.classList.remove('material-destacado');
+        });
+        
+        // Destacar la columna del material filtrado
+        if (filtroMaterial && filtroMaterial !== 'todos') {
+            let columnaIndex = -1;
+            switch(filtroMaterial) {
+                case 'silicona': columnaIndex = 2; break;
+                case 'amarres': columnaIndex = 3; break;
+                case 'cinta': columnaIndex = 4; break;
+                case 'grapas': columnaIndex = 5; break;
+            }
+            
+            if (columnaIndex >= 0) {
+                // Destacar header de la columna
+                const headers = document.querySelectorAll('#tablaEstadisticas thead th');
+                if (headers[columnaIndex]) {
+                    headers[columnaIndex].classList.add('material-destacado');
+                }
+            }
+        }
+        
         if (estadisticas.length === 0) {
             tbody.innerHTML = `
                 <tr>
@@ -408,10 +445,10 @@
             fila.innerHTML = `
                 <td>${item.nombre}</td>
                 <td>${item.area || 'No especificada'}</td>
-                <td>${item.silicona || 0}</td>
-                <td>${(item.amarres_negros || 0) + (item.amarres_blancos || 0)}</td>
-                <td>${item.cinta_aislante || 0}</td>
-                <td>${(item.grapas_blancas || 0) + (item.grapas_negras || 0)}</td>
+                <td class="${filtroMaterial === 'silicona' ? 'material-destacado' : ''}">${item.silicona || 0}</td>
+                <td class="${filtroMaterial === 'amarres' ? 'material-destacado' : ''}">${(item.amarres_negros || 0) + (item.amarres_blancos || 0)}</td>
+                <td class="${filtroMaterial === 'cinta' ? 'material-destacado' : ''}">${item.cinta_aislante || 0}</td>
+                <td class="${filtroMaterial === 'grapas' ? 'material-destacado' : ''}">${(item.grapas_blancas || 0) + (item.grapas_negras || 0)}</td>
                 <td><strong>${item.total_asignaciones || 0}</strong></td>
                 <td>${item.promedio_mensual ? item.promedio_mensual.toFixed(2) : '0.00'}</td>
             `;
@@ -1180,8 +1217,8 @@
                     <br><small class="text-muted">Mín: ${item.stock_minimo}</small>
                 </td>
                 <td>
-                    <span class="badge ${item.diferencia_teorica >= 0 ? 'bg-success' : 'bg-danger'}">
-                        ${item.diferencia_teorica >= 0 ? '+' : ''}${item.diferencia_teorica}
+                    <span class="badge ${item.dias_alcance > 30 ? 'bg-success' : item.dias_alcance > 7 ? 'bg-warning' : 'bg-danger'}">
+                        ${item.dias_alcance !== null ? Math.round(item.dias_alcance) + ' días' : 'N/A'}
                     </span>
                 </td>
                 <td>
