@@ -1,9 +1,11 @@
-from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash
-from datetime import date, datetime
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import login_required, current_user
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import mysql.connector
 import logging
+import pytz
+import os
+from datetime import date
 
 app = Flask(__name__)
 db = SQLAlchemy()
@@ -112,114 +114,13 @@ def registrar_asignacion_con_firma():
     #return render_template('modulos/administrativo/api_indicadores_cumplimiento.html', 
      #                     supervisores=supervisores)
 
-@app.route('/operativo/asistencia', methods=['GET'])
-@login_required
-def operativo_asistencia():
-    # Verificar que el usuario tenga rol de supervisor (operativo)
-    app.logger.info(f"Accediendo a /operativo/asistencia")
-    try:
-        app.logger.info(f"Usuario actual: {current_user.nombre}, Rol: {current_user.role}")
-        if not current_user.has_role('operativo'):
-            flash('No tienes permisos para acceder a esta página', 'danger')
-            return redirect(url_for('dashboard'))
-    except Exception as e:
-        app.logger.error(f"Error en verificación de rol: {str(e)}")
-        return redirect(url_for('login'))
-        
-    try:
-        connection = get_db_connection()
-        if connection is None:
-            flash('Error de conexión a la base de datos', 'danger')
-            return redirect(url_for('dashboard'))
-            
-        cursor = connection.cursor(dictionary=True)
-        
-        # Obtener el nombre del supervisor actual (usuario logueado)
-        supervisor_nombre = current_user.nombre
-        
-        # Obtener lista de técnicos filtrados por el supervisor actual
-        cursor.execute("""
-           SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta
-            FROM capired.recurso_operativo
-            WHERE estado = 'Activo' AND super = %s
-            ORDER BY nombre
-        """, (supervisor_nombre,))
-        tecnicos = cursor.fetchall()
-        
-        # Obtener lista de tipificaciones para carpeta_dia
-        cursor.execute("""
-            SELECT codigo_tipificacion, nombre_tipificacion
-            FROM tipificacion_asistencia
-            WHERE estado = '1'
-            ORDER BY codigo_tipificacion
-        """)
-        carpetas_dia = cursor.fetchall()
-        
-        return render_template('modulos/operativo/asistencia.html',
-                           tecnicos=tecnicos,
-                           carpetas_dia=carpetas_dia,
-                           supervisor_nombre=supervisor_nombre)
-                           
-    except mysql.connector.Error as e:
-        flash(f'Error al cargar datos: {str(e)}', 'danger')
-        return redirect(url_for('dashboard'))
-    finally:
-        if cursor:
-            cursor.close()
-        if connection and connection.is_connected():
-            connection.close()
 
-@app.route('/api/operativo/asistencia/guardar', methods=['POST'])
-def guardar_asistencia_operativo():
-    try:
-        data = request.get_json()
-        # Validar campos requeridos
-        if not data.get('asistencias'):
-            return jsonify({"success": False, "message": "Datos de asistencias faltantes"}), 400
-            
-        # Insertar en base de datos
-        connection = get_db_connection()
-        if connection is None:
-            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
-            
-        cursor = connection.cursor()
-        
-        # Verificar que las asistencias correspondan al supervisor actual
-        supervisor_nombre = current_user.nombre
-        for asistencia in data['asistencias']:
-            if asistencia['super'] != supervisor_nombre:
-                return jsonify({'success': False, 'message': 'No puedes registrar asistencia para técnicos que no están bajo tu supervisión'}), 403
-        
-        # Insertar cada asistencia
-        for asistencia in data['asistencias']:
-            cursor.execute("""
-                INSERT INTO asistencia (
-                    cedula, tecnico, carpeta_dia, carpeta, super, 
-                    id_codigo_consumidor
-                ) VALUES (%s, %s, %s, %s, %s, %s)
-            """, (
-                asistencia['cedula'],
-                asistencia['tecnico'],
-                asistencia['carpeta_dia'],
-                asistencia['carpeta'],
-                asistencia['super'],
-                asistencia['id_codigo_consumidor'],
-            ))
-        
-        connection.commit()
-        return jsonify({'success': True, 'message': 'Asistencias guardadas correctamente'})
-        
-    except Exception as e:
-        logging.error(f"Error guardando asistencias: {str(e)}")
-        return jsonify({"success": False, "message": str(e)}), 500
-    finally:
-        if 'cursor' in locals() and cursor:
-            cursor.close()
-        if 'connection' in locals() and connection and connection.is_connected():
-            connection.close()
+
+
 
 # Ruta para renderizar el template administrativo de asistencia
 @app.route('/administrativo/asistencia', methods=['GET'])
+@login_required
 def administrativo_asistencia():
     """Renderizar el template administrativo de asistencia con datos necesarios"""
     try:
@@ -230,15 +131,42 @@ def administrativo_asistencia():
             
         cursor = connection.cursor(dictionary=True)
         
-        # Obtener lista de supervisores únicos
-        cursor.execute("""
-            SELECT DISTINCT super
-            FROM recurso_operativo
-            WHERE super IS NOT NULL AND super != '' AND estado = 'Activo'
-            ORDER BY super
-        """)
-        supervisores_result = cursor.fetchall()
-        supervisores = [row['super'] for row in supervisores_result]
+        # Obtener información del usuario actual
+        user_id = session.get('user_id')
+        user_role = session.get('user_role')
+        user_name = session.get('user_name')
+        
+        # Filtrar supervisores según el rol del usuario
+        if user_role == 'administrativo':
+            # Si es administrador, mostrar todos los supervisores
+            cursor.execute("""
+                SELECT DISTINCT super
+                FROM recurso_operativo
+                WHERE super IS NOT NULL AND super != '' AND estado = 'Activo'
+                ORDER BY super
+            """)
+            supervisores_result = cursor.fetchall()
+            supervisores = [row['super'] for row in supervisores_result]
+        else:
+            # Si es supervisor, solo mostrar su propio nombre
+            # Obtener el nombre del supervisor desde la base de datos
+            cursor.execute("""
+                SELECT super
+                FROM recurso_operativo
+                WHERE id_codigo_consumidor = %s AND estado = 'Activo'
+            """, (user_id,))
+            supervisor_result = cursor.fetchone()
+            
+            if supervisor_result and supervisor_result['super']:
+                supervisores = [supervisor_result['super']]
+            else:
+                # Si no tiene supervisor asignado, usar su nombre
+                supervisores = [user_name] if user_name else []
+        
+        # Si no hay supervisores disponibles, redirigir con mensaje
+        if not supervisores:
+            flash('No tiene permisos para acceder a este módulo o no tiene supervisores asignados.', 'warning')
+            return redirect(url_for('dashboard'))
         
         # Obtener lista de tipificaciones para carpeta_dia
         cursor.execute("""
@@ -264,24 +192,46 @@ def administrativo_asistencia():
 
 # Endpoints para el sistema administrativo de asistencia
 @app.route('/api/supervisores', methods=['GET'])
+@login_required
 def obtener_supervisores():
-    """Obtener lista única de supervisores desde la tabla recurso_operativo"""
+    """Obtener lista única de supervisores desde la tabla recurso_operativo con filtrado por rol"""
     try:
         connection = get_db_connection()
         if connection is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
             
-        cursor = connection.cursor()
+        cursor = connection.cursor(dictionary=True)
         
-        # Obtener supervisores únicos de la tabla recurso_operativo
-        cursor.execute("""
-            SELECT DISTINCT super
-            FROM recurso_operativo
-            WHERE super IS NOT NULL AND super != '' AND estado = 'Activo'
-            ORDER BY super
-        """)
+        # Obtener información del usuario actual
+        user_id = session.get('user_id')
+        user_role = session.get('user_role')
+        user_name = session.get('user_name')
         
-        supervisores = [row[0] for row in cursor.fetchall()]
+        # Filtrar supervisores según el rol del usuario
+        if user_role == 'administrativo':
+            # Si es administrador, mostrar todos los supervisores
+            cursor.execute("""
+                SELECT DISTINCT super
+                FROM recurso_operativo
+                WHERE super IS NOT NULL AND super != '' AND estado = 'Activo'
+                ORDER BY super
+            """)
+            supervisores_result = cursor.fetchall()
+            supervisores = [row['super'] for row in supervisores_result]
+        else:
+            # Si es supervisor, solo mostrar su propio nombre
+            cursor.execute("""
+                SELECT super
+                FROM recurso_operativo
+                WHERE id_codigo_consumidor = %s AND estado = 'Activo'
+            """, (user_id,))
+            supervisor_result = cursor.fetchone()
+            
+            if supervisor_result and supervisor_result['super']:
+                supervisores = [supervisor_result['super']]
+            else:
+                # Si no tiene supervisor asignado, usar su nombre
+                supervisores = [user_name] if user_name else []
         
         return jsonify({
             'success': True,
@@ -398,6 +348,140 @@ def guardar_asistencia_administrativa():
             cursor.close()
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
+
+
+            connection.close()
+
+@app.route('/preoperacional', methods=['POST'])
+@login_required
+def preoperacional():
+    try:
+        # Obtener datos del formulario
+        data = request.get_json()
+        
+        # Obtener la fecha actual en zona horaria de Bogotá
+        bogota_tz = pytz.timezone('America/Bogota')
+        fecha_actual = datetime.now(bogota_tz).date()
+        
+        # Verificar si ya existe un registro para este usuario en la fecha actual
+        cursor = get_db_connection().cursor()
+        cursor.execute("""
+            SELECT COUNT(*) FROM preoperacional 
+            WHERE id_codigo_consumidor = %s AND DATE(fecha_registro) = %s
+        """, (session['id_codigo_consumidor'], fecha_actual))
+        
+        if cursor.fetchone()[0] > 0:
+            cursor.close()
+            return jsonify({
+                'success': False, 
+                'message': 'Ya existe un registro preoperacional para hoy'
+            }), 400
+        
+        # Verificar que el id_codigo_consumidor existe en la tabla usuarios
+        cursor.execute("SELECT id_codigo_consumidor FROM usuarios WHERE id_codigo_consumidor = %s", 
+                      (session['id_codigo_consumidor'],))
+        if not cursor.fetchone():
+            cursor.close()
+            return jsonify({
+                'success': False, 
+                'message': 'Usuario no encontrado'
+            }), 400
+        
+        # Insertar el nuevo registro
+        insert_query = """
+            INSERT INTO preoperacional (
+                id_codigo_consumidor, fecha_registro, vehiculo_asignado, placa_vehiculo,
+                kilometraje, nivel_combustible, nivel_aceite, nivel_liquido_frenos,
+                nivel_refrigerante, presion_llantas, luces_funcionando, espejos_estado,
+                cinturon_seguridad, extintor_presente, botiquin_presente, triangulos_seguridad,
+                chaleco_reflectivo, casco_presente, guantes_presente, rodilleras_presente,
+                impermeable_presente, observaciones_generales
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+        """
+        
+        cursor.execute(insert_query, (
+            session['id_codigo_consumidor'],
+            datetime.now(bogota_tz),
+            data.get('vehiculo_asignado'),
+            data.get('placa_vehiculo'),
+            data.get('kilometraje'),
+            data.get('nivel_combustible'),
+            data.get('nivel_aceite'),
+            data.get('nivel_liquido_frenos'),
+            data.get('nivel_refrigerante'),
+            data.get('presion_llantas'),
+            data.get('luces_funcionando'),
+            data.get('espejos_estado'),
+            data.get('cinturon_seguridad'),
+            data.get('extintor_presente'),
+            data.get('botiquin_presente'),
+            data.get('triangulos_seguridad'),
+            data.get('chaleco_reflectivo'),
+            data.get('casco_presente'),
+            data.get('guantes_presente'),
+            data.get('rodilleras_presente'),
+            data.get('impermeable_presente'),
+            data.get('observaciones_generales')
+        ))
+        
+        get_db_connection().commit()
+        cursor.close()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Registro preoperacional guardado exitosamente'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False, 
+            'message': f'Error al guardar el registro: {str(e)}'
+        }), 500
+
+@app.route('/verificar_registro_preoperacional', methods=['GET'])
+@login_required
+def verificar_registro_preoperacional():
+    try:
+        # Obtener la fecha actual en zona horaria de Bogotá
+        bogota_tz = pytz.timezone('America/Bogota')
+        fecha_actual = datetime.now(bogota_tz).date()
+        hora_actual = datetime.now(bogota_tz).time()
+        
+        # Verificar si ya existe un registro para este usuario en la fecha actual
+        cursor = get_db_connection().cursor()
+        cursor.execute("""
+            SELECT fecha_registro FROM preoperacional 
+            WHERE id_codigo_consumidor = %s AND DATE(fecha_registro) = %s
+            ORDER BY fecha_registro DESC LIMIT 1
+        """, (session['id_codigo_consumidor'], fecha_actual))
+        
+        resultado = cursor.fetchone()
+        cursor.close()
+        
+        if resultado:
+            return jsonify({
+                'existe_registro': True,
+                'ultimo_registro': resultado[0].strftime('%Y-%m-%d %H:%M:%S'),
+                'fecha_actual': fecha_actual.strftime('%Y-%m-%d'),
+                'hora_bogota': hora_actual.strftime('%H:%M:%S')
+            })
+        else:
+            return jsonify({
+                'existe_registro': False,
+                'fecha_actual': fecha_actual.strftime('%Y-%m-%d'),
+                'hora_bogota': hora_actual.strftime('%H:%M:%S')
+            })
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error al verificar registro: {str(e)}'
+        }), 500
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=8080)
 
 class Asignacion(db.Model):
     id_asignacion = db.Column(db.Integer, primary_key=True)
