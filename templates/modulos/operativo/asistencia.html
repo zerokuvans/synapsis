@@ -57,7 +57,17 @@
                             <small>Técnicos asignados: {{ tecnicos|length }}</small>
                         </div>
 
-                        {% if tecnicos %}
+                        {% if ya_registrado %}
+                        <div class="alert alert-warning" role="alert">
+                            <i class="fas fa-lock"></i> <strong>Formulario Bloqueado</strong><br>
+                            Ya se ha registrado la asistencia para el día {{ fecha_hoy }}. No se pueden realizar más registros para evitar duplicados.
+                        </div>
+                        <div class="text-center">
+                            <a href="{{ url_for('operativo_dashboard') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Volver al Dashboard
+                            </a>
+                        </div>
+                        {% elif tecnicos %}
                         <!-- Formulario de Asistencia -->
                         <form id="asistenciaForm">
                             <div class="row mb-3">
@@ -207,7 +217,7 @@
             });
             
             // Enviar datos
-            fetch('/api/asistencia/guardar', {
+            fetch('/api/operativo/asistencia/guardar', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
