@@ -336,6 +336,7 @@ def login():
                     # Mantener también las variables de sesión para compatibilidad
                     session['user_id'] = user_data['id_codigo_consumidor']
                     session['id_codigo_consumidor'] = user_data['id_codigo_consumidor']  # Agregar para compatibilidad
+                    session['user_cedula'] = username  # Guardar la cédula del usuario
                     session['user_role'] = ROLES.get(str(user_data['id_roles']))
                     session['user_name'] = user_data['nombre']
                     
@@ -466,12 +467,105 @@ def logout():
 @app.route('/tecnicos')
 @login_required(role='tecnicos')
 def tecnicos_dashboard():
-    return render_template('modulos/tecnicos/dashboard.html')
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'danger')
+            return render_template('modulos/tecnicos/dashboard.html', supervisor=None, tiene_asistencia=False)
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener el supervisor del técnico logueado
+        cursor.execute("""
+            SELECT super FROM capired.recurso_operativo
+            WHERE id_codigo_consumidor = %s
+        """, (session['id_codigo_consumidor'],))
+        
+        supervisor_result = cursor.fetchone()
+        supervisor_tecnico = supervisor_result['super'] if supervisor_result and supervisor_result['super'] else None
+        
+        # Obtener la cédula del usuario logueado para verificar asistencia
+        cursor.execute("""
+            SELECT recurso_operativo_cedula 
+            FROM capired.recurso_operativo 
+            WHERE id_codigo_consumidor = %s
+        """, (session['id_codigo_consumidor'],))
+        
+        usuario_actual = cursor.fetchone()
+        
+        # Verificar si es el usuario especial (52912112) que debe estar exento de la restricción
+        if usuario_actual and usuario_actual['recurso_operativo_cedula'] == '52912112':
+            # Usuario especial: siempre tiene acceso a todos los botones
+            tiene_asistencia = True
+        else:
+            # Para todos los demás usuarios: verificar asistencia registrada para hoy Y que carpeta_dia no sea 0
+            fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+            cursor.execute("""
+                SELECT COUNT(*) as registros_hoy
+                FROM asistencia 
+                WHERE id_codigo_consumidor = %s AND DATE(fecha_asistencia) = %s AND carpeta_dia != '0'
+            """, (session['id_codigo_consumidor'], fecha_hoy))
+            
+            registro_existente = cursor.fetchone()
+            tiene_asistencia = registro_existente['registros_hoy'] > 0 if registro_existente else False
+        
+        return render_template('modulos/tecnicos/dashboard.html', supervisor=supervisor_tecnico, tiene_asistencia=tiene_asistencia)
+                           
+    except mysql.connector.Error as e:
+        flash(f'Error al cargar datos del supervisor: {str(e)}', 'warning')
+        return render_template('modulos/tecnicos/dashboard.html', supervisor=None, tiene_asistencia=False)
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 
 @app.route('/operativo')
 @login_required(role='operativo')
 def operativo_dashboard():
-    return render_template('modulos/operativo/dashboard.html')
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'danger')
+            return render_template('modulos/operativo/dashboard.html', tiene_asistencia=False)
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener la cédula del usuario logueado
+        cursor.execute("""
+            SELECT recurso_operativo_cedula 
+            FROM capired.recurso_operativo 
+            WHERE id_codigo_consumidor = %s
+        """, (session['id_codigo_consumidor'],))
+        
+        usuario_actual = cursor.fetchone()
+        
+        # Verificar si es el usuario especial (52912112) que debe estar exento de la restricción
+        if usuario_actual and usuario_actual['recurso_operativo_cedula'] == '52912112':
+            # Usuario especial: siempre tiene acceso a todos los botones
+            tiene_asistencia = True
+        else:
+            # Para todos los demás usuarios: verificar asistencia registrada para hoy
+            fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+            cursor.execute("""
+                SELECT COUNT(*) as registros_hoy
+                FROM asistencia 
+                WHERE id_codigo_consumidor = %s AND DATE(fecha_asistencia) = %s
+            """, (session['id_codigo_consumidor'], fecha_hoy))
+            
+            registro_existente = cursor.fetchone()
+            tiene_asistencia = registro_existente['registros_hoy'] > 0 if registro_existente else False
+        
+        return render_template('modulos/operativo/dashboard.html', tiene_asistencia=tiene_asistencia)
+        
+    except mysql.connector.Error as e:
+        flash(f'Error al verificar asistencia: {str(e)}', 'danger')
+        return render_template('modulos/operativo/dashboard.html', tiene_asistencia=False)
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 
 @app.route('/operativo/asistencia')
 @login_required(role='operativo')
@@ -509,18 +603,18 @@ def operativo_asistencia():
         """)
         connection.commit()
         
-        # Obtener el supervisor del usuario logueado
+        # Obtener el nombre del usuario logueado para usar como filtro de supervisor
         cursor.execute("""
-            SELECT super FROM capired.recurso_operativo
+            SELECT nombre FROM capired.recurso_operativo
             WHERE id_codigo_consumidor = %s
         """, (session['id_codigo_consumidor'],))
         
         supervisor_result = cursor.fetchone()
-        if not supervisor_result or not supervisor_result['super']:
-            flash('No se encontró información del supervisor para este usuario', 'warning')
+        if not supervisor_result or not supervisor_result['nombre']:
+            flash('No se encontró información del usuario logueado', 'warning')
             return redirect(url_for('operativo_dashboard'))
             
-        supervisor_usuario = supervisor_result['super']
+        supervisor_usuario = supervisor_result['nombre']
         
         # Verificar si ya existe un registro de asistencia para hoy
         fecha_hoy = datetime.now().strftime('%Y-%m-%d')
@@ -547,8 +641,7 @@ def operativo_asistencia():
             print(f"Carpeta: '{carpeta['carpeta']}' - Cantidad: {carpeta['cantidad']}")
         
         # Obtener técnicos del supervisor automáticamente
-        # Lógica especial para el usuario con cédula 52912112 (CORTES CUERVO SANDRA CECILIA)
-        # Primero verificar si el usuario actual tiene la cédula 52912112
+        # Obtener la cédula del usuario actual para excluirlo de la lista
         cursor.execute("""
             SELECT recurso_operativo_cedula 
             FROM capired.recurso_operativo 
@@ -556,35 +649,22 @@ def operativo_asistencia():
         """, (session['id_codigo_consumidor'],))
         usuario_actual = cursor.fetchone()
         
-        if usuario_actual and usuario_actual['recurso_operativo_cedula'] == '52912112':
-            print(f"\n=== DEBUG: Filtrando para usuario especial 52912112 (CORTES CUERVO SANDRA CECILIA) ===")
-            cursor.execute("""
-                SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta
-                FROM capired.recurso_operativo
-                WHERE carpeta IN ('SUPERVISORES', 'APOYO CAMIONETAS') AND estado = 'Activo'
-                AND recurso_operativo_cedula != %s
-                ORDER BY nombre
-            """, (usuario_actual['recurso_operativo_cedula'],))
-            tecnicos = cursor.fetchall()
-            print(f"Técnicos encontrados para 52912112 (excluyendo supervisor): {len(tecnicos)}")
-            for tecnico in tecnicos:
-                print(f"  - {tecnico['nombre']} (Carpeta: '{tecnico['carpeta']}')")
-        else:
-            cursor.execute("""
-                SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta
-                FROM capired.recurso_operativo
-                WHERE super = %s AND estado = 'Activo'
-                AND recurso_operativo_cedula != %s
-                ORDER BY nombre
-            """, (supervisor_usuario, usuario_actual['recurso_operativo_cedula'] if usuario_actual else ''))
-            tecnicos = cursor.fetchall()
-            print(f"Técnicos encontrados para supervisor {supervisor_usuario} (excluyendo supervisor): {len(tecnicos)}")
+        # Filtrar técnicos por supervisor usando la lógica estándar
+        cursor.execute("""
+            SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta
+            FROM capired.recurso_operativo
+            WHERE super = %s AND estado = 'Activo'
+            AND recurso_operativo_cedula != %s
+            ORDER BY nombre
+        """, (supervisor_usuario, usuario_actual['recurso_operativo_cedula'] if usuario_actual else ''))
+        tecnicos = cursor.fetchall()
+        print(f"Técnicos encontrados para supervisor {supervisor_usuario} (excluyendo supervisor): {len(tecnicos)}")
         
-        # Obtener lista de tipificaciones para carpeta_dia
+        # Obtener lista de tipificaciones para carpeta_dia (solo zona OP para operativo)
         cursor.execute("""
             SELECT codigo_tipificacion, nombre_tipificacion
             FROM tipificacion_asistencia
-            WHERE estado = '1'
+            WHERE estado = '1' AND zona = 'OP'
             ORDER BY codigo_tipificacion
         """)
         carpetas_dia = cursor.fetchall()
@@ -4018,8 +4098,8 @@ def registrar_entrada_ferretero():
         cursor.execute("""
             INSERT INTO entradas_ferretero (
                 material_tipo, cantidad_entrada, precio_unitario, precio_total,
-                proveedor, numero_factura, observaciones, fecha_entrada
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                proveedor, numero_factura, observaciones, fecha_entrada, usuario_registro
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), %s)
         """, (
             data['material_tipo'],
             data['cantidad'],
@@ -4027,7 +4107,8 @@ def registrar_entrada_ferretero():
             float(data['cantidad']) * float(data['precio_unitario']),
             data.get('proveedor', ''),
             data.get('numero_factura', ''),
-            data.get('observaciones', '')
+            data.get('observaciones', ''),
+            session['user_id']
         ))
         
         connection.commit()
@@ -4230,13 +4311,14 @@ def transferir_suministro_ferretero():
         # Registrar entrada en entradas_ferretero
         cursor.execute("""
             INSERT INTO entradas_ferretero 
-            (material_tipo, cantidad, precio_unitario, proveedor, numero_factura, observaciones, fecha_entrada)
-            VALUES (%s, %s, 0, 'Transferencia desde Suministros', %s, %s, NOW())
+            (material_tipo, cantidad_entrada, precio_unitario, proveedor, numero_factura, observaciones, fecha_entrada, usuario_registro)
+            VALUES (%s, %s, 0, 'Transferencia desde Suministros', %s, %s, NOW(), %s)
         """, (
             material_tipo, 
             cantidad_transferir, 
             f'SUM-{id_suministro}',
-            f'Transferido desde: {suministro["suministros_descripcion"]}'
+            f'Transferido desde: {suministro["suministros_descripcion"]}',
+            session['user_id']
         ))
         
         # Confirmar transacción
@@ -7219,17 +7301,16 @@ def guardar_asistencias_operativo():
             
         cursor = connection.cursor(dictionary=True)
         
-        # Obtener el supervisor del usuario logueado
-        cursor.execute("""
-            SELECT super FROM capired.recurso_operativo
-            WHERE id_codigo_consumidor = %s
-        """, (session['id_codigo_consumidor'],))
+        # Obtener el nombre del usuario actual (será usado como supervisor en los registros)
+        nombre_usuario_actual = session.get('user_name', '')
+        if not nombre_usuario_actual:
+            return jsonify({'success': False, 'message': 'No se encontró información del usuario'}), 400
         
-        supervisor_result = cursor.fetchone()
-        if not supervisor_result or not supervisor_result['super']:
-            return jsonify({'success': False, 'message': 'No se encontró información del supervisor'}), 400
-            
-        supervisor_usuario = supervisor_result['super']
+        # DEBUG: Información del usuario y supervisor
+        usuario_actual = session.get('user_cedula', '')
+        print(f"DEBUG - Usuario actual: {usuario_actual}")
+        print(f"DEBUG - ID código consumidor: {session['id_codigo_consumidor']}")
+        print(f"DEBUG - Nombre usuario actual (supervisor): {nombre_usuario_actual}")
         
         # Verificar si ya existe un registro para hoy
         fecha_hoy = datetime.now().strftime('%Y-%m-%d')
@@ -7237,36 +7318,48 @@ def guardar_asistencias_operativo():
             SELECT COUNT(*) as registros_hoy
             FROM asistencia 
             WHERE super = %s AND DATE(fecha_asistencia) = %s
-        """, (supervisor_usuario, fecha_hoy))
+        """, (nombre_usuario_actual, fecha_hoy))
         
         registro_existente = cursor.fetchone()
         if registro_existente and registro_existente['registros_hoy'] > 0:
             return jsonify({'success': False, 'message': 'Ya existe un registro de asistencia para el día de hoy'}), 400
         
         data = request.get_json()
-        tecnicos = data.get('tecnicos', [])
-        carpeta_dia = data.get('carpeta_dia', '')
-        carpeta = data.get('carpeta', '')
+        asistencias = data.get('asistencias', [])
         
-        if not tecnicos:
+        # Validar que se haya seleccionado al menos un técnico
+        if not asistencias:
             return jsonify({'success': False, 'message': 'Debe seleccionar al menos un técnico'}), 400
         
         # Insertar cada técnico
-        for tecnico in tecnicos:
-            cursor.execute("""
-                INSERT INTO asistencia (cedula, tecnico, carpeta_dia, carpeta, super, id_codigo_consumidor)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (
-                tecnico.get('cedula', ''),
-                tecnico.get('nombre', ''),
-                carpeta_dia,
-                carpeta,
-                supervisor_usuario,
-                tecnico.get('id_codigo_consumidor', 0)
-            ))
+        print(f"DEBUG - Iniciando inserción de {len(asistencias)} técnicos")
+        print(f"DEBUG - Datos recibidos: {asistencias}")
         
+        registros_insertados = 0
+        for i, asistencia in enumerate(asistencias):
+            print(f"DEBUG - Insertando técnico {i+1}: {asistencia}")
+            try:
+                cursor.execute("""
+                    INSERT INTO asistencia (cedula, tecnico, carpeta_dia, carpeta, super, fecha_asistencia, id_codigo_consumidor)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    asistencia.get('cedula', ''),
+                    asistencia.get('tecnico', ''),
+                    asistencia.get('carpeta_dia', ''),
+                    asistencia.get('carpeta', ''),
+                    asistencia.get('super', nombre_usuario_actual),
+                    asistencia.get('fecha_asistencia', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
+                    asistencia.get('id_codigo_consumidor', 0)
+                ))
+                registros_insertados += 1
+                print(f"DEBUG - Técnico {i+1} insertado exitosamente")
+            except Exception as e:
+                print(f"DEBUG - Error insertando técnico {i+1}: {str(e)}")
+        
+        print(f"DEBUG - Total registros insertados: {registros_insertados}")
         connection.commit()
-        return jsonify({'success': True, 'message': f'Se registraron {len(tecnicos)} asistencias correctamente. El formulario se ha bloqueado para evitar registros duplicados.'})
+        print(f"DEBUG - Commit realizado exitosamente")
+        return jsonify({'success': True, 'message': f'Se registraron {len(asistencias)} asistencias correctamente. El formulario se ha bloqueado para evitar registros duplicados.'})
         
     except mysql.connector.Error as e:
         return jsonify({'success': False, 'message': f'Error al guardar asistencias: {str(e)}'}), 500
