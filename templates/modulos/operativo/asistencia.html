@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Asistencia - Operativo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        }
+        .table-hover tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        .supervisor-info {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h4 class="mb-0">
+                                <i class="fas fa-clipboard-check me-2"></i>
+                                Control de Asistencia - Operativo
+                            </h4>
+                            <a href="{{ url_for('operativo_dashboard') }}" class="btn btn-light btn-sm">
+                                <i class="fas fa-arrow-left me-1"></i>Volver al Dashboard
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Información del Supervisor -->
+                        <div class="supervisor-info">
+                            <h5 class="mb-0">
+                                <i class="fas fa-user-tie me-2"></i>
+                                Supervisor: {{ supervisor }}
+                            </h5>
+                            <small>Técnicos asignados: {{ tecnicos|length }}</small>
+                        </div>
+
+                        {% if tecnicos %}
+                        <!-- Formulario de Asistencia -->
+                        <form id="asistenciaForm">
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label for="fecha_asistencia" class="form-label">
+                                        <i class="fas fa-calendar me-1"></i>Fecha
+                                    </label>
+                                    <input type="date" class="form-control" id="fecha_asistencia" name="fecha_asistencia" required>
+                                </div>
+                            </div>
+
+                            <!-- Lista de Técnicos -->
+                            <div class="table-responsive">
+                                <table class="table table-hover table-striped">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th width="5%">
+                                                <input type="checkbox" id="selectAll" class="form-check-input">
+                                            </th>
+                                            <th width="15%">Cédula</th>
+                                            <th width="25%">Nombre</th>
+                                            <th width="15%">Carpeta</th>
+                                            <th width="25%">Carpeta del Día</th>
+                                            <th width="15%">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for tecnico in tecnicos %}
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="form-check-input tecnico-checkbox" 
+                                                       name="tecnicos_seleccionados" 
+                                                       value="{{ tecnico.id_codigo_consumidor }}"
+                                                       data-cedula="{{ tecnico.recurso_operativo_cedula }}"
+                                                       data-nombre="{{ tecnico.nombre }}"
+                                                       data-carpeta="{{ tecnico.carpeta }}">
+                                            </td>
+                                            <td>{{ tecnico.recurso_operativo_cedula }}</td>
+                                            <td>{{ tecnico.nombre }}</td>
+                                            <td>{{ tecnico.carpeta }}</td>
+                                            <td>
+                                                <select class="form-select form-select-sm carpeta-dia-select" 
+                                                        name="carpeta_dia_{{ tecnico.id_codigo_consumidor }}" 
+                                                        data-tecnico-id="{{ tecnico.id_codigo_consumidor }}">
+                                                    <option value="">Seleccionar carpeta</option>
+                                                    {% for carpeta in carpetas_dia %}
+                                                    <option value="{{ carpeta.codigo_tipificacion }}">
+                                                        {{ carpeta.codigo_tipificacion }} - {{ carpeta.nombre_tipificacion }}
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-success">Activo</span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mt-4">
+                                <div>
+                                    <span class="text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Selecciona los técnicos presentes y la carpeta del día
+                                    </span>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-save me-2"></i>
+                                    Guardar Asistencia
+                                </button>
+                            </div>
+                        </form>
+                        {% else %}
+                        <div class="alert alert-warning text-center">
+                            <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                            <h5>No hay técnicos asignados</h5>
+                            <p class="mb-0">No se encontraron técnicos asignados a este supervisor.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Seleccionar/Deseleccionar todos
+        document.getElementById('selectAll').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.tecnico-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+
+        // Manejar envío del formulario
+        document.getElementById('asistenciaForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const fechaAsistencia = document.getElementById('fecha_asistencia').value;
+            const tecnicosSeleccionados = document.querySelectorAll('.tecnico-checkbox:checked');
+            
+            if (tecnicosSeleccionados.length === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Sin selección',
+                    text: 'Por favor selecciona al menos un técnico'
+                });
+                return;
+            }
+            
+            // Validar que cada técnico seleccionado tenga carpeta del día
+            let tecnicosSinCarpeta = [];
+            tecnicosSeleccionados.forEach(checkbox => {
+                const tecnicoId = checkbox.value;
+                const carpetaDiaSelect = document.querySelector(`select[name="carpeta_dia_${tecnicoId}"]`);
+                if (!carpetaDiaSelect.value) {
+                    tecnicosSinCarpeta.push(checkbox.dataset.nombre);
+                }
+            });
+            
+            if (tecnicosSinCarpeta.length > 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Carpetas faltantes',
+                    text: `Por favor selecciona la carpeta del día para: ${tecnicosSinCarpeta.join(', ')}`
+                });
+                return;
+            }
+            
+            // Preparar datos para envío
+            const asistencias = [];
+            tecnicosSeleccionados.forEach(checkbox => {
+                const tecnicoId = checkbox.value;
+                const carpetaDiaSelect = document.querySelector(`select[name="carpeta_dia_${tecnicoId}"]`);
+                asistencias.push({
+                    cedula: checkbox.dataset.cedula,
+                    tecnico: checkbox.dataset.nombre,
+                    carpeta_dia: carpetaDiaSelect.value,
+                    carpeta: checkbox.dataset.carpeta,
+                    super: '{{ supervisor }}',
+                    fecha_asistencia: fechaAsistencia,
+                    id_codigo_consumidor: checkbox.value
+                });
+            });
+            
+            // Enviar datos
+            fetch('/api/asistencia/guardar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    asistencias: asistencias
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Éxito!',
+                        text: data.message,
+                        showConfirmButton: false,
+                        timer: 2000
+                    }).then(() => {
+                        // Limpiar formulario
+                        document.getElementById('asistenciaForm').reset();
+                        document.getElementById('selectAll').checked = false;
+                        document.querySelectorAll('.tecnico-checkbox').forEach(cb => cb.checked = false);
+                        document.querySelectorAll('.carpeta-dia-select').forEach(select => select.value = '');
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.message || 'Error al guardar la asistencia'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de conexión',
+                    text: 'No se pudo conectar con el servidor'
+                });
+            });
+        });
+
+        // Establecer fecha actual por defecto
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('fecha_asistencia').value = today;
+        });
+    </script>
+</body>
+</html>

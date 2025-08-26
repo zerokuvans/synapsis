@@ -1,0 +1,57 @@
+# Dependencias principales de Flask
+Flask==2.3.2
+Flask-SQLAlchemy==3.0.5
+Flask-Login==0.6.3
+Flask-WTF==1.1.1
+Flask-Caching==2.0.2
+Flask-Cors==4.0.0
+WTForms==3.0.1
+
+# Base de datos y ORM
+mysql-connector-python==8.1.0
+SQLAlchemy==2.0.19
+alembic==1.11.1
+
+# Autenticación y seguridad
+bcrypt==4.0.1
+PyJWT==2.8.0
+
+# Manejo de archivos y documentos
+reportlab==4.0.4
+Pillow==10.0.0
+pandas==2.0.3
+numpy==1.24.3
+
+# Utilidades de fecha y tiempo
+python-dateutil==2.8.2
+pytz==2023.3
+tzdata==2023.3
+
+# Variables de entorno
+python-dotenv==1.0.0
+
+# Web scraping y requests
+requests==2.31.0
+beautifulsoup4==4.12.2
+
+# Utilidades generales
+click==8.1.3
+colorama==0.4.6
+blinker==1.6.2
+certifi==2023.7.22
+charset-normalizer==3.2.0
+idna==3.4
+itsdangerous==2.1.2
+Jinja2==3.1.2
+MarkupSafe==2.1.3
+six==1.16.0
+typing_extensions==4.7.1
+urllib3==2.0.4
+Werkzeug==2.3.6
+greenlet==2.0.2
+
+# Servidor de producción
+gunicorn==21.2.0
+
+# Testing
+pytest==7.4.0
