@@ -551,10 +551,11 @@ def operativo_asistencia():
                 SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta
                 FROM capired.recurso_operativo
                 WHERE carpeta IN ('SUPERVISORES', 'APOYO CAMIONETAS') AND estado = 'Activo'
+                AND recurso_operativo_cedula != %s
                 ORDER BY nombre
-            """)
+            """, (usuario_actual['recurso_operativo_cedula'],))
             tecnicos = cursor.fetchall()
-            print(f"Técnicos encontrados para 52912112: {len(tecnicos)}")
+            print(f"Técnicos encontrados para 52912112 (excluyendo supervisor): {len(tecnicos)}")
             for tecnico in tecnicos:
                 print(f"  - {tecnico['nombre']} (Carpeta: '{tecnico['carpeta']}')")
         else:
@@ -562,10 +563,11 @@ def operativo_asistencia():
                 SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta
                 FROM capired.recurso_operativo
                 WHERE super = %s AND estado = 'Activo'
+                AND recurso_operativo_cedula != %s
                 ORDER BY nombre
-            """, (supervisor_usuario,))
+            """, (supervisor_usuario, usuario_actual['recurso_operativo_cedula'] if usuario_actual else ''))
             tecnicos = cursor.fetchall()
-            print(f"Técnicos encontrados para supervisor {supervisor_usuario}: {len(tecnicos)}")
+            print(f"Técnicos encontrados para supervisor {supervisor_usuario} (excluyendo supervisor): {len(tecnicos)}")
         
         # Obtener lista de tipificaciones para carpeta_dia
         cursor.execute("""
