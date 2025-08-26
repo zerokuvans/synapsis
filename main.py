@@ -335,6 +335,7 @@ def login():
                     
                     # Mantener también las variables de sesión para compatibilidad
                     session['user_id'] = user_data['id_codigo_consumidor']
+                    session['id_codigo_consumidor'] = user_data['id_codigo_consumidor']  # Agregar para compatibilidad
                     session['user_role'] = ROLES.get(str(user_data['id_roles']))
                     session['user_name'] = user_data['nombre']
                     
@@ -471,6 +472,123 @@ def tecnicos_dashboard():
 @login_required(role='operativo')
 def operativo_dashboard():
     return render_template('modulos/operativo/dashboard.html')
+
+@app.route('/operativo/asistencia')
+@login_required(role='operativo')
+def operativo_asistencia():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'danger')
+            return redirect(url_for('operativo_dashboard'))
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Crear tablas si no existen
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tipificacion_asistencia (
+                id_tipificacion INT AUTO_INCREMENT PRIMARY KEY,
+                codigo_tipificacion VARCHAR(50) NOT NULL,
+                nombre_tipificacion VARCHAR(200),
+                estado CHAR(1) DEFAULT '1',
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS asistencia (
+                id_asistencia INT AUTO_INCREMENT PRIMARY KEY,
+                cedula VARCHAR(20),
+                tecnico VARCHAR(100),
+                carpeta_dia VARCHAR(50),
+                carpeta VARCHAR(50),
+                super VARCHAR(100),
+                fecha_asistencia TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                id_codigo_consumidor INT
+            )
+        """)
+        connection.commit()
+        
+        # Obtener el supervisor del usuario logueado
+        cursor.execute("""
+            SELECT super FROM capired.recurso_operativo
+            WHERE id_codigo_consumidor = %s
+        """, (session['id_codigo_consumidor'],))
+        
+        supervisor_result = cursor.fetchone()
+        if not supervisor_result or not supervisor_result['super']:
+            flash('No se encontró información del supervisor para este usuario', 'warning')
+            return redirect(url_for('operativo_dashboard'))
+            
+        supervisor_usuario = supervisor_result['super']
+        
+        # DEBUG: Mostrar todos los valores distintos de carpeta para debug
+        cursor.execute("""
+            SELECT DISTINCT carpeta, COUNT(*) as cantidad
+            FROM capired.recurso_operativo
+            WHERE estado = 'Activo'
+            GROUP BY carpeta
+            ORDER BY carpeta
+        """)
+        debug_carpetas = cursor.fetchall()
+        print("\n=== DEBUG: Valores distintos en columna 'carpeta' ===")
+        for carpeta in debug_carpetas:
+            print(f"Carpeta: '{carpeta['carpeta']}' - Cantidad: {carpeta['cantidad']}")
+        
+        # Obtener técnicos del supervisor automáticamente
+        # Lógica especial para el usuario con cédula 52912112 (CORTES CUERVO SANDRA CECILIA)
+        # Primero verificar si el usuario actual tiene la cédula 52912112
+        cursor.execute("""
+            SELECT recurso_operativo_cedula 
+            FROM capired.recurso_operativo 
+            WHERE id_codigo_consumidor = %s
+        """, (session['id_codigo_consumidor'],))
+        usuario_actual = cursor.fetchone()
+        
+        if usuario_actual and usuario_actual['recurso_operativo_cedula'] == '52912112':
+            print(f"\n=== DEBUG: Filtrando para usuario especial 52912112 (CORTES CUERVO SANDRA CECILIA) ===")
+            cursor.execute("""
+                SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta
+                FROM capired.recurso_operativo
+                WHERE carpeta IN ('SUPERVISORES', 'APOYO CAMIONETAS') AND estado = 'Activo'
+                ORDER BY nombre
+            """)
+            tecnicos = cursor.fetchall()
+            print(f"Técnicos encontrados para 52912112: {len(tecnicos)}")
+            for tecnico in tecnicos:
+                print(f"  - {tecnico['nombre']} (Carpeta: '{tecnico['carpeta']}')")
+        else:
+            cursor.execute("""
+                SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta
+                FROM capired.recurso_operativo
+                WHERE super = %s AND estado = 'Activo'
+                ORDER BY nombre
+            """, (supervisor_usuario,))
+            tecnicos = cursor.fetchall()
+            print(f"Técnicos encontrados para supervisor {supervisor_usuario}: {len(tecnicos)}")
+        
+        # Obtener lista de tipificaciones para carpeta_dia
+        cursor.execute("""
+            SELECT codigo_tipificacion, nombre_tipificacion
+            FROM tipificacion_asistencia
+            WHERE estado = '1'
+            ORDER BY codigo_tipificacion
+        """)
+        carpetas_dia = cursor.fetchall()
+        
+        return render_template('modulos/operativo/asistencia.html',
+                           tecnicos=tecnicos,
+                           carpetas_dia=carpetas_dia,
+                           supervisor=supervisor_usuario)
+                           
+    except mysql.connector.Error as e:
+        flash(f'Error al cargar datos: {str(e)}', 'danger')
+        return redirect(url_for('operativo_dashboard'))
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 
 @app.route('/logistica')
 @login_required(role='logistica')
