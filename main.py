@@ -1102,7 +1102,10 @@ def registrar_preoperacional():
         """, (id_codigo_consumidor, fecha_actual))
         
         resultado = cursor.fetchone()
+        app.logger.info(f"Verificación de registro existente: {resultado}")
+        
         if resultado['count'] > 0:
+            app.logger.warning(f"Ya existe un registro para el usuario {id_codigo_consumidor} en la fecha {fecha_actual}")
             return jsonify({
                 'status': 'error',
                 'message': 'Ya has registrado un preoperacional para el día de hoy.'
@@ -1143,7 +1146,11 @@ def registrar_preoperacional():
 
         # Verificar que el id_codigo_consumidor existe en la tabla recurso_operativo
         cursor.execute("SELECT id_codigo_consumidor FROM recurso_operativo WHERE id_codigo_consumidor = %s", (id_codigo_consumidor,))
-        if cursor.fetchone() is None:
+        usuario_existe = cursor.fetchone()
+        app.logger.info(f"Verificación de usuario en recurso_operativo: {usuario_existe}")
+        
+        if usuario_existe is None:
+            app.logger.error(f"Usuario {id_codigo_consumidor} no existe en recurso_operativo")
             return jsonify({
                 'status': 'error', 
                 'message': 'El id_codigo_consumidor no existe en la tabla recurso_operativo.'
@@ -1163,10 +1170,18 @@ def registrar_preoperacional():
         """
         
         # Agregar la fecha actual de Bogotá a los valores
-        values.append(get_bogota_datetime())
+        fecha_bogota = get_bogota_datetime()
+        values.append(fecha_bogota)
+        
+        app.logger.info(f"SQL a ejecutar: {sql}")
+        app.logger.info(f"Valores a insertar: {values}")
+        app.logger.info(f"Fecha de Bogotá: {fecha_bogota}")
         
         cursor.execute(sql, tuple(values))
+        app.logger.info("SQL ejecutado exitosamente")
+        
         connection.commit()
+        app.logger.info("Transacción confirmada (commit)")
         cursor.close()
         connection.close()
 
@@ -1188,15 +1203,25 @@ def registrar_preoperacional():
 @login_required(role=['operativo'])
 def registrar_preoperacional_operativo():
     try:
+        # Debug: Log de inicio de función
+        app.logger.info("=== INICIO registrar_preoperacional_operativo ===")
+        
+        # Debug: Log de todos los datos recibidos
+        app.logger.info(f"Datos del formulario recibidos: {dict(request.form)}")
+        
         connection = get_db_connection()
         if connection is None:
+            app.logger.error("Error: No se pudo establecer conexión a la base de datos")
             return jsonify({'status': 'error', 'message': 'Error de conexión a la base de datos.'}), 500
 
         cursor = connection.cursor(dictionary=True)
         
         # Verificar si ya existe un registro para el día actual
         id_codigo_consumidor = request.form.get('id_codigo_consumidor')
+        app.logger.info(f"ID código consumidor: {id_codigo_consumidor}")
+        
         fecha_actual = get_bogota_datetime().date()
+        app.logger.info(f"Fecha actual (Bogotá): {fecha_actual}")
         
         cursor.execute("""
             SELECT COUNT(*) as count 
@@ -1273,6 +1298,8 @@ def registrar_preoperacional_operativo():
         connection.commit()
         cursor.close()
         connection.close()
+        
+        app.logger.info("=== Preoperacional registrado exitosamente ===")
 
         # Devolver respuesta JSON con redirección para que el frontend la maneje
         return jsonify({
@@ -1282,12 +1309,26 @@ def registrar_preoperacional_operativo():
         }) 
         
     except Error as e:
-        if connection and connection.is_connected():
+        app.logger.error(f"Error de MySQL: {str(e)}")
+        app.logger.error(f"Tipo de error: {type(e)}")
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.rollback()
             cursor.close()
             connection.close()
         return jsonify({
             'status': 'error',
-            'message': f'Error al registrar preoperacional: {str(e)}'
+            'message': f'Error de base de datos: {str(e)}'
+        }), 500
+    except Exception as e:
+        app.logger.error(f"Error general: {str(e)}")
+        app.logger.error(f"Tipo de error: {type(e)}")
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.rollback()
+            cursor.close()
+            connection.close()
+        return jsonify({
+            'status': 'error',
+            'message': f'Error interno del servidor: {str(e)}'
         }), 500
 
 @app.route('/check_submission', methods=['GET'])
