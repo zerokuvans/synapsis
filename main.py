@@ -688,7 +688,9 @@ def operativo_asistencia():
 @app.route('/logistica')
 @login_required(role='logistica')
 def logistica_dashboard():
-    return render_template('modulos/logistica/dashboard.html')
+    # Verificar stock bajo para mostrar alertas
+    materiales_problematicos = verificar_stock_bajo()
+    return render_template('modulos/logistica/dashboard.html', materiales_problematicos=materiales_problematicos)
 
 @app.route('/contabilidad')
 @login_required(role='contabilidad')
@@ -2279,6 +2281,9 @@ def verificar_registro_preoperacional():
 @role_required('logistica')
 def ver_asignaciones():
     try:
+        # Verificar stock bajo para mostrar alertas
+        materiales_problematicos = verificar_stock_bajo()
+        
         connection = get_db_connection()
         if connection is None:
             return render_template('error.html', 
@@ -2310,7 +2315,8 @@ def ver_asignaciones():
 
         return render_template('modulos/logistica/asignaciones.html', 
                             asignaciones=asignaciones,
-                            tecnicos=tecnicos)
+                            tecnicos=tecnicos,
+                            materiales_problematicos=materiales_problematicos)
 
     except Exception as e:
         print(f"Error al obtener asignaciones: {str(e)}")
@@ -2679,6 +2685,9 @@ def exportar_asignaciones_csv():
 @role_required('logistica')
 def ver_inventario():
     try:
+        # Verificar stock bajo para mostrar alertas
+        materiales_problematicos = verificar_stock_bajo()
+        
         connection = get_db_connection()
         if connection is None:
             return render_template('error.html', 
@@ -2869,7 +2878,8 @@ def ver_inventario():
                            categorias=categorias,
                            items_criticos=items_criticos,
                            comparativa_meses=comparativa_meses,
-                           ubicaciones=ubicaciones)
+                           ubicaciones=ubicaciones,
+                           materiales_problematicos=materiales_problematicos)
 
     except Exception as e:
         print(f"Error al obtener inventario: {str(e)}")
@@ -2882,6 +2892,9 @@ def ver_inventario():
 @role_required('logistica')
 def ver_asignaciones_ferretero():
     try:
+        # Verificar stock bajo para mostrar alertas
+        materiales_problematicos = verificar_stock_bajo()
+        
         connection = get_db_connection()
         if connection is None:
             return render_template('error.html', 
@@ -3048,7 +3061,8 @@ def ver_asignaciones_ferretero():
 
         return render_template('modulos/logistica/ferretero.html', 
                             asignaciones=asignaciones,
-                            tecnicos=tecnicos_con_limites)
+                            tecnicos=tecnicos_con_limites,
+                            materiales_problematicos=materiales_problematicos)
 
     except Exception as e:
         print(f"Error al obtener asignaciones ferretero: {str(e)}")
@@ -4193,6 +4207,64 @@ def obtener_movimientos_ferretero():
             'status': 'error',
             'message': str(e)
         }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+def verificar_stock_bajo():
+    """Verificar materiales con stock bajo o agotado"""
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return []
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener materiales con problemas de stock
+        cursor.execute("""
+            SELECT 
+                material_tipo,
+                cantidad_disponible,
+                cantidad_minima,
+                CASE 
+                    WHEN cantidad_disponible = 0 THEN 'agotado'
+                    WHEN cantidad_disponible <= cantidad_minima THEN 'bajo'
+                    ELSE 'normal'
+                END as estado_stock
+            FROM stock_ferretero 
+            WHERE cantidad_disponible <= cantidad_minima
+            ORDER BY 
+                CASE 
+                    WHEN cantidad_disponible = 0 THEN 1
+                    ELSE 2
+                END,
+                material_tipo
+        """)
+        
+        materiales_problematicos = cursor.fetchall()
+        
+        # Formatear nombres de materiales para mostrar
+        nombres_materiales = {
+            'silicona': 'Silicona',
+            'amarres_negros': 'Amarres Negros',
+            'amarres_blancos': 'Amarres Blancos',
+            'cinta_aislante': 'Cinta Aislante',
+            'grapas_blancas': 'Grapas Blancas',
+            'grapas_negras': 'Grapas Negras'
+        }
+        
+        for material in materiales_problematicos:
+            material['nombre_display'] = nombres_materiales.get(material['material_tipo'], material['material_tipo'])
+        
+        return materiales_problematicos
+        
+    except Exception as e:
+        print(f"Error al verificar stock bajo: {str(e)}")
+        return []
     finally:
         if cursor:
             cursor.close()

@@ -271,4 +271,8 @@ $('#modalRegistroVehiculo').on('show.bs.modal', function (e) {
     document.getElementById('estado').value = 'Activo';
 });
 </script>
-{% endblock %} 
+
+<!-- Incluir popup de stock bajo -->
+{% include 'modulos/logistica/popup_stock_bajo.html' %}
+
+{% endblock %}
