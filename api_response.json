@@ -1,0 +1,41 @@
+{
+  "indicadores": [
+    {
+      "porcentaje_cumplimiento": 100.0,
+      "supervisor": "NELSON DIAZ",
+      "total_asistencia": 12,
+      "total_preoperacional": 12
+    },
+    {
+      "porcentaje_cumplimiento": 85.71428571428571,
+      "supervisor": "DANIEL SILVA",
+      "total_asistencia": 14,
+      "total_preoperacional": 12
+    },
+    {
+      "porcentaje_cumplimiento": 72.72727272727273,
+      "supervisor": "CARLOS CACERES",
+      "total_asistencia": 11,
+      "total_preoperacional": 8
+    },
+    {
+      "porcentaje_cumplimiento": 69.23076923076923,
+      "supervisor": "MAURICIO MU\u00d1OZ",
+      "total_asistencia": 13,
+      "total_preoperacional": 9
+    },
+    {
+      "porcentaje_cumplimiento": 0,
+      "supervisor": "JORGE SOSA",
+      "total_asistencia": 0,
+      "total_preoperacional": 1
+    },
+    {
+      "porcentaje_cumplimiento": 0,
+      "supervisor": "SANDRA CORTES",
+      "total_asistencia": 0,
+      "total_preoperacional": 3
+    }
+  ],
+  "success": true
+}
