@@ -23,9 +23,15 @@
                                     <i class="fas fa-check-circle fa-3x text-info mb-3"></i>
                                     <h5 class="card-title">Preoperacional</h5>
                                     <p class="card-text">Realiza y consulta inspecciones preoperacionales.</p>
-                                    <a href="#" class="btn btn-info" id="preoperacionalButton" data-bs-toggle="modal" data-bs-target="#preoperacionalModal">
-                                        <i class="fas fa-clipboard-check me-2"></i>Ver Preoperacional
-                                    </a>
+                                    {% if tiene_asistencia %}
+                                        <a href="#" class="btn btn-info" id="preoperacionalButton" data-bs-toggle="modal" data-bs-target="#preoperacionalModal">
+                                            <i class="fas fa-clipboard-check me-2"></i>Ver Preoperacional
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-secondary disabled" disabled title="Debe registrar asistencia primero">
+                                            <i class="fas fa-clipboard-check me-2"></i>Ver Preoperacional
+                                        </button>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -36,9 +42,15 @@
                                     <i class="fas fa-clipboard-list fa-3x text-primary mb-3"></i>
                                     <h5 class="card-title">Órdenes de Trabajo</h5>
                                     <p class="card-text">Gestiona las órdenes de trabajo asignadas.</p>
-                                    <a href="#" class="btn btn-primary">
-                                        <i class="fas fa-tasks me-2"></i>Ver Órdenes
-                                    </a>
+                                    {% if tiene_asistencia %}
+                                        <a href="#" class="btn btn-primary">
+                                            <i class="fas fa-tasks me-2"></i>Ver Órdenes
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-secondary disabled" disabled title="Debe registrar asistencia primero">
+                                            <i class="fas fa-tasks me-2"></i>Ver Órdenes
+                                        </button>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -49,9 +61,15 @@
                                     <i class="fas fa-tools fa-3x text-success mb-3"></i>
                                     <h5 class="card-title">Mantenimientos</h5>
                                     <p class="card-text">Registra y consulta mantenimientos realizados.</p>
-                                    <a href="#" class="btn btn-success">
-                                        <i class="fas fa-wrench me-2"></i>Ver Mantenimientos
-                                    </a>
+                                    {% if tiene_asistencia %}
+                                        <a href="#" class="btn btn-success">
+                                            <i class="fas fa-wrench me-2"></i>Ver Mantenimientos
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-secondary disabled" disabled title="Debe registrar asistencia primero">
+                                            <i class="fas fa-wrench me-2"></i>Ver Mantenimientos
+                                        </button>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -62,9 +80,15 @@
                                     <i class="fas fa-chart-line fa-3x text-warning mb-3"></i>
                                     <h5 class="card-title">Reportes</h5>
                                     <p class="card-text">Genera reportes de trabajo y estadísticas.</p>
-                                    <a href="#" class="btn btn-warning">
-                                        <i class="fas fa-file-alt me-2"></i>Ver Reportes
-                                    </a>
+                                    {% if tiene_asistencia %}
+                                        <a href="#" class="btn btn-warning">
+                                            <i class="fas fa-file-alt me-2"></i>Ver Reportes
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-secondary disabled" disabled title="Debe registrar asistencia primero">
+                                            <i class="fas fa-file-alt me-2"></i>Ver Reportes
+                                        </button>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -118,16 +142,11 @@
                             <div class="mb-3">
                                 <label for="supervisor" class="form-label fw-bold">Supervisor</label>
                                 <select class="form-select" id="supervisor" name="supervisor" required>
-                                    <option value="">Seleccione un supervisor</option>
-                                    <option value="JAVIER MALDONADO">JAVIER MALDONADO</option>
-                                    <option value="DANIEL SILVA">DANIEL SILVA</option>
-                                    <option value="JORGE SOSA">JORGE SOSA</option>
-                                    <option value="CARLOS CACERES">CARLOS CACERES</option>
-                                    <option value="MAURICIO MUÑOZ">MAURICIO MUÑOZ</option>
-                                    <option value="SANDRA CORTES">SANDRA CORTES</option>
-                                    <option value="DAVID LANCHEROS">DAVID LANCHEROS</option>
-                                    
-                                    <!-- Add more supervisors as needed -->
+                                    {% if supervisor %}
+                                        <option value="{{ supervisor }}" selected>{{ supervisor }}</option>
+                                    {% else %}
+                                        <option value="">No se encontró supervisor asignado</option>
+                                    {% endif %}
                                 </select>
                             </div>
                         </div>

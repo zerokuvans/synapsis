@@ -168,11 +168,11 @@ def administrativo_asistencia():
             flash('No tiene permisos para acceder a este módulo o no tiene supervisores asignados.', 'warning')
             return redirect(url_for('dashboard'))
         
-        # Obtener lista de tipificaciones para carpeta_dia
+        # Obtener lista de tipificaciones para carpeta_dia (solo zona RRHH para administrativo)
         cursor.execute("""
             SELECT codigo_tipificacion, nombre_tipificacion
             FROM tipificacion_asistencia
-            WHERE estado = '1'
+            WHERE estado = '1' AND zona = 'RRHH'
             ORDER BY codigo_tipificacion
         """)
         carpetas_dia = cursor.fetchall()

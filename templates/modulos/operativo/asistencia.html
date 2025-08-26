@@ -133,7 +133,7 @@
                                 <div>
                                     <span class="text-muted">
                                         <i class="fas fa-info-circle me-1"></i>
-                                        Selecciona los técnicos presentes y la carpeta del día
+                                        Asigna la carpeta del día a cada técnico. Si no seleccionas técnicos específicos, se registrarán todos los disponibles.
                                     </span>
                                 </div>
                                 <button type="submit" class="btn btn-primary btn-lg">
@@ -172,18 +172,22 @@
             const fechaAsistencia = document.getElementById('fecha_asistencia').value;
             const tecnicosSeleccionados = document.querySelectorAll('.tecnico-checkbox:checked');
             
+            // Validar que se haya seleccionado al menos un técnico
             if (tecnicosSeleccionados.length === 0) {
                 Swal.fire({
                     icon: 'warning',
-                    title: 'Sin selección',
-                    text: 'Por favor selecciona al menos un técnico'
+                    title: 'Atención',
+                    text: 'Por favor selecciona al menos un técnico para registrar asistencia.'
                 });
                 return;
             }
             
-            // Validar que cada técnico seleccionado tenga carpeta del día
+            // Procesar solo los técnicos seleccionados
+            let tecnicosAProcesar = tecnicosSeleccionados;
+            
+            // Validar que cada técnico a procesar tenga carpeta del día asignada
             let tecnicosSinCarpeta = [];
-            tecnicosSeleccionados.forEach(checkbox => {
+            tecnicosAProcesar.forEach(checkbox => {
                 const tecnicoId = checkbox.value;
                 const carpetaDiaSelect = document.querySelector(`select[name="carpeta_dia_${tecnicoId}"]`);
                 if (!carpetaDiaSelect.value) {
@@ -202,7 +206,7 @@
             
             // Preparar datos para envío
             const asistencias = [];
-            tecnicosSeleccionados.forEach(checkbox => {
+            tecnicosAProcesar.forEach(checkbox => {
                 const tecnicoId = checkbox.value;
                 const carpetaDiaSelect = document.querySelector(`select[name="carpeta_dia_${tecnicoId}"]`);
                 asistencias.push({
@@ -234,13 +238,10 @@
                         title: '¡Éxito!',
                         text: data.message,
                         showConfirmButton: false,
-                        timer: 2000
+                        timer: 1500
                     }).then(() => {
-                        // Limpiar formulario
-                        document.getElementById('asistenciaForm').reset();
-                        document.getElementById('selectAll').checked = false;
-                        document.querySelectorAll('.tecnico-checkbox').forEach(cb => cb.checked = false);
-                        document.querySelectorAll('.carpeta-dia-select').forEach(select => select.value = '');
+                        // Redirigir al dashboard operativo
+                        window.location.href = '/operativo';
                     });
                 } else {
                     Swal.fire({
