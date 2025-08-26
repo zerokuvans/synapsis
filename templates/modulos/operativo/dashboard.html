@@ -49,7 +49,7 @@
                                     <i class="fas fa-check-circle fa-3x text-primary mb-3"></i>
                                     <h5 class="card-title">Preoperacional</h5>
                                     <p class="card-text">Realiza y consulta inspecciones preoperacionales.</p>
-                                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#preoperacionalModal">
+                                    <button type="button" id="preoperacionalButton" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#preoperacionalModal">
                                         <i class="fas fa-clipboard-check me-2"></i>Registrar Preoperacional
                                     </button>
                                 </div>
@@ -98,7 +98,7 @@
                     </div>
                 </div>
                 
-                <form id="preoperacionalForm">
+                <form id="preoperacionalForm" method="POST" action="/preoperacional_operativo">
                     <div class="card mb-3">
                         <div class="card-header fw-bold">Información del Centro de Trabajo</div>
                         <div class="card-body">
@@ -472,9 +472,8 @@
     </div>
 </div>
 
-{% endblock %}
 
-{% block scripts %}
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const preoperacionalButton = document.getElementById('preoperacionalButton');
@@ -670,7 +669,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     // Cerrar modal antes de mostrar alerta
-                    $('#preoperacionalModal').modal('hide');
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('preoperacionalModal'));
+                    if (modal) modal.hide();
                     
                     Swal.fire({
                         icon: 'info',
@@ -694,7 +694,8 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
 
                 // Cerrar modal antes de mostrar error
-                $('#preoperacionalModal').modal('hide');
+                const modal = bootstrap.Modal.getInstance(document.getElementById('preoperacionalModal'));
+                if (modal) modal.hide();
                 
                 Swal.fire({
                     icon: 'error',
@@ -727,7 +728,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     if (data.tiene_registro) {
                         // Cerrar modal antes de mostrar alerta
-                        $('#preoperacionalModal').modal('hide');
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('preoperacionalModal'));
+                        if (modal) modal.hide();
                         
                         Swal.fire({
                             icon: 'warning',
@@ -753,7 +755,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                             
                             // Cerrar el modal inmediatamente
-                            $('#preoperacionalModal').modal('hide');
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('preoperacionalModal'));
+                            if (modal) modal.hide();
                             
                             Swal.fire({
                                 icon: 'success',
@@ -761,17 +764,17 @@ document.addEventListener('DOMContentLoaded', function() {
                                 text: data.message || 'Inspección preoperacional registrada correctamente.',
                                 confirmButtonText: 'Aceptar'
                             }).then(() => {
-                                // Redirigir usando la URL proporcionada por el backend
-                                if (data.redirect_url) {
-                                    window.location.href = data.redirect_url;
-                                } else {
-                                    location.reload();
+                                // Mantener al usuario en el dashboard operativo sin redireccionar
+                                // Solo limpiar el formulario para permitir futuras consultas
+                                if (preoperacionalForm) {
+                                    preoperacionalForm.reset();
                                 }
                             });
                         })
                         .catch(error => {
                             // Cerrar modal antes de mostrar error
-                            $('#preoperacionalModal').modal('hide');
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('preoperacionalModal'));
+                            if (modal) modal.hide();
                             
                             Swal.fire({
                                 icon: 'error',
