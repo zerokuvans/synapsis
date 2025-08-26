@@ -522,6 +522,17 @@ def operativo_asistencia():
             
         supervisor_usuario = supervisor_result['super']
         
+        # Verificar si ya existe un registro de asistencia para hoy
+        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+        cursor.execute("""
+            SELECT COUNT(*) as registros_hoy
+            FROM asistencia 
+            WHERE super = %s AND DATE(fecha_asistencia) = %s
+        """, (supervisor_usuario, fecha_hoy))
+        
+        registro_existente = cursor.fetchone()
+        ya_registrado = registro_existente['registros_hoy'] > 0 if registro_existente else False
+        
         # DEBUG: Mostrar todos los valores distintos de carpeta para debug
         cursor.execute("""
             SELECT DISTINCT carpeta, COUNT(*) as cantidad
@@ -581,7 +592,9 @@ def operativo_asistencia():
         return render_template('modulos/operativo/asistencia.html',
                            tecnicos=tecnicos,
                            carpetas_dia=carpetas_dia,
-                           supervisor=supervisor_usuario)
+                           supervisor=supervisor_usuario,
+                           ya_registrado=ya_registrado,
+                           fecha_hoy=fecha_hoy)
                            
     except mysql.connector.Error as e:
         flash(f'Error al cargar datos: {str(e)}', 'danger')
@@ -7196,9 +7209,72 @@ def guardar_asistencias():
         if connection and connection.is_connected():
             connection.close()
 
-
-
-
+@app.route('/api/operativo/asistencia/guardar', methods=['POST'])
+@login_required(role='operativo')
+def guardar_asistencias_operativo():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener el supervisor del usuario logueado
+        cursor.execute("""
+            SELECT super FROM capired.recurso_operativo
+            WHERE id_codigo_consumidor = %s
+        """, (session['id_codigo_consumidor'],))
+        
+        supervisor_result = cursor.fetchone()
+        if not supervisor_result or not supervisor_result['super']:
+            return jsonify({'success': False, 'message': 'No se encontró información del supervisor'}), 400
+            
+        supervisor_usuario = supervisor_result['super']
+        
+        # Verificar si ya existe un registro para hoy
+        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+        cursor.execute("""
+            SELECT COUNT(*) as registros_hoy
+            FROM asistencia 
+            WHERE super = %s AND DATE(fecha_asistencia) = %s
+        """, (supervisor_usuario, fecha_hoy))
+        
+        registro_existente = cursor.fetchone()
+        if registro_existente and registro_existente['registros_hoy'] > 0:
+            return jsonify({'success': False, 'message': 'Ya existe un registro de asistencia para el día de hoy'}), 400
+        
+        data = request.get_json()
+        tecnicos = data.get('tecnicos', [])
+        carpeta_dia = data.get('carpeta_dia', '')
+        carpeta = data.get('carpeta', '')
+        
+        if not tecnicos:
+            return jsonify({'success': False, 'message': 'Debe seleccionar al menos un técnico'}), 400
+        
+        # Insertar cada técnico
+        for tecnico in tecnicos:
+            cursor.execute("""
+                INSERT INTO asistencia (cedula, tecnico, carpeta_dia, carpeta, super, id_codigo_consumidor)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                tecnico.get('cedula', ''),
+                tecnico.get('nombre', ''),
+                carpeta_dia,
+                carpeta,
+                supervisor_usuario,
+                tecnico.get('id_codigo_consumidor', 0)
+            ))
+        
+        connection.commit()
+        return jsonify({'success': True, 'message': f'Se registraron {len(tecnicos)} asistencias correctamente. El formulario se ha bloqueado para evitar registros duplicados.'})
+        
+    except mysql.connector.Error as e:
+        return jsonify({'success': False, 'message': f'Error al guardar asistencias: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 
 @app.route('/api/indicadores/cumplimiento')
 @login_required(role='administrativo')
