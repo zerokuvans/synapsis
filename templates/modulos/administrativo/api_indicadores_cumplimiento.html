@@ -255,6 +255,7 @@
                                                         <th class="text-center">Asistencia</th>
                                                         <th class="text-center">Preoperacional</th>
                                                         <th class="text-center">Estado</th>
+                                                        <!-- <th class="text-center">Hora Registro</th> -->
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -302,11 +303,19 @@
                             
                             <div class="col-lg-6 mb-4">
                                 <div class="card h-100">
-                                    <div class="card-header pb-0 d-flex justify-content-between align-items-center">
-                                        <h6>Estado de Vehículos por Supervisor</h6>
-                                        <button class="btn btn-sm btn-outline-primary" id="btn-actualizar-estado-vehiculos">
-                                            <i class="fas fa-sync-alt me-1"></i> Actualizar
-                                        </button>
+                                    <div class="card-header pb-0">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="mb-0">Estado de Vehículos por Supervisor</h6>
+                                            <button class="btn btn-sm btn-outline-primary" id="btn-actualizar-estado-vehiculos">
+                                                <i class="fas fa-sync-alt me-1"></i> Actualizar
+                                            </button>
+                                        </div>
+                                        <div class="d-flex align-items-center">
+                                            <label for="filtro-mes-vehiculos" class="form-label me-2 mb-0" style="font-size: 0.875rem;">Mes:</label>
+                                            <select class="form-select form-select-sm" id="filtro-mes-vehiculos" style="width: auto; min-width: 150px;">
+                                                <!-- Opciones generadas dinámicamente -->
+                                            </select>
+                                        </div>
                                     </div>
                                     <div class="card-body p-3" style="color: black;">
                                         <div id="estado-vehiculos-loader" class="text-center py-5" style="display: none;">
@@ -812,6 +821,47 @@ function limpiarLog() {
 }
 
 // Inicialización cuando el DOM esté listo
+// Función para inicializar el selector de mes de vehículos
+function inicializarSelectorMesVehiculos() {
+    try {
+        const selector = document.getElementById('filtro-mes-vehiculos');
+        const fechaActual = new Date();
+        
+        // Limpiar opciones existentes
+        selector.innerHTML = '';
+        
+        // Generar opciones para los últimos 12 meses
+        for (let i = 0; i < 12; i++) {
+            const fecha = new Date(fechaActual.getFullYear(), fechaActual.getMonth() - i, 1);
+            const año = fecha.getFullYear();
+            const mes = fecha.getMonth() + 1;
+            const mesFormateado = mes.toString().padStart(2, '0');
+            const valor = `${año}-${mesFormateado}`;
+            
+            const nombreMes = fecha.toLocaleDateString('es-ES', { 
+                month: 'long', 
+                year: 'numeric' 
+            });
+            
+            const option = document.createElement('option');
+            option.value = valor;
+            option.textContent = nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1);
+            
+            // Seleccionar el mes actual por defecto
+            if (i === 0) {
+                option.selected = true;
+            }
+            
+            selector.appendChild(option);
+        }
+        
+        addLog('Selector de mes para vehículos inicializado correctamente', 'success');
+        
+    } catch (e) {
+        addLog(`Error al inicializar selector de mes: ${e.message}`, 'error');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     try {
         addLog('Página cargada correctamente', 'success');
@@ -839,6 +889,12 @@ document.addEventListener('DOMContentLoaded', function() {
         // Configurar eventos para estadísticas de vehículos
         document.getElementById('periodo-vehiculos').addEventListener('change', cargarTiposVehiculos);
         document.getElementById('btn-actualizar-estado-vehiculos').addEventListener('click', cargarEstadoVehiculos);
+        
+        // Inicializar selector de mes para estado de vehículos
+        inicializarSelectorMesVehiculos();
+        
+        // Configurar evento de cambio para el filtro de mes de vehículos
+        document.getElementById('filtro-mes-vehiculos').addEventListener('change', cargarEstadoVehiculos);
         
         // Establecer fecha actual en los selectores
         const fechaActual = new Date();
@@ -1479,6 +1535,9 @@ function actualizarTablaDetalleTecnicos(tecnicos) {
                         ${estado}
                     </span>
                 </td>
+                <!-- <td class="text-center">
+                    <span class="text-sm" style="color: #000 !important;">${tecnico.hora_registro || 'N/A'}</span>
+                </td> -->
                
             `;
             
@@ -1710,10 +1769,13 @@ function cargarEstadoVehiculos() {
         document.getElementById('estado-vehiculos-loader').style.display = 'block';
         document.getElementById('estado-vehiculos-container').style.display = 'none';
         
-        addLog('Cargando estadísticas de estado de vehículos por supervisor', 'info');
+        // Obtener mes seleccionado
+        const mesSeleccionado = document.getElementById('filtro-mes-vehiculos').value;
         
-        // URL para obtener datos
-        const url = window.location.origin + '/api/indicadores/estado_vehiculos';
+        addLog(`Cargando estadísticas de estado de vehículos por supervisor para ${mesSeleccionado}`, 'info');
+        
+        // URL para obtener datos con filtro de mes
+        const url = window.location.origin + '/api/indicadores/estado_vehiculos' + (mesSeleccionado ? '?mes=' + mesSeleccionado : '');
         
         // Hacer la petición fetch
         fetch(url, {
@@ -1734,24 +1796,29 @@ function cargarEstadoVehiculos() {
             document.getElementById('estado-vehiculos-loader').style.display = 'none';
             document.getElementById('estado-vehiculos-container').style.display = 'block';
             
-            if (data.success === true && data.estadisticas) {
-                // Mostrar datos
+            // LOGGING DETALLADO PARA DIAGNÓSTICO
+            console.log('=== RESPUESTA COMPLETA DEL ENDPOINT ===');
+            console.log('Respuesta completa:', JSON.stringify(data, null, 2));
+            console.log('Tipo de data.success:', typeof data.success);
+            console.log('Valor exacto de data.success:', data.success);
+            console.log('Tipo de data.estadisticas:', typeof data.estadisticas);
+            console.log('Valor de data.estadisticas:', data.estadisticas);
+            console.log('Longitud de estadisticas:', data.estadisticas ? data.estadisticas.length : 'N/A');
+            console.log('data.error:', data.error);
+            console.log('=======================================');
+            
+            addLog(`DIAGNÓSTICO: success=${data.success}, estadisticas=${data.estadisticas ? data.estadisticas.length + ' items' : 'null/undefined'}`, 'info');
+            
+            if (data.success === true && data.estadisticas && data.estadisticas.length > 0) {
+                // Mostrar datos reales
                 actualizarTablaEstadoVehiculos(data.estadisticas);
-                addLog(`Datos de estado de vehículos cargados correctamente para ${data.estadisticas.length} supervisores`, 'success');
+                addLog(`Datos REALES de estado de vehículos cargados correctamente para ${data.estadisticas.length} supervisores (${mesSeleccionado || 'mes actual'})`, 'success');
             } else {
-                addLog(`Error al cargar estado de vehículos: ${data.error || 'Error desconocido'}`, 'error');
+                addLog(`ERROR: No se pudieron cargar datos reales. success=${data.success}, estadisticas=${data.estadisticas}, error=${data.error || 'No especificado'}`, 'error');
                 
-                // Simular datos para demostración
-                const datosDemostracion = [
-                    { supervisor: 'NELSON DIAZ', bueno: 12, regular: 5, malo: 2, total: 19 },
-                    { supervisor: 'SANDRA CORTES', bueno: 8, regular: 4, malo: 1, total: 13 },
-                    { supervisor: 'CARLOS CACERES', bueno: 15, regular: 3, malo: 0, total: 18 },
-                    { supervisor: 'DANIEL SILVA', bueno: 7, regular: 6, malo: 3, total: 16 },
-                    { supervisor: 'MAURICIO MUÑOZ', bueno: 10, regular: 2, malo: 1, total: 13 }
-                ];
-                
-                actualizarTablaEstadoVehiculos(datosDemostracion);
-                addLog('Usando datos de demostración para estado de vehículos', 'warning');
+                // MOSTRAR TABLA VACÍA EN LUGAR DE DATOS DE DEMOSTRACIÓN
+                actualizarTablaEstadoVehiculos([]);
+                addLog('Tabla vacía mostrada - NO hay datos de demostración', 'warning');
             }
         })
         .catch(error => {
@@ -1759,19 +1826,17 @@ function cargarEstadoVehiculos() {
             document.getElementById('estado-vehiculos-loader').style.display = 'none';
             document.getElementById('estado-vehiculos-container').style.display = 'block';
             
-            addLog(`Error al cargar estado de vehículos: ${error.message}`, 'error');
+            console.log('=== ERROR EN FETCH ===');
+            console.log('Error completo:', error);
+            console.log('Mensaje de error:', error.message);
+            console.log('Stack trace:', error.stack);
+            console.log('======================');
             
-            // Simular datos para demostración
-            const datosDemostracion = [
-                { supervisor: 'NELSON DIAZ', bueno: 12, regular: 5, malo: 2, total: 19 },
-                { supervisor: 'SANDRA CORTES', bueno: 8, regular: 4, malo: 1, total: 13 },
-                { supervisor: 'CARLOS CACERES', bueno: 15, regular: 3, malo: 0, total: 18 },
-                { supervisor: 'DANIEL SILVA', bueno: 7, regular: 6, malo: 3, total: 16 },
-                { supervisor: 'MAURICIO MUÑOZ', bueno: 10, regular: 2, malo: 1, total: 13 }
-            ];
+            addLog(`ERROR CRÍTICO al cargar estado de vehículos: ${error.message}`, 'error');
             
-            actualizarTablaEstadoVehiculos(datosDemostracion);
-            addLog('Usando datos de demostración para estado de vehículos', 'warning');
+            // MOSTRAR TABLA VACÍA EN LUGAR DE DATOS DE DEMOSTRACIÓN
+            actualizarTablaEstadoVehiculos([]);
+            addLog('Tabla vacía mostrada por error de conexión - NO hay datos de demostración', 'error');
         });
         
     } catch (e) {
