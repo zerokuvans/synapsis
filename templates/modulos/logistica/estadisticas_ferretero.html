@@ -208,7 +208,7 @@
                                     <th>Cinta</th>
                                     <th>Grapas</th>
                                     <th>Total</th>
-                                    <th>Promedio Mensual</th>
+                                    <!-- <th>Promedio Mensual</th> -->
                                 </tr>
                             </thead>
                             <tbody id="tablaEstadisticasBody">
@@ -450,7 +450,7 @@
                 <td class="${filtroMaterial === 'cinta' ? 'material-destacado' : ''}">${item.cinta_aislante || 0}</td>
                 <td class="${filtroMaterial === 'grapas' ? 'material-destacado' : ''}">${(item.grapas_blancas || 0) + (item.grapas_negras || 0)}</td>
                 <td><strong>${item.total_asignaciones || 0}</strong></td>
-                <td>${item.promedio_mensual ? item.promedio_mensual.toFixed(2) : '0.00'}</td>
+                <!-- <td>${item.promedio_mensual ? item.promedio_mensual.toFixed(2) : '0.00'}</td> -->
             `;
             
             tbody.appendChild(fila);
@@ -817,21 +817,38 @@
         })
         .then(data => {
             if (data.status === 'success') {
+                // Cerrar modal inmediatamente
+                const modalElement = document.getElementById('modalRegistrarEntrada');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) {
+                    modal.hide();
+                }
+                
+                // Limpiar formulario
+                document.getElementById('formRegistrarEntrada').reset();
+                
+                // Eliminar cualquier backdrop residual
+                setTimeout(() => {
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(backdrop => backdrop.remove());
+                    
+                    // Restaurar el scroll del body
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
+                }, 100);
+                
+                // Recargar todas las estadísticas del dashboard
+                recargarDashboardCompleto();
+                
+                // Mostrar mensaje de éxito sin timer
                 Swal.fire({
                     icon: 'success',
                     title: 'Éxito',
                     text: data.message,
-                    timer: 2000,
-                    showConfirmButton: false
+                    showConfirmButton: true,
+                    confirmButtonText: 'OK'
                 });
-                
-                // Cerrar modal y limpiar formulario
-                const modal = bootstrap.Modal.getInstance(document.getElementById('modalRegistrarEntrada'));
-                modal.hide();
-                document.getElementById('formRegistrarEntrada').reset();
-                
-                // Recargar stock
-                cargarStockFerretero();
             } else {
                 Swal.fire({
                     icon: 'error',
@@ -848,6 +865,37 @@
                 text: 'Error al registrar la entrada. Por favor, intente nuevamente.'
             });
         });
+    }
+    
+    // Función para recargar todo el dashboard después de una entrada exitosa
+    function recargarDashboardCompleto() {
+        console.log('Recargando dashboard completo después de entrada de material');
+        
+        // Recargar stock del ferretero
+        cargarStockFerretero();
+        
+        // Recargar estadísticas generales
+        if (typeof cargarEstadisticasGenerales === 'function') {
+            cargarEstadisticasGenerales();
+        }
+        
+        // Recargar resumen de inventario
+        if (typeof mostrarResumenInventario === 'function') {
+            mostrarResumenInventario();
+        }
+        
+        // Recargar asignado del mes actual
+        if (typeof mostrarAsignadoMesActual === 'function') {
+            mostrarAsignadoMesActual();
+        }
+        
+        // Recargar movimientos si están visibles
+        const tablaMovimientos = document.getElementById('tablaMovimientosBody');
+        if (tablaMovimientos && tablaMovimientos.children.length > 0) {
+            cargarMovimientosFerretero();
+        }
+        
+        console.log('Dashboard recargado completamente');
     }
     
     // Función para cargar movimientos de stock

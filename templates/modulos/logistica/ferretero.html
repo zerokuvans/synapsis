@@ -273,8 +273,10 @@
                                 data-periodo-siliconas="{{ tecnico.limites.periodos.silicona }}"
                                 data-amarres="{{ tecnico.limites.amarres }}"
                                 data-periodo-amarres="{{ tecnico.limites.periodos.amarres }}"
-                                data-grapas="{{ tecnico.limites.grapas }}"
-                                data-periodo-grapas="{{ tecnico.limites.periodos.grapas }}"
+                                data-grapas-blancas="{{ tecnico.limites.grapas_blancas }}"
+                                data-periodo-grapas-blancas="{{ tecnico.limites.periodos.grapas_blancas }}"
+                                data-grapas-negras="{{ tecnico.limites.grapas_negras }}"
+                                data-periodo-grapas-negras="{{ tecnico.limites.periodos.grapas_negras }}"
                                 data-carpeta="{{ tecnico.carpeta }}">
                                 {{ tecnico.nombre }} - {{ tecnico.recurso_operativo_cedula }}
                             </option>
@@ -290,33 +292,40 @@
                             <label for="silicona" class="form-label">Silicona</label>
                             <input type="number" class="form-control" id="silicona" name="silicona" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
                             <small class="text-muted" id="limiteSilicona"></small>
+                            <small class="text-info" id="stockSilicona"></small>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="cinta_aislante" class="form-label">Cinta Aislante</label>
                             <input type="number" class="form-control" id="cinta_aislante" name="cinta_aislante" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
                             <small class="text-muted" id="limiteCintas"></small>
+                            <small class="text-info" id="stockCintas"></small>
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="amarres_negros" class="form-label">Amarres Negros</label>
                             <input type="number" class="form-control" id="amarres_negros" name="amarres_negros" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
+                            <small class="text-info" id="stockAmarresNegros"></small>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="amarres_blancos" class="form-label">Amarres Blancos</label>
                             <input type="number" class="form-control" id="amarres_blancos" name="amarres_blancos" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
                             <small class="text-muted" id="limiteAmarres"></small>
+                            <small class="text-info" id="stockAmarresBlancos"></small>
                         </div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="grapas_blancas" class="form-label">Grapas Blancas</label>
                             <input type="number" class="form-control" id="grapas_blancas" name="grapas_blancas" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
+                            <small class="text-muted" id="limiteGrapasBlancas"></small>
+                            <small class="text-info" id="stockGrapasBlancas"></small>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="grapas_negras" class="form-label">Grapas Negras</label>
                             <input type="number" class="form-control" id="grapas_negras" name="grapas_negras" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
-                            <small class="text-muted" id="limiteGrapas"></small>
+                            <small class="text-muted" id="limiteGrapasNegras"></small>
+                            <small class="text-info" id="stockGrapasNegras"></small>
                         </div>
                     </div>
                 </form>
@@ -421,7 +430,8 @@ function resetearFormularioAsignacion() {
     const limiteSilicona = document.getElementById('limiteSilicona');
     const limiteCintas = document.getElementById('limiteCintas');
     const limiteAmarres = document.getElementById('limiteAmarres');
-    const limiteGrapas = document.getElementById('limiteGrapas');
+    const limiteGrapasBlancas = document.getElementById('limiteGrapasBlancas');
+    const limiteGrapasNegras = document.getElementById('limiteGrapasNegras');
     
     // Limpiar el selector de técnicos
     if (selectTecnico) {
@@ -443,7 +453,7 @@ function resetearFormularioAsignacion() {
     });
     
     // Resetear los indicadores de límites
-    [limiteSilicona, limiteCintas, limiteAmarres, limiteGrapas].forEach(limite => {
+    [limiteSilicona, limiteCintas, limiteAmarres, limiteGrapasBlancas, limiteGrapasNegras].forEach(limite => {
         if (limite) {
             limite.className = 'text-muted';
             limite.textContent = '';
@@ -491,10 +501,11 @@ function mostrarLimites() {
     const limiteSilicona = document.getElementById('limiteSilicona');
     const limiteCintas = document.getElementById('limiteCintas');
     const limiteAmarres = document.getElementById('limiteAmarres');
-    const limiteGrapas = document.getElementById('limiteGrapas');
+    const limiteGrapasBlancas = document.getElementById('limiteGrapasBlancas');
+    const limiteGrapasNegras = document.getElementById('limiteGrapasNegras');
     
     // Resetear los indicadores visuales de una vez
-    [limiteSilicona, limiteCintas, limiteAmarres, limiteGrapas].forEach(elemento => {
+    [limiteSilicona, limiteCintas, limiteAmarres, limiteGrapasBlancas, limiteGrapasNegras].forEach(elemento => {
         if (elemento) {
             elemento.className = 'text-muted';
             elemento.textContent = '';
@@ -548,20 +559,23 @@ function mostrarLimites() {
     const periodoSiliconas = option.dataset.periodoSiliconas || 'No definido';
     const amarres = option.dataset.amarres || '0';
     const periodoAmarres = option.dataset.periodoAmarres || 'No definido';
-    const grapas = option.dataset.grapas || '0';
-    const periodoGrapas = option.dataset.periodoGrapas || 'No definido';
+    const grapasBlancas = option.dataset.grapasBlancas || '0';
+    const periodoGrapasBlancas = option.dataset.periodoGrapasBlancas || 'No definido';
+    const grapasNegras = option.dataset.grapasNegras || '0';
+    const periodoGrapasNegras = option.dataset.periodoGrapasNegras || 'No definido';
     const carpeta = option.dataset.carpeta || 'No asignada';
     
     console.log("Datos del técnico:", {
         area, cintas, periodoCintas, siliconas, periodoSiliconas,
-        amarres, periodoAmarres, grapas, periodoGrapas, carpeta
+        amarres, periodoAmarres, grapasBlancas, periodoGrapasBlancas, grapasNegras, periodoGrapasNegras, carpeta
     });
     
     // Almacenar los límites en variables globales con conversión segura
     limitesCintas = parseInt(cintas) || 0;
     limitesSiliconas = parseInt(siliconas) || 0;
     limitesAmarres = parseInt(amarres) || 0;
-    limitesGrapas = parseInt(grapas) || 0;
+    limitesGrapasBlancas = parseInt(grapasBlancas) || 0;
+    limitesGrapasNegras = parseInt(grapasNegras) || 0;
     
     // Preparar visualización del panel
     if (infoLimites) {
@@ -641,11 +655,28 @@ function mostrarLimites() {
                         <div class="d-flex align-items-center">
                             <i class="fas fa-thumbtack limits-icon"></i>
                             <div>
-                                <div class="limits-title">Grapas</div>
-                                <div class="limits-value">${grapas} 
+                                <div class="limits-title">Grapas Blancas</div>
+                                <div class="limits-value">${grapasBlancas} 
                                     <span class="availability-indicator availability-high">Disponible</span>
                                 </div>
-                                <div class="limits-period">Periodo: ${periodoGrapas}</div>
+                                <div class="limits-period">Periodo: ${periodoGrapasBlancas}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row fade-in-up" style="animation-delay: 0.3s">
+                <div class="col-md-6 mb-3">
+                    <div class="limits-card">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-thumbtack limits-icon"></i>
+                            <div>
+                                <div class="limits-title">Grapas Negras</div>
+                                <div class="limits-value">${grapasNegras} 
+                                    <span class="availability-indicator availability-high">Disponible</span>
+                                </div>
+                                <div class="limits-period">Periodo: ${periodoGrapasNegras}</div>
                             </div>
                         </div>
                     </div>
@@ -684,9 +715,14 @@ function mostrarLimites() {
         limiteAmarres.innerHTML = `<i class="fas fa-check-circle me-1"></i>Disponibles: ${limitesAmarres} de ${limitesAmarres}`;
     }
     
-    if (limiteGrapas) {
-        limiteGrapas.className = 'text-success';
-        limiteGrapas.innerHTML = `<i class="fas fa-check-circle me-1"></i>Disponibles: ${limitesGrapas} de ${limitesGrapas}`;
+    if (limiteGrapasBlancas) {
+        limiteGrapasBlancas.className = 'text-success';
+        limiteGrapasBlancas.innerHTML = `<i class="fas fa-check-circle me-1"></i>Disponibles: ${limitesGrapasBlancas} de ${limitesGrapasBlancas}`;
+    }
+    
+    if (limiteGrapasNegras) {
+        limiteGrapasNegras.className = 'text-success';
+        limiteGrapasNegras.innerHTML = `<i class="fas fa-check-circle me-1"></i>Disponibles: ${limitesGrapasNegras} de ${limitesGrapasNegras}`;
     }
     
     // Aplicar efecto de resaltado a los campos
@@ -709,7 +745,8 @@ function mostrarLimites() {
     console.log(`Cintas: ${cintas} (${periodoCintas})`);
     console.log(`Siliconas: ${siliconas} (${periodoSiliconas})`);
     console.log(`Amarres: ${amarres} (${periodoAmarres})`);
-    console.log(`Grapas: ${grapas} (${periodoGrapas})`);
+    console.log(`Grapas Blancas: ${grapasBlancas} (${periodoGrapasBlancas})`);
+    console.log(`Grapas Negras: ${grapasNegras} (${periodoGrapasNegras})`);
 }
 
 function actualizarLimites() {
@@ -727,7 +764,8 @@ function actualizarLimites() {
     const limiteSilicona = document.getElementById('limiteSilicona');
     const limiteCintas = document.getElementById('limiteCintas');
     const limiteAmarres = document.getElementById('limiteAmarres');
-    const limiteGrapas = document.getElementById('limiteGrapas');
+    const limiteGrapasBlancas = document.getElementById('limiteGrapasBlancas');
+    const limiteGrapasNegras = document.getElementById('limiteGrapasNegras');
     const btnGuardar = document.getElementById('btnGuardar');
     const alertaLimites = document.getElementById('alertaLimites');
     const contenidoAlerta = document.getElementById('contenidoAlertaLimites');
@@ -741,7 +779,6 @@ function actualizarLimites() {
     const grapasNegras = parseInt(inputGrapasNegras?.value) || 0;
     
     const totalAmarres = amarresNegros + amarresBlancos;
-    const totalGrapas = grapasBlancas + grapasNegras;
     
     // Validar cada límite y mostrar en rojo si se excede
     let excedeAlgunLimite = false;
@@ -805,14 +842,21 @@ function actualizarLimites() {
     actualizarEstiloCampo(inputAmarresNegros, excedeAmarres);
     actualizarEstiloCampo(inputAmarresBlancos, excedeAmarres);
     
-    // Validar grapas
-    const excedeGrapas = totalGrapas > limitesGrapas;
-    if (actualizarIndicadorLimite(limiteGrapas, totalGrapas, limitesGrapas, excedeGrapas)) {
-        mensajesError.push(`<li>Grapas: ${totalGrapas} (límite: ${limitesGrapas})</li>`);
+    // Validar grapas blancas independientemente
+    const excedeGrapasBlancas = grapasBlancas > limitesGrapasBlancas;
+    if (actualizarIndicadorLimite(limiteGrapasBlancas, grapasBlancas, limitesGrapasBlancas, excedeGrapasBlancas)) {
+        mensajesError.push(`<li>Grapas Blancas: ${grapasBlancas} (límite: ${limitesGrapasBlancas})</li>`);
         excedeAlgunLimite = true;
     }
-    actualizarEstiloCampo(inputGrapasBlancas, excedeGrapas);
-    actualizarEstiloCampo(inputGrapasNegras, excedeGrapas);
+    actualizarEstiloCampo(inputGrapasBlancas, excedeGrapasBlancas);
+    
+    // Validar grapas negras independientemente
+    const excedeGrapasNegras = grapasNegras > limitesGrapasNegras;
+    if (actualizarIndicadorLimite(limiteGrapasNegras, grapasNegras, limitesGrapasNegras, excedeGrapasNegras)) {
+        mensajesError.push(`<li>Grapas Negras: ${grapasNegras} (límite: ${limitesGrapasNegras})</li>`);
+        excedeAlgunLimite = true;
+    }
+    actualizarEstiloCampo(inputGrapasNegras, excedeGrapasNegras);
     
     // Mostrar alerta si se excede algún límite
     if (alertaLimites) {
@@ -946,6 +990,9 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log("Modal mostrado completamente - Inicializando componentes");
             modalInicializado = true;
             
+            // Cargar indicadores visuales de stock
+            cargarStockVisual();
+            
             // Forzar la inicialización del selector de técnicos
             const selectTecnico = document.getElementById('id_codigo_consumidor');
             if (selectTecnico) {
@@ -1034,7 +1081,181 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-function registrarAsignacion() {
+// Función para validar stock antes de asignación
+async function cargarStockVisual() {
+    console.log("Cargando indicadores visuales de stock");
+    
+    try {
+        // Obtener stock actual desde el endpoint
+        const response = await fetch('/api/stock/materiales', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.status !== 'success') {
+            throw new Error(data.message || 'Error al obtener stock');
+        }
+        
+        const stockDisponible = data.disponibilidad;
+        
+        // Actualizar indicadores visuales de stock
+        const indicadores = {
+            'stockSilicona': 'silicona',
+            'stockCintas': 'cinta_aislante',
+            'stockAmarresNegros': 'amarres_negros',
+            'stockAmarresBlancos': 'amarres_blancos',
+            'stockGrapasBlancas': 'grapas_blancas',
+            'stockGrapasNegras': 'grapas_negras'
+        };
+        
+        for (const [elementoId, materialKey] of Object.entries(indicadores)) {
+            const elemento = document.getElementById(elementoId);
+            const stockMaterial = stockDisponible[materialKey];
+            
+            if (elemento) {
+                if (!stockMaterial || !stockMaterial.disponible || stockMaterial.cantidad === 0) {
+                    elemento.innerHTML = '<i class="fas fa-exclamation-triangle text-danger"></i> Sin stock';
+                    elemento.className = 'text-danger';
+                    
+                    // Deshabilitar el campo correspondiente
+                    const campo = document.getElementById(materialKey);
+                    if (campo) {
+                        campo.disabled = true;
+                        campo.title = 'Material sin stock disponible';
+                        campo.classList.add('bg-light');
+                    }
+                } else {
+                    const cantidad = stockMaterial.cantidad;
+                    const clase = cantidad < 10 ? 'text-warning' : 'text-success';
+                    const icono = cantidad < 10 ? 'fas fa-exclamation-circle' : 'fas fa-check-circle';
+                    
+                    elemento.innerHTML = `<i class="${icono}"></i> Stock: ${cantidad}`;
+                    elemento.className = clase;
+                    
+                    // Habilitar el campo correspondiente
+                    const campo = document.getElementById(materialKey);
+                    if (campo) {
+                        campo.disabled = false;
+                        campo.title = '';
+                        campo.classList.remove('bg-light');
+                    }
+                }
+            }
+        }
+        
+        console.log("Indicadores de stock actualizados");
+        
+    } catch (error) {
+        console.error("Error al cargar stock visual:", error);
+        
+        // En caso de error, mostrar mensaje en todos los indicadores
+        const indicadores = ['stockSilicona', 'stockCintas', 'stockAmarresNegros', 'stockAmarresBlancos', 'stockGrapasBlancas', 'stockGrapasNegras'];
+        
+        indicadores.forEach(elementoId => {
+            const elemento = document.getElementById(elementoId);
+            if (elemento) {
+                elemento.innerHTML = '<i class="fas fa-exclamation-triangle text-muted"></i> Error al cargar stock';
+                elemento.className = 'text-muted';
+            }
+        });
+    }
+}
+
+async function validarStockAntesDeasignacion() {
+    console.log("Validando stock antes de asignación");
+    
+    try {
+        // Obtener stock actual desde el endpoint
+        const response = await fetch('/api/stock/materiales', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.status !== 'success') {
+            throw new Error(data.message || 'Error al obtener stock');
+        }
+        
+        const stockDisponible = data.disponibilidad;
+        
+        // Obtener cantidades del formulario
+        const cantidades = {
+            silicona: parseInt(document.getElementById('silicona').value) || 0,
+            cinta_aislante: parseInt(document.getElementById('cinta_aislante').value) || 0,
+            amarres_negros: parseInt(document.getElementById('amarres_negros').value) || 0,
+            amarres_blancos: parseInt(document.getElementById('amarres_blancos').value) || 0,
+            grapas_blancas: parseInt(document.getElementById('grapas_blancas').value) || 0,
+            grapas_negras: parseInt(document.getElementById('grapas_negras').value) || 0
+        };
+        
+        // Validar cada material
+        const errores = [];
+        
+        for (const [material, cantidadSolicitada] of Object.entries(cantidades)) {
+            if (cantidadSolicitada > 0) {
+                const stockMaterial = stockDisponible[material];
+                
+                if (!stockMaterial || !stockMaterial.disponible || stockMaterial.cantidad === 0) {
+                    errores.push(`${material.replace('_', ' ').toUpperCase()}: No hay stock disponible`);
+                } else if (cantidadSolicitada > stockMaterial.cantidad) {
+                    errores.push(`${material.replace('_', ' ').toUpperCase()}: Stock insuficiente (disponible: ${stockMaterial.cantidad}, solicitado: ${cantidadSolicitada})`);
+                }
+            }
+        }
+        
+        // Si hay errores, mostrarlos y retornar false
+        if (errores.length > 0) {
+            let mensaje = 'No se puede realizar la asignación por los siguientes motivos:';
+            mensaje += '<ul class="text-left mt-3">';
+            errores.forEach(error => {
+                mensaje += `<li>${error}</li>`;
+            });
+            mensaje += '</ul>';
+            
+            Swal.fire({
+                icon: 'error',
+                title: 'Stock Insuficiente',
+                html: mensaje,
+                confirmButtonText: 'Entendido'
+            });
+            
+            return false;
+        }
+        
+        console.log("Validación de stock exitosa");
+        return true;
+        
+    } catch (error) {
+        console.error("Error al validar stock:", error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al validar el stock disponible. Por favor, inténtalo de nuevo.'
+        });
+        return false;
+    }
+}
+
+async function registrarAsignacion() {
     console.log("Iniciando registro de asignación");
     
     // Verificar que se haya seleccionado un técnico
@@ -1046,6 +1267,13 @@ function registrarAsignacion() {
             title: 'Error',
             text: 'Debes seleccionar un técnico para realizar la asignación.'
         });
+        return;
+    }
+    
+    // Validar stock antes de proceder
+    const stockValido = await validarStockAntesDeasignacion();
+    if (!stockValido) {
+        console.log("Validación de stock falló, cancelando asignación");
         return;
     }
     
