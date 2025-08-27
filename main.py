@@ -7871,12 +7871,17 @@ def register_endpoint(app, get_db_connection, login_required):
                 preoperacional = cursor.fetchone()
                 tiene_preoperacional = preoperacional is not None
                 
-                # Formatear hora de registro
+                # Formatear hora de registro - priorizar preoperacional sobre asistencia
                 hora_registro = None
-                if asistencia:
-                    hora_asistencia = asistencia['fecha_asistencia']
-                    if hora_asistencia:
-                        hora_registro = hora_asistencia.strftime('%H:%M:%S')
+                if preoperacional and preoperacional['fecha']:
+                    # Si existe preoperacional, usar su hora
+                    hora_registro = preoperacional['fecha'].strftime('%H:%M')
+                elif asistencia and asistencia['fecha_asistencia']:
+                    # Si no hay preoperacional pero sí asistencia, usar hora de asistencia
+                    hora_registro = asistencia['fecha_asistencia'].strftime('%H:%M')
+                else:
+                    # Si no hay ninguno, mostrar N/A
+                    hora_registro = 'N/A'
                 
                 # Agregar a los resultados
                 result_tecnicos.append({

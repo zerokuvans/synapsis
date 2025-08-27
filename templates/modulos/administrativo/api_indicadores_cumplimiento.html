@@ -217,7 +217,7 @@
                         </div>
                         
                         <!-- Nueva sección: Detalle de técnicos por supervisor -->
-                        <div class="col-12 mb-4">
+                        <div class="col-12 " >
                             <div class="card">
                                 <div class="card-header pb-0 d-flex justify-content-between">
                                     <h6>Detalle de Preoperacionales por Técnicos</h6>
@@ -247,7 +247,7 @@
                                         <p class="mt-2">Cargando detalle de técnicos...</p>
                                     </div>
                                     <div id="tecnicos-container" style="display: none;">
-                                        <div class="table-responsive">
+                                        <div class="table-responsive" style="color: black;">
                                             <table class="table table-hover" id="tabla-tecnicos">
                                                 <thead>
                                                     <tr>
@@ -255,7 +255,6 @@
                                                         <th class="text-center">Asistencia</th>
                                                         <th class="text-center">Preoperacional</th>
                                                         <th class="text-center">Estado</th>
-                                                        <th class="text-center">Hora Registro</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1461,28 +1460,26 @@ function actualizarTablaDetalleTecnicos(tecnicos) {
             tr.innerHTML = `
                 <td class="text-center">
                     <div>
-                        <h6 class="mb-0 text-sm text-dark">${tecnico.nombre}</h6>
-                        <p class="text-xs text-secondary mb-0">CC: ${tecnico.documento || 'No registrada'}</p>
+                        <h6 class="mb-0 text-sm" style="color: #000 !important;">${tecnico.nombre}</h6>
+                        
                     </div>
                 </td>
                 <td class="text-center">
-                    <span class="badge ${tecnico.asistencia ? 'bg-gradient-success' : 'bg-gradient-danger'}" style="width: 80px;">
+                    <span class="badge ${tecnico.asistencia ? 'bg-gradient-success' : 'bg-gradient-danger'}" style="width: 80px; color: black !important;">
                         ${tecnico.asistencia ? 'Registrada' : 'Pendiente'}
                     </span>
                 </td>
                 <td class="text-center">
-                    <span class="badge ${tecnico.preoperacional ? 'bg-gradient-success' : 'bg-gradient-danger'}" style="width: 80px;">
+                    <span class="badge ${tecnico.preoperacional ? 'bg-gradient-success' : 'bg-gradient-danger'}" style="width: 80px; color: black !important;">
                         ${tecnico.preoperacional ? 'Registrado' : 'Pendiente'}
                     </span>
                 </td>
                 <td class="text-center">
-                    <span class="badge bg-gradient-${claseEstado.replace('bg-', '')}" style="width: 120px;">
+                    <span class="badge bg-gradient-${claseEstado.replace('bg-', '')}" style="width: 120px; color: black !important;">
                         ${estado}
                     </span>
                 </td>
-                <td class="text-center" style="color: #344767;">
-                    ${tecnico.hora_registro ? tecnico.hora_registro : 'No registrada'}
-                </td>
+               
             `;
             
             tbody.appendChild(tr);
@@ -1874,13 +1871,13 @@ function actualizarTablaEstadoVehiculos(estadisticas) {
     padding: 0.35em 0.65em;
 }
 
-/* Badges de colores con texto blanco explícito */
+/* Badges de colores con texto negro para mejor legibilidad en tabla de técnicos */
 .badge.bg-gradient-info,
 .badge.bg-gradient-success,
 .badge.bg-gradient-warning,
 .badge.bg-gradient-danger,
 .badge.bg-gradient-primary {
-    color: white !important;
+    color: black !important;
 }
 
 /* Títulos y headers */
