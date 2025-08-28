@@ -2930,42 +2930,48 @@ def ver_asignaciones_ferretero():
             'FTTH INSTALACIONES': {
                 'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'INSTALACIONES DOBLES': {
                 'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'POSTVENTA': {
                 'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'MANTENIMIENTO FTTH': {
                 'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'ARREGLOS HFC': {
                 'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'CONDUCTOR': {
                 'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
             }
@@ -3016,7 +3022,8 @@ def ver_asignaciones_ferretero():
             contadores = {
                 'cinta_aislante': 0,
                 'silicona': 0,
-                'amarres': 0,
+                'amarres_negros': 0,
+                'amarres_blancos': 0,
                 'grapas_blancas': 0,
                 'grapas_negras': 0
             }
@@ -3034,10 +3041,13 @@ def ver_asignaciones_ferretero():
                 if diferencia_dias <= limites[area_trabajo]['silicona']['periodo']:
                     contadores['silicona'] += int(asignacion.get('silicona', 0) or 0)
                     
-                # Verificar límite de amarres (sumando negros y blancos)
-                if diferencia_dias <= limites[area_trabajo]['amarres']['periodo']:
-                    contadores['amarres'] += int(asignacion.get('amarres_negros', 0) or 0)
-                    contadores['amarres'] += int(asignacion.get('amarres_blancos', 0) or 0)
+                # Verificar límite de amarres negros
+                if diferencia_dias <= limites[area_trabajo]['amarres_negros']['periodo']:
+                    contadores['amarres_negros'] += int(asignacion.get('amarres_negros', 0) or 0)
+                    
+                # Verificar límite de amarres blancos
+                if diferencia_dias <= limites[area_trabajo]['amarres_blancos']['periodo']:
+                    contadores['amarres_blancos'] += int(asignacion.get('amarres_blancos', 0) or 0)
                     
                 # Verificar límite de grapas blancas
                 if diferencia_dias <= limites[area_trabajo]['grapas_blancas']['periodo']:
@@ -3052,13 +3062,15 @@ def ver_asignaciones_ferretero():
                 'area': area_trabajo,
                 'cinta_aislante': max(0, limites[area_trabajo]['cinta_aislante']['cantidad'] - contadores['cinta_aislante']),
                 'silicona': max(0, limites[area_trabajo]['silicona']['cantidad'] - contadores['silicona']),
-                'amarres': max(0, limites[area_trabajo]['amarres']['cantidad'] - contadores['amarres']),
+                'amarres_negros': max(0, limites[area_trabajo]['amarres_negros']['cantidad'] - contadores['amarres_negros']),
+                'amarres_blancos': max(0, limites[area_trabajo]['amarres_blancos']['cantidad'] - contadores['amarres_blancos']),
                 'grapas_blancas': max(0, limites[area_trabajo]['grapas_blancas']['cantidad'] - contadores['grapas_blancas']),
                 'grapas_negras': max(0, limites[area_trabajo]['grapas_negras']['cantidad'] - contadores['grapas_negras']),
                 'periodos': {
                     'cinta_aislante': f"{limites[area_trabajo]['cinta_aislante']['periodo']} {limites[area_trabajo]['cinta_aislante']['unidad']}",
                     'silicona': f"{limites[area_trabajo]['silicona']['periodo']} {limites[area_trabajo]['silicona']['unidad']}",
-                    'amarres': f"{limites[area_trabajo]['amarres']['periodo']} {limites[area_trabajo]['amarres']['unidad']}",
+                    'amarres_negros': f"{limites[area_trabajo]['amarres_negros']['periodo']} {limites[area_trabajo]['amarres_negros']['unidad']}",
+                    'amarres_blancos': f"{limites[area_trabajo]['amarres_blancos']['periodo']} {limites[area_trabajo]['amarres_blancos']['unidad']}",
                     'grapas_blancas': f"{limites[area_trabajo]['grapas_blancas']['periodo']} {limites[area_trabajo]['grapas_blancas']['unidad']}",
                     'grapas_negras': f"{limites[area_trabajo]['grapas_negras']['periodo']} {limites[area_trabajo]['grapas_negras']['unidad']}"
                 }
@@ -3155,42 +3167,48 @@ def registrar_ferretero():
             'FTTH INSTALACIONES': {
                 'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'INSTALACIONES DOBLES': {
                 'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'POSTVENTA': {
                 'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'MANTENIMIENTO FTTH': {
                 'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'ARREGLOS HFC': {
                 'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'CONDUCTOR': {
                 'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
             }
@@ -3223,7 +3241,8 @@ def registrar_ferretero():
         contadores = {
             'cinta_aislante': 0,
             'silicona': 0,
-            'amarres': 0,
+            'amarres_negros': 0,
+            'amarres_blancos': 0,
             'grapas_blancas': 0,
             'grapas_negras': 0
         }
@@ -3241,10 +3260,13 @@ def registrar_ferretero():
             if diferencia_dias <= limites[area_trabajo]['silicona']['periodo']:
                 contadores['silicona'] += int(asignacion.get('silicona', 0) or 0)
                 
-            # Verificar límite de amarres (sumando negros y blancos)
-            if diferencia_dias <= limites[area_trabajo]['amarres']['periodo']:
-                contadores['amarres'] += int(asignacion.get('amarres_negros', 0) or 0)
-                contadores['amarres'] += int(asignacion.get('amarres_blancos', 0) or 0)
+            # Verificar límite de amarres negros
+            if diferencia_dias <= limites[area_trabajo]['amarres_negros']['periodo']:
+                contadores['amarres_negros'] += int(asignacion.get('amarres_negros', 0) or 0)
+                
+            # Verificar límite de amarres blancos
+            if diferencia_dias <= limites[area_trabajo]['amarres_blancos']['periodo']:
+                contadores['amarres_blancos'] += int(asignacion.get('amarres_blancos', 0) or 0)
                 
             # Verificar límite de grapas blancas
             if diferencia_dias <= limites[area_trabajo]['grapas_blancas']['periodo']:
@@ -3257,7 +3279,8 @@ def registrar_ferretero():
         # Calcular cantidades de la asignación actual
         cintas_solicitadas = int(cinta_aislante or 0)
         siliconas_solicitadas = int(silicona or 0)
-        amarres_solicitados = int(amarres_negros or 0) + int(amarres_blancos or 0)
+        amarres_negros_solicitados = int(amarres_negros or 0)
+        amarres_blancos_solicitados = int(amarres_blancos or 0)
         grapas_blancas_solicitadas = int(grapas_blancas or 0)
         grapas_negras_solicitadas = int(grapas_negras or 0)
         
@@ -3274,10 +3297,15 @@ def registrar_ferretero():
             limite = limites[area_trabajo]['silicona']
             errores.append(f"Excede el límite de {limite['cantidad']} siliconas cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['silicona']}.")
         
-        # Validar amarres
-        if contadores['amarres'] + amarres_solicitados > limites[area_trabajo]['amarres']['cantidad']:
-            limite = limites[area_trabajo]['amarres']
-            errores.append(f"Excede el límite de {limite['cantidad']} amarres cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['amarres']}.")
+        # Validar amarres negros
+        if contadores['amarres_negros'] + amarres_negros_solicitados > limites[area_trabajo]['amarres_negros']['cantidad']:
+            limite = limites[area_trabajo]['amarres_negros']
+            errores.append(f"Excede el límite de {limite['cantidad']} amarres negros cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['amarres_negros']}.")
+        
+        # Validar amarres blancos
+        if contadores['amarres_blancos'] + amarres_blancos_solicitados > limites[area_trabajo]['amarres_blancos']['cantidad']:
+            limite = limites[area_trabajo]['amarres_blancos']
+            errores.append(f"Excede el límite de {limite['cantidad']} amarres blancos cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['amarres_blancos']}.")
         
         # Validar grapas blancas
         if contadores['grapas_blancas'] + grapas_blancas_solicitadas > limites[area_trabajo]['grapas_blancas']['cantidad']:
@@ -4216,29 +4244,10 @@ def registrar_entrada_ferretero():
             session['user_id']
         ))
         
-        # Obtener el ID de la entrada recién insertada
-        entrada_id = cursor.lastrowid
-        
-        # Actualizar stock manualmente (ya que el trigger no funciona)
-        cursor.execute("""
-            INSERT INTO stock_ferretero (material_tipo, cantidad_disponible, cantidad_minima)
-            VALUES (%s, %s, 10)
-            ON DUPLICATE KEY UPDATE 
-            cantidad_disponible = cantidad_disponible + VALUES(cantidad_disponible)
-        """, (data['material_tipo'], data['cantidad']))
-        
-        # Registrar movimiento de stock
-        cursor.execute("""
-            INSERT INTO movimientos_stock_ferretero (
-                material_tipo, tipo_movimiento, cantidad, fecha_movimiento,
-                referencia_id, referencia_tipo, observaciones
-            ) VALUES (%s, 'entrada', %s, NOW(), %s, 'entrada_ferretero', %s)
-        """, (
-            data['material_tipo'],
-            data['cantidad'],
-            entrada_id,
-            f"Entrada de {data['cantidad']} unidades - {data.get('observaciones', '')}"
-        ))
+        # El trigger actualizar_stock_entrada se encarga automáticamente de:
+        # 1. Actualizar el stock en la tabla stock_ferretero
+        # 2. Registrar el movimiento en movimientos_stock_ferretero
+        # Por lo tanto, no necesitamos hacer actualizaciones manuales aquí
         
         connection.commit()
         
@@ -8879,42 +8888,48 @@ def obtener_limites_tecnico(id_codigo_consumidor):
             'FTTH INSTALACIONES': {
                 'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'INSTALACIONES DOBLES': {
                 'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'POSTVENTA': {
                 'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'MANTENIMIENTO FTTH': {
                 'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'ARREGLOS HFC': {
                 'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'CONDUCTOR': {
                 'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
-                'amarres': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
             }
@@ -8986,7 +9001,8 @@ def obtener_limites_tecnico(id_codigo_consumidor):
         contadores = {
             'cinta_aislante': 0,
             'silicona': 0,
-            'amarres': 0,
+            'amarres_negros': 0,
+            'amarres_blancos': 0,
             'grapas_blancas': 0,
             'grapas_negras': 0
         }
@@ -9004,10 +9020,13 @@ def obtener_limites_tecnico(id_codigo_consumidor):
             if diferencia_dias <= limites[area_trabajo]['silicona']['periodo']:
                 contadores['silicona'] += int(asignacion.get('silicona', 0) or 0)
                 
-            # Verificar límite de amarres (sumando negros y blancos)
-            if diferencia_dias <= limites[area_trabajo]['amarres']['periodo']:
-                contadores['amarres'] += int(asignacion.get('amarres_negros', 0) or 0)
-                contadores['amarres'] += int(asignacion.get('amarres_blancos', 0) or 0)
+            # Verificar límite de amarres negros
+            if diferencia_dias <= limites[area_trabajo]['amarres_negros']['periodo']:
+                contadores['amarres_negros'] += int(asignacion.get('amarres_negros', 0) or 0)
+                
+            # Verificar límite de amarres blancos
+            if diferencia_dias <= limites[area_trabajo]['amarres_blancos']['periodo']:
+                contadores['amarres_blancos'] += int(asignacion.get('amarres_blancos', 0) or 0)
                 
             # Verificar límite de grapas blancas
             if diferencia_dias <= limites[area_trabajo]['grapas_blancas']['periodo']:
@@ -9021,7 +9040,8 @@ def obtener_limites_tecnico(id_codigo_consumidor):
         print(f"\nContadores finales:")
         print(f"  - Cintas consumidas: {contadores['cinta_aislante']} / {limites[area_trabajo]['cinta_aislante']['cantidad']}")
         print(f"  - Siliconas consumidas: {contadores['silicona']} / {limites[area_trabajo]['silicona']['cantidad']}")
-        print(f"  - Amarres consumidos: {contadores['amarres']} / {limites[area_trabajo]['amarres']['cantidad']}")
+        print(f"  - Amarres negros consumidos: {contadores['amarres_negros']} / {limites[area_trabajo]['amarres_negros']['cantidad']}")
+        print(f"  - Amarres blancos consumidos: {contadores['amarres_blancos']} / {limites[area_trabajo]['amarres_blancos']['cantidad']}")
         print(f"  - Grapas blancas consumidas: {contadores['grapas_blancas']} / {limites[area_trabajo]['grapas_blancas']['cantidad']}")
         print(f"  - Grapas negras consumidas: {contadores['grapas_negras']} / {limites[area_trabajo]['grapas_negras']['cantidad']}")
         
@@ -9029,13 +9049,15 @@ def obtener_limites_tecnico(id_codigo_consumidor):
             'area': area_trabajo,
             'cinta_aislante': max(0, limites[area_trabajo]['cinta_aislante']['cantidad'] - contadores['cinta_aislante']),
             'silicona': max(0, limites[area_trabajo]['silicona']['cantidad'] - contadores['silicona']),
-            'amarres': max(0, limites[area_trabajo]['amarres']['cantidad'] - contadores['amarres']),
+            'amarres_negros': max(0, limites[area_trabajo]['amarres_negros']['cantidad'] - contadores['amarres_negros']),
+            'amarres_blancos': max(0, limites[area_trabajo]['amarres_blancos']['cantidad'] - contadores['amarres_blancos']),
             'grapas_blancas': max(0, limites[area_trabajo]['grapas_blancas']['cantidad'] - contadores['grapas_blancas']),
             'grapas_negras': max(0, limites[area_trabajo]['grapas_negras']['cantidad'] - contadores['grapas_negras']),
             'periodos': {
                 'cinta_aislante': f"{limites[area_trabajo]['cinta_aislante']['periodo']} {limites[area_trabajo]['cinta_aislante']['unidad']}",
                 'silicona': f"{limites[area_trabajo]['silicona']['periodo']} {limites[area_trabajo]['silicona']['unidad']}",
-                'amarres': f"{limites[area_trabajo]['amarres']['periodo']} {limites[area_trabajo]['amarres']['unidad']}",
+                'amarres_negros': f"{limites[area_trabajo]['amarres_negros']['periodo']} {limites[area_trabajo]['amarres_negros']['unidad']}",
+                'amarres_blancos': f"{limites[area_trabajo]['amarres_blancos']['periodo']} {limites[area_trabajo]['amarres_blancos']['unidad']}",
                 'grapas_blancas': f"{limites[area_trabajo]['grapas_blancas']['periodo']} {limites[area_trabajo]['grapas_blancas']['unidad']}",
                 'grapas_negras': f"{limites[area_trabajo]['grapas_negras']['periodo']} {limites[area_trabajo]['grapas_negras']['unidad']}"
             }
@@ -9044,7 +9066,8 @@ def obtener_limites_tecnico(id_codigo_consumidor):
         print(f"\nLímites disponibles calculados:")
         print(f"  - Cintas disponibles: {limites_disponibles['cinta_aislante']}")
         print(f"  - Siliconas disponibles: {limites_disponibles['silicona']}")
-        print(f"  - Amarres disponibles: {limites_disponibles['amarres']}")
+        print(f"  - Amarres negros disponibles: {limites_disponibles['amarres_negros']}")
+        print(f"  - Amarres blancos disponibles: {limites_disponibles['amarres_blancos']}")
         print(f"  - Grapas blancas disponibles: {limites_disponibles['grapas_blancas']}")
         print(f"  - Grapas negras disponibles: {limites_disponibles['grapas_negras']}")
         print(f"=== FIN DEPURACIÓN ===\n")
