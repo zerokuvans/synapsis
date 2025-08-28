@@ -271,8 +271,10 @@
                                 data-periodo-cintas="{{ tecnico.limites.periodos.cinta_aislante }}"
                                 data-siliconas="{{ tecnico.limites.silicona }}"
                                 data-periodo-siliconas="{{ tecnico.limites.periodos.silicona }}"
-                                data-amarres="{{ tecnico.limites.amarres }}"
-                                data-periodo-amarres="{{ tecnico.limites.periodos.amarres }}"
+                                data-amarres-negros="{{ tecnico.limites.amarres_negros }}"
+                                data-periodo-amarres-negros="{{ tecnico.limites.periodos.amarres_negros }}"
+                                data-amarres-blancos="{{ tecnico.limites.amarres_blancos }}"
+                                data-periodo-amarres-blancos="{{ tecnico.limites.periodos.amarres_blancos }}"
                                 data-grapas-blancas="{{ tecnico.limites.grapas_blancas }}"
                                 data-periodo-grapas-blancas="{{ tecnico.limites.periodos.grapas_blancas }}"
                                 data-grapas-negras="{{ tecnico.limites.grapas_negras }}"
@@ -305,12 +307,13 @@
                         <div class="col-md-6 mb-3">
                             <label for="amarres_negros" class="form-label">Amarres Negros</label>
                             <input type="number" class="form-control" id="amarres_negros" name="amarres_negros" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
+                            <small class="text-muted" id="limiteAmarresNegros"></small>
                             <small class="text-info" id="stockAmarresNegros"></small>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="amarres_blancos" class="form-label">Amarres Blancos</label>
                             <input type="number" class="form-control" id="amarres_blancos" name="amarres_blancos" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
-                            <small class="text-muted" id="limiteAmarres"></small>
+                            <small class="text-muted" id="limiteAmarresBlancos"></small>
                             <small class="text-info" id="stockAmarresBlancos"></small>
                         </div>
                     </div>
@@ -388,8 +391,10 @@
 // Variables globales para los límites
 let limitesCintas = 0;
 let limitesSiliconas = 0;
-let limitesAmarres = 0;
-let limitesGrapas = 0;
+let limitesAmarresNegros = 0;
+let limitesAmarresBlancos = 0;
+let limitesGrapasBlancas = 0;
+let limitesGrapasNegras = 0;
 // Variable para controlar si estamos en medio de una redirección
 let isRedirecting = false;
 // Variable para controlar si el modal ha sido inicializado
@@ -419,8 +424,10 @@ function resetearFormularioAsignacion() {
     // Resetear variables globales
     limitesCintas = 0;
     limitesSiliconas = 0;
-    limitesAmarres = 0;
-    limitesGrapas = 0;
+    limitesAmarresNegros = 0;
+    limitesAmarresBlancos = 0;
+    limitesGrapasBlancas = 0;
+    limitesGrapasNegras = 0;
     
     // Obtener todos los elementos necesarios de una vez
     const selectTecnico = document.getElementById('id_codigo_consumidor');
@@ -429,7 +436,8 @@ function resetearFormularioAsignacion() {
     const btnGuardar = document.getElementById('btnGuardar');
     const limiteSilicona = document.getElementById('limiteSilicona');
     const limiteCintas = document.getElementById('limiteCintas');
-    const limiteAmarres = document.getElementById('limiteAmarres');
+    const limiteAmarresNegros = document.getElementById('limiteAmarresNegros');
+    const limiteAmarresBlancos = document.getElementById('limiteAmarresBlancos');
     const limiteGrapasBlancas = document.getElementById('limiteGrapasBlancas');
     const limiteGrapasNegras = document.getElementById('limiteGrapasNegras');
     
@@ -453,7 +461,7 @@ function resetearFormularioAsignacion() {
     });
     
     // Resetear los indicadores de límites
-    [limiteSilicona, limiteCintas, limiteAmarres, limiteGrapasBlancas, limiteGrapasNegras].forEach(limite => {
+    [limiteSilicona, limiteCintas, limiteAmarresNegros, limiteAmarresBlancos, limiteGrapasBlancas, limiteGrapasNegras].forEach(limite => {
         if (limite) {
             limite.className = 'text-muted';
             limite.textContent = '';
@@ -500,12 +508,13 @@ function mostrarLimites() {
     // Elementos para mostrar límites
     const limiteSilicona = document.getElementById('limiteSilicona');
     const limiteCintas = document.getElementById('limiteCintas');
-    const limiteAmarres = document.getElementById('limiteAmarres');
+    const limiteAmarresNegros = document.getElementById('limiteAmarresNegros');
+    const limiteAmarresBlancos = document.getElementById('limiteAmarresBlancos');
     const limiteGrapasBlancas = document.getElementById('limiteGrapasBlancas');
     const limiteGrapasNegras = document.getElementById('limiteGrapasNegras');
     
     // Resetear los indicadores visuales de una vez
-    [limiteSilicona, limiteCintas, limiteAmarres, limiteGrapasBlancas, limiteGrapasNegras].forEach(elemento => {
+    [limiteSilicona, limiteCintas, limiteAmarresNegros, limiteAmarresBlancos, limiteGrapasBlancas, limiteGrapasNegras].forEach(elemento => {
         if (elemento) {
             elemento.className = 'text-muted';
             elemento.textContent = '';
@@ -557,8 +566,10 @@ function mostrarLimites() {
     const periodoCintas = option.dataset.periodoCintas || 'No definido';
     const siliconas = option.dataset.siliconas || '0';
     const periodoSiliconas = option.dataset.periodoSiliconas || 'No definido';
-    const amarres = option.dataset.amarres || '0';
-    const periodoAmarres = option.dataset.periodoAmarres || 'No definido';
+    const amarresNegros = option.dataset.amarresNegros || '0';
+    const periodoAmarresNegros = option.dataset.periodoAmarresNegros || 'No definido';
+    const amarresBlancos = option.dataset.amarresBlancos || '0';
+    const periodoAmarresBlancos = option.dataset.periodoAmarresBlancos || 'No definido';
     const grapasBlancas = option.dataset.grapasBlancas || '0';
     const periodoGrapasBlancas = option.dataset.periodoGrapasBlancas || 'No definido';
     const grapasNegras = option.dataset.grapasNegras || '0';
@@ -567,13 +578,15 @@ function mostrarLimites() {
     
     console.log("Datos del técnico:", {
         area, cintas, periodoCintas, siliconas, periodoSiliconas,
-        amarres, periodoAmarres, grapasBlancas, periodoGrapasBlancas, grapasNegras, periodoGrapasNegras, carpeta
+        amarresNegros, periodoAmarresNegros, amarresBlancos, periodoAmarresBlancos, 
+        grapasBlancas, periodoGrapasBlancas, grapasNegras, periodoGrapasNegras, carpeta
     });
     
     // Almacenar los límites en variables globales con conversión segura
     limitesCintas = parseInt(cintas) || 0;
     limitesSiliconas = parseInt(siliconas) || 0;
-    limitesAmarres = parseInt(amarres) || 0;
+    limitesAmarresNegros = parseInt(amarresNegros) || 0;
+    limitesAmarresBlancos = parseInt(amarresBlancos) || 0;
     limitesGrapasBlancas = parseInt(grapasBlancas) || 0;
     limitesGrapasNegras = parseInt(grapasNegras) || 0;
     
@@ -640,15 +653,33 @@ function mostrarLimites() {
                         <div class="d-flex align-items-center">
                             <i class="fas fa-link limits-icon"></i>
                             <div>
-                                <div class="limits-title">Amarres</div>
-                                <div class="limits-value">${amarres} 
+                                <div class="limits-title">Amarres Negros</div>
+                                <div class="limits-value">${amarresNegros} 
                                     <span class="availability-indicator availability-high">Disponible</span>
                                 </div>
-                                <div class="limits-period">Periodo: ${periodoAmarres}</div>
+                                <div class="limits-period">Periodo: ${periodoAmarresNegros}</div>
                             </div>
                         </div>
                     </div>
                 </div>
+                
+                <div class="col-md-6 mb-3">
+                    <div class="limits-card">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-link limits-icon"></i>
+                            <div>
+                                <div class="limits-title">Amarres Blancos</div>
+                                <div class="limits-value">${amarresBlancos} 
+                                    <span class="availability-indicator availability-high">Disponible</span>
+                                </div>
+                                <div class="limits-period">Periodo: ${periodoAmarresBlancos}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row fade-in-up" style="animation-delay: 0.3s">
                 
                 <div class="col-md-6 mb-3">
                     <div class="limits-card">
@@ -710,9 +741,14 @@ function mostrarLimites() {
         limiteCintas.innerHTML = `<i class="fas fa-check-circle me-1"></i>Disponibles: ${limitesCintas} de ${limitesCintas}`;
     }
     
-    if (limiteAmarres) {
-        limiteAmarres.className = 'text-success';
-        limiteAmarres.innerHTML = `<i class="fas fa-check-circle me-1"></i>Disponibles: ${limitesAmarres} de ${limitesAmarres}`;
+    if (limiteAmarresNegros) {
+        limiteAmarresNegros.className = 'text-success';
+        limiteAmarresNegros.innerHTML = `<i class="fas fa-check-circle me-1"></i>Disponibles: ${limitesAmarresNegros} de ${limitesAmarresNegros}`;
+    }
+    
+    if (limiteAmarresBlancos) {
+        limiteAmarresBlancos.className = 'text-success';
+        limiteAmarresBlancos.innerHTML = `<i class="fas fa-check-circle me-1"></i>Disponibles: ${limitesAmarresBlancos} de ${limitesAmarresBlancos}`;
     }
     
     if (limiteGrapasBlancas) {
@@ -744,7 +780,8 @@ function mostrarLimites() {
     console.log(`Carpeta: ${carpeta}`);
     console.log(`Cintas: ${cintas} (${periodoCintas})`);
     console.log(`Siliconas: ${siliconas} (${periodoSiliconas})`);
-    console.log(`Amarres: ${amarres} (${periodoAmarres})`);
+    console.log(`Amarres Negros: ${amarresNegros} (${periodoAmarresNegros})`);
+    console.log(`Amarres Blancos: ${amarresBlancos} (${periodoAmarresBlancos})`);
     console.log(`Grapas Blancas: ${grapasBlancas} (${periodoGrapasBlancas})`);
     console.log(`Grapas Negras: ${grapasNegras} (${periodoGrapasNegras})`);
 }
@@ -763,7 +800,7 @@ function actualizarLimites() {
     const inputGrapasNegras = document.getElementById('grapas_negras');
     const limiteSilicona = document.getElementById('limiteSilicona');
     const limiteCintas = document.getElementById('limiteCintas');
-    const limiteAmarres = document.getElementById('limiteAmarres');
+
     const limiteGrapasBlancas = document.getElementById('limiteGrapasBlancas');
     const limiteGrapasNegras = document.getElementById('limiteGrapasNegras');
     const btnGuardar = document.getElementById('btnGuardar');
@@ -777,8 +814,6 @@ function actualizarLimites() {
     const amarresBlancos = parseInt(inputAmarresBlancos?.value) || 0;
     const grapasBlancas = parseInt(inputGrapasBlancas?.value) || 0;
     const grapasNegras = parseInt(inputGrapasNegras?.value) || 0;
-    
-    const totalAmarres = amarresNegros + amarresBlancos;
     
     // Validar cada límite y mostrar en rojo si se excede
     let excedeAlgunLimite = false;
@@ -833,14 +868,21 @@ function actualizarLimites() {
     }
     actualizarEstiloCampo(inputSilicona, excedeSiliconas);
     
-    // Validar amarres
-    const excedeAmarres = totalAmarres > limitesAmarres;
-    if (actualizarIndicadorLimite(limiteAmarres, totalAmarres, limitesAmarres, excedeAmarres)) {
-        mensajesError.push(`<li>Amarres: ${totalAmarres} (límite: ${limitesAmarres})</li>`);
+    // Validar amarres negros independientemente
+    const excedeAmarresNegros = amarresNegros > limitesAmarresNegros;
+    if (actualizarIndicadorLimite(limiteAmarresNegros, amarresNegros, limitesAmarresNegros, excedeAmarresNegros)) {
+        mensajesError.push(`<li>Amarres Negros: ${amarresNegros} (límite: ${limitesAmarresNegros})</li>`);
         excedeAlgunLimite = true;
     }
-    actualizarEstiloCampo(inputAmarresNegros, excedeAmarres);
-    actualizarEstiloCampo(inputAmarresBlancos, excedeAmarres);
+    actualizarEstiloCampo(inputAmarresNegros, excedeAmarresNegros);
+    
+    // Validar amarres blancos independientemente
+    const excedeAmarresBlancos = amarresBlancos > limitesAmarresBlancos;
+    if (actualizarIndicadorLimite(limiteAmarresBlancos, amarresBlancos, limitesAmarresBlancos, excedeAmarresBlancos)) {
+        mensajesError.push(`<li>Amarres Blancos: ${amarresBlancos} (límite: ${limitesAmarresBlancos})</li>`);
+        excedeAlgunLimite = true;
+    }
+    actualizarEstiloCampo(inputAmarresBlancos, excedeAmarresBlancos);
     
     // Validar grapas blancas independientemente
     const excedeGrapasBlancas = grapasBlancas > limitesGrapasBlancas;
