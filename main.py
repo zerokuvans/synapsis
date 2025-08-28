@@ -7739,7 +7739,7 @@ def guardar_asistencias_operativo():
 @login_required(role='operativo')
 def detalle_preoperacionales_tecnicos():
     try:
-        # Verificar que el usuario tenga asistencia registrada para hoy
+        # Verificar conexión a la base de datos
         connection = get_db_connection()
         if connection is None:
             flash('Error de conexión a la base de datos', 'error')
@@ -7751,7 +7751,7 @@ def detalle_preoperacionales_tecnicos():
         nombre_usuario_actual = session.get('user_name', '')
         fecha_hoy = datetime.now().strftime('%Y-%m-%d')
         
-        # Verificar si tiene asistencia registrada para hoy
+        # Verificar si tiene asistencia registrada para hoy (solo para información)
         cursor.execute("""
             SELECT COUNT(*) as tiene_asistencia
             FROM asistencia 
@@ -7764,9 +7764,10 @@ def detalle_preoperacionales_tecnicos():
         cursor.close()
         connection.close()
         
-        if not tiene_asistencia:
-            flash('Debe registrar asistencia antes de acceder a esta funcionalidad', 'warning')
-            return redirect(url_for('dashboard_operativo'))
+        # Comentado: Validación de asistencia eliminada para permitir acceso sin registro de asistencia
+        # if not tiene_asistencia:
+        #     flash('Debe registrar asistencia antes de acceder a esta funcionalidad', 'warning')
+        #     return redirect(url_for('dashboard_operativo'))
         
         return render_template('modulos/operativo/detalle_preoperacionales_tecnicos.html',
                              user_name=session.get('user_name', ''),
