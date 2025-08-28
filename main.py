@@ -3280,7 +3280,7 @@ def registrar_ferretero():
             },
             'POSTVENTA': {
                 'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'silicona': {'cantidad': 12, 'periodo': 7, 'unidad': 'días'},
                 'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
