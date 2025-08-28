@@ -1,0 +1,283 @@
+{% extends "header.html" %}
+
+{% block title %}Detalle de Preoperacionales por Técnicos{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+<style>
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: 1px solid rgba(0, 0, 0, 0.125);
+    }
+    .table-responsive {
+        border-radius: 0.375rem;
+    }
+    .btn-group .btn {
+        margin-right: 0.25rem;
+    }
+    .filter-section {
+        background-color: #f8f9fa;
+        border-radius: 0.375rem;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .badge {
+        font-size: 0.75em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid mt-4">
+        <!-- Filtros -->
+        <div class="filter-section">
+            <h5 class="mb-3">
+                <i class="fas fa-filter me-2"></i>Filtros de Búsqueda
+            </h5>
+            <form id="filtroForm">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label for="fecha" class="form-label">Fecha:</label>
+                        <input type="date" class="form-control" id="fecha" name="fecha">
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end">
+                        <button type="button" class="btn btn-primary me-2" onclick="filtrarDatos()">
+                            <i class="fas fa-search me-1"></i>Buscar
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="limpiarFiltros()">
+                            <i class="fas fa-eraser me-1"></i>Limpiar
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tabla de Resultados -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-clipboard-list me-2"></i>Detalle de Preoperacionales por Técnicos
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="tablaPreoperacionales" class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Técnico</th>
+                                <th>Asistencia</th>
+                                <th>Preoperacional</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Los datos se cargarán dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+</div>
+
+<!-- Modal para Ver Detalle -->
+    <div class="modal fade" id="modalDetalle" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-eye me-2"></i>Detalle del Preoperacional
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="detalleContent">
+                    <!-- El contenido se cargará dinámicamente -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+
+    <script>
+        let tabla;
+
+        $(document).ready(function() {
+            // Inicializar DataTable
+            tabla = $('#tablaPreoperacionales').DataTable({
+                language: {
+                    url: 'https://cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json'
+                },
+                responsive: true,
+                pageLength: 25,
+                order: [[0, 'asc']], // Ordenar por técnico ascendente
+                columnDefs: [
+                    {
+                        targets: [1], // Columna Asistencia
+                        render: function(data, type, row) {
+                            if (type === 'display') {
+                                const badgeClass = data === 'Registrada' ? 'bg-success' : 'bg-warning';
+                                return `<span class="badge ${badgeClass}">${data}</span>`;
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        targets: [2], // Columna Preoperacional
+                        render: function(data, type, row) {
+                            if (type === 'display') {
+                                const badgeClass = data === 'Registrado' ? 'bg-success' : 'bg-warning';
+                                return `<span class="badge ${badgeClass}">${data}</span>`;
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        targets: [3], // Columna Estado
+                        render: function(data, type, row) {
+                            if (type === 'display') {
+                                const badgeClass = data === 'Completo' ? 'bg-success' : 
+                                                 data === 'Falta Preoperacional' ? 'bg-warning' : 'bg-secondary';
+                                return `<span class="badge ${badgeClass}">${data}</span>`;
+                            }
+                            return data;
+                        }
+                    }
+                ]
+            });
+
+            // Establecer fecha por defecto (día actual)
+            const hoy = new Date();
+            document.getElementById('fecha').value = hoy.toISOString().split('T')[0];
+            
+            // Cargar datos iniciales
+            cargarDatos();
+        });
+
+        function cargarDatos() {
+            const fecha = document.getElementById('fecha').value;
+            
+            if (!fecha) {
+                alert('Por favor seleccione una fecha.');
+                return;
+            }
+
+            const filtros = {
+                fecha: fecha
+            };
+
+            $.ajax({
+                url: '/api/operativo/preoperacionales_tecnicos',
+                method: 'GET',
+                data: filtros,
+                success: function(response) {
+                    tabla.clear();
+                    
+                    if (response.success && response.data) {
+                        response.data.forEach(function(item) {
+                            tabla.row.add([
+                                item.tecnico,
+                                item.asistencia,
+                                item.preoperacional,
+                                item.estado
+                            ]);
+                        });
+                    } else if (response.message) {
+                        console.log('Mensaje del servidor:', response.message);
+                    }
+                    
+                    tabla.draw();
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error al cargar datos:', error);
+                    alert('Error al cargar los datos. Por favor, intente nuevamente.');
+                }
+            });
+        }
+
+
+
+        function filtrarDatos() {
+            cargarDatos();
+        }
+
+        function limpiarFiltros() {
+            document.getElementById('filtroForm').reset();
+            
+            // Restablecer fecha por defecto (día actual)
+            const hoy = new Date();
+            document.getElementById('fecha').value = hoy.toISOString().split('T')[0];
+            
+            cargarDatos();
+        }
+
+        function verDetalle(id) {
+            $.ajax({
+                url: `/api/operativo/preoperacional_detalle/${id}`,
+                method: 'GET',
+                success: function(response) {
+                    if (response.success) {
+                        const detalle = response.data;
+                        const content = `
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6><strong>Información General</strong></h6>
+                                    <p><strong>Fecha:</strong> ${detalle.fecha}</p>
+                                    <p><strong>Técnico:</strong> ${detalle.tecnico}</p>
+                                    <p><strong>Vehículo:</strong> ${detalle.vehiculo}</p>
+                                    <p><strong>Centro de Trabajo:</strong> ${detalle.centro_trabajo}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6><strong>Estado y Observaciones</strong></h6>
+                                    <p><strong>Estado:</strong> <span class="badge ${detalle.estado === 'Completado' ? 'bg-success' : detalle.estado === 'Pendiente' ? 'bg-warning' : 'bg-danger'}">${detalle.estado}</span></p>
+                                    <p><strong>Observaciones:</strong> ${detalle.observaciones || 'Sin observaciones'}</p>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="row">
+                                <div class="col-12">
+                                    <h6><strong>Detalles de la Inspección</strong></h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Item</th>
+                                                    <th>Estado</th>
+                                                    <th>Observación</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${detalle.items ? detalle.items.map(item => `
+                                                    <tr>
+                                                        <td>${item.nombre}</td>
+                                                        <td><span class="badge ${item.estado === 'OK' ? 'bg-success' : 'bg-danger'}">${item.estado}</span></td>
+                                                        <td>${item.observacion || '-'}</td>
+                                                    </tr>
+                                                `).join('') : '<tr><td colspan="3" class="text-center">No hay detalles disponibles</td></tr>'}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        document.getElementById('detalleContent').innerHTML = content;
+                        new bootstrap.Modal(document.getElementById('modalDetalle')).show();
+                    } else {
+                        alert('Error al cargar el detalle del preoperacional.');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error al cargar detalle:', error);
+                    alert('Error al cargar el detalle. Por favor, intente nuevamente.');
+                }
+            });
+        }
+    </script>
+{% endblock %}
