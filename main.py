@@ -520,6 +520,104 @@ def tecnicos_dashboard():
         if connection and connection.is_connected():
             connection.close()
 
+@app.route('/tecnicos/asignaciones_ferretero')
+@login_required(role='tecnicos')
+def tecnicos_asignaciones_ferretero():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'danger')
+            return render_template('modulos/tecnicos/asignaciones_ferretero.html', asignaciones=[])
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener las asignaciones de ferretero del técnico logueado
+        cursor.execute("""
+            SELECT 
+                id_ferretero,
+                fecha_asignacion,
+                silicona,
+                amarres_negros,
+                amarres_blancos,
+                cinta_aislante,
+                grapas_negras,
+                grapas_blancas,
+                id_codigo_consumidor
+            FROM ferretero 
+            WHERE id_codigo_consumidor = %s
+            ORDER BY fecha_asignacion DESC
+        """, (session['id_codigo_consumidor'],))
+        
+        asignaciones = cursor.fetchall()
+        
+        # Formatear las fechas para mejor visualización
+        for asignacion in asignaciones:
+            if asignacion['fecha_asignacion']:
+                asignacion['fecha_formateada'] = asignacion['fecha_asignacion'].strftime('%d/%m/%Y %H:%M')
+            else:
+                asignacion['fecha_formateada'] = 'N/A'
+        
+        return render_template('modulos/tecnicos/asignaciones_ferretero.html', asignaciones=asignaciones)
+        
+    except mysql.connector.Error as e:
+        flash(f'Error al cargar asignaciones: {str(e)}', 'danger')
+        return render_template('modulos/tecnicos/asignaciones_ferretero.html', asignaciones=[])
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/tecnicos/asignacion_ferretero/<int:id_ferretero>')
+@login_required(role='tecnicos')
+def obtener_detalle_asignacion_ferretero(id_ferretero):
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener el detalle completo de la asignación
+        cursor.execute("""
+            SELECT 
+                f.id_ferretero,
+                f.fecha_asignacion,
+                f.silicona,
+                f.amarres_negros,
+                f.amarres_blancos,
+                f.cinta_aislante,
+                f.grapas_negras,
+                f.grapas_blancas,
+                f.id_codigo_consumidor,
+                ro.nombre as tecnico_nombre,
+                ro.recurso_operativo_cedula as tecnico_cedula
+            FROM ferretero f
+            LEFT JOIN capired.recurso_operativo ro ON f.id_codigo_consumidor = ro.id_codigo_consumidor
+            WHERE f.id_ferretero = %s AND f.id_codigo_consumidor = %s
+        """, (id_ferretero, session['id_codigo_consumidor']))
+        
+        asignacion = cursor.fetchone()
+        
+        if not asignacion:
+            return jsonify({'error': 'Asignación no encontrada'}), 404
+        
+        # Formatear la fecha
+        if asignacion['fecha_asignacion']:
+            asignacion['fecha_formateada'] = asignacion['fecha_asignacion'].strftime('%d/%m/%Y %H:%M')
+        else:
+            asignacion['fecha_formateada'] = 'N/A'
+        
+        return jsonify(asignacion)
+        
+    except mysql.connector.Error as e:
+        return jsonify({'error': f'Error al obtener detalle: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
 @app.route('/operativo')
 @login_required(role='operativo')
 def operativo_dashboard():
@@ -7584,6 +7682,152 @@ def guardar_asistencias_operativo():
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
+
+# Ruta para mostrar la página de detalle de preoperacionales por técnicos
+@app.route('/operativo/detalle_preoperacionales_tecnicos')
+@login_required(role='operativo')
+def detalle_preoperacionales_tecnicos():
+    try:
+        # Verificar que el usuario tenga asistencia registrada para hoy
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'error')
+            return redirect(url_for('dashboard_operativo'))
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener información del usuario actual
+        nombre_usuario_actual = session.get('user_name', '')
+        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+        
+        # Verificar si tiene asistencia registrada para hoy
+        cursor.execute("""
+            SELECT COUNT(*) as tiene_asistencia
+            FROM asistencia 
+            WHERE super = %s AND DATE(fecha_asistencia) = %s
+        """, (nombre_usuario_actual, fecha_hoy))
+        
+        resultado = cursor.fetchone()
+        tiene_asistencia = resultado['tiene_asistencia'] > 0 if resultado else False
+        
+        cursor.close()
+        connection.close()
+        
+        if not tiene_asistencia:
+            flash('Debe registrar asistencia antes de acceder a esta funcionalidad', 'warning')
+            return redirect(url_for('dashboard_operativo'))
+        
+        return render_template('modulos/operativo/detalle_preoperacionales_tecnicos.html',
+                             user_name=session.get('user_name', ''),
+                             user_role=session.get('user_role', ''),
+                             tiene_asistencia=tiene_asistencia)
+        
+    except Exception as e:
+        print(f"Error en detalle_preoperacionales_tecnicos: {str(e)}")
+        flash('Error al cargar la página', 'error')
+        return redirect(url_for('dashboard_operativo'))
+
+# API para obtener datos de preoperacionales por técnicos
+@app.route('/api/operativo/preoperacionales_tecnicos', methods=['GET'])
+@login_required(role='operativo')
+def api_preoperacionales_tecnicos():
+    try:
+        # Obtener parámetro de fecha
+        fecha = request.args.get('fecha')
+        
+        # Validar fecha
+        if not fecha:
+            return jsonify({'success': False, 'message': 'Debe proporcionar una fecha'}), 400
+        
+        try:
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Formato de fecha inválido. Use YYYY-MM-DD'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener información del usuario actual (supervisor)
+        nombre_usuario_actual = session.get('user_name', '')
+        id_codigo_consumidor = session.get('id_codigo_consumidor', 0)
+        
+        # Obtener lista de técnicos asignados al supervisor actual
+        query_tecnicos = """
+            SELECT id_codigo_consumidor, nombre, recurso_operativo_cedula as documento
+            FROM recurso_operativo
+            WHERE super = %s AND estado = 'Activo'
+        """
+        
+        cursor.execute(query_tecnicos, (nombre_usuario_actual,))
+        tecnicos = cursor.fetchall()
+        
+        if not tecnicos:
+            return jsonify({
+                'success': True,
+                'data': [],
+                'message': f'No se encontraron técnicos asignados al supervisor {nombre_usuario_actual}'
+            })
+        
+        # Para cada técnico, verificar asistencia y preoperacional en la fecha especificada
+        result_tecnicos = []
+        
+        for tecnico in tecnicos:
+            id_tecnico = tecnico['id_codigo_consumidor']
+            
+            # Verificar asistencia para la fecha
+            cursor.execute("""
+                SELECT a.id_asistencia, a.fecha_asistencia 
+                FROM asistencia a
+                JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+                WHERE a.id_codigo_consumidor = %s 
+                AND DATE(a.fecha_asistencia) = %s 
+                AND t.valor = '1'
+            """, (id_tecnico, fecha_obj))
+            
+            asistencia = cursor.fetchone()
+            tiene_asistencia = asistencia is not None
+            
+            # Verificar preoperacional para la fecha
+            cursor.execute("""
+                SELECT id_preoperacional, fecha
+                FROM preoperacional
+                WHERE id_codigo_consumidor = %s AND DATE(fecha) = %s
+            """, (id_tecnico, fecha_obj))
+            
+            preoperacional = cursor.fetchone()
+            tiene_preoperacional = preoperacional is not None
+            
+            # Determinar estado del diligenciamiento
+            estado_diligenciamiento = 'No Aplica'
+            if tiene_asistencia:
+                if tiene_preoperacional:
+                    estado_diligenciamiento = 'Completo'
+                else:
+                    estado_diligenciamiento = 'Falta Preoperacional'
+            
+            # Agregar todos los técnicos (con o sin asistencia/preoperacional)
+            result_tecnicos.append({
+                'tecnico': tecnico['nombre'],
+                'asistencia': 'Registrada' if tiene_asistencia else 'No Registrada',
+                'preoperacional': 'Registrado' if tiene_preoperacional else 'No Registrado',
+                'estado': estado_diligenciamiento
+            })
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'data': result_tecnicos,
+            'total': len(result_tecnicos)
+        })
+        
+    except Exception as e:
+        print(f"Error en api_preoperacionales_tecnicos: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error interno del servidor: {str(e)}'}), 500
 
 @app.route('/api/indicadores/cumplimiento')
 @login_required(role='administrativo')
