@@ -1,0 +1,39 @@
+
+# INSTRUCCIONES PARA INSTALAR EL PARCHE DE LOGGING
+
+## 1. BACKUP DEL ARCHIVO ORIGINAL
+cp main.py main.py.backup.$(date +%Y%m%d_%H%M%S)
+
+## 2. UBICAR LA FUNCIÓN registrar_ferretero
+# Buscar la línea que contiene "def registrar_ferretero()" en main.py
+# Aproximadamente en la línea 3200
+
+## 3. AGREGAR EL CÓDIGO DE LOGGING
+# Agregar el código de logging al inicio de la función, después de:
+# def registrar_ferretero():
+
+## 4. REEMPLAZAR EL CÓDIGO DE CÁLCULOS
+# Buscar la sección donde se hace:
+# fecha_actual = datetime.now()
+# Y reemplazar toda la lógica de cálculo de límites con el código parcheado
+
+## 5. VERIFICAR IMPORTS
+# Asegurarse de que al inicio del archivo main.py estén estos imports:
+# import logging
+# from datetime import datetime
+
+## 6. PROBAR EN DESARROLLO
+# Ejecutar la aplicación en desarrollo y verificar que se genere ferretero_debug.log
+
+## 7. DESPLEGAR AL SERVIDOR
+# Subir el archivo parcheado al servidor
+# Reiniciar la aplicación
+# Monitorear el archivo ferretero_debug.log
+
+## 8. ANALIZAR LOGS
+# Buscar líneas que contengan "FERRETERO_DEBUG" y "CALC_DEBUG"
+# Identificar exactamente dónde falla el cálculo en el servidor
+
+## 9. REVERTIR SI ES NECESARIO
+# Si hay problemas, restaurar desde el backup:
+# cp main.py.backup.YYYYMMDD_HHMMSS main.py
