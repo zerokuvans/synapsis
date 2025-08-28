@@ -73,16 +73,16 @@ def test_endpoint():
     
     if cantidad_valida > 0:
         data_valida = {
-            'id_codigo_consumidor': '1',  # ID del usuario con cédula 80833959
-            'password': 'M4r14l4r@',
-            'fecha': datetime.now().strftime('%Y-%m-%d'),  # Fecha actual
-            'silicona': str(cantidad_valida),
-            'grapas_negras': '0',
-            'grapas_blancas': '0',
-            'amarres_negros': '0',
-            'amarres_blancos': '0',
-            'cinta_aislante': '0'
-        }
+        'id_codigo_consumidor': '113',  # ID de técnico diferente
+        'password': 'M4r14l4r@',
+        'fecha': datetime.now().strftime('%Y-%m-%d'),  # Fecha actual
+        'silicona': str(cantidad_valida),
+        'grapas_negras': '0',
+        'grapas_blancas': '0',
+        'amarres_negros': '0',
+        'amarres_blancos': '0',
+        'cinta_aislante': '0'
+    }
         
         try:
             response = session.post(f"{BASE_URL}/logistica/registrar_ferretero", data=data_valida)
@@ -126,7 +126,7 @@ def test_endpoint():
     print(f"Intentando asignar: {cantidad_excesiva}")
     
     data_excesiva = {
-        'id_codigo_consumidor': '1',  # ID del usuario con cédula 80833959
+        'id_codigo_consumidor': '113',  # ID de técnico diferente
         'password': 'M4r14l4r@',
         'fecha': datetime.now().strftime('%Y-%m-%d'),  # Fecha actual
         'silicona': str(cantidad_excesiva),
