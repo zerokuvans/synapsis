@@ -618,6 +618,140 @@ def obtener_detalle_asignacion_ferretero(id_ferretero):
         if connection and connection.is_connected():
             connection.close()
 
+@app.route('/api/tecnico/obtener_estado_materiales')
+@login_required(role='tecnicos')
+def obtener_estado_materiales():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener información del técnico logueado
+        cursor.execute("""
+            SELECT cargo, carpeta 
+            FROM capired.recurso_operativo 
+            WHERE id_codigo_consumidor = %s
+        """, (session['id_codigo_consumidor'],))
+        
+        tecnico_info = cursor.fetchone()
+        if not tecnico_info:
+            return jsonify({'error': 'Técnico no encontrado'}), 404
+        
+        # Definir límites por área para todos los materiales
+        limites_por_area = {
+            'INSTALACION': {
+                'cinta_aislante': {'cantidad': 5, 'periodo': 15},
+                'silicona': {'cantidad': 16, 'periodo': 7},
+                'amarres_negros': {'cantidad': 50, 'periodo': 15},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 15},
+                'grapas_blancas': {'cantidad': 200, 'periodo': 15},
+                'grapas_negras': {'cantidad': 200, 'periodo': 15}
+            },
+            'POSTVENTA': {
+                'cinta_aislante': {'cantidad': 3, 'periodo': 15},
+                'silicona': {'cantidad': 12, 'periodo': 7},
+                'amarres_negros': {'cantidad': 30, 'periodo': 15},
+                'amarres_blancos': {'cantidad': 30, 'periodo': 15},
+                'grapas_blancas': {'cantidad': 100, 'periodo': 15},
+                'grapas_negras': {'cantidad': 100, 'periodo': 15}
+            },
+            'MANTENIMIENTO': {
+                'cinta_aislante': {'cantidad': 4, 'periodo': 15},
+                'silicona': {'cantidad': 14, 'periodo': 7},
+                'amarres_negros': {'cantidad': 40, 'periodo': 15},
+                'amarres_blancos': {'cantidad': 40, 'periodo': 15},
+                'grapas_blancas': {'cantidad': 150, 'periodo': 15},
+                'grapas_negras': {'cantidad': 150, 'periodo': 15}
+            },
+            'SUPERVISION': {
+                'cinta_aislante': {'cantidad': 2, 'periodo': 15},
+                'silicona': {'cantidad': 8, 'periodo': 7},
+                'amarres_negros': {'cantidad': 20, 'periodo': 15},
+                'amarres_blancos': {'cantidad': 20, 'periodo': 15},
+                'grapas_blancas': {'cantidad': 50, 'periodo': 15},
+                'grapas_negras': {'cantidad': 50, 'periodo': 15}
+            },
+            'FTTH INSTALACIONES': {
+                'cinta_aislante': {'cantidad': 5, 'periodo': 15},
+                'silicona': {'cantidad': 16, 'periodo': 7},
+                'amarres_negros': {'cantidad': 50, 'periodo': 15},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 15},
+                'grapas_blancas': {'cantidad': 200, 'periodo': 15},
+                'grapas_negras': {'cantidad': 200, 'periodo': 15}
+            }
+        }
+        
+        # Determinar el área de trabajo basado en el cargo y carpeta
+        cargo = tecnico_info.get('cargo', '').upper()
+        carpeta = tecnico_info.get('carpeta', '').upper()
+        
+        # Mapeo mejorado considerando cargo y carpeta
+        if 'FTTH INSTALACIONES' in cargo:
+            area_trabajo = 'FTTH INSTALACIONES'
+        elif 'INSTALACION' in cargo or ('FTTH' in cargo and 'INSTALACION' in carpeta):
+            area_trabajo = 'INSTALACION'
+        elif 'POSTVENTA' in cargo or 'POSTVENTA' in carpeta:
+            area_trabajo = 'POSTVENTA'
+        elif 'MANTENIMIENTO' in cargo or 'ARREGLOS' in carpeta or 'MANTENIMIENTO' in carpeta:
+            area_trabajo = 'MANTENIMIENTO'
+        elif 'SUPERVISION' in cargo or 'SUPERVISOR' in cargo:
+            area_trabajo = 'SUPERVISION'
+        elif 'TECNICO' in cargo and 'ARREGLOS' in carpeta:
+            # Caso específico: técnicos con carpeta de arreglos van a mantenimiento
+            area_trabajo = 'MANTENIMIENTO'
+        else:
+            area_trabajo = 'INSTALACION'  # Default
+        
+        limite_config = limites_por_area[area_trabajo]
+        
+        # Calcular estado para cada material
+        from datetime import datetime, timedelta
+        materiales_estado = {}
+        
+        for material, config in limite_config.items():
+            limite_total = config['cantidad']
+            periodo_dias = config['periodo']
+            
+            # Calcular fecha límite para el período
+            fecha_limite = datetime.now() - timedelta(days=periodo_dias)
+            
+            # Obtener material asignado en el período
+            cursor.execute(f"""
+                SELECT COALESCE(SUM(CAST({material} AS UNSIGNED)), 0) as total_asignadas
+                FROM ferretero 
+                WHERE id_codigo_consumidor = %s 
+                AND fecha_asignacion >= %s
+            """, (session['id_codigo_consumidor'], fecha_limite))
+            
+            resultado = cursor.fetchone()
+            asignadas = resultado['total_asignadas'] if resultado else 0
+            
+            # Calcular disponible
+            disponible = max(0, limite_total - asignadas)
+            
+            materiales_estado[material] = {
+                'asignadas': asignadas,
+                'disponible': disponible,
+                'limite': limite_total,
+                'periodo_dias': periodo_dias
+            }
+        
+        # Retornar los datos en el formato que espera el frontend
+        response_data = materiales_estado.copy()
+        response_data['area_trabajo'] = area_trabajo
+        
+        return jsonify(response_data)
+        
+    except mysql.connector.Error as e:
+        return jsonify({'error': f'Error al obtener estado de materiales: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
 @app.route('/operativo')
 @login_required(role='operativo')
 def operativo_dashboard():
