@@ -15,6 +15,220 @@
                         Aquí puedes consultar todas tus asignaciones de materiales ferretero.
                     </div>
                     
+                    <!-- Cuadro informativo de estado de materiales -->
+                    <div class="card mb-4 border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-pie me-2"></i>Estado de Asignaciones de Materiales
+                                <button class="btn btn-sm btn-outline-light float-end" onclick="actualizarEstadoMateriales()" id="btnActualizar">
+                                    <i class="fas fa-sync-alt me-1"></i>Actualizar
+                                </button>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <!-- Silicona -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <h6 class="text-primary"><i class="fas fa-tint me-2"></i>Silicona</h6>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-primary fw-bold" id="siliconaAsignada">-</div>
+                                        <small class="text-muted">Asignadas</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-success fw-bold" id="siliconaDisponible">-</div>
+                                        <small class="text-muted">Disponible</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-info fw-bold" id="siliconaLimite">-</div>
+                                        <small class="text-muted">Stock Maximo</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" role="progressbar" id="progressBarSilicona" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                            <span id="progressTextSilicona">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Cinta Aislante -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <h6 class="text-warning"><i class="fas fa-tape me-2"></i>Cinta Aislante</h6>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-primary fw-bold" id="cintaAsignada">-</div>
+                                        <small class="text-muted">Asignadas</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-success fw-bold" id="cintaDisponible">-</div>
+                                        <small class="text-muted">Disponible</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-info fw-bold" id="cintaLimite">-</div>
+                                        <small class="text-muted">Stock Maximo</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" role="progressbar" id="progressBarCinta" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                            <span id="progressTextCinta">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Amarres Negros -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <h6 class="text-dark"><i class="fas fa-link me-2"></i>Amarres Negros</h6>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-primary fw-bold" id="amarresNegrosAsignados">-</div>
+                                        <small class="text-muted">Asignados</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-success fw-bold" id="amarresNegrosDisponibles">-</div>
+                                        <small class="text-muted">Disponible</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-info fw-bold" id="amarresNegrosLimite">-</div>
+                                        <small class="text-muted">Stock Maximo</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" role="progressbar" id="progressBarAmarresNegros" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                            <span id="progressTextAmarresNegros">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Amarres Blancos -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <h6 class="text-secondary"><i class="fas fa-link me-2"></i>Amarres Blancos</h6>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-primary fw-bold" id="amarresBlancosAsignados">-</div>
+                                        <small class="text-muted">Asignados</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-success fw-bold" id="amarresBlancosDisponibles">-</div>
+                                        <small class="text-muted">Disponible</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-info fw-bold" id="amarresBlancosLimite">-</div>
+                                        <small class="text-muted">Stock Maximo</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" role="progressbar" id="progressBarAmarresBlancos" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                            <span id="progressTextAmarresBlancos">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Grapas Blancas -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <h6 class="text-info"><i class="fas fa-paperclip me-2"></i>Grapas Blancas</h6>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-primary fw-bold" id="grapasBlancasAsignadas">-</div>
+                                        <small class="text-muted">Asignadas</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-success fw-bold" id="grapasBlancasDisponibles">-</div>
+                                        <small class="text-muted">Disponible</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-info fw-bold" id="grapasBlancasLimite">-</div>
+                                        <small class="text-muted">Stock Maximo</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" role="progressbar" id="progressBarGrapasBlancas" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                            <span id="progressTextGrapasBlancas">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Grapas Negras -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <h6 class="text-secondary"><i class="fas fa-paperclip me-2"></i>Grapas Negras</h6>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-primary fw-bold" id="grapasNegrasAsignadas">-</div>
+                                        <small class="text-muted">Asignadas</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-success fw-bold" id="grapasNegrasDisponibles">-</div>
+                                        <small class="text-muted">Disponible</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <div class="h5 text-info fw-bold" id="grapasNegrasLimite">-</div>
+                                        <small class="text-muted">Stock Maximo</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" role="progressbar" id="progressBarGrapasNegras" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                            <span id="progressTextGrapasNegras">0%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <div class="alert alert-light border-0 mb-0" id="estadoAlert">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        <span id="estadoTexto">Cargando información...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     {% if asignaciones %}
                     <div class="table-responsive">
                         <table class="table table-striped table-hover">
@@ -214,6 +428,232 @@ function showErrorToast(message) {
             document.body.removeChild(errorToast);
         }
     }, 5000);
+}
+
+// Función para actualizar el estado de materiales
+function actualizarEstadoMateriales() {
+    const btnActualizar = document.getElementById('btnActualizar');
+    const iconoBtn = btnActualizar.querySelector('i');
+    
+    // Mostrar estado de carga
+    iconoBtn.className = 'fas fa-spinner fa-spin me-1';
+    btnActualizar.disabled = true;
+    
+    fetch('/api/tecnico/obtener_estado_materiales')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            // Función auxiliar para actualizar cada material
+            function actualizarMaterial(material, datos) {
+                const asignadas = datos.asignadas || 0;
+                const disponible = datos.disponible || 0;
+                const limite = datos.limite || 0;
+                const porcentaje = limite > 0 ? Math.round((asignadas / limite) * 100) : 0;
+                
+                // Actualizar valores - corregir IDs para que coincidan con el HTML
+                const asignadaId = material === 'silicona' ? 'siliconaAsignada' : `${material}Asignadas`;
+                const disponibleId = material === 'silicona' ? 'siliconaDisponible' : `${material}Disponibles`;
+                const limiteId = `${material}Limite`;
+                
+                const asignadaElement = document.getElementById(asignadaId);
+                const disponibleElement = document.getElementById(disponibleId);
+                const limiteElement = document.getElementById(limiteId);
+                
+                if (asignadaElement) asignadaElement.textContent = asignadas;
+                if (disponibleElement) disponibleElement.textContent = disponible;
+                if (limiteElement) limiteElement.textContent = limite;
+                
+                // Actualizar barra de progreso
+                const progressBar = document.getElementById(`progressBar${material.charAt(0).toUpperCase() + material.slice(1)}`);
+                const progressText = document.getElementById(`progressText${material.charAt(0).toUpperCase() + material.slice(1)}`);
+                
+                if (progressBar && progressText) {
+                    progressBar.style.width = porcentaje + '%';
+                    progressBar.setAttribute('aria-valuenow', porcentaje);
+                    progressText.textContent = porcentaje + '%';
+                    
+                    // Cambiar color según el porcentaje
+                    progressBar.className = 'progress-bar';
+                    if (porcentaje >= 90) {
+                        progressBar.classList.add('bg-danger');
+                    } else if (porcentaje >= 70) {
+                        progressBar.classList.add('bg-warning');
+                    } else {
+                        progressBar.classList.add('bg-success');
+                    }
+                }
+            }
+            
+            // Actualizar cada material
+            if (data.silicona) actualizarMaterial('silicona', data.silicona);
+            if (data.cinta_aislante) {
+                const asignadas = data.cinta_aislante.asignadas || 0;
+                const disponible = data.cinta_aislante.disponible || 0;
+                const limite = data.cinta_aislante.limite || 0;
+                const porcentaje = limite > 0 ? Math.round((asignadas / limite) * 100) : 0;
+                
+                document.getElementById('cintaAsignada').textContent = asignadas;
+                document.getElementById('cintaDisponible').textContent = disponible;
+                document.getElementById('cintaLimite').textContent = limite;
+                
+                const progressBar = document.getElementById('progressBarCinta');
+                const progressText = document.getElementById('progressTextCinta');
+                if (progressBar && progressText) {
+                    progressBar.style.width = porcentaje + '%';
+                    progressBar.setAttribute('aria-valuenow', porcentaje);
+                    progressText.textContent = porcentaje + '%';
+                    progressBar.className = 'progress-bar';
+                    if (porcentaje >= 90) {
+                        progressBar.classList.add('bg-danger');
+                    } else if (porcentaje >= 70) {
+                        progressBar.classList.add('bg-warning');
+                    } else {
+                        progressBar.classList.add('bg-success');
+                    }
+                }
+            }
+            if (data.amarres_negros) {
+                const asignadas = data.amarres_negros.asignadas || 0;
+                const disponible = data.amarres_negros.disponible || 0;
+                const limite = data.amarres_negros.limite || 0;
+                const porcentaje = limite > 0 ? Math.round((asignadas / limite) * 100) : 0;
+                
+                document.getElementById('amarresNegrosAsignados').textContent = asignadas;
+                document.getElementById('amarresNegrosDisponibles').textContent = disponible;
+                document.getElementById('amarresNegrosLimite').textContent = limite;
+                
+                const progressBar = document.getElementById('progressBarAmarresNegros');
+                const progressText = document.getElementById('progressTextAmarresNegros');
+                if (progressBar && progressText) {
+                    progressBar.style.width = porcentaje + '%';
+                    progressBar.setAttribute('aria-valuenow', porcentaje);
+                    progressText.textContent = porcentaje + '%';
+                    progressBar.className = 'progress-bar';
+                    if (porcentaje >= 90) {
+                        progressBar.classList.add('bg-danger');
+                    } else if (porcentaje >= 70) {
+                        progressBar.classList.add('bg-warning');
+                    } else {
+                        progressBar.classList.add('bg-success');
+                    }
+                }
+            }
+            if (data.amarres_blancos) {
+                const asignadas = data.amarres_blancos.asignadas || 0;
+                const disponible = data.amarres_blancos.disponible || 0;
+                const limite = data.amarres_blancos.limite || 0;
+                const porcentaje = limite > 0 ? Math.round((asignadas / limite) * 100) : 0;
+                
+                document.getElementById('amarresBlancosAsignados').textContent = asignadas;
+                document.getElementById('amarresBlancosDisponibles').textContent = disponible;
+                document.getElementById('amarresBlancosLimite').textContent = limite;
+                
+                const progressBar = document.getElementById('progressBarAmarresBlancos');
+                const progressText = document.getElementById('progressTextAmarresBlancos');
+                if (progressBar && progressText) {
+                    progressBar.style.width = porcentaje + '%';
+                    progressBar.setAttribute('aria-valuenow', porcentaje);
+                    progressText.textContent = porcentaje + '%';
+                    progressBar.className = 'progress-bar';
+                    if (porcentaje >= 90) {
+                        progressBar.classList.add('bg-danger');
+                    } else if (porcentaje >= 70) {
+                        progressBar.classList.add('bg-warning');
+                    } else {
+                        progressBar.classList.add('bg-success');
+                    }
+                }
+            }
+            if (data.grapas_blancas) {
+                const asignadas = data.grapas_blancas.asignadas || 0;
+                const disponible = data.grapas_blancas.disponible || 0;
+                const limite = data.grapas_blancas.limite || 0;
+                const porcentaje = limite > 0 ? Math.round((asignadas / limite) * 100) : 0;
+                
+                document.getElementById('grapasBlancasAsignadas').textContent = asignadas;
+                document.getElementById('grapasBlancasDisponibles').textContent = disponible;
+                document.getElementById('grapasBlancasLimite').textContent = limite;
+                
+                const progressBar = document.getElementById('progressBarGrapasBlancas');
+                const progressText = document.getElementById('progressTextGrapasBlancas');
+                if (progressBar && progressText) {
+                    progressBar.style.width = porcentaje + '%';
+                    progressBar.setAttribute('aria-valuenow', porcentaje);
+                    progressText.textContent = porcentaje + '%';
+                    progressBar.className = 'progress-bar';
+                    if (porcentaje >= 90) {
+                        progressBar.classList.add('bg-danger');
+                    } else if (porcentaje >= 70) {
+                        progressBar.classList.add('bg-warning');
+                    } else {
+                        progressBar.classList.add('bg-success');
+                    }
+                }
+            }
+            if (data.grapas_negras) {
+                const asignadas = data.grapas_negras.asignadas || 0;
+                const disponible = data.grapas_negras.disponible || 0;
+                const limite = data.grapas_negras.limite || 0;
+                const porcentaje = limite > 0 ? Math.round((asignadas / limite) * 100) : 0;
+                
+                document.getElementById('grapasNegrasAsignadas').textContent = asignadas;
+                document.getElementById('grapasNegrasDisponibles').textContent = disponible;
+                document.getElementById('grapasNegrasLimite').textContent = limite;
+                
+                const progressBar = document.getElementById('progressBarGrapasNegras');
+                const progressText = document.getElementById('progressTextGrapasNegras');
+                if (progressBar && progressText) {
+                    progressBar.style.width = porcentaje + '%';
+                    progressBar.setAttribute('aria-valuenow', porcentaje);
+                    progressText.textContent = porcentaje + '%';
+                    progressBar.className = 'progress-bar';
+                    if (porcentaje >= 90) {
+                        progressBar.classList.add('bg-danger');
+                    } else if (porcentaje >= 70) {
+                        progressBar.classList.add('bg-warning');
+                    } else {
+                        progressBar.classList.add('bg-success');
+                    }
+                }
+            }
+            
+            // Actualizar mensaje de estado general
+            const estadoAlert = document.getElementById('estadoAlert');
+            const estadoTexto = document.getElementById('estadoTexto');
+            
+            estadoAlert.className = 'alert border-0 mb-0 alert-success';
+            estadoTexto.innerHTML = '<i class="fas fa-check-circle me-2"></i>Información de materiales actualizada correctamente';
+            
+            // Actualizar timestamp
+            const ahora = new Date().toLocaleString('es-ES');
+            console.log(`Estado de materiales actualizado: ${ahora}`);
+        })
+        .catch(error => {
+            console.error('Error al obtener estado:', error);
+            document.getElementById('estadoTexto').innerHTML = '<i class="fas fa-times-circle me-2"></i>Error al cargar información: ' + error.message;
+            document.getElementById('estadoAlert').className = 'alert alert-danger border-0 mb-0';
+        })
+        .finally(() => {
+            // Restaurar botón
+            iconoBtn.className = 'fas fa-sync-alt me-1';
+            btnActualizar.disabled = false;
+        });
+}
+
+// Cargar estado inicial al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    actualizarEstadoMateriales();
+});
+
+// Actualizar automáticamente cada 5 minutos
+setInterval(actualizarEstadoMateriales, 300000);
+
+// Función para actualizar después de una nueva asignación
+function onNuevaAsignacion() {
+    setTimeout(actualizarEstadoMateriales, 1000); // Esperar 1 segundo para que se procese la asignación
 }
 </script>
 {% endblock %}
