@@ -275,10 +275,10 @@
                                 data-periodo-amarres-negros="{{ tecnico.limites.periodos.amarres_negros }}"
                                 data-amarres-blancos="{{ tecnico.limites.amarres_blancos }}"
                                 data-periodo-amarres-blancos="{{ tecnico.limites.periodos.amarres_blancos }}"
-                                data-grapas-blancas="{{ tecnico.limites.grapas_blancas }}"
-                                data-periodo-grapas-blancas="{{ tecnico.limites.periodos.grapas_blancas }}"
                                 data-grapas-negras="{{ tecnico.limites.grapas_negras }}"
                                 data-periodo-grapas-negras="{{ tecnico.limites.periodos.grapas_negras }}"
+                                data-grapas-blancas="{{ tecnico.limites.grapas_blancas }}"
+                                data-periodo-grapas-blancas="{{ tecnico.limites.periodos.grapas_blancas }}"                                
                                 data-carpeta="{{ tecnico.carpeta }}">
                                 {{ tecnico.nombre }} - {{ tecnico.recurso_operativo_cedula }}
                             </option>
@@ -319,16 +319,16 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="grapas_blancas" class="form-label">Grapas Blancas</label>
-                            <input type="number" class="form-control" id="grapas_blancas" name="grapas_blancas" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
-                            <small class="text-muted" id="limiteGrapasBlancas"></small>
-                            <small class="text-info" id="stockGrapasBlancas"></small>
-                        </div>
-                        <div class="col-md-6 mb-3">
                             <label for="grapas_negras" class="form-label">Grapas Negras</label>
                             <input type="number" class="form-control" id="grapas_negras" name="grapas_negras" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
                             <small class="text-muted" id="limiteGrapasNegras"></small>
                             <small class="text-info" id="stockGrapasNegras"></small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="grapas_blancas" class="form-label">Grapas Blancas</label>
+                            <input type="number" class="form-control" id="grapas_blancas" name="grapas_blancas" min="0" value="0" onchange="actualizarLimites()" onkeyup="actualizarLimites()">
+                            <small class="text-muted" id="limiteGrapasBlancas"></small>
+                            <small class="text-info" id="stockGrapasBlancas"></small>
                         </div>
                     </div>
                 </form>
@@ -680,6 +680,20 @@ function mostrarLimites() {
             </div>
             
             <div class="row fade-in-up" style="animation-delay: 0.3s">
+                <div class="col-md-6 mb-3">
+                    <div class="limits-card">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-thumbtack limits-icon"></i>
+                            <div>
+                                <div class="limits-title">Grapas Negras</div>
+                                <div class="limits-value">${grapasNegras} 
+                                    <span class="availability-indicator availability-high">Disponible</span>
+                                </div>
+                                <div class="limits-period">Periodo: ${periodoGrapasNegras}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="col-md-6 mb-3">
                     <div class="limits-card">
@@ -691,23 +705,6 @@ function mostrarLimites() {
                                     <span class="availability-indicator availability-high">Disponible</span>
                                 </div>
                                 <div class="limits-period">Periodo: ${periodoGrapasBlancas}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="row fade-in-up" style="animation-delay: 0.3s">
-                <div class="col-md-6 mb-3">
-                    <div class="limits-card">
-                        <div class="d-flex align-items-center">
-                            <i class="fas fa-thumbtack limits-icon"></i>
-                            <div>
-                                <div class="limits-title">Grapas Negras</div>
-                                <div class="limits-value">${grapasNegras} 
-                                    <span class="availability-indicator availability-high">Disponible</span>
-                                </div>
-                                <div class="limits-period">Periodo: ${periodoGrapasNegras}</div>
                             </div>
                         </div>
                     </div>
