@@ -689,7 +689,7 @@ def obtener_estado_materiales():
                 'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
             },
-            'SUPERVISOR': {
+            'SUPERVISORES': {
                 'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
@@ -3230,7 +3230,8 @@ def ver_asignaciones_ferretero():
                 'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
-            },'SUPERVISOR': {
+            },
+            'SUPERVISORES': {
                 'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
@@ -3475,7 +3476,7 @@ def registrar_ferretero():
                 'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
             },
-            'SUPERVISOR': {
+            'SUPERVISORES': {
                 'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
@@ -9401,7 +9402,7 @@ def obtener_limites_tecnico(id_codigo_consumidor):
                 'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
             },
-            'SUPERVISOR': {
+            'SUPERVISORES': {
                 'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
