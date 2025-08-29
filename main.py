@@ -3425,16 +3425,16 @@ def registrar_ferretero():
         
         # Validar stock disponible antes de la asignación
         cursor.execute("""
-            SELECT material_tipo, cantidad_disponible 
-            FROM stock_ferretero 
-            WHERE material_tipo IN ('silicona', 'amarres_negros', 'amarres_blancos', 'cinta_aislante', 'grapas_blancas', 'grapas_negras')
+            SELECT codigo_material, cantidad_disponible 
+            FROM stock_general 
+            WHERE codigo_material IN ('silicona', 'amarres_negros', 'amarres_blancos', 'cinta_aislante', 'grapas_blancas', 'grapas_negras')
         """)
         stock_results = cursor.fetchall()
         
         # Convertir a diccionario para fácil acceso
         stock_actual = {}
         for row in stock_results:
-            stock_actual[row['material_tipo']] = row['cantidad_disponible']
+            stock_actual[row['codigo_material']] = row['cantidad_disponible']
         
         if not stock_actual:
             return jsonify({
@@ -4082,12 +4082,12 @@ def obtener_stock_ferretero():
         # Obtener stock actual
         cursor.execute("""
             SELECT 
-                material_tipo,
+                codigo_material as material_tipo,
                 cantidad_disponible as cantidad_actual,
                 cantidad_minima,
                 fecha_actualizacion
-            FROM stock_ferretero 
-            ORDER BY material_tipo
+            FROM stock_general 
+            ORDER BY codigo_material
         """)
         stock = cursor.fetchall()
         
@@ -4289,8 +4289,6 @@ def obtener_stock_ferretero():
             connection.close()
 
 @app.route('/api/stock/materiales')
-@login_required()
-@role_required('logistica')
 def verificar_disponibilidad_materiales():
     """Endpoint simple para verificar disponibilidad de stock de materiales ferretero"""
     connection = None
@@ -4305,11 +4303,12 @@ def verificar_disponibilidad_materiales():
         # Obtener stock actual de todos los materiales
         cursor.execute("""
             SELECT 
-                material_tipo,
+                codigo_material as material_tipo,
                 cantidad_disponible,
                 cantidad_minima
-            FROM stock_ferretero 
-            ORDER BY material_tipo
+            FROM stock_general 
+            WHERE activo = 1
+            ORDER BY codigo_material
         """)
         stock_data = cursor.fetchall()
         

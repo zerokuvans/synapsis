@@ -617,6 +617,7 @@
     // Cargar stock al cargar la página
     document.addEventListener('DOMContentLoaded', function() {
         cargarStockFerretero();
+        cargarResumenInventario();
         
         // Eventos para stock
         document.getElementById('btnActualizarStock').addEventListener('click', cargarStockFerretero);
@@ -629,7 +630,7 @@
     
     // Función para cargar el stock de material ferretero
     function cargarStockFerretero() {
-        fetch('/logistica/stock_ferretero', {
+        fetch('/api/stock/materiales', {
             method: 'GET',
             credentials: 'include',
             headers: {
@@ -644,17 +645,17 @@
             return response.json();
         })
         .then(data => {
-            if (data.status === 'success') {
-                llenarTablaStock(data.stock);
-                mostrarAsignadoMesActual(data.asignado_mes_actual);
-                mostrarResumenInventario(data.resumen_inventario);
+            if (data.disponibilidad) {
+                llenarTablaStock(data.disponibilidad);
+                // mostrarAsignadoMesActual(data.asignado_mes_actual);
+                // mostrarResumenInventario(data.resumen_inventario);
             } else {
                 document.getElementById('tablaStockBody').innerHTML = `
                     <tr>
                         <td colspan="5" class="text-center">
                             <div class="alert alert-danger">
                                 <i class="fas fa-exclamation-circle me-2"></i>
-                                ${data.message || 'Error al cargar el stock.'}
+                                Error al cargar el stock.
                             </div>
                         </td>
                     </tr>
@@ -677,11 +678,11 @@
     }
     
     // Función para llenar la tabla de stock
-    function llenarTablaStock(stock) {
+    function llenarTablaStock(disponibilidad) {
         const tbody = document.getElementById('tablaStockBody');
         tbody.innerHTML = '';
         
-        if (stock.length === 0) {
+        if (!disponibilidad || Object.keys(disponibilidad).length === 0) {
             tbody.innerHTML = `
                 <tr>
                     <td colspan="5" class="text-center">
@@ -701,7 +702,8 @@
             'grapas_negras': 'Grapas Negras'
         };
         
-        stock.forEach(item => {
+        Object.keys(disponibilidad).forEach(materialTipo => {
+            const item = disponibilidad[materialTipo];
             const fila = document.createElement('tr');
             
             // Determinar estado del stock
@@ -709,21 +711,21 @@
             let estadoTexto = 'Normal';
             let estadoIcon = 'check-circle';
             
-            if (item.cantidad_actual <= item.cantidad_minima) {
+            if (item.cantidad <= item.cantidad_minima) {
                 estadoClass = 'danger';
                 estadoTexto = 'Stock Bajo';
                 estadoIcon = 'exclamation-triangle';
-            } else if (item.cantidad_actual <= item.cantidad_minima * 1.5) {
+            } else if (item.cantidad <= item.cantidad_minima * 1.5) {
                 estadoClass = 'warning';
                 estadoTexto = 'Stock Medio';
                 estadoIcon = 'exclamation-circle';
             }
             
-            const fechaActualizacion = new Date(item.ultima_actualizacion).toLocaleString('es-CO');
+            const fechaActualizacion = 'Invalid Date';
             
             fila.innerHTML = `
-                <td>${materialNames[item.material_tipo] || item.material_tipo}</td>
-                <td><strong>${item.cantidad_actual}</strong></td>
+                <td>${materialNames[materialTipo] || materialTipo}</td>
+                <td><strong>${item.cantidad}</strong></td>
                 <td>${item.cantidad_minima}</td>
                 <td>
                     <span class="badge bg-${estadoClass}">
@@ -738,6 +740,56 @@
         });
     }
     
+    // Función para cargar resumen de inventario
+    function cargarResumenInventario() {
+        fetch('/logistica/stock_ferretero', {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success' && data.resumen_inventario) {
+                mostrarResumenInventario(data.resumen_inventario);
+                if (data.asignado_mes_actual) {
+                    mostrarAsignadoMesActual(data.asignado_mes_actual);
+                }
+            } else {
+                document.getElementById('tablaResumenInventario').innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle me-2"></i>
+                                Error al cargar el resumen de inventario.
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar resumen de inventario:', error);
+            document.getElementById('tablaResumenInventario').innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center">
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            Error al cargar el resumen de inventario. Por favor, intente nuevamente.
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
     // Función para mostrar material asignado en el mes actual
     function mostrarAsignadoMesActual(asignado) {
         const container = document.getElementById('asignadoMesActual');
@@ -880,8 +932,8 @@
         }
         
         // Recargar resumen de inventario
-        if (typeof mostrarResumenInventario === 'function') {
-            mostrarResumenInventario();
+        if (typeof cargarResumenInventario === 'function') {
+            cargarResumenInventario();
         }
         
         // Recargar asignado del mes actual
