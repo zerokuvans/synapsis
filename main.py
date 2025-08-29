@@ -680,6 +680,22 @@ def obtener_estado_materiales():
                 'amarres_blancos': {'cantidad': 50, 'periodo': 15},
                 'grapas_blancas': {'cantidad': 200, 'periodo': 15},
                 'grapas_negras': {'cantidad': 200, 'periodo': 15}
+            },
+            'CONDUCTOR': {
+                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
+            },
+            'SUPERVISOR': {
+                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
             }
         }
         
@@ -3206,6 +3222,21 @@ def ver_asignaciones_ferretero():
                 'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
+            },
+            'CONDUCTOR': {
+                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
+            },'SUPERVISOR': {
+                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
             }
         }
         
@@ -3437,6 +3468,14 @@ def registrar_ferretero():
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'CONDUCTOR': {
+                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
+            },
+            'SUPERVISOR': {
                 'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
@@ -9355,6 +9394,14 @@ def obtener_limites_tecnico(id_codigo_consumidor):
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'CONDUCTOR': {
+                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
+                'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
+                'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
+            },
+            'SUPERVISOR': {
                 'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
