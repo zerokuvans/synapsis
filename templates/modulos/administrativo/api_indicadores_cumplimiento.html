@@ -143,7 +143,7 @@
                     
                     <!-- Gráficos y Tablas -->
                     <div class="row" id="visualizacion-container" style="display: none;">
-                        <!-- Gráfico de barras -->
+                        <!-- Gráfico de barras - COMENTADO
                         <div class="col-lg-8 mb-4">
                             <div class="card h-100">
                                 <div class="card-header pb-0">
@@ -157,7 +157,7 @@
                             </div>
                         </div>
                         
-                        <!-- Gráfico de dona -->
+                        <!-- Gráfico de dona - COMENTADO
                         <div class="col-lg-4 mb-4">
                             <div class="card h-100">
                                 <div class="card-header pb-0">
@@ -170,6 +170,7 @@
                                 </div>
                             </div>
                         </div>
+                        -->
                         
                         <!-- Nuevo gráfico acumulado mensual -->
                         <div class="col-12 mb-4">
@@ -1167,7 +1168,9 @@ function mostrarGraficoMensual(indicadores) {
                     },
                     legend: {
                         position: 'top',
-                    }
+                    },
+                    // Plugin personalizado para mostrar valores encima de las barras
+                    datalabels: false // Desactivar datalabels si está presente
                 },
                 scales: {
                     y: {
@@ -1195,7 +1198,42 @@ function mostrarGraficoMensual(indicadores) {
                         }
                     }
                 }
-            }
+            },
+            plugins: [{
+                id: 'percentageLabels',
+                afterDraw: function(chart) {
+                    const ctx = chart.ctx;
+                    
+                    // Buscar el dataset de porcentajes
+                    chart.data.datasets.forEach((dataset, datasetIndex) => {
+                        if (dataset.label === '% Cumplimiento') {
+                            const meta = chart.getDatasetMeta(datasetIndex);
+                            
+                            meta.data.forEach((element, index) => {
+                                const value = dataset.data[index];
+                                
+                                if (value !== null && value !== undefined && value > 0) {
+                                    // Configurar el estilo del texto
+                                    ctx.save();
+                                    ctx.fillStyle = '#000000';
+                                    ctx.font = 'bold 14px Arial';
+                                    ctx.textAlign = 'center';
+                                    ctx.textBaseline = 'bottom';
+                                    
+                                    // Calcular posición
+                                    const x = element.x;
+                                    const y = element.y - 8;
+                                    
+                                    // Dibujar el texto
+                                    const text = value.toFixed(1) + '%';
+                                    ctx.fillText(text, x, y);
+                                    ctx.restore();
+                                }
+                            });
+                        }
+                    });
+                }
+            }]
         });
         
         addLog('Gráfico mensual actualizado correctamente con datos reales', 'success');
