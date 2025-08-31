@@ -130,6 +130,8 @@ def get_db_connection():
         connection = mysql.connector.connect(**db_config)
         return connection
     except Error as e:
+        app.logger.error(f"Error de conexión a MySQL: {str(e)}")
+        print(f"Error de conexión a MySQL: {str(e)}")
         return None
 
 # Función para obtener la fecha y hora actual en Bogotá
@@ -4897,7 +4899,7 @@ def ver_parque_automotor():
         
         # Obtener todos los vehículos con información del técnico asignado
         cursor.execute("""
-            SELECT pa.*, r.nombre, r.recurso_operativo_cedula, r.cargo
+            SELECT pa.*, r.nombre as tecnico_nombre, r.recurso_operativo_cedula, r.cargo
             FROM parque_automotor pa 
             LEFT JOIN recurso_operativo r ON pa.id_codigo_consumidor = r.id_codigo_consumidor 
             ORDER BY pa.fecha_asignacion DESC
@@ -4947,6 +4949,7 @@ def registrar_vehiculo():
         marca = request.form.get('marca')
         modelo = request.form.get('modelo')
         color = request.form.get('color')
+        supervisor = request.form.get('supervisor')
         id_codigo_consumidor = request.form.get('id_codigo_consumidor')
         fecha_asignacion = request.form.get('fecha_asignacion')
         soat_vencimiento = request.form.get('soat_vencimiento')
@@ -4980,12 +4983,12 @@ def registrar_vehiculo():
         # Insertar el nuevo vehículo
         cursor.execute("""
             INSERT INTO parque_automotor (
-                placa, tipo_vehiculo, marca, modelo, color, 
+                placa, tipo_vehiculo, marca, modelo, color, supervisor,
                 id_codigo_consumidor, fecha_asignacion,
                 soat_vencimiento, tecnomecanica_vencimiento, observaciones
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
-            placa, tipo_vehiculo, marca, modelo, color,
+            placa, tipo_vehiculo, marca, modelo, color, supervisor,
             id_codigo_consumidor, fecha_asignacion,
             soat_vencimiento, tecnomecanica_vencimiento, observaciones
         ))
@@ -5028,6 +5031,7 @@ def actualizar_vehiculo(id_parque_automotor):
         marca = request.form.get('marca')
         modelo = request.form.get('modelo')
         color = request.form.get('color')
+        supervisor = request.form.get('supervisor')
         id_codigo_consumidor = request.form.get('id_codigo_consumidor')
         fecha_asignacion = request.form.get('fecha_asignacion')
         estado = request.form.get('estado', 'Activo')
@@ -5082,6 +5086,7 @@ def actualizar_vehiculo(id_parque_automotor):
                 marca = %s,
                 modelo = %s,
                 color = %s,
+                supervisor = %s,
                 id_codigo_consumidor = %s,
                 fecha_asignacion = %s,
                 estado = %s,
@@ -5090,7 +5095,7 @@ def actualizar_vehiculo(id_parque_automotor):
                 observaciones = %s
             WHERE id_parque_automotor = %s
         """, (
-            placa, tipo_vehiculo, marca, modelo, color,
+            placa, tipo_vehiculo, marca, modelo, color, supervisor,
             id_codigo_consumidor, fecha_asignacion, estado,
             soat_vencimiento, tecnomecanica_vencimiento,
             observaciones, id_parque_automotor
@@ -5202,6 +5207,99 @@ def exportar_automotor_csv():
             mimetype='text/csv; charset=utf-8-sig',
             as_attachment=True,
             download_name=f'parque_automotor_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+        )
+        
+    except Error as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+# Alias route for the template's expected endpoint name
+@app.route('/logistica/automotor/exportar_csv')
+@login_required()
+@role_required('logistica')
+def exportar_vehiculos_csv():
+    """CSV export route with the name expected by the template"""
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener todos los vehículos con información del técnico
+        cursor.execute("""
+            SELECT 
+                pa.placa,
+                pa.tipo_vehiculo,
+                pa.marca,
+                pa.modelo,
+                pa.color,
+                r.nombre as nombre_tecnico,
+                r.recurso_operativo_cedula as cedula_tecnico,
+                r.cargo as cargo_tecnico,
+                pa.fecha_asignacion,
+                pa.estado,
+                pa.soat_vencimiento,
+                pa.tecnomecanica_vencimiento,
+                pa.observaciones
+            FROM parque_automotor pa 
+            LEFT JOIN recurso_operativo r ON pa.id_codigo_consumidor = r.id_codigo_consumidor 
+            ORDER BY pa.fecha_asignacion DESC
+        """)
+        vehiculos = cursor.fetchall()
+        
+        # Crear archivo CSV en memoria
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Escribir encabezados
+        writer.writerow([
+            'Placa',
+            'Tipo Vehículo',
+            'Marca',
+            'Modelo',
+            'Color',
+            'Técnico Asignado',
+            'Cédula Técnico',
+            'Cargo Técnico',
+            'Fecha Asignación',
+            'Estado',
+            'Vencimiento SOAT',
+            'Vencimiento Tecnomecánica',
+            'Observaciones'
+        ])
+        
+        # Escribir datos
+        for vehiculo in vehiculos:
+            writer.writerow([
+                vehiculo['placa'],
+                vehiculo['tipo_vehiculo'],
+                vehiculo['marca'],
+                vehiculo['modelo'],
+                vehiculo['color'],
+                vehiculo.get('nombre_tecnico', 'No asignado'),
+                vehiculo.get('cedula_tecnico', 'No disponible'),
+                vehiculo.get('cargo_tecnico', 'No especificado'),
+                vehiculo['fecha_asignacion'].strftime('%Y-%m-%d') if vehiculo['fecha_asignacion'] else '',
+                vehiculo.get('estado', 'Activo'),
+                vehiculo['soat_vencimiento'].strftime('%Y-%m-%d') if vehiculo['soat_vencimiento'] else '',
+                vehiculo['tecnomecanica_vencimiento'].strftime('%Y-%m-%d') if vehiculo['tecnomecanica_vencimiento'] else '',
+                vehiculo.get('observaciones', '')
+            ])
+        
+        # Preparar respuesta
+        output.seek(0)
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8-sig')),
+            mimetype='text/csv; charset=utf-8-sig',
+            as_attachment=True,
+            download_name=f'vehiculos_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
         )
         
     except Error as e:
@@ -8051,8 +8149,241 @@ def api_preoperacionales_tecnicos():
         })
         
     except Exception as e:
-        print(f"Error en api_preoperacionales_tecnicos: {str(e)}")
-        return jsonify({'success': False, 'message': f'Error interno del servidor: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para consultar registros de asistencia por supervisor y fecha (para edición)
+@app.route('/api/asistencia/consultar', methods=['GET'])
+@login_required(role='administrativo')
+def consultar_asistencia():
+    """Consultar registros de asistencia por supervisor y fecha para edición"""
+    try:
+        supervisor = request.args.get('supervisor')
+        fecha = request.args.get('fecha')
+        
+        if not supervisor or not fecha:
+            return jsonify({'success': False, 'message': 'Supervisor y fecha son requeridos'}), 400
+            
+        # Validar formato de fecha
+        try:
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'success': False, 'message': 'Formato de fecha inválido. Use YYYY-MM-DD'}), 400
+            
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Consultar registros de asistencia para el supervisor y fecha especificados
+        cursor.execute("""
+            SELECT 
+                id_asistencia,
+                cedula,
+                tecnico,
+                carpeta_dia,
+                carpeta,
+                super,
+                fecha_asistencia,
+                id_codigo_consumidor
+            FROM asistencia 
+            WHERE super = %s AND DATE(fecha_asistencia) = %s
+            ORDER BY tecnico
+        """, (supervisor, fecha_obj))
+        
+        registros = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'registros': registros,
+            'total': len(registros)
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para actualizar un registro de asistencia
+@app.route('/api/asistencia/actualizar', methods=['PUT'])
+@login_required(role='administrativo')
+def actualizar_asistencia():
+    """Actualizar un registro de asistencia específico"""
+    try:
+        data = request.get_json()
+        
+        # Validar campos requeridos
+        if not data.get('id_asistencia'):
+            return jsonify({'success': False, 'message': 'ID de asistencia es requerido'}), 400
+            
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Actualizar el registro
+        cursor.execute("""
+            UPDATE asistencia 
+            SET 
+                cedula = %s,
+                tecnico = %s,
+                carpeta_dia = %s,
+                carpeta = %s,
+                super = %s,
+                id_codigo_consumidor = %s
+            WHERE id_asistencia = %s
+        """, (
+            data.get('cedula', ''),
+            data.get('tecnico', ''),
+            data.get('carpeta_dia', ''),
+            data.get('carpeta', ''),
+            data.get('super', ''),
+            data.get('id_codigo_consumidor', 0),
+            data.get('id_asistencia')
+        ))
+        
+        if cursor.rowcount > 0:
+            connection.commit()
+            return jsonify({
+                'success': True,
+                'message': 'Registro actualizado correctamente'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'No se encontró el registro para actualizar'
+            }), 404
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para eliminar un registro de asistencia
+@app.route('/api/asistencia/eliminar', methods=['DELETE'])
+@login_required(role='administrativo')
+def eliminar_asistencia():
+    """Eliminar un registro de asistencia específico"""
+    try:
+        data = request.get_json()
+        
+        # Validar campos requeridos
+        if not data.get('id_asistencia'):
+            return jsonify({'success': False, 'message': 'ID de asistencia es requerido'}), 400
+            
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Eliminar el registro
+        cursor.execute("""
+            DELETE FROM asistencia 
+            WHERE id_asistencia = %s
+        """, (data.get('id_asistencia'),))
+        
+        if cursor.rowcount > 0:
+            connection.commit()
+            return jsonify({
+                'success': True,
+                'message': 'Registro eliminado correctamente'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'No se encontró el registro para eliminar'
+            }), 404
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para obtener valores únicos de tipificacion_asistencia
+@app.route('/api/asistencia/tipificacion', methods=['GET'])
+@login_required(role='administrativo')
+def obtener_tipificacion_asistencia():
+    """Obtener valores únicos de la tabla tipificacion_asistencia"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener valores únicos de codigo_tipificacion
+        cursor.execute("""
+            SELECT codigo_tipificacion, nombre_tipificacion as descripcion 
+            FROM tipificacion_asistencia 
+            WHERE codigo_tipificacion IS NOT NULL AND codigo_tipificacion != ''
+            ORDER BY codigo_tipificacion
+        """)
+        
+        tipificaciones = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'tipificaciones': [{'codigo': t['codigo_tipificacion'], 'descripcion': t['descripcion']} for t in tipificaciones]
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para obtener lista de supervisores
+@app.route('/api/asistencia/supervisores', methods=['GET'])
+@login_required(role='administrativo')
+def obtener_supervisores_asistencia():
+    """Obtener lista de supervisores únicos de la tabla recurso_operativo"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener supervisores únicos de recurso_operativo donde carpeta='SUPERVISORES'
+        cursor.execute("""
+            SELECT DISTINCT nombre as supervisor
+            FROM recurso_operativo 
+            WHERE carpeta = 'SUPERVISORES' AND nombre IS NOT NULL AND nombre != ''
+            ORDER BY nombre
+        """)
+        
+        supervisores = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'supervisores': [s['supervisor'] for s in supervisores]
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
 
 @app.route('/api/indicadores/cumplimiento')
 @login_required(role='administrativo')
@@ -8553,6 +8884,1192 @@ def get_cargos():
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
+
+# ============================================================================
+# REST API ENDPOINTS FOR VEHICLE MANAGEMENT
+# ============================================================================
+
+@app.route('/api/vehiculos', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def api_obtener_vehiculos():
+    """Obtener lista de vehículos con filtros opcionales"""
+    try:
+        print("Intentando obtener conexión a la base de datos...")
+        connection = get_db_connection()
+        if connection is None:
+            print("La conexión es None")
+            return jsonify({
+                'success': False,
+                'message': 'MySQL Connection not available'
+            }), 500
+        print("Conexión obtenida exitosamente")
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Parámetros de filtro
+        estado = request.args.get('estado')
+        tipo_vehiculo = request.args.get('tipo_vehiculo')
+        tecnico_id = request.args.get('tecnico_id')
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 50))
+        
+        # Construir consulta base
+        query = """
+            SELECT pa.*, r.nombre as tecnico_nombre, r.recurso_operativo_cedula, r.cargo,
+                   CASE 
+                       WHEN pa.soat_vencimiento <= CURDATE() THEN 'vencido'
+                       WHEN pa.soat_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'por_vencer'
+                       ELSE 'vigente'
+                   END as estado_soat,
+                   CASE 
+                       WHEN pa.tecnomecanica_vencimiento <= CURDATE() THEN 'vencido'
+                       WHEN pa.tecnomecanica_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'por_vencer'
+                       ELSE 'vigente'
+                   END as estado_tecnomecanica
+            FROM parque_automotor pa 
+            LEFT JOIN recurso_operativo r ON pa.id_codigo_consumidor = r.id_codigo_consumidor
+        """
+        
+        conditions = []
+        params = []
+        
+        if estado:
+            conditions.append("pa.estado = %s")
+            params.append(estado)
+            
+        if tipo_vehiculo:
+            conditions.append("pa.tipo_vehiculo = %s")
+            params.append(tipo_vehiculo)
+            
+        if tecnico_id:
+            conditions.append("pa.id_codigo_consumidor = %s")
+            params.append(tecnico_id)
+            
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+            
+        query += " ORDER BY pa.fecha_asignacion DESC"
+        
+        # Contar total de registros
+        count_query = query.replace(
+            "SELECT pa.*, r.nombre, r.recurso_operativo_cedula, r.cargo, CASE WHEN pa.soat_vencimiento <= CURDATE() THEN 'vencido' WHEN pa.soat_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'por_vencer' ELSE 'vigente' END as estado_soat, CASE WHEN pa.tecnomecanica_vencimiento <= CURDATE() THEN 'vencido' WHEN pa.tecnomecanica_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'por_vencer' ELSE 'vigente' END as estado_tecnomecanica",
+            "SELECT COUNT(*)"
+        )
+        
+        cursor.execute(count_query, params)
+        total = cursor.fetchone()['COUNT(*)']
+        
+        # Aplicar paginación
+        offset = (page - 1) * per_page
+        query += f" LIMIT {per_page} OFFSET {offset}"
+        
+        cursor.execute(query, params)
+        vehiculos = cursor.fetchall()
+        
+        # Convertir fechas para serialización JSON
+        for vehiculo in vehiculos:
+            if vehiculo['fecha_asignacion']:
+                vehiculo['fecha_asignacion'] = vehiculo['fecha_asignacion'].isoformat()
+            if vehiculo['soat_vencimiento']:
+                vehiculo['soat_vencimiento'] = vehiculo['soat_vencimiento'].isoformat()
+            if vehiculo['tecnomecanica_vencimiento']:
+                vehiculo['tecnomecanica_vencimiento'] = vehiculo['tecnomecanica_vencimiento'].isoformat()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'data': vehiculos,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'pages': (total + per_page - 1) // per_page
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error en API obtener vehículos: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener vehículos: {str(e)}'
+        }), 500
+
+@app.route('/api/vehiculos/<int:vehiculo_id>', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def api_obtener_vehiculo(vehiculo_id):
+    """Obtener un vehículo específico por ID"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False,
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        cursor.execute("""
+            SELECT pa.*, r.nombre as tecnico_nombre, r.recurso_operativo_cedula, r.cargo
+            FROM parque_automotor pa 
+            LEFT JOIN recurso_operativo r ON pa.id_codigo_consumidor = r.id_codigo_consumidor
+            WHERE pa.id_parque_automotor = %s
+        """, (vehiculo_id,))
+        
+        vehiculo = cursor.fetchone()
+        
+        if not vehiculo:
+            return jsonify({
+                'success': False,
+                'message': 'Vehículo no encontrado'
+            }), 404
+            
+        # Convertir fechas para serialización JSON
+        if vehiculo['fecha_asignacion']:
+            vehiculo['fecha_asignacion'] = vehiculo['fecha_asignacion'].isoformat()
+        if vehiculo['soat_vencimiento']:
+            vehiculo['soat_vencimiento'] = vehiculo['soat_vencimiento'].isoformat()
+        if vehiculo['tecnomecanica_vencimiento']:
+            vehiculo['tecnomecanica_vencimiento'] = vehiculo['tecnomecanica_vencimiento'].isoformat()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'data': vehiculo
+        })
+        
+    except Exception as e:
+        print(f"Error en API obtener vehículo: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener vehículo: {str(e)}'
+        }), 500
+
+@app.route('/api/vehiculos', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def api_crear_vehiculo():
+    """Crear un nuevo vehículo"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No se recibieron datos JSON'
+            }), 400
+            
+        # Validar campos requeridos
+        required_fields = ['placa', 'tipo_vehiculo', 'marca', 'modelo', 'color', 'fecha_asignacion']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'success': False,
+                    'message': f'El campo {field} es requerido'
+                }), 400
+                
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False,
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Verificar si la placa ya existe
+        cursor.execute('SELECT placa FROM parque_automotor WHERE placa = %s', (data['placa'],))
+        if cursor.fetchone():
+            return jsonify({
+                'success': False,
+                'message': 'Ya existe un vehículo registrado con esta placa'
+            }), 400
+            
+        # Insertar el nuevo vehículo
+        cursor.execute("""
+            INSERT INTO parque_automotor (
+                placa, tipo_vehiculo, marca, modelo, color, 
+                id_codigo_consumidor, fecha_asignacion, estado,
+                soat_vencimiento, tecnomecanica_vencimiento, observaciones,
+                kilometraje_actual, proximo_mantenimiento_km
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            data['placa'], data['tipo_vehiculo'], data['marca'], data['modelo'], data['color'],
+            data.get('id_codigo_consumidor'), data['fecha_asignacion'], data.get('estado', 'Activo'),
+            data.get('soat_vencimiento'), data.get('tecnomecanica_vencimiento'), data.get('observaciones'),
+            data.get('kilometraje_actual', 0), data.get('proximo_mantenimiento_km')
+        ))
+        
+        vehiculo_id = cursor.lastrowid
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Vehículo creado exitosamente',
+            'data': {'id': vehiculo_id}
+        }), 201
+        
+    except Exception as e:
+        print(f"Error en API crear vehículo: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al crear vehículo: {str(e)}'
+        }), 500
+
+@app.route('/api/vehiculos/<int:vehiculo_id>', methods=['PUT'])
+@login_required()
+@role_required('logistica')
+def api_actualizar_vehiculo(vehiculo_id):
+    """Actualizar un vehículo existente"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No se recibieron datos JSON'
+            }), 400
+            
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False,
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Verificar si el vehículo existe
+        cursor.execute('SELECT id_parque_automotor FROM parque_automotor WHERE id_parque_automotor = %s', (vehiculo_id,))
+        if not cursor.fetchone():
+            return jsonify({
+                'success': False,
+                'message': 'El vehículo no existe'
+            }), 404
+            
+        # Verificar si la placa ya existe para otro vehículo
+        if 'placa' in data:
+            cursor.execute('SELECT id_parque_automotor FROM parque_automotor WHERE placa = %s AND id_parque_automotor != %s', 
+                         (data['placa'], vehiculo_id))
+            if cursor.fetchone():
+                return jsonify({
+                    'success': False,
+                    'message': 'Ya existe otro vehículo registrado con esta placa'
+                }), 400
+                
+        # Construir consulta de actualización dinámicamente
+        update_fields = []
+        params = []
+        
+        allowed_fields = [
+            'placa', 'tipo_vehiculo', 'marca', 'modelo', 'color',
+            'id_codigo_consumidor', 'fecha_asignacion', 'estado',
+            'soat_vencimiento', 'tecnomecanica_vencimiento', 'observaciones',
+            'kilometraje_actual', 'proximo_mantenimiento_km'
+        ]
+        
+        for field in allowed_fields:
+            if field in data:
+                update_fields.append(f"{field} = %s")
+                params.append(data[field])
+                
+        if not update_fields:
+            return jsonify({
+                'success': False,
+                'message': 'No se proporcionaron campos para actualizar'
+            }), 400
+            
+        params.append(vehiculo_id)
+        
+        query = f"UPDATE parque_automotor SET {', '.join(update_fields)} WHERE id_parque_automotor = %s"
+        cursor.execute(query, params)
+        
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Vehículo actualizado exitosamente'
+        })
+        
+    except Exception as e:
+        print(f"Error en API actualizar vehículo: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al actualizar vehículo: {str(e)}'
+        }), 500
+
+@app.route('/api/vehiculos/<int:vehiculo_id>', methods=['DELETE'])
+@login_required()
+@role_required('logistica')
+def api_eliminar_vehiculo(vehiculo_id):
+    """Eliminar un vehículo (cambiar estado a Inactivo)"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False,
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Verificar si el vehículo existe
+        cursor.execute('SELECT id_parque_automotor FROM parque_automotor WHERE id_parque_automotor = %s', (vehiculo_id,))
+        if not cursor.fetchone():
+            return jsonify({
+                'success': False,
+                'message': 'El vehículo no existe'
+            }), 404
+            
+        # Cambiar estado a Inactivo en lugar de eliminar físicamente
+        cursor.execute('UPDATE parque_automotor SET estado = %s WHERE id_parque_automotor = %s', 
+                      ('Inactivo', vehiculo_id))
+        
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Vehículo eliminado exitosamente'
+        })
+        
+    except Exception as e:
+        print(f"Error en API eliminar vehículo: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al eliminar vehículo: {str(e)}'
+        }), 500
+
+@app.route('/api/vehiculos/dashboard', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def api_dashboard_vehiculos():
+    """Obtener estadísticas del dashboard de vehículos"""
+    try:
+        print("Dashboard: Intentando obtener conexión a la base de datos...")
+        connection = get_db_connection()
+        if connection is None:
+            print("Dashboard: La conexión es None")
+            return jsonify({
+                'success': False,
+                'message': 'MySQL Connection not available'
+            }), 500
+        print("Dashboard: Conexión obtenida exitosamente")
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Estadísticas generales
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as total_vehiculos,
+                SUM(CASE WHEN estado = 'Activo' THEN 1 ELSE 0 END) as vehiculos_activos,
+                SUM(CASE WHEN estado = 'Mantenimiento' THEN 1 ELSE 0 END) as vehiculos_mantenimiento,
+                SUM(CASE WHEN estado = 'Inactivo' THEN 1 ELSE 0 END) as vehiculos_inactivos
+            FROM parque_automotor
+        """)
+        estadisticas = cursor.fetchone()
+        
+        # Alertas de vencimiento
+        cursor.execute("""
+            SELECT 
+                SUM(CASE WHEN soat_vencimiento <= CURDATE() THEN 1 ELSE 0 END) as soat_vencidos,
+                SUM(CASE WHEN soat_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND soat_vencimiento > CURDATE() THEN 1 ELSE 0 END) as soat_por_vencer,
+                SUM(CASE WHEN tecnomecanica_vencimiento <= CURDATE() THEN 1 ELSE 0 END) as tecnomecanica_vencidos,
+                SUM(CASE WHEN tecnomecanica_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND tecnomecanica_vencimiento > CURDATE() THEN 1 ELSE 0 END) as tecnomecanica_por_vencer
+            FROM parque_automotor
+            WHERE estado = 'Activo'
+        """)
+        alertas = cursor.fetchone()
+        
+        # Distribución por tipo de vehículo
+        cursor.execute("""
+            SELECT tipo_vehiculo, COUNT(*) as cantidad
+            FROM parque_automotor
+            WHERE estado = 'Activo'
+            GROUP BY tipo_vehiculo
+            ORDER BY cantidad DESC
+        """)
+        tipos_vehiculo = cursor.fetchall()
+        
+        # Obtener alertas recientes para mostrar en el dashboard
+        cursor.execute("""
+            SELECT 
+                placa,
+                'SOAT' as tipo_documento,
+                soat_vencimiento as fecha_vencimiento,
+                CASE 
+                    WHEN soat_vencimiento <= CURDATE() THEN 'vencido'
+                    ELSE 'por_vencer'
+                END as tipo_alerta
+            FROM parque_automotor 
+            WHERE estado = 'Activo' 
+                AND soat_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+            UNION ALL
+            SELECT 
+                placa,
+                'Tecnomecánica' as tipo_documento,
+                tecnomecanica_vencimiento as fecha_vencimiento,
+                CASE 
+                    WHEN tecnomecanica_vencimiento <= CURDATE() THEN 'vencido'
+                    ELSE 'por_vencer'
+                END as tipo_alerta
+            FROM parque_automotor 
+            WHERE estado = 'Activo' 
+                AND tecnomecanica_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+            ORDER BY fecha_vencimiento ASC
+            LIMIT 10
+        """)
+        alertas_recientes = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        # Calcular totales de vencimientos
+        documentos_vencidos = (alertas['soat_vencidos'] or 0) + (alertas['tecnomecanica_vencidos'] or 0)
+        vencimientos_proximos = (alertas['soat_por_vencer'] or 0) + (alertas['tecnomecanica_por_vencer'] or 0)
+        
+        return jsonify({
+            'total_vehiculos': estadisticas['total_vehiculos'] or 0,
+            'vehiculos_activos': estadisticas['vehiculos_activos'] or 0,
+            'vencimientos_proximos': vencimientos_proximos,
+            'documentos_vencidos': documentos_vencidos,
+            'alertas_recientes': alertas_recientes,
+            'tipos_vehiculo': tipos_vehiculo
+        })
+        
+    except Exception as e:
+        print(f"Error en API dashboard vehículos: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener estadísticas: {str(e)}'
+        }), 500
+
+@app.route('/api/vehiculos/graficos', methods=['GET'])
+def api_vehiculos_graficos():
+    # Verificar autenticación
+    if 'user_id' not in session:
+        return jsonify({
+            'success': False,
+            'message': 'Autenticación requerida'
+        }), 401
+    
+    # Verificar rol
+    user_role = session.get('user_role')
+    if user_role not in ['logistica', 'administrativo']:
+        return jsonify({
+            'success': False,
+            'message': 'Permisos insuficientes'
+        }), 403
+    """Obtener datos para gráficos del módulo de vehículos"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False,
+                'message': 'MySQL Connection not available'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Datos para gráfico de tipos de vehículo
+        cursor.execute("""
+            SELECT tipo_vehiculo, COUNT(*) as cantidad
+            FROM parque_automotor
+            WHERE estado = 'Activo'
+            GROUP BY tipo_vehiculo
+            ORDER BY cantidad DESC
+        """)
+        tipo_vehiculo = cursor.fetchall()
+        
+        # Datos para gráfico de estado de documentos
+        cursor.execute("""
+            SELECT 
+                'SOAT Vigente' as estado,
+                COUNT(*) as cantidad
+            FROM parque_automotor 
+            WHERE estado = 'Activo' AND soat_vencimiento > CURDATE()
+            UNION ALL
+            SELECT 
+                'SOAT Vencido' as estado,
+                COUNT(*) as cantidad
+            FROM parque_automotor 
+            WHERE estado = 'Activo' AND soat_vencimiento <= CURDATE()
+            UNION ALL
+            SELECT 
+                'Tecnomecánica Vigente' as estado,
+                COUNT(*) as cantidad
+            FROM parque_automotor 
+            WHERE estado = 'Activo' AND tecnomecanica_vencimiento > CURDATE()
+            UNION ALL
+            SELECT 
+                'Tecnomecánica Vencida' as estado,
+                COUNT(*) as cantidad
+            FROM parque_automotor 
+            WHERE estado = 'Activo' AND tecnomecanica_vencimiento <= CURDATE()
+        """)
+        estado_documentos = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'tipo_vehiculo': tipo_vehiculo,
+            'estado_documentos': estado_documentos
+        })
+        
+    except Exception as e:
+        print(f"Error en API gráficos vehículos: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener datos de gráficos: {str(e)}'
+        }), 500
+
+@app.route('/api/vehiculos/plantilla', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def api_descargar_plantilla_vehiculos():
+    """Generar y descargar plantilla Excel para importar vehículos"""
+    try:
+        import pandas as pd
+        import io
+        from flask import send_file
+        
+        # Definir las columnas de la plantilla
+        columns = [
+            'placa',
+            'tipo_vehiculo', 
+            'marca',
+            'modelo',
+            'color',
+            'soat_vencimiento',
+            'tecnomecanica_vencimiento',
+            'observaciones',
+            'kilometraje_actual',
+            'proximo_mantenimiento_km'
+        ]
+        
+        # Crear DataFrame con ejemplos
+        data = {
+            'placa': ['ABC123', 'XYZ789'],
+            'tipo_vehiculo': ['Moto', 'Carro'],
+            'marca': ['Honda', 'Toyota'],
+            'modelo': ['CB150', 'Corolla'],
+            'color': ['Rojo', 'Blanco'],
+            'soat_vencimiento': ['2024-12-31', '2024-11-30'],
+            'tecnomecanica_vencimiento': ['2024-10-15', '2024-09-20'],
+            'observaciones': ['Ejemplo de observación', ''],
+            'kilometraje_actual': [15000, 25000],
+            'proximo_mantenimiento_km': [20000, 30000]
+        }
+        
+        df = pd.DataFrame(data)
+        
+        # Crear archivo Excel en memoria
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            # Escribir datos de ejemplo
+            df.to_excel(writer, sheet_name='Vehículos', index=False)
+            
+            # Crear hoja de instrucciones
+            instrucciones = pd.DataFrame({
+                'INSTRUCCIONES PARA IMPORTAR VEHÍCULOS': [
+                    '1. Complete todas las columnas obligatorias marcadas con *',
+                    '2. Las fechas deben estar en formato YYYY-MM-DD (ej: 2024-12-31)',
+                    '3. Los tipos de vehículo válidos son: Moto, Carro, Camioneta, Camión',
+                    '4. La placa debe ser única en el sistema',
+                    '5. Elimine las filas de ejemplo antes de importar',
+                    '6. Guarde el archivo en formato Excel (.xlsx)',
+                    '',
+                    'COLUMNAS OBLIGATORIAS:',
+                    '- placa *',
+                    '- tipo_vehiculo *', 
+                    '- marca *',
+                    '- modelo *',
+                    '- color *',
+                    '',
+                    'COLUMNAS OPCIONALES:',
+                    '- soat_vencimiento (formato: YYYY-MM-DD)',
+                    '- tecnomecanica_vencimiento (formato: YYYY-MM-DD)',
+                    '- observaciones',
+                    '- kilometraje_actual (número)',
+                    '- proximo_mantenimiento_km (número)'
+                ]
+            })
+            instrucciones.to_excel(writer, sheet_name='Instrucciones', index=False)
+        
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='plantilla_vehiculos.xlsx'
+        )
+        
+    except ImportError:
+        return jsonify({
+            'success': False,
+            'message': 'La librería pandas no está instalada. Contacte al administrador.'
+        }), 500
+        
+    except Exception as e:
+        print(f"Error al generar plantilla: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al generar plantilla: {str(e)}'
+        }), 500
+
+@app.route('/api/vehiculos/importar', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def api_importar_vehiculos():
+    """Importar vehículos desde archivo Excel"""
+    try:
+        if 'archivo' not in request.files:
+            return jsonify({
+                'success': False,
+                'message': 'No se encontró el archivo'
+            }), 400
+            
+        archivo = request.files['archivo']
+        
+        if archivo.filename == '':
+            return jsonify({
+                'success': False,
+                'message': 'No se seleccionó ningún archivo'
+            }), 400
+            
+        if not archivo.filename.endswith(('.xlsx', '.xls')):
+            return jsonify({
+                'success': False,
+                'message': 'El archivo debe ser de formato Excel (.xlsx o .xls)'
+            }), 400
+            
+        try:
+            import pandas as pd
+            import io
+            
+            # Leer el archivo Excel
+            df = pd.read_excel(io.BytesIO(archivo.read()))
+            
+            # Validar columnas requeridas
+            required_columns = ['placa', 'tipo_vehiculo', 'marca', 'modelo', 'color']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            
+            if missing_columns:
+                return jsonify({
+                    'success': False,
+                    'message': f'Faltan las siguientes columnas: {", ".join(missing_columns)}'
+                }), 400
+                
+            connection = get_db_connection()
+            if connection is None:
+                return jsonify({
+                    'success': False,
+                    'message': 'Error de conexión a la base de datos'
+                }), 500
+                
+            cursor = connection.cursor(dictionary=True)
+            
+            vehiculos_insertados = 0
+            vehiculos_error = []
+            
+            for index, row in df.iterrows():
+                try:
+                    # Verificar si la placa ya existe
+                    cursor.execute('SELECT placa FROM parque_automotor WHERE placa = %s', (row['placa'],))
+                    if cursor.fetchone():
+                        vehiculos_error.append({
+                            'fila': index + 2,  # +2 porque Excel empieza en 1 y hay header
+                            'placa': row['placa'],
+                            'error': 'La placa ya existe'
+                        })
+                        continue
+                        
+                    # Insertar vehículo
+                    cursor.execute("""
+                        INSERT INTO parque_automotor (
+                            placa, tipo_vehiculo, marca, modelo, color, 
+                            id_codigo_consumidor, fecha_asignacion, estado,
+                            soat_vencimiento, tecnomecanica_vencimiento, observaciones,
+                            kilometraje_actual, proximo_mantenimiento_km
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        row['placa'],
+                        row['tipo_vehiculo'],
+                        row['marca'],
+                        row['modelo'],
+                        row['color'],
+                        row.get('id_codigo_consumidor'),
+                        row.get('fecha_asignacion'),
+                        row.get('estado', 'Activo'),
+                        row.get('soat_vencimiento'),
+                        row.get('tecnomecanica_vencimiento'),
+                        row.get('observaciones'),
+                        row.get('kilometraje_actual', 0),
+                        row.get('proximo_mantenimiento_km')
+                    ))
+                    
+                    vehiculos_insertados += 1
+                    
+                except Exception as e:
+                    vehiculos_error.append({
+                        'fila': index + 2,
+                        'placa': row.get('placa', 'N/A'),
+                        'error': str(e)
+                    })
+                    
+            connection.commit()
+            cursor.close()
+            connection.close()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Importación completada. {vehiculos_insertados} vehículos insertados.',
+                'data': {
+                    'vehiculos_insertados': vehiculos_insertados,
+                    'vehiculos_error': vehiculos_error
+                }
+            })
+            
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'message': 'La librería pandas no está instalada. Contacte al administrador.'
+            }), 500
+            
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'message': f'Error al procesar el archivo: {str(e)}'
+            }), 500
+            
+    except Exception as e:
+        print(f"Error en API importar vehículos: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al importar vehículos: {str(e)}'
+        }), 500
+
+@app.route('/api/vehiculos/alertas', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def api_alertas_vencimiento():
+    """Obtener alertas de vencimiento de documentos"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False,
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Parámetros de filtro
+        tipo_alerta = request.args.get('tipo')  # 'soat', 'tecnomecanica', 'all'
+        estado_alerta = request.args.get('estado')  # 'vencido', 'por_vencer', 'all'
+        dias_anticipacion = int(request.args.get('dias', 30))
+        
+        # Construir consulta base
+        query = """
+            SELECT 
+                pa.id_parque_automotor,
+                pa.placa,
+                pa.tipo_vehiculo,
+                pa.marca,
+                pa.modelo,
+                r.nombre as tecnico_nombre,
+                pa.soat_vencimiento,
+                pa.tecnomecanica_vencimiento,
+                CASE 
+                    WHEN pa.soat_vencimiento <= CURDATE() THEN 'vencido'
+                    WHEN pa.soat_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY) THEN 'por_vencer'
+                    ELSE 'vigente'
+                END as estado_soat,
+                CASE 
+                    WHEN pa.tecnomecanica_vencimiento <= CURDATE() THEN 'vencido'
+                    WHEN pa.tecnomecanica_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY) THEN 'por_vencer'
+                    ELSE 'vigente'
+                END as estado_tecnomecanica,
+                DATEDIFF(pa.soat_vencimiento, CURDATE()) as dias_soat,
+                DATEDIFF(pa.tecnomecanica_vencimiento, CURDATE()) as dias_tecnomecanica
+            FROM parque_automotor pa
+            LEFT JOIN recurso_operativo r ON pa.id_codigo_consumidor = r.id_codigo_consumidor
+            WHERE pa.estado = 'Activo'
+        """
+        
+        params = [dias_anticipacion, dias_anticipacion]
+        
+        # Filtros adicionales
+        conditions = []
+        
+        if tipo_alerta == 'soat':
+            conditions.append("(pa.soat_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY))")
+            params.append(dias_anticipacion)
+        elif tipo_alerta == 'tecnomecanica':
+            conditions.append("(pa.tecnomecanica_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY))")
+            params.append(dias_anticipacion)
+        else:  # 'all' o no especificado
+            conditions.append("(pa.soat_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY) OR pa.tecnomecanica_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY))")
+            params.extend([dias_anticipacion, dias_anticipacion])
+            
+        if estado_alerta == 'vencido':
+            conditions.append("(pa.soat_vencimiento <= CURDATE() OR pa.tecnomecanica_vencimiento <= CURDATE())")
+        elif estado_alerta == 'por_vencer':
+            conditions.append("(pa.soat_vencimiento > CURDATE() AND pa.soat_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY)) OR (pa.tecnomecanica_vencimiento > CURDATE() AND pa.tecnomecanica_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY))")
+            params.extend([dias_anticipacion, dias_anticipacion])
+            
+        if conditions:
+            query += " AND (" + " AND ".join(conditions) + ")"
+            
+        query += " ORDER BY pa.soat_vencimiento ASC, pa.tecnomecanica_vencimiento ASC"
+        
+        cursor.execute(query, params)
+        alertas = cursor.fetchall()
+        
+        # Convertir fechas para serialización JSON y estructurar alertas
+        alertas_estructuradas = []
+        
+        for vehiculo in alertas:
+            # Convertir fechas
+            if vehiculo['soat_vencimiento']:
+                vehiculo['soat_vencimiento'] = vehiculo['soat_vencimiento'].isoformat()
+            if vehiculo['tecnomecanica_vencimiento']:
+                vehiculo['tecnomecanica_vencimiento'] = vehiculo['tecnomecanica_vencimiento'].isoformat()
+                
+            # Crear alertas individuales para SOAT y Tecnomecánica
+            if (tipo_alerta in ['soat', 'all'] and 
+                vehiculo['estado_soat'] in ['vencido', 'por_vencer']):
+                alertas_estructuradas.append({
+                    'id_vehiculo': vehiculo['id_parque_automotor'],
+                    'placa': vehiculo['placa'],
+                    'tipo_vehiculo': vehiculo['tipo_vehiculo'],
+                    'marca': vehiculo['marca'],
+                    'modelo': vehiculo['modelo'],
+                    'tecnico_nombre': vehiculo['tecnico_nombre'],
+                    'tipo_documento': 'SOAT',
+                    'fecha_vencimiento': vehiculo['soat_vencimiento'],
+                    'estado': vehiculo['estado_soat'],
+                    'dias_restantes': vehiculo['dias_soat']
+                })
+                
+            if (tipo_alerta in ['tecnomecanica', 'all'] and 
+                vehiculo['estado_tecnomecanica'] in ['vencido', 'por_vencer']):
+                alertas_estructuradas.append({
+                    'id_vehiculo': vehiculo['id_parque_automotor'],
+                    'placa': vehiculo['placa'],
+                    'tipo_vehiculo': vehiculo['tipo_vehiculo'],
+                    'marca': vehiculo['marca'],
+                    'modelo': vehiculo['modelo'],
+                    'tecnico_nombre': vehiculo['tecnico_nombre'],
+                    'tipo_documento': 'Tecnomecánica',
+                    'fecha_vencimiento': vehiculo['tecnomecanica_vencimiento'],
+                    'estado': vehiculo['estado_tecnomecanica'],
+                    'dias_restantes': vehiculo['dias_tecnomecanica']
+                })
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'data': alertas_estructuradas,
+            'total': len(alertas_estructuradas)
+        })
+        
+    except Exception as e:
+        print(f"Error en API alertas vencimiento: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener alertas: {str(e)}'
+        }), 500
+
+@app.route('/api/vehiculos/vencimientos', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def api_vencimientos_vehiculos():
+    """Obtener datos de vencimientos para la tabla de vencimientos"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False,
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Parámetros de filtro
+        dias_anticipacion = int(request.args.get('dias', 30))
+        tipo_documento = request.args.get('tipo')  # 'soat', 'tecnomecanica', 'all'
+        
+        # Consulta para obtener vencimientos
+        query = """
+            SELECT 
+                pa.id_parque_automotor,
+                pa.placa,
+                pa.tipo_vehiculo,
+                pa.marca,
+                pa.modelo,
+                r.nombre as tecnico_nombre,
+                pa.soat_vencimiento,
+                pa.tecnomecanica_vencimiento,
+                DATEDIFF(pa.soat_vencimiento, CURDATE()) as dias_soat,
+                DATEDIFF(pa.tecnomecanica_vencimiento, CURDATE()) as dias_tecnomecanica
+            FROM parque_automotor pa
+            LEFT JOIN recurso_operativo r ON pa.id_codigo_consumidor = r.id_codigo_consumidor
+            WHERE pa.estado = 'Activo'
+            AND (
+                pa.soat_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY)
+                OR pa.tecnomecanica_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY)
+            )
+            ORDER BY 
+                LEAST(
+                    COALESCE(pa.soat_vencimiento, '9999-12-31'),
+                    COALESCE(pa.tecnomecanica_vencimiento, '9999-12-31')
+                ) ASC
+        """
+        
+        cursor.execute(query, [dias_anticipacion, dias_anticipacion])
+        vehiculos = cursor.fetchall()
+        
+        # Estructurar datos para la tabla de vencimientos
+        vencimientos_data = []
+        
+        for vehiculo in vehiculos:
+            # Procesar SOAT
+            if (vehiculo['soat_vencimiento'] and 
+                vehiculo['dias_soat'] <= dias_anticipacion):
+                
+                # Determinar estado del documento
+                if vehiculo['dias_soat'] < 0:
+                    estado = 'vencido'
+                elif vehiculo['dias_soat'] <= 7:
+                    estado = 'critico'
+                elif vehiculo['dias_soat'] <= 30:
+                    estado = 'proximo'
+                else:
+                    estado = 'vigente'
+                
+                vencimientos_data.append({
+                    'placa': vehiculo['placa'],
+                    'tipo_vehiculo': vehiculo['tipo_vehiculo'],
+                    'tipo_documento': 'SOAT',
+                    'fecha_vencimiento': vehiculo['soat_vencimiento'].isoformat() if vehiculo['soat_vencimiento'] else None,
+                    'fecha_vencimiento_nueva': vehiculo['soat_vencimiento'].strftime('%Y-%m-%d') if vehiculo['soat_vencimiento'] else None,
+                    'dias_restantes': vehiculo['dias_soat'],
+                    'estado_documento': estado,
+                    'tecnico_nombre': vehiculo['tecnico_nombre'],
+                    'fecha_renovacion': None  # Se puede obtener del historial si existe
+                })
+            
+            # Procesar Tecnomecánica
+            if (vehiculo['tecnomecanica_vencimiento'] and 
+                vehiculo['dias_tecnomecanica'] <= dias_anticipacion):
+                
+                # Determinar estado del documento
+                if vehiculo['dias_tecnomecanica'] < 0:
+                    estado = 'vencido'
+                elif vehiculo['dias_tecnomecanica'] <= 7:
+                    estado = 'critico'
+                elif vehiculo['dias_tecnomecanica'] <= 30:
+                    estado = 'proximo'
+                else:
+                    estado = 'vigente'
+                
+                vencimientos_data.append({
+                    'placa': vehiculo['placa'],
+                    'tipo_vehiculo': vehiculo['tipo_vehiculo'],
+                    'tipo_documento': 'Tecnomecánica',
+                    'fecha_vencimiento': vehiculo['tecnomecanica_vencimiento'].isoformat() if vehiculo['tecnomecanica_vencimiento'] else None,
+                    'fecha_vencimiento_nueva': vehiculo['tecnomecanica_vencimiento'].strftime('%Y-%m-%d') if vehiculo['tecnomecanica_vencimiento'] else None,
+                    'dias_restantes': vehiculo['dias_tecnomecanica'],
+                    'estado_documento': estado,
+                    'tecnico_nombre': vehiculo['tecnico_nombre'],
+                    'fecha_renovacion': None  # Se puede obtener del historial si existe
+                })
+        
+        # Filtrar por tipo de documento si se especifica
+        if tipo_documento and tipo_documento != 'all':
+            if tipo_documento == 'soat':
+                vencimientos_data = [v for v in vencimientos_data if v['tipo_documento'] == 'SOAT']
+            elif tipo_documento == 'tecnomecanica':
+                vencimientos_data = [v for v in vencimientos_data if v['tipo_documento'] == 'Tecnomecánica']
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'data': vencimientos_data,
+            'total': len(vencimientos_data)
+        })
+        
+    except Exception as e:
+        print(f"Error en API vencimientos: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener vencimientos: {str(e)}'
+        }), 500
+
+@app.route('/api/vehiculos/reportes', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def api_reportes_vehiculos():
+    """Generar reportes de vehículos con filtros"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False,
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Parámetros de filtro
+        tipo_reporte = request.args.get('tipo', 'general')  # 'general', 'vencimientos', 'mantenimiento'
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        estado = request.args.get('estado')
+        tipo_vehiculo = request.args.get('tipo_vehiculo')
+        
+        if tipo_reporte == 'general':
+            # Reporte general de vehículos
+            query = """
+                SELECT 
+                    pa.*,
+                    r.nombre as tecnico_nombre,
+                    r.recurso_operativo_cedula,
+                    CASE 
+                        WHEN pa.soat_vencimiento <= CURDATE() THEN 'Vencido'
+                        WHEN pa.soat_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'Por vencer'
+                        ELSE 'Vigente'
+                    END as estado_soat,
+                    CASE 
+                        WHEN pa.tecnomecanica_vencimiento <= CURDATE() THEN 'Vencido'
+                        WHEN pa.tecnomecanica_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'Por vencer'
+                        ELSE 'Vigente'
+                    END as estado_tecnomecanica
+                FROM parque_automotor pa
+                LEFT JOIN recurso_operativo r ON pa.id_codigo_consumidor = r.id_codigo_consumidor
+                WHERE 1=1
+            """
+            
+        elif tipo_reporte == 'vencimientos':
+            # Reporte de vencimientos
+            query = """
+                SELECT 
+                    pa.placa,
+                    pa.tipo_vehiculo,
+                    pa.marca,
+                    pa.modelo,
+                    r.nombre as tecnico_nombre,
+                    pa.soat_vencimiento,
+                    pa.tecnomecanica_vencimiento,
+                    DATEDIFF(pa.soat_vencimiento, CURDATE()) as dias_soat,
+                    DATEDIFF(pa.tecnomecanica_vencimiento, CURDATE()) as dias_tecnomecanica,
+                    CASE 
+                        WHEN pa.soat_vencimiento <= CURDATE() THEN 'Vencido'
+                        WHEN pa.soat_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'Por vencer'
+                        ELSE 'Vigente'
+                    END as estado_soat,
+                    CASE 
+                        WHEN pa.tecnomecanica_vencimiento <= CURDATE() THEN 'Vencido'
+                        WHEN pa.tecnomecanica_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 'Por vencer'
+                        ELSE 'Vigente'
+                    END as estado_tecnomecanica
+                FROM parque_automotor pa
+                LEFT JOIN recurso_operativo r ON pa.id_codigo_consumidor = r.id_codigo_consumidor
+                WHERE pa.estado = 'Activo'
+                AND (pa.soat_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 60 DAY) 
+                     OR pa.tecnomecanica_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 60 DAY))
+            """
+            
+        else:  # mantenimiento
+            # Reporte de mantenimiento
+            query = """
+                SELECT 
+                    pa.placa,
+                    pa.tipo_vehiculo,
+                    pa.marca,
+                    pa.modelo,
+                    pa.kilometraje_actual,
+                    pa.proximo_mantenimiento_km,
+                    r.nombre as tecnico_nombre,
+                    CASE 
+                        WHEN pa.proximo_mantenimiento_km IS NOT NULL AND pa.kilometraje_actual >= pa.proximo_mantenimiento_km THEN 'Mantenimiento requerido'
+                        WHEN pa.proximo_mantenimiento_km IS NOT NULL AND (pa.proximo_mantenimiento_km - pa.kilometraje_actual) <= 1000 THEN 'Próximo mantenimiento'
+                        ELSE 'Al día'
+                    END as estado_mantenimiento
+                FROM parque_automotor pa
+                LEFT JOIN recurso_operativo r ON pa.id_codigo_consumidor = r.id_codigo_consumidor
+                WHERE pa.estado = 'Activo'
+            """
+            
+        # Aplicar filtros adicionales
+        conditions = []
+        params = []
+        
+        if fecha_inicio and fecha_fin:
+            conditions.append("pa.fecha_asignacion BETWEEN %s AND %s")
+            params.extend([fecha_inicio, fecha_fin])
+            
+        if estado:
+            conditions.append("pa.estado = %s")
+            params.append(estado)
+            
+        if tipo_vehiculo:
+            conditions.append("pa.tipo_vehiculo = %s")
+            params.append(tipo_vehiculo)
+            
+        if conditions:
+            query += " AND " + " AND ".join(conditions)
+            
+        query += " ORDER BY pa.placa"
+        
+        cursor.execute(query, params)
+        datos = cursor.fetchall()
+        
+        # Convertir fechas para serialización JSON
+        for item in datos:
+            for key, value in item.items():
+                if isinstance(value, date):
+                    item[key] = value.isoformat()
+                    
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'data': datos,
+            'tipo_reporte': tipo_reporte,
+            'total_registros': len(datos)
+        })
+        
+    except Exception as e:
+        print(f"Error en API reportes vehículos: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al generar reporte: {str(e)}'
+        }), 500
 
 @app.route('/api/indicadores/estado_vehiculos')
 @login_required(role='administrativo')
@@ -9571,6 +11088,112 @@ def obtener_limites_tecnico(id_codigo_consumidor):
         })
 
 # Las rutas de asistencia operativa han sido eliminadas - ahora se redirige al módulo administrativo
+
+# Importar las nuevas APIs de reportes
+from api_reportes import (
+    api_reportes_filtros_avanzados,
+    api_reportes_generar_consolidado,
+    api_reportes_validar_consistencia,
+    api_reportes_configuracion,
+    api_reportes_consolidacion_jerarquica,
+    api_reportes_analisis_tendencias,
+    api_reportes_exportar,
+    api_reportes_programados,
+    login_required_api
+)
+
+# Nuevas rutas API para el módulo de reportes optimizado
+@app.route('/api/reportes/filtros/avanzados', methods=['GET', 'POST'])
+@login_required_api()
+def route_api_reportes_filtros_avanzados():
+    return api_reportes_filtros_avanzados()
+
+@app.route('/api/reportes/generar/consolidado', methods=['POST'])
+@login_required_api()
+def route_api_reportes_generar_consolidado():
+    return api_reportes_generar_consolidado()
+
+@app.route('/api/reportes/validar/consistencia', methods=['GET'])
+@login_required_api()
+def route_api_reportes_validar_consistencia():
+    return api_reportes_validar_consistencia()
+
+@app.route('/api/reportes/configuracion', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@login_required_api()
+def route_api_reportes_configuracion():
+    return api_reportes_configuracion()
+
+@app.route('/api/reportes/consolidacion/jerarquica', methods=['POST'])
+@login_required_api()
+def route_api_reportes_consolidacion_jerarquica():
+    return api_reportes_consolidacion_jerarquica()
+
+@app.route('/api/reportes/analisis/tendencias', methods=['POST'])
+@login_required_api()
+def route_api_reportes_analisis_tendencias():
+    return api_reportes_analisis_tendencias()
+
+@app.route('/api/reportes/exportar', methods=['POST'])
+@login_required_api()
+def route_api_reportes_exportar():
+    return api_reportes_exportar()
+
+@app.route('/api/reportes/programados', methods=['GET', 'POST', 'PUT', 'DELETE'])
+@login_required_api()
+def route_api_reportes_programados():
+    return api_reportes_programados()
+
+# Endpoint para obtener lista de supervisores para el módulo de logística
+@app.route('/api/logistica/supervisores', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def obtener_supervisores_logistica():
+    """Obtiene la lista de supervisores desde la tabla recurso_operativo"""
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener supervisores filtrados por carpeta 'supervisores'
+        cursor.execute("""
+            SELECT 
+                id_codigo_consumidor,
+                nombre,
+                recurso_operativo_cedula,
+                cargo
+            FROM recurso_operativo 
+            WHERE carpeta = 'supervisores' AND estado = 'Activo'
+            ORDER BY nombre ASC
+        """)
+        
+        supervisores = cursor.fetchall()
+        
+        return jsonify({
+            'status': 'success',
+            'supervisores': supervisores
+        })
+        
+    except mysql.connector.Error as e:
+        print(f"Error MySQL al obtener supervisores: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al obtener supervisores: {str(e)}'
+        }), 500
+    except Exception as e:
+        print(f"Error general al obtener supervisores: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al obtener supervisores: {str(e)}'
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 
 # Definir la clase User para Flask-Login
 class User(UserMixin):

@@ -1,0 +1,855 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Configuración de Reportes</h2>
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-chart-bar me-2"></i>Dashboard
+            </a>
+            <a href="{{ url_for('reportes_detallado') }}" class="btn btn-outline-primary">
+                <i class="fas fa-table me-2"></i>Detallado
+            </a>
+            <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-info">
+                <i class="fas fa-chart-line me-2"></i>Análisis
+            </a>
+            <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-success">
+                <i class="fas fa-download me-2"></i>Exportar
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Panel de Configuraciones Guardadas -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-save me-2"></i>Configuraciones Guardadas
+                    </h5>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaConfiguracion">
+                        <i class="fas fa-plus me-1"></i>Nueva Configuración
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="tabla-configuraciones">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Tipo</th>
+                                    <th>Descripción</th>
+                                    <th>Fecha Creación</th>
+                                    <th>Activo</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-configuraciones-body">
+                                <!-- Los datos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Reportes Favoritos -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-star me-2"></i>Reportes Favoritos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="tabla-favoritos">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Tipo</th>
+                                    <th>Fecha Guardado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-favoritos-body">
+                                <!-- Los datos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Reportes Programados -->
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock me-2"></i>Reportes Programados
+                    </h5>
+                    <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalNuevoProgramado">
+                        <i class="fas fa-plus me-1"></i>Programar Reporte
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="tabla-programados">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Frecuencia</th>
+                                    <th>Próxima Ejecución</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-programados-body">
+                                <!-- Los datos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Configuración General -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>Configuración General
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="form-configuracion-general">
+                        <div class="mb-3">
+                            <label for="registros-por-pagina" class="form-label">Registros por Página</label>
+                            <select class="form-select" id="registros-por-pagina" name="registros_por_pagina">
+                                <option value="10">10</option>
+                                <option value="25" selected>25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="formato-fecha" class="form-label">Formato de Fecha</label>
+                            <select class="form-select" id="formato-fecha" name="formato_fecha">
+                                <option value="DD/MM/YYYY" selected>DD/MM/YYYY</option>
+                                <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                                <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="zona-horaria" class="form-label">Zona Horaria</label>
+                            <select class="form-select" id="zona-horaria" name="zona_horaria">
+                                <option value="America/Bogota" selected>Colombia (UTC-5)</option>
+                                <option value="America/New_York">Nueva York (UTC-5/-4)</option>
+                                <option value="Europe/Madrid">Madrid (UTC+1/+2)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="auto-refresh" name="auto_refresh" checked>
+                                <label class="form-check-label" for="auto-refresh">
+                                    Actualización Automática
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="intervalo-refresh" class="form-label">Intervalo de Actualización (minutos)</label>
+                            <input type="number" class="form-control" id="intervalo-refresh" name="intervalo_refresh" value="5" min="1" max="60">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="notificaciones-email" name="notificaciones_email">
+                                <label class="form-check-label" for="notificaciones-email">
+                                    Notificaciones por Email
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email-notificaciones" class="form-label">Email para Notificaciones</label>
+                            <input type="email" class="form-control" id="email-notificaciones" name="email_notificaciones">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-save me-2"></i>Guardar Configuración
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Panel de Estadísticas -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>Estadísticas de Uso
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h4 class="text-primary" id="total-configuraciones">0</h4>
+                                <small class="text-muted">Configuraciones</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-success" id="total-favoritos">0</h4>
+                            <small class="text-muted">Favoritos</small>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h4 class="text-info" id="total-programados">0</h4>
+                                <small class="text-muted">Programados</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h4 class="text-warning" id="reportes-mes">0</h4>
+                            <small class="text-muted">Este Mes</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nueva Configuración -->
+<div class="modal fade" id="modalNuevaConfiguracion" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nueva Configuración</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-nueva-configuracion">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="config-nombre" class="form-label">Nombre</label>
+                                <input type="text" class="form-control" id="config-nombre" name="nombre" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="config-tipo" class="form-label">Tipo</label>
+                                <select class="form-select" id="config-tipo" name="tipo" required>
+                                    <option value="">Seleccionar tipo</option>
+                                    <option value="filtros_dashboard">Filtros Dashboard</option>
+                                    <option value="filtros_detallados">Filtros Detallados</option>
+                                    <option value="configuracion_exportacion">Configuración Exportación</option>
+                                    <option value="alertas_vencimientos">Alertas Vencimientos</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="config-descripcion" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="config-descripcion" name="descripcion" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="config-json" class="form-label">Configuración (JSON)</label>
+                        <textarea class="form-control" id="config-json" name="configuracion" rows="8" placeholder='{"filtro1": "valor1", "filtro2": "valor2"}'></textarea>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="config-activo" name="activo" checked>
+                        <label class="form-check-label" for="config-activo">
+                            Configuración Activa
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="guardar-nueva-configuracion">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nuevo Reporte Programado -->
+<div class="modal fade" id="modalNuevoProgramado" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Programar Nuevo Reporte</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-nuevo-programado">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="prog-nombre" class="form-label">Nombre del Reporte</label>
+                                <input type="text" class="form-control" id="prog-nombre" name="nombre" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="prog-tipo" class="form-label">Tipo de Reporte</label>
+                                <select class="form-select" id="prog-tipo" name="tipo_reporte" required>
+                                    <option value="">Seleccionar tipo</option>
+                                    <option value="dashboard">Dashboard Completo</option>
+                                    <option value="preoperacional">Preoperacional</option>
+                                    <option value="vencimientos">Vencimientos</option>
+                                    <option value="consolidado">Consolidado</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="prog-frecuencia" class="form-label">Frecuencia</label>
+                                <select class="form-select" id="prog-frecuencia" name="frecuencia" required>
+                                    <option value="">Seleccionar frecuencia</option>
+                                    <option value="diario">Diario</option>
+                                    <option value="semanal">Semanal</option>
+                                    <option value="mensual">Mensual</option>
+                                    <option value="trimestral">Trimestral</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="prog-hora" class="form-label">Hora de Ejecución</label>
+                                <input type="time" class="form-control" id="prog-hora" name="hora_ejecucion" required>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="prog-destinatarios" class="form-label">Destinatarios (emails separados por coma)</label>
+                        <input type="text" class="form-control" id="prog-destinatarios" name="destinatarios" placeholder="email1@ejemplo.com, email2@ejemplo.com">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="prog-formato" class="form-label">Formato de Exportación</label>
+                        <select class="form-select" id="prog-formato" name="formato_exportacion">
+                            <option value="pdf">PDF</option>
+                            <option value="excel">Excel</option>
+                            <option value="csv">CSV</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="prog-parametros" class="form-label">Parámetros del Reporte (JSON)</label>
+                        <textarea class="form-control" id="prog-parametros" name="parametros" rows="4" placeholder='{"fecha_inicio": "auto", "fecha_fin": "auto"}'></textarea>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="prog-activo" name="activo" checked>
+                        <label class="form-check-label" for="prog-activo">
+                            Reporte Activo
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="guardar-nuevo-programado">Programar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Configuración -->
+<div class="modal fade" id="modalEditarConfiguracion" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Configuración</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-editar-configuracion">
+                    <input type="hidden" id="edit-config-id" name="id">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-config-nombre" class="form-label">Nombre</label>
+                                <input type="text" class="form-control" id="edit-config-nombre" name="nombre" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit-config-tipo" class="form-label">Tipo</label>
+                                <select class="form-select" id="edit-config-tipo" name="tipo" required>
+                                    <option value="filtros_dashboard">Filtros Dashboard</option>
+                                    <option value="filtros_detallados">Filtros Detallados</option>
+                                    <option value="configuracion_exportacion">Configuración Exportación</option>
+                                    <option value="alertas_vencimientos">Alertas Vencimientos</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit-config-descripcion" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="edit-config-descripcion" name="descripcion" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit-config-json" class="form-label">Configuración (JSON)</label>
+                        <textarea class="form-control" id="edit-config-json" name="configuracion" rows="8"></textarea>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="edit-config-activo" name="activo">
+                        <label class="form-check-label" for="edit-config-activo">
+                            Configuración Activa
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="actualizar-configuracion">Actualizar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // Función para cargar configuraciones
+    const cargarConfiguraciones = async () => {
+        try {
+            const response = await fetch('/api/reportes/configuracion');
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            const tbody = document.getElementById('tabla-configuraciones-body');
+            tbody.innerHTML = '';
+            
+            data.configuraciones.forEach(config => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${config.nombre}</td>
+                    <td><span class="badge bg-info">${config.tipo}</span></td>
+                    <td>${config.descripcion || 'Sin descripción'}</td>
+                    <td>${new Date(config.fecha_creacion).toLocaleDateString('es-ES')}</td>
+                    <td>
+                        <span class="badge bg-${config.activo ? 'success' : 'secondary'}">
+                            ${config.activo ? 'Activo' : 'Inactivo'}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick="editarConfiguracion(${config.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="eliminarConfiguracion(${config.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('total-configuraciones').textContent = data.configuraciones.length;
+            
+        } catch (error) {
+            console.error('Error al cargar configuraciones:', error);
+            mostrarError(error.message);
+        }
+    };
+    
+    // Función para cargar favoritos
+    const cargarFavoritos = async () => {
+        try {
+            const response = await fetch('/api/reportes/favoritos');
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            const tbody = document.getElementById('tabla-favoritos-body');
+            tbody.innerHTML = '';
+            
+            data.favoritos.forEach(favorito => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${favorito.nombre}</td>
+                    <td><span class="badge bg-warning">${favorito.tipo_reporte}</span></td>
+                    <td>${new Date(favorito.fecha_guardado).toLocaleDateString('es-ES')}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-success me-1" onclick="ejecutarFavorito(${favorito.id})">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="eliminarFavorito(${favorito.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('total-favoritos').textContent = data.favoritos.length;
+            
+        } catch (error) {
+            console.error('Error al cargar favoritos:', error);
+        }
+    };
+    
+    // Función para cargar reportes programados
+    const cargarProgramados = async () => {
+        try {
+            const response = await fetch('/api/reportes/programados');
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            const tbody = document.getElementById('tabla-programados-body');
+            tbody.innerHTML = '';
+            
+            data.programados.forEach(programado => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${programado.nombre}</td>
+                    <td><span class="badge bg-primary">${programado.frecuencia}</span></td>
+                    <td>${new Date(programado.proxima_ejecucion).toLocaleDateString('es-ES')}</td>
+                    <td>
+                        <span class="badge bg-${programado.activo ? 'success' : 'secondary'}">
+                            ${programado.activo ? 'Activo' : 'Inactivo'}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-info me-1" onclick="ejecutarProgramado(${programado.id})">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick="editarProgramado(${programado.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="eliminarProgramado(${programado.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('total-programados').textContent = data.programados.length;
+            
+        } catch (error) {
+            console.error('Error al cargar programados:', error);
+        }
+    };
+    
+    // Función para mostrar errores
+    const mostrarError = (mensaje) => {
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger alert-dismissible fade show';
+        alert.innerHTML = `
+            <strong>Error:</strong> ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.container-fluid').prepend(alert);
+    };
+    
+    // Función para mostrar éxito
+    const mostrarExito = (mensaje) => {
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-success alert-dismissible fade show';
+        alert.innerHTML = `
+            ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.container-fluid').prepend(alert);
+    };
+    
+    // Funciones globales
+    window.editarConfiguracion = async (id) => {
+        try {
+            const response = await fetch(`/api/reportes/configuracion/${id}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            document.getElementById('edit-config-id').value = data.id;
+            document.getElementById('edit-config-nombre').value = data.nombre;
+            document.getElementById('edit-config-tipo').value = data.tipo;
+            document.getElementById('edit-config-descripcion').value = data.descripcion || '';
+            document.getElementById('edit-config-json').value = JSON.stringify(data.configuracion, null, 2);
+            document.getElementById('edit-config-activo').checked = data.activo;
+            
+            new bootstrap.Modal(document.getElementById('modalEditarConfiguracion')).show();
+            
+        } catch (error) {
+            console.error('Error al cargar configuración:', error);
+            mostrarError(error.message);
+        }
+    };
+    
+    window.eliminarConfiguracion = async (id) => {
+        if (confirm('¿Está seguro de que desea eliminar esta configuración?')) {
+            try {
+                const response = await fetch(`/api/reportes/configuracion/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                mostrarExito('Configuración eliminada exitosamente');
+                cargarConfiguraciones();
+                
+            } catch (error) {
+                console.error('Error al eliminar configuración:', error);
+                mostrarError(error.message);
+            }
+        }
+    };
+    
+    window.ejecutarFavorito = (id) => {
+        // Implementar ejecución de favorito
+        console.log('Ejecutar favorito:', id);
+    };
+    
+    window.eliminarFavorito = async (id) => {
+        if (confirm('¿Está seguro de que desea eliminar este favorito?')) {
+            try {
+                const response = await fetch(`/api/reportes/favoritos/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                mostrarExito('Favorito eliminado exitosamente');
+                cargarFavoritos();
+                
+            } catch (error) {
+                console.error('Error al eliminar favorito:', error);
+                mostrarError(error.message);
+            }
+        }
+    };
+    
+    window.ejecutarProgramado = (id) => {
+        // Implementar ejecución manual de programado
+        console.log('Ejecutar programado:', id);
+    };
+    
+    window.editarProgramado = (id) => {
+        // Implementar edición de programado
+        console.log('Editar programado:', id);
+    };
+    
+    window.eliminarProgramado = async (id) => {
+        if (confirm('¿Está seguro de que desea eliminar este reporte programado?')) {
+            try {
+                const response = await fetch(`/api/reportes/programados/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                mostrarExito('Reporte programado eliminado exitosamente');
+                cargarProgramados();
+                
+            } catch (error) {
+                console.error('Error al eliminar reporte programado:', error);
+                mostrarError(error.message);
+            }
+        }
+    };
+    
+    // Event Listeners
+    document.getElementById('guardar-nueva-configuracion').addEventListener('click', async () => {
+        const form = document.getElementById('form-nueva-configuracion');
+        const formData = new FormData(form);
+        
+        try {
+            const configuracion = JSON.parse(formData.get('configuracion'));
+            
+            const response = await fetch('/api/reportes/configuracion', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    nombre: formData.get('nombre'),
+                    tipo: formData.get('tipo'),
+                    descripcion: formData.get('descripcion'),
+                    configuracion: configuracion,
+                    activo: formData.has('activo')
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            bootstrap.Modal.getInstance(document.getElementById('modalNuevaConfiguracion')).hide();
+            form.reset();
+            mostrarExito('Configuración guardada exitosamente');
+            cargarConfiguraciones();
+            
+        } catch (error) {
+            console.error('Error al guardar configuración:', error);
+            mostrarError(error.message);
+        }
+    });
+    
+    document.getElementById('actualizar-configuracion').addEventListener('click', async () => {
+        const form = document.getElementById('form-editar-configuracion');
+        const formData = new FormData(form);
+        const id = formData.get('id');
+        
+        try {
+            const configuracion = JSON.parse(formData.get('configuracion'));
+            
+            const response = await fetch(`/api/reportes/configuracion/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    nombre: formData.get('nombre'),
+                    tipo: formData.get('tipo'),
+                    descripcion: formData.get('descripcion'),
+                    configuracion: configuracion,
+                    activo: formData.has('activo')
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            bootstrap.Modal.getInstance(document.getElementById('modalEditarConfiguracion')).hide();
+            mostrarExito('Configuración actualizada exitosamente');
+            cargarConfiguraciones();
+            
+        } catch (error) {
+            console.error('Error al actualizar configuración:', error);
+            mostrarError(error.message);
+        }
+    });
+    
+    document.getElementById('guardar-nuevo-programado').addEventListener('click', async () => {
+        const form = document.getElementById('form-nuevo-programado');
+        const formData = new FormData(form);
+        
+        try {
+            const parametros = formData.get('parametros') ? JSON.parse(formData.get('parametros')) : {};
+            
+            const response = await fetch('/api/reportes/programados', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    nombre: formData.get('nombre'),
+                    tipo_reporte: formData.get('tipo_reporte'),
+                    frecuencia: formData.get('frecuencia'),
+                    hora_ejecucion: formData.get('hora_ejecucion'),
+                    destinatarios: formData.get('destinatarios'),
+                    formato_exportacion: formData.get('formato_exportacion'),
+                    parametros: parametros,
+                    activo: formData.has('activo')
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            bootstrap.Modal.getInstance(document.getElementById('modalNuevoProgramado')).hide();
+            form.reset();
+            mostrarExito('Reporte programado exitosamente');
+            cargarProgramados();
+            
+        } catch (error) {
+            console.error('Error al programar reporte:', error);
+            mostrarError(error.message);
+        }
+    });
+    
+    document.getElementById('form-configuracion-general').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        
+        try {
+            const response = await fetch('/api/reportes/configuracion/general', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    registros_por_pagina: formData.get('registros_por_pagina'),
+                    formato_fecha: formData.get('formato_fecha'),
+                    zona_horaria: formData.get('zona_horaria'),
+                    auto_refresh: formData.has('auto_refresh'),
+                    intervalo_refresh: formData.get('intervalo_refresh'),
+                    notificaciones_email: formData.has('notificaciones_email'),
+                    email_notificaciones: formData.get('email_notificaciones')
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            mostrarExito('Configuración general guardada exitosamente');
+            
+        } catch (error) {
+            console.error('Error al guardar configuración general:', error);
+            mostrarError(error.message);
+        }
+    });
+    
+    // Inicialización
+    const inicializar = async () => {
+        await cargarConfiguraciones();
+        await cargarFavoritos();
+        await cargarProgramados();
+    };
+    
+    inicializar();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,798 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Análisis de Reportes</h2>
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-chart-bar me-2"></i>Dashboard
+            </a>
+            <a href="{{ url_for('reportes_detallado') }}" class="btn btn-outline-primary">
+                <i class="fas fa-table me-2"></i>Detallado
+            </a>
+            <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-warning">
+                <i class="fas fa-cog me-2"></i>Configuración
+            </a>
+            <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-success">
+                <i class="fas fa-download me-2"></i>Exportar
+            </a>
+        </div>
+    </div>
+
+    <!-- Panel de Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-filter me-2"></i>Filtros de Análisis
+            </h5>
+        </div>
+        <div class="card-body">
+            <form id="form-filtros-analisis">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="fecha-inicio" class="form-label">Fecha Inicio</label>
+                            <input type="date" class="form-control" id="fecha-inicio" name="fecha_inicio" required>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="fecha-fin" class="form-label">Fecha Fin</label>
+                            <input type="date" class="form-control" id="fecha-fin" name="fecha_fin" required>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="tipo-analisis" class="form-label">Tipo de Análisis</label>
+                            <select class="form-select" id="tipo-analisis" name="tipo_analisis">
+                                <option value="tendencias">Tendencias Temporales</option>
+                                <option value="comparativo">Análisis Comparativo</option>
+                                <option value="predictivo">Análisis Predictivo</option>
+                                <option value="correlacion">Análisis de Correlación</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="granularidad" class="form-label">Granularidad</label>
+                            <select class="form-select" id="granularidad" name="granularidad">
+                                <option value="diario">Diario</option>
+                                <option value="semanal" selected>Semanal</option>
+                                <option value="mensual">Mensual</option>
+                                <option value="trimestral">Trimestral</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="supervisor-analisis" class="form-label">Supervisor</label>
+                            <select class="form-select" id="supervisor-analisis" name="supervisor">
+                                <option value="">Todos los supervisores</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="centro-trabajo-analisis" class="form-label">Centro de Trabajo</label>
+                            <select class="form-select" id="centro-trabajo-analisis" name="centro_trabajo">
+                                <option value="">Todos los centros</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="zona-analisis" class="form-label">Zona</label>
+                            <select class="form-select" id="zona-analisis" name="zona">
+                                <option value="">Todas las zonas</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="fas fa-chart-line me-2"></i>Generar Análisis
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary me-2" id="limpiar-filtros">
+                            <i class="fas fa-eraser me-2"></i>Limpiar
+                        </button>
+                        <button type="button" class="btn btn-outline-info" id="guardar-analisis">
+                            <i class="fas fa-save me-2"></i>Guardar Análisis
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Panel de Métricas Clave -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">Tendencia General</h5>
+                    <h3 id="tendencia-general" class="text-primary">--</h3>
+                    <small class="text-muted">vs período anterior</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-success">Mejor Rendimiento</h5>
+                    <h3 id="mejor-rendimiento" class="text-success">--</h3>
+                    <small class="text-muted">centro de trabajo</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-warning">Correlación</h5>
+                    <h3 id="correlacion-principal" class="text-warning">--</h3>
+                    <small class="text-muted">factor principal</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-info">Predicción</h5>
+                    <h3 id="prediccion-siguiente" class="text-info">--</h3>
+                    <small class="text-muted">próximo período</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Panel Principal de Gráficos -->
+        <div class="col-md-8">
+            <!-- Gráfico Principal -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0" id="titulo-grafico-principal">Análisis de Tendencias</h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-primary" id="btn-lineas">Líneas</button>
+                        <button type="button" class="btn btn-outline-primary" id="btn-barras">Barras</button>
+                        <button type="button" class="btn btn-outline-primary" id="btn-area">Área</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <canvas id="grafico-principal" height="400"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico Secundario -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0" id="titulo-grafico-secundario">Análisis Comparativo</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="grafico-secundario" height="300"></canvas>
+                </div>
+            </div>
+
+            <!-- Matriz de Correlación -->
+            <div class="card" id="panel-correlacion" style="display: none;">
+                <div class="card-header">
+                    <h5 class="mb-0">Matriz de Correlación</h5>
+                </div>
+                <div class="card-body">
+                    <div id="matriz-correlacion"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel Lateral -->
+        <div class="col-md-4">
+            <!-- Estadísticas Detalladas -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calculator me-2"></i>Estadísticas Detalladas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center mb-3">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h6 class="text-muted">Media</h6>
+                                <h5 id="estadistica-media">--</h5>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h6 class="text-muted">Mediana</h6>
+                            <h5 id="estadistica-mediana">--</h5>
+                        </div>
+                    </div>
+                    <div class="row text-center mb-3">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h6 class="text-muted">Desv. Estándar</h6>
+                                <h5 id="estadistica-desviacion">--</h5>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h6 class="text-muted">Varianza</h6>
+                            <h5 id="estadistica-varianza">--</h5>
+                        </div>
+                    </div>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="border-end">
+                                <h6 class="text-muted">Mínimo</h6>
+                                <h5 id="estadistica-minimo">--</h5>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <h6 class="text-muted">Máximo</h6>
+                            <h5 id="estadistica-maximo">--</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Insights -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>Insights Principales
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="lista-insights">
+                        <!-- Los insights se cargarán dinámicamente -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recomendaciones -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-thumbs-up me-2"></i>Recomendaciones
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="lista-recomendaciones">
+                        <!-- Las recomendaciones se cargarán dinámicamente -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alertas y Anomalías -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Alertas y Anomalías
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="lista-alertas">
+                        <!-- Las alertas se cargarán dinámicamente -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Guardar Análisis -->
+<div class="modal fade" id="modalGuardarAnalisis" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Guardar Análisis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-guardar-analisis">
+                    <div class="mb-3">
+                        <label for="nombre-analisis" class="form-label">Nombre del Análisis</label>
+                        <input type="text" class="form-control" id="nombre-analisis" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descripcion-analisis" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="descripcion-analisis" name="descripcion" rows="3"></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="incluir-graficos" name="incluir_graficos" checked>
+                        <label class="form-check-label" for="incluir-graficos">
+                            Incluir gráficos en el análisis guardado
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmar-guardar-analisis">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let graficoPrincipal = null;
+    let graficoSecundario = null;
+    let datosAnalisis = null;
+    
+    // Configuración de fechas por defecto
+    const hoy = new Date();
+    const hace30Dias = new Date(hoy.getTime() - (30 * 24 * 60 * 60 * 1000));
+    
+    document.getElementById('fecha-inicio').value = hace30Dias.toISOString().split('T')[0];
+    document.getElementById('fecha-fin').value = hoy.toISOString().split('T')[0];
+    
+    // Función para cargar selectores
+    const cargarSelectores = async () => {
+        try {
+            const response = await fetch('/api/reportes/filtros/avanzados');
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            // Cargar supervisores
+            const supervisorSelect = document.getElementById('supervisor-analisis');
+            supervisorSelect.innerHTML = '<option value="">Todos los supervisores</option>';
+            data.supervisores.forEach(supervisor => {
+                const option = document.createElement('option');
+                option.value = supervisor.id;
+                option.textContent = supervisor.nombre;
+                supervisorSelect.appendChild(option);
+            });
+            
+            // Cargar centros de trabajo
+            const centroSelect = document.getElementById('centro-trabajo-analisis');
+            centroSelect.innerHTML = '<option value="">Todos los centros</option>';
+            data.centros_trabajo.forEach(centro => {
+                const option = document.createElement('option');
+                option.value = centro.id;
+                option.textContent = centro.nombre;
+                centroSelect.appendChild(option);
+            });
+            
+            // Cargar zonas
+            const zonaSelect = document.getElementById('zona-analisis');
+            zonaSelect.innerHTML = '<option value="">Todas las zonas</option>';
+            data.zonas.forEach(zona => {
+                const option = document.createElement('option');
+                option.value = zona.id;
+                option.textContent = zona.nombre;
+                zonaSelect.appendChild(option);
+            });
+            
+        } catch (error) {
+            console.error('Error al cargar selectores:', error);
+            mostrarError(error.message);
+        }
+    };
+    
+    // Función para generar análisis
+    const generarAnalisis = async (filtros) => {
+        try {
+            mostrarCargando(true);
+            
+            const response = await fetch('/api/reportes/analisis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(filtros)
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            datosAnalisis = data;
+            actualizarMetricasClave(data.metricas);
+            actualizarEstadisticas(data.estadisticas);
+            actualizarGraficos(data, filtros.tipo_analisis);
+            actualizarInsights(data.insights);
+            actualizarRecomendaciones(data.recomendaciones);
+            actualizarAlertas(data.alertas);
+            
+        } catch (error) {
+            console.error('Error al generar análisis:', error);
+            mostrarError(error.message);
+        } finally {
+            mostrarCargando(false);
+        }
+    };
+    
+    // Función para actualizar métricas clave
+    const actualizarMetricasClave = (metricas) => {
+        document.getElementById('tendencia-general').textContent = metricas.tendencia_general || '--';
+        document.getElementById('mejor-rendimiento').textContent = metricas.mejor_rendimiento || '--';
+        document.getElementById('correlacion-principal').textContent = metricas.correlacion_principal || '--';
+        document.getElementById('prediccion-siguiente').textContent = metricas.prediccion_siguiente || '--';
+    };
+    
+    // Función para actualizar estadísticas
+    const actualizarEstadisticas = (estadisticas) => {
+        document.getElementById('estadistica-media').textContent = estadisticas.media || '--';
+        document.getElementById('estadistica-mediana').textContent = estadisticas.mediana || '--';
+        document.getElementById('estadistica-desviacion').textContent = estadisticas.desviacion_estandar || '--';
+        document.getElementById('estadistica-varianza').textContent = estadisticas.varianza || '--';
+        document.getElementById('estadistica-minimo').textContent = estadisticas.minimo || '--';
+        document.getElementById('estadistica-maximo').textContent = estadisticas.maximo || '--';
+    };
+    
+    // Función para actualizar gráficos
+    const actualizarGraficos = (data, tipoAnalisis) => {
+        // Destruir gráficos existentes
+        if (graficoPrincipal) {
+            graficoPrincipal.destroy();
+        }
+        if (graficoSecundario) {
+            graficoSecundario.destroy();
+        }
+        
+        // Configurar gráfico principal según tipo de análisis
+        const ctxPrincipal = document.getElementById('grafico-principal').getContext('2d');
+        
+        switch (tipoAnalisis) {
+            case 'tendencias':
+                document.getElementById('titulo-grafico-principal').textContent = 'Análisis de Tendencias Temporales';
+                graficoPrincipal = crearGraficoTendencias(ctxPrincipal, data.datos_principales);
+                break;
+            case 'comparativo':
+                document.getElementById('titulo-grafico-principal').textContent = 'Análisis Comparativo';
+                graficoPrincipal = crearGraficoComparativo(ctxPrincipal, data.datos_principales);
+                break;
+            case 'predictivo':
+                document.getElementById('titulo-grafico-principal').textContent = 'Análisis Predictivo';
+                graficoPrincipal = crearGraficoPredictivo(ctxPrincipal, data.datos_principales);
+                break;
+            case 'correlacion':
+                document.getElementById('titulo-grafico-principal').textContent = 'Análisis de Correlación';
+                graficoPrincipal = crearGraficoCorrelacion(ctxPrincipal, data.datos_principales);
+                mostrarMatrizCorrelacion(data.matriz_correlacion);
+                break;
+        }
+        
+        // Gráfico secundario
+        const ctxSecundario = document.getElementById('grafico-secundario').getContext('2d');
+        document.getElementById('titulo-grafico-secundario').textContent = 'Distribución por Categorías';
+        graficoSecundario = crearGraficoDistribucion(ctxSecundario, data.datos_secundarios);
+    };
+    
+    // Funciones para crear diferentes tipos de gráficos
+    const crearGraficoTendencias = (ctx, datos) => {
+        return new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: datos.labels,
+                datasets: [{
+                    label: 'Tendencia Principal',
+                    data: datos.valores,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    };
+    
+    const crearGraficoComparativo = (ctx, datos) => {
+        return new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: datos.labels,
+                datasets: datos.datasets.map((dataset, index) => ({
+                    label: dataset.label,
+                    data: dataset.data,
+                    backgroundColor: `hsl(${index * 60}, 70%, 50%)`,
+                    borderColor: `hsl(${index * 60}, 70%, 40%)`,
+                    borderWidth: 1
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    };
+    
+    const crearGraficoPredictivo = (ctx, datos) => {
+        return new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: datos.labels,
+                datasets: [
+                    {
+                        label: 'Datos Históricos',
+                        data: datos.historicos,
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)'
+                    },
+                    {
+                        label: 'Predicción',
+                        data: datos.prediccion,
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        borderDash: [5, 5]
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    };
+    
+    const crearGraficoCorrelacion = (ctx, datos) => {
+        return new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Correlación',
+                    data: datos.puntos,
+                    backgroundColor: 'rgba(255, 99, 132, 0.6)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'linear',
+                        position: 'bottom'
+                    },
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    };
+    
+    const crearGraficoDistribucion = (ctx, datos) => {
+        return new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: datos.labels,
+                datasets: [{
+                    data: datos.valores,
+                    backgroundColor: [
+                        '#FF6384',
+                        '#36A2EB',
+                        '#FFCE56',
+                        '#4BC0C0',
+                        '#9966FF',
+                        '#FF9F40'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    };
+    
+    // Función para mostrar matriz de correlación
+    const mostrarMatrizCorrelacion = (matriz) => {
+        const panel = document.getElementById('panel-correlacion');
+        const contenedor = document.getElementById('matriz-correlacion');
+        
+        if (matriz && matriz.length > 0) {
+            panel.style.display = 'block';
+            
+            let html = '<table class="table table-sm">';
+            html += '<thead><tr><th></th>';
+            matriz[0].forEach((_, index) => {
+                html += `<th>Var ${index + 1}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            matriz.forEach((fila, i) => {
+                html += `<tr><th>Var ${i + 1}</th>`;
+                fila.forEach(valor => {
+                    const color = valor > 0.7 ? 'bg-success' : valor > 0.3 ? 'bg-warning' : valor < -0.3 ? 'bg-danger' : '';
+                    html += `<td class="${color}">${valor.toFixed(2)}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            contenedor.innerHTML = html;
+        } else {
+            panel.style.display = 'none';
+        }
+    };
+    
+    // Función para actualizar insights
+    const actualizarInsights = (insights) => {
+        const contenedor = document.getElementById('lista-insights');
+        contenedor.innerHTML = '';
+        
+        insights.forEach(insight => {
+            const div = document.createElement('div');
+            div.className = 'alert alert-info alert-sm mb-2';
+            div.innerHTML = `<i class="fas fa-lightbulb me-2"></i>${insight.texto}`;
+            contenedor.appendChild(div);
+        });
+    };
+    
+    // Función para actualizar recomendaciones
+    const actualizarRecomendaciones = (recomendaciones) => {
+        const contenedor = document.getElementById('lista-recomendaciones');
+        contenedor.innerHTML = '';
+        
+        recomendaciones.forEach(recomendacion => {
+            const div = document.createElement('div');
+            div.className = 'alert alert-success alert-sm mb-2';
+            div.innerHTML = `<i class="fas fa-thumbs-up me-2"></i>${recomendacion.texto}`;
+            contenedor.appendChild(div);
+        });
+    };
+    
+    // Función para actualizar alertas
+    const actualizarAlertas = (alertas) => {
+        const contenedor = document.getElementById('lista-alertas');
+        contenedor.innerHTML = '';
+        
+        alertas.forEach(alerta => {
+            const div = document.createElement('div');
+            const tipoClase = alerta.tipo === 'critica' ? 'alert-danger' : alerta.tipo === 'advertencia' ? 'alert-warning' : 'alert-info';
+            div.className = `alert ${tipoClase} alert-sm mb-2`;
+            div.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>${alerta.texto}`;
+            contenedor.appendChild(div);
+        });
+    };
+    
+    // Función para mostrar/ocultar indicador de carga
+    const mostrarCargando = (mostrar) => {
+        // Implementar indicador de carga
+        console.log('Cargando:', mostrar);
+    };
+    
+    // Función para mostrar errores
+    const mostrarError = (mensaje) => {
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger alert-dismissible fade show';
+        alert.innerHTML = `
+            <strong>Error:</strong> ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.container-fluid').prepend(alert);
+    };
+    
+    // Event Listeners
+    document.getElementById('form-filtros-analisis').addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const filtros = {
+            fecha_inicio: formData.get('fecha_inicio'),
+            fecha_fin: formData.get('fecha_fin'),
+            tipo_analisis: formData.get('tipo_analisis'),
+            granularidad: formData.get('granularidad'),
+            supervisor: formData.get('supervisor'),
+            centro_trabajo: formData.get('centro_trabajo'),
+            zona: formData.get('zona')
+        };
+        
+        generarAnalisis(filtros);
+    });
+    
+    document.getElementById('limpiar-filtros').addEventListener('click', () => {
+        document.getElementById('form-filtros-analisis').reset();
+        document.getElementById('fecha-inicio').value = hace30Dias.toISOString().split('T')[0];
+        document.getElementById('fecha-fin').value = hoy.toISOString().split('T')[0];
+    });
+    
+    document.getElementById('guardar-analisis').addEventListener('click', () => {
+        if (!datosAnalisis) {
+            mostrarError('Debe generar un análisis antes de guardarlo');
+            return;
+        }
+        new bootstrap.Modal(document.getElementById('modalGuardarAnalisis')).show();
+    });
+    
+    document.getElementById('confirmar-guardar-analisis').addEventListener('click', async () => {
+        const form = document.getElementById('form-guardar-analisis');
+        const formData = new FormData(form);
+        
+        try {
+            const response = await fetch('/api/reportes/analisis/guardar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    nombre: formData.get('nombre'),
+                    descripcion: formData.get('descripcion'),
+                    datos_analisis: datosAnalisis,
+                    incluir_graficos: formData.has('incluir_graficos')
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            bootstrap.Modal.getInstance(document.getElementById('modalGuardarAnalisis')).hide();
+            form.reset();
+            
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-success alert-dismissible fade show';
+            alert.innerHTML = `
+                Análisis guardado exitosamente
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.container-fluid').prepend(alert);
+            
+        } catch (error) {
+            console.error('Error al guardar análisis:', error);
+            mostrarError(error.message);
+        }
+    });
+    
+    // Botones de tipo de gráfico
+    document.getElementById('btn-lineas').addEventListener('click', () => {
+        if (graficoPrincipal && datosAnalisis) {
+            graficoPrincipal.config.type = 'line';
+            graficoPrincipal.update();
+        }
+    });
+    
+    document.getElementById('btn-barras').addEventListener('click', () => {
+        if (graficoPrincipal && datosAnalisis) {
+            graficoPrincipal.config.type = 'bar';
+            graficoPrincipal.update();
+        }
+    });
+    
+    document.getElementById('btn-area').addEventListener('click', () => {
+        if (graficoPrincipal && datosAnalisis) {
+            graficoPrincipal.config.type = 'line';
+            graficoPrincipal.data.datasets.forEach(dataset => {
+                dataset.fill = true;
+            });
+            graficoPrincipal.update();
+        }
+    });
+    
+    // Inicialización
+    cargarSelectores();
+});
+</script>
+{% endblock %}

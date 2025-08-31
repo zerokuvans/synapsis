@@ -27,7 +27,7 @@ def crear_triggers_ferretero():
         print("=== Creando triggers para stock ferretero ===")
         
         # Leer el archivo SQL con los triggers
-        sql_file_path = os.path.join(os.path.dirname(__file__), 'sql', 'triggers_ferretero.sql')
+        sql_file_path = os.path.join(os.path.dirname(__file__), '..', 'sql', 'triggers_ferretero.sql')
         
         with open(sql_file_path, 'r', encoding='utf-8') as file:
             sql_content = file.read()
