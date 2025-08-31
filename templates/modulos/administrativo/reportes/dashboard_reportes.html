@@ -1,81 +1,241 @@
 {% extends "base.html" %}
 
-{% block content %}
-<div class="container-fluid py-4">
-    <h2 class="mb-4">Dashboard de Reportes</h2>
+{% block title %}Dashboard de Reportes{% endblock %}
 
-    <!-- Panel de Filtros -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <form id="filtros-form" class="row g-3 align-items-end">
-                <div class="col-md-3">
-                    <label for="fecha-inicio" class="form-label">Fecha Inicio</label>
-                    <input type="date" class="form-control" id="fecha-inicio" name="fecha_inicio">
-                </div>
-                <div class="col-md-3">
-                    <label for="fecha-fin" class="form-label">Fecha Fin</label>
-                    <input type="date" class="form-control" id="fecha-fin" name="fecha_fin">
-                </div>
-                <div class="col-md-3">
-                    <label for="supervisor" class="form-label">Supervisor</label>
-                    <select class="form-select" id="supervisor" name="supervisor">
-                        <option value="">Todos los supervisores</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label for="centro-trabajo" class="form-label">Centro de Trabajo</label>
-                    <select class="form-select" id="centro-trabajo" name="centro_trabajo">
-                        <option value="">Todos los centros</option>
-                    </select>
-                </div>
-                <div class="col-md-1">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-filter"></i>
-                    </button>
-                </div>
-            </form>
+{% block content %}
+<div class="container-fluid">
+    <!-- Encabezado Mejorado -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h3 mb-2">Dashboard de Reportes</h1>
+            <p class="text-muted mb-0">Visualización y análisis de datos operacionales en tiempo real</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-table"></i> Reportes Detallados
+                </a>
+                <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-info">
+                    <i class="fas fa-chart-line"></i> Análisis
+                </a>
+                <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-success">
+                    <i class="fas fa-download"></i> Exportar
+                </a>
+            </div>
         </div>
     </div>
 
-    <!-- Tarjetas de Resumen -->
+    <!-- Panel de Filtros Avanzados -->
     <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card">
-                <div class="card-body text-center">
-                    <i class="fas fa-clipboard-list fa-2x text-primary mb-2"></i>
-                    <h5 class="card-title">Total Preoperacionales</h5>
-                    <h2 class="card-text" id="total-preoperacionales">0</h2>
-                    <p class="text-muted">Últimos 30 días</p>
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-filter"></i> Filtros de Búsqueda
+                        </h5>
+                        <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#filtros-avanzados">
+                            <i class="fas fa-cog"></i> Avanzados
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form id="filtros-form">
+                        <!-- Filtros Básicos -->
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label for="fecha-inicio" class="form-label">Fecha Inicio</label>
+                                <input type="date" class="form-control" id="fecha-inicio" name="fecha_inicio" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="fecha-fin" class="form-label">Fecha Fin</label>
+                                <input type="date" class="form-control" id="fecha-fin" name="fecha_fin" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="supervisor" class="form-label">Supervisor</label>
+                                <select class="form-select" id="supervisor" name="supervisor">
+                                    <option value="">Todos los supervisores</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="centro-trabajo" class="form-label">Centro de Trabajo</label>
+                                <select class="form-select" id="centro-trabajo" name="centro_trabajo">
+                                    <option value="">Todos los centros</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Filtros Avanzados (Colapsables) -->
+                        <div class="collapse" id="filtros-avanzados">
+                            <hr>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label for="tecnico" class="form-label">Técnico</label>
+                                    <select class="form-select" id="tecnico" name="tecnico">
+                                        <option value="">Todos los técnicos</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="zona" class="form-label">Zona</label>
+                                    <select class="form-select" id="zona" name="zona">
+                                        <option value="">Todas las zonas</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="estado-vehiculo" class="form-label">Estado Vehículo</label>
+                                    <select class="form-select" id="estado-vehiculo" name="estado_vehiculo">
+                                        <option value="">Todos los estados</option>
+                                        <option value="Operativo">Operativo</option>
+                                        <option value="Mantenimiento">Mantenimiento</option>
+                                        <option value="Fuera de Servicio">Fuera de Servicio</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="tipo-reporte" class="form-label">Tipo de Reporte</label>
+                                    <select class="form-select" id="tipo-reporte" name="tipo_reporte">
+                                        <option value="">Todos los tipos</option>
+                                        <option value="preoperacional">Preoperacional</option>
+                                        <option value="vencimientos">Vencimientos</option>
+                                        <option value="usuarios">Usuarios</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary me-2">
+                                    <i class="fas fa-search"></i> Aplicar Filtros
+                                </button>
+                                <button type="button" class="btn btn-secondary me-2" id="limpiar-filtros">
+                                    <i class="fas fa-eraser"></i> Limpiar
+                                </button>
+                                <button type="button" class="btn btn-info me-2" id="guardar-filtros">
+                                    <i class="fas fa-save"></i> Guardar Configuración
+                                </button>
+                                <button type="button" class="btn btn-success" id="auto-refresh" data-auto="false">
+                                    <i class="fas fa-sync-alt"></i> Auto-actualizar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card">
+    </div>
+
+    <!-- Tarjetas de Resumen Mejoradas -->
+    <div class="row mb-4">
+        <!-- Total Preoperacionales -->
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body text-center">
-                    <i class="fas fa-users fa-2x text-success mb-2"></i>
-                    <h5 class="card-title">Técnicos Activos</h5>
-                    <h2 class="card-text" id="total-tecnicos">0</h2>
-                    <p class="text-muted">Con registros en 30 días</p>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="icon-shape bg-primary text-white rounded-circle">
+                            <i class="fas fa-clipboard-check"></i>
+                        </div>
+                        <span class="badge bg-primary-soft text-primary" id="porcentaje-preoperacionales">+0%</span>
+                    </div>
+                    <h3 class="text-primary mb-1" id="total-preoperacionales">0</h3>
+                    <p class="text-muted mb-0">Total Preoperacionales</p>
+                    <small class="text-muted" id="promedio-diario-preop">Promedio diario: 0</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card">
+        
+        <!-- Total Técnicos Activos -->
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body text-center">
-                    <i class="fas fa-calendar-check fa-2x text-info mb-2"></i>
-                    <h5 class="card-title">Días con Registros</h5>
-                    <h2 class="card-text" id="total-dias">0</h2>
-                    <p class="text-muted">Últimos 30 días</p>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="icon-shape bg-success text-white rounded-circle">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <span class="badge bg-success-soft text-success" id="porcentaje-tecnicos">+0%</span>
+                    </div>
+                    <h3 class="text-success mb-1" id="total-tecnicos">0</h3>
+                    <p class="text-muted mb-0">Técnicos Activos</p>
+                    <small class="text-muted" id="tecnicos-periodo">En el período seleccionado</small>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card">
+        
+        <!-- Días con Registros -->
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
                 <div class="card-body text-center">
-                    <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
-                    <h5 class="card-title">Próximos Vencimientos</h5>
-                    <h2 class="card-text" id="total-vencimientos">0</h2>
-                    <p class="text-muted">Próximos 30 días</p>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="icon-shape bg-info text-white rounded-circle">
+                            <i class="fas fa-calendar-check"></i>
+                        </div>
+                        <span class="badge bg-info-soft text-info" id="porcentaje-dias">0%</span>
+                    </div>
+                    <h3 class="text-info mb-1" id="total-dias">0</h3>
+                    <p class="text-muted mb-0">Días con Registros</p>
+                    <small class="text-muted" id="cobertura-dias">Cobertura del período</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Próximos Vencimientos -->
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="icon-shape bg-warning text-white rounded-circle">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <span class="badge bg-danger-soft text-danger" id="vencimientos-criticos">0 críticos</span>
+                    </div>
+                    <h3 class="text-warning mb-1" id="total-vencimientos">0</h3>
+                    <p class="text-muted mb-0">Próximos Vencimientos</p>
+                    <small class="text-muted" id="vencimientos-30-dias">En los próximos 30 días</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Indicadores Adicionales -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-2">
+                            <div class="border-end">
+                                <h5 class="text-primary mb-1" id="eficiencia-operacional">0%</h5>
+                                <small class="text-muted">Eficiencia Operacional</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="border-end">
+                                <h5 class="text-success mb-1" id="cumplimiento-programacion">0%</h5>
+                                <small class="text-muted">Cumplimiento</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="border-end">
+                                <h5 class="text-info mb-1" id="vehiculos-operativos">0</h5>
+                                <small class="text-muted">Vehículos Operativos</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="border-end">
+                                <h5 class="text-warning mb-1" id="mantenimientos-pendientes">0</h5>
+                                <small class="text-muted">Mantenimientos</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="border-end">
+                                <h5 class="text-danger mb-1" id="incidencias-reportadas">0</h5>
+                                <small class="text-muted">Incidencias</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <h5 class="text-secondary mb-1" id="tiempo-promedio">0h</h5>
+                            <small class="text-muted">Tiempo Promedio</small>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -216,6 +376,168 @@
             </div>
         </div>
     </div>
+
+    <!-- Sección de Consolidación Jerárquica -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-sitemap me-2"></i>Consolidación Jerárquica
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="jerarquia-orden" class="form-label">Orden de Jerarquía:</label>
+                            <select class="form-select" id="jerarquia-orden">
+                                <option value="supervisor,centro_trabajo,ciudad">Supervisor → Centro → Ciudad</option>
+                                <option value="centro_trabajo,supervisor,ciudad">Centro → Supervisor → Ciudad</option>
+                                <option value="ciudad,supervisor,centro_trabajo">Ciudad → Supervisor → Centro</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check mt-4">
+                                <input class="form-check-input" type="checkbox" id="incluir-detalles" checked>
+                                <label class="form-check-label" for="incluir-detalles">
+                                    Incluir Detalles
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="button" class="btn btn-primary mt-4" onclick="cargarConsolidacionJerarquica()">
+                                <i class="fas fa-sync-alt me-2"></i>Actualizar
+                            </button>
+                        </div>
+                    </div>
+                    <div id="consolidacion-jerarquica-container" class="mt-3">
+                        <!-- Los datos jerárquicos se cargarán aquí -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección de Análisis de Tendencias -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>Análisis de Tendencias
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="granularidad-tendencias" class="form-label">Granularidad:</label>
+                            <select class="form-select" id="granularidad-tendencias">
+                                <option value="diario">Diario</option>
+                                <option value="semanal" selected>Semanal</option>
+                                <option value="mensual">Mensual</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="button" class="btn btn-primary mt-4" onclick="cargarAnalisisTendencias()">
+                                <i class="fas fa-chart-line me-2"></i>Generar Análisis
+                            </button>
+                        </div>
+                    </div>
+                    <canvas id="chart-tendencias" style="max-height: 400px;"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>Insights Automáticos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="insights-tendencias">
+                        <!-- Los insights se mostrarán aquí -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sección de Exportación de Reportes -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-download me-2"></i>Exportar Reportes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="tipo-reporte-export" class="form-label">Tipo de Reporte:</label>
+                            <select class="form-select" id="tipo-reporte-export">
+                                <option value="general">General</option>
+                                <option value="detallado">Detallado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="formato-export" class="form-label">Formato:</label>
+                            <select class="form-select" id="formato-export">
+                                <option value="excel">Excel (.xlsx)</option>
+                                <option value="csv">CSV (.csv)</option>
+                                <option value="pdf">PDF (.pdf)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="fecha-inicio-export" class="form-label">Fecha Inicio:</label>
+                            <input type="date" class="form-control" id="fecha-inicio-export">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="fecha-fin-export" class="form-label">Fecha Fin:</label>
+                            <input type="date" class="form-control" id="fecha-fin-export">
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-success" onclick="exportarReporte()">
+                        <i class="fas fa-file-export me-2"></i>Exportar
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sección de Reportes Programados -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock me-2"></i>Reportes Programados
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <button type="button" class="btn btn-primary mb-3" onclick="mostrarModalReporteProgramado()">
+                        <i class="fas fa-plus me-2"></i>Nuevo Reporte Programado
+                    </button>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Frecuencia</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-reportes-programados">
+                                <!-- Los reportes programados se cargarán aquí -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% endblock %}
@@ -228,17 +550,25 @@
 document.addEventListener('DOMContentLoaded', function() {
     let chartsInstances = {};
     
+    // Variables globales
+    let autoRefreshInterval = null;
+    let isAutoRefreshActive = false;
+    
     // Función para obtener los filtros actuales
     const obtenerFiltros = () => {
         return {
             fecha_inicio: document.getElementById('fecha-inicio').value,
             fecha_fin: document.getElementById('fecha-fin').value,
             supervisor: document.getElementById('supervisor').value,
-            centro_trabajo: document.getElementById('centro-trabajo').value
+            centro_trabajo: document.getElementById('centro-trabajo').value,
+            tecnico: document.getElementById('tecnico').value,
+            zona: document.getElementById('zona').value,
+            estado_vehiculo: document.getElementById('estado-vehiculo').value,
+            tipo_reporte: document.getElementById('tipo-reporte').value
         };
     };
 
-    // Función para cargar los selectores
+    // Función para cargar los selectores básicos
     const cargarSelectores = async () => {
         try {
             const response = await fetch('/api/reportes/filtros');
@@ -261,7 +591,65 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         } catch (error) {
             console.error('Error al cargar selectores:', error);
+            mostrarNotificacion('Error al cargar los filtros básicos', 'error');
         }
+    };
+    
+    // Función para cargar los selectores avanzados
+    const cargarSelectoresAvanzados = async () => {
+        try {
+            const response = await fetch('/api/reportes/filtros/avanzados');
+            const data = await response.json();
+            
+            const tecnicoSelect = document.getElementById('tecnico');
+            const zonaSelect = document.getElementById('zona');
+            
+            // Limpiar opciones existentes
+            tecnicoSelect.innerHTML = '<option value="">Todos los técnicos</option>';
+            zonaSelect.innerHTML = '<option value="">Todas las zonas</option>';
+            
+            // Agregar nuevas opciones
+            if (data.tecnicos) {
+                data.tecnicos.forEach(tecnico => {
+                    tecnicoSelect.add(new Option(tecnico.nombre, tecnico.id));
+                });
+            }
+            
+            if (data.zonas) {
+                data.zonas.forEach(zona => {
+                    zonaSelect.add(new Option(zona, zona));
+                });
+            }
+        } catch (error) {
+            console.error('Error al cargar selectores avanzados:', error);
+            mostrarNotificacion('Error al cargar los filtros avanzados', 'warning');
+        }
+    };
+    
+    // Función para mostrar notificaciones
+    const mostrarNotificacion = (mensaje, tipo = 'info') => {
+        const alertClass = {
+            'success': 'alert-success',
+            'error': 'alert-danger',
+            'warning': 'alert-warning',
+            'info': 'alert-info'
+        }[tipo] || 'alert-info';
+        
+        const alertPlaceholder = document.createElement('div');
+        alertPlaceholder.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+        alertPlaceholder.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertPlaceholder.innerHTML = `
+            ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        document.body.appendChild(alertPlaceholder);
+        
+        // Auto-remover después de 5 segundos
+        setTimeout(() => {
+            if (alertPlaceholder.parentNode) {
+                alertPlaceholder.remove();
+            }
+        }, 5000);
     };
 
     // Función para actualizar las estadísticas
@@ -273,12 +661,67 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (data.stats_generales) {
+            // Estadísticas principales
             document.getElementById('total-preoperacionales').textContent = 
-                data.stats_generales.total_preoperacionales || '0';
+                formatearNumero(data.stats_generales.total_preoperacionales || 0);
             document.getElementById('total-tecnicos').textContent = 
-                data.stats_generales.total_tecnicos || '0';
+                formatearNumero(data.stats_generales.total_tecnicos || 0);
             document.getElementById('total-dias').textContent = 
-                data.stats_generales.total_dias || '0';
+                formatearNumero(data.stats_generales.total_dias || 0);
+            
+            // Porcentajes de cambio
+            actualizarPorcentaje('porcentaje-preoperacionales', data.stats_generales.cambio_preoperacionales);
+            actualizarPorcentaje('porcentaje-tecnicos', data.stats_generales.cambio_tecnicos);
+            actualizarPorcentaje('porcentaje-dias', data.stats_generales.cobertura_dias);
+            
+            // Información adicional
+            document.getElementById('promedio-diario-preop').textContent = 
+                `Promedio diario: ${formatearNumero(data.stats_generales.promedio_diario || 0)}`;
+            document.getElementById('tecnicos-periodo').textContent = 
+                `En el período seleccionado`;
+            document.getElementById('cobertura-dias').textContent = 
+                `Cobertura del período: ${(data.stats_generales.cobertura_dias || 0).toFixed(1)}%`;
+            
+            // Indicadores adicionales
+            if (data.indicadores_adicionales) {
+                document.getElementById('eficiencia-operacional').textContent = 
+                    `${(data.indicadores_adicionales.eficiencia || 0).toFixed(1)}%`;
+                document.getElementById('cumplimiento-programacion').textContent = 
+                    `${(data.indicadores_adicionales.cumplimiento || 0).toFixed(1)}%`;
+                document.getElementById('vehiculos-operativos').textContent = 
+                    formatearNumero(data.indicadores_adicionales.vehiculos_operativos || 0);
+                document.getElementById('mantenimientos-pendientes').textContent = 
+                    formatearNumero(data.indicadores_adicionales.mantenimientos || 0);
+                document.getElementById('incidencias-reportadas').textContent = 
+                    formatearNumero(data.indicadores_adicionales.incidencias || 0);
+                document.getElementById('tiempo-promedio').textContent = 
+                    `${(data.indicadores_adicionales.tiempo_promedio || 0).toFixed(1)}h`;
+            }
+        }
+    };
+    
+    // Función para formatear números
+    const formatearNumero = (numero) => {
+        return new Intl.NumberFormat('es-ES').format(numero);
+    };
+    
+    // Función para actualizar porcentajes con colores
+    const actualizarPorcentaje = (elementId, valor) => {
+        const elemento = document.getElementById(elementId);
+        if (!elemento) return;
+        
+        const porcentaje = parseFloat(valor) || 0;
+        const signo = porcentaje >= 0 ? '+' : '';
+        elemento.textContent = `${signo}${porcentaje.toFixed(1)}%`;
+        
+        // Actualizar clases según el valor
+        elemento.className = elemento.className.replace(/bg-\w+-soft text-\w+/, '');
+        if (porcentaje > 0) {
+            elemento.className += ' bg-success-soft text-success';
+        } else if (porcentaje < 0) {
+            elemento.className += ' bg-danger-soft text-danger';
+        } else {
+            elemento.className += ' bg-secondary-soft text-secondary';
         }
     };
 
@@ -558,11 +1001,596 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
+    // Función para alternar filtros avanzados
+    const alternarFiltrosAvanzados = () => {
+        const panel = document.getElementById('filtros-avanzados');
+        const boton = document.querySelector('[data-bs-target="#filtros-avanzados"]');
+        
+        if (panel.classList.contains('show')) {
+            boton.innerHTML = '<i class="fas fa-cog"></i> Avanzados';
+        } else {
+            boton.innerHTML = '<i class="fas fa-cog"></i> Ocultar';
+            cargarSelectoresAvanzados();
+        }
+    };
+    
+    // Función para guardar configuración de filtros
+    const guardarConfiguracion = () => {
+        const nombre = prompt('Ingrese un nombre para esta configuración:');
+        if (!nombre) return;
+        
+        const configuracion = {
+            nombre: nombre,
+            filtros: obtenerFiltros(),
+            fecha_creacion: new Date().toISOString()
+        };
+        
+        fetch('/api/reportes/configuracion', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(configuracion)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarNotificacion('Configuración guardada exitosamente', 'success');
+            } else {
+                mostrarNotificacion('Error al guardar la configuración', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarNotificacion('Error al guardar la configuración', 'error');
+        });
+    };
+    
+    // Función para alternar auto-refresh
+    const alternarAutoRefresh = () => {
+        const boton = document.getElementById('auto-refresh');
+        const isActive = boton.getAttribute('data-auto') === 'true';
+        
+        if (!isActive) {
+            autoRefreshInterval = setInterval(() => {
+                cargarDatos();
+            }, 300000); // 5 minutos
+            boton.setAttribute('data-auto', 'true');
+            boton.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> Detener Auto-actualizar';
+            boton.classList.remove('btn-success');
+            boton.classList.add('btn-warning');
+            mostrarNotificacion('Auto-actualización activada (cada 5 minutos)', 'info');
+        } else {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            boton.setAttribute('data-auto', 'false');
+            boton.innerHTML = '<i class="fas fa-sync-alt"></i> Auto-actualizar';
+            boton.classList.remove('btn-warning');
+            boton.classList.add('btn-success');
+            mostrarNotificacion('Auto-actualización desactivada', 'info');
+        }
+    };
+    
+    // Función para limpiar filtros
+    const limpiarFiltros = () => {
+        // Limpiar filtros básicos
+        document.getElementById('fecha-inicio').value = '';
+        document.getElementById('fecha-fin').value = '';
+        document.getElementById('supervisor').value = '';
+        document.getElementById('centro-trabajo').value = '';
+        
+        // Limpiar filtros avanzados
+        document.getElementById('tecnico').value = '';
+        document.getElementById('zona').value = '';
+        document.getElementById('estado-vehiculo').value = '';
+        document.getElementById('tipo-reporte').value = '';
+        
+        // Recargar datos
+        cargarDatos();
+        mostrarNotificacion('Filtros limpiados', 'info');
+    };
+    
+    // Función para exportar datos actuales
+    const exportarDatos = (formato) => {
+        const filtros = obtenerFiltros();
+        const url = `/api/reportes/exportar/${formato}?${new URLSearchParams(filtros).toString()}`;
+        
+        // Crear enlace temporal para descarga
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `reporte_dashboard_${new Date().toISOString().split('T')[0]}.${formato}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        mostrarNotificacion(`Exportando datos en formato ${formato.toUpperCase()}`, 'info');
+    };
+    
+    // Función para consolidación jerárquica
+    const cargarConsolidacionJerarquica = () => {
+        const filtros = obtenerFiltros();
+        const jerarquia = ['supervisor', 'centro_trabajo', 'ciudad'];
+        
+        fetch('/api/reportes/consolidacion/jerarquica', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                jerarquia: jerarquia,
+                fecha_inicio: filtros.fecha_inicio,
+                fecha_fin: filtros.fecha_fin,
+                incluir_detalles: true
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderizarConsolidacionJerarquica(data.consolidacion);
+                actualizarResumenGeneral(data.resumen_general);
+            } else {
+                mostrarNotificacion('Error al cargar consolidación jerárquica', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarNotificacion('Error de conexión', 'error');
+        });
+    };
+    
+    // Función para análisis de tendencias
+    const cargarAnalisisTendencias = () => {
+        const filtros = obtenerFiltros();
+        
+        fetch('/api/reportes/analisis/tendencias', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                fecha_inicio: filtros.fecha_inicio,
+                fecha_fin: filtros.fecha_fin,
+                granularidad: 'diario',
+                supervisor: filtros.supervisor,
+                centro_trabajo: filtros.centro_trabajo
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderizarGraficoTendencias(data.tendencias);
+                mostrarInsightsTendencias(data.insights);
+            } else {
+                mostrarNotificacion('Error al cargar análisis de tendencias', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarNotificacion('Error de conexión', 'error');
+        });
+    };
+
+    // Función para renderizar consolidación jerárquica
+    const renderizarConsolidacionJerarquica = (consolidacion) => {
+        const container = document.getElementById('consolidacion-container');
+        if (!container) return;
+        
+        let html = '<div class="consolidacion-jerarquica">';
+        
+        function renderizarNivel(datos, nivel = 0) {
+            let resultado = '';
+            const indent = 'margin-left: ' + (nivel * 20) + 'px;';
+            
+            for (const [clave, valor] of Object.entries(datos)) {
+                if (typeof valor === 'object' && valor.metricas) {
+                    const cumplimiento = ((valor.metricas.total_registros - valor.metricas.registros_con_problemas) / valor.metricas.total_registros * 100).toFixed(1);
+                    
+                    resultado += `
+                        <div class="nivel-consolidacion" style="${indent}">
+                            <div class="header-nivel" onclick="toggleNivel('nivel-${nivel}-${clave.replace(/\s+/g, '-')}')">
+                                <i class="fas fa-chevron-right"></i>
+                                <strong>${clave}</strong>
+                                <span class="badge badge-info">${valor.metricas.total_registros} registros</span>
+                                <span class="badge ${cumplimiento >= 90 ? 'badge-success' : cumplimiento >= 70 ? 'badge-warning' : 'badge-danger'}">
+                                    ${cumplimiento}% cumplimiento
+                                </span>
+                            </div>
+                            <div id="nivel-${nivel}-${clave.replace(/\s+/g, '-')}" class="contenido-nivel" style="display: none;">
+                                <div class="metricas-nivel">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <div class="metric-card">
+                                                <div class="metric-value">${valor.metricas.total_registros}</div>
+                                                <div class="metric-label">Total Registros</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="metric-card">
+                                                <div class="metric-value">${valor.metricas.tecnicos_unicos}</div>
+                                                <div class="metric-label">Técnicos Únicos</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="metric-card">
+                                                <div class="metric-value">${valor.metricas.registros_con_problemas}</div>
+                                                <div class="metric-label">Con Problemas</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="metric-card">
+                                                <div class="metric-value">${cumplimiento}%</div>
+                                                <div class="metric-label">Cumplimiento</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                    `;
+                    
+                    if (valor.subniveles && Object.keys(valor.subniveles).length > 0) {
+                        resultado += renderizarNivel(valor.subniveles, nivel + 1);
+                    }
+                    
+                    resultado += '</div></div>';
+                }
+            }
+            
+            return resultado;
+        }
+        
+        html += renderizarNivel(consolidacion);
+        html += '</div>';
+        
+        container.innerHTML = html;
+    };
+    
+    // Función para toggle de niveles
+    const toggleNivel = (id) => {
+        const elemento = document.getElementById(id);
+        const icono = elemento.previousElementSibling.querySelector('i');
+        
+        if (elemento.style.display === 'none') {
+            elemento.style.display = 'block';
+            icono.classList.remove('fa-chevron-right');
+            icono.classList.add('fa-chevron-down');
+        } else {
+            elemento.style.display = 'none';
+            icono.classList.remove('fa-chevron-down');
+            icono.classList.add('fa-chevron-right');
+        }
+    };
+    
+    // Función para renderizar gráfico de tendencias
+    const renderizarGraficoTendencias = (tendencias) => {
+        const ctx = document.getElementById('graficoTendencias');
+        if (!ctx) return;
+        
+        const fechas = tendencias.map(t => t.fecha);
+        const registros = tendencias.map(t => t.total_registros);
+        const cumplimiento = tendencias.map(t => t.porcentaje_cumplimiento);
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: fechas,
+                datasets: [{
+                    label: 'Total Registros',
+                    data: registros,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    yAxisID: 'y'
+                }, {
+                    label: 'Cumplimiento (%)',
+                    data: cumplimiento,
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Fecha'
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Registros'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Cumplimiento (%)'
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                    }
+                }
+            }
+        });
+    };
+    
+    // Función para mostrar insights de tendencias
+    const mostrarInsightsTendencias = (insights) => {
+        const container = document.getElementById('insights-container');
+        if (!container || !insights) return;
+        
+        let html = '<div class="insights-tendencias">';
+        
+        insights.forEach(insight => {
+            const iconClass = insight.tipo === 'warning' ? 'fa-exclamation-triangle text-warning' : 
+                            insight.tipo === 'success' ? 'fa-check-circle text-success' : 
+                            'fa-info-circle text-info';
+            
+            html += `
+                <div class="alert alert-${insight.tipo === 'warning' ? 'warning' : insight.tipo === 'success' ? 'success' : 'info'}">
+                    <i class="fas ${iconClass}"></i>
+                    <strong>${insight.titulo}:</strong> ${insight.descripcion}
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    };
+
+    // Función para exportar reportes
+    const exportarReporte = async () => {
+        const tipoReporte = document.getElementById('tipo-reporte-export').value;
+        const formato = document.getElementById('formato-export').value;
+        const fechaInicio = document.getElementById('fecha-inicio-export').value;
+        const fechaFin = document.getElementById('fecha-fin-export').value;
+        
+        if (!fechaInicio || !fechaFin) {
+            mostrarNotificacion('Por favor seleccione las fechas de inicio y fin', 'warning');
+            return;
+        }
+        
+        try {
+            const filtros = obtenerFiltros();
+            const params = {
+                tipo_reporte: tipoReporte,
+                formato: formato,
+                fecha_inicio: fechaInicio,
+                fecha_fin: fechaFin,
+                ...filtros
+            };
+            
+            const response = await fetch('/api/reportes/exportar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(params)
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `reporte_${tipoReporte}_${new Date().toISOString().split('T')[0]}.${formato}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                mostrarNotificacion('Reporte exportado exitosamente', 'success');
+            } else {
+                const error = await response.json();
+                mostrarNotificacion(error.error || 'Error al exportar el reporte', 'error');
+            }
+        } catch (error) {
+            console.error('Error al exportar reporte:', error);
+            mostrarNotificacion('Error al exportar el reporte', 'error');
+        }
+    };
+    
+    // Función para cargar reportes programados
+    const cargarReportesProgramados = async () => {
+        try {
+            const response = await fetch('/api/reportes/programados');
+            const data = await response.json();
+            
+            const tbody = document.getElementById('tabla-reportes-programados');
+            tbody.innerHTML = '';
+            
+            data.reportes.forEach(reporte => {
+                const estadoBadge = reporte.activo ? 
+                    '<span class="badge bg-success">Activo</span>' : 
+                    '<span class="badge bg-secondary">Inactivo</span>';
+                
+                const row = `
+                    <tr>
+                        <td>${reporte.nombre}</td>
+                        <td>${reporte.frecuencia}</td>
+                        <td>${estadoBadge}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="editarReporteProgramado(${reporte.id})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="eliminarReporteProgramado(${reporte.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        } catch (error) {
+            console.error('Error al cargar reportes programados:', error);
+            mostrarNotificacion('Error al cargar los reportes programados', 'error');
+        }
+    };
+    
+    // Función para mostrar modal de reporte programado
+    const mostrarModalReporteProgramado = () => {
+        // Crear modal dinámicamente
+        const modalHtml = `
+            <div class="modal fade" id="modalReporteProgramado" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Nuevo Reporte Programado</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="form-reporte-programado">
+                                <div class="mb-3">
+                                    <label for="nombre-reporte" class="form-label">Nombre del Reporte:</label>
+                                    <input type="text" class="form-control" id="nombre-reporte" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="frecuencia-reporte" class="form-label">Frecuencia:</label>
+                                    <select class="form-select" id="frecuencia-reporte" required>
+                                        <option value="diario">Diario</option>
+                                        <option value="semanal">Semanal</option>
+                                        <option value="mensual">Mensual</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="tipo-reporte-programado" class="form-label">Tipo de Reporte:</label>
+                                    <select class="form-select" id="tipo-reporte-programado" required>
+                                        <option value="general">General</option>
+                                        <option value="detallado">Detallado</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="formato-reporte-programado" class="form-label">Formato:</label>
+                                    <select class="form-select" id="formato-reporte-programado" required>
+                                        <option value="excel">Excel</option>
+                                        <option value="pdf">PDF</option>
+                                    </select>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary" onclick="guardarReporteProgramado()">Guardar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remover modal existente si existe
+        const existingModal = document.getElementById('modalReporteProgramado');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Agregar nuevo modal
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('modalReporteProgramado'));
+        modal.show();
+    };
+    
+    // Función para guardar reporte programado
+    const guardarReporteProgramado = async () => {
+        const nombre = document.getElementById('nombre-reporte').value;
+        const frecuencia = document.getElementById('frecuencia-reporte').value;
+        const tipoReporte = document.getElementById('tipo-reporte-programado').value;
+        const formato = document.getElementById('formato-reporte-programado').value;
+        
+        if (!nombre || !frecuencia || !tipoReporte || !formato) {
+            mostrarNotificacion('Por favor complete todos los campos', 'warning');
+            return;
+        }
+        
+        try {
+            const filtros = obtenerFiltros();
+            const params = {
+                nombre: nombre,
+                frecuencia: frecuencia,
+                tipo_reporte: tipoReporte,
+                formato: formato,
+                parametros: filtros,
+                activo: true
+            };
+            
+            const response = await fetch('/api/reportes/programados', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(params)
+            });
+            
+            if (response.ok) {
+                mostrarNotificacion('Reporte programado creado exitosamente', 'success');
+                const modal = bootstrap.Modal.getInstance(document.getElementById('modalReporteProgramado'));
+                modal.hide();
+                cargarReportesProgramados();
+            } else {
+                const error = await response.json();
+                mostrarNotificacion(error.error || 'Error al crear el reporte programado', 'error');
+            }
+        } catch (error) {
+            console.error('Error al guardar reporte programado:', error);
+            mostrarNotificacion('Error al guardar el reporte programado', 'error');
+        }
+    };
+    
+    // Función para eliminar reporte programado
+    const eliminarReporteProgramado = async (id) => {
+        if (!confirm('¿Está seguro de que desea eliminar este reporte programado?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/reportes/programados/${id}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                mostrarNotificacion('Reporte programado eliminado exitosamente', 'success');
+                cargarReportesProgramados();
+            } else {
+                const error = await response.json();
+                mostrarNotificacion(error.error || 'Error al eliminar el reporte programado', 'error');
+            }
+        } catch (error) {
+            console.error('Error al eliminar reporte programado:', error);
+            mostrarNotificacion('Error al eliminar el reporte programado', 'error');
+        }
+    };
+
     // Event Listeners
     document.getElementById('filtros-form').addEventListener('submit', (e) => {
         e.preventDefault();
         cargarDatos();
     });
+    
+    // Event listener para limpiar filtros
+    document.getElementById('limpiar-filtros').addEventListener('click', limpiarFiltros);
+    
+    // Event listener para guardar configuración
+    document.getElementById('guardar-filtros').addEventListener('click', guardarConfiguracion);
+    
+    // Event listener para auto-refresh
+    document.getElementById('auto-refresh').addEventListener('click', alternarAutoRefresh);
+    
+    // Event listener para filtros avanzados
+    document.querySelector('[data-bs-target="#filtros-avanzados"]').addEventListener('click', alternarFiltrosAvanzados);
 
     // Inicialización
     const inicializar = async () => {
@@ -577,9 +1605,23 @@ document.addEventListener('DOMContentLoaded', function() {
         // Cargar selectores y datos iniciales
         await cargarSelectores();
         await cargarDatos();
+        
+        // Cargar consolidación jerárquica y análisis de tendencias
+        cargarConsolidacionJerarquica();
+        cargarAnalisisTendencias();
+        
+        // Cargar reportes programados
+        cargarReportesProgramados();
     };
 
     inicializar();
+    
+    // Limpiar intervalos al cerrar la página
+    window.addEventListener('beforeunload', () => {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+        }
+    });
 });
 </script>
-{% endblock %} 
+{% endblock %}

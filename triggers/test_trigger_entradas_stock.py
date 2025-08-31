@@ -123,7 +123,7 @@ def main():
             print("   ✅ Tabla 'entradas_stock' existe")
         else:
             print("   ❌ Tabla 'entradas_stock' NO existe")
-            print("   💡 Ejecuta primero el archivo triggers_mysql_ferretero.sql")
+            print("   💡 Ejecuta primero el archivo triggers_mysql_ferretero.sql desde la carpeta triggers")
             return
         
         if verificar_tabla_existe(cursor, 'stock_general'):
@@ -139,7 +139,7 @@ def main():
             print("   ✅ Trigger 'actualizar_stock_entrada' existe")
         else:
             print("   ❌ Trigger 'actualizar_stock_entrada' NO existe")
-            print("   💡 Ejecuta primero el archivo triggers_mysql_ferretero.sql")
+            print("   💡 Ejecuta primero el archivo triggers_mysql_ferretero.sql desde la carpeta triggers")
             return
         
         # 3. Probar con material existente (silicona)

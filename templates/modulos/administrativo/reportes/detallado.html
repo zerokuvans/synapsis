@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Reportes Detallados</h2>
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-chart-bar me-2"></i>Dashboard
+            </a>
+            <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-primary">
+                <i class="fas fa-cog me-2"></i>Configuración
+            </a>
+            <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-info">
+                <i class="fas fa-chart-line me-2"></i>Análisis
+            </a>
+            <a href="{{ url_for('admin_reportes') }}" class="btn btn-outline-success">
+                <i class="fas fa-download me-2"></i>Exportar
+            </a>
+        </div>
+    </div>
+
+    <!-- Panel de Filtros Avanzados -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-filter me-2"></i>Filtros Avanzados
+                <button class="btn btn-sm btn-outline-secondary float-end" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosAvanzados">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+            </h5>
+        </div>
+        <div class="collapse show" id="filtrosAvanzados">
+            <div class="card-body">
+                <form id="filtros-detallados-form">
+                    <div class="row g-3">
+                        <!-- Filtros de Fecha -->
+                        <div class="col-md-3">
+                            <label for="fecha-inicio" class="form-label">Fecha Inicio</label>
+                            <input type="date" class="form-control" id="fecha-inicio" name="fecha_inicio">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="fecha-fin" class="form-label">Fecha Fin</label>
+                            <input type="date" class="form-control" id="fecha-fin" name="fecha_fin">
+                        </div>
+                        
+                        <!-- Filtros de Personal -->
+                        <div class="col-md-3">
+                            <label for="supervisor" class="form-label">Supervisor</label>
+                            <select class="form-select" id="supervisor" name="supervisor">
+                                <option value="">Todos los supervisores</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="tecnico" class="form-label">Técnico</label>
+                            <select class="form-select" id="tecnico" name="tecnico">
+                                <option value="">Todos los técnicos</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Filtros de Ubicación -->
+                        <div class="col-md-3">
+                            <label for="centro-trabajo" class="form-label">Centro de Trabajo</label>
+                            <select class="form-select" id="centro-trabajo" name="centro_trabajo">
+                                <option value="">Todos los centros</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="zona" class="form-label">Zona</label>
+                            <select class="form-select" id="zona" name="zona">
+                                <option value="">Todas las zonas</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Filtros de Estado -->
+                        <div class="col-md-3">
+                            <label for="estado-vehiculo" class="form-label">Estado Vehículo</label>
+                            <select class="form-select" id="estado-vehiculo" name="estado_vehiculo">
+                                <option value="">Todos los estados</option>
+                                <option value="BUENO">Bueno</option>
+                                <option value="REGULAR">Regular</option>
+                                <option value="MALO">Malo</option>
+                                <option value="FUERA_SERVICIO">Fuera de Servicio</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="tipo-reporte" class="form-label">Tipo de Reporte</label>
+                            <select class="form-select" id="tipo-reporte" name="tipo_reporte">
+                                <option value="">Todos los tipos</option>
+                                <option value="preoperacional">Preoperacional</option>
+                                <option value="vencimientos">Vencimientos</option>
+                                <option value="incidencias">Incidencias</option>
+                                <option value="mantenimiento">Mantenimiento</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-search me-2"></i>Buscar
+                            </button>
+                            <button type="button" class="btn btn-secondary me-2" id="limpiar-filtros">
+                                <i class="fas fa-eraser me-2"></i>Limpiar
+                            </button>
+                            <button type="button" class="btn btn-info me-2" id="guardar-filtros">
+                                <i class="fas fa-save me-2"></i>Guardar Filtros
+                            </button>
+                            <button type="button" class="btn btn-outline-info" id="cargar-filtros">
+                                <i class="fas fa-folder-open me-2"></i>Cargar Filtros
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resultados -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-table me-2"></i>Resultados
+                <span class="badge bg-primary ms-2" id="total-registros">0</span>
+            </h5>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-sm btn-outline-success" id="exportar-excel">
+                    <i class="fas fa-file-excel me-1"></i>Excel
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger" id="exportar-pdf">
+                    <i class="fas fa-file-pdf me-1"></i>PDF
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-info" id="exportar-csv">
+                    <i class="fas fa-file-csv me-1"></i>CSV
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover" id="tabla-resultados">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Técnico</th>
+                            <th>Supervisor</th>
+                            <th>Centro Trabajo</th>
+                            <th>Placa</th>
+                            <th>Estado Vehículo</th>
+                            <th>Kilometraje</th>
+                            <th>Observaciones</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-resultados-body">
+                        <!-- Los datos se cargarán dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Paginación -->
+            <nav aria-label="Paginación de resultados" class="mt-3">
+                <ul class="pagination justify-content-center" id="paginacion">
+                    <!-- La paginación se generará dinámicamente -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Detalles -->
+<div class="modal fade" id="modalDetalles" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalles del Registro</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modal-detalles-body">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Guardar Filtros -->
+<div class="modal fade" id="modalGuardarFiltros" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Guardar Configuración de Filtros</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="form-guardar-filtros">
+                    <div class="mb-3">
+                        <label for="nombre-filtro" class="form-label">Nombre de la Configuración</label>
+                        <input type="text" class="form-control" id="nombre-filtro" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descripcion-filtro" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="descripcion-filtro" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmar-guardar-filtros">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let paginaActual = 1;
+    const registrosPorPagina = 25;
+    
+    // Función para obtener los filtros actuales
+    const obtenerFiltros = () => {
+        const form = document.getElementById('filtros-detallados-form');
+        const formData = new FormData(form);
+        const filtros = {};
+        
+        for (let [key, value] of formData.entries()) {
+            if (value.trim() !== '') {
+                filtros[key] = value;
+            }
+        }
+        
+        return filtros;
+    };
+    
+    // Función para cargar los selectores
+    const cargarSelectores = async () => {
+        try {
+            const response = await fetch('/api/reportes/filtros/avanzados');
+            const data = await response.json();
+            
+            // Cargar supervisores
+            const supervisorSelect = document.getElementById('supervisor');
+            supervisorSelect.innerHTML = '<option value="">Todos los supervisores</option>';
+            data.supervisores.forEach(supervisor => {
+                supervisorSelect.add(new Option(supervisor, supervisor));
+            });
+            
+            // Cargar técnicos
+            const tecnicoSelect = document.getElementById('tecnico');
+            tecnicoSelect.innerHTML = '<option value="">Todos los técnicos</option>';
+            data.tecnicos.forEach(tecnico => {
+                tecnicoSelect.add(new Option(tecnico.nombre, tecnico.id));
+            });
+            
+            // Cargar centros de trabajo
+            const centroSelect = document.getElementById('centro-trabajo');
+            centroSelect.innerHTML = '<option value="">Todos los centros</option>';
+            data.centros_trabajo.forEach(centro => {
+                centroSelect.add(new Option(centro, centro));
+            });
+            
+            // Cargar zonas
+            const zonaSelect = document.getElementById('zona');
+            zonaSelect.innerHTML = '<option value="">Todas las zonas</option>';
+            data.zonas.forEach(zona => {
+                zonaSelect.add(new Option(zona, zona));
+            });
+            
+        } catch (error) {
+            console.error('Error al cargar selectores:', error);
+        }
+    };
+    
+    // Función para cargar datos
+    const cargarDatos = async (pagina = 1) => {
+        try {
+            const filtros = obtenerFiltros();
+            filtros.pagina = pagina;
+            filtros.limite = registrosPorPagina;
+            
+            const queryParams = new URLSearchParams(filtros);
+            const response = await fetch(`/api/reportes/generar/consolidado?${queryParams}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            actualizarTabla(data.registros);
+            actualizarPaginacion(data.total, pagina);
+            document.getElementById('total-registros').textContent = data.total;
+            
+        } catch (error) {
+            console.error('Error al cargar datos:', error);
+            mostrarError(error.message);
+        }
+    };
+    
+    // Función para actualizar la tabla
+    const actualizarTabla = (registros) => {
+        const tbody = document.getElementById('tabla-resultados-body');
+        tbody.innerHTML = '';
+        
+        registros.forEach(registro => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${new Date(registro.fecha).toLocaleDateString('es-ES')}</td>
+                <td>${registro.nombre_tecnico}</td>
+                <td>${registro.supervisor || 'N/A'}</td>
+                <td>${registro.centro_trabajo || 'N/A'}</td>
+                <td>${registro.placa_vehiculo}</td>
+                <td>
+                    <span class="badge bg-${getEstadoBadgeClass(registro.estado_vehiculo)}">
+                        ${registro.estado_vehiculo}
+                    </span>
+                </td>
+                <td>${registro.kilometraje || 'N/A'}</td>
+                <td>${registro.observaciones ? registro.observaciones.substring(0, 50) + '...' : 'Sin observaciones'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-info" onclick="verDetalles(${registro.id})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    };
+    
+    // Función para obtener la clase CSS del badge según el estado
+    const getEstadoBadgeClass = (estado) => {
+        switch (estado) {
+            case 'BUENO': return 'success';
+            case 'REGULAR': return 'warning';
+            case 'MALO': return 'danger';
+            case 'FUERA_SERVICIO': return 'dark';
+            default: return 'secondary';
+        }
+    };
+    
+    // Función para actualizar la paginación
+    const actualizarPaginacion = (total, paginaActual) => {
+        const totalPaginas = Math.ceil(total / registrosPorPagina);
+        const paginacion = document.getElementById('paginacion');
+        paginacion.innerHTML = '';
+        
+        // Botón anterior
+        const anteriorLi = document.createElement('li');
+        anteriorLi.className = `page-item ${paginaActual === 1 ? 'disabled' : ''}`;
+        anteriorLi.innerHTML = `<a class="page-link" href="#" onclick="cambiarPagina(${paginaActual - 1})">Anterior</a>`;
+        paginacion.appendChild(anteriorLi);
+        
+        // Números de página
+        for (let i = Math.max(1, paginaActual - 2); i <= Math.min(totalPaginas, paginaActual + 2); i++) {
+            const li = document.createElement('li');
+            li.className = `page-item ${i === paginaActual ? 'active' : ''}`;
+            li.innerHTML = `<a class="page-link" href="#" onclick="cambiarPagina(${i})">${i}</a>`;
+            paginacion.appendChild(li);
+        }
+        
+        // Botón siguiente
+        const siguienteLi = document.createElement('li');
+        siguienteLi.className = `page-item ${paginaActual === totalPaginas ? 'disabled' : ''}`;
+        siguienteLi.innerHTML = `<a class="page-link" href="#" onclick="cambiarPagina(${paginaActual + 1})">Siguiente</a>`;
+        paginacion.appendChild(siguienteLi);
+    };
+    
+    // Función para cambiar de página
+    window.cambiarPagina = (pagina) => {
+        if (pagina >= 1) {
+            paginaActual = pagina;
+            cargarDatos(pagina);
+        }
+    };
+    
+    // Función para ver detalles
+    window.verDetalles = async (id) => {
+        try {
+            const response = await fetch(`/api/reportes/detalle/${id}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            const modalBody = document.getElementById('modal-detalles-body');
+            modalBody.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Información General</h6>
+                        <p><strong>Fecha:</strong> ${new Date(data.fecha).toLocaleDateString('es-ES')}</p>
+                        <p><strong>Técnico:</strong> ${data.nombre_tecnico}</p>
+                        <p><strong>Supervisor:</strong> ${data.supervisor || 'N/A'}</p>
+                        <p><strong>Centro de Trabajo:</strong> ${data.centro_trabajo || 'N/A'}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Información del Vehículo</h6>
+                        <p><strong>Placa:</strong> ${data.placa_vehiculo}</p>
+                        <p><strong>Estado:</strong> ${data.estado_vehiculo}</p>
+                        <p><strong>Kilometraje:</strong> ${data.kilometraje || 'N/A'}</p>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>Observaciones</h6>
+                        <p>${data.observaciones || 'Sin observaciones'}</p>
+                    </div>
+                </div>
+            `;
+            
+            new bootstrap.Modal(document.getElementById('modalDetalles')).show();
+            
+        } catch (error) {
+            console.error('Error al cargar detalles:', error);
+            mostrarError(error.message);
+        }
+    };
+    
+    // Función para mostrar errores
+    const mostrarError = (mensaje) => {
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger alert-dismissible fade show';
+        alert.innerHTML = `
+            <strong>Error:</strong> ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.container-fluid').prepend(alert);
+    };
+    
+    // Event Listeners
+    document.getElementById('filtros-detallados-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        paginaActual = 1;
+        cargarDatos(1);
+    });
+    
+    document.getElementById('limpiar-filtros').addEventListener('click', () => {
+        document.getElementById('filtros-detallados-form').reset();
+        paginaActual = 1;
+        cargarDatos(1);
+    });
+    
+    document.getElementById('guardar-filtros').addEventListener('click', () => {
+        new bootstrap.Modal(document.getElementById('modalGuardarFiltros')).show();
+    });
+    
+    document.getElementById('confirmar-guardar-filtros').addEventListener('click', async () => {
+        const nombre = document.getElementById('nombre-filtro').value;
+        const descripcion = document.getElementById('descripcion-filtro').value;
+        const filtros = obtenerFiltros();
+        
+        try {
+            const response = await fetch('/api/reportes/configuracion', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    nombre,
+                    descripcion,
+                    tipo: 'filtros_detallados',
+                    configuracion: filtros
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            bootstrap.Modal.getInstance(document.getElementById('modalGuardarFiltros')).hide();
+            
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-success alert-dismissible fade show';
+            alert.innerHTML = `
+                Configuración guardada exitosamente
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.container-fluid').prepend(alert);
+            
+        } catch (error) {
+            console.error('Error al guardar filtros:', error);
+            mostrarError(error.message);
+        }
+    });
+    
+    // Exportación
+    document.getElementById('exportar-excel').addEventListener('click', () => {
+        exportarDatos('excel');
+    });
+    
+    document.getElementById('exportar-pdf').addEventListener('click', () => {
+        exportarDatos('pdf');
+    });
+    
+    document.getElementById('exportar-csv').addEventListener('click', () => {
+        exportarDatos('csv');
+    });
+    
+    const exportarDatos = (formato) => {
+        const filtros = obtenerFiltros();
+        filtros.formato = formato;
+        const queryParams = new URLSearchParams(filtros);
+        window.open(`/api/reportes/exportar?${queryParams}`, '_blank');
+    };
+    
+    // Inicialización
+    const inicializar = async () => {
+        // Establecer fechas por defecto
+        const hoy = new Date();
+        const hace30Dias = new Date(hoy);
+        hace30Dias.setDate(hoy.getDate() - 30);
+        
+        document.getElementById('fecha-fin').value = hoy.toISOString().split('T')[0];
+        document.getElementById('fecha-inicio').value = hace30Dias.toISOString().split('T')[0];
+        
+        await cargarSelectores();
+        await cargarDatos(1);
+    };
+    
+    inicializar();
+});
+</script>
+{% endblock %}

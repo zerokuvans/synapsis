@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container-fluid px-4">
-    <h1 class="mt-4">Registro de Asistencia</h1>
+    <h1 class="mt-4">Edición de Asistencia</h1>
     
     <!-- Información de zona horaria -->
     <div class="alert alert-info mb-4">
@@ -17,81 +17,149 @@
         </div>
     </div>
     
-    <div class="card mb-4">
-        <div class="card-header">
-            <i class="fas fa-user-clock me-1"></i>
-            Registrar Nueva Asistencia
+    <!-- Sección de registro oculta -->
+    <div style="display: none;">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-user-clock me-1"></i>
+                Registrar Nueva Asistencia
+            </div>
+            <div class="card-body">
+                <form id="formAsistencia" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="supervisor" class="form-label">Supervisor</label>
+                        <select class="form-select" id="supervisor" name="supervisor" required onchange="cargarTecnicosPorSupervisor()">
+                            <option value="">Seleccione un supervisor</option>
+                            {% for supervisor in supervisores %}
+                            <option value="{{ supervisor }}">{{ supervisor }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    </div>
+                </form>
+            </div>
         </div>
-        <div class="card-body">
-            <form id="formAsistencia" class="row g-3">
-                <div class="col-md-4">
-                    <label for="supervisor" class="form-label">Supervisor</label>
-                    <select class="form-select" id="supervisor" name="supervisor" required onchange="cargarTecnicosPorSupervisor()">
-                        <option value="">Seleccione un supervisor</option>
-                        {% for supervisor in supervisores %}
-                        <option value="{{ supervisor }}">{{ supervisor }}</option>
-                        {% endfor %}
-                    </select>
+
+        <!-- Tabla de técnicos del supervisor seleccionado -->
+        <div class="card mt-4" id="tablaTecnicosCard" style="display: none;">
+            <div class="card-header pb-0">
+                <h6>Técnicos del Supervisor</h6>
+                <p class="text-sm mb-0">Seleccione la carpeta día para cada técnico</p>
+            </div>
+            <div class="card-body px-0 pt-0 pb-2">
+                <div class="table-responsive p-0">
+                    <table class="table align-items-center mb-0" id="tablaTecnicos">
+                        <thead>
+                            <tr>
+                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Técnico</th>
+                                <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Cédula</th>
+                                <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Carpeta Día</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoTablaTecnicos">
+                            <!-- Los técnicos se cargarán dinámicamente aquí -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-center mt-3">
+                    <button type="button" class="btn btn-primary" id="btnRegistrarAsistencia" onclick="registrarAsistenciaCompleta()" disabled>
+                        <i class="fas fa-save me-2"></i>Registrar Asistencia
+                    </button>
+                </div>
+        
+        <div class="card mb-4" style="display: none;">
+            <div class="card-header">
+                <i class="fas fa-table me-1"></i>
+                Asistencias por Registrar
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="tablaAsistencias">
+                        <thead>
+                            <tr>
+                                <th>Cédula</th>
+                                <th>Técnico</th>
+                                <th>Carpeta Día</th>
+                                <th>Carpeta</th>
+                                <th>Supervisor</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
                 </div>
                 
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Tabla de técnicos del supervisor seleccionado -->
-    <div class="card mt-4" id="tablaTecnicosCard" style="display: none;">
-        <div class="card-header pb-0">
-            <h6>Técnicos del Supervisor</h6>
-            <p class="text-sm mb-0">Seleccione la carpeta día para cada técnico</p>
-        </div>
-        <div class="card-body px-0 pt-0 pb-2">
-            <div class="table-responsive p-0">
-                <table class="table align-items-center mb-0" id="tablaTecnicos">
-                    <thead>
-                        <tr>
-                            <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Técnico</th>
-                            <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Cédula</th>
-                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Carpeta Día</th>
-                        </tr>
-                    </thead>
-                    <tbody id="cuerpoTablaTecnicos">
-                        <!-- Los técnicos se cargarán dinámicamente aquí -->
-                    </tbody>
-                </table>
-            </div>
-            <div class="text-center mt-3">
-                <button type="button" class="btn btn-primary" id="btnRegistrarAsistencia" onclick="registrarAsistenciaCompleta()" disabled>
-                    <i class="fas fa-save me-2"></i>Registrar Asistencia
+                <button type="button" class="btn btn-success" onclick="guardarAsistencias()" id="btnGuardar" disabled>
+                    <i class="fas fa-save me-1"></i> Guardar Todas las Asistencias
                 </button>
             </div>
-    
-    <div class="card mb-4" style="display: none;">
-        <div class="card-header">
-            <i class="fas fa-table me-1"></i>
-            Asistencias por Registrar
         </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-bordered" id="tablaAsistencias">
-                    <thead>
-                        <tr>
-                            <th>Cédula</th>
-                            <th>Técnico</th>
-                            <th>Carpeta Día</th>
-                            <th>Carpeta</th>
-                            <th>Supervisor</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                </table>
+    </div>
+</div>
+
+<!-- Sección de Edición de Asistencia -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="fas fa-edit me-2"></i>Edición de Asistencia
+                </h5>
             </div>
-            
-            <button type="button" class="btn btn-success" onclick="guardarAsistencias()" id="btnGuardar" disabled>
-                <i class="fas fa-save me-1"></i> Guardar Todas las Asistencias
-            </button>
+            <div class="card-body">
+                <!-- Filtros de búsqueda -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="supervisorEdicion" class="form-label">Supervisor:</label>
+                        <select class="form-select" id="supervisorEdicion" onchange="cargarRegistrosAsistencia()">
+                            <option value="">Seleccione un supervisor</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="fechaEdicion" class="form-label">Fecha:</label>
+                        <input type="date" class="form-control" id="fechaEdicion" onchange="cargarRegistrosAsistencia()">
+                    </div>
+                </div>
+                
+                <!-- Tabla de registros para edición -->
+                <div id="tablaEdicionCard" style="display: none;">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="tablaEdicionAsistencias">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Cédula</th>
+                                    <th>Técnico</th>
+                                    <th>Carpeta Día</th>
+                                    <th>Carpeta</th>
+                                    <th>Supervisor</th>
+                                    <th>Fecha</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Los registros se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-success" id="btnGuardarCambios" onclick="guardarCambiosEdicion()" disabled>
+                            <i class="fas fa-save me-2"></i>Guardar Cambios
+                        </button>
+                        <button type="button" class="btn btn-secondary ms-2" onclick="cancelarEdicion()">
+                            <i class="fas fa-times me-2"></i>Cancelar
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Mensaje cuando no hay registros -->
+                <div id="mensajeSinRegistros" class="alert alert-info" style="display: none;">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No se encontraron registros de asistencia para el supervisor y fecha seleccionados.
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -483,5 +551,286 @@ function mostrarAlerta(mensaje, tipo) {
         alertaDiv.remove();
     }, 5000);
 }
+
+// Variables para la edición
+let registrosEdicion = [];
+let registrosModificados = [];
+let tipificacionesDisponibles = [];
+let supervisoresDisponibles = [];
+
+// Cargar tipificaciones disponibles
+async function cargarTipificaciones() {
+    try {
+        const response = await fetch('/api/asistencia/tipificacion', {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            tipificacionesDisponibles = data.tipificaciones;
+        }
+    } catch (error) {
+        console.error('Error cargando tipificaciones:', error);
+    }
+}
+
+// Cargar supervisores disponibles
+async function cargarSupervisoresDisponibles() {
+    try {
+        const response = await fetch('/api/asistencia/supervisores', {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            supervisoresDisponibles = data.supervisores;
+        }
+    } catch (error) {
+        console.error('Error cargando supervisores:', error);
+    }
+}
+
+// Cargar supervisores para la sección de edición
+async function cargarSupervisoresEdicion() {
+    try {
+        const response = await fetch('/api/supervisores');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.getElementById('supervisorEdicion');
+            select.innerHTML = '<option value="">Seleccione un supervisor</option>';
+            
+            data.supervisores.forEach(supervisor => {
+                const option = document.createElement('option');
+                option.value = supervisor;
+                option.textContent = supervisor;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error cargando supervisores:', error);
+        mostrarAlerta('Error al cargar supervisores', 'danger');
+    }
+}
+
+// Cargar registros de asistencia para edición
+async function cargarRegistrosAsistencia() {
+    const supervisor = document.getElementById('supervisorEdicion').value;
+    const fecha = document.getElementById('fechaEdicion').value;
+    
+    if (!supervisor || !fecha) {
+        const tablaEdicionCard = document.getElementById('tablaEdicionCard');
+        const mensajeSinRegistros = document.getElementById('mensajeSinRegistros');
+        if (tablaEdicionCard) tablaEdicionCard.style.display = 'none';
+        if (mensajeSinRegistros) mensajeSinRegistros.style.display = 'none';
+        return;
+    }
+    
+    try {
+        // Cargar tipificaciones y supervisores si no están cargados
+        if (tipificacionesDisponibles.length === 0) {
+            await cargarTipificaciones();
+        }
+        if (supervisoresDisponibles.length === 0) {
+            await cargarSupervisoresDisponibles();
+        }
+        
+        const response = await fetch(`/api/asistencia/consultar?supervisor=${encodeURIComponent(supervisor)}&fecha=${fecha}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            registrosEdicion = data.registros;
+            registrosModificados = [];
+            
+            if (registrosEdicion.length > 0) {
+                mostrarTablaEdicion();
+                const tablaEdicionCard = document.getElementById('tablaEdicionCard');
+                const mensajeSinRegistros = document.getElementById('mensajeSinRegistros');
+                if (tablaEdicionCard) tablaEdicionCard.style.display = 'block';
+                if (mensajeSinRegistros) mensajeSinRegistros.style.display = 'none';
+            } else {
+                const tablaEdicionCard = document.getElementById('tablaEdicionCard');
+                const mensajeSinRegistros = document.getElementById('mensajeSinRegistros');
+                if (tablaEdicionCard) tablaEdicionCard.style.display = 'none';
+                if (mensajeSinRegistros) mensajeSinRegistros.style.display = 'block';
+            }
+        } else {
+            mostrarAlerta('Error al cargar registros: ' + data.message, 'danger');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarAlerta('Error al cargar registros de asistencia', 'danger');
+    }
+}
+
+// Crear select de tipificaciones
+function crearSelectTipificacion(valorActual, index) {
+    let options = '<option value="">Seleccione...</option>';
+    tipificacionesDisponibles.forEach(tip => {
+        const selected = tip.codigo === valorActual ? 'selected' : '';
+        options += `<option value="${tip.codigo}" ${selected}>${tip.codigo} - ${tip.descripcion}</option>`;
+    });
+    return `<select class="form-control form-control-sm" onchange="marcarModificado(${index}, 'carpeta_dia', this.value)">${options}</select>`;
+}
+
+// Crear select de supervisores
+function crearSelectSupervisor(valorActual, index) {
+    let options = '<option value="">Seleccione...</option>';
+    supervisoresDisponibles.forEach(sup => {
+        const selected = sup === valorActual ? 'selected' : '';
+        options += `<option value="${sup}" ${selected}>${sup}</option>`;
+    });
+    return `<select class="form-control form-control-sm" onchange="marcarModificado(${index}, 'super', this.value)">${options}</select>`;
+}
+
+// Mostrar tabla de edición
+function mostrarTablaEdicion() {
+    const tbody = document.querySelector('#tablaEdicionAsistencias tbody');
+    tbody.innerHTML = '';
+    
+    registrosEdicion.forEach((registro, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <input type="text" class="form-control form-control-sm" 
+                       value="${registro.cedula}" 
+                       readonly style="background-color: #f8f9fa;">
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm" 
+                       value="${registro.tecnico}" 
+                       readonly style="background-color: #f8f9fa;">
+            </td>
+            <td>
+                ${crearSelectTipificacion(registro.carpeta_dia, index)}
+            </td>
+            <td>
+                <input type="text" class="form-control form-control-sm" 
+                       value="${registro.carpeta}" 
+                       onchange="marcarModificado(${index}, 'carpeta', this.value)">
+            </td>
+            <td>
+                ${crearSelectSupervisor(registro.super, index)}
+            </td>
+            <td>
+                <small class="text-muted">${new Date(registro.fecha_asistencia).toLocaleString()}</small>
+            </td>
+            <td>
+                <button class="btn btn-danger btn-sm" onclick="eliminarRegistroEdicion(${index})" title="Eliminar">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// Marcar registro como modificado
+function marcarModificado(index, campo, valor) {
+    registrosEdicion[index][campo] = valor;
+    
+    // Agregar a la lista de modificados si no está ya
+    if (!registrosModificados.find(r => r.id_asistencia === registrosEdicion[index].id_asistencia)) {
+        registrosModificados.push(registrosEdicion[index]);
+    }
+    
+    // Habilitar botón de guardar
+    document.getElementById('btnGuardarCambios').disabled = false;
+}
+
+// Eliminar registro de edición
+async function eliminarRegistroEdicion(index) {
+    if (!confirm('¿Está seguro de que desea eliminar este registro?')) {
+        return;
+    }
+    
+    const registro = registrosEdicion[index];
+    
+    try {
+        const response = await fetch('/api/asistencia/eliminar', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ id_asistencia: registro.id_asistencia })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarAlerta('Registro eliminado correctamente', 'success');
+            // Recargar la tabla
+            cargarRegistrosAsistencia();
+        } else {
+            mostrarAlerta('Error al eliminar registro: ' + data.message, 'danger');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarAlerta('Error al eliminar registro', 'danger');
+    }
+}
+
+// Guardar cambios de edición
+async function guardarCambiosEdicion() {
+    if (registrosModificados.length === 0) {
+        mostrarAlerta('No hay cambios para guardar', 'warning');
+        return;
+    }
+    
+    try {
+        const promesas = registrosModificados.map(registro => 
+            fetch('/api/asistencia/actualizar', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(registro)
+            })
+        );
+        
+        const respuestas = await Promise.all(promesas);
+        const resultados = await Promise.all(respuestas.map(r => r.json()));
+        
+        const exitosos = resultados.filter(r => r.success).length;
+        const fallidos = resultados.filter(r => !r.success).length;
+        
+        if (exitosos > 0) {
+            mostrarAlerta(`Se actualizaron ${exitosos} registros correctamente`, 'success');
+            registrosModificados = [];
+            document.getElementById('btnGuardarCambios').disabled = true;
+        }
+        
+        if (fallidos > 0) {
+            mostrarAlerta(`${fallidos} registros no pudieron actualizarse`, 'warning');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarAlerta('Error al guardar cambios', 'danger');
+    }
+}
+
+// Cancelar edición
+function cancelarEdicion() {
+    const supervisorEdicion = document.getElementById('supervisorEdicion');
+    const fechaEdicion = document.getElementById('fechaEdicion');
+    const tablaEdicionCard = document.getElementById('tablaEdicionCard');
+    const mensajeSinRegistros = document.getElementById('mensajeSinRegistros');
+    const btnGuardarCambios = document.getElementById('btnGuardarCambios');
+    
+    if (supervisorEdicion) supervisorEdicion.value = '';
+    if (fechaEdicion) fechaEdicion.value = '';
+    if (tablaEdicionCard) tablaEdicionCard.style.display = 'none';
+    if (mensajeSinRegistros) mensajeSinRegistros.style.display = 'none';
+    if (btnGuardarCambios) btnGuardarCambios.disabled = true;
+    
+    registrosEdicion = [];
+    registrosModificados = [];
+}
+
+// Inicializar la sección de edición al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    cargarSupervisoresEdicion();
+});
 </script>
 {% endblock %}
