@@ -188,6 +188,64 @@
         </div>
     </div>
     
+    <!-- Comparación Mes a Mes de Asignaciones -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <i class="fas fa-chart-line me-1"></i>
+            Asignaciones Mes a Mes de Materiales
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label for="filtroMaterialComparacion" class="form-label">Seleccionar Material</label>
+                    <select class="form-select" id="filtroMaterialComparacion">
+                        <option value="silicona">Silicona</option>
+                        <option value="amarres_negros">Amarres Negros</option>
+                        <option value="amarres_blancos">Amarres Blancos</option>
+                        <option value="cinta_aislante">Cinta Aislante</option>
+                        <option value="grapas_blancas">Grapas Blancas</option>
+                        <option value="grapas_negras">Grapas Negras</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="anioComparacion" class="form-label">Año</label>
+                    <select class="form-select" id="anioComparacion">
+                        <option value="2024">2024</option>
+                        <option value="2025" selected>2025</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="tipoGrafico" class="form-label">Tipo de Gráfico</label>
+                    <select class="form-select" id="tipoGrafico">
+                        <option value="line" selected>📈 Líneas</option>
+                        <option value="bar">📊 Barras</option>
+                        <option value="pie">🥧 Pastel</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary" id="btnActualizarComparacion">
+                        <i class="fas fa-sync-alt me-1"></i> Actualizar Gráfico
+                    </button>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Gráfico de Asignaciones:</strong> Muestra las cantidades de material asignadas a técnicos por mes.
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-12">
+                    <div style="height: 400px;">
+                        <canvas id="graficoComparacionMensual"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Resumen de Estadísticas -->
     <div class="row mb-4">
         <div class="col-md-6">
@@ -197,17 +255,56 @@
                     Estadísticas por Técnico
                 </div>
                 <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Mostrar columnas:</label>
+                        <div class="d-flex gap-3 flex-wrap">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="mostrarSilicona" checked>
+                                <label class="form-check-label" for="mostrarSilicona">
+                                    <span class="badge" style="background-color: #6f42c1;">●</span> Silicona
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="mostrarAmarres" checked>
+                                <label class="form-check-label" for="mostrarAmarres">
+                                    <span class="badge" style="background-color: #fd7e14;">●</span> Amarres
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="mostrarCinta" checked>
+                                <label class="form-check-label" for="mostrarCinta">
+                                    <span class="badge" style="background-color: #20c997;">●</span> Cinta
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="mostrarGrapas" checked>
+                                <label class="form-check-label" for="mostrarGrapas">
+                                    <span class="badge" style="background-color: #e83e8c;">●</span> Grapas
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-striped table-hover">
                             <thead>
                                 <tr>
                                     <th>Técnico</th>
                                     <th>Área</th>
-                                    <th>Silicona</th>
-                                    <th>Amarres</th>
-                                    <th>Cinta</th>
-                                    <th>Grapas</th>
-                                    <th>Total</th>
+                                    <th class="sortable" data-column="silicona" style="cursor: pointer;">
+                                        Silicona <i class="fas fa-sort text-muted" id="sort-silicona"></i>
+                                    </th>
+                                    <th class="sortable" data-column="amarres" style="cursor: pointer;">
+                                        Amarres <i class="fas fa-sort text-muted" id="sort-amarres"></i>
+                                    </th>
+                                    <th class="sortable" data-column="cinta" style="cursor: pointer;">
+                                        Cinta <i class="fas fa-sort text-muted" id="sort-cinta"></i>
+                                    </th>
+                                    <th class="sortable" data-column="grapas" style="cursor: pointer;">
+                                        Grapas <i class="fas fa-sort text-muted" id="sort-grapas"></i>
+                                    </th>
+                                    <th class="sortable" data-column="total" style="cursor: pointer;">
+                                        Total <i class="fas fa-sort text-muted" id="sort-total"></i>
+                                    </th>
                                     <!-- <th>Promedio Mensual</th> -->
                                 </tr>
                             </thead>
@@ -270,16 +367,45 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Variable global para el gráfico de distribución
+    // Variables globales para los gráficos
     let graficoDistribucion = null;
+    let graficoComparacionMensual = null;
+    let datosComparacionActuales = null; // Para almacenar los datos actuales del gráfico
+    let datosEstadisticasActuales = null; // Para almacenar los datos actuales de la tabla
+    
+    // Variables globales para ordenamiento
+    let ordenActual = { columna: null, direccion: 'asc' };
     
     // Función para cargar las estadísticas al cargar la página
     document.addEventListener('DOMContentLoaded', function() {
         cargarEstadisticasFerretero();
+        cargarComparacionMensual(); // Cargar gráfico de comparación mensual
         
         // Eventos para los filtros
         document.getElementById('btnActualizarEstadisticas').addEventListener('click', cargarEstadisticasFerretero);
         document.getElementById('btnExportarExcel').addEventListener('click', exportarEstadisticasExcel);
+        
+        // Eventos para comparación mensual
+        document.getElementById('btnActualizarComparacion').addEventListener('click', cargarComparacionMensual);
+        document.getElementById('filtroMaterialComparacion').addEventListener('change', cargarComparacionMensual);
+        document.getElementById('anioComparacion').addEventListener('change', cargarComparacionMensual);
+        document.getElementById('tipoGrafico').addEventListener('change', cargarComparacionMensual);
+        
+        // Los checkboxes de filtro del gráfico fueron removidos ya que ahora solo muestra asignaciones
+        
+        // Eventos para los checkboxes de filtro de la tabla
+        document.getElementById('mostrarSilicona').addEventListener('change', actualizarTablaConFiltros);
+        document.getElementById('mostrarAmarres').addEventListener('change', actualizarTablaConFiltros);
+        document.getElementById('mostrarCinta').addEventListener('change', actualizarTablaConFiltros);
+        document.getElementById('mostrarGrapas').addEventListener('change', actualizarTablaConFiltros);
+        
+        // Eventos para ordenamiento de la tabla
+        document.querySelectorAll('.sortable').forEach(header => {
+            header.addEventListener('click', function() {
+                const column = this.getAttribute('data-column');
+                ordenarTabla(column);
+            });
+        });
     });
     
     // Función para cargar las estadísticas de asignación de ferretero
@@ -388,8 +514,20 @@
     
     // Función para llenar la tabla de estadísticas
     function llenarTablaEstadisticas(estadisticas) {
+        // Almacenar los datos para uso posterior con filtros
+        datosEstadisticasActuales = estadisticas;
+        
         const tbody = document.getElementById('tablaEstadisticasBody');
         tbody.innerHTML = '';
+        
+        // Verificar qué columnas mostrar según los checkboxes
+        const mostrarSilicona = document.getElementById('mostrarSilicona').checked;
+        const mostrarAmarres = document.getElementById('mostrarAmarres').checked;
+        const mostrarCinta = document.getElementById('mostrarCinta').checked;
+        const mostrarGrapas = document.getElementById('mostrarGrapas').checked;
+        
+        // Actualizar encabezados de la tabla
+        actualizarEncabezadosTabla(mostrarSilicona, mostrarAmarres, mostrarCinta, mostrarGrapas);
         
         // Obtener el material filtrado para destacar la columna correspondiente
         const filtroMaterial = document.getElementById('filtroMaterial').value;
@@ -442,16 +580,28 @@
                 fila.classList.add('table-danger');
             }
             
-            fila.innerHTML = `
+            let filaHTML = `
                 <td>${item.nombre}</td>
                 <td>${item.area || 'No especificada'}</td>
-                <td class="${filtroMaterial === 'silicona' ? 'material-destacado' : ''}">${item.silicona || 0}</td>
-                <td class="${filtroMaterial === 'amarres' ? 'material-destacado' : ''}">${(item.amarres_negros || 0) + (item.amarres_blancos || 0)}</td>
-                <td class="${filtroMaterial === 'cinta' ? 'material-destacado' : ''}">${item.cinta_aislante || 0}</td>
-                <td class="${filtroMaterial === 'grapas' ? 'material-destacado' : ''}">${(item.grapas_blancas || 0) + (item.grapas_negras || 0)}</td>
-                <td><strong>${item.total_asignaciones || 0}</strong></td>
-                <!-- <td>${item.promedio_mensual ? item.promedio_mensual.toFixed(2) : '0.00'}</td> -->
             `;
+            
+            // Agregar columnas según filtros
+            if (mostrarSilicona) {
+                filaHTML += `<td class="${filtroMaterial === 'silicona' ? 'material-destacado' : ''}">${item.silicona || 0}</td>`;
+            }
+            if (mostrarAmarres) {
+                filaHTML += `<td class="${filtroMaterial === 'amarres' ? 'material-destacado' : ''}">${(item.amarres_negros || 0) + (item.amarres_blancos || 0)}</td>`;
+            }
+            if (mostrarCinta) {
+                filaHTML += `<td class="${filtroMaterial === 'cinta' ? 'material-destacado' : ''}">${item.cinta_aislante || 0}</td>`;
+            }
+            if (mostrarGrapas) {
+                filaHTML += `<td class="${filtroMaterial === 'grapas' ? 'material-destacado' : ''}">${(item.grapas_blancas || 0) + (item.grapas_negras || 0)}</td>`;
+            }
+            
+            filaHTML += `<td><strong>${item.total_asignaciones || 0}</strong></td>`;
+            
+            fila.innerHTML = filaHTML;
             
             tbody.appendChild(fila);
         });
@@ -609,6 +759,367 @@
                 title: 'Error',
                 text: 'No se pudo generar el archivo Excel. Por favor, intente nuevamente.',
             });
+        });
+    }
+    
+    // ===== FUNCIONES PARA COMPARACIÓN MENSUAL =====
+    
+    // Función para cargar la comparación mensual de materiales
+    function cargarComparacionMensual() {
+        const material = document.getElementById('filtroMaterialComparacion').value;
+        const anio = document.getElementById('anioComparacion').value;
+        
+        // Realizar la petición al servidor
+        fetch(`/api/comparacion_mensual_materiales?material=${material}&anio=${anio}`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                // Almacenar los datos para uso posterior con filtros
+                datosComparacionActuales = {
+                    datos_mensuales: data.datos_mensuales,
+                    material: material
+                };
+                generarGraficoComparacionMensual(data.datos_mensuales, material);
+            } else {
+                console.error('Error en la respuesta:', data.message);
+                // Mostrar gráfico vacío en caso de error
+                datosComparacionActuales = { datos_mensuales: [], material: material };
+                generarGraficoComparacionMensual([], material);
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar comparación mensual:', error);
+            // Mostrar gráfico vacío en caso de error
+            generarGraficoComparacionMensual([], material);
+        });
+    }
+    
+    // Función para actualizar el gráfico con los filtros seleccionados
+    function actualizarGraficoConFiltros() {
+        if (datosComparacionActuales) {
+            generarGraficoComparacionMensual(
+                datosComparacionActuales.datos_mensuales, 
+                datosComparacionActuales.material
+            );
+        }
+    }
+    
+    // Función para actualizar la tabla con los filtros seleccionados
+    function actualizarTablaConFiltros() {
+        if (datosEstadisticasActuales) {
+            llenarTablaEstadisticas(datosEstadisticasActuales);
+        }
+    }
+    
+    // Función para ordenar la tabla
+    function ordenarTabla(columna) {
+        if (!datosEstadisticasActuales || datosEstadisticasActuales.length === 0) {
+            return;
+        }
+        
+        // Determinar la dirección del ordenamiento
+        if (ordenActual.columna === columna) {
+            ordenActual.direccion = ordenActual.direccion === 'asc' ? 'desc' : 'asc';
+        } else {
+            ordenActual.columna = columna;
+            ordenActual.direccion = 'asc';
+        }
+        
+        // Actualizar iconos de ordenamiento
+        actualizarIconosOrdenamiento(columna, ordenActual.direccion);
+        
+        // Crear una copia de los datos para ordenar
+        const datosOrdenados = [...datosEstadisticasActuales];
+        
+        // Función de comparación
+        datosOrdenados.sort((a, b) => {
+            let valorA, valorB;
+            
+            switch (columna) {
+                case 'silicona':
+                    valorA = parseInt(a.silicona) || 0;
+                    valorB = parseInt(b.silicona) || 0;
+                    break;
+                case 'amarres':
+                    valorA = (parseInt(a.amarres_negros) || 0) + (parseInt(a.amarres_blancos) || 0);
+                    valorB = (parseInt(b.amarres_negros) || 0) + (parseInt(b.amarres_blancos) || 0);
+                    break;
+                case 'cinta':
+                    valorA = parseInt(a.cinta_aislante) || 0;
+                    valorB = parseInt(b.cinta_aislante) || 0;
+                    break;
+                case 'grapas':
+                    valorA = (parseInt(a.grapas_blancas) || 0) + (parseInt(a.grapas_negras) || 0);
+                    valorB = (parseInt(b.grapas_blancas) || 0) + (parseInt(b.grapas_negras) || 0);
+                    break;
+                case 'total':
+                    valorA = parseInt(a.total_asignaciones) || 0;
+                    valorB = parseInt(b.total_asignaciones) || 0;
+                    break;
+                default:
+                    return 0;
+            }
+            
+            if (ordenActual.direccion === 'asc') {
+                return valorA - valorB;
+            } else {
+                return valorB - valorA;
+            }
+        });
+        
+        // Actualizar la tabla con los datos ordenados
+        llenarTablaEstadisticas(datosOrdenados);
+    }
+    
+    // Función para actualizar los iconos de ordenamiento
+    function actualizarIconosOrdenamiento(columnaActiva, direccion) {
+        // Resetear todos los iconos
+        document.querySelectorAll('.sortable i').forEach(icon => {
+            icon.className = 'fas fa-sort text-muted';
+        });
+        
+        // Actualizar el icono de la columna activa
+        const iconoActivo = document.getElementById(`sort-${columnaActiva}`);
+        if (iconoActivo) {
+            if (direccion === 'asc') {
+                iconoActivo.className = 'fas fa-sort-up text-primary';
+            } else {
+                iconoActivo.className = 'fas fa-sort-down text-primary';
+            }
+        }
+    }
+    
+    // Función para actualizar los encabezados de la tabla según los filtros
+    function actualizarEncabezadosTabla(mostrarSilicona, mostrarAmarres, mostrarCinta, mostrarGrapas) {
+        const thead = document.querySelector('#tablaEstadisticasBody').closest('table').querySelector('thead tr');
+        
+        // Limpiar encabezados existentes
+        thead.innerHTML = `
+            <th>Técnico</th>
+            <th>Área</th>
+        `;
+        
+        // Agregar encabezados según filtros con iconos de ordenamiento
+        if (mostrarSilicona) {
+            thead.innerHTML += `
+                <th class="sortable" data-column="silicona" style="cursor: pointer;">
+                    Silicona <i class="fas fa-sort text-muted" id="sort-silicona"></i>
+                </th>
+            `;
+        }
+        if (mostrarAmarres) {
+            thead.innerHTML += `
+                <th class="sortable" data-column="amarres" style="cursor: pointer;">
+                    Amarres <i class="fas fa-sort text-muted" id="sort-amarres"></i>
+                </th>
+            `;
+        }
+        if (mostrarCinta) {
+            thead.innerHTML += `
+                <th class="sortable" data-column="cinta" style="cursor: pointer;">
+                    Cinta <i class="fas fa-sort text-muted" id="sort-cinta"></i>
+                </th>
+            `;
+        }
+        if (mostrarGrapas) {
+            thead.innerHTML += `
+                <th class="sortable" data-column="grapas" style="cursor: pointer;">
+                    Grapas <i class="fas fa-sort text-muted" id="sort-grapas"></i>
+                </th>
+            `;
+        }
+        
+        thead.innerHTML += `
+            <th class="sortable" data-column="total" style="cursor: pointer;">
+                Total <i class="fas fa-sort text-muted" id="sort-total"></i>
+            </th>
+        `;
+        
+        // Reagregar los event listeners para ordenamiento después de actualizar los encabezados
+        document.querySelectorAll('.sortable').forEach(header => {
+            header.addEventListener('click', function() {
+                const column = this.getAttribute('data-column');
+                ordenarTabla(column);
+            });
+        });
+    }
+    
+    // Función para generar el gráfico de comparación mensual
+    function generarGraficoComparacionMensual(datosMensuales, material) {
+        const ctx = document.getElementById('graficoComparacionMensual').getContext('2d');
+        
+        // Destruir el gráfico anterior si existe
+        if (graficoComparacionMensual) {
+            graficoComparacionMensual.destroy();
+        }
+        
+        // Obtener el tipo de gráfico seleccionado
+        const tipoGrafico = document.getElementById('tipoGrafico').value;
+        
+        // Nombres de los meses
+        const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        
+        // Preparar datos para el gráfico
+        let labels = [];
+        let dataAsignaciones = [];
+        
+        if (datosMensuales && datosMensuales.length > 0) {
+            // Crear un mapa para todos los meses
+            const datosPorMes = {};
+            datosMensuales.forEach(item => {
+                datosPorMes[item.mes] = parseInt(item.cantidad_asignada) || 0;
+            });
+            
+            // Llenar datos para todos los meses (1-12)
+            for (let mes = 1; mes <= 12; mes++) {
+                labels.push(meses[mes - 1]);
+                dataAsignaciones.push(datosPorMes[mes] || 0);
+            }
+        } else {
+            // Datos vacíos para todos los meses
+            labels = meses;
+            dataAsignaciones = new Array(12).fill(0);
+        }
+        
+        // Obtener nombre del material para el título
+        const materialNames = {
+            'silicona': 'Silicona',
+            'amarres_negros': 'Amarres Negros',
+            'amarres_blancos': 'Amarres Blancos',
+            'cinta_aislante': 'Cinta Aislante',
+            'grapas_blancas': 'Grapas Blancas',
+            'grapas_negras': 'Grapas Negras'
+        };
+        
+        const nombreMaterial = materialNames[material] || material;
+        
+        // Configurar colores y estilos según el tipo de gráfico
+        let datasets = [];
+        let chartOptions = {};
+        
+        if (tipoGrafico === 'pie') {
+            // Para gráfico de pastel, usar solo meses con datos > 0
+            const mesesConDatos = [];
+            const datosConDatos = [];
+            const coloresPastel = [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40',
+                '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384', '#36A2EB', '#FFCE56'
+            ];
+            
+            dataAsignaciones.forEach((cantidad, index) => {
+                if (cantidad > 0) {
+                    mesesConDatos.push(labels[index]);
+                    datosConDatos.push(cantidad);
+                }
+            });
+            
+            labels = mesesConDatos.length > 0 ? mesesConDatos : ['Sin datos'];
+            
+            datasets = [{
+                label: 'Cantidad Asignada',
+                data: datosConDatos.length > 0 ? datosConDatos : [0],
+                backgroundColor: coloresPastel.slice(0, labels.length),
+                borderColor: '#ffffff',
+                borderWidth: 2
+            }];
+            
+            chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Distribución de Asignaciones - ${nombreMaterial}`,
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'right'
+                    }
+                }
+            };
+        } else {
+            // Para gráficos de líneas y barras
+            const esLinea = tipoGrafico === 'line';
+            
+            datasets = [{
+                label: 'Cantidad Asignada',
+                data: dataAsignaciones,
+                borderColor: '#6f42c1',
+                backgroundColor: esLinea ? 'rgba(111, 66, 193, 0.1)' : 'rgba(111, 66, 193, 0.8)',
+                borderWidth: esLinea ? 3 : 1,
+                fill: esLinea,
+                tension: esLinea ? 0.4 : 0,
+                pointBackgroundColor: esLinea ? '#6f42c1' : undefined,
+                pointBorderColor: esLinea ? '#ffffff' : undefined,
+                pointBorderWidth: esLinea ? 2 : undefined,
+                pointRadius: esLinea ? 6 : undefined,
+                pointHoverRadius: esLinea ? 8 : undefined
+            }];
+            
+            chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Asignaciones Mensuales - ${nombreMaterial}`,
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Cantidad'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Mes'
+                        }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            };
+        }
+        
+        // Crear el nuevo gráfico
+        graficoComparacionMensual = new Chart(ctx, {
+            type: tipoGrafico,
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: chartOptions
         });
     }
     

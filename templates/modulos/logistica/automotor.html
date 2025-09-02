@@ -795,6 +795,9 @@
                 </form>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-warning" onclick="limpiarFormularioCompleto()">
+                    <i class="fas fa-broom"></i> Limpiar Formulario
+                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" onclick="guardarVehiculo()">Guardar</button>
             </div>
@@ -831,8 +834,8 @@ $(document).ready(function() {
         document.getElementById('fechaFin').value = today.toISOString().split('T')[0];
     }
     
-    // Establecer fecha actual por defecto
-    document.getElementById('fecha_asignacion').value = new Date().toISOString().split('T')[0];
+    // ELIMINADO: No establecer fecha automática para fecha_asignacion
+    // El usuario ahora tiene control total sobre todos los campos del formulario
 });
 
 // Debug function to test navigation
@@ -1119,56 +1122,53 @@ function editarVehiculo(id) {
         
         // Función para cargar todos los datos después de cargar supervisores
         const cargarDatosVehiculo = () => {
-            // Información Básica del Vehículo
+            // Información Básica del Vehículo (IDs corregidos)
             setElementValue('id_parque_automotor', vehiculo.id_parque_automotor);
-            setElementValue('placa', vehiculo.placa || '');
+            setElementValue('placa_vehiculo', vehiculo.placa || '');
             setElementValue('tipo_vehiculo', vehiculo.tipo_vehiculo || '');
-            setElementValue('marca', vehiculo.marca || '');
-            setElementValue('modelo', vehiculo.modelo || '');
+            setElementValue('vehiculo_asistio_operacion', vehiculo.vehiculo_asistio_operacion || '');
+            setElementValue('marca_vehiculo', vehiculo.marca || '');
+            setElementValue('modelo_vehiculo', vehiculo.modelo || '');
             setElementValue('color', vehiculo.color || '');
+            
+            // Información del Conductor
             setElementValue('id_codigo_consumidor', vehiculo.id_codigo_consumidor || '');
             setElementValue('fecha_asignacion', vehiculo.fecha_asignacion && vehiculo.fecha_asignacion !== 'None' ? new Date(vehiculo.fecha_asignacion).toISOString().split('T')[0] : '');
-            setElementValue('estado', vehiculo.estado || 'Activo');
-            setElementValue('supervisor', vehiculo.supervisor || '');
-            setElementValue('observaciones', vehiculo.observaciones || '');
-        
-            // Información del Conductor
-            setElementValue('nombre_conductor', vehiculo.nombre_conductor || '');
-            setElementValue('cedula_conductor', vehiculo.cedula_conductor || '');
-            setElementValue('telefono_conductor', vehiculo.telefono_conductor || '');
             setElementValue('licencia_conduccion', vehiculo.licencia_conduccion || '');
-            setElementValue('vencimiento_licencia', vehiculo.vencimiento_licencia && vehiculo.vencimiento_licencia !== 'None' ? new Date(vehiculo.vencimiento_licencia).toISOString().split('T')[0] : '');
+            setElementValue('fecha_vencimiento_licencia', vehiculo.vencimiento_licencia && vehiculo.vencimiento_licencia !== 'None' ? new Date(vehiculo.vencimiento_licencia).toISOString().split('T')[0] : '');
             
-            // Documentación del Vehículo
-            setElementValue('soat_vencimiento', vehiculo.soat_vencimiento && vehiculo.soat_vencimiento !== 'None' ? new Date(vehiculo.soat_vencimiento).toISOString().split('T')[0] : '');
-            setElementValue('tecnomecanica_vencimiento', vehiculo.tecnomecanica_vencimiento && vehiculo.tecnomecanica_vencimiento !== 'None' ? new Date(vehiculo.tecnomecanica_vencimiento).toISOString().split('T')[0] : '');
-            setElementValue('tarjeta_propiedad', vehiculo.tarjeta_propiedad || '');
-            setElementValue('poliza_seguro', vehiculo.poliza_seguro || '');
-            setElementValue('vencimiento_poliza', vehiculo.vencimiento_poliza && vehiculo.vencimiento_poliza !== 'None' ? new Date(vehiculo.vencimiento_poliza).toISOString().split('T')[0] : '');
-            
-            // Información Operativa
-            setElementValue('fecha', vehiculo.fecha && vehiculo.fecha !== 'None' ? new Date(vehiculo.fecha).toISOString().split('T')[0] : '');
-            setElementValue('kilometraje', vehiculo.kilometraje || '');
+            // Documentación del Vehículo (IDs corregidos)
+            setElementValue('estado', vehiculo.estado || 'Activo');
+            setElementValue('fecha_vencimiento_soat', vehiculo.soat_vencimiento && vehiculo.soat_vencimiento !== 'None' ? new Date(vehiculo.soat_vencimiento).toISOString().split('T')[0] : '');
+            setElementValue('fecha_vencimiento_tecnomecanica', vehiculo.tecnomecanica_vencimiento && vehiculo.tecnomecanica_vencimiento !== 'None' ? new Date(vehiculo.tecnomecanica_vencimiento).toISOString().split('T')[0] : '');
             
             // Inspección Física del Vehículo
-            setElementValue('estado_carroceria', vehiculo.estado_carroceria || 'Bueno');
-            setElementValue('estado_llantas', vehiculo.estado_llantas || 'Bueno');
-            setElementValue('estado_frenos', vehiculo.estado_frenos || 'Bueno');
-            setElementValue('estado_motor', vehiculo.estado_motor || 'Bueno');
-            setElementValue('estado_luces', vehiculo.estado_luces || 'Bueno');
-            setElementValue('estado_espejos', vehiculo.estado_espejos || 'Bueno');
-            setElementValue('estado_vidrios', vehiculo.estado_vidrios || 'Bueno');
-            setElementValue('estado_asientos', vehiculo.estado_asientos || 'Bueno');
+            setElementValue('estado_carroceria', vehiculo.estado_carroceria || '');
+            setElementValue('estado_llantas', vehiculo.estado_llantas || '');
+            setElementValue('estado_frenos', vehiculo.estado_frenos || '');
+            setElementValue('estado_motor', vehiculo.estado_motor || '');
+            setElementValue('estado_luces', vehiculo.estado_luces || '');
+            setElementValue('estado_espejos', vehiculo.estado_espejos || '');
+            setElementValue('estado_vidrios', vehiculo.estado_vidrios || '');
+            setElementValue('estado_asientos', vehiculo.estado_asientos || '');
             
-            // Elementos de Seguridad
-            setElementChecked('cinturon_seguridad', vehiculo.cinturon_seguridad === 'Sí' || vehiculo.cinturon_seguridad === true);
-            setElementChecked('extintor', vehiculo.extintor === 'Sí' || vehiculo.extintor === true);
-            setElementChecked('botiquin', vehiculo.botiquin === 'Sí' || vehiculo.botiquin === true);
-            setElementChecked('triangulos_seguridad', vehiculo.triangulos_seguridad === 'Sí' || vehiculo.triangulos_seguridad === true);
-            setElementChecked('llanta_repuesto', vehiculo.llanta_repuesto === 'Sí' || vehiculo.llanta_repuesto === true);
-            setElementChecked('herramientas', vehiculo.herramientas === 'Sí' || vehiculo.herramientas === true);
-            setElementChecked('gato', vehiculo.gato === 'Sí' || vehiculo.gato === true);
-            setElementChecked('cruceta', vehiculo.cruceta === 'Sí' || vehiculo.cruceta === true);
+            // Elementos de Seguridad (cambiado de setElementChecked a setElementValue)
+            setElementValue('cinturon_seguridad', vehiculo.cinturon_seguridad || '');
+            setElementValue('extintor', vehiculo.extintor || '');
+            setElementValue('botiquin', vehiculo.botiquin || '');
+            setElementValue('triangulos_seguridad', vehiculo.triangulos_seguridad || '');
+            setElementValue('llanta_repuesto', vehiculo.llanta_repuesto || '');
+            setElementValue('herramientas', vehiculo.herramientas || '');
+            setElementValue('gato', vehiculo.gato || '');
+            setElementValue('cruceta', vehiculo.cruceta || '');
+            
+            // Información Operativa
+            setElementValue('centro_de_trabajo', vehiculo.centro_de_trabajo || '');
+            setElementValue('ciudad', vehiculo.ciudad || '');
+            setElementValue('supervisor', vehiculo.supervisor || '');
+            setElementValue('fecha', vehiculo.fecha && vehiculo.fecha !== 'None' ? new Date(vehiculo.fecha).toISOString().slice(0, 16) : '');
+            setElementValue('kilometraje', vehiculo.kilometraje || '');
+            setElementValue('observaciones', vehiculo.observaciones || '');
             
             const modalTitle = document.getElementById('modalTitle');
             if (modalTitle) {
@@ -1189,17 +1189,32 @@ function editarVehiculo(id) {
 }
 
 function guardarVehiculo() {
-    // Validar campos requeridos antes del envío
+    // Validar campos requeridos antes del envío (IDs corregidos)
     const camposRequeridos = [
-        { id: 'placa', nombre: 'Placa' },
+        { id: 'placa_vehiculo', nombre: 'Placa' },
         { id: 'tipo_vehiculo', nombre: 'Tipo de Vehículo' },
-        { id: 'marca', nombre: 'Marca' },
-        { id: 'modelo', nombre: 'Modelo' },
+        { id: 'marca_vehiculo', nombre: 'Marca' },
+        { id: 'modelo_vehiculo', nombre: 'Modelo' },
         { id: 'color', nombre: 'Color' },
         { id: 'fecha_asignacion', nombre: 'Fecha de Asignación' }
     ];
     
     const camposVacios = [];
+    
+    // Debug: Mostrar valores de campos requeridos
+    console.log('=== DEPURACIÓN DE VALIDACIÓN ===');
+    camposRequeridos.forEach(campo => {
+        const elemento = document.getElementById(campo.id);
+        console.log(`Campo: ${campo.id} (${campo.nombre})`);
+        console.log(`Elemento encontrado:`, elemento);
+        if (elemento) {
+            console.log(`Valor actual: "${elemento.value}"`);
+            console.log(`Valor vacío: ${!elemento.value || elemento.value.trim() === ''}`);
+        } else {
+            console.log(`ERROR: Elemento no encontrado`);
+        }
+        console.log('---');
+    });
     
     camposRequeridos.forEach(campo => {
         const elemento = document.getElementById(campo.id);
@@ -1719,15 +1734,50 @@ function formatDate(dateString) {
     return date.toLocaleDateString('es-ES');
 }
 
-// Limpiar formulario al abrir el modal de registro
+// Función para limpiar completamente el formulario
+function limpiarFormularioCompleto() {
+    // Resetear el formulario
+    document.getElementById('formVehiculo').reset();
+    
+    // Limpiar campos específicos
+    const campos = [
+        'id_parque_automotor', 'placa_vehiculo', 'tipo_vehiculo', 'vehiculo_asistio_operacion',
+        'marca_vehiculo', 'modelo_vehiculo', 'color', 'id_codigo_consumidor', 'fecha_asignacion',
+        'licencia_conduccion', 'fecha_vencimiento_licencia', 'estado', 'fecha_vencimiento_soat',
+        'fecha_vencimiento_tecnomecanica', 'estado_carroceria', 'estado_llantas', 'estado_frenos',
+        'estado_motor', 'estado_luces', 'estado_espejos', 'estado_vidrios', 'estado_asientos',
+        'cinturon_seguridad', 'extintor', 'botiquin', 'triangulos_seguridad', 'llanta_repuesto',
+        'herramientas', 'gato', 'cruceta', 'centro_de_trabajo', 'ciudad', 'supervisor',
+        'fecha', 'kilometraje', 'observaciones'
+    ];
+    
+    campos.forEach(campo => {
+        const elemento = document.getElementById(campo);
+        if (elemento) {
+            elemento.value = '';
+            elemento.classList.remove('is-invalid'); // Remover clases de error
+        }
+    });
+    
+    // Mostrar mensaje de confirmación
+    Swal.fire({
+        icon: 'success',
+        title: 'Formulario Limpiado',
+        text: 'Todos los campos han sido limpiados exitosamente',
+        timer: 1500,
+        showConfirmButton: false
+    });
+}
+
+// Limpiar formulario al abrir el modal de registro (SIN valores automáticos)
 $('#modalRegistroVehiculo').on('show.bs.modal', function (e) {
     if (!e.relatedTarget) return;
     modo = 'crear';
     document.getElementById('formVehiculo').reset();
     document.getElementById('id_parque_automotor').value = '';
     document.getElementById('modalTitle').textContent = 'Registrar Nuevo Vehículo';
-    document.getElementById('fecha_asignacion').value = new Date().toISOString().split('T')[0];
-    document.getElementById('estado').value = 'Activo';
+    // ELIMINADO: No establecer valores automáticos para fecha_asignacion y estado
+    // El usuario ahora tiene control total sobre todos los campos
 });
 </script>
 
