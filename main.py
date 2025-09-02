@@ -4526,6 +4526,88 @@ def verificar_disponibilidad_materiales():
         if connection and connection.is_connected():
             connection.close()
 
+@app.route('/api/comparacion_mensual_materiales')
+def obtener_comparacion_mensual_materiales():
+    """Endpoint para obtener datos de comparación mensual de materiales"""
+    connection = None
+    cursor = None
+    try:
+        # Obtener parámetros
+        material = request.args.get('material', 'silicona')
+        anio = request.args.get('anio', '2025')
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Consulta para obtener asignaciones mensuales del material específico desde la tabla ferretero
+        query = """
+            SELECT 
+                MONTH(fecha_asignacion) as mes,
+                SUM(CASE 
+                    WHEN %s = 'silicona' THEN COALESCE(silicona, 0)
+                    WHEN %s = 'amarres_negros' THEN COALESCE(amarres_negros, 0)
+                    WHEN %s = 'amarres_blancos' THEN COALESCE(amarres_blancos, 0)
+                    WHEN %s = 'cinta_aislante' THEN COALESCE(cinta_aislante, 0)
+                    WHEN %s = 'grapas_blancas' THEN COALESCE(grapas_blancas, 0)
+                    WHEN %s = 'grapas_negras' THEN COALESCE(grapas_negras, 0)
+                    ELSE 0
+                END) as cantidad_asignada
+            FROM ferretero 
+            WHERE YEAR(fecha_asignacion) = %s
+            AND (
+                (%s = 'silicona' AND silicona > 0) OR
+                (%s = 'amarres_negros' AND amarres_negros > 0) OR
+                (%s = 'amarres_blancos' AND amarres_blancos > 0) OR
+                (%s = 'cinta_aislante' AND cinta_aislante > 0) OR
+                (%s = 'grapas_blancas' AND grapas_blancas > 0) OR
+                (%s = 'grapas_negras' AND grapas_negras > 0)
+            )
+            GROUP BY MONTH(fecha_asignacion)
+            ORDER BY mes
+        """
+        
+        cursor.execute(query, (material, material, material, material, material, material, anio, material, material, material, material, material, material))
+        datos_mensuales = cursor.fetchall()
+        
+        # Transformar datos para el formato esperado por el frontend
+        datos_formateados = []
+        for dato in datos_mensuales:
+            datos_formateados.append({
+                'mes': dato['mes'],
+                'cantidad_asignada': int(dato['cantidad_asignada']) if dato['cantidad_asignada'] else 0
+            })
+        
+        # Si no hay datos, crear estructura vacía
+        if not datos_formateados:
+            datos_formateados = []
+            for mes in range(1, 13):
+                datos_formateados.append({
+                    'mes': mes,
+                    'cantidad_asignada': 0
+                })
+        
+        return jsonify({
+            'status': 'success',
+            'datos_mensuales': datos_formateados,
+            'material': material,
+            'anio': anio
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener comparación mensual: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
 @app.route('/logistica/entradas_ferretero', methods=['POST'])
 @login_required()
 @role_required('logistica')
@@ -4943,17 +5025,17 @@ def registrar_vehiculo():
     connection = None
     cursor = None
     try:
-        # Obtener datos del formulario
-        placa = request.form.get('placa')
+        # Obtener datos del formulario (IDs corregidos para coincidir con el frontend)
+        placa = request.form.get('placa_vehiculo')
         tipo_vehiculo = request.form.get('tipo_vehiculo')
-        marca = request.form.get('marca')
-        modelo = request.form.get('modelo')
+        marca = request.form.get('marca_vehiculo')
+        modelo = request.form.get('modelo_vehiculo')
         color = request.form.get('color')
         supervisor = request.form.get('supervisor')
         id_codigo_consumidor = request.form.get('id_codigo_consumidor')
         fecha_asignacion = request.form.get('fecha_asignacion')
-        soat_vencimiento = request.form.get('soat_vencimiento')
-        tecnomecanica_vencimiento = request.form.get('tecnomecanica_vencimiento')
+        soat_vencimiento = request.form.get('fecha_vencimiento_soat')
+        tecnomecanica_vencimiento = request.form.get('fecha_vencimiento_tecnomecanica')
         observaciones = request.form.get('observaciones')
 
         # Validar campos requeridos
@@ -5025,18 +5107,18 @@ def actualizar_vehiculo(id_parque_automotor):
     connection = None
     cursor = None
     try:
-        # Obtener datos del formulario
-        placa = request.form.get('placa')
+        # Obtener datos del formulario (IDs corregidos para coincidir con el frontend)
+        placa = request.form.get('placa_vehiculo')
         tipo_vehiculo = request.form.get('tipo_vehiculo')
-        marca = request.form.get('marca')
-        modelo = request.form.get('modelo')
+        marca = request.form.get('marca_vehiculo')
+        modelo = request.form.get('modelo_vehiculo')
         color = request.form.get('color')
         supervisor = request.form.get('supervisor')
         id_codigo_consumidor = request.form.get('id_codigo_consumidor')
         fecha_asignacion = request.form.get('fecha_asignacion')
         estado = request.form.get('estado', 'Activo')
-        soat_vencimiento = request.form.get('soat_vencimiento')
-        tecnomecanica_vencimiento = request.form.get('tecnomecanica_vencimiento')
+        soat_vencimiento = request.form.get('fecha_vencimiento_soat')
+        tecnomecanica_vencimiento = request.form.get('fecha_vencimiento_tecnomecanica')
         observaciones = request.form.get('observaciones', '')
 
         # Validar campos requeridos
