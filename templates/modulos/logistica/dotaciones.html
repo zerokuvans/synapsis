@@ -1,0 +1,1254 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Dotaciones{% endblock %}
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+<style>
+    .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+    }
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    }
+    .stats-card {
+        border-left: 4px solid #667eea;
+        transition: transform 0.2s;
+    }
+    .stats-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .table-responsive {
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 20px 0;
+    }
+    .badge-asignado {
+        background-color: #28a745;
+    }
+    .badge-disponible {
+        background-color: #17a2b8;
+    }
+    .badge-mantenimiento {
+        background-color: #ffc107;
+        color: #000;
+    }
+    .badge-baja {
+        background-color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+    <div class="container-fluid mt-4">
+        <!-- Estadísticas -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title text-muted">Total Dotaciones</h6>
+                                <h3 class="mb-0" id="totalDotaciones">0</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-boxes fa-2x text-primary"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title text-muted">Asignadas</h6>
+                                <h3 class="mb-0 text-success" id="dotacionesAsignadas">0</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-user-check fa-2x text-success"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title text-muted">Disponibles</h6>
+                                <h3 class="mb-0 text-info" id="dotacionesDisponibles">0</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-warehouse fa-2x text-info"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stats-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="card-title text-muted">En Mantenimiento</h6>
+                                <h3 class="mb-0 text-warning" id="dotacionesMantenimiento">0</h3>
+                            </div>
+                            <div class="align-self-center">
+                                <i class="fas fa-tools fa-2x text-warning"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-pie me-2"></i>
+                            Distribución de Stock
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="stockChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Histórico de Movimientos
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="movimientosChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de Dotaciones -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Gestión de Dotaciones
+                </h5>
+                <div>
+                    <button class="btn btn-success me-2" onclick="abrirModalIngreso()">
+                        <i class="fas fa-box me-1"></i>
+                        Registrar Ingreso
+                    </button>
+                    <button class="btn btn-light" onclick="nuevaDotacion()">
+                        <i class="fas fa-plus me-1"></i>
+                        Nueva Dotación
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Filtros -->
+                <div class="row mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Filtrar por Cliente:</label>
+                        <select class="form-select" id="filtroCliente" onchange="actualizarFiltrosPorCliente()">
+                            <option value="">Todos los clientes</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Estado Técnico:</label>
+                        <select class="form-select" id="filtroEstadoTecnico" onchange="actualizarFiltroTecnicos()">
+                            <option value="Activo">Activos</option>
+                            <option value="Inactivo">Inactivos</option>
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Filtrar por Técnico:</label>
+                        <select class="form-select" id="filtroTecnico" onchange="filtrarDotaciones()">
+                            <option value="">Todos los técnicos</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Buscar:</label>
+                        <input type="text" class="form-control" id="buscarDotacion" placeholder="Buscar dotación..." onkeyup="filtrarDotaciones()">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div>
+                            <button class="btn btn-outline-primary" onclick="exportarDatos()">
+                                <i class="fas fa-download me-1"></i>
+                                Exportar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabla -->
+                <div class="table-responsive">
+                    <table id="tablaDotaciones" class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>Técnico</th>
+                                <th>Pantalón</th>
+                                <th>Camiseta Gris</th>
+                                <th>Guerrera</th>
+                                <th>Camiseta Polo</th>
+                                <th>Guantes</th>
+                                <th>EPP</th>
+                                <th>Botas</th>
+                                <th>Fecha Registro</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Los datos se cargarán dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nueva/Editar Dotación -->
+    <div class="modal fade" id="modalDotacion" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitulo">
+                        <i class="fas fa-plus me-2"></i>
+                        Nueva Dotación
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formDotacion">
+                        <input type="hidden" id="idDotacion">
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Cliente *</label>
+                                    <select class="form-control" id="cliente" required>
+                                        <option value="">Seleccionar cliente...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Técnico *</label>
+                                    <select class="form-select" id="idCodigoConsumidor" required>
+                                        <option value="">Seleccionar técnico...</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h6 class="mb-3 text-primary">Ropa de Trabajo</h6>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Pantalón</label>
+                                    <input type="number" class="form-control" id="pantalon" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Talla Pantalón</label>
+                                    <select class="form-select" id="pantalonTalla">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="28">28</option>
+                                        <option value="30">30</option>
+                                        <option value="32">32</option>
+                                        <option value="34">34</option>
+                                        <option value="36">36</option>
+                                        <option value="38">38</option>
+                                        <option value="40">40</option>
+                                        <option value="42">42</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Camiseta Gris</label>
+                                    <input type="number" class="form-control" id="camisetagris" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Talla Camiseta Gris</label>
+                                    <select class="form-select" id="camisetaGrisTalla">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="S">S</option>
+                                        <option value="M">M</option>
+                                        <option value="L">L</option>
+                                        <option value="XL">XL</option>
+                                        <option value="XXL">XXL</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Guerrera</label>
+                                    <input type="number" class="form-control" id="guerrera" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Talla Guerrera</label>
+                                    <select class="form-select" id="guerreraTalla">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="S">S</option>
+                                        <option value="M">M</option>
+                                        <option value="L">L</option>
+                                        <option value="XL">XL</option>
+                                        <option value="XXL">XXL</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Camiseta Polo</label>
+                                    <input type="number" class="form-control" id="camisetapolo" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Talla Camiseta Polo</label>
+                                    <select class="form-select" id="camisetaPoloTalla">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="S">S</option>
+                                        <option value="M">M</option>
+                                        <option value="L">L</option>
+                                        <option value="XL">XL</option>
+                                        <option value="XXL">XXL</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h6 class="mb-3 text-primary">Elementos de Protección Personal (EPP)</h6>
+                        <div class="row">
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Guantes Nitrilo</label>
+                                    <input type="number" class="form-control" id="guantesNitrilo" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Guantes Carnaza</label>
+                                    <input type="number" class="form-control" id="guantesCarnaza" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Gafas</label>
+                                    <input type="number" class="form-control" id="gafas" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Gorra</label>
+                                    <input type="number" class="form-control" id="gorra" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Casco</label>
+                                    <input type="number" class="form-control" id="casco" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Botas</label>
+                                    <input type="number" class="form-control" id="botas" min="0">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label class="form-label">Talla Botas</label>
+                                    <select class="form-select" id="botasTalla">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="36">36</option>
+                                        <option value="37">37</option>
+                                        <option value="38">38</option>
+                                        <option value="39">39</option>
+                                        <option value="40">40</option>
+                                        <option value="41">41</option>
+                                        <option value="42">42</option>
+                                        <option value="43">43</option>
+                                        <option value="44">44</option>
+                                        <option value="45">45</option>
+                                        <option value="46">46</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="guardarDotacion()">
+                        <i class="fas fa-save me-1"></i>
+                        Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Registro de Ingresos -->
+    <div class="modal fade" id="modalIngreso" tabindex="-1" aria-labelledby="modalIngresoLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="modalIngresoLabel">
+                        <i class="fas fa-plus-circle me-2"></i>
+                        Registrar Ingreso de Dotaciones
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="formIngreso">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="tipoElemento" class="form-label">Tipo de Elemento *</label>
+                                    <select class="form-select" id="tipoElemento" required onchange="manejarCamposTipoElemento()">
+                                        <option value="">Seleccionar tipo...</option>
+                                        <option value="pantalon">Pantalón</option>
+                                        <option value="camisetagris">Camiseta Gris</option>
+                                        <option value="guerrera">Guerrera</option>
+                                        <option value="camisetapolo">Camiseta Polo</option>
+                                        <option value="guantes_nitrilo">Guantes Nitrilo</option>
+                                        <option value="guantes_carnaza">Guantes Carnaza</option>
+                                        <option value="gafas">Gafas</option>
+                                        <option value="gorra">Gorra</option>
+                                        <option value="casco">Casco</option>
+                                        <option value="botas">Botas</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="cantidadIngreso" class="form-label">Cantidad *</label>
+                                    <input type="number" class="form-control" id="cantidadIngreso" min="1" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3" id="campoTalla" style="display: none;">
+                                    <label for="tallaIngreso" class="form-label">Talla</label>
+                                    <select class="form-select" id="tallaIngreso">
+                                        <option value="">Seleccionar talla...</option>
+                                        <option value="XS">XS</option>
+                                        <option value="S">S</option>
+                                        <option value="M">M</option>
+                                        <option value="L">L</option>
+                                        <option value="XL">XL</option>
+                                        <option value="XXL">XXL</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3" id="campoNumeroCalzado" style="display: none;">
+                                    <label for="numeroCalzadoIngreso" class="form-label">Número de Calzado</label>
+                                    <select class="form-select" id="numeroCalzadoIngreso">
+                                        <option value="">Seleccionar número...</option>
+                                        <option value="35">35</option>
+                                        <option value="36">36</option>
+                                        <option value="37">37</option>
+                                        <option value="38">38</option>
+                                        <option value="39">39</option>
+                                        <option value="40">40</option>
+                                        <option value="41">41</option>
+                                        <option value="42">42</option>
+                                        <option value="43">43</option>
+                                        <option value="44">44</option>
+                                        <option value="45">45</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="proveedorIngreso" class="form-label">Proveedor *</label>
+                                    <input type="text" class="form-control" id="proveedorIngreso" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="fechaIngreso" class="form-label">Fecha de Ingreso *</label>
+                                    <input type="date" class="form-control" id="fechaIngreso" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="mb-3">
+                                    <label for="observacionesIngreso" class="form-label">Observaciones</label>
+                                    <textarea class="form-control" id="observacionesIngreso" rows="3" placeholder="Observaciones adicionales sobre el ingreso..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="guardarIngreso()">
+                        <i class="fas fa-save me-1"></i>
+                        Registrar Ingreso
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+    <script>
+        // Variables globales
+        let tablaDotaciones;
+        let stockChart = null;
+        let movimientosChart = null;
+        
+        // Variables de sesión del usuario
+        const sessionUser = {
+            cedula: '{{ session.get("user_cedula", "") }}',
+            name: '{{ session.get("user_name", "") }}',
+            role: '{{ session.get("user_role", "") }}'
+        };
+
+        // Inicialización
+        $(document).ready(function() {
+            inicializarTabla();
+            cargarDatos();
+            cargarTecnicos();
+            inicializarGraficos();
+        });
+
+        // Inicializar DataTable
+        function inicializarTabla() {
+            // Verificar si la tabla ya está inicializada
+            if ($.fn.DataTable.isDataTable('#tablaDotaciones')) {
+                // Destruir la instancia existente
+                $('#tablaDotaciones').DataTable().destroy();
+            }
+            
+            tablaDotaciones = $('#tablaDotaciones').DataTable({
+                language: {
+                    url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json'
+                },
+                responsive: true,
+                pageLength: 25,
+                order: [[0, 'desc']],
+                columnDefs: [
+                    { targets: -1, orderable: false } // Columna de acciones no ordenable
+                ]
+            });
+        }
+
+        // Cargar datos de dotaciones
+        function cargarDatos() {
+            // Cargar dotaciones
+            fetch('/api/dotaciones')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        actualizarTabla(data.dotaciones);
+                        actualizarEstadisticas(data.dotaciones);
+                        actualizarGraficos(data.dotaciones);
+                    } else {
+                        mostrarError('Error al cargar dotaciones: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    mostrarError('Error de conexión al cargar dotaciones');
+                });
+            
+            // Cargar clientes
+            cargarClientes();
+        }
+
+        // Cargar lista de clientes
+        function cargarClientes() {
+            fetch('/api/clientes')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const filtroCliente = document.getElementById('filtroCliente');
+                        
+                        if (filtroCliente) {
+                            filtroCliente.innerHTML = '<option value="">Todos los clientes</option>';
+                            
+                            data.data.forEach(cliente => {
+                                const option = new Option(cliente, cliente);
+                                filtroCliente.add(option);
+                            });
+                        }
+                    } else {
+                        console.error('Error al cargar clientes:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar clientes:', error);
+                });
+        }
+
+        // Cargar clientes en el select del modal
+        function cargarClientesModal() {
+            fetch('/api/clientes')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const selectCliente = document.getElementById('cliente');
+                        
+                        if (selectCliente) {
+                            selectCliente.innerHTML = '<option value="">Seleccionar cliente...</option>';
+                            
+                            data.data.forEach(cliente => {
+                                const option = new Option(cliente, cliente);
+                                selectCliente.add(option);
+                            });
+                        }
+                    } else {
+                        console.error('Error al cargar clientes en modal:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar clientes en modal:', error);
+                });
+        }
+
+        // Cargar lista de técnicos
+        function cargarTecnicos() {
+            const estado = document.getElementById('filtroEstadoTecnico') ? document.getElementById('filtroEstadoTecnico').value : 'Activo';
+            const cliente = document.getElementById('filtroCliente') ? document.getElementById('filtroCliente').value : '';
+            
+            let url = '/api/tecnicos';
+            const params = new URLSearchParams();
+            
+            if (estado) {
+                params.append('estado', estado);
+            }
+            if (cliente) {
+                params.append('cliente', cliente);
+            }
+            
+            if (params.toString()) {
+                url += '?' + params.toString();
+            }
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const filtroTecnico = document.getElementById('filtroTecnico');
+                    
+                    if (filtroTecnico) {
+                        filtroTecnico.innerHTML = '<option value="">Todos los técnicos</option>';
+                    }
+                    
+                    console.log('Datos de técnicos recibidos:', data);
+                    
+                    // Los datos están en data.data según la respuesta del endpoint
+                    if (data.success && Array.isArray(data.data)) {
+                        data.data.forEach(tecnico => {
+                            if (filtroTecnico) {
+                                const option = new Option(`${tecnico.nombre} - ${tecnico.recurso_operativo_cedula}`, tecnico.id_codigo_consumidor);
+                                filtroTecnico.add(option);
+                            }
+                        });
+                        console.log(`Cargados ${data.data.length} técnicos`);
+                    } else {
+                        console.error('Error en la respuesta de técnicos:', data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar técnicos:', error);
+                });
+        }
+        
+        // Actualizar filtro de técnicos cuando cambie el estado
+        function actualizarFiltroTecnicos() {
+            cargarTecnicos();
+        }
+        
+        // Actualizar filtros cuando cambie el cliente
+        function actualizarFiltrosPorCliente() {
+            cargarTecnicos(); // Actualizar lista de técnicos según el cliente seleccionado
+            filtrarDotaciones(); // Filtrar las dotaciones
+        }
+
+        // Actualizar tabla
+        function actualizarTabla(dotaciones) {
+            tablaDotaciones.clear();
+            
+            dotaciones.forEach(dotacion => {
+                const fila = [
+                    dotacion.id_dotacion,
+                    dotacion.cliente || 'N/A',
+                    dotacion.tecnico_nombre || 'Sin asignar',
+                    `${dotacion.pantalon || 0} (T: ${dotacion.pantalon_talla || 'N/A'})`,
+                    `${dotacion.camisetagris || 0} (T: ${dotacion.camiseta_gris_talla || 'N/A'})`,
+                    `${dotacion.guerrera || 0} (T: ${dotacion.guerrera_talla || 'N/A'})`,
+                    `${dotacion.camisetapolo || 0} (T: ${dotacion.camiseta_polo_talla || 'N/A'})`,
+                    `N: ${dotacion.guantes_nitrilo || 0}, C: ${dotacion.guantes_carnaza || 0}`,
+                    `Gafas: ${dotacion.gafas || 0}, Gorra: ${dotacion.gorra || 0}, Casco: ${dotacion.casco || 0}`,
+                    `${dotacion.botas || 0} (T: ${dotacion.botas_talla || 'N/A'})`,
+                    dotacion.fecha_registro ? new Date(dotacion.fecha_registro).toLocaleDateString() : 'N/A',
+                    `
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick="editarDotacion(${dotacion.id_dotacion})" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+
+                    `
+                ];
+                tablaDotaciones.row.add(fila);
+            });
+            
+            tablaDotaciones.draw();
+        }
+
+        // Actualizar estadísticas
+        function actualizarEstadisticas(dotaciones) {
+            const total = dotaciones.length;
+            const asignadas = dotaciones.filter(d => d.id_codigo_consumidor).length;
+            const disponibles = total - asignadas;
+            
+            document.getElementById('totalDotaciones').textContent = total;
+            document.getElementById('dotacionesAsignadas').textContent = asignadas;
+            document.getElementById('dotacionesDisponibles').textContent = disponibles;
+            document.getElementById('dotacionesMantenimiento').textContent = 0; // Placeholder
+        }
+
+        // Inicializar gráficos
+        function inicializarGraficos() {
+            // Destruir gráficos existentes si existen
+            if (stockChart) {
+                stockChart.destroy();
+                stockChart = null;
+            }
+            if (movimientosChart) {
+                movimientosChart.destroy();
+                movimientosChart = null;
+            }
+
+            // Gráfico de distribución de stock
+            const ctxStock = document.getElementById('stockChart').getContext('2d');
+            stockChart = new Chart(ctxStock, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Asignadas', 'Disponibles', 'Mantenimiento'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: ['#28a745', '#17a2b8', '#ffc107'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+
+            // Gráfico de movimientos (placeholder)
+            const ctxMovimientos = document.getElementById('movimientosChart').getContext('2d');
+            movimientosChart = new Chart(ctxMovimientos, {
+                type: 'line',
+                data: {
+                    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Asignaciones',
+                        data: [12, 19, 3, 5, 2, 3],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Actualizar gráficos
+        function actualizarGraficos(dotaciones) {
+            const asignadas = dotaciones.filter(d => d.id_codigo_consumidor).length;
+            const disponibles = dotaciones.length - asignadas;
+            
+            stockChart.data.datasets[0].data = [asignadas, disponibles, 0];
+            stockChart.update();
+            
+            // Actualizar también los gráficos de stock con datos reales
+            actualizarGraficosStock();
+        }
+
+        // Nueva dotación
+        function nuevaDotacion() {
+            document.getElementById('formDotacion').reset();
+            document.getElementById('idDotacion').value = '';
+            document.getElementById('modalTitulo').innerHTML = '<i class="fas fa-plus me-2"></i>Nueva Dotación';
+            
+            // Cargar clientes en el select del modal
+            cargarClientesModal();
+            
+            // Esperar a que se carguen los clientes y luego auto-seleccionar
+            setTimeout(() => {
+                // Obtener el cliente seleccionado en el filtro principal
+                const filtroClientePrincipal = document.getElementById('filtroCliente');
+                const clienteSeleccionado = filtroClientePrincipal.value;
+                
+                // Si hay un cliente seleccionado en el filtro principal, establecerlo en el modal
+                if (clienteSeleccionado && clienteSeleccionado !== '') {
+                    document.getElementById('cliente').value = clienteSeleccionado;
+                    // Cargar técnicos filtrados por ese cliente
+                    cargarTecnicosFiltrados(clienteSeleccionado, 'Activo');
+                } else {
+                    // Si no hay cliente seleccionado, cargar todos los técnicos activos
+                    cargarTecnicos();
+                }
+            }, 500);
+            
+            // Agregar evento para filtrar técnicos por cliente cuando se cambie manualmente
+            document.getElementById('cliente').addEventListener('change', function() {
+                const clienteSeleccionado = this.value;
+                if (clienteSeleccionado) {
+                    cargarTecnicosFiltrados(clienteSeleccionado, 'Activo');
+                } else {
+                    // Si no hay cliente, cargar todos los técnicos activos
+                    cargarTecnicos();
+                }
+            });
+            
+            new bootstrap.Modal(document.getElementById('modalDotacion')).show();
+        }
+        
+        // Función para cargar técnicos filtrados por cliente y estado
+        function cargarTecnicosFiltrados(cliente, estado) {
+            let url = '/api/tecnicos';
+            const params = new URLSearchParams();
+            
+            if (cliente) {
+                params.append('cliente', cliente);
+            }
+            if (estado) {
+                params.append('estado', estado);
+            }
+            
+            if (params.toString()) {
+                url += '?' + params.toString();
+            }
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const selectTecnico = document.getElementById('idCodigoConsumidor');
+                    
+                    if (selectTecnico) {
+                        selectTecnico.innerHTML = '<option value="">Seleccionar técnico...</option>';
+                        
+                        console.log('Datos de técnicos filtrados recibidos:', data);
+                        
+                        if (data.success && Array.isArray(data.data)) {
+                            data.data.forEach(tecnico => {
+                                const option = new Option(`${tecnico.nombre} - ${tecnico.recurso_operativo_cedula}`, tecnico.id_codigo_consumidor);
+                                selectTecnico.add(option);
+                            });
+                            console.log(`Cargados ${data.data.length} técnicos filtrados`);
+                        } else {
+                            console.error('Error en la respuesta de técnicos filtrados:', data);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar técnicos filtrados:', error);
+                });
+        }
+
+        // Editar dotación
+        function editarDotacion(id) {
+            fetch(`/api/dotaciones/${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const dotacion = data.dotacion;
+                        
+                        // Cargar clientes en el select del modal
+                        cargarClientesModal();
+                        
+                        // Esperar a que se carguen los clientes y luego establecer los valores
+                        setTimeout(() => {
+                            document.getElementById('idDotacion').value = dotacion.id_dotacion;
+                            document.getElementById('cliente').value = dotacion.cliente || '';
+                            document.getElementById('idCodigoConsumidor').value = dotacion.id_codigo_consumidor || '';
+                            document.getElementById('pantalon').value = dotacion.pantalon || '';
+                            document.getElementById('pantalonTalla').value = dotacion.pantalon_talla || '';
+                            document.getElementById('camisetagris').value = dotacion.camisetagris || '';
+                            document.getElementById('camisetaGrisTalla').value = dotacion.camiseta_gris_talla || '';
+                            document.getElementById('guerrera').value = dotacion.guerrera || '';
+                            document.getElementById('guerreraTalla').value = dotacion.guerrera_talla || '';
+                            document.getElementById('camisetapolo').value = dotacion.camisetapolo || '';
+                            document.getElementById('camisetaPoloTalla').value = dotacion.camiseta_polo_talla || '';
+                            document.getElementById('guantesNitrilo').value = dotacion.guantes_nitrilo || '';
+                            document.getElementById('guantesCarnaza').value = dotacion.guantes_carnaza || '';
+                            document.getElementById('gafas').value = dotacion.gafas || '';
+                            document.getElementById('gorra').value = dotacion.gorra || '';
+                            document.getElementById('casco').value = dotacion.casco || '';
+                            document.getElementById('botas').value = dotacion.botas || '';
+                            document.getElementById('botasTalla').value = dotacion.botas_talla || '';
+                        }, 500);
+                        
+                        document.getElementById('modalTitulo').innerHTML = '<i class="fas fa-edit me-2"></i>Editar Dotación';
+                        new bootstrap.Modal(document.getElementById('modalDotacion')).show();
+                    } else {
+                        mostrarError('Error al cargar dotación: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    mostrarError('Error de conexión al cargar dotación');
+                });
+        }
+
+        // Guardar dotación
+        function guardarDotacion() {
+            const formData = new FormData(document.getElementById('formDotacion'));
+            const id = document.getElementById('idDotacion').value;
+            
+            const dotacion = {
+                cliente: document.getElementById('cliente').value,
+                id_codigo_consumidor: document.getElementById('idCodigoConsumidor').value || null,
+                pantalon: parseInt(document.getElementById('pantalon').value) || null,
+                pantalon_talla: parseInt(document.getElementById('pantalonTalla').value) || null,
+                camisetagris: parseInt(document.getElementById('camisetagris').value) || null,
+                camiseta_gris_talla: document.getElementById('camisetaGrisTalla').value || null,
+                guerrera: parseInt(document.getElementById('guerrera').value) || null,
+                guerrera_talla: document.getElementById('guerreraTalla').value || null,
+                camisetapolo: parseInt(document.getElementById('camisetapolo').value) || null,
+                camiseta_polo_talla: document.getElementById('camisetaPoloTalla').value || null,
+                guantes_nitrilo: parseInt(document.getElementById('guantesNitrilo').value) || null,
+                guantes_carnaza: parseInt(document.getElementById('guantesCarnaza').value) || null,
+                gafas: parseInt(document.getElementById('gafas').value) || null,
+                gorra: parseInt(document.getElementById('gorra').value) || null,
+                casco: parseInt(document.getElementById('casco').value) || null,
+                botas: parseInt(document.getElementById('botas').value) || null,
+                botas_talla: document.getElementById('botasTalla').value || null
+            };
+
+            const url = id ? `/api/dotaciones/${id}` : '/api/dotaciones';
+            const method = id ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(dotacion)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalDotacion')).hide();
+                    cargarDatos();
+                    mostrarExito(id ? 'Dotación actualizada correctamente' : 'Dotación creada correctamente');
+                } else {
+                    mostrarError('Error al guardar dotación: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                mostrarError('Error de conexión al guardar dotación');
+            });
+        }
+
+
+
+        // Filtrar dotaciones
+        function filtrarDotaciones() {
+            const cliente = document.getElementById('filtroCliente').value;
+            const tecnico = document.getElementById('filtroTecnico').value;
+            const busqueda = document.getElementById('buscarDotacion').value;
+            
+            // Implementar filtrado en DataTable
+            tablaDotaciones.search(busqueda).draw();
+        }
+
+        // Exportar datos
+        function exportarDatos() {
+            window.open('/api/dotaciones/export', '_blank');
+        }
+
+        // Funciones para el modal de ingresos
+        function abrirModalIngreso() {
+            // Limpiar formulario
+            document.getElementById('formIngreso').reset();
+            
+            // Ocultar campos de talla y número de calzado
+            document.getElementById('campoTalla').style.display = 'none';
+            document.getElementById('campoNumeroCalzado').style.display = 'none';
+            
+            // Establecer fecha actual por defecto
+            const hoy = new Date().toISOString().split('T')[0];
+            document.getElementById('fechaIngreso').value = hoy;
+            
+            // Mostrar modal
+            new bootstrap.Modal(document.getElementById('modalIngreso')).show();
+        }
+        
+        // Función para mostrar/ocultar campos según tipo de elemento
+        function manejarCamposTipoElemento() {
+            const tipoElemento = document.getElementById('tipoElemento').value;
+            const campoTalla = document.getElementById('campoTalla');
+            const campoNumeroCalzado = document.getElementById('campoNumeroCalzado');
+            
+            // Ocultar ambos campos por defecto
+            campoTalla.style.display = 'none';
+            campoNumeroCalzado.style.display = 'none';
+            
+            // Elementos que requieren talla
+            const elementosConTalla = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo'];
+            
+            // Elementos que requieren número de calzado
+            const elementosConCalzado = ['botas'];
+            
+            if (elementosConTalla.includes(tipoElemento)) {
+                campoTalla.style.display = 'block';
+            } else if (elementosConCalzado.includes(tipoElemento)) {
+                campoNumeroCalzado.style.display = 'block';
+            }
+        }
+
+        function guardarIngreso() {
+            const tipoElemento = document.getElementById('tipoElemento').value;
+            const cantidad = document.getElementById('cantidadIngreso').value;
+            const talla = document.getElementById('tallaIngreso').value;
+            const numeroCalzado = document.getElementById('numeroCalzadoIngreso').value;
+            const proveedor = document.getElementById('proveedorIngreso').value;
+            const fechaIngreso = document.getElementById('fechaIngreso').value;
+            const observaciones = document.getElementById('observacionesIngreso').value;
+
+            // Validaciones
+            if (!tipoElemento || !cantidad || !proveedor || !fechaIngreso) {
+                mostrarError('Por favor complete todos los campos obligatorios');
+                return;
+            }
+
+            if (parseInt(cantidad) <= 0) {
+                mostrarError('La cantidad debe ser mayor a 0');
+                return;
+            }
+
+            // Validar campos específicos según tipo de elemento
+            const elementosConTalla = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo'];
+            const elementosConCalzado = ['botas'];
+            
+            if (elementosConTalla.includes(tipoElemento) && !talla) {
+                mostrarError('Por favor seleccione una talla para este tipo de elemento');
+                return;
+            }
+            
+            if (elementosConCalzado.includes(tipoElemento) && !numeroCalzado) {
+                mostrarError('Por favor seleccione un número de calzado para este tipo de elemento');
+                return;
+            }
+
+            const ingresoData = {
+                tipo_elemento: tipoElemento,
+                cantidad: parseInt(cantidad),
+                talla: talla || null,
+                numero_calzado: numeroCalzado || null,
+                proveedor: proveedor,
+                fecha_ingreso: fechaIngreso,
+                observaciones: observaciones || null,
+                usuario_registro: sessionUser.cedula
+            };
+
+            fetch('/api/ingresos-dotaciones', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(ingresoData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('modalIngreso')).hide();
+                    mostrarExito('Ingreso registrado correctamente');
+                    // Recargar datos para actualizar estadísticas y gráficos
+                    cargarDatos();
+                    cargarDatosStock();
+                } else {
+                    mostrarError('Error al registrar ingreso: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                mostrarError('Error de conexión al registrar ingreso');
+            });
+        }
+
+        // Función para cargar datos de stock
+        function cargarDatosStock() {
+            fetch('/api/stock-dotaciones')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        actualizarGraficosStock(data.stock);
+                    } else {
+                        console.error('Error al cargar datos de stock:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar datos de stock:', error);
+                });
+        }
+
+        // Función para actualizar gráficos con datos de stock
+        function actualizarGraficosStock(stockData) {
+            if (!stockData || !Array.isArray(stockData)) {
+                console.error('Datos de stock inválidos');
+                return;
+            }
+
+            // Calcular totales para el gráfico de distribución
+            const totalStock = stockData.reduce((sum, item) => sum + item.stock_actual, 0);
+            const stockDisponible = stockData.reduce((sum, item) => {
+                const disponible = Math.max(0, item.stock_actual - item.stock_minimo);
+                return sum + disponible;
+            }, 0);
+            const stockBajo = stockData.reduce((sum, item) => {
+                return sum + (item.stock_actual <= item.stock_minimo && item.stock_actual > 0 ? item.stock_actual : 0);
+            }, 0);
+            const stockCritico = stockData.reduce((sum, item) => {
+                return sum + (item.stock_actual === 0 ? 1 : 0); // Contar elementos sin stock
+            }, 0);
+
+            // Actualizar gráfico de distribución de stock
+            if (stockChart) {
+                stockChart.data.labels = ['Stock Disponible', 'Stock Bajo', 'Sin Stock'];
+                stockChart.data.datasets[0].data = [stockDisponible, stockBajo, stockCritico];
+                stockChart.data.datasets[0].backgroundColor = ['#28a745', '#ffc107', '#dc3545'];
+                stockChart.update();
+            }
+
+            // Cargar datos de reportes para el gráfico de movimientos
+            fetch('/api/reportes-inventario')
+                .then(response => response.json())
+                .then(reporteData => {
+                    if (reporteData.success && movimientosChart) {
+                        const ingresosMensuales = reporteData.ingresos_mensuales || [];
+                        
+                        if (ingresosMensuales.length > 0) {
+                            const labels = ingresosMensuales.map(item => {
+                                const fecha = new Date(item.mes + '-01');
+                                return fecha.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+                            });
+                            const cantidades = ingresosMensuales.map(item => item.total_cantidad);
+                            
+                            movimientosChart.data.labels = labels;
+                            movimientosChart.data.datasets[0].label = 'Ingresos Mensuales';
+                            movimientosChart.data.datasets[0].data = cantidades;
+                            movimientosChart.data.datasets[0].borderColor = '#28a745';
+                            movimientosChart.data.datasets[0].backgroundColor = 'rgba(40, 167, 69, 0.1)';
+                            movimientosChart.update();
+                        }
+                    }
+                })
+                .catch(error => console.error('Error al cargar reportes:', error));
+        }
+
+        // Funciones de utilidad
+        function mostrarExito(mensaje) {
+            // Implementar notificación de éxito
+            alert(mensaje);
+        }
+
+        function mostrarError(mensaje) {
+            // Implementar notificación de error
+            alert(mensaje);
+        }
+
+        // Inicializar cuando se carga la página
+        document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar DataTable usando la función dedicada
+            inicializarTabla();
+
+            // Cargar datos iniciales
+            cargarDatos();
+            
+            // Cargar técnicos
+            cargarTecnicos();
+            
+            // Inicializar gráficos
+            inicializarGraficos();
+            
+            // Cargar datos de stock para los gráficos
+            cargarDatosStock();
+        });
+    </script>
+{% endblock %}
