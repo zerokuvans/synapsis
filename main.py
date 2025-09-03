@@ -108,11 +108,17 @@ def load_user(user_id):
 # Importar rutas desde app.py
 from app import administrativo_asistencia, obtener_supervisores, obtener_tecnicos_por_supervisor, guardar_asistencia_administrativa
 
+# Importar módulo de dotaciones
+from dotaciones_api import registrar_rutas_dotaciones
+
 # Registrar rutas de app.py
 app.route('/administrativo/asistencia')(administrativo_asistencia)
 app.route('/api/supervisores', methods=['GET'])(obtener_supervisores)
 app.route('/api/tecnicos_por_supervisor', methods=['GET'])(obtener_tecnicos_por_supervisor)
 app.route('/api/asistencia/guardar', methods=['POST'])(guardar_asistencia_administrativa)
+
+# Registrar rutas del módulo de dotaciones
+registrar_rutas_dotaciones(app)
 
 # Database configuration
 db_config = {
