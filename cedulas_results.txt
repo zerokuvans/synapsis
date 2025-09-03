@@ -1,0 +1,755 @@
+=== USUARIOS ACTIVOS EN LA BASE DE DATOS ===
+Total usuarios encontrados: 106
+
+ID: 14
+Cédula: 1023010816
+Nombre: AVILA BEJARANO YESSICA PAOLA
+Rol ID: 1
+Estado: Activo
+Password Hash: $2b$12$Rt.Fs9yBz8JMYPc5A0cUk.NKh3PjXdhFQF6zhDGdTDO...
+--------------------------------------------------
+ID: 21
+Cédula: 1019064898
+Nombre: CAMPOS VELANDIA ANDERSON FELIPE
+Rol ID: 1
+Estado: Activo
+Password Hash: $2b$12$XHoPSrrzykIiB6xuFXfcVOaIMTJRBRn7OwYTyATpq03...
+--------------------------------------------------
+ID: 31
+Cédula: 1073718147
+Nombre: FERIAS  CRUZ PAULA JOHANA
+Rol ID: 1
+Estado: Activo
+Password Hash: $2b$12$iXjDy3x0hlQIyPj0Uxml.eZz55sn47mhq4VY/9FyU1A...
+--------------------------------------------------
+ID: 98
+Cédula: 1032502478
+Nombre: MARIA ELENA REYES CEDEÑO
+Rol ID: 1
+Estado: Activo
+Password Hash: $2b$12$wX.tNSUX/j5CDAAYQcTlBOJtIIRyVREazHQG6UXlLZo...
+--------------------------------------------------
+ID: 89
+Cédula: 1233489456
+Nombre: SILVA RIVERA JESSICA LORENA
+Rol ID: 1
+Estado: Activo
+Password Hash: $2b$12$iC.esOaEucJhZ.q3A96kIuddvCVciI.HpFSS9Tf66vI...
+--------------------------------------------------
+ID: 1
+Cédula: 80833959
+Nombre: VICTOR ALFONSO NARANJO SIERRA
+Rol ID: 1
+Estado: Activo
+Password Hash: $2b$12$VZl/i92hR9LcmklDUs8g.easIWahYJhHLPtIyHqzYV7...
+--------------------------------------------------
+ID: 88
+Cédula: 24198720
+Nombre:  ALONSO OTALORA BLANCA IRENE 
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$o0wvN3vXoxu82bWtNCoZXuUUD6UssBKgMDzd0Q.Y7e4...
+--------------------------------------------------
+ID: 11
+Cédula: 1019112308
+Nombre: ALARCON SALAS LUIS HERNANDO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$aMNqQR8YmYwjLPV6N2SNKey0V/v95u0Yf47TPYQXTJZ...
+--------------------------------------------------
+ID: 12
+Cédula: 80085017
+Nombre: ALDANA ALBA ALEXANDER
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$MF9JAUqrMQEWcKo4/JB1Nubt.pk8YtYmkq6I1KqPMTk...
+--------------------------------------------------
+ID: 117
+Cédula: 1094283411
+Nombre: ALMEIDA PEREZ WILMER
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$N832KCY6JXluW4nQMlfV6uC7xDo.3tlG81Nke583wGs...
+--------------------------------------------------
+ID: 13
+Cédula: 1085176966
+Nombre: ARNACHE ARIAS JUAN CARLOS
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$/9wo6kghYrQ77FiSOZjTuePvMGtiFbVKY/A9fDhT3.J...
+--------------------------------------------------
+ID: 15
+Cédula: 1022980482
+Nombre: AVILA RIVERA JESUS ALBERTO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$x8.xhNxjy/8r5L.qSZA35eSh6wkzW88z2EuYtR77oQZ...
+--------------------------------------------------
+ID: 133
+Cédula: 1074188380
+Nombre: BALLESTEROS MORA RICARDO ENRIQUE
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$Y/xsO8Pf2qfDmkR4fmBhr.GswfskMvXdA6W329H81I8...
+--------------------------------------------------
+ID: 102
+Cédula: 1076668265
+Nombre: BARON ROSALES FERMIN URIEL
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$jYlG6FR23MlABXaWJkH60eqSc4lUqvfH//szU.Bm8GV...
+--------------------------------------------------
+ID: 16
+Cédula: 1015449877
+Nombre: BARRERA HERNANDEZ CAMILO EDUARDO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$9Z33UtxocDoyas6TwYdZjODztyhdiGoVVcSerC44dFU...
+--------------------------------------------------
+ID: 128
+Cédula: 79846883
+Nombre: BAUTISTA MUÑOZ HAROL STYWAR
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$/neP0.ZIOSt5jlORsOsFduaCphf0iQBrsYRKEVobldk...
+--------------------------------------------------
+ID: 90
+Cédula: 1123530243
+Nombre: BEJARANO QUEZADA EDWIN
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$EOXyo2/OnE45dKDRTJT9OeOAaUvZTsjf1ZmMwXQ7EGb...
+--------------------------------------------------
+ID: 17
+Cédula: 1022359872
+Nombre: BERNAL MORALES LUIS NELSON
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$VhRHVNsjSzDqF1Wn2Op/EOEInk5.NuKVJmZ8vPxSnTS...
+--------------------------------------------------
+ID: 18
+Cédula: 1030545700
+Nombre: BETANCOURT CAAS DANIEL FRANCISCO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$eGiXJ.veVQ6EJ3TWZ6SdYOcp2PRzyS1Wv4Sk8Ppo0zy...
+--------------------------------------------------
+ID: 22
+Cédula: 1001090831
+Nombre: CAIZALEZ RINCON JULIAN SANTIAGO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$JpOGfWtVOehDbkEOlM61E.zO39FB9LOzELuurVCQ7D....
+--------------------------------------------------
+ID: 20
+Cédula: 1024484614
+Nombre: CAMACHO CAMACHO HECTOR FABIAN
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$XuQK7WBvJFIfQu0KTGwpsuo6UjsTtvzcfcl7Vrmcbxq...
+--------------------------------------------------
+ID: 23
+Cédula: 1049663304
+Nombre: CARRIZO MELGAREJO JORBER JOSE
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$vNNY/Ue8/qUxN9kB0tqNrO28E8farBhWgnk8cpzy0CJ...
+--------------------------------------------------
+ID: 24
+Cédula: 79815202
+Nombre: CHAVEZ CRUZ NESTOR RAUL
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$Awi.YiYIQFibMo.LsMIi7OfZKI5JK1cVn89tAxbVXrV...
+--------------------------------------------------
+ID: 136
+Cédula: 1038136824
+Nombre: CRISTIAN CAMILO TIRADO FLOREZ
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$YU7LLFKpOIRtmYbA8BP/6uGvWuMfXNHCNjOCZcZM1uv...
+--------------------------------------------------
+ID: 108
+Cédula: 1007635217
+Nombre: CRISTIAN FELIPE CARRION CASTILLO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$bQbrco.33NaaHgbGN0qpvOJpE/AxGnOZcU.VW5TLexs...
+--------------------------------------------------
+ID: 28
+Cédula: 1033758324
+Nombre: DIAZ MORA FABIO NELSON
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$xfFSOLudsA6cEuBcZnpfae8hb.lrAbnsVMLXz9WJRNm...
+--------------------------------------------------
+ID: 29
+Cédula: 1193242759
+Nombre: DUARTE EPIAYU EDER JOSE
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$ABrXaqGTMJ0W36FqHD.7EuPZCohtTLq8mn3bw8dFsop...
+--------------------------------------------------
+ID: 135
+Cédula: 1094947369
+Nombre: ECHEVERRY TORRES JUAN CAMILO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$64MYt7l3uSnnPUaBYtaNqePz6D2cK.J6r8u2b5qwq.X...
+--------------------------------------------------
+ID: 30
+Cédula: 1002407090
+Nombre: ESPITIA BARON LICED JOANA
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$m84rFtqWR3SUprspLA2diemiDpfengNTBF1.Ls3AADL...
+--------------------------------------------------
+ID: 131
+Cédula: 11165332
+Nombre: ESPITIA MORELO FARID ANDRES
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$/YpjpGvv6v/StvUw.rrNzuyXy0iU.CoOg6GWb9f/BTK...
+--------------------------------------------------
+ID: 115
+Cédula: 11189872
+Nombre: FAGUA RICO JOSE ALEJANDRO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$XBc3dAM7nM9Lm7WZuzz38OSB1UeNcIvOmAvzekBq1.X...
+--------------------------------------------------
+ID: 32
+Cédula: 1024584584
+Nombre: GALAN CIPAGAUTA KAREN NATALIA
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$/8F.h4ZO.7mU9dxyIow5wOKccTRmRv1454rE5ZVyXbr...
+--------------------------------------------------
+ID: 122
+Cédula: 1070324972
+Nombre: GALINDO CRUZ  MANOLO JOSE
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$.n6WHsEOE37cwHR91sT1penohX3.FAcfY/y9qEla6pt...
+--------------------------------------------------
+ID: 33
+Cédula: 1070704868
+Nombre: GOMEZ BERNAL JOSE TOMAS
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$ojrx9FUBU9g3b0M9j8L0LOMLzzM7wB2n/c643S5ECO4...
+--------------------------------------------------
+ID: 124
+Cédula: 1020761350
+Nombre: GOMEZ MONTAÑO FABIAN SNEITHER
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$MID2OViS87akylJdy2yy4.hmCKdlFcJohiXN1BKkJUd...
+--------------------------------------------------
+ID: 34
+Cédula: 1072073893
+Nombre: GUTIERREZ SOLANO BRAYAN FERNANDO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$1jcFx02eTQ.EWzx283Cz6uL3.zDS2aKgqLAcA1VQEsr...
+--------------------------------------------------
+ID: 137
+Cédula: 1030545270
+Nombre: HERNAN EDUARDO BUSTOS BELLO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$nAyfy/JUMQdxe0MykIf5J.CdoSwNiZ2nIybTplS2keu...
+--------------------------------------------------
+ID: 35
+Cédula: 1070964489
+Nombre: HERRERA PINZON JAVIER ORLANDO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$XMNLnLuVM9rhxX.DSqGb/.yDWFj6OYR0ftwFDGSLZpK...
+--------------------------------------------------
+ID: 95
+Cédula: 1085174519
+Nombre: JHON MARIO LASCARRO DIAZ
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$27USuKj52jReVgVRH5VmxOpbhvrINIOUopImpBfsLwr...
+--------------------------------------------------
+ID: 138
+Cédula: 1095922777
+Nombre: JONNATHAN ASDRUBAL PALMA CORREA 
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$VvIr2TV0XeEh.a40674qkuAP9rd0UHFIdpckfzf1qrn...
+--------------------------------------------------
+ID: 116
+Cédula: 1085179957
+Nombre: JOSE DAVID ARTEAGA GARRIDO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$bzI7nmfoI5gYqbN7loOrOOnSbcWtdpEDUL.eoKbcV1D...
+--------------------------------------------------
+ID: 36
+Cédula: 1002455544
+Nombre: LANCHEROS ALARCON CESAR ARNULFO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$5TeLGxOK5ZjSfVwH8SpYGe95pmNgCcYHhrLVtT/Q6W2...
+--------------------------------------------------
+ID: 37
+Cédula: 1019121754
+Nombre: LANCHEROS ALARCON JOSE EDILFONSO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$qs85UnQ8LxGU36UOhizmROBBH6Q.ZUdVSY85nNsrjtH...
+--------------------------------------------------
+ID: 140
+Cédula: 1006020664
+Nombre: LOPEZ CARDOZO BRAYAN CAMILO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$0Fn7pdUgdtktgOsQu1TOB.gOikblHh22gOwtoRiH1NT...
+--------------------------------------------------
+ID: 139
+Cédula: 80018642
+Nombre: LOPEZ HERNANDEZ OSCAR JAVIER
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$vcyEJNlyrZXLaUmIipmwDOfQWPdj18EXM2HO0rFxITW...
+--------------------------------------------------
+ID: 39
+Cédula: 1032506059
+Nombre: LOPEZ SALAMANCA BRIAM SNEIDER
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$5SzdRmYUN953dg2zZFYfjuZ0C0h1DwINjLWqGntbpcQ...
+--------------------------------------------------
+ID: 91
+Cédula: 1014188955
+Nombre: LOZANO CASTAEDA JOHAN DAVID
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$8sdBGtCDgAvKAvcCl4UqlOKAm2KXJ67OZO3cNdwRE/V...
+--------------------------------------------------
+ID: 40
+Cédula: 1102119224
+Nombre: MACEA MARTELO LUIS ALBERTO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$dcuf03b.bG/rKs9cfF8Ey.M4xoLEUYHK08gFyLS/2aj...
+--------------------------------------------------
+ID: 109
+Cédula: 1072665400
+Nombre: MANUEL ENRIQUE ABRIL PEÑA
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$3EI.28pD6X/Tc8xfXVt4rOIJN1Q5UgpxoWGi5G3z4x5...
+--------------------------------------------------
+ID: 43
+Cédula: 1023026702
+Nombre: MARIN REINA JEFERSON CAMILO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$4SnLNJVqdVv.A/o/ETFq5.jnnGhnJmHIm.nZpsCM79R...
+--------------------------------------------------
+ID: 44
+Cédula: 1014216655
+Nombre: MARTIN MARTINEZ JULIAN CAMILO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$TlqNAiQNY/GfZBQDuVmScOsJNbVbeF92afALcySylFV...
+--------------------------------------------------
+ID: 45
+Cédula: 1004283704
+Nombre: MENDOZA FLOREZ DIEGO DE JESUS
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$jMBY0pv6wOknEoUO9JAEuOfJtrOjuDqqdqJ90jh55m0...
+--------------------------------------------------
+ID: 46
+Cédula: 12634949
+Nombre: MONSALVO LOPEZ LAINER JAIR
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$jNdz.yDLQo2IZGPFK4ZEVuPkOivhpdKcsc0Wg/WwZGk...
+--------------------------------------------------
+ID: 47
+Cédula: 19591545
+Nombre: MONTENEGRO MEZA ALDON REMBER
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$xTGFLR3MwiH4oCLjYlq0TeiQX0fjBy4rzJoHrg29FGB...
+--------------------------------------------------
+ID: 119
+Cédula: 16015136
+Nombre: MORENO PEREZ CAMILO ENRIQUE
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$LaJSTWjjPkUZFBeEEOD1ueOH0IhT4OVJA6Ok2/XSVBz...
+--------------------------------------------------
+ID: 127
+Cédula: 80130756
+Nombre: MURILLO OMAR HUMBERTO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$lBYARLuiGd7G3G4pFxjcnOwkeqPuI0F3xyotiU/je13...
+--------------------------------------------------
+ID: 51
+Cédula: 1012411088
+Nombre: NARANJO TAVERA ANDERSON JULIAN
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$7JMQzic1a/nhFGtEGZRLyO.Qv5ZAWQtlOgkEoASactB...
+--------------------------------------------------
+ID: 52
+Cédula: 79827363
+Nombre: NOVOA  RINCON JOSE VICENTE 
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$iLbH8XUqppKvVlHIuIIs4O/vk6jAb9jDaxpsFaCb7CU...
+--------------------------------------------------
+ID: 54
+Cédula: 84455827
+Nombre: OATE MERCADO ERNESTO RAFAEL
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$DL8aoVwzFOGMGpo6JhJjW.7JK7uPJm7mY/yj9DEIGsK...
+--------------------------------------------------
+ID: 53
+Cédula: 1143833247
+Nombre: OCAMPO GONZALEZ JULIAN
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$Ac5Ai661yJEQwek4khwNceQL1RkrhkRoQPj.KNEjEXI...
+--------------------------------------------------
+ID: 110
+Cédula: 1102716990
+Nombre: ORANGEL INFANTE ROJAS
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$Ge8dJsiM8cFSeuUE5icH4erSeBnPAgxnZ5hh6d7HnM8...
+--------------------------------------------------
+ID: 57
+Cédula: 1065807926
+Nombre: PADILLA MERCADO OMAR YESITH
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$ab8K.OSSPc/qtQ9Vg9Mw0OjHB5aI7DLJqI6NXavBPN7...
+--------------------------------------------------
+ID: 58
+Cédula: 1020809768
+Nombre: PADILLA MORALES LUIS ALFONSO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$lqoAUHLbU5XnLjqt9LtDA.sLGoKD7b0F1rJ5xU4ZWKz...
+--------------------------------------------------
+ID: 59
+Cédula: 1007611824
+Nombre: PATERNINA SIERRA GUSTAVO ELIAS
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$ePWFPQWR6OckqtxB8MhideyiEnrqmMPo2Yj1Hwr/X0d...
+--------------------------------------------------
+ID: 61
+Cédula: 79797613
+Nombre: PINEDA NARANJO HERMAN
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$EHzPn4kmz5HFikZdk5CX5OT1GPL5vZjGvU6UEakSlGy...
+--------------------------------------------------
+ID: 63
+Cédula: 1065840853
+Nombre: QUINTERO OATE SILFREDO SEGUNDO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$WoF9us.8TX2HLNf.7CJ0Ve2x8uwuwuIXOnz2W8ZrLdI...
+--------------------------------------------------
+ID: 129
+Cédula: 1023026357
+Nombre: QUIROGA MORA LUIS FELIPE
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$1QgqQmG.b8TES1bMJWSFn.Dtg02myRN5msid/i4KO/L...
+--------------------------------------------------
+ID: 96
+Cédula: 5043240
+Nombre: RAFAEL JOSE COLINA ESCALONA
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$Nqf1Q2t9gVOPsug9USV5aesid2eW5LnLJTF04/IC2Um...
+--------------------------------------------------
+ID: 113
+Cédula: 80024428
+Nombre: RAMON SANTOS CHOLES
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$HuyOC9OcVqDnEtst3ehDruQnzcTUI6rVtr7oiaJGuDN...
+--------------------------------------------------
+ID: 64
+Cédula: 1003479597
+Nombre: RAMOS BARACALDO JUAN CARLOS
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$8zZGIrdzc5YUluH3oRaZ6uvMeu8fEXCv1bUZsW0EeJ1...
+--------------------------------------------------
+ID: 130
+Cédula: 80026265
+Nombre: REYES SUAREZ MIGUEL
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$X1XrtU9FDkTMVcwvuEOSNuoSC1Mlk1mfV5sJ2NfVT1H...
+--------------------------------------------------
+ID: 66
+Cédula: 1015438296
+Nombre: REYES TOBASURA CRISTIAN ESTIVEN
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$XtQrmOgeUaMxwXZmF8Rmnuq6T9/vbQeCSKRdctGk/HC...
+--------------------------------------------------
+ID: 100
+Cédula: 80812466
+Nombre: RODRIGUEZ VARGAS DIEGO MAURICIO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$ucRWRMg/6uGVLnkohN3EmO8t0EhIMy94FXPVQy18PSQ...
+--------------------------------------------------
+ID: 69
+Cédula: 1032474386
+Nombre: ROMERO MARTINEZ BRAYAN ARILSON
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$BwnNeVjI3Tsm.7ZGWEO9dOS/4JdKsondUfLwo9bFx3C...
+--------------------------------------------------
+ID: 134
+Cédula: 80896896
+Nombre: ROMERO PUERTA JHON HENRY
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$58coul8GJMQXHLqoWolyIOdYPnm9V6z9jYFdPOdQfEQ...
+--------------------------------------------------
+ID: 125
+Cédula: 80211594
+Nombre: SALCEDO PAEZ OMAR LEWIS
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$VdaISxhH5HvYmI5Bo2pWyObF3kIdcWTQUNVQVrL.Tu6...
+--------------------------------------------------
+ID: 70
+Cédula: 1052339761
+Nombre: SANCHEZ PEA CARLOS HERNANDO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$fW0vzmIQGrvjO9cmELCdy.FXpzhma5A9V9mAIjb.I.R...
+--------------------------------------------------
+ID: 71
+Cédula: 1019093439
+Nombre: SANCHEZ PEA JUAN GABRIEL
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$/8z250RbuYH5KxNsJj/vme2.bCrGERe.Dz9uZsZskFx...
+--------------------------------------------------
+ID: 72
+Cédula: 1033764826
+Nombre: SIERRA HERNANDEZ ROBINSON ALEXANDER
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$qXjv8gIoprJeHOGRlaE5Gu4Hl2XEOzCehEmvI8RYKU4...
+--------------------------------------------------
+ID: 94
+Cédula: 5694500
+Nombre: SILVA LANDAEZ MAIKEL SILVERIO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$Nl.ttmXBBq0pPzJ5wI2LRea3S2dHFOxzjH/Lu9bfM66...
+--------------------------------------------------
+ID: 132
+Cédula: 1109841613
+Nombre: SOTO PRECIADO DIEGO DANILO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$Nt.EvkJkOHSGEQfuD7wwx.WZak9pUU0KSZ7lBooWARG...
+--------------------------------------------------
+ID: 76
+Cédula: 1233904351
+Nombre: SUESCA NEIRA MAURICIO ESTEBAN
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$Xg4LXEJJLQ0NI2qSZhskfe86azp3mGk8CU9BPd8KdDL...
+--------------------------------------------------
+ID: 123
+Cédula: 14012890
+Nombre: TAPIERO TRIANA FABIAN FRANCISCO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$Db/DWrqJvIeFXOJLHr8Ajurkm.2I5t.W.WKmwWlEBIv...
+--------------------------------------------------
+ID: 120
+Cédula: 1016034151
+Nombre: TELLEZ ROJAS DIEGO FERNANDO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$KW7fMqIMc7qMWWfrmCRxruafMGi1vteMe0tn420GNlR...
+--------------------------------------------------
+ID: 78
+Cédula: 1116205069
+Nombre: TIQUE LOAIZA JOHN JAIRO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$PkkPjeboKtnYaxLcBABMxeqUgruIlEBR/D3UJY6pqa1...
+--------------------------------------------------
+ID: 80
+Cédula: 79763158
+Nombre: TRUJILLO RAMIREZ LUIS ALBERTO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$OYvibdqQoAHbTxTtmFJ8TenGY.zonNM3xMInf6kY7U1...
+--------------------------------------------------
+ID: 81
+Cédula: 1019069738
+Nombre: URREA CALVO LEIDY SOLANYI
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$nWEIBCdgV1wEDREa6WqFDu8BH.kPJRe782YxgEq8M49...
+--------------------------------------------------
+ID: 82
+Cédula: 1007770364
+Nombre: VALIENTE PINZON EDISSON CAMILO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$b9vra0ta3.BARz6HRMc.yOYFOipl7jrbq2lZrv0jDq7...
+--------------------------------------------------
+ID: 83
+Cédula: 23533027
+Nombre: VELANDIA GARCIA LUZ DARY
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$gCzqRagkXjEiJT0g5Zo32uhpAM/cMauuK9V8mqCE6QI...
+--------------------------------------------------
+ID: 84
+Cédula: 80034211
+Nombre: VELANDIA REDONDO DIEGO ALEXANDER
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$X84kJ4iQR33bVPKCUEaRN.D.gGgX5VnU3AJgdk4nzC8...
+--------------------------------------------------
+ID: 85
+Cédula: 76009268
+Nombre: VELASCO FERNANDEZ JESUS LEONIDAS
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$.TDXFuBwfrP4lmvM9V9T4.fcTKapwj4JCsIwQV7Anje...
+--------------------------------------------------
+ID: 86
+Cédula: 1110180337
+Nombre: VERGARA TRUQUE SERGIO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$qnP.slwoyqYYjUYh1HxJwejOPePJLzr/EmYGrYPMb7Y...
+--------------------------------------------------
+ID: 118
+Cédula: 4290280
+Nombre: WILLIAM ENRRIQUE MEDINA PEREZ
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$FFCBqO6DcvIFZEbuVUAAIO7wScw/sMbYFeFjRA8qN4t...
+--------------------------------------------------
+ID: 126
+Cédula: 1010239798
+Nombre: YALANDA FERNANDEZ JONATHAN ALEXIS
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$KH8XPO3xdPuZwG6uqyAJ1OiM4JKSv3pUr43edK0nWo0...
+--------------------------------------------------
+ID: 104
+Cédula: 1019126871
+Nombre: YEISON CAMILO CASALLAS BRIÑES
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$u4mUXQIRz3vMzKwuLjUbaOoOuI15lZPNGDq3hW87Y8g...
+--------------------------------------------------
+ID: 87
+Cédula: 1085229001
+Nombre: YEPES CARO DEINER JOSE
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$sUhMTckjVqrHJ5lf6PSlYeRpq6kJ2B7pdURdSdxILBL...
+--------------------------------------------------
+ID: 99
+Cédula: 79889651
+Nombre: YOPASA RODRIGUEZ FREDY PABLO
+Rol ID: 2
+Estado: Activo
+Password Hash: $2b$12$dF/bT3EDS.gIiHMnNJb0cuBJUPB5E02jk43eKa3d.EI...
+--------------------------------------------------
+ID: 19
+Cédula: 1032402333
+Nombre: CACERES MARTINEZ CARLOS
+Rol ID: 3
+Estado: Activo
+Password Hash: $2b$12$BInLdQzVk6s.wff9yOXWLOy4Efuf21gWV.zygP3AGZs...
+--------------------------------------------------
+ID: 26
+Cédula: 52912112
+Nombre: CORTES CUERVO SANDRA CECILIA
+Rol ID: 3
+Estado: Activo
+Password Hash: $2b$12$X1u32vYpB9TokyjTLwcyMOMPWbBE4LdoUJTW33AfZCV...
+--------------------------------------------------
+ID: 38
+Cédula: 1033779919
+Nombre: LANCHEROS GONZALEZ EDITON DAVID
+Rol ID: 3
+Estado: Activo
+Password Hash: $2b$12$Ear7cHFiUqN50o1e3RJXv.PyE3/TmAJC2Ms.YTh3f63...
+--------------------------------------------------
+ID: 41
+Cédula: 80543481
+Nombre: MALDONADO GARNICA JAVIER HERNANDO
+Rol ID: 3
+Estado: Activo
+Password Hash: $2b$12$5M06xa6hCyl3o3wZBzynouSoOv1lSXI78cQYQIP8B6d...
+--------------------------------------------------
+ID: 50
+Cédula: 80091070
+Nombre: MUOZ URREGO JOSE MAURICIO
+Rol ID: 3
+Estado: Activo
+Password Hash: $2b$12$BoK.kwxWngMK6FsEOJ/1XOLLz1SBTgj2du0mPZmGjYY...
+--------------------------------------------------
+ID: 73
+Cédula: 1016073769
+Nombre: SILVA CASTRO DANIEL ALBERTO
+Rol ID: 3
+Estado: Activo
+Password Hash: $2b$12$XpQuddp8VpB145hcUmidNuQWWdHYfAzFmpjjJ5cBEpz...
+--------------------------------------------------
+ID: 75
+Cédula: 1051287107
+Nombre: SOSA GARCIA JORGE ARMANDO
+Rol ID: 3
+Estado: Activo
+Password Hash: $2b$12$ZJCdeJ6yl1Ta0dcy/HSDcufrZJ40fZgwdOTZg9uXlH7...
+--------------------------------------------------
+ID: 74
+Cédula: 1002407101
+Nombre: DIANA CAROLINA SOSA
+Rol ID: 5
+Estado: Activo
+Password Hash: $2b$12$7QMxnUjRi5.4.kqUI6DLbuMAuhH2lGWG455pTrOypi0...
+--------------------------------------------------
+ID: 10
+Cédula: test123
+Nombre: Usuario Test
+Rol ID: 5
+Estado: Activo
+Password Hash: $2b$12$MtP.UL1lckiw1ZhjiKYcwOV9wFLe0Qtz/9ue2WMtdE2...
+--------------------------------------------------
+
+=== USUARIOS DE LOGÍSTICA (ROL 5) ===
+Total usuarios de logística: 2
+Cédula para login: 1002407101
+Nombre: DIANA CAROLINA SOSA
+
+Cédula para login: test123
+Nombre: Usuario Test
+
+Conexión cerrada.

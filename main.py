@@ -698,7 +698,15 @@ def obtener_estado_materiales():
                 'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
-            }
+            },
+            'BROWNFIELD': {
+                'cinta_aislante': {'cantidad': 5, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'grapas_blancas': {'cantidad': 200, 'periodo': 15, 'unidad': 'días'},
+                'grapas_negras': {'cantidad': 200, 'periodo': 15, 'unidad': 'días'}
+            },
         }
         
         # Determinar el área de trabajo basado en el cargo y carpeta
@@ -3225,14 +3233,6 @@ def ver_asignaciones_ferretero():
                 'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
             },
-            'CONDUCTOR': {
-                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
-            },
             'SUPERVISORES': {
                 'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
@@ -3240,6 +3240,14 @@ def ver_asignaciones_ferretero():
                 'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
+            },
+            'BROWNFIELD': {
+                'cinta_aislante': {'cantidad': 5, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'grapas_blancas': {'cantidad': 200, 'periodo': 15, 'unidad': 'días'},
+                'grapas_negras': {'cantidad': 200, 'periodo': 15, 'unidad': 'días'}
             }
         }
         
@@ -3485,7 +3493,15 @@ def registrar_ferretero():
                 'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
-            }
+            },
+            'BROWNFIELD': {
+                'cinta_aislante': {'cantidad': 5, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'grapas_blancas': {'cantidad': 200, 'periodo': 15, 'unidad': 'días'},
+                'grapas_negras': {'cantidad': 200, 'periodo': 15, 'unidad': 'días'}
+            },
         }
         
         # Determinar área de trabajo basada en la carpeta (prioridad) o el cargo
@@ -5120,6 +5136,42 @@ def actualizar_vehiculo(id_parque_automotor):
         soat_vencimiento = request.form.get('fecha_vencimiento_soat')
         tecnomecanica_vencimiento = request.form.get('fecha_vencimiento_tecnomecanica')
         observaciones = request.form.get('observaciones', '')
+        
+        # Campos adicionales válidos
+        vin = request.form.get('vin')
+        parque_automotorcol = request.form.get('parque_automotorcol')
+        licencia = request.form.get('licencia')
+        cedula_propietario = request.form.get('cedula_propietario')
+        nombre_propietario = request.form.get('nombre_propietario')
+        kilometraje_actual = request.form.get('kilometraje_actual')
+        proximo_mantenimiento_km = request.form.get('proximo_mantenimiento_km')
+        fecha_ultimo_mantenimiento = request.form.get('fecha_ultimo_mantenimiento')
+        fecha_actualizacion = request.form.get('fecha_actualizacion')
+        
+        # Campos de inspección física
+        estado_carroceria = request.form.get('estado_carroceria')
+        estado_llantas = request.form.get('estado_llantas')
+        estado_frenos = request.form.get('estado_frenos')
+        estado_motor = request.form.get('estado_motor')
+        estado_luces = request.form.get('estado_luces')
+        estado_espejos = request.form.get('estado_espejos')
+        estado_vidrios = request.form.get('estado_vidrios')
+        estado_asientos = request.form.get('estado_asientos')
+        
+        # Campos de elementos de seguridad
+        cinturon_seguridad = request.form.get('cinturon_seguridad')
+        extintor = request.form.get('extintor')
+        botiquin = request.form.get('botiquin')
+        triangulos_seguridad = request.form.get('triangulos_seguridad')
+        llanta_repuesto = request.form.get('llanta_repuesto')
+        herramientas = request.form.get('herramientas')
+        gato = request.form.get('gato')
+        cruceta = request.form.get('cruceta')
+        
+        # Campos operativos válidos
+        centro_de_trabajo = request.form.get('centro_de_trabajo')
+        ciudad = request.form.get('ciudad')
+        licencia_conduccion = request.form.get('licencia_conduccion')
 
         # Validar campos requeridos
         if not all([placa, tipo_vehiculo, marca, modelo, color, fecha_asignacion]):
@@ -5160,7 +5212,15 @@ def actualizar_vehiculo(id_parque_automotor):
                 'message': 'Ya existe otro vehículo registrado con esta placa'
             }), 400
 
-        # Actualizar el vehículo
+        # Convertir fechas vacías a None para los campos válidos
+        fecha_ultimo_mantenimiento = None if not fecha_ultimo_mantenimiento else fecha_ultimo_mantenimiento
+        fecha_actualizacion = None if not fecha_actualizacion else fecha_actualizacion
+        
+        # Convertir valores numéricos vacíos a None
+        kilometraje_actual = None if not kilometraje_actual else kilometraje_actual
+        proximo_mantenimiento_km = None if not proximo_mantenimiento_km else proximo_mantenimiento_km
+
+        # Actualizar el vehículo (solo campos que existen en la tabla)
         cursor.execute("""
             UPDATE parque_automotor SET
                 placa = %s,
@@ -5174,13 +5234,47 @@ def actualizar_vehiculo(id_parque_automotor):
                 estado = %s,
                 soat_vencimiento = %s,
                 tecnomecanica_vencimiento = %s,
-                observaciones = %s
+                observaciones = %s,
+                vin = %s,
+                parque_automotorcol = %s,
+                licencia = %s,
+                cedula_propietario = %s,
+                nombre_propietario = %s,
+                kilometraje_actual = %s,
+                proximo_mantenimiento_km = %s,
+                fecha_ultimo_mantenimiento = %s,
+                fecha_actualizacion = %s,
+                estado_carroceria = %s,
+                estado_llantas = %s,
+                estado_frenos = %s,
+                estado_motor = %s,
+                estado_luces = %s,
+                estado_espejos = %s,
+                estado_vidrios = %s,
+                estado_asientos = %s,
+                cinturon_seguridad = %s,
+                extintor = %s,
+                botiquin = %s,
+                triangulos_seguridad = %s,
+                llanta_repuesto = %s,
+                herramientas = %s,
+                gato = %s,
+                cruceta = %s,
+                centro_de_trabajo = %s,
+                ciudad = %s,
+                licencia_conduccion = %s
             WHERE id_parque_automotor = %s
         """, (
             placa, tipo_vehiculo, marca, modelo, color, supervisor,
             id_codigo_consumidor, fecha_asignacion, estado,
-            soat_vencimiento, tecnomecanica_vencimiento,
-            observaciones, id_parque_automotor
+            soat_vencimiento, tecnomecanica_vencimiento, observaciones,
+            vin, parque_automotorcol, licencia, cedula_propietario, nombre_propietario,
+            kilometraje_actual, proximo_mantenimiento_km, fecha_ultimo_mantenimiento,
+            fecha_actualizacion, estado_carroceria, estado_llantas, estado_frenos, estado_motor,
+            estado_luces, estado_espejos, estado_vidrios, estado_asientos,
+            cinturon_seguridad, extintor, botiquin, triangulos_seguridad,
+            llanta_repuesto, herramientas, gato, cruceta,
+            centro_de_trabajo, ciudad, licencia_conduccion, id_parque_automotor
         ))
         
         connection.commit()
@@ -9255,7 +9349,22 @@ def api_actualizar_vehiculo(vehiculo_id):
             'placa', 'tipo_vehiculo', 'marca', 'modelo', 'color',
             'id_codigo_consumidor', 'fecha_asignacion', 'estado',
             'soat_vencimiento', 'tecnomecanica_vencimiento', 'observaciones',
-            'kilometraje_actual', 'proximo_mantenimiento_km'
+            'kilometraje_actual', 'proximo_mantenimiento_km',
+            # Campos adicionales del vehículo
+            'vin', 'parque_automotorcol', 'licencia',
+            # Información del propietario
+            'cedula_propietario', 'nombre_propietario',
+            # Campos de mantenimiento
+            'proximo_mantenimiento', 'fecha_ultimo_mantenimiento', 'ultimo_mantenimiento',
+            'fecha_actualizacion', 'numero_vin', 'propietario_cedula', 'propietario_nombre',
+            # Inspección física
+            'estado_carroceria', 'estado_llantas', 'estado_frenos', 'estado_motor',
+            'estado_luces', 'estado_espejos', 'estado_vidrios', 'estado_asientos',
+            # Elementos de seguridad
+            'cinturon_seguridad', 'extintor', 'botiquin', 'triangulos_seguridad',
+            'llanta_repuesto', 'herramientas', 'gato', 'cruceta',
+            # Información operativa
+            'centro_de_trabajo', 'ciudad', 'supervisor', 'fecha', 'kilometraje'
         ]
         
         for field in allowed_fields:
@@ -11008,7 +11117,15 @@ def obtener_limites_tecnico(id_codigo_consumidor):
                 'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
                 'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
-            }
+            },
+            'BROWNFIELD': {
+                'cinta_aislante': {'cantidad': 5, 'periodo': 15, 'unidad': 'días'},
+                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
+                'grapas_blancas': {'cantidad': 200, 'periodo': 15, 'unidad': 'días'},
+                'grapas_negras': {'cantidad': 200, 'periodo': 15, 'unidad': 'días'}
+            },
         }
         
         # Determinar área de trabajo

@@ -529,6 +529,40 @@
                                     <input type="text" class="form-control" id="color" name="color" required>
                                 </div>
                             </div>
+                            <!-- Campos adicionales -->
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label for="vin" class="form-label">VIN</label>
+                                    <input type="text" class="form-control" id="vin" name="vin">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="parque_automotorcol" class="form-label">Parque Automotor Col</label>
+                                    <input type="text" class="form-control" id="parque_automotorcol" name="parque_automotorcol">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="licencia" class="form-label">Licencia</label>
+                                    <input type="text" class="form-control" id="licencia" name="licencia">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información del Propietario -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="m-0 font-weight-bold text-primary">Información del Propietario</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="cedula_propietario" class="form-label">Cédula Propietario</label>
+                                    <input type="text" class="form-control" id="cedula_propietario" name="cedula_propietario">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="nombre_propietario" class="form-label">Nombre Propietario</label>
+                                    <input type="text" class="form-control" id="nombre_propietario" name="nombre_propietario">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -789,6 +823,59 @@
                             <div class="mb-3">
                                 <label for="observaciones" class="form-label">Observaciones</label>
                                 <textarea class="form-control" id="observaciones" name="observaciones" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información de Mantenimiento -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="m-0 font-weight-bold text-primary">Información de Mantenimiento</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label for="kilometraje_actual" class="form-label">Kilometraje Actual</label>
+                                    <input type="number" class="form-control" id="kilometraje_actual" name="kilometraje_actual">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="proximo_mantenimiento_km" class="form-label">Próximo Mantenimiento (Km)</label>
+                                    <input type="number" class="form-control" id="proximo_mantenimiento_km" name="proximo_mantenimiento_km">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="fecha_ultimo_mantenimiento" class="form-label">Fecha Último Mantenimiento</label>
+                                    <input type="date" class="form-control" id="fecha_ultimo_mantenimiento" name="fecha_ultimo_mantenimiento">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label for="proximo_mantenimiento" class="form-label">Próximo Mantenimiento</label>
+                                    <input type="text" class="form-control" id="proximo_mantenimiento" name="proximo_mantenimiento">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="ultimo_mantenimiento" class="form-label">Último Mantenimiento</label>
+                                    <input type="text" class="form-control" id="ultimo_mantenimiento" name="ultimo_mantenimiento">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="fecha_actualizacion" class="form-label">Fecha Actualización</label>
+                                    <input type="datetime-local" class="form-control" id="fecha_actualizacion" name="fecha_actualizacion">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="numero_vin" class="form-label">Número VIN</label>
+                                    <input type="text" class="form-control" id="numero_vin" name="numero_vin">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="propietario_cedula" class="form-label">Propietario Cédula</label>
+                                    <input type="text" class="form-control" id="propietario_cedula" name="propietario_cedula">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <label for="propietario_nombre" class="form-label">Propietario Nombre</label>
+                                    <input type="text" class="form-control" id="propietario_nombre" name="propietario_nombre">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1131,6 +1218,17 @@ function editarVehiculo(id) {
             setElementValue('modelo_vehiculo', vehiculo.modelo || '');
             setElementValue('color', vehiculo.color || '');
             
+            // Campos adicionales de la tabla parque_automotor
+            setElementValue('cedula_propietario', vehiculo.cedula_propietario || '');
+            setElementValue('nombre_propietario', vehiculo.nombre_propietario || '');
+            setElementValue('parque_automotorcol', vehiculo.parque_automotorcol || '');
+            setElementValue('licencia', vehiculo.licencia || '');
+            setElementValue('vin', vehiculo.vin || '');
+            setElementValue('fecha_actualizacion', vehiculo.fecha_actualizacion && vehiculo.fecha_actualizacion !== 'None' ? new Date(vehiculo.fecha_actualizacion).toISOString().split('T')[0] : '');
+            setElementValue('kilometraje_actual', vehiculo.kilometraje_actual || '');
+            setElementValue('proximo_mantenimiento_km', vehiculo.proximo_mantenimiento_km || '');
+            setElementValue('fecha_ultimo_mantenimiento', vehiculo.fecha_ultimo_mantenimiento && vehiculo.fecha_ultimo_mantenimiento !== 'None' ? new Date(vehiculo.fecha_ultimo_mantenimiento).toISOString().split('T')[0] : '');
+            
             // Información del Conductor
             setElementValue('id_codigo_consumidor', vehiculo.id_codigo_consumidor || '');
             setElementValue('fecha_asignacion', vehiculo.fecha_asignacion && vehiculo.fecha_asignacion !== 'None' ? new Date(vehiculo.fecha_asignacion).toISOString().split('T')[0] : '');
@@ -1167,8 +1265,15 @@ function editarVehiculo(id) {
             setElementValue('ciudad', vehiculo.ciudad || '');
             setElementValue('supervisor', vehiculo.supervisor || '');
             setElementValue('fecha', vehiculo.fecha && vehiculo.fecha !== 'None' ? new Date(vehiculo.fecha).toISOString().slice(0, 16) : '');
-            setElementValue('kilometraje', vehiculo.kilometraje || '');
+            setElementValue('kilometraje', vehiculo.kilometraje_actual || vehiculo.kilometraje || '');
             setElementValue('observaciones', vehiculo.observaciones || '');
+            
+            // Campos adicionales de mantenimiento y operación
+            setElementValue('proximo_mantenimiento', vehiculo.proximo_mantenimiento_km || '');
+            setElementValue('ultimo_mantenimiento', vehiculo.fecha_ultimo_mantenimiento && vehiculo.fecha_ultimo_mantenimiento !== 'None' ? new Date(vehiculo.fecha_ultimo_mantenimiento).toISOString().split('T')[0] : '');
+            setElementValue('numero_vin', vehiculo.vin || '');
+            setElementValue('propietario_cedula', vehiculo.cedula_propietario || '');
+            setElementValue('propietario_nombre', vehiculo.nombre_propietario || '');
             
             const modalTitle = document.getElementById('modalTitle');
             if (modalTitle) {
@@ -1800,23 +1905,40 @@ function crearGraficoTipoVehiculo(data) {
         chartTipoVehiculo.destroy();
     }
     
+    // Procesar datos del endpoint
+    let labels = [];
+    let values = [];
+    
+    if (data && Array.isArray(data)) {
+        labels = data.map(item => item.tipo_vehiculo);
+        values = data.map(item => item.cantidad);
+    } else {
+        // Datos por defecto si no hay datos
+        labels = ['Sin datos'];
+        values = [0];
+    }
+    
     chartTipoVehiculo = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: data.labels || ['Automóvil', 'Motocicleta', 'Camión', 'Camioneta'],
+            labels: labels,
             datasets: [{
-                data: data.values || [0, 0, 0, 0],
+                data: values,
                 backgroundColor: [
                     '#4e73df',
                     '#1cc88a',
                     '#36b9cc',
-                    '#f6c23e'
+                    '#f6c23e',
+                    '#e74a3b',
+                    '#858796'
                 ],
                 hoverBackgroundColor: [
                     '#2e59d9',
                     '#17a673',
                     '#2c9faf',
-                    '#dda20a'
+                    '#dda20a',
+                    '#c0392b',
+                    '#5a5c69'
                 ],
                 hoverBorderColor: "rgba(234, 236, 244, 1)",
             }],
@@ -1850,14 +1972,45 @@ function crearGraficoEstadoDocumentos(data) {
         chartEstadoDocumentos.destroy();
     }
     
+    // Procesar datos del endpoint
+    let labels = [];
+    let values = [];
+    let backgroundColors = [];
+    let hoverColors = [];
+    
+    if (data && Array.isArray(data)) {
+        data.forEach(item => {
+            labels.push(item.estado);
+            values.push(item.cantidad);
+            
+            // Asignar colores según el estado
+            if (item.estado.toLowerCase().includes('vigente')) {
+                backgroundColors.push('#1cc88a');
+                hoverColors.push('#17a673');
+            } else if (item.estado.toLowerCase().includes('vencido') || item.estado.toLowerCase().includes('vencida')) {
+                backgroundColors.push('#e74a3b');
+                hoverColors.push('#c0392b');
+            } else {
+                backgroundColors.push('#f6c23e');
+                hoverColors.push('#dda20a');
+            }
+        });
+    } else {
+        // Datos por defecto si no hay datos
+        labels = ['Sin datos'];
+        values = [0];
+        backgroundColors = ['#858796'];
+        hoverColors = ['#5a5c69'];
+    }
+    
     chartEstadoDocumentos = new Chart(ctx, {
         type: 'pie',
         data: {
-            labels: data.labels || ['Vigentes', 'Por Vencer', 'Vencidos'],
+            labels: labels,
             datasets: [{
-                data: data.values || [0, 0, 0],
-                backgroundColor: ['#1cc88a', '#f6c23e', '#e74a3b'],
-                hoverBackgroundColor: ['#17a673', '#dda20a', '#c0392b'],
+                data: values,
+                backgroundColor: backgroundColors,
+                hoverBackgroundColor: hoverColors,
                 hoverBorderColor: "rgba(234, 236, 244, 1)",
             }],
         },

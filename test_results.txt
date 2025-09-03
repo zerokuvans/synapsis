@@ -1,0 +1,53 @@
+=== Resultados de Test de Login ===
+
+Test 1: 1002407101 / 123456
+Status: 401
+Response: {
+  "message": "Usuario o contrase\u00f1a inv\u00e1lidos",
+  "status": "error"
+}
+
+✗ Login fallido
+--------------------------------------------------
+
+Test 2: test123 / 123456
+Status: 401
+Response: {
+  "message": "Usuario o contrase\u00f1a inv\u00e1lidos",
+  "status": "error"
+}
+
+✗ Login fallido
+--------------------------------------------------
+
+Test 3: 1002407101 / 1002407101
+Status: 401
+Response: {
+  "message": "Usuario o contrase\u00f1a inv\u00e1lidos",
+  "status": "error"
+}
+
+✗ Login fallido
+--------------------------------------------------
+
+Test 4: admin / admin
+Status: 401
+Response: {
+  "message": "Usuario o contrase\u00f1a inv\u00e1lidos",
+  "status": "error"
+}
+
+✗ Login fallido
+--------------------------------------------------
+
+Test 5: logistica / logistica
+Status: 401
+Response: {
+  "message": "Usuario o contrase\u00f1a inv\u00e1lidos",
+  "status": "error"
+}
+
+✗ Login fallido
+--------------------------------------------------
+
+=== Fin de Tests ===
