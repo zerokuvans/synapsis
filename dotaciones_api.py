@@ -169,9 +169,13 @@ def registrar_rutas_dotaciones(app):
                 cliente, id_codigo_consumidor, pantalon, pantalon_talla,
                 camisetagris, camiseta_gris_talla, guerrera, guerrera_talla,
                 camisetapolo, camiseta_polo_talla, guantes_nitrilo, guantes_carnaza,
-                gafas, gorra, casco, botas, botas_talla, fecha_registro
+                gafas, gorra, casco, botas, botas_talla,
+                estado_pantalon, estado_camisetagris, estado_guerrera, estado_camisetapolo,
+                estado_guantes_nitrilo, estado_guantes_carnaza, estado_gafas, estado_gorra,
+                estado_casco, estado_botas, fecha_registro
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW()
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW()
             )
             """
             
@@ -192,7 +196,18 @@ def registrar_rutas_dotaciones(app):
                 data.get('gorra'),
                 data.get('casco'),
                 data.get('botas'),
-                data.get('botas_talla')
+                data.get('botas_talla'),
+                # Estados de valoración
+                data.get('estado_pantalon', 'VALORADO'),
+                data.get('estado_camisetagris', 'VALORADO'),
+                data.get('estado_guerrera', 'VALORADO'),
+                data.get('estado_camisetapolo', 'VALORADO'),
+                data.get('estado_guantes_nitrilo', 'VALORADO'),
+                data.get('estado_guantes_carnaza', 'VALORADO'),
+                data.get('estado_gafas', 'VALORADO'),
+                data.get('estado_gorra', 'VALORADO'),
+                data.get('estado_casco', 'VALORADO'),
+                data.get('estado_botas', 'VALORADO')
             )
             
             cursor.execute(query, valores)
@@ -252,6 +267,16 @@ def registrar_rutas_dotaciones(app):
                 casco = %s,
                 botas = %s,
                 botas_talla = %s,
+                estado_pantalon = %s,
+                estado_camisetagris = %s,
+                estado_guerrera = %s,
+                estado_camisetapolo = %s,
+                estado_guantes_nitrilo = %s,
+                estado_guantes_carnaza = %s,
+                estado_gafas = %s,
+                estado_gorra = %s,
+                estado_casco = %s,
+                estado_botas = %s,
                 fecha_actualizacion = NOW()
             WHERE id_dotacion = %s
             """
@@ -274,6 +299,17 @@ def registrar_rutas_dotaciones(app):
                 data.get('casco'),
                 data.get('botas'),
                 data.get('botas_talla'),
+                # Estados de valoración
+                data.get('estado_pantalon', 'VALORADO'),
+                data.get('estado_camisetagris', 'VALORADO'),
+                data.get('estado_guerrera', 'VALORADO'),
+                data.get('estado_camisetapolo', 'VALORADO'),
+                data.get('estado_guantes_nitrilo', 'VALORADO'),
+                data.get('estado_guantes_carnaza', 'VALORADO'),
+                data.get('estado_gafas', 'VALORADO'),
+                data.get('estado_gorra', 'VALORADO'),
+                data.get('estado_casco', 'VALORADO'),
+                data.get('estado_botas', 'VALORADO'),
                 id_dotacion
             )
             
@@ -594,9 +630,9 @@ def registrar_rutas_dotaciones(app):
             # Insertar nuevo ingreso
             query = """
             INSERT INTO ingresos_dotaciones (
-                tipo_elemento, cantidad, talla, numero_calzado, proveedor, fecha_ingreso, 
+                tipo_elemento, cantidad, talla, numero_calzado, proveedor, estado, fecha_ingreso, 
                 observaciones, usuario_registro
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             
             valores = (
@@ -605,6 +641,7 @@ def registrar_rutas_dotaciones(app):
                 data.get('talla'),
                 data.get('numero_calzado'),
                 data.get('proveedor', ''),
+                data.get('estado'),
                 data.get('fecha_ingreso'),
                 data.get('observaciones', ''),
                 data.get('usuario_registro')
@@ -755,6 +792,366 @@ def registrar_rutas_dotaciones(app):
             if connection:
                 connection.close()
     
+    @app.route('/api/asignaciones-mensuales', methods=['GET'])
+    def obtener_asignaciones_mensuales():
+        """Obtener datos de asignaciones agrupados por mes y elemento para gráficas"""
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        
+        try:
+            cursor = connection.cursor(dictionary=True)
+            
+            # Parámetros de filtrado
+            elemento = request.args.get('elemento')  # Filtro por elemento específico
+            mes = request.args.get('mes')  # Filtro por mes específico (formato YYYY-MM)
+            
+            # Query base para obtener asignaciones por mes y elemento
+            base_query = """
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                DATE_FORMAT(fecha_registro, '%M %Y') as mes_nombre,
+                'pantalon' as elemento,
+                SUM(pantalon) as cantidad
+            FROM dotaciones
+            WHERE pantalon > 0 AND fecha_registro >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                DATE_FORMAT(fecha_registro, '%M %Y') as mes_nombre,
+                'camisetagris' as elemento,
+                SUM(camisetagris) as cantidad
+            FROM dotaciones
+            WHERE camisetagris > 0 AND fecha_registro >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                DATE_FORMAT(fecha_registro, '%M %Y') as mes_nombre,
+                'guerrera' as elemento,
+                SUM(guerrera) as cantidad
+            FROM dotaciones
+            WHERE guerrera > 0 AND fecha_registro >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                DATE_FORMAT(fecha_registro, '%M %Y') as mes_nombre,
+                'camisetapolo' as elemento,
+                SUM(camisetapolo) as cantidad
+            FROM dotaciones
+            WHERE camisetapolo > 0 AND fecha_registro >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                DATE_FORMAT(fecha_registro, '%M %Y') as mes_nombre,
+                'guantes_nitrilo' as elemento,
+                SUM(guantes_nitrilo) as cantidad
+            FROM dotaciones
+            WHERE guantes_nitrilo > 0 AND fecha_registro >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                DATE_FORMAT(fecha_registro, '%M %Y') as mes_nombre,
+                'guantes_carnaza' as elemento,
+                SUM(guantes_carnaza) as cantidad
+            FROM dotaciones
+            WHERE guantes_carnaza > 0 AND fecha_registro >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                DATE_FORMAT(fecha_registro, '%M %Y') as mes_nombre,
+                'gafas' as elemento,
+                SUM(gafas) as cantidad
+            FROM dotaciones
+            WHERE gafas > 0 AND fecha_registro >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                DATE_FORMAT(fecha_registro, '%M %Y') as mes_nombre,
+                'gorra' as elemento,
+                SUM(gorra) as cantidad
+            FROM dotaciones
+            WHERE gorra > 0 AND fecha_registro >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                DATE_FORMAT(fecha_registro, '%M %Y') as mes_nombre,
+                'casco' as elemento,
+                SUM(casco) as cantidad
+            FROM dotaciones
+            WHERE casco > 0 AND fecha_registro >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                DATE_FORMAT(fecha_registro, '%M %Y') as mes_nombre,
+                'botas' as elemento,
+                SUM(botas) as cantidad
+            FROM dotaciones
+            WHERE botas > 0 AND fecha_registro >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            """
+            
+            # Construir query final con filtros
+            final_query = f"SELECT * FROM ({base_query}) as asignaciones WHERE 1=1"
+            params = []
+            
+            if elemento:
+                final_query += " AND elemento = %s"
+                params.append(elemento)
+            
+            if mes:
+                final_query += " AND mes = %s"
+                params.append(mes)
+            
+            final_query += " ORDER BY mes DESC, elemento"
+            
+            cursor.execute(final_query, params)
+            asignaciones_data = cursor.fetchall()
+            
+            # Obtener lista de elementos únicos para los filtros
+            elementos_query = """
+            SELECT DISTINCT elemento FROM (
+                SELECT 'pantalon' as elemento UNION ALL
+                SELECT 'camisetagris' as elemento UNION ALL
+                SELECT 'guerrera' as elemento UNION ALL
+                SELECT 'camisetapolo' as elemento UNION ALL
+                SELECT 'guantes_nitrilo' as elemento UNION ALL
+                SELECT 'guantes_carnaza' as elemento UNION ALL
+                SELECT 'gafas' as elemento UNION ALL
+                SELECT 'gorra' as elemento UNION ALL
+                SELECT 'casco' as elemento UNION ALL
+                SELECT 'botas' as elemento
+            ) as elementos
+            ORDER BY elemento
+            """
+            
+            cursor.execute(elementos_query)
+            elementos_disponibles = [row['elemento'] for row in cursor.fetchall()]
+            
+            # Obtener meses únicos de los últimos 12 meses
+            meses_query = """
+            SELECT DISTINCT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                DATE_FORMAT(fecha_registro, '%M %Y') as mes_nombre
+            FROM dotaciones
+            WHERE fecha_registro >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            ORDER BY mes DESC
+            """
+            
+            cursor.execute(meses_query)
+            meses_disponibles = cursor.fetchall()
+            
+            # Convertir Decimal a int para JSON
+            for item in asignaciones_data:
+                for key, value in item.items():
+                    if hasattr(value, 'is_integer'):
+                        item[key] = int(value)
+            
+            return jsonify({
+                'success': True,
+                'asignaciones': asignaciones_data,
+                'elementos_disponibles': elementos_disponibles,
+                'meses_disponibles': meses_disponibles
+            })
+            
+        except mysql.connector.Error as e:
+            logger.error(f"Error obteniendo asignaciones mensuales: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        except Exception as e:
+            logger.error(f"Error inesperado: {e}")
+            return jsonify({'success': False, 'message': f'Error interno: {e}'}), 500
+        finally:
+            if connection:
+                connection.close()
+    
+    @app.route('/api/stock-dotaciones-tallas', methods=['GET'])
+    def obtener_stock_dotaciones_tallas():
+        """Obtener stock de dotaciones desglosado por tallas"""
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        
+        try:
+            cursor = connection.cursor(dictionary=True)
+            
+            # Parámetro de filtrado por tipo
+            tipo_elemento = request.args.get('tipo_elemento')
+            
+            # Query para obtener stock por tallas de ingresos
+            ingresos_query = """
+            SELECT 
+                tipo_elemento,
+                CASE 
+                    WHEN tipo_elemento = 'pantalon' THEN 'Sin talla'
+                    ELSE COALESCE(talla, 'Sin talla')
+                END as talla,
+                COALESCE(numero_calzado, 'Sin número') as numero_calzado,
+                SUM(cantidad) as total_ingresado
+            FROM ingresos_dotaciones
+            WHERE 1=1
+            """
+            
+            params_ingresos = []
+            if tipo_elemento:
+                ingresos_query += " AND tipo_elemento = %s"
+                params_ingresos.append(tipo_elemento)
+            
+            ingresos_query += " GROUP BY tipo_elemento, talla, numero_calzado"
+            
+            cursor.execute(ingresos_query, params_ingresos)
+            ingresos_data = cursor.fetchall()
+            
+            # Query para obtener entregas por tallas
+            entregas_query = """
+            SELECT 
+                'pantalon' as tipo_elemento,
+                'Sin talla' as talla,
+                COALESCE(pantalon_talla, 'Sin número') as numero_calzado,
+                SUM(pantalon) as total_entregado
+            FROM dotaciones
+            WHERE pantalon > 0
+            GROUP BY pantalon_talla
+            
+            UNION ALL
+            
+            SELECT 
+                'camisetagris' as tipo_elemento,
+                COALESCE(camiseta_gris_talla, 'Sin talla') as talla,
+                'Sin número' as numero_calzado,
+                SUM(camisetagris) as total_entregado
+            FROM dotaciones
+            WHERE camisetagris > 0
+            GROUP BY camiseta_gris_talla
+            
+            UNION ALL
+            
+            SELECT 
+                'guerrera' as tipo_elemento,
+                COALESCE(guerrera_talla, 'Sin talla') as talla,
+                'Sin número' as numero_calzado,
+                SUM(guerrera) as total_entregado
+            FROM dotaciones
+            WHERE guerrera > 0
+            GROUP BY guerrera_talla
+            
+            UNION ALL
+            
+            SELECT 
+                'camisetapolo' as tipo_elemento,
+                COALESCE(camiseta_polo_talla, 'Sin talla') as talla,
+                'Sin número' as numero_calzado,
+                SUM(camisetapolo) as total_entregado
+            FROM dotaciones
+            WHERE camisetapolo > 0
+            GROUP BY camiseta_polo_talla
+            
+            UNION ALL
+            
+            SELECT 
+                'botas' as tipo_elemento,
+                'Sin talla' as talla,
+                COALESCE(botas_talla, 'Sin número') as numero_calzado,
+                SUM(botas) as total_entregado
+            FROM dotaciones
+            WHERE botas > 0
+            GROUP BY botas_talla
+            """
+            
+            # Agregar filtro por tipo si se especifica
+            if tipo_elemento:
+                entregas_query = f"""
+                SELECT * FROM (
+                {entregas_query}
+                ) as entregas_union
+                WHERE tipo_elemento = %s
+                """
+                cursor.execute(entregas_query, [tipo_elemento])
+            else:
+                cursor.execute(entregas_query)
+            
+            entregas_data = cursor.fetchall()
+            
+            # Combinar datos de ingresos y entregas
+            stock_por_tallas = {}
+            
+            # Procesar ingresos
+            for ingreso in ingresos_data:
+                key = f"{ingreso['tipo_elemento']}_{ingreso['talla']}_{ingreso['numero_calzado']}"
+                if key not in stock_por_tallas:
+                    stock_por_tallas[key] = {
+                        'tipo_elemento': ingreso['tipo_elemento'],
+                        'talla': ingreso['talla'],
+                        'numero_calzado': ingreso['numero_calzado'],
+                        'total_ingresado': 0,
+                        'total_entregado': 0,
+                        'stock_disponible': 0
+                    }
+                stock_por_tallas[key]['total_ingresado'] = int(ingreso['total_ingresado'])
+            
+            # Procesar entregas
+            for entrega in entregas_data:
+                key = f"{entrega['tipo_elemento']}_{entrega['talla']}_{entrega['numero_calzado']}"
+                if key not in stock_por_tallas:
+                    stock_por_tallas[key] = {
+                        'tipo_elemento': entrega['tipo_elemento'],
+                        'talla': entrega['talla'],
+                        'numero_calzado': entrega['numero_calzado'],
+                        'total_ingresado': 0,
+                        'total_entregado': 0,
+                        'stock_disponible': 0
+                    }
+                stock_por_tallas[key]['total_entregado'] = int(entrega['total_entregado'])
+            
+            # Calcular stock disponible
+            for key in stock_por_tallas:
+                item = stock_por_tallas[key]
+                item['stock_disponible'] = item['total_ingresado'] - item['total_entregado']
+            
+            # Convertir a lista y ordenar
+            resultado = list(stock_por_tallas.values())
+            resultado.sort(key=lambda x: (x['tipo_elemento'], x['talla'], x['numero_calzado']))
+            
+            return jsonify({
+                'success': True,
+                'stock_tallas': resultado
+            })
+            
+        except mysql.connector.Error as e:
+            logger.error(f"Error obteniendo stock por tallas: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        except Exception as e:
+            logger.error(f"Error inesperado: {e}")
+            return jsonify({'success': False, 'message': f'Error interno: {e}'}), 500
+        finally:
+            if connection:
+                connection.close()
+    
     @app.route('/api/ingresos-dotaciones', methods=['GET'])
     def obtener_ingresos_dotaciones():
         """Obtener historial de ingresos de dotaciones"""
@@ -817,6 +1214,252 @@ def registrar_rutas_dotaciones(app):
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
         except Exception as e:
             logger.error(f"Error inesperado: {e}")
+            return jsonify({'success': False, 'message': f'Error interno: {e}'}), 500
+        finally:
+            if connection:
+                connection.close()
+    
+    @app.route('/api/historial-movimientos-grafica', methods=['GET'])
+    def obtener_historial_movimientos_grafica():
+        """Obtener datos para gráfica mensual de asignaciones de dotaciones"""
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        
+        try:
+            cursor = connection.cursor(dictionary=True)
+            
+            # Parámetros de filtrado
+            elemento = request.args.get('elemento', '')  # Filtro por elemento específico
+            mes = request.args.get('mes', '')  # Filtro por mes específico (YYYY-MM)
+            año = request.args.get('año', str(datetime.now().year))  # Año actual por defecto
+            
+            # Query base para obtener asignaciones por mes
+            query = """
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                'pantalon' as elemento,
+                SUM(pantalon) as cantidad
+            FROM dotaciones 
+            WHERE pantalon > 0 AND YEAR(fecha_registro) = %s
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                'camisetagris' as elemento,
+                SUM(camisetagris) as cantidad
+            FROM dotaciones 
+            WHERE camisetagris > 0 AND YEAR(fecha_registro) = %s
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                'guerrera' as elemento,
+                SUM(guerrera) as cantidad
+            FROM dotaciones 
+            WHERE guerrera > 0 AND YEAR(fecha_registro) = %s
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                'camisetapolo' as elemento,
+                SUM(camisetapolo) as cantidad
+            FROM dotaciones 
+            WHERE camisetapolo > 0 AND YEAR(fecha_registro) = %s
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                'guantes_nitrilo' as elemento,
+                SUM(guantes_nitrilo) as cantidad
+            FROM dotaciones 
+            WHERE guantes_nitrilo > 0 AND YEAR(fecha_registro) = %s
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                'guantes_carnaza' as elemento,
+                SUM(guantes_carnaza) as cantidad
+            FROM dotaciones 
+            WHERE guantes_carnaza > 0 AND YEAR(fecha_registro) = %s
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                'gafas' as elemento,
+                SUM(gafas) as cantidad
+            FROM dotaciones 
+            WHERE gafas > 0 AND YEAR(fecha_registro) = %s
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                'gorra' as elemento,
+                SUM(gorra) as cantidad
+            FROM dotaciones 
+            WHERE gorra > 0 AND YEAR(fecha_registro) = %s
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                'casco' as elemento,
+                SUM(casco) as cantidad
+            FROM dotaciones 
+            WHERE casco > 0 AND YEAR(fecha_registro) = %s
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                'botas' as elemento,
+                SUM(botas) as cantidad
+            FROM dotaciones 
+            WHERE botas > 0 AND YEAR(fecha_registro) = %s
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            ORDER BY mes, elemento
+            """
+            
+            # Ejecutar query con parámetros
+            params = [año] * 10  # Un parámetro por cada UNION
+            cursor.execute(query, params)
+            resultados = cursor.fetchall()
+            
+            # Procesar datos para la gráfica
+            datos_por_mes = {}
+            elementos_disponibles = set()
+            
+            for row in resultados:
+                mes_key = row['mes']
+                elemento_key = row['elemento']
+                cantidad = int(row['cantidad'])
+                
+                elementos_disponibles.add(elemento_key)
+                
+                if mes_key not in datos_por_mes:
+                    datos_por_mes[mes_key] = {}
+                
+                datos_por_mes[mes_key][elemento_key] = cantidad
+            
+            # Aplicar filtros
+            if elemento and elemento in elementos_disponibles:
+                # Filtrar por elemento específico
+                datos_filtrados = {}
+                for mes_key, elementos in datos_por_mes.items():
+                    if elemento in elementos:
+                        datos_filtrados[mes_key] = {elemento: elementos[elemento]}
+                datos_por_mes = datos_filtrados
+                elementos_disponibles = {elemento}
+            
+            if mes:
+                # Filtrar por mes específico
+                if mes in datos_por_mes:
+                    datos_por_mes = {mes: datos_por_mes[mes]}
+                else:
+                    datos_por_mes = {}
+            
+            # Generar lista de meses completa para el año
+            meses_año = []
+            for i in range(1, 13):
+                mes_str = f"{año}-{i:02d}"
+                meses_año.append(mes_str)
+            
+            # Preparar datos para Chart.js
+            labels = []
+            datasets = {}
+            
+            # Nombres amigables para elementos
+            nombres_elementos = {
+                'pantalon': 'Pantalón',
+                'camisetagris': 'Camiseta Gris',
+                'guerrera': 'Guerrera',
+                'camisetapolo': 'Camiseta Polo',
+                'guantes_nitrilo': 'Guantes Nitrilo',
+                'guantes_carnaza': 'Guantes Carnaza',
+                'gafas': 'Gafas',
+                'gorra': 'Gorra',
+                'casco': 'Casco',
+                'botas': 'Botas'
+            }
+            
+            # Colores para cada elemento
+            colores_elementos = {
+                'pantalon': '#FF6384',
+                'camisetagris': '#36A2EB',
+                'guerrera': '#FFCE56',
+                'camisetapolo': '#4BC0C0',
+                'guantes_nitrilo': '#9966FF',
+                'guantes_carnaza': '#FF9F40',
+                'gafas': '#4ECDC4',
+                'gorra': '#45B7D1',
+                'casco': '#96CEB4',
+                'botas': '#FFEAA7'
+            }
+            
+            for mes_str in meses_año:
+                # Convertir a formato amigable para labels
+                try:
+                    fecha = datetime.strptime(mes_str, '%Y-%m')
+                    label = fecha.strftime('%b %Y')
+                    labels.append(label)
+                except:
+                    labels.append(mes_str)
+                
+                # Inicializar datasets si no existen
+                for elemento_key in elementos_disponibles:
+                    if elemento_key not in datasets:
+                        datasets[elemento_key] = {
+                            'label': nombres_elementos.get(elemento_key, elemento_key),
+                            'data': [],
+                            'borderColor': colores_elementos.get(elemento_key, '#999999'),
+                            'backgroundColor': colores_elementos.get(elemento_key, '#999999') + '20',
+                            'tension': 0.1
+                        }
+                
+                # Agregar datos para cada elemento
+                for elemento_key in elementos_disponibles:
+                    cantidad = 0
+                    if mes_str in datos_por_mes and elemento_key in datos_por_mes[mes_str]:
+                        cantidad = datos_por_mes[mes_str][elemento_key]
+                    datasets[elemento_key]['data'].append(cantidad)
+            
+            # Convertir datasets a lista
+            datasets_list = list(datasets.values())
+            
+            return jsonify({
+                'success': True,
+                'labels': labels,
+                'datasets': datasets_list,
+                'elementos_disponibles': list(elementos_disponibles),
+                'año': año,
+                'filtros': {
+                    'elemento': elemento,
+                    'mes': mes
+                }
+            })
+            
+        except mysql.connector.Error as e:
+            logger.error(f"Error obteniendo datos de gráfica: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        except Exception as e:
+            logger.error(f"Error inesperado en gráfica: {e}")
             return jsonify({'success': False, 'message': f'Error interno: {e}'}), 500
         finally:
             if connection:
