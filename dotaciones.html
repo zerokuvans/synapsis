@@ -67,7 +67,183 @@
         .badge-baja {
             background-color: #dc3545;
         }
-    </style>
+        .form-check-input {
+            width: 3.5em !important;
+            height: 1.8em !important;
+            margin-top: 0.25em;
+            vertical-align: top;
+            background-color: #dc3545;
+            border: 3px solid #dc3545;
+            appearance: none;
+            border-radius: 1em;
+            transition: all 0.3s ease-in-out;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+        .form-check-input:checked {
+            background-color: #28a745 !important;
+            border-color: #28a745 !important;
+            box-shadow: 0 2px 8px rgba(40,167,69,0.4);
+        }
+        .form-check-input:not(:checked) {
+            background-color: #dc3545 !important;
+            border-color: #dc3545 !important;
+            box-shadow: 0 2px 8px rgba(220,53,69,0.4);
+        }
+        .form-check-input:before {
+            content: '';
+            position: absolute;
+            width: 1.4em;
+            height: 1.4em;
+            border-radius: 50%;
+            background-color: white;
+            top: 0.2em;
+            left: 0.2em;
+            transition: transform 0.3s ease-in-out;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+        }
+        .form-check-input:checked:before {
+            transform: translateX(1.7em);
+        }
+        .valorado-text {
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-left: 0.8em;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        .form-check {
+            display: flex !important;
+            align-items: center;
+            min-height: 2.5rem;
+            background-color: rgba(248,249,250,0.8);
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid #e9ecef;
+        }
+        .form-check-label {
+             margin-bottom: 0;
+             cursor: pointer;
+             display: flex;
+             align-items: center;
+         }
+         
+         /* Estilos específicos para el modal */
+         .modal .form-check {
+             margin: 0.5rem 0;
+             padding: 0.8rem;
+             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+             border: 2px solid #dee2e6;
+             border-radius: 0.75rem;
+             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+         }
+         
+         .modal .form-check:hover {
+             border-color: #6c757d;
+             transform: translateY(-1px);
+             box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+         }
+         
+         .modal .form-check-input {
+             margin-right: 1rem;
+         }
+         
+         .modal .valorado-text {
+             font-size: 1rem;
+             font-weight: 600;
+             letter-spacing: 0.5px;
+         }
+         
+         /* Asegurar visibilidad en todas las resoluciones */
+         @media (max-width: 768px) {
+             .form-check-input {
+                 width: 4em !important;
+                 height: 2em !important;
+             }
+             .form-check {
+                 min-height: 3rem;
+                 padding: 1rem;
+             }
+         }
+         
+         /* ESTILOS FORZADOS PARA CHECKBOXES - MÁXIMA VISIBILIDAD */
+         #modalDotacion .form-check {
+             display: flex !important;
+             visibility: visible !important;
+             opacity: 1 !important;
+             background-color: #ffffff !important;
+             border: 3px solid #007bff !important;
+             border-radius: 10px !important;
+             padding: 15px !important;
+             margin: 10px 0 !important;
+             min-height: 70px !important;
+             box-shadow: 0 4px 12px rgba(0,123,255,0.3) !important;
+         }
+         
+         #modalDotacion .form-check-input {
+             display: block !important;
+             visibility: visible !important;
+             opacity: 1 !important;
+             width: 30px !important;
+             height: 30px !important;
+             border: 4px solid #6c757d !important;
+             border-radius: 8px !important;
+             background-color: #ffffff !important;
+             cursor: pointer !important;
+             margin-right: 15px !important;
+             position: relative !important;
+             z-index: 9999 !important;
+             transform: scale(1.3) !important;
+             box-shadow: 0 0 15px rgba(0,0,0,0.4) !important;
+         }
+         
+         #modalDotacion .form-check-input:checked {
+             background-color: #28a745 !important;
+             border-color: #28a745 !important;
+             box-shadow: 0 0 20px rgba(40,167,69,0.6) !important;
+         }
+         
+         #modalDotacion .form-check-input:not(:checked) {
+             background-color: #dc3545 !important;
+             border-color: #dc3545 !important;
+             box-shadow: 0 0 20px rgba(220,53,69,0.6) !important;
+         }
+         
+         #modalDotacion .form-check-label {
+             display: flex !important;
+             visibility: visible !important;
+             opacity: 1 !important;
+             cursor: pointer !important;
+             align-items: center !important;
+         }
+         
+         #modalDotacion .valorado-text {
+             display: inline-block !important;
+             visibility: visible !important;
+             opacity: 1 !important;
+             font-weight: bold !important;
+             font-size: 1.2rem !important;
+             color: #28a745 !important;
+             text-transform: uppercase !important;
+             letter-spacing: 1px !important;
+             text-shadow: 2px 2px 4px rgba(0,0,0,0.2) !important;
+             background-color: rgba(255,255,255,0.9) !important;
+             padding: 5px 10px !important;
+             border-radius: 5px !important;
+         }
+         
+         /* Forzar visibilidad de elementos específicos por ID */
+         #estadoPantalon, #estadoCamisetagris, #estadoGuerrera, #estadoCamisetapolo,
+         #estadoGuantesNitrilo, #estadoGuantesCarnaza, #estadoGafas, #estadoGorra,
+         #estadoCasco, #estadoBotas {
+             display: block !important;
+             visibility: visible !important;
+             opacity: 1 !important;
+             position: relative !important;
+             z-index: 9999 !important;
+         }
+     </style>
 </head>
 <body>
     <!-- Navbar -->
@@ -192,6 +368,58 @@
             </div>
         </div>
 
+        <!-- Gráfica Mensual de Asignaciones -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar-alt me-2"></i>
+                            Asignaciones Mensuales
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Filtros para la gráfica mensual -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Filtrar por Elemento:</label>
+                                <select class="form-select" id="filtroElementoMensual" onchange="actualizarGraficaMensual()">
+                                    <option value="">Todos los elementos</option>
+                                    <option value="pantalon">Pantalón</option>
+                                    <option value="camisetagris">Camiseta Gris</option>
+                                    <option value="guerrera">Guerrera</option>
+                                    <option value="camisetapolo">Camiseta Polo</option>
+                                    <option value="guantes_nitrilo">Guantes Nitrilo</option>
+                                    <option value="guantes_carnaza">Guantes Carnaza</option>
+                                    <option value="gafas">Gafas</option>
+                                    <option value="gorra">Gorra</option>
+                                    <option value="casco">Casco</option>
+                                    <option value="botas">Botas</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Filtrar por Mes:</label>
+                                <select class="form-select" id="filtroMesMensual" onchange="actualizarGraficaMensual()">
+                                    <option value="">Todos los meses</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Año:</label>
+                                <select class="form-select" id="filtroAnoMensual" onchange="actualizarGraficaMensual()">
+                                    <option value="">Todos los años</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Contenedor de la gráfica -->
+                        <div class="chart-container" style="height: 400px;">
+                            <canvas id="asignacionesMensualesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Tabla de Dotaciones -->
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -306,13 +534,13 @@
 
                         <h6 class="mb-3 text-primary">Ropa de Trabajo</h6>
                         <div class="row">
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <div class="mb-3">
                                     <label class="form-label">Pantalón</label>
                                     <input type="number" class="form-control" id="pantalon" min="0">
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <div class="mb-3">
                                     <label class="form-label">Talla Pantalón</label>
                                     <select class="form-select" id="pantalonTalla">
@@ -328,13 +556,24 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Estado Pantalón</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="estadoPantalon" checked>
+                                        <label class="form-check-label" for="estadoPantalon">
+                                            <span class="valorado-text">VALORADO</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
                                 <div class="mb-3">
                                     <label class="form-label">Camiseta Gris</label>
                                     <input type="number" class="form-control" id="camisetagris" min="0">
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <div class="mb-3">
                                     <label class="form-label">Talla Camiseta Gris</label>
                                     <select class="form-select" id="camisetaGrisTalla">
@@ -347,16 +586,27 @@
                                     </select>
                                 </div>
                             </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Estado Camiseta Gris</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="estadoCamisetagris" checked>
+                                        <label class="form-check-label" for="estadoCamisetagris">
+                                            <span class="valorado-text">VALORADO</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="row">
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <div class="mb-3">
                                     <label class="form-label">Guerrera</label>
                                     <input type="number" class="form-control" id="guerrera" min="0">
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <div class="mb-3">
                                     <label class="form-label">Talla Guerrera</label>
                                     <select class="form-select" id="guerreraTalla">
@@ -369,13 +619,24 @@
                                     </select>
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Estado Guerrera</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="estadoGuerrera" checked>
+                                        <label class="form-check-label" for="estadoGuerrera">
+                                            <span class="valorado-text">VALORADO</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
                                 <div class="mb-3">
                                     <label class="form-label">Camiseta Polo</label>
                                     <input type="number" class="form-control" id="camisetapolo" min="0">
                                 </div>
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <div class="mb-3">
                                     <label class="form-label">Talla Camiseta Polo</label>
                                     <select class="form-select" id="camisetaPoloTalla">
@@ -386,6 +647,17 @@
                                         <option value="XL">XL</option>
                                         <option value="XXL">XXL</option>
                                     </select>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Estado Camiseta Polo</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="estadoCamisetapolo" checked>
+                                        <label class="form-check-label" for="estadoCamisetapolo">
+                                            <span class="valorado-text">VALORADO</span>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -400,8 +672,30 @@
                             </div>
                             <div class="col-md-2">
                                 <div class="mb-3">
+                                    <label class="form-label">Estado G. Nitrilo</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="estadoGuantesNitrilo" checked>
+                                        <label class="form-check-label" for="estadoGuantesNitrilo">
+                                            <span class="valorado-text">VALORADO</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
                                     <label class="form-label">Guantes Carnaza</label>
                                     <input type="number" class="form-control" id="guantesCarnaza" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Estado G. Carnaza</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="estadoGuantesCarnaza" checked>
+                                        <label class="form-check-label" for="estadoGuantesCarnaza">
+                                            <span class="valorado-text">VALORADO</span>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-2">
@@ -412,8 +706,32 @@
                             </div>
                             <div class="col-md-2">
                                 <div class="mb-3">
+                                    <label class="form-label">Estado Gafas</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="estadoGafas" checked>
+                                        <label class="form-check-label" for="estadoGafas">
+                                            <span class="valorado-text">VALORADO</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-2">
+                                <div class="mb-3">
                                     <label class="form-label">Gorra</label>
                                     <input type="number" class="form-control" id="gorra" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Estado Gorra</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="estadoGorra" checked>
+                                        <label class="form-check-label" for="estadoGorra">
+                                            <span class="valorado-text">VALORADO</span>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-2">
@@ -424,8 +742,30 @@
                             </div>
                             <div class="col-md-2">
                                 <div class="mb-3">
+                                    <label class="form-label">Estado Casco</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="estadoCasco" checked>
+                                        <label class="form-check-label" for="estadoCasco">
+                                            <span class="valorado-text">VALORADO</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
                                     <label class="form-label">Botas</label>
                                     <input type="number" class="form-control" id="botas" min="0">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">Estado Botas</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="estadoBotas" checked>
+                                        <label class="form-check-label" for="estadoBotas">
+                                            <span class="valorado-text">VALORADO</span>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -484,7 +824,104 @@
             cargarDatos();
             cargarTecnicos();
             inicializarGraficos();
+            inicializarCheckboxesEstado();
+            inicializarGraficaMensual();
+            cargarDatosGraficaMensual();
+            cargarElementosDisponibles();
         });
+
+        // Inicializar checkboxes de estado
+        function inicializarCheckboxesEstado() {
+            console.log('Inicializando checkboxes de estado...');
+            const checkboxes = [
+                'estadoPantalon', 'estadoCamisetagris', 'estadoGuerrera', 'estadoCamisetapolo',
+                'estadoGuantesNitrilo', 'estadoGuantesCarnaza', 'estadoGafas', 'estadoGorra',
+                'estadoCasco', 'estadoBotas'
+            ];
+
+            checkboxes.forEach(checkboxId => {
+                const checkbox = document.getElementById(checkboxId);
+                if (checkbox) {
+                    console.log(`Checkbox encontrado: ${checkboxId}`);
+                    
+                    // Remover listeners previos
+                    checkbox.removeEventListener('change', actualizarTextoEstado);
+                    
+                    // Agregar nuevo listener
+                    checkbox.addEventListener('change', function() {
+                        actualizarTextoEstado(this);
+                    });
+                    
+                    // Forzar visibilidad extrema
+                    checkbox.style.cssText = `
+                        display: block !important;
+                        visibility: visible !important;
+                        opacity: 1 !important;
+                        width: 30px !important;
+                        height: 30px !important;
+                        position: relative !important;
+                        z-index: 9999 !important;
+                        transform: scale(1.3) !important;
+                        border: 4px solid #6c757d !important;
+                        background-color: #ffffff !important;
+                        cursor: pointer !important;
+                    `;
+                    
+                    // Forzar visibilidad del contenedor padre
+                    const formCheck = checkbox.closest('.form-check');
+                    if (formCheck) {
+                        formCheck.style.cssText = `
+                            display: flex !important;
+                            visibility: visible !important;
+                            opacity: 1 !important;
+                            background-color: #ffffff !important;
+                            border: 3px solid #007bff !important;
+                            border-radius: 10px !important;
+                            padding: 15px !important;
+                            margin: 10px 0 !important;
+                            min-height: 70px !important;
+                        `;
+                    }
+                    
+                    // Inicializar el texto y estilo
+                    actualizarTextoEstado(checkbox);
+                    
+                    console.log(`Checkbox ${checkboxId} inicializado y forzado a ser visible`);
+                } else {
+                    console.warn(`Checkbox no encontrado: ${checkboxId}`);
+                }
+            });
+            
+            // Verificación adicional después de un breve delay
+            setTimeout(() => {
+                checkboxes.forEach(checkboxId => {
+                    const checkbox = document.getElementById(checkboxId);
+                    if (checkbox) {
+                        const isVisible = checkbox.offsetWidth > 0 && checkbox.offsetHeight > 0;
+                        console.log(`Verificación final - ${checkboxId}: ${isVisible ? 'VISIBLE' : 'NO VISIBLE'}`);
+                        if (!isVisible) {
+                            console.error(`PROBLEMA: ${checkboxId} sigue sin ser visible`);
+                        }
+                    }
+                });
+            }, 1000);
+        }
+
+        // Actualizar texto del estado según el checkbox
+        function actualizarTextoEstado(checkbox) {
+            const label = checkbox.nextElementSibling;
+            const span = label.querySelector('.valorado-text');
+            if (span) {
+                span.textContent = checkbox.checked ? 'VALORADO' : 'NO VALORADO';
+                span.style.color = checkbox.checked ? '#28a745' : '#dc3545';
+                span.style.fontWeight = 'bold';
+                span.style.fontSize = '1rem';
+            }
+            // Asegurar que el checkbox sea visible
+            checkbox.style.display = 'block';
+            checkbox.style.visibility = 'visible';
+            checkbox.style.opacity = '1';
+        }
 
         // Inicializar DataTable
         function inicializarTabla() {
@@ -757,6 +1194,9 @@
                     // Si no hay cliente seleccionado, cargar todos los técnicos activos
                     cargarTecnicos();
                 }
+                
+                // Inicializar checkboxes de estado después de que se cargue el modal
+                inicializarCheckboxesEstado();
             }, 500);
             
             // Agregar evento para filtrar técnicos por cliente cuando se cambie manualmente
@@ -770,7 +1210,14 @@
                 }
             });
             
-            new bootstrap.Modal(document.getElementById('modalDotacion')).show();
+            const modal = new bootstrap.Modal(document.getElementById('modalDotacion'));
+            modal.show();
+            
+            // Asegurar que los checkboxes se inicialicen cuando el modal se muestre completamente
+            document.getElementById('modalDotacion').addEventListener('shown.bs.modal', function() {
+                console.log('Modal mostrado, inicializando checkboxes...');
+                inicializarCheckboxesEstado();
+            }, { once: true });
         }
         
         // Función para cargar técnicos filtrados por cliente y estado
@@ -843,6 +1290,31 @@
                             document.getElementById('casco').value = dotacion.casco || '';
                             document.getElementById('botas').value = dotacion.botas || '';
                             document.getElementById('botasTalla').value = dotacion.botas_talla || '';
+                            
+                            // Cargar estados de valoración
+                            document.getElementById('estadoPantalon').checked = dotacion.estado_pantalon === 'VALORADO';
+                            document.getElementById('estadoCamisetagris').checked = dotacion.estado_camisetagris === 'VALORADO';
+                            document.getElementById('estadoGuerrera').checked = dotacion.estado_guerrera === 'VALORADO';
+                            document.getElementById('estadoCamisetapolo').checked = dotacion.estado_camisetapolo === 'VALORADO';
+                            document.getElementById('estadoGuantesNitrilo').checked = dotacion.estado_guantes_nitrilo === 'VALORADO';
+                            document.getElementById('estadoGuantesCarnaza').checked = dotacion.estado_guantes_carnaza === 'VALORADO';
+                            document.getElementById('estadoGafas').checked = dotacion.estado_gafas === 'VALORADO';
+                            document.getElementById('estadoGorra').checked = dotacion.estado_gorra === 'VALORADO';
+                            document.getElementById('estadoCasco').checked = dotacion.estado_casco === 'VALORADO';
+                            document.getElementById('estadoBotas').checked = dotacion.estado_botas === 'VALORADO';
+                            
+                            // Actualizar textos de estado
+                            const checkboxes = [
+                                'estadoPantalon', 'estadoCamisetagris', 'estadoGuerrera', 'estadoCamisetapolo',
+                                'estadoGuantesNitrilo', 'estadoGuantesCarnaza', 'estadoGafas', 'estadoGorra',
+                                'estadoCasco', 'estadoBotas'
+                            ];
+                            checkboxes.forEach(checkboxId => {
+                                const checkbox = document.getElementById(checkboxId);
+                                if (checkbox) {
+                                    actualizarTextoEstado(checkbox);
+                                }
+                            });
                         }, 500);
                         
                         document.getElementById('modalTitulo').innerHTML = '<i class="fas fa-edit me-2"></i>Editar Dotación';
@@ -879,7 +1351,18 @@
                 gorra: parseInt(document.getElementById('gorra').value) || null,
                 casco: parseInt(document.getElementById('casco').value) || null,
                 botas: parseInt(document.getElementById('botas').value) || null,
-                botas_talla: document.getElementById('botasTalla').value || null
+                botas_talla: document.getElementById('botasTalla').value || null,
+                // Estados de valoración
+                estado_pantalon: document.getElementById('estadoPantalon').checked ? 'VALORADO' : 'NO VALORADO',
+                estado_camisetagris: document.getElementById('estadoCamisetagris').checked ? 'VALORADO' : 'NO VALORADO',
+                estado_guerrera: document.getElementById('estadoGuerrera').checked ? 'VALORADO' : 'NO VALORADO',
+                estado_camisetapolo: document.getElementById('estadoCamisetapolo').checked ? 'VALORADO' : 'NO VALORADO',
+                estado_guantes_nitrilo: document.getElementById('estadoGuantesNitrilo').checked ? 'VALORADO' : 'NO VALORADO',
+                estado_guantes_carnaza: document.getElementById('estadoGuantesCarnaza').checked ? 'VALORADO' : 'NO VALORADO',
+                estado_gafas: document.getElementById('estadoGafas').checked ? 'VALORADO' : 'NO VALORADO',
+                estado_gorra: document.getElementById('estadoGorra').checked ? 'VALORADO' : 'NO VALORADO',
+                estado_casco: document.getElementById('estadoCasco').checked ? 'VALORADO' : 'NO VALORADO',
+                estado_botas: document.getElementById('estadoBotas').checked ? 'VALORADO' : 'NO VALORADO'
             };
 
             const url = id ? `/api/dotaciones/${id}` : '/api/dotaciones';
@@ -943,6 +1426,158 @@
         // Exportar datos
         function exportarDatos() {
             window.open('/api/dotaciones/export', '_blank');
+        }
+
+        // Variables para la gráfica mensual
+        let asignacionesMensualesChart;
+
+        // Inicializar gráfica mensual
+        function inicializarGraficaMensual() {
+            const ctx = document.getElementById('asignacionesMensualesChart').getContext('2d');
+            asignacionesMensualesChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Asignaciones',
+                        data: [],
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: '#667eea',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Asignaciones por Mes'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Cargar datos para la gráfica mensual
+        function cargarDatosGraficaMensual() {
+            const elemento = document.getElementById('filtroElementoMensual').value;
+            const mes = document.getElementById('filtroMesMensual').value;
+            const ano = document.getElementById('filtroAnoMensual').value;
+
+            let url = '/api/asignaciones-mensuales';
+            const params = new URLSearchParams();
+            
+            if (elemento) params.append('elemento', elemento);
+            if (mes) params.append('mes', mes);
+            if (ano) params.append('ano', ano);
+            
+            if (params.toString()) {
+                url += '?' + params.toString();
+            }
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        actualizarGraficaMensualConDatos(data.data);
+                        cargarOpcionesFiltros(data.meses_disponibles, data.anos_disponibles);
+                    } else {
+                        console.error('Error al cargar datos de asignaciones mensuales:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar datos de asignaciones mensuales:', error);
+                });
+        }
+
+        // Actualizar gráfica mensual con datos
+        function actualizarGraficaMensualConDatos(datos) {
+            const labels = [];
+            const values = [];
+            
+            datos.forEach(item => {
+                const fecha = new Date(item.ano, item.mes - 1);
+                const label = fecha.toLocaleDateString('es-ES', { year: 'numeric', month: 'long' });
+                labels.push(label);
+                values.push(item.total_asignaciones);
+            });
+            
+            asignacionesMensualesChart.data.labels = labels;
+            asignacionesMensualesChart.data.datasets[0].data = values;
+            asignacionesMensualesChart.update();
+        }
+
+        // Cargar opciones de filtros
+        function cargarOpcionesFiltros(meses, anos) {
+            const selectMes = document.getElementById('filtroMesMensual');
+            const selectAno = document.getElementById('filtroAnoMensual');
+            
+            // Limpiar opciones existentes (excepto "Todos")
+            selectMes.innerHTML = '<option value="">Todos los meses</option>';
+            selectAno.innerHTML = '<option value="">Todos los años</option>';
+            
+            // Agregar meses disponibles
+            const nombresMeses = [
+                'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+            ];
+            
+            meses.forEach(mes => {
+                const option = new Option(nombresMeses[mes - 1], mes);
+                selectMes.add(option);
+            });
+            
+            // Agregar años disponibles
+            anos.forEach(ano => {
+                const option = new Option(ano, ano);
+                selectAno.add(option);
+            });
+        }
+
+        // Actualizar gráfica mensual cuando cambien los filtros
+        function actualizarGraficaMensual() {
+            cargarDatosGraficaMensual();
+        }
+
+        // Cargar elementos disponibles para el filtro
+        function cargarElementosDisponibles() {
+            const selectElemento = document.getElementById('filtroElementoMensual');
+            
+            // Elementos de dotación disponibles
+            const elementos = [
+                { value: 'pantalon', text: 'Pantalón' },
+                { value: 'camisetagris', text: 'Camiseta Gris' },
+                { value: 'guerrera', text: 'Guerrera' },
+                { value: 'camisetapolo', text: 'Camiseta Polo' },
+                { value: 'guantes_nitrilo', text: 'Guantes Nitrilo' },
+                { value: 'guantes_carnaza', text: 'Guantes Carnaza' },
+                { value: 'gafas', text: 'Gafas' },
+                { value: 'gorra', text: 'Gorra' },
+                { value: 'casco', text: 'Casco' },
+                { value: 'botas', text: 'Botas' }
+            ];
+            
+            // Limpiar opciones existentes
+            selectElemento.innerHTML = '<option value="">Todos los elementos</option>';
+            
+            // Agregar elementos disponibles
+            elementos.forEach(elemento => {
+                const option = new Option(elemento.text, elemento.value);
+                selectElemento.add(option);
+            });
         }
 
         // Funciones de utilidad
