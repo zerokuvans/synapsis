@@ -132,6 +132,58 @@
         </div>
     </div>
 
+    <!-- Estadísticas Generales -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Estadísticas Generales
+                    </h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnActualizarEstadisticas">
+                        <i class="fas fa-sync-alt me-2"></i>Actualizar
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="totalRegistrosGenerales">0</h4>
+                                    <small>Total Registros en BD</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="serialesUnicosGenerales">0</h4>
+                                    <small>Seriales Únicos</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="cuentasUnicasGenerales">0</h4>
+                                    <small>Cuentas Únicas</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="otUnicasGenerales">0</h4>
+                                    <small>OT Únicas</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Formularios de Búsqueda -->
     <div class="row">
         <!-- Búsqueda Individual -->
@@ -1373,5 +1425,49 @@ function resetModalAdministracion() {
     document.getElementById('btnIniciarCarga').disabled = true;
     document.getElementById('btnIniciarCarga').innerHTML = '<i class="fas fa-upload me-2"></i>Iniciar Carga';
 }
+
+// Función para cargar estadísticas generales
+function cargarEstadisticasGenerales() {
+    fetch('/logistica/estadisticas_generales')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('totalRegistrosGenerales').textContent = data.total_registros || 0;
+            document.getElementById('serialesUnicosGenerales').textContent = data.seriales_unicos || 0;
+            document.getElementById('cuentasUnicasGenerales').textContent = data.cuentas_unicas || 0;
+            document.getElementById('otUnicasGenerales').textContent = data.ot_unicas || 0;
+        } else {
+            console.error('Error al cargar estadísticas:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error al cargar estadísticas:', error);
+    });
+}
+
+// Cargar estadísticas al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    cargarEstadisticasGenerales();
+    
+    // Agregar evento al botón de actualizar estadísticas
+    document.getElementById('btnActualizarEstadisticas').addEventListener('click', function() {
+        const btn = this;
+        const icon = btn.querySelector('i');
+        
+        // Mostrar animación de carga
+        icon.classList.remove('fa-sync-alt');
+        icon.classList.add('fa-spinner', 'fa-spin');
+        btn.disabled = true;
+        
+        cargarEstadisticasGenerales();
+        
+        // Restaurar botón después de 1 segundo
+        setTimeout(() => {
+            icon.classList.remove('fa-spinner', 'fa-spin');
+            icon.classList.add('fa-sync-alt');
+            btn.disabled = false;
+        }, 1000);
+    });
+});
 </script>
 {% endblock %}
