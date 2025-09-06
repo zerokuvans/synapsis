@@ -11348,6 +11348,57 @@ def route_api_reportes_exportar():
 def route_api_reportes_programados():
     return api_reportes_programados()
 
+@app.route('/logistica/estadisticas_generales', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def estadisticas_generales():
+    """Obtener estadísticas generales de la tabla QRY"""
+    try:
+        # Conectar a la base de datos capired
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener total de registros
+        cursor.execute("SELECT COUNT(*) as total FROM qry")
+        total_registros = cursor.fetchone()['total']
+        
+        # Obtener seriales únicos
+        cursor.execute("SELECT COUNT(DISTINCT serial) as unicos FROM qry WHERE serial IS NOT NULL AND serial != ''")
+        seriales_unicos = cursor.fetchone()['unicos']
+        
+        # Obtener cuentas únicas
+        cursor.execute("SELECT COUNT(DISTINCT cuenta) as unicos FROM qry WHERE cuenta IS NOT NULL AND cuenta != ''")
+        cuentas_unicas = cursor.fetchone()['unicos']
+        
+        # Obtener OT únicas
+        cursor.execute("SELECT COUNT(DISTINCT ot) as unicos FROM qry WHERE ot IS NOT NULL AND ot != ''")
+        ot_unicas = cursor.fetchone()['unicos']
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'total_registros': total_registros,
+            'seriales_unicos': seriales_unicos,
+            'cuentas_unicas': cuentas_unicas,
+            'ot_unicas': ot_unicas
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener estadísticas generales: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener estadísticas: {str(e)}'
+        })
+
 # Endpoint para obtener lista de supervisores para el módulo de logística
 @app.route('/api/logistica/supervisores', methods=['GET'])
 @login_required()
