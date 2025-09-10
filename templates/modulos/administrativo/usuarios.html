@@ -101,18 +101,7 @@
                 <div class="col-md-3 mb-3">
                     <select class="form-select" id="filtroCargo">
                         <option value="">Todos los cargos</option>
-                        <option value="Administrador">Administrador</option>
-                        <option value="ANALISTA">ANALISTA</option>
-                        <option value="ANALISTA LOGISTICA">ANALISTA LOGISTICA</option>
-                        <option value="CONDUCTOR">CONDUCTOR</option>
-                        <option value="DESARROLLADOR">DESARROLLADOR</option>
-                        <option value="TECNICO">TECNICO</option>
-                        <option value="TECNICO CONDUCTOR">TECNICO CONDUCTOR</option>
-                        <option value="TECNICO DE TELECOMUNICACIONES">TECNICO DE TELECOMUNICACIONES</option>
-                        <option value="Gerente">Gerente</option>
-                        <option value="Supervisor">Supervisor</option>
-                        <option value="Asistente">Asistente</option>
-                        <option value="Operador">Operador</option>
+                        <!-- Las opciones se cargarán dinámicamente desde /api/cargos -->
                     </select>
                 </div>
                 <div class="col-md-2 mb-3">
@@ -277,14 +266,7 @@
                             <label for="edit_cargo" class="form-label">Cargo</label>
                             <select class="form-select" id="edit_cargo" name="cargo">
                                 <option value="">Seleccione un cargo</option>
-                                <option value="Administrador">Administrador</option>
-                                <option value="ANALISTA">ANALISTA</option>
-                                <option value="ANALISTA LOGISTICA">ANALISTA LOGISTICA</option>
-                                <option value="CONDUCTOR">CONDUCTOR</option>
-                                <option value="DESARROLLADOR">DESARROLLADOR</option>
-                                <option value="TECNICO">TECNICO</option>
-                                <option value="TECNICO CONDUCTOR">TECNICO CONDUCTOR</option>
-                                <option value="TECNICO DE TELECOMUNICACIONES">TECNICO DE TELECOMUNICACIONES</option>
+                                <!-- Las opciones se cargarán dinámicamente desde /api/cargos -->
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -518,6 +500,74 @@
             select.appendChild(option);
         });
     }
+    
+    // Función para cargar cargos desde la API
+    function cargarCargos() {
+        return new Promise((resolve, reject) => {
+            fetch('/api/cargos')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error al obtener cargos: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Respuesta completa de cargos:', data); // Para depuración
+                    
+                    // Verificar que la respuesta sea exitosa y contenga cargos
+                    if (!data.success) {
+                        throw new Error(data.message || 'Error al obtener cargos');
+                    }
+                    
+                    if (!data.cargos || !Array.isArray(data.cargos)) {
+                        throw new Error('La respuesta no contiene un array de cargos válido');
+                    }
+                    
+                    console.log('Cargos obtenidos:', data.cargos); // Para depuración
+                    
+                    // Cargar cargos en el select de filtro
+                    const filtroCargoSelect = document.getElementById('filtroCargo');
+                    if (filtroCargoSelect) {
+                        // Mantener la opción "Todos los cargos"
+                        const primeraOpcion = filtroCargoSelect.options[0];
+                        filtroCargoSelect.innerHTML = '';
+                        filtroCargoSelect.appendChild(primeraOpcion);
+                        
+                        // Agregar los cargos obtenidos
+                        data.cargos.forEach(cargo => {
+                            const option = document.createElement('option');
+                            option.value = cargo;
+                            option.textContent = cargo;
+                            filtroCargoSelect.appendChild(option);
+                        });
+                    }
+                    
+                    // Cargar cargos en el select de edición
+                    const editCargoSelect = document.getElementById('edit_cargo');
+                    if (editCargoSelect) {
+                        // Mantener la opción "Seleccione un cargo"
+                        const primeraOpcion = editCargoSelect.options[0];
+                        editCargoSelect.innerHTML = '';
+                        editCargoSelect.appendChild(primeraOpcion);
+                        
+                        // Agregar los cargos obtenidos
+                        data.cargos.forEach(cargo => {
+                            const option = document.createElement('option');
+                            option.value = cargo;
+                            option.textContent = cargo;
+                            editCargoSelect.appendChild(option);
+                        });
+                    }
+                    
+                    resolve();
+                })
+                .catch(error => {
+                    console.error('Error al cargar cargos:', error);
+                    mostrarAlerta('Error al cargar los cargos: ' + error.message, 'danger');
+                    reject(error);
+                });
+        });
+    }
 </script>
 
 <script>
@@ -556,6 +606,9 @@
     document.addEventListener('DOMContentLoaded', function() {
         // Cargar opciones para los dropdowns
         cargarOpcionesUsuario();
+        
+        // Cargar cargos dinámicamente
+        cargarCargos();
         
         // Variables para el contador de registros y paginación
         let totalRegistros = 0;
