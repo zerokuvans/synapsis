@@ -3570,45 +3570,70 @@ def registrar_ferretero():
         grapas_blancas_solicitadas = int(grapas_blancas or 0)
         grapas_negras_solicitadas = int(grapas_negras or 0)
         
-        # Validaciones de límites
-        errores = []
+        # Validaciones de límites con asignación parcial
+        materiales_rechazados = []
+        materiales_asignados = []
         
         # Validar cintas
         if contadores['cinta_aislante'] + cintas_solicitadas > limites[area_trabajo]['cinta_aislante']['cantidad']:
             limite = limites[area_trabajo]['cinta_aislante']
-            errores.append(f"Excede el límite de {limite['cantidad']} cintas cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['cinta_aislante']}.")
+            materiales_rechazados.append(f"Cinta aislante: excede el límite de {limite['cantidad']} cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['cinta_aislante']}.")
+            cintas_solicitadas = 0
+            cinta_aislante = 0
+        elif cintas_solicitadas > 0:
+            materiales_asignados.append(f"Cinta aislante: {cintas_solicitadas} unidades")
         
         # Validar siliconas
         if contadores['silicona'] + siliconas_solicitadas > limites[area_trabajo]['silicona']['cantidad']:
             limite = limites[area_trabajo]['silicona']
-            errores.append(f"Excede el límite de {limite['cantidad']} siliconas cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['silicona']}.")
+            materiales_rechazados.append(f"Silicona: excede el límite de {limite['cantidad']} cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['silicona']}.")
+            siliconas_solicitadas = 0
+            silicona = 0
+        elif siliconas_solicitadas > 0:
+            materiales_asignados.append(f"Silicona: {siliconas_solicitadas} unidades")
         
         # Validar amarres negros
         if contadores['amarres_negros'] + amarres_negros_solicitados > limites[area_trabajo]['amarres_negros']['cantidad']:
             limite = limites[area_trabajo]['amarres_negros']
-            errores.append(f"Excede el límite de {limite['cantidad']} amarres negros cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['amarres_negros']}.")
+            materiales_rechazados.append(f"Amarres negros: excede el límite de {limite['cantidad']} cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['amarres_negros']}.")
+            amarres_negros_solicitados = 0
+            amarres_negros = 0
+        elif amarres_negros_solicitados > 0:
+            materiales_asignados.append(f"Amarres negros: {amarres_negros_solicitados} unidades")
         
         # Validar amarres blancos
         if contadores['amarres_blancos'] + amarres_blancos_solicitados > limites[area_trabajo]['amarres_blancos']['cantidad']:
             limite = limites[area_trabajo]['amarres_blancos']
-            errores.append(f"Excede el límite de {limite['cantidad']} amarres blancos cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['amarres_blancos']}.")
+            materiales_rechazados.append(f"Amarres blancos: excede el límite de {limite['cantidad']} cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['amarres_blancos']}.")
+            amarres_blancos_solicitados = 0
+            amarres_blancos = 0
+        elif amarres_blancos_solicitados > 0:
+            materiales_asignados.append(f"Amarres blancos: {amarres_blancos_solicitados} unidades")
         
         # Validar grapas blancas
         if contadores['grapas_blancas'] + grapas_blancas_solicitadas > limites[area_trabajo]['grapas_blancas']['cantidad']:
             limite = limites[area_trabajo]['grapas_blancas']
-            errores.append(f"Excede el límite de {limite['cantidad']} grapas blancas cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['grapas_blancas']}.")
+            materiales_rechazados.append(f"Grapas blancas: excede el límite de {limite['cantidad']} cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['grapas_blancas']}.")
+            grapas_blancas_solicitadas = 0
+            grapas_blancas = 0
+        elif grapas_blancas_solicitadas > 0:
+            materiales_asignados.append(f"Grapas blancas: {grapas_blancas_solicitadas} unidades")
         
         # Validar grapas negras
         if contadores['grapas_negras'] + grapas_negras_solicitadas > limites[area_trabajo]['grapas_negras']['cantidad']:
             limite = limites[area_trabajo]['grapas_negras']
-            errores.append(f"Excede el límite de {limite['cantidad']} grapas negras cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['grapas_negras']}.")
+            materiales_rechazados.append(f"Grapas negras: excede el límite de {limite['cantidad']} cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['grapas_negras']}.")
+            grapas_negras_solicitadas = 0
+            grapas_negras = 0
+        elif grapas_negras_solicitadas > 0:
+            materiales_asignados.append(f"Grapas negras: {grapas_negras_solicitadas} unidades")
         
-        # Si hay errores, rechazar la asignación
-        if errores:
+        # Si todos los materiales fueron rechazados, rechazar la asignación completa
+        if materiales_rechazados and not materiales_asignados:
             return jsonify({
                 'status': 'error',
-                'message': 'La asignación excede los límites permitidos',
-                'detalles': errores
+                'message': 'Todos los materiales solicitados exceden los límites permitidos',
+                'materiales_rechazados': materiales_rechazados
             }), 400
         
         # Validar stock disponible antes de la asignación
@@ -3687,10 +3712,24 @@ def registrar_ferretero():
         
         connection.commit()
 
-        return jsonify({
-            'status': 'success',
-            'message': f'Material ferretero asignado exitosamente para {area_trabajo}'
-        }), 201
+        # Preparar mensaje de respuesta con información detallada
+        if materiales_rechazados:
+            # Asignación parcial
+            mensaje = f'Asignación parcial completada para {area_trabajo}'
+            return jsonify({
+                'status': 'partial_success',
+                'message': mensaje,
+                'materiales_asignados': materiales_asignados,
+                'materiales_rechazados': materiales_rechazados,
+                'detalle': f'Se asignaron {len(materiales_asignados)} materiales y se rechazaron {len(materiales_rechazados)} por exceder límites'
+            }), 201
+        else:
+            # Asignación completa
+            return jsonify({
+                'status': 'success',
+                'message': f'Material ferretero asignado exitosamente para {area_trabajo}',
+                'materiales_asignados': materiales_asignados
+            }), 201
 
     except mysql.connector.Error as e:
         print(f"Error MySQL: {str(e)}")

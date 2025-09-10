@@ -1299,10 +1299,48 @@ async function registrarAsignacion() {
                     window.location.href = '/logistica/ferretero';
                 }, 300);
             });
+        } else if (data.status === 'partial_success') {
+            // Asignación parcial exitosa - procesar directamente sin mostrar error
+            console.log("Asignación parcial exitosa:", data.message);
+            
+            // Mostrar mensaje de éxito indicando que se completó la asignación
+            Swal.fire({
+                icon: 'success',
+                title: 'Asignación Completada',
+                text: data.message || 'Asignación parcial completada exitosamente',
+                showConfirmButton: false,
+                timer: 2000
+            }).then(() => {
+                // Indicar que estamos en proceso de redirección
+                isRedirecting = true;
+                console.log("Preparando cierre del modal y redirección tras asignación parcial");
+                
+                // Limpiar elementos residuales
+                limpiarElementosResiduales();
+                
+                // Cerrar el modal correctamente
+                const modalAsignacion = document.getElementById('modalAsignacion');
+                const modal = bootstrap.Modal.getInstance(modalAsignacion);
+                
+                if (modal) {
+                    console.log("Cerrando modal");
+                    modal.hide();
+                }
+                
+                // Mostrar overlay y redirigir
+                mostrarOverlayCarga('Actualizando asignaciones...');
+                
+                // Redirigir directamente a la página de ferretero
+                setTimeout(() => {
+                    console.log("Redirigiendo a página de ferretero tras asignación parcial");
+                    window.location.href = '/logistica/ferretero';
+                }, 300);
+            });
         } else {
+            // Solo mostrar error si la asignación falla completamente
             console.error("Error en el registro:", data.message);
             
-            // Mostrar mensaje de error detallado
+            // Mostrar mensaje de error detallado solo para fallos completos
             let mensaje = data.message;
             
             // Si hay detalles, mostrarlos en formato de lista
