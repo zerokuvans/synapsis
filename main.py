@@ -3258,29 +3258,23 @@ def ver_asignaciones_ferretero():
         }
         
         for tecnico in tecnicos:
-            # Determinar área de trabajo basada en la carpeta (prioridad) o el cargo
+            # Determinar área de trabajo basada EXCLUSIVAMENTE en la carpeta asignada
             carpeta = tecnico.get('carpeta', '').upper() if tecnico.get('carpeta') else ''
-            cargo = tecnico.get('cargo', '').upper()
             
             area_trabajo = None
             
-            # Primero intentar determinar por carpeta
+            # Buscar coincidencia exacta en la carpeta del técnico
             if carpeta:
                 for area in limites.keys():
                     if area in carpeta:
                         area_trabajo = area
+                        print(f"INFO: Técnico {tecnico.get('nombre', 'N/A')} - Carpeta: '{carpeta}' -> Área asignada: '{area_trabajo}'")
                         break
             
-            # Si no se encontró por carpeta, intentar por cargo (como fallback)
+            # Si no se encuentra carpeta válida, mostrar error y omitir técnico
             if area_trabajo is None:
-                for area in limites.keys():
-                    if area in cargo:
-                        area_trabajo = area
-                        break
-            
-            # Si no se encuentra un área específica, usar límites por defecto
-            if area_trabajo is None:
-                area_trabajo = 'POSTVENTA'  # Usar un valor por defecto
+                print(f"ERROR: Técnico {tecnico.get('nombre', 'N/A')} - Carpeta '{carpeta}' no está configurada para límites de ferretero")
+                continue  # Omitir este técnico de la lista
             
             # Obtener asignaciones previas para este técnico
             cursor.execute("""
@@ -3438,9 +3432,8 @@ def registrar_ferretero():
         """, (id_codigo_consumidor,))
         asignaciones_previas = cursor.fetchall()
         
-        # Determinar la carpeta/área del técnico
+        # Determinar la carpeta del técnico (EXCLUSIVAMENTE)
         carpeta = tecnico.get('carpeta', '').upper() if tecnico.get('carpeta') else ''
-        cargo = tecnico.get('cargo', '').upper()
         
         # Definir límites según área de trabajo
         limites = {
@@ -3510,28 +3503,25 @@ def registrar_ferretero():
             },
         }
         
-        # Determinar área de trabajo basada en la carpeta (prioridad) o el cargo
+        # Determinar área de trabajo basada EXCLUSIVAMENTE en la carpeta asignada
         area_trabajo = None
         
-        # Primero intentar determinar por carpeta
+        # Buscar coincidencia exacta en la carpeta del técnico
         if carpeta:
             for area in limites.keys():
                 if area in carpeta:
                     area_trabajo = area
+                    print(f"INFO: Técnico {tecnico.get('nombre', 'N/A')} - Carpeta: '{carpeta}' -> Área asignada: '{area_trabajo}'")
                     break
         
-        # Si no se encontró por carpeta, intentar por cargo (como fallback)
+        # Si no se encuentra carpeta válida, rechazar la asignación
         if area_trabajo is None:
-            for area in limites.keys():
-                if area in cargo:
-                    area_trabajo = area
-                    break
-        
-        # Si no se encuentra un área específica, usar límites por defecto
-        if area_trabajo is None:
-            # Mensajes de advertencia en caso de que no se encuentre un área específica
-            print(f"ADVERTENCIA: No se identificó área específica para la carpeta '{carpeta}' o cargo '{cargo}'. Usando límites por defecto.")
-            area_trabajo = 'POSTVENTA'  # Usar un valor por defecto
+            error_msg = f"La carpeta '{carpeta}' del técnico {tecnico.get('nombre', 'N/A')} no está configurada para límites de ferretero. Carpetas válidas: {', '.join(limites.keys())}"
+            print(f"ERROR: {error_msg}")
+            return jsonify({
+                'status': 'error',
+                'message': error_msg
+            }), 400
         
         # Inicializar contadores para materiales en los períodos correspondientes
         contadores = {
