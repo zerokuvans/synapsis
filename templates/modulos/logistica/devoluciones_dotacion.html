@@ -24,10 +24,10 @@
         border-radius: 8px;
         padding: 20px;
         margin-bottom: 20px;
-        border-left: 4px solid #667eea;
+        border-left: 4px solid #3583E8;
     }
     .section-title {
-        color: #667eea;
+        color: #3583E8;
         font-weight: 600;
         margin-bottom: 15px;
         font-size: 1.1rem;
@@ -766,14 +766,14 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <!-- <button type="button" class="btn btn-success" onclick="imprimirResumen()">
+                <button type="button" class="btn btn-success" onclick="imprimirResumen()">
                     <i class="fas fa-print me-2"></i>
                     Imprimir
                 </button>
                 <button type="button" class="btn btn-info" onclick="exportarResumen()">
                     <i class="fas fa-download me-2"></i>
                     Exportar
-                </button> -->
+                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="fas fa-times me-2"></i>
                     Cerrar
@@ -1086,7 +1086,7 @@ document.addEventListener('DOMContentLoaded', function() {
         mostrarCargandoResumen();
         
         // Realizar petición para obtener los detalles
-        fetch(`/api/devoluciones/${devolucionId}/detalles`)
+        fetch(`/obtener_detalles_devolucion/${devolucionId}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Error al obtener los detalles de la devolución');
