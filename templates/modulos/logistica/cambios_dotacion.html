@@ -1,0 +1,503 @@
+{% extends "base.html" %}
+
+{% block title %}Cambios de Dotación{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card-header {
+        background: linear-gradient(135deg, #3583E8 0%, #3583E8 100%);
+        color: white;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #3583E8 0%, #3583E8 100%);
+        border: none;
+    }
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #3583E8 0%, #3583E8 100%);
+    }
+    .form-control:focus {
+        border-color: #3583E8;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    .form-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-left: 4px solid #667eea;
+    }
+    .section-title {
+        color: #667eea;
+        font-weight: 600;
+        margin-bottom: 15px;
+        font-size: 1.1rem;
+    }
+    .required {
+        color: #dc3545;
+    }
+    .form-row {
+        margin-bottom: 15px;
+    }
+    .talla-input {
+        max-width: 100px;
+    }
+    .cantidad-input {
+        max-width: 80px;
+    }
+    
+    /* Estilos para la tabla de historial */
+    #tablaHistorialCambios {
+        font-size: 0.9rem;
+    }
+    
+    #tablaHistorialCambios .badge {
+        font-size: 0.8rem;
+    }
+    
+    .elementos-modificados {
+        max-width: 300px;
+        word-wrap: break-word;
+        font-size: 0.85rem;
+        line-height: 1.3;
+    }
+    
+    .observaciones-cell {
+        max-width: 200px;
+        word-wrap: break-word;
+        font-size: 0.85rem;
+    }
+    
+    #tablaHistorialCambios tbody tr:hover {
+        background-color: rgba(102, 126, 234, 0.1);
+        transition: background-color 0.2s ease;
+    }
+    
+    .table-dark {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .spinner-border {
+        width: 2rem;
+        height: 2rem;
+    }
+    
+    .btn-outline-primary:hover {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: #667eea;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0" >
+                        <i class="fas fa-exchange-alt me-2"></i>
+                        Registro de Cambios de Dotación
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('registrar_cambio_dotacion') }}" id="formCambiosDotacion">
+                        <!-- Información General -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Información General
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="id_codigo_consumidor" class="form-label">
+                                        Técnico <span class="required">*</span>
+                                    </label>
+                                    <select class="form-select" id="id_codigo_consumidor" name="id_codigo_consumidor" required>
+                                        <option value="">Seleccione un técnico...</option>
+                                        {% for tecnico in tecnicos %}
+                                            <option value="{{ tecnico.id_codigo_consumidor }}">
+                                                {{ tecnico.nombre }} - {{ tecnico.recurso_operativo_cedula }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="fecha_cambio" class="form-label">
+                                        Fecha de Cambio <span class="required">*</span>
+                                    </label>
+                                    <input type="date" class="form-control" id="fecha_cambio" name="fecha_cambio" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dotación de Vestimenta -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <i class="fas fa-tshirt me-2"></i>
+                                Dotación de Vestimenta
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label for="pantalon" class="form-label">Pantalón (Cantidad)</label>
+                                    <input type="number" class="form-control cantidad-input" id="pantalon" name="pantalon" min="0" max="10">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="pantalon_talla" class="form-label">Talla Pantalón</label>
+                                    <select class="form-select talla-input" id="pantalon_talla" name="pantalon_talla">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="XS">XS</option>
+                                        <option value="S">S</option>
+                                        <option value="M">M</option>
+                                        <option value="L">L</option>
+                                        <option value="XL">XL</option>
+                                        <option value="XXL">XXL</option>
+                                        <option value="XXXL">XXXL</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="camisetagris" class="form-label">Camiseta Gris (Cantidad)</label>
+                                    <input type="number" class="form-control cantidad-input" id="camisetagris" name="camisetagris" min="0" max="10">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="camiseta_gris_talla" class="form-label">Talla Camiseta Gris</label>
+                                    <select class="form-select talla-input" id="camiseta_gris_talla" name="camiseta_gris_talla">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="XS">XS</option>
+                                        <option value="S">S</option>
+                                        <option value="M">M</option>
+                                        <option value="L">L</option>
+                                        <option value="XL">XL</option>
+                                        <option value="XXL">XXL</option>
+                                        <option value="XXXL">XXXL</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-md-3">
+                                    <label for="guerrera" class="form-label">Guerrera (Cantidad)</label>
+                                    <input type="number" class="form-control cantidad-input" id="guerrera" name="guerrera" min="0" max="10">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="guerrera_talla" class="form-label">Talla Guerrera</label>
+                                    <select class="form-select talla-input" id="guerrera_talla" name="guerrera_talla">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="XS">XS</option>
+                                        <option value="S">S</option>
+                                        <option value="M">M</option>
+                                        <option value="L">L</option>
+                                        <option value="XL">XL</option>
+                                        <option value="XXL">XXL</option>
+                                        <option value="XXXL">XXXL</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="camisetapolo" class="form-label">Camiseta Polo (Cantidad)</label>
+                                    <input type="number" class="form-control cantidad-input" id="camisetapolo" name="camisetapolo" min="0" max="10">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="camiseta_polo_talla" class="form-label">Talla Camiseta Polo</label>
+                                    <select class="form-select talla-input" id="camiseta_polo_talla" name="camiseta_polo_talla">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="XS">XS</option>
+                                        <option value="S">S</option>
+                                        <option value="M">M</option>
+                                        <option value="L">L</option>
+                                        <option value="XL">XL</option>
+                                        <option value="XXL">XXL</option>
+                                        <option value="XXXL">XXXL</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Elementos de Protección Personal -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <i class="fas fa-hard-hat me-2"></i>
+                                Elementos de Protección Personal
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-2">
+                                    <label for="guantes_nitrilo" class="form-label">Guantes Nitrilo</label>
+                                    <input type="number" class="form-control cantidad-input" id="guantes_nitrilo" name="guantes_nitrilo" min="0" max="20">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="guantes_carnaza" class="form-label">Guantes Carnaza</label>
+                                    <input type="number" class="form-control cantidad-input" id="guantes_carnaza" name="guantes_carnaza" min="0" max="20">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="gafas" class="form-label">Gafas</label>
+                                    <input type="number" class="form-control cantidad-input" id="gafas" name="gafas" min="0" max="5">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="gorra" class="form-label">Gorra</label>
+                                    <input type="number" class="form-control cantidad-input" id="gorra" name="gorra" min="0" max="5">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="casco" class="form-label">Casco</label>
+                                    <input type="number" class="form-control cantidad-input" id="casco" name="casco" min="0" max="3">
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="botas" class="form-label">Botas</label>
+                                    <input type="number" class="form-control cantidad-input" id="botas" name="botas" min="0" max="3">
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-md-3">
+                                    <label for="botas_talla" class="form-label">Talla Botas</label>
+                                    <select class="form-select talla-input" id="botas_talla" name="botas_talla">
+                                        <option value="">Seleccionar...</option>
+                                        {% for i in range(35, 46) %}
+                                            <option value="{{ i }}">{{ i }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Observaciones -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <i class="fas fa-comment me-2"></i>
+                                Observaciones
+                            </h5>
+                            <div class="row">
+                                <div class="col-12">
+                                    <label for="observaciones" class="form-label">Observaciones Adicionales</label>
+                                    <textarea class="form-control" id="observaciones" name="observaciones" rows="3" placeholder="Ingrese cualquier observación adicional sobre el cambio de dotación..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between">
+                                    <!-- <a href="{{ url_for('logistica_dashboard') }}" class="btn btn-secondary">
+                                        <i class="fas fa-arrow-left me-2"></i>
+                                        Volver a Logística
+                                    </a> -->
+                                    <div>
+                                        <button type="reset" class="btn btn-outline-secondary me-2">
+                                            <i class="fas fa-undo me-2"></i>
+                                            Limpiar
+                                        </button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-2"></i>
+                                            Registrar Cambio
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Historial de Cambios -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Historial de Cambios de Dotación
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="tablaHistorialCambios" class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Técnico</th>
+                                    <th>Elementos Modificados</th>
+                                    <th>Fecha y Hora</th>
+                                    <th>Observaciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5" class="text-center">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Cargando...</span>
+                                        </div>
+                                        <p class="mt-2 mb-0">Cargando historial de cambios...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Establecer fecha actual por defecto
+document.addEventListener('DOMContentLoaded', function() {
+    const fechaInput = document.getElementById('fecha_cambio');
+    const today = new Date().toISOString().split('T')[0];
+    fechaInput.value = today;
+    
+    // Cargar historial de cambios al cargar la página
+    cargarHistorialCambios();
+    
+    // Validación del formulario
+    const form = document.getElementById('formCambiosDotacion');
+    form.addEventListener('submit', function(e) {
+        const tecnico = document.getElementById('id_codigo_consumidor').value;
+        const fecha = document.getElementById('fecha_cambio').value;
+        
+        if (!tecnico || !fecha) {
+            e.preventDefault();
+            alert('Por favor complete los campos obligatorios: Técnico y Fecha de Cambio');
+            return false;
+        }
+        
+        // Verificar que al menos un elemento de dotación tenga cantidad
+        const campos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'];
+        let tieneElementos = false;
+        
+        campos.forEach(campo => {
+            const valor = document.getElementById(campo).value;
+            if (valor && parseInt(valor) > 0) {
+                tieneElementos = true;
+            }
+        });
+        
+        if (!tieneElementos) {
+            e.preventDefault();
+            alert('Debe especificar al menos un elemento de dotación con cantidad mayor a 0');
+            return false;
+        }
+        
+        // Si la validación pasa, recargar historial después del envío
+        setTimeout(() => {
+            cargarHistorialCambios();
+        }, 1000);
+    });
+});
+
+// Función para cargar el historial de cambios
+function cargarHistorialCambios() {
+    fetch('/api/cambios_dotacion/historial')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarHistorialCambios(data.data);
+            } else {
+                console.error('Error al cargar historial:', data.message);
+                mostrarErrorHistorial('Error al cargar el historial de cambios');
+            }
+        })
+        .catch(error => {
+            console.error('Error en la petición:', error);
+            mostrarErrorHistorial('Error de conexión al cargar el historial');
+        });
+}
+
+// Función para mostrar los datos del historial en la tabla
+function mostrarHistorialCambios(cambios) {
+    const tbody = document.querySelector('#tablaHistorialCambios tbody');
+    
+    if (cambios.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No hay cambios de dotación registrados
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = '';
+    
+    cambios.forEach(cambio => {
+        const fechaFormateada = formatearFechaHora(cambio.fecha_registro || cambio.fecha_cambio);
+        const observaciones = cambio.observaciones || 'Sin observaciones';
+        
+        const fila = document.createElement('tr');
+        fila.innerHTML = `
+            <td><span class="badge bg-primary">${cambio.id}</span></td>
+            <td>
+                <strong>${cambio.tecnico_nombre || 'Técnico no encontrado'}</strong>
+                <br>
+                <small class="text-muted">ID: ${cambio.id_codigo_consumidor}</small>
+            </td>
+            <td>
+                <div class="elementos-modificados">
+                    ${cambio.elementos_modificados}
+                </div>
+            </td>
+            <td>
+                <i class="fas fa-calendar-alt me-1"></i>
+                ${fechaFormateada}
+            </td>
+            <td>
+                <div class="observaciones-cell">
+                    ${observaciones}
+                </div>
+            </td>
+        `;
+        
+        tbody.appendChild(fila);
+    });
+}
+
+// Función para mostrar error en el historial
+function mostrarErrorHistorial(mensaje) {
+    const tbody = document.querySelector('#tablaHistorialCambios tbody');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="5" class="text-center text-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                ${mensaje}
+                <br>
+                <button class="btn btn-sm btn-outline-primary mt-2" onclick="cargarHistorialCambios()">
+                    <i class="fas fa-refresh me-1"></i>
+                    Reintentar
+                </button>
+            </td>
+        </tr>
+    `;
+}
+
+// Función para formatear fecha y hora
+function formatearFechaHora(fechaString) {
+    if (!fechaString) return 'Fecha no disponible';
+    
+    try {
+        const fecha = new Date(fechaString);
+        const opciones = {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        };
+        return fecha.toLocaleDateString('es-CO', opciones);
+    } catch (error) {
+        return fechaString;
+    }
+}
+</script>
+{% endblock %}
