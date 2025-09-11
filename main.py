@@ -11506,5 +11506,703 @@ def load_user(user_id):
         return User(user_data['id_codigo_consumidor'], user_data['nombre'], ROLES.get(str(user_data['id_roles'])))
     return None
 
+# ===== MÓDULO DE DEVOLUCIONES Y CAMBIOS DE DOTACIÓN =====
+
+@app.route('/logistica/cambios_dotacion')
+@login_required()
+@role_required('logistica')
+def cambios_dotacion():
+    """Mostrar formulario de cambios de dotación"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'danger')
+            return redirect(url_for('logistica_dashboard'))
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener lista de técnicos activos
+        cursor.execute("""
+            SELECT id_codigo_consumidor, nombre, recurso_operativo_cedula
+            FROM recurso_operativo 
+            WHERE estado = 'Activo' AND carpeta IN ('FTTH INSTALACIONES', 'POSTVENTA', 'BROWFIELD', 'MANTENIMIENTO FTTH', 'ARREGLOS HFC', 'INSTALACIONES DOBLES')
+            ORDER BY nombre ASC
+        """)
+        tecnicos = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return render_template('modulos/logistica/cambios_dotacion.html', tecnicos=tecnicos)
+        
+    except Exception as e:
+        print(f"Error en cambios_dotacion: {str(e)}")
+        flash('Error al cargar el formulario de cambios', 'danger')
+        return redirect(url_for('logistica_dashboard'))
+
+@app.route('/logistica/devoluciones_dotacion')
+@login_required()
+@role_required('logistica')
+def devoluciones_dotacion():
+    """Mostrar formulario de devoluciones de dotación"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'danger')
+            return redirect(url_for('logistica_dashboard'))
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener lista de técnicos activos
+        cursor.execute("""
+            SELECT id_codigo_consumidor, nombre, recurso_operativo_cedula
+            FROM recurso_operativo 
+            WHERE estado = 'Activo' AND carpeta IN ('FTTH INSTALACIONES', 'POSTVENTA', 'BROWFIELD', 'MANTENIMIENTO FTTH', 'ARREGLOS HFC', 'INSTALACIONES DOBLES')
+            ORDER BY nombre ASC
+        """)
+        tecnicos = cursor.fetchall()
+        
+        # Obtener lista de clientes activos con IDs únicos
+        cursor.execute("""
+            SELECT 
+                ROW_NUMBER() OVER (ORDER BY cliente ASC) as id,
+                cliente as nombre
+            FROM (
+                SELECT DISTINCT cliente
+                FROM recurso_operativo 
+                WHERE cliente IS NOT NULL AND cliente != '' AND estado = 'Activo'
+            ) as clientes_unicos
+            ORDER BY cliente ASC
+        """)
+        clientes = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return render_template('modulos/logistica/devoluciones_dotacion.html', 
+                             tecnicos=tecnicos, clientes=clientes)
+        
+    except Exception as e:
+        print(f"Error en devoluciones_dotacion: {str(e)}")
+        flash('Error al cargar el formulario de devoluciones', 'danger')
+        return redirect(url_for('logistica_dashboard'))
+
+@app.route('/logistica/registrar_cambio_dotacion', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def registrar_cambio_dotacion():
+    """Procesar registro de cambio de dotación"""
+    try:
+        # Conectar a la base de datos capired
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor()
+        
+        # Obtener datos del formulario
+        id_codigo_consumidor = request.form.get('id_codigo_consumidor')
+        fecha_cambio = request.form.get('fecha_cambio')
+        observaciones = request.form.get('observaciones', '')
+        
+        # Obtener cantidades y tallas de dotación
+        pantalon = request.form.get('pantalon') or None
+        pantalon_talla = request.form.get('pantalon_talla') or None
+        camisetagris = request.form.get('camisetagris') or None
+        camiseta_gris_talla = request.form.get('camiseta_gris_talla') or None
+        guerrera = request.form.get('guerrera') or None
+        guerrera_talla = request.form.get('guerrera_talla') or None
+        camisetapolo = request.form.get('camisetapolo') or None
+        camiseta_polo_talla = request.form.get('camiseta_polo_talla') or None
+        guantes_nitrilo = request.form.get('guantes_nitrilo') or None
+        guantes_carnaza = request.form.get('guantes_carnaza') or None
+        gafas = request.form.get('gafas') or None
+        gorra = request.form.get('gorra') or None
+        casco = request.form.get('casco') or None
+        botas = request.form.get('botas') or None
+        botas_talla = request.form.get('botas_talla') or None
+        
+        # Validaciones básicas
+        if not id_codigo_consumidor or not fecha_cambio:
+            flash('Técnico y fecha son campos obligatorios', 'danger')
+            return redirect(url_for('cambios_dotacion'))
+        
+        # Insertar en la base de datos
+        query = """
+            INSERT INTO cambios_dotacion (
+                id_codigo_consumidor, fecha_cambio, pantalon, pantalon_talla,
+                camisetagris, camiseta_gris_talla, guerrera, guerrera_talla,
+                camisetapolo, camiseta_polo_talla, guantes_nitrilo, guantes_carnaza,
+                gafas, gorra, casco, botas, botas_talla, observaciones
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+        """
+        
+        cursor.execute(query, (
+            id_codigo_consumidor, fecha_cambio, pantalon, pantalon_talla,
+            camisetagris, camiseta_gris_talla, guerrera, guerrera_talla,
+            camisetapolo, camiseta_polo_talla, guantes_nitrilo, guantes_carnaza,
+            gafas, gorra, casco, botas, botas_talla, observaciones
+        ))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        flash('Cambio de dotación registrado exitosamente', 'success')
+        return redirect(url_for('cambios_dotacion'))
+        
+    except Exception as e:
+        print(f"Error al registrar cambio de dotación: {str(e)}")
+        flash(f'Error al registrar cambio: {str(e)}', 'danger')
+        return redirect(url_for('cambios_dotacion'))
+
+@app.route('/api/cambios_dotacion/historial', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def obtener_historial_cambios_dotacion():
+    """API para obtener el historial de cambios de dotación"""
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener historial de cambios con información del técnico
+        query = """
+            SELECT 
+                ROW_NUMBER() OVER (ORDER BY cd.fecha_cambio DESC) as id,
+                cd.id_codigo_consumidor,
+                ro.nombre as tecnico_nombre,
+                cd.fecha_cambio,
+                cd.pantalon,
+                cd.pantalon_talla,
+                cd.camisetagris,
+                cd.camiseta_gris_talla,
+                cd.guerrera,
+                cd.guerrera_talla,
+                cd.camisetapolo,
+                cd.camiseta_polo_talla,
+                cd.guantes_nitrilo,
+                cd.guantes_carnaza,
+                cd.gafas,
+                cd.gorra,
+                cd.casco,
+                cd.botas,
+                cd.botas_talla,
+                cd.observaciones,
+                cd.fecha_cambio as fecha_registro
+            FROM cambios_dotacion cd
+            LEFT JOIN recurso_operativo ro ON cd.id_codigo_consumidor = ro.id_codigo_consumidor
+            ORDER BY cd.fecha_cambio DESC
+        """
+        
+        cursor.execute(query)
+        cambios = cursor.fetchall()
+        
+        # Procesar los datos para crear la lista de elementos modificados
+        for cambio in cambios:
+            elementos_modificados = []
+            
+            if cambio['pantalon'] and int(cambio['pantalon']) > 0:
+                elementos_modificados.append(f"Pantalón: {cambio['pantalon']} (T: {cambio['pantalon_talla'] or 'N/A'})")
+            
+            if cambio['camisetagris'] and int(cambio['camisetagris']) > 0:
+                elementos_modificados.append(f"Camiseta Gris: {cambio['camisetagris']} (T: {cambio['camiseta_gris_talla'] or 'N/A'})")
+            
+            if cambio['guerrera'] and int(cambio['guerrera']) > 0:
+                elementos_modificados.append(f"Guerrera: {cambio['guerrera']} (T: {cambio['guerrera_talla'] or 'N/A'})")
+            
+            if cambio['camisetapolo'] and int(cambio['camisetapolo']) > 0:
+                elementos_modificados.append(f"Camiseta Polo: {cambio['camisetapolo']} (T: {cambio['camiseta_polo_talla'] or 'N/A'})")
+            
+            if cambio['guantes_nitrilo'] and int(cambio['guantes_nitrilo']) > 0:
+                elementos_modificados.append(f"Guantes Nitrilo: {cambio['guantes_nitrilo']}")
+            
+            if cambio['guantes_carnaza'] and int(cambio['guantes_carnaza']) > 0:
+                elementos_modificados.append(f"Guantes Carnaza: {cambio['guantes_carnaza']}")
+            
+            if cambio['gafas'] and int(cambio['gafas']) > 0:
+                elementos_modificados.append(f"Gafas: {cambio['gafas']}")
+            
+            if cambio['gorra'] and int(cambio['gorra']) > 0:
+                elementos_modificados.append(f"Gorra: {cambio['gorra']}")
+            
+            if cambio['casco'] and int(cambio['casco']) > 0:
+                elementos_modificados.append(f"Casco: {cambio['casco']}")
+            
+            if cambio['botas'] and int(cambio['botas']) > 0:
+                elementos_modificados.append(f"Botas: {cambio['botas']} (T: {cambio['botas_talla'] or 'N/A'})")
+            
+            cambio['elementos_modificados'] = ', '.join(elementos_modificados) if elementos_modificados else 'Sin elementos especificados'
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'data': cambios
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener historial de cambios: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener historial: {str(e)}'
+        }), 500
+
+@app.route('/logistica/registrar_devolucion_dotacion', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def registrar_devolucion_dotacion():
+    """Procesar registro de devolución de dotación"""
+    try:
+        # Conectar a la base de datos capired
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor()
+        
+        # Obtener datos del formulario
+        tecnico_id = request.form.get('tecnico_id')
+        cliente_id = request.form.get('cliente_id')
+        fecha_devolucion = request.form.get('fecha_devolucion')
+        motivo = request.form.get('motivo')
+        observaciones = request.form.get('observaciones', '')
+        estado = request.form.get('estado', 'REGISTRADA')
+        created_by = session.get('user_id')
+        
+        # Validaciones básicas
+        if not tecnico_id or not cliente_id or not motivo:
+            flash('Técnico, cliente y motivo son campos obligatorios', 'danger')
+            return redirect(url_for('devoluciones_dotacion'))
+        
+        # Obtener el nombre del cliente basado en el ID
+        cursor_temp = connection.cursor(dictionary=True)
+        cursor_temp.execute("""
+            SELECT cliente as nombre
+            FROM (
+                SELECT 
+                    ROW_NUMBER() OVER (ORDER BY cliente ASC) as id,
+                    cliente
+                FROM (
+                    SELECT DISTINCT cliente
+                    FROM recurso_operativo 
+                    WHERE cliente IS NOT NULL AND cliente != '' AND estado = 'Activo'
+                ) as clientes_unicos
+            ) as clientes_numerados
+            WHERE id = %s
+        """, (cliente_id,))
+        cliente_data = cursor_temp.fetchone()
+        cursor_temp.close()
+        
+        if not cliente_data:
+            flash('Cliente no válido', 'danger')
+            return redirect(url_for('devoluciones_dotacion'))
+        
+        cliente_nombre = cliente_data['nombre']
+        
+        # Insertar en la base de datos
+        query = """
+            INSERT INTO devoluciones_dotacion (
+                tecnico_id, cliente_id, fecha_devolucion, motivo, 
+                observaciones, estado, created_by
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        cursor.execute(query, (
+            tecnico_id, cliente_id, fecha_devolucion, motivo,
+            observaciones, estado, created_by
+        ))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        flash('Devolución de dotación registrada exitosamente', 'success')
+        return redirect(url_for('devoluciones_dotacion'))
+        
+    except Exception as e:
+        print(f"Error al registrar devolución de dotación: {str(e)}")
+        flash(f'Error al registrar devolución: {str(e)}', 'danger')
+        return redirect(url_for('devoluciones_dotacion'))
+
+@app.route('/api/devoluciones/listar', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def listar_devoluciones():
+    """API para listar todas las devoluciones registradas"""
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener devoluciones con información del técnico
+        query = """
+            SELECT 
+                d.id,
+                d.tecnico_id,
+                ro.nombre as tecnico_nombre,
+                d.cliente_id,
+                d.fecha_devolucion,
+                d.motivo,
+                d.observaciones,
+                d.estado,
+                d.created_at,
+                d.updated_at,
+                COUNT(dd.id) as total_elementos
+            FROM devoluciones_dotacion d
+            LEFT JOIN recurso_operativo ro ON d.tecnico_id = ro.id_codigo_consumidor
+            LEFT JOIN devolucion_detalles dd ON d.id = dd.devolucion_id
+            GROUP BY d.id
+            ORDER BY d.created_at DESC
+        """
+        
+        cursor.execute(query)
+        devoluciones = cursor.fetchall()
+        
+        # Obtener nombres de clientes para cada devolución
+        for devolucion in devoluciones:
+            cursor.execute("""
+                SELECT cliente as nombre
+                FROM (
+                    SELECT 
+                        ROW_NUMBER() OVER (ORDER BY cliente ASC) as id,
+                        cliente
+                    FROM (
+                        SELECT DISTINCT cliente
+                        FROM recurso_operativo 
+                        WHERE cliente IS NOT NULL AND cliente != '' AND estado = 'Activo'
+                    ) as clientes_unicos
+                ) as clientes_numerados
+                WHERE id = %s
+            """, (devolucion['cliente_id'],))
+            cliente_data = cursor.fetchone()
+            devolucion['cliente_nombre'] = cliente_data['nombre'] if cliente_data else 'Cliente no encontrado'
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'devoluciones': devoluciones
+        })
+        
+    except Exception as e:
+        print(f"Error al listar devoluciones: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/devoluciones/<int:devolucion_id>/detalles', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def obtener_detalles_devolucion(devolucion_id):
+    """API para obtener detalles de una devolución específica"""
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener información de la devolución
+        cursor.execute("""
+            SELECT 
+                d.*,
+                ro.nombre as tecnico_nombre
+            FROM devoluciones_dotacion d
+            LEFT JOIN recurso_operativo ro ON d.tecnico_id = ro.id_codigo_consumidor
+            WHERE d.id = %s
+        """, (devolucion_id,))
+        
+        devolucion = cursor.fetchone()
+        
+        if not devolucion:
+            return jsonify({
+                'success': False,
+                'error': 'Devolución no encontrada'
+            }), 404
+        
+        # Obtener nombre del cliente
+        cursor.execute("""
+            SELECT cliente as nombre
+            FROM (
+                SELECT 
+                    ROW_NUMBER() OVER (ORDER BY cliente ASC) as id,
+                    cliente
+                FROM (
+                    SELECT DISTINCT cliente
+                    FROM recurso_operativo 
+                    WHERE cliente IS NOT NULL AND cliente != '' AND estado = 'Activo'
+                ) as clientes_unicos
+            ) as clientes_numerados
+            WHERE id = %s
+        """, (devolucion['cliente_id'],))
+        cliente_data = cursor.fetchone()
+        devolucion['cliente_nombre'] = cliente_data['nombre'] if cliente_data else 'Cliente no encontrado'
+        
+        # Obtener detalles de elementos devueltos
+        cursor.execute("""
+            SELECT *
+            FROM devolucion_detalles
+            WHERE devolucion_id = %s
+            ORDER BY created_at ASC
+        """, (devolucion_id,))
+        
+        detalles = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'devolucion': devolucion,
+            'detalles': detalles
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener detalles de devolución: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/devoluciones/<int:devolucion_id>/detalles', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def agregar_detalle_devolucion(devolucion_id):
+    """API para agregar un elemento específico a una devolución"""
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor()
+        
+        # Obtener datos del formulario
+        data = request.get_json() if request.is_json else request.form
+        
+        elemento = data.get('elemento')
+        talla = data.get('talla')
+        cantidad = data.get('cantidad', 1)
+        estado_elemento = data.get('estado_elemento', 'USADO_BUENO')
+        observaciones = data.get('observaciones', '')
+        
+        # Validaciones
+        if not elemento:
+            return jsonify({
+                'success': False,
+                'error': 'El elemento es obligatorio'
+            }), 400
+        
+        # Verificar que la devolución existe
+        cursor.execute("SELECT id FROM devoluciones_dotacion WHERE id = %s", (devolucion_id,))
+        if not cursor.fetchone():
+            return jsonify({
+                'success': False,
+                'error': 'Devolución no encontrada'
+            }), 404
+        
+        # Insertar detalle
+        query = """
+            INSERT INTO devolucion_detalles 
+            (devolucion_id, elemento, talla, cantidad, estado_elemento, observaciones)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        
+        cursor.execute(query, (
+            devolucion_id, elemento, talla, cantidad, estado_elemento, observaciones
+        ))
+        
+        detalle_id = cursor.lastrowid
+        connection.commit()
+        
+        # Obtener el elemento recién creado
+        cursor.execute("""
+            SELECT id, devolucion_id, elemento, talla, cantidad, estado_elemento, observaciones, created_at
+            FROM devolucion_detalles WHERE id = %s
+        """, (detalle_id,))
+        
+        elemento_creado = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        # Formatear el elemento para la respuesta
+        elemento_data = {
+            'id': elemento_creado[0],
+            'devolucion_id': elemento_creado[1],
+            'elemento': elemento_creado[2],
+            'talla': elemento_creado[3],
+            'cantidad': elemento_creado[4],
+            'estado_elemento': elemento_creado[5],
+            'observaciones': elemento_creado[6],
+            'created_at': elemento_creado[7].isoformat() if elemento_creado[7] else None
+        }
+        
+        return jsonify({
+            'success': True,
+            'detalle_id': detalle_id,
+            'elemento': elemento_data,
+            'message': 'Elemento agregado exitosamente'
+        })
+        
+    except Exception as e:
+        print(f"Error al agregar detalle de devolución: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/devoluciones/detalles/<int:detalle_id>', methods=['PUT'])
+@login_required()
+@role_required('logistica')
+def actualizar_detalle_devolucion(detalle_id):
+    """API para actualizar un detalle específico de devolución"""
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor()
+        
+        # Obtener datos del formulario
+        data = request.get_json() if request.is_json else request.form
+        
+        elemento = data.get('elemento')
+        talla = data.get('talla')
+        cantidad = data.get('cantidad')
+        estado_elemento = data.get('estado_elemento')
+        observaciones = data.get('observaciones')
+        
+        # Construir query dinámicamente
+        updates = []
+        values = []
+        
+        if elemento:
+            updates.append('elemento = %s')
+            values.append(elemento)
+        if talla is not None:
+            updates.append('talla = %s')
+            values.append(talla)
+        if cantidad:
+            updates.append('cantidad = %s')
+            values.append(cantidad)
+        if estado_elemento:
+            updates.append('estado_elemento = %s')
+            values.append(estado_elemento)
+        if observaciones is not None:
+            updates.append('observaciones = %s')
+            values.append(observaciones)
+        
+        if not updates:
+            return jsonify({
+                'success': False,
+                'error': 'No hay campos para actualizar'
+            }), 400
+        
+        updates.append('updated_at = CURRENT_TIMESTAMP')
+        values.append(detalle_id)
+        
+        query = f"UPDATE devolucion_detalles SET {', '.join(updates)} WHERE id = %s"
+        
+        cursor.execute(query, values)
+        connection.commit()
+        
+        if cursor.rowcount == 0:
+            return jsonify({
+                'success': False,
+                'error': 'Detalle no encontrado'
+            }), 404
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Detalle actualizado exitosamente'
+        })
+        
+    except Exception as e:
+        print(f"Error al actualizar detalle de devolución: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/devoluciones/detalles/<int:detalle_id>', methods=['DELETE'])
+@login_required()
+@role_required('logistica')
+def eliminar_detalle_devolucion(detalle_id):
+    """API para eliminar un detalle específico de devolución"""
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor()
+        
+        cursor.execute("DELETE FROM devolucion_detalles WHERE id = %s", (detalle_id,))
+        connection.commit()
+        
+        if cursor.rowcount == 0:
+            return jsonify({
+                'success': False,
+                'error': 'Detalle no encontrado'
+            }), 404
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Detalle eliminado exitosamente'
+        })
+        
+    except Exception as e:
+        print(f"Error al eliminar detalle de devolución: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=8080)

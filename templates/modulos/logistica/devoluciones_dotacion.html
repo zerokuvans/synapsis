@@ -1,0 +1,1443 @@
+{% extends "base.html" %}
+
+{% block title %}Devoluciones de Dotación{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card-header {
+        background: linear-gradient(135deg, #3583E8 0%, #3583E8 100%);
+        color: white;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #3583E8 0%, #3583E8 100%);
+        border: none;
+    }
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #3583E8 0%, #3583E8 100%);
+    }
+    .form-control:focus {
+        border-color: #3583E8;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+    .form-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-left: 4px solid #667eea;
+    }
+    .section-title {
+        color: #667eea;
+        font-weight: 600;
+        margin-bottom: 15px;
+        font-size: 1.1rem;
+    }
+    .required {
+        color: #dc3545;
+    }
+    .form-row {
+        margin-bottom: 15px;
+    }
+    .estado-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .estado-registrada {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+    .estado-procesando {
+        background-color: #fff3e0;
+        color: #f57c00;
+    }
+    .estado-completada {
+        background-color: #e8f5e8;
+        color: #388e3c;
+    }
+    .estado-cancelada {
+        background-color: #ffebee;
+        color: #d32f2f;
+    }
+    
+    /* Estilos para Modal de Resumen */
+    .modal-resumen {
+        max-width: 90%;
+        width: 1200px;
+    }
+    
+    .resumen-info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .resumen-info-item:last-child {
+        border-bottom: none;
+    }
+    
+    .resumen-info-label {
+        font-weight: 600;
+        color: #495057;
+        min-width: 150px;
+    }
+    
+    .resumen-info-value {
+        color: #212529;
+        text-align: right;
+    }
+    
+    .resumen-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        background: #fff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .resumen-card h6 {
+        color: #495057;
+        font-weight: 600;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #007bff;
+    }
+    
+    .resumen-estadisticas {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    
+    .resumen-stat-item {
+        text-align: center;
+        padding: 15px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .resumen-stat-number {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #007bff;
+        display: block;
+    }
+    
+    .resumen-stat-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+    
+    .resumen-tabla {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .resumen-tabla table {
+        font-size: 0.9rem;
+    }
+    
+    .resumen-tabla th {
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .resumen-tabla td {
+        vertical-align: middle;
+    }
+    
+    .resumen-acciones {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 20px;
+    }
+    
+    .btn-resumen {
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-resumen:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    @media (max-width: 768px) {
+        .modal-resumen {
+            max-width: 95%;
+            margin: 10px;
+        }
+        
+        .resumen-estadisticas {
+            grid-template-columns: 1fr;
+        }
+        
+        .resumen-acciones {
+            flex-direction: column;
+        }
+        
+        .resumen-info-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .resumen-info-value {
+            text-align: left;
+            margin-top: 5px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-undo me-2"></i>
+                        Registro de Devoluciones de Dotación
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" action="{{ url_for('registrar_devolucion_dotacion') }}" id="formDevolucionesDotacion">
+                        <!-- Información General -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Información General
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label for="tecnico_id" class="form-label">
+                                        Técnico <span class="required">*</span>
+                                    </label>
+                                    <select class="form-select" id="tecnico_id" name="tecnico_id" required>
+                                        <option value="">Seleccione un técnico...</option>
+                                        {% for tecnico in tecnicos %}
+                                            <option value="{{ tecnico.id_codigo_consumidor }}">
+                                                {{ tecnico.nombre }} - {{ tecnico.recurso_operativo_cedula }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="cliente_id" class="form-label">
+                                        Cliente <span class="required">*</span>
+                                    </label>
+                                    <select class="form-select" id="cliente_id" name="cliente_id" required>
+                                        <option value="">Seleccione un cliente...</option>
+                                        {% for cliente in clientes %}
+                                            <option value="{{ cliente.id }}">
+                                                {{ cliente.nombre }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="fecha_devolucion" class="form-label">
+                                        Fecha de Devolución
+                                    </label>
+                                    <input type="date" class="form-control" id="fecha_devolucion" name="fecha_devolucion">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Motivo y Detalles -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <i class="fas fa-clipboard-list me-2"></i>
+                                Motivo y Detalles de la Devolución
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="motivo" class="form-label">
+                                        Motivo de Devolución <span class="required">*</span>
+                                    </label>
+                                    <select class="form-select" id="motivo" name="motivo" required>
+                                        <option value="">Seleccione un motivo...</option>
+                                        <option value="DAÑO_PRODUCTO">Daño en el producto</option>
+                                        <option value="TALLA_INCORRECTA">Talla incorrecta</option>
+                                        <option value="PRODUCTO_DEFECTUOSO">Producto defectuoso</option>
+                                        <option value="NO_CONFORME">No conforme con el producto</option>
+                                        <option value="CAMBIO_TECNICO">Cambio de técnico</option>
+                                        <option value="FINALIZACION_CONTRATO">Finalización de contrato</option>
+                                        <option value="EXCESO_INVENTARIO">Exceso de inventario</option>
+                                        <option value="OTRO">Otro motivo</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="estado" class="form-label">
+                                        Estado de la Devolución
+                                    </label>
+                                    <select class="form-select" id="estado" name="estado">
+                                        <option value="REGISTRADA" selected>Registrada</option>
+                                        <option value="PROCESANDO">Procesando</option>
+                                        <option value="COMPLETADA">Completada</option>
+                                        <option value="CANCELADA">Cancelada</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Observaciones -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <i class="fas fa-comment me-2"></i>
+                                Observaciones y Detalles Adicionales
+                            </h5>
+                            <div class="row">
+                                <div class="col-12">
+                                    <label for="observaciones" class="form-label">Observaciones</label>
+                                    <textarea class="form-control" id="observaciones" name="observaciones" rows="4" placeholder="Describa los detalles específicos de la devolución, elementos devueltos, condición de los productos, etc."></textarea>
+                                    <div class="form-text">
+                                        Incluya información detallada sobre los elementos devueltos, su estado, cantidades, tallas, y cualquier observación relevante.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Información de Estado -->
+                        <div class="form-section">
+                            <h5 class="section-title">
+                                <i class="fas fa-info me-2"></i>
+                                Información de Estados
+                            </h5>
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <span class="estado-badge estado-registrada">
+                                            <i class="fas fa-plus-circle me-1"></i>
+                                            Registrada: Devolución recién creada
+                                        </span>
+                                        <span class="estado-badge estado-procesando">
+                                            <i class="fas fa-cog me-1"></i>
+                                            Procesando: En revisión y validación
+                                        </span>
+                                        <span class="estado-badge estado-completada">
+                                            <i class="fas fa-check-circle me-1"></i>
+                                            Completada: Devolución finalizada
+                                        </span>
+                                        <span class="estado-badge estado-cancelada">
+                                            <i class="fas fa-times-circle me-1"></i>
+                                            Cancelada: Devolución anulada
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between">
+                                    <!-- <a href="{{ url_for('logistica_dashboard') }}" class="btn btn-secondary">
+                                        <i class="fas fa-arrow-left me-2"></i>
+                                        Volver a Logística
+                                    </a> -->
+                                    <div>
+                                        <button type="reset" class="btn btn-outline-secondary me-2">
+                                            <i class="fas fa-undo me-2"></i>
+                                            Limpiar
+                                        </button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-save me-2"></i>
+                                            Registrar Devolución
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabla de Devoluciones Registradas -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Devoluciones Registradas
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="tablaDevoluciones">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Técnico</th>
+                                    <th>Cliente</th>
+                                    <th>Fecha</th>
+                                    <th>Motivo</th>
+                                    <th>Estado</th>
+                                    <th>Elementos</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cuerpoTablaDevoluciones">
+                                <tr>
+                                    <td colspan="8" class="text-center">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Cargando...</span>
+                                        </div>
+                                        <p class="mt-2 mb-0">Cargando devoluciones...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Editar Detalles de Devolución -->
+<div class="modal fade" id="modalDetallesDevolucion" tabindex="-1" aria-labelledby="modalDetallesDevolucionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDetallesDevolucionLabel">
+                    <i class="fas fa-edit me-2"></i>
+                    Detalles de Devolución
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Información de la Devolución -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title">Información General</h6>
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <strong>ID:</strong> <span id="detalleDevolucionId">-</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Técnico:</strong> <span id="detalleDevolucionTecnico">-</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Cliente:</strong> <span id="detalleDevolucionCliente">-</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Fecha:</strong> <span id="detalleDevolucionFecha">-</span>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-md-4">
+                                        <strong>Motivo:</strong> <span id="detalleDevolucionMotivo">-</span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Estado:</strong> <span id="detalleDevolucionEstado">-</span>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Observaciones:</strong> <span id="detalleDevolucionObservaciones">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Formulario para Agregar Elementos -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-plus me-2"></i>
+                                    Agregar Elemento Devuelto
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="formAgregarElemento">
+                                    <div class="row">
+                                        <div class="col-md-3">
+                                            <label for="elemento" class="form-label">Elemento <span class="required">*</span></label>
+                                            <select class="form-select" id="elemento" name="elemento" required>
+                                                <option value="">Seleccione...</option>
+                                                <option value="pantalon">Pantalón</option>
+                                                <option value="camisetagris">Camiseta Gris</option>
+                                                <option value="guerrera">Guerrera</option>
+                                                <option value="camisetapolo">Camiseta Polo</option>
+                                                <option value="guantes_nitrilo">Guantes Nitrilo</option>
+                                                <option value="guantes_carnaza">Guantes Carnaza</option>
+                                                <option value="gafas">Gafas</option>
+                                                <option value="gorra">Gorra</option>
+                                                <option value="casco">Casco</option>
+                                                <option value="botas">Botas</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="talla" class="form-label">Talla</label>
+                                            <select class="form-select" id="talla" name="talla">
+                                                <option value="">N/A</option>
+                                                <option value="XS">XS</option>
+                                                <option value="S">S</option>
+                                                <option value="M">M</option>
+                                                <option value="L">L</option>
+                                                <option value="XL">XL</option>
+                                                <option value="XXL">XXL</option>
+                                                <option value="36">36</option>
+                                                <option value="37">37</option>
+                                                <option value="38">38</option>
+                                                <option value="39">39</option>
+                                                <option value="40">40</option>
+                                                <option value="41">41</option>
+                                                <option value="42">42</option>
+                                                <option value="43">43</option>
+                                                <option value="44">44</option>
+                                                <option value="45">45</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label for="cantidad" class="form-label">Cantidad</label>
+                                            <input type="number" class="form-control" id="cantidad" name="cantidad" min="1" value="1">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="estado_elemento" class="form-label">Estado</label>
+                                            <select class="form-select" id="estado_elemento" name="estado_elemento">
+                                                <option value="USADO_BUENO">Usado - Buen Estado</option>
+                                                <option value="USADO_REGULAR">Usado - Estado Regular</option>
+                                                <option value="USADO_MALO">Usado - Mal Estado</option>
+                                                <option value="DAÑADO">Dañado</option>
+                                                <option value="NUEVO">Nuevo</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">&nbsp;</label>
+                                            <button type="submit" class="btn btn-success d-block w-100">
+                                                <i class="fas fa-plus"></i> Agregar
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-12">
+                                            <label for="observaciones_elemento" class="form-label">Observaciones del Elemento</label>
+                                            <textarea class="form-control" id="observaciones_elemento" name="observaciones" rows="2" placeholder="Observaciones específicas del elemento..."></textarea>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tabla de Elementos Devueltos -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-list me-2"></i>
+                                    Elementos Devueltos
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped" id="tablaElementosDevueltos">
+                                        <thead class="table-secondary">
+                                            <tr>
+                                                <th>Elemento</th>
+                                                <th>Talla</th>
+                                                <th>Cantidad</th>
+                                                <th>Estado</th>
+                                                <th>Observaciones</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="cuerpoTablaElementos">
+                                            <tr>
+                                                <td colspan="6" class="text-center text-muted">
+                                                    No hay elementos registrados
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Resumen de Devolución -->
+<div class="modal fade" id="modalResumenDevolucion" tabindex="-1" aria-labelledby="modalResumenDevolucionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalResumenDevolucionLabel">
+                    <i class="fas fa-file-alt me-2"></i>
+                    Resumen de Devolución
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Información Principal -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Información General
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="info-item">
+                                            <label class="fw-bold text-muted">ID Devolución:</label>
+                                            <div class="info-value" id="resumenDevolucionId">-</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="info-item">
+                                            <label class="fw-bold text-muted">Técnico:</label>
+                                            <div class="info-value" id="resumenDevolucionTecnico">-</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="info-item">
+                                            <label class="fw-bold text-muted">Cliente:</label>
+                                            <div class="info-value" id="resumenDevolucionCliente">-</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="info-item">
+                                            <label class="fw-bold text-muted">Fecha:</label>
+                                            <div class="info-value" id="resumenDevolucionFecha">-</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-md-4">
+                                        <div class="info-item">
+                                            <label class="fw-bold text-muted">Motivo:</label>
+                                            <div class="info-value" id="resumenDevolucionMotivo">-</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="info-item">
+                                            <label class="fw-bold text-muted">Estado:</label>
+                                            <div class="info-value">
+                                                <span id="resumenDevolucionEstado" class="badge">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="info-item">
+                                            <label class="fw-bold text-muted">Fecha Registro:</label>
+                                            <div class="info-value" id="resumenDevolucionCreated">-</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row mt-3" id="resumenObservacionesRow">
+                                    <div class="col-12">
+                                        <div class="info-item">
+                                            <label class="fw-bold text-muted">Observaciones:</label>
+                                            <div class="info-value" id="resumenDevolucionObservaciones">-</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Estadísticas -->
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card text-center border-info">
+                            <div class="card-body">
+                                <i class="fas fa-boxes fa-2x text-info mb-2"></i>
+                                <h4 class="card-title text-info" id="resumenTotalElementos">0</h4>
+                                <p class="card-text">Total Elementos</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center border-success">
+                            <div class="card-body">
+                                <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                                <h4 class="card-title text-success" id="resumenElementosBuenos">0</h4>
+                                <p class="card-text">Buen Estado</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center border-warning">
+                            <div class="card-body">
+                                <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
+                                <h4 class="card-title text-warning" id="resumenElementosRegulares">0</h4>
+                                <p class="card-text">Estado Regular</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center border-danger">
+                            <div class="card-body">
+                                <i class="fas fa-times-circle fa-2x text-danger mb-2"></i>
+                                <h4 class="card-title text-danger" id="resumenElementosDanados">0</h4>
+                                <p class="card-text">Dañados/Malos</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista Detallada de Elementos -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-secondary text-white">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-list-ul me-2"></i>
+                                    Elementos Devueltos
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover" id="tablaResumenElementos">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Elemento</th>
+                                                <th>Talla</th>
+                                                <th>Cantidad</th>
+                                                <th>Estado</th>
+                                                <th>Observaciones</th>
+                                                <th>Fecha Registro</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="cuerpoTablaResumenElementos">
+                                            <tr>
+                                                <td colspan="7" class="text-center text-muted">
+                                                    <i class="fas fa-spinner fa-spin me-2"></i>
+                                                    Cargando elementos...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <!-- <button type="button" class="btn btn-success" onclick="imprimirResumen()">
+                    <i class="fas fa-print me-2"></i>
+                    Imprimir
+                </button>
+                <button type="button" class="btn btn-info" onclick="exportarResumen()">
+                    <i class="fas fa-download me-2"></i>
+                    Exportar
+                </button> -->
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Establecer fecha actual por defecto
+document.addEventListener('DOMContentLoaded', function() {
+    const fechaInput = document.getElementById('fecha_devolucion');
+    const today = new Date().toISOString().split('T')[0];
+    fechaInput.value = today;
+    
+    // Validación del formulario
+    const form = document.getElementById('formDevolucionesDotacion');
+    form.addEventListener('submit', function(e) {
+        const tecnico = document.getElementById('tecnico_id').value;
+        const cliente = document.getElementById('cliente_id').value;
+        const motivo = document.getElementById('motivo').value;
+        
+        if (!tecnico || !cliente || !motivo) {
+            e.preventDefault();
+            alert('Por favor complete los campos obligatorios: Técnico, Cliente y Motivo');
+            return false;
+        }
+        
+        // Validar que si el motivo es "OTRO", se requieren observaciones
+        if (motivo === 'OTRO') {
+            const observaciones = document.getElementById('observaciones').value.trim();
+            if (!observaciones) {
+                e.preventDefault();
+                alert('Cuando selecciona "Otro motivo", debe especificar detalles en las observaciones');
+                return false;
+            }
+        }
+    });
+    
+    // Mostrar/ocultar campo de observaciones según el motivo
+    const motivoSelect = document.getElementById('motivo');
+    const observacionesDiv = document.querySelector('.form-section:last-of-type');
+    
+    motivoSelect.addEventListener('change', function() {
+        if (this.value === 'OTRO') {
+            document.getElementById('observaciones').setAttribute('required', 'required');
+            document.querySelector('label[for="observaciones"]').innerHTML = 'Observaciones <span class="required">*</span>';
+        } else {
+            document.getElementById('observaciones').removeAttribute('required');
+            document.querySelector('label[for="observaciones"]').innerHTML = 'Observaciones';
+        }
+    });
+    
+    // Variables globales para el modal
+    let devolucionActual = null;
+    let elementosDevueltos = [];
+
+    // Cargar devoluciones al cargar la página
+    cargarDevoluciones();
+
+    // Función para cargar devoluciones
+    async function cargarDevoluciones() {
+        try {
+            const response = await fetch('/api/devoluciones/listar');
+            const data = await response.json();
+            
+            if (data.success) {
+                mostrarDevoluciones(data.devoluciones);
+            } else {
+                console.error('Error al cargar devoluciones:', data.message);
+                mostrarErrorTabla('Error al cargar las devoluciones');
+            }
+        } catch (error) {
+            console.error('Error de conexión:', error);
+            mostrarErrorTabla('Error de conexión al servidor');
+        }
+    }
+
+    // Función para mostrar devoluciones en la tabla
+    function mostrarDevoluciones(devoluciones) {
+        const tbody = document.getElementById('cuerpoTablaDevoluciones');
+        
+        if (devoluciones.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted">
+                        No hay devoluciones registradas
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = devoluciones.map(devolucion => `
+            <tr>
+                <td>${devolucion.id}</td>
+                <td>${devolucion.tecnico_nombre}</td>
+                <td>${devolucion.cliente_nombre}</td>
+                <td>${formatearFecha(devolucion.fecha_devolucion)}</td>
+                <td><span class="badge bg-info">${devolucion.motivo}</span></td>
+                <td><span class="badge ${getEstadoBadgeClass(devolucion.estado)}">${devolucion.estado}</span></td>
+                <td><span class="badge bg-secondary">${devolucion.total_elementos || 0}</span></td>
+                <td>
+                    <button class="btn btn-sm btn-primary me-1" onclick="abrirModalDetalles(${devolucion.id})" title="Ver/Editar Detalles">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="verResumen(${devolucion.id})" title="Ver Resumen">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // Función para mostrar error en la tabla
+    function mostrarErrorTabla(mensaje) {
+        const tbody = document.getElementById('cuerpoTablaDevoluciones');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    ${mensaje}
+                </td>
+            </tr>
+        `;
+    }
+
+    // Función para formatear fecha
+    function formatearFecha(fecha) {
+        if (!fecha) return '';
+        try {
+            return new Date(fecha).toLocaleDateString('es-ES');
+        } catch (e) {
+            return fecha;
+        }
+    }
+
+    // Función para obtener clase de badge según estado
+    function getEstadoBadgeClass(estado) {
+        switch(estado) {
+            case 'REGISTRADA': return 'estado-registrada';
+            case 'PROCESANDO': return 'estado-procesando';
+            case 'COMPLETADA': return 'estado-completada';
+            case 'CANCELADA': return 'estado-cancelada';
+            default: return 'bg-secondary';
+        }
+    }
+
+    // Función para abrir modal de detalles
+    async function abrirModalDetalles(devolucionId) {
+        try {
+            // Cargar información de la devolución
+            const response = await fetch(`/api/devoluciones/${devolucionId}/detalles`);
+            const data = await response.json();
+            
+            if (data.success) {
+                devolucionActual = data.devolucion;
+                elementosDevueltos = data.elementos || [];
+                
+                // Llenar información general
+                document.getElementById('detalleDevolucionId').textContent = devolucionActual.id;
+                document.getElementById('detalleDevolucionTecnico').textContent = devolucionActual.tecnico_nombre;
+                document.getElementById('detalleDevolucionCliente').textContent = devolucionActual.cliente_nombre;
+                document.getElementById('detalleDevolucionFecha').textContent = formatearFecha(devolucionActual.fecha_devolucion);
+                document.getElementById('detalleDevolucionMotivo').textContent = devolucionActual.motivo;
+                document.getElementById('detalleDevolucionEstado').innerHTML = `<span class="badge ${getEstadoBadgeClass(devolucionActual.estado)}">${devolucionActual.estado}</span>`;
+                document.getElementById('detalleDevolucionObservaciones').textContent = devolucionActual.observaciones || 'Sin observaciones';
+                
+                // Mostrar elementos devueltos
+                mostrarElementosDevueltos();
+                
+                // Abrir modal
+                const modal = new bootstrap.Modal(document.getElementById('modalDetallesDevolucion'));
+                modal.show();
+            } else {
+                alert('Error al cargar los detalles: ' + data.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error de conexión al cargar los detalles');
+        }
+    }
+
+    // Función para mostrar elementos devueltos
+    function mostrarElementosDevueltos() {
+        const tbody = document.getElementById('cuerpoTablaElementos');
+        
+        if (elementosDevueltos.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-muted">
+                        No hay elementos registrados
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = elementosDevueltos.map(elemento => `
+            <tr>
+                <td>${elemento.elemento}</td>
+                <td>${elemento.talla || 'N/A'}</td>
+                <td>${elemento.cantidad}</td>
+                <td><span class="badge bg-secondary">${elemento.estado_elemento}</span></td>
+                <td>${elemento.observaciones || '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="eliminarElemento(${elemento.id})" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // Manejar formulario de agregar elemento
+    document.getElementById('formAgregarElemento').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (!devolucionActual) {
+            alert('Error: No hay devolución seleccionada');
+            return;
+        }
+
+        const formData = new FormData(this);
+        const elementoData = {
+            devolucion_id: devolucionActual.id,
+            elemento: formData.get('elemento'),
+            talla: formData.get('talla') || null,
+            cantidad: parseInt(formData.get('cantidad')) || 1,
+            estado_elemento: formData.get('estado_elemento'),
+            observaciones: formData.get('observaciones') || null
+        };
+
+        try {
+            const response = await fetch(`/api/devoluciones/${devolucionActual.id}/detalles`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(elementoData)
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                // Agregar elemento a la lista local
+                elementosDevueltos.push(data.elemento);
+                mostrarElementosDevueltos();
+                
+                // Limpiar formulario
+                this.reset();
+                document.getElementById('cantidad').value = '1';
+                
+                // Recargar tabla principal
+                cargarDevoluciones();
+            } else {
+                alert('Error al agregar elemento: ' + data.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error de conexión al agregar elemento');
+        }
+    });
+
+    // Función para eliminar elemento
+    async function eliminarElemento(elementoId) {
+        if (!confirm('¿Está seguro de eliminar este elemento?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/devoluciones/detalles/${elementoId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                // Remover elemento de la lista local
+                elementosDevueltos = elementosDevueltos.filter(el => el.id !== elementoId);
+                mostrarElementosDevueltos();
+                
+                // Recargar tabla principal
+                cargarDevoluciones();
+            } else {
+                alert('Error al eliminar elemento: ' + data.message);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error de conexión al eliminar elemento');
+        }
+    }
+
+    // Función para ver resumen (opcional)
+    function verResumen(devolucionId) {
+        // Función para mostrar resumen completo de la devolución
+        console.log('Mostrando resumen para devolución ID:', devolucionId);
+        
+        // Mostrar el modal
+        const modal = new bootstrap.Modal(document.getElementById('modalResumenDevolucion'));
+        modal.show();
+        
+        // Cargar los datos de la devolución
+        cargarDatosResumen(devolucionId);
+    }
+
+    function cargarDatosResumen(devolucionId) {
+        // Mostrar indicador de carga
+        mostrarCargandoResumen();
+        
+        // Realizar petición para obtener los detalles
+        fetch(`/api/devoluciones/${devolucionId}/detalles`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error al obtener los detalles de la devolución');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Datos recibidos:', data);
+                
+                if (data.success) {
+                    // Llenar la información general
+                    llenarInformacionGeneral(data.devolucion);
+                    
+                    // Llenar la tabla de elementos y calcular estadísticas
+                    llenarTablaElementos(data.detalles);
+                    
+                    // Calcular y mostrar estadísticas
+                    calcularEstadisticas(data.detalles);
+                } else {
+                    mostrarErrorResumen('Error al cargar los datos: ' + (data.message || 'Error desconocido'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                mostrarErrorResumen('Error de conexión al cargar los datos');
+            });
+    }
+
+    function mostrarCargandoResumen() {
+        // Limpiar contenido anterior
+        document.getElementById('resumenDevolucionId').textContent = '-';
+        document.getElementById('resumenDevolucionTecnico').textContent = '-';
+        document.getElementById('resumenDevolucionCliente').textContent = '-';
+        document.getElementById('resumenDevolucionFecha').textContent = '-';
+        document.getElementById('resumenDevolucionMotivo').textContent = '-';
+        document.getElementById('resumenDevolucionEstado').textContent = '-';
+        document.getElementById('resumenDevolucionCreated').textContent = '-';
+        document.getElementById('resumenDevolucionObservaciones').textContent = '-';
+        
+        // Limpiar estadísticas
+        document.getElementById('resumenTotalElementos').textContent = '0';
+        document.getElementById('resumenElementosBuenos').textContent = '0';
+        document.getElementById('resumenElementosRegulares').textContent = '0';
+        document.getElementById('resumenElementosDanados').textContent = '0';
+        
+        // Mostrar indicador de carga en la tabla
+        document.getElementById('cuerpoTablaResumenElementos').innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-muted">
+                    <i class="fas fa-spinner fa-spin me-2"></i>
+                    Cargando elementos...
+                </td>
+            </tr>
+        `;
+    }
+
+    function llenarInformacionGeneral(devolucion) {
+        document.getElementById('resumenDevolucionId').textContent = devolucion.id || '-';
+        document.getElementById('resumenDevolucionTecnico').textContent = devolucion.tecnico_nombre || '-';
+        document.getElementById('resumenDevolucionCliente').textContent = devolucion.cliente_nombre || '-';
+        document.getElementById('resumenDevolucionFecha').textContent = formatearFecha(devolucion.fecha_devolucion) || '-';
+        document.getElementById('resumenDevolucionMotivo').textContent = devolucion.motivo || '-';
+        
+        // Estado con color
+        const estadoElement = document.getElementById('resumenDevolucionEstado');
+        estadoElement.textContent = devolucion.estado || '-';
+        estadoElement.className = 'badge ' + obtenerClaseEstado(devolucion.estado);
+        
+        document.getElementById('resumenDevolucionCreated').textContent = formatearFechaHora(devolucion.created_at) || '-';
+        
+        // Observaciones (ocultar fila si está vacía)
+        const observaciones = devolucion.observaciones;
+        const observacionesRow = document.getElementById('resumenObservacionesRow');
+        if (observaciones && observaciones.trim() !== '') {
+            document.getElementById('resumenDevolucionObservaciones').textContent = observaciones;
+            observacionesRow.style.display = 'block';
+        } else {
+            observacionesRow.style.display = 'none';
+        }
+    }
+
+    function llenarTablaElementos(detalles) {
+        const tbody = document.getElementById('cuerpoTablaResumenElementos');
+        
+        if (!detalles || detalles.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No hay elementos registrados en esta devolución
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        let html = '';
+        detalles.forEach((detalle, index) => {
+            html += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${detalle.elemento || '-'}</td>
+                    <td>${detalle.talla || '-'}</td>
+                    <td>${detalle.cantidad || 0}</td>
+                    <td>
+                        <span class="badge ${obtenerClaseEstadoElemento(detalle.estado_elemento)}">
+                            ${detalle.estado_elemento || '-'}
+                        </span>
+                    </td>
+                    <td>${detalle.observaciones || '-'}</td>
+                    <td>${formatearFechaHora(detalle.created_at) || '-'}</td>
+                </tr>
+            `;
+        });
+        
+        tbody.innerHTML = html;
+    }
+
+    function calcularEstadisticas(detalles) {
+        if (!detalles || detalles.length === 0) {
+            return;
+        }
+        
+        let total = 0;
+        let buenos = 0;
+        let regulares = 0;
+        let danados = 0;
+        
+        detalles.forEach(detalle => {
+            const cantidad = parseInt(detalle.cantidad) || 0;
+            total += cantidad;
+            
+            const estado = (detalle.estado_elemento || '').toLowerCase();
+            if (estado.includes('bueno') || estado.includes('excelente')) {
+                buenos += cantidad;
+            } else if (estado.includes('regular') || estado.includes('usado')) {
+                regulares += cantidad;
+            } else if (estado.includes('malo') || estado.includes('dañado') || estado.includes('roto')) {
+                danados += cantidad;
+            }
+        });
+        
+        document.getElementById('resumenTotalElementos').textContent = total;
+        document.getElementById('resumenElementosBuenos').textContent = buenos;
+        document.getElementById('resumenElementosRegulares').textContent = regulares;
+        document.getElementById('resumenElementosDanados').textContent = danados;
+    }
+
+    function obtenerClaseEstado(estado) {
+        if (!estado) return 'bg-secondary';
+        
+        const estadoLower = estado.toLowerCase();
+        if (estadoLower.includes('completado') || estadoLower.includes('finalizado')) {
+            return 'bg-success';
+        } else if (estadoLower.includes('pendiente')) {
+            return 'bg-warning';
+        } else if (estadoLower.includes('cancelado')) {
+            return 'bg-danger';
+        } else {
+            return 'bg-info';
+        }
+    }
+
+    function obtenerClaseEstadoElemento(estado) {
+        if (!estado) return 'bg-secondary';
+        
+        const estadoLower = estado.toLowerCase();
+        if (estadoLower.includes('bueno') || estadoLower.includes('excelente')) {
+            return 'bg-success';
+        } else if (estadoLower.includes('regular') || estadoLower.includes('usado')) {
+            return 'bg-warning';
+        } else if (estadoLower.includes('malo') || estadoLower.includes('dañado') || estadoLower.includes('roto')) {
+            return 'bg-danger';
+        } else {
+            return 'bg-info';
+        }
+    }
+
+    function mostrarErrorResumen(mensaje) {
+        const tbody = document.getElementById('cuerpoTablaResumenElementos');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center text-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    ${mensaje}
+                </td>
+            </tr>
+        `;
+    }
+
+    function formatearFechaHora(fecha) {
+        if (!fecha) return '';
+        try {
+            const date = new Date(fecha);
+            return date.toLocaleDateString('es-ES') + ' ' + date.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'});
+        } catch (e) {
+            return fecha;
+        }
+    }
+
+    function imprimirResumen() {
+        const modalContent = document.querySelector('#modalResumen .modal-body').innerHTML;
+        const printWindow = window.open('', '_blank');
+        
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Resumen de Devolución</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; }
+                    .resumen-card { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; }
+                    .resumen-card h6 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 5px; }
+                    .resumen-info-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; }
+                    .resumen-info-label { font-weight: bold; }
+                    .resumen-estadisticas { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+                    .resumen-stat-item { text-align: center; padding: 10px; border: 1px solid #ddd; }
+                    .resumen-stat-number { font-size: 1.2rem; font-weight: bold; color: #007bff; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #f8f9fa; }
+                    .badge { padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; }
+                    .bg-success { background-color: #d4edda; color: #155724; }
+                    .bg-warning { background-color: #fff3cd; color: #856404; }
+                    .bg-danger { background-color: #f8d7da; color: #721c24; }
+                    .bg-info { background-color: #d1ecf1; color: #0c5460; }
+                    .bg-secondary { background-color: #e2e3e5; color: #383d41; }
+                    @media print { .no-print { display: none; } }
+                </style>
+            </head>
+            <body>
+                <h2>Resumen de Devolución de Dotación</h2>
+                ${modalContent}
+            </body>
+            </html>
+        `);
+        
+        printWindow.document.close();
+        printWindow.focus();
+        
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 250);
+    }
+
+    function exportarResumen() {
+        const devolucionId = document.getElementById('resumenDevolucionId').textContent;
+        
+        // Crear datos para Excel
+        const datosGenerales = [
+            ['RESUMEN DE DEVOLUCIÓN DE DOTACIÓN', ''],
+            ['', ''],
+            ['ID Devolución', devolucionId],
+            ['Técnico', document.getElementById('resumenDevolucionTecnico').textContent],
+            ['Cliente', document.getElementById('resumenDevolucionCliente').textContent],
+            ['Fecha Devolución', document.getElementById('resumenDevolucionFecha').textContent],
+            ['Motivo', document.getElementById('resumenDevolucionMotivo').textContent],
+            ['Estado', document.getElementById('resumenDevolucionEstado').textContent],
+            ['Fecha Creación', document.getElementById('resumenDevolucionCreated').textContent],
+            ['', ''],
+            ['ESTADÍSTICAS', ''],
+            ['Total Elementos', document.getElementById('resumenTotalElementos').textContent],
+            ['Elementos Buenos', document.getElementById('resumenElementosBuenos').textContent],
+            ['Elementos Regulares', document.getElementById('resumenElementosRegulares').textContent],
+            ['Elementos Dañados', document.getElementById('resumenElementosDanados').textContent],
+            ['', ''],
+            ['ELEMENTOS DEVUELTOS', '']
+        ];
+
+        // Agregar observaciones si existen
+        const observacionesRow = document.getElementById('resumenObservacionesRow');
+        if (observacionesRow && observacionesRow.style.display !== 'none') {
+            datosGenerales.splice(-3, 0, ['Observaciones', document.getElementById('resumenDevolucionObservaciones').textContent]);
+        }
+
+        // Agregar encabezados de tabla
+        const encabezados = ['#', 'Elemento', 'Talla', 'Cantidad', 'Estado', 'Observaciones', 'Fecha Registro'];
+        datosGenerales.push(encabezados);
+
+        // Agregar filas de elementos
+        const filas = document.querySelectorAll('#cuerpoTablaResumenElementos tr');
+        filas.forEach(fila => {
+            const celdas = fila.querySelectorAll('td');
+            if (celdas.length > 1) { // Evitar filas de mensaje
+                const filaData = [];
+                celdas.forEach(celda => {
+                    // Extraer solo el texto, sin HTML
+                    let texto = celda.textContent.trim();
+                    filaData.push(texto);
+                });
+                datosGenerales.push(filaData);
+            }
+        });
+
+        // Crear archivo CSV
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // BOM para UTF-8
+        datosGenerales.forEach(fila => {
+            const filaCSV = fila.map(campo => `"${campo.toString().replace(/"/g, '""')}"`).join(",");
+            csvContent += filaCSV + "\r\n";
+        });
+
+        // Descargar archivo
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `resumen_devolucion_${devolucionId}_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Mostrar mensaje de éxito
+        mostrarMensajeExito('Resumen exportado exitosamente como archivo CSV');
+    }
+
+    function mostrarMensajeExito(mensaje) {
+        // Crear y mostrar un toast de éxito
+        const toastContainer = document.createElement('div');
+        toastContainer.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            background: #d4edda;
+            color: #155724;
+            padding: 12px 20px;
+            border-radius: 6px;
+            border: 1px solid #c3e6cb;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+        `;
+        toastContainer.innerHTML = `
+            <i class="fas fa-check-circle" style="margin-right: 8px;"></i>
+            ${mensaje}
+        `;
+        
+        document.body.appendChild(toastContainer);
+        
+        // Auto-remover después de 3 segundos
+        setTimeout(() => {
+            if (toastContainer.parentNode) {
+                toastContainer.remove();
+            }
+        }, 3000);
+    }
+
+    // Hacer funciones globales
+    window.abrirModalDetalles = abrirModalDetalles;
+    window.eliminarElemento = eliminarElemento;
+    window.verResumen = verResumen;
+});
+</script>
+{% endblock %}
