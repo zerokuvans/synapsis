@@ -11665,9 +11665,10 @@ def registrar_cambio_dotacion():
 @app.route('/api/cambios_dotacion/historial', methods=['GET'])
 @login_required()
 @role_required('logistica')
-def obtener_historial_cambios_dotacion():
+def api_cambios_dotacion_historial():
     """API para obtener el historial de cambios de dotación"""
     try:
+        # Conectar a la base de datos capired
         import mysql.connector
         connection = mysql.connector.connect(
             host='localhost',
@@ -11678,10 +11679,10 @@ def obtener_historial_cambios_dotacion():
         
         cursor = connection.cursor(dictionary=True)
         
-        # Obtener historial de cambios con información del técnico
+        # Consulta con JOIN para obtener información del técnico
         query = """
             SELECT 
-                ROW_NUMBER() OVER (ORDER BY cd.fecha_cambio DESC) as id,
+                cd.id_cambio as id,
                 cd.id_codigo_consumidor,
                 ro.nombre as tecnico_nombre,
                 cd.fecha_cambio,
@@ -11701,64 +11702,63 @@ def obtener_historial_cambios_dotacion():
                 cd.botas,
                 cd.botas_talla,
                 cd.observaciones,
-                cd.fecha_cambio as fecha_registro
+                cd.fecha_registro as created_at
             FROM cambios_dotacion cd
             LEFT JOIN recurso_operativo ro ON cd.id_codigo_consumidor = ro.id_codigo_consumidor
-            ORDER BY cd.fecha_cambio DESC
+            ORDER BY cd.fecha_cambio DESC, cd.fecha_registro DESC
         """
         
         cursor.execute(query)
         cambios = cursor.fetchall()
         
-        # Procesar los datos para crear la lista de elementos modificados
+        # Formatear los datos para el frontend
+        historial = []
         for cambio in cambios:
+            # Crear lista de elementos modificados
             elementos_modificados = []
             
-            if cambio['pantalon'] and int(cambio['pantalon']) > 0:
-                elementos_modificados.append(f"Pantalón: {cambio['pantalon']} (T: {cambio['pantalon_talla'] or 'N/A'})")
-            
-            if cambio['camisetagris'] and int(cambio['camisetagris']) > 0:
-                elementos_modificados.append(f"Camiseta Gris: {cambio['camisetagris']} (T: {cambio['camiseta_gris_talla'] or 'N/A'})")
-            
-            if cambio['guerrera'] and int(cambio['guerrera']) > 0:
-                elementos_modificados.append(f"Guerrera: {cambio['guerrera']} (T: {cambio['guerrera_talla'] or 'N/A'})")
-            
-            if cambio['camisetapolo'] and int(cambio['camisetapolo']) > 0:
-                elementos_modificados.append(f"Camiseta Polo: {cambio['camisetapolo']} (T: {cambio['camiseta_polo_talla'] or 'N/A'})")
-            
-            if cambio['guantes_nitrilo'] and int(cambio['guantes_nitrilo']) > 0:
+            if cambio['pantalon']:
+                elementos_modificados.append(f"Pantalón: {cambio['pantalon']} (Talla: {cambio['pantalon_talla'] or 'N/A'})")
+            if cambio['camisetagris']:
+                elementos_modificados.append(f"Camiseta Gris: {cambio['camisetagris']} (Talla: {cambio['camiseta_gris_talla'] or 'N/A'})")
+            if cambio['guerrera']:
+                elementos_modificados.append(f"Guerrera: {cambio['guerrera']} (Talla: {cambio['guerrera_talla'] or 'N/A'})")
+            if cambio['camisetapolo']:
+                elementos_modificados.append(f"Camiseta Polo: {cambio['camisetapolo']} (Talla: {cambio['camiseta_polo_talla'] or 'N/A'})")
+            if cambio['guantes_nitrilo']:
                 elementos_modificados.append(f"Guantes Nitrilo: {cambio['guantes_nitrilo']}")
-            
-            if cambio['guantes_carnaza'] and int(cambio['guantes_carnaza']) > 0:
+            if cambio['guantes_carnaza']:
                 elementos_modificados.append(f"Guantes Carnaza: {cambio['guantes_carnaza']}")
-            
-            if cambio['gafas'] and int(cambio['gafas']) > 0:
+            if cambio['gafas']:
                 elementos_modificados.append(f"Gafas: {cambio['gafas']}")
-            
-            if cambio['gorra'] and int(cambio['gorra']) > 0:
+            if cambio['gorra']:
                 elementos_modificados.append(f"Gorra: {cambio['gorra']}")
-            
-            if cambio['casco'] and int(cambio['casco']) > 0:
+            if cambio['casco']:
                 elementos_modificados.append(f"Casco: {cambio['casco']}")
+            if cambio['botas']:
+                elementos_modificados.append(f"Botas: {cambio['botas']} (Talla: {cambio['botas_talla'] or 'N/A'})")
             
-            if cambio['botas'] and int(cambio['botas']) > 0:
-                elementos_modificados.append(f"Botas: {cambio['botas']} (T: {cambio['botas_talla'] or 'N/A'})")
-            
-            cambio['elementos_modificados'] = ', '.join(elementos_modificados) if elementos_modificados else 'Sin elementos especificados'
+            historial.append({
+                'id': cambio['id'],
+                'tecnico': cambio['tecnico_nombre'] or f"ID: {cambio['id_codigo_consumidor']}",
+                'elementos_modificados': ', '.join(elementos_modificados) if elementos_modificados else 'Sin elementos especificados',
+                'fecha_hora': cambio['fecha_cambio'].strftime('%Y-%m-%d %H:%M:%S') if cambio['fecha_cambio'] else 'N/A',
+                'observaciones': cambio['observaciones'] or 'Sin observaciones'
+            })
         
         cursor.close()
         connection.close()
         
         return jsonify({
             'success': True,
-            'data': cambios
+            'data': historial
         })
         
     except Exception as e:
-        print(f"Error al obtener historial de cambios: {str(e)}")
+        print(f"Error al obtener historial de cambios de dotación: {str(e)}")
         return jsonify({
             'success': False,
-            'message': f'Error al obtener historial: {str(e)}'
+            'error': f'Error al cargar el historial: {str(e)}'
         }), 500
 
 @app.route('/logistica/registrar_devolucion_dotacion', methods=['POST'])
