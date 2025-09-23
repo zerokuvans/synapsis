@@ -395,14 +395,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Función para cargar el historial de cambios
 function cargarHistorialCambios() {
-    fetch('/api/cambios_dotacion/historial')
-        .then(response => response.json())
+    fetch('/api/cambios_dotacion/historial', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 mostrarHistorialCambios(data.data);
             } else {
-                console.error('Error al cargar historial:', data.message);
-                mostrarErrorHistorial('Error al cargar el historial de cambios');
+                console.error('Error al cargar historial:', data.error || data.message);
+                mostrarErrorHistorial(data.error || 'Error al cargar el historial de cambios');
             }
         })
         .catch(error => {

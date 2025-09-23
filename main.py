@@ -223,6 +223,21 @@ def login_required(role=None):
         return decorated_function
     return decorator
 
+def login_required_api(role=None):
+    """Decorador para requerir autenticación en APIs"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                return jsonify({'error': 'Autenticación requerida', 'code': 'AUTH_REQUIRED'}), 401
+            
+            if role and session.get('user_role') != role and session.get('user_role') != 'administrativo':
+                return jsonify({'error': 'Permisos insuficientes', 'code': 'INSUFFICIENT_PERMISSIONS'}), 403
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
 @app.route('/register', methods=['GET', 'POST'])
 @login_required(role='administrativo')  # Solo los administrativos pueden registrar usuarios
 def register():
@@ -4300,6 +4315,9 @@ def obtener_stock_ferretero():
     connection = None
     cursor = None
     try:
+        # Obtener parámetro de mes del filtro
+        mes_filtro = request.args.get('mes', '')
+        
         connection = get_db_connection()
         if connection is None:
             return jsonify({'error': 'Error de conexión a la base de datos'}), 500
@@ -4318,19 +4336,35 @@ def obtener_stock_ferretero():
         """)
         stock = cursor.fetchall()
         
-        # Calcular total asignado por mes actual
-        cursor.execute("""
-            SELECT 
-                SUM(silicona) as total_silicona,
-                SUM(amarres_negros) as total_amarres_negros,
-                SUM(amarres_blancos) as total_amarres_blancos,
-                SUM(cinta_aislante) as total_cinta_aislante,
-                SUM(grapas_blancas) as total_grapas_blancas,
-                SUM(grapas_negras) as total_grapas_negras
-            FROM ferretero 
-            WHERE MONTH(fecha_asignacion) = MONTH(CURDATE()) 
-            AND YEAR(fecha_asignacion) = YEAR(CURDATE())
-        """)
+        # Calcular total asignado por mes (filtrado o actual)
+        if mes_filtro and mes_filtro != 'todos':
+            # Filtrar por mes específico
+            cursor.execute("""
+                SELECT 
+                    SUM(silicona) as total_silicona,
+                    SUM(amarres_negros) as total_amarres_negros,
+                    SUM(amarres_blancos) as total_amarres_blancos,
+                    SUM(cinta_aislante) as total_cinta_aislante,
+                    SUM(grapas_blancas) as total_grapas_blancas,
+                    SUM(grapas_negras) as total_grapas_negras
+                FROM ferretero 
+                WHERE MONTH(fecha_asignacion) = %s 
+                AND YEAR(fecha_asignacion) = YEAR(CURDATE())
+            """, (mes_filtro,))
+        else:
+            # Usar mes actual por defecto
+            cursor.execute("""
+                SELECT 
+                    SUM(silicona) as total_silicona,
+                    SUM(amarres_negros) as total_amarres_negros,
+                    SUM(amarres_blancos) as total_amarres_blancos,
+                    SUM(cinta_aislante) as total_cinta_aislante,
+                    SUM(grapas_blancas) as total_grapas_blancas,
+                    SUM(grapas_negras) as total_grapas_negras
+                FROM ferretero 
+                WHERE MONTH(fecha_asignacion) = MONTH(CURDATE()) 
+                AND YEAR(fecha_asignacion) = YEAR(CURDATE())
+            """)
         asignado_mes = cursor.fetchone()
         
         # Obtener total de entradas por material
@@ -11917,6 +11951,7 @@ def listar_devoluciones():
         }), 500
 
 @app.route('/api/devoluciones/<int:devolucion_id>/detalles', methods=['GET'])
+@app.route('/obtener_detalles_devolucion/<int:devolucion_id>', methods=['GET'])
 @login_required()
 @role_required('logistica')
 def obtener_detalles_devolucion(devolucion_id):
@@ -12202,6 +12237,1251 @@ def eliminar_detalle_devolucion(detalle_id):
         return jsonify({
             'success': False,
             'error': str(e)
+        }), 500
+
+# ============================================================================
+# SISTEMA DE GESTIÓN DE ESTADOS PARA DEVOLUCIONES
+# ============================================================================
+
+def validar_transicion_estado(estado_actual, estado_nuevo, usuario_id):
+    """
+    Valida si una transición de estado es permitida para un usuario específico
+    
+    Args:
+        estado_actual (str): Estado actual de la devolución
+        estado_nuevo (str): Estado al que se quiere transicionar
+        usuario_id (int): ID del usuario que intenta hacer la transición
+    
+    Returns:
+        dict: {'valida': bool, 'mensaje': str, 'rol_usuario': str}
+    """
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener rol del usuario
+        cursor.execute("""
+            SELECT r.id as rol_id, r.nombre as rol_nombre
+            FROM usuarios u
+            JOIN roles r ON u.rol_id = r.id
+            WHERE u.id = %s
+        """, (usuario_id,))
+        
+        usuario_rol = cursor.fetchone()
+        
+        if not usuario_rol:
+            return {
+                'valida': False,
+                'mensaje': 'Usuario no encontrado o sin rol asignado',
+                'rol_usuario': None
+            }
+        
+        # Verificar si la transición está permitida para el rol
+        cursor.execute("""
+            SELECT permitido
+            FROM permisos_transicion
+            WHERE rol_id = %s AND estado_origen = %s AND estado_destino = %s
+        """, (usuario_rol['rol_id'], estado_actual, estado_nuevo))
+        
+        permiso = cursor.fetchone()
+        
+        cursor.close()
+        connection.close()
+        
+        if not permiso:
+            return {
+                'valida': False,
+                'mensaje': f'Transición de {estado_actual} a {estado_nuevo} no está configurada para el rol {usuario_rol["rol_nombre"]}',
+                'rol_usuario': usuario_rol['rol_nombre']
+            }
+        
+        if not permiso['permitido']:
+            return {
+                'valida': False,
+                'mensaje': f'No tiene permisos para cambiar de {estado_actual} a {estado_nuevo}',
+                'rol_usuario': usuario_rol['rol_nombre']
+            }
+        
+        return {
+            'valida': True,
+            'mensaje': 'Transición permitida',
+            'rol_usuario': usuario_rol['rol_nombre']
+        }
+        
+    except Exception as e:
+        print(f"Error al validar transición: {str(e)}")
+        return {
+            'valida': False,
+            'mensaje': f'Error interno: {str(e)}',
+            'rol_usuario': None
+        }
+
+def registrar_auditoria_estado(devolucion_id, estado_anterior, estado_nuevo, usuario_id, motivo_cambio):
+    """
+    Registra un cambio de estado en la tabla de auditoría
+    
+    Args:
+        devolucion_id (int): ID de la devolución
+        estado_anterior (str): Estado previo
+        estado_nuevo (str): Nuevo estado
+        usuario_id (int): ID del usuario que realizó el cambio
+        motivo_cambio (str): Motivo del cambio
+    
+    Returns:
+        bool: True si se registró exitosamente, False en caso contrario
+    """
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor()
+        
+        query = """
+            INSERT INTO auditoria_estados 
+            (devolucion_id, estado_anterior, estado_nuevo, usuario_id, motivo_cambio)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        
+        cursor.execute(query, (
+            devolucion_id, estado_anterior, estado_nuevo, usuario_id, motivo_cambio
+        ))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error al registrar auditoría: {str(e)}")
+        return False
+
+def obtener_transiciones_validas(estado_actual, usuario_id):
+    """
+    Obtiene las transiciones válidas para un estado y usuario específico
+    
+    Args:
+        estado_actual (str): Estado actual de la devolución
+        usuario_id (int): ID del usuario
+    
+    Returns:
+        list: Lista de estados a los que se puede transicionar
+    """
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener rol del usuario
+        cursor.execute("""
+            SELECT r.id as rol_id
+            FROM usuarios u
+            JOIN roles r ON u.rol_id = r.id
+            WHERE u.id = %s
+        """, (usuario_id,))
+        
+        usuario_rol = cursor.fetchone()
+        
+        if not usuario_rol:
+            return []
+        
+        # Obtener transiciones permitidas
+        cursor.execute("""
+            SELECT estado_destino
+            FROM permisos_transicion
+            WHERE rol_id = %s AND estado_origen = %s AND permitido = TRUE
+        """, (usuario_rol['rol_id'], estado_actual))
+        
+        transiciones = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return [t['estado_destino'] for t in transiciones]
+        
+    except Exception as e:
+        print(f"Error al obtener transiciones válidas: {str(e)}")
+        return []
+
+def enviar_notificacion_cambio_estado(devolucion_id, estado_anterior, estado_nuevo):
+    """
+    Envía notificaciones automáticas cuando cambia el estado
+    
+    Args:
+        devolucion_id (int): ID de la devolución
+        estado_anterior (str): Estado anterior
+        estado_nuevo (str): Nuevo estado
+    
+    Returns:
+        bool: True si se enviaron las notificaciones exitosamente
+    """
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener configuración de notificaciones para este cambio de estado
+        cursor.execute("""
+            SELECT cn.*, pe.nombre as plantilla_email_nombre, ps.nombre as plantilla_sms_nombre
+            FROM configuracion_notificaciones cn
+            LEFT JOIN plantillas_email pe ON cn.plantilla_email_id = pe.id
+            LEFT JOIN plantillas_sms ps ON cn.plantilla_sms_id = ps.id
+            WHERE cn.evento_trigger = 'CAMBIO_ESTADO' 
+            AND (cn.estado_origen = %s OR cn.estado_origen IS NULL)
+            AND cn.estado_destino = %s
+            AND cn.activo = TRUE
+        """, (estado_anterior, estado_nuevo))
+        
+        configuraciones = cursor.fetchall()
+        
+        if not configuraciones:
+            print(f"No hay configuraciones de notificación para transición {estado_anterior} -> {estado_nuevo}")
+            cursor.close()
+            connection.close()
+            return True
+        
+        # Obtener datos de la devolución
+        cursor.execute("""
+            SELECT d.*, c.nombre as cliente_nombre
+            FROM devoluciones_dotacion d
+            LEFT JOIN clientes c ON d.cliente_id = c.id
+            WHERE d.id = %s
+        """, (devolucion_id,))
+        
+        devolucion_data = cursor.fetchone()
+        
+        if not devolucion_data:
+            print(f"Devolución {devolucion_id} no encontrada")
+            cursor.close()
+            connection.close()
+            return False
+        
+        # Procesar cada configuración de notificación
+        for config in configuraciones:
+            # Obtener usuarios destinatarios según roles
+            roles_destinatarios = config['destinatarios_roles']
+            if isinstance(roles_destinatarios, str):
+                import json
+                roles_destinatarios = json.loads(roles_destinatarios)
+            
+            # Convertir nombres de roles a IDs
+            placeholders = ','.join(['%s'] * len(roles_destinatarios))
+            cursor.execute(f"""
+                SELECT u.id, u.email, u.telefono, u.nombre, r.nombre as rol_nombre
+                FROM usuarios u
+                JOIN roles r ON u.rol_id = r.id
+                WHERE r.nombre IN ({placeholders}) AND u.activo = 1
+            """, roles_destinatarios)
+            
+            usuarios_destinatarios = cursor.fetchall()
+            
+            # Preparar variables para plantillas
+            variables = {
+                'devolucion_id': devolucion_id,
+                'cliente_nombre': devolucion_data['cliente_nombre'] or 'N/A',
+                'fecha_registro': devolucion_data['created_at'].strftime('%d/%m/%Y %H:%M'),
+                'observaciones': devolucion_data['observaciones'] or 'Sin observaciones',
+                'estado_anterior': estado_anterior,
+                'estado_nuevo': estado_nuevo
+            }
+            
+            # Enviar notificaciones según tipo
+            for usuario in usuarios_destinatarios:
+                if config['tipo_notificacion'] in ['EMAIL', 'AMBOS'] and usuario['email']:
+                    programar_notificacion_email(devolucion_id, usuario, config, variables)
+                
+                if config['tipo_notificacion'] in ['SMS', 'AMBOS'] and usuario['telefono']:
+                    programar_notificacion_sms(devolucion_id, usuario, config, variables)
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error al enviar notificaciones: {str(e)}")
+        return False
+
+def programar_notificacion_email(devolucion_id, usuario, config, variables):
+    """
+    Programa una notificación por email
+    """
+    try:
+        import mysql.connector
+        from datetime import datetime, timedelta
+        
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener plantilla de email
+        cursor.execute("""
+            SELECT asunto, cuerpo_html, cuerpo_texto
+            FROM plantillas_email
+            WHERE id = %s AND activo = TRUE
+        """, (config['plantilla_email_id'],))
+        
+        plantilla = cursor.fetchone()
+        
+        if not plantilla:
+            print(f"Plantilla de email {config['plantilla_email_id']} no encontrada")
+            return False
+        
+        # Reemplazar variables en la plantilla
+        asunto = plantilla['asunto']
+        cuerpo_html = plantilla['cuerpo_html']
+        cuerpo_texto = plantilla['cuerpo_texto']
+        
+        for var, valor in variables.items():
+            asunto = asunto.replace(f'{{{var}}}', str(valor))
+            cuerpo_html = cuerpo_html.replace(f'{{{var}}}', str(valor))
+            if cuerpo_texto:
+                cuerpo_texto = cuerpo_texto.replace(f'{{{var}}}', str(valor))
+        
+        # Calcular fecha de envío (con delay si está configurado)
+        fecha_programada = datetime.now()
+        if config['delay_minutos'] > 0:
+            fecha_programada += timedelta(minutes=config['delay_minutos'])
+        
+        # Insertar en historial de notificaciones
+        cursor.execute("""
+            INSERT INTO historial_notificaciones 
+            (devolucion_id, tipo_notificacion, destinatario, asunto, mensaje, 
+             fecha_programada, configuracion_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (
+            devolucion_id, 'EMAIL', usuario['email'], asunto, 
+            cuerpo_html, fecha_programada, config['id']
+        ))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        # Si no hay delay, enviar inmediatamente
+        if config['delay_minutos'] == 0:
+            enviar_email_inmediato(usuario['email'], asunto, cuerpo_html, cuerpo_texto)
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error al programar notificación email: {str(e)}")
+        return False
+
+def programar_notificacion_sms(devolucion_id, usuario, config, variables):
+    """
+    Programa una notificación por SMS
+    """
+    try:
+        import mysql.connector
+        from datetime import datetime, timedelta
+        
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener plantilla de SMS
+        cursor.execute("""
+            SELECT mensaje
+            FROM plantillas_sms
+            WHERE id = %s AND activo = TRUE
+        """, (config['plantilla_sms_id'],))
+        
+        plantilla = cursor.fetchone()
+        
+        if not plantilla:
+            print(f"Plantilla de SMS {config['plantilla_sms_id']} no encontrada")
+            return False
+        
+        # Reemplazar variables en la plantilla
+        mensaje = plantilla['mensaje']
+        for var, valor in variables.items():
+            mensaje = mensaje.replace(f'{{{var}}}', str(valor))
+        
+        # Calcular fecha de envío
+        fecha_programada = datetime.now()
+        if config['delay_minutos'] > 0:
+            fecha_programada += timedelta(minutes=config['delay_minutos'])
+        
+        # Insertar en historial de notificaciones
+        cursor.execute("""
+            INSERT INTO historial_notificaciones 
+            (devolucion_id, tipo_notificacion, destinatario, mensaje, 
+             fecha_programada, configuracion_id)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (
+            devolucion_id, 'SMS', usuario['telefono'], mensaje, 
+            fecha_programada, config['id']
+        ))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        # Si no hay delay, enviar inmediatamente
+        if config['delay_minutos'] == 0:
+            enviar_sms_inmediato(usuario['telefono'], mensaje)
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error al programar notificación SMS: {str(e)}")
+        return False
+
+def enviar_email_inmediato(destinatario, asunto, cuerpo_html, cuerpo_texto=None):
+    """
+    Envía un email inmediatamente usando la configuración SMTP
+    """
+    try:
+        import smtplib
+        import mysql.connector
+        import json
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        
+        # Obtener configuración SMTP
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT configuracion
+            FROM configuracion_servicios
+            WHERE servicio = 'SMTP' AND activo = TRUE
+            LIMIT 1
+        """)
+        
+        config_smtp = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        
+        if not config_smtp:
+            print("No hay configuración SMTP activa")
+            return False
+        
+        smtp_config = json.loads(config_smtp['configuracion'])
+        
+        # Crear mensaje
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = asunto
+        msg['From'] = smtp_config['from']
+        msg['To'] = destinatario
+        
+        # Agregar contenido
+        if cuerpo_texto:
+            part1 = MIMEText(cuerpo_texto, 'plain', 'utf-8')
+            msg.attach(part1)
+        
+        part2 = MIMEText(cuerpo_html, 'html', 'utf-8')
+        msg.attach(part2)
+        
+        # Enviar email
+        server = smtplib.SMTP(smtp_config['host'], smtp_config['port'])
+        if not smtp_config.get('secure', False):
+            server.starttls()
+        
+        server.login(smtp_config['auth']['user'], smtp_config['auth']['pass'])
+        server.send_message(msg)
+        server.quit()
+        
+        print(f"Email enviado exitosamente a {destinatario}")
+        return True
+        
+    except Exception as e:
+        print(f"Error al enviar email: {str(e)}")
+        return False
+
+def enviar_sms_inmediato(telefono, mensaje):
+    """
+    Envía un SMS inmediatamente (implementación básica)
+    """
+    try:
+        # Aquí se implementaría la integración con un proveedor de SMS como Twilio
+        # Por ahora, solo registramos el intento
+        print(f"SMS programado para {telefono}: {mensaje}")
+        
+        # TODO: Implementar integración real con proveedor SMS
+        # Ejemplo con Twilio:
+        # from twilio.rest import Client
+        # client = Client(account_sid, auth_token)
+        # message = client.messages.create(
+        #     body=mensaje,
+        #     from_='+1234567890',
+        #     to=telefono
+        # )
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error al enviar SMS: {str(e)}")
+        return False
+
+# ============================================================================
+# APIs DE CONFIGURACIÓN DE NOTIFICACIONES Y ROLES
+
+@app.route('/api/configuracion/notificaciones', methods=['GET'])
+def obtener_configuraciones_notificaciones():
+    """
+    Obtiene todas las configuraciones de notificaciones
+    """
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT cn.*, 
+                   pe.nombre as plantilla_email_nombre,
+                   ps.nombre as plantilla_sms_nombre
+            FROM configuracion_notificaciones cn
+            LEFT JOIN plantillas_email pe ON cn.plantilla_email_id = pe.id
+            LEFT JOIN plantillas_sms ps ON cn.plantilla_sms_id = ps.id
+            ORDER BY cn.evento_trigger, cn.estado_destino
+        """)
+        
+        configuraciones = cursor.fetchall()
+        
+        # Convertir JSON strings a objetos
+        for config in configuraciones:
+            if config['destinatarios_roles']:
+                import json
+                config['destinatarios_roles'] = json.loads(config['destinatarios_roles'])
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'configuraciones': configuraciones
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al obtener configuraciones: {str(e)}'
+        }), 500
+
+@app.route('/api/configuracion/notificaciones', methods=['POST'])
+def crear_configuracion_notificacion():
+    """
+    Crea una nueva configuración de notificación
+    """
+    try:
+        data = request.get_json()
+        
+        # Validaciones
+        required_fields = ['evento_trigger', 'estado_destino', 'tipo_notificacion', 'destinatarios_roles']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'success': False,
+                    'error': f'Campo requerido: {field}'
+                }), 400
+        
+        import mysql.connector
+        import json
+        
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor()
+        
+        # Convertir roles a JSON
+        destinatarios_roles_json = json.dumps(data['destinatarios_roles'])
+        
+        cursor.execute("""
+            INSERT INTO configuracion_notificaciones 
+            (evento_trigger, estado_origen, estado_destino, tipo_notificacion,
+             destinatarios_roles, plantilla_email_id, plantilla_sms_id, 
+             delay_minutos, activo)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            data['evento_trigger'],
+            data.get('estado_origen'),
+            data['estado_destino'],
+            data['tipo_notificacion'],
+            destinatarios_roles_json,
+            data.get('plantilla_email_id'),
+            data.get('plantilla_sms_id'),
+            data.get('delay_minutos', 0),
+            data.get('activo', True)
+        ))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Configuración creada exitosamente'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al crear configuración: {str(e)}'
+        }), 500
+
+@app.route('/api/configuracion/notificaciones/<int:config_id>', methods=['PUT'])
+def actualizar_configuracion_notificacion(config_id):
+    """
+    Actualiza una configuración de notificación existente
+    """
+    try:
+        data = request.get_json()
+        
+        import mysql.connector
+        import json
+        
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor()
+        
+        # Construir query dinámicamente
+        update_fields = []
+        values = []
+        
+        if 'evento_trigger' in data:
+            update_fields.append('evento_trigger = %s')
+            values.append(data['evento_trigger'])
+        
+        if 'estado_origen' in data:
+            update_fields.append('estado_origen = %s')
+            values.append(data['estado_origen'])
+        
+        if 'estado_destino' in data:
+            update_fields.append('estado_destino = %s')
+            values.append(data['estado_destino'])
+        
+        if 'tipo_notificacion' in data:
+            update_fields.append('tipo_notificacion = %s')
+            values.append(data['tipo_notificacion'])
+        
+        if 'destinatarios_roles' in data:
+            update_fields.append('destinatarios_roles = %s')
+            values.append(json.dumps(data['destinatarios_roles']))
+        
+        if 'plantilla_email_id' in data:
+            update_fields.append('plantilla_email_id = %s')
+            values.append(data['plantilla_email_id'])
+        
+        if 'plantilla_sms_id' in data:
+            update_fields.append('plantilla_sms_id = %s')
+            values.append(data['plantilla_sms_id'])
+        
+        if 'delay_minutos' in data:
+            update_fields.append('delay_minutos = %s')
+            values.append(data['delay_minutos'])
+        
+        if 'activo' in data:
+            update_fields.append('activo = %s')
+            values.append(data['activo'])
+        
+        if not update_fields:
+            return jsonify({
+                'success': False,
+                'error': 'No hay campos para actualizar'
+            }), 400
+        
+        values.append(config_id)
+        
+        query = f"UPDATE configuracion_notificaciones SET {', '.join(update_fields)} WHERE id = %s"
+        cursor.execute(query, values)
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Configuración actualizada exitosamente'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al actualizar configuración: {str(e)}'
+        }), 500
+
+@app.route('/api/configuracion/plantillas/email', methods=['GET'])
+def obtener_plantillas_email():
+    """
+    Obtiene todas las plantillas de email
+    """
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT id, nombre, asunto, descripcion, activo, created_at
+            FROM plantillas_email
+            ORDER BY nombre
+        """)
+        
+        plantillas = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'plantillas': plantillas
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al obtener plantillas: {str(e)}'
+        }), 500
+
+@app.route('/api/configuracion/plantillas/sms', methods=['GET'])
+def obtener_plantillas_sms():
+    """
+    Obtiene todas las plantillas de SMS
+    """
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT id, nombre, descripcion, activo, created_at
+            FROM plantillas_sms
+            ORDER BY nombre
+        """)
+        
+        plantillas = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'plantillas': plantillas
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al obtener plantillas: {str(e)}'
+        }), 500
+
+@app.route('/api/configuracion/roles', methods=['GET'])
+def obtener_roles_sistema():
+    """
+    Obtiene todos los roles del sistema con sus permisos
+    """
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener roles
+        cursor.execute("""
+            SELECT r.*, COUNT(u.id) as usuarios_count
+            FROM roles r
+            LEFT JOIN usuarios u ON r.id = u.rol_id AND u.activo = 1
+            GROUP BY r.id
+            ORDER BY r.nombre
+        """)
+        
+        roles = cursor.fetchall()
+        
+        # Obtener permisos para cada rol
+        for rol in roles:
+            cursor.execute("""
+                SELECT p.nombre, p.descripcion, rp.puede_leer, rp.puede_escribir, 
+                       rp.puede_actualizar, rp.puede_eliminar
+                FROM permisos_roles rp
+                JOIN permisos p ON rp.permiso_id = p.id
+                WHERE rp.rol_id = %s
+                ORDER BY p.nombre
+            """, (rol['id'],))
+            
+            rol['permisos'] = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'roles': roles
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al obtener roles: {str(e)}'
+        }), 500
+
+@app.route('/api/configuracion/permisos', methods=['GET'])
+def obtener_permisos_disponibles():
+    """
+    Obtiene todos los permisos disponibles en el sistema
+    """
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT id, nombre, descripcion, modulo
+            FROM permisos
+            ORDER BY modulo, nombre
+        """)
+        
+        permisos = cursor.fetchall()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'permisos': permisos
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al obtener permisos: {str(e)}'
+        }), 500
+
+@app.route('/api/configuracion/roles/<int:rol_id>/permisos', methods=['PUT'])
+def actualizar_permisos_rol(rol_id):
+    """
+    Actualiza los permisos de un rol específico
+    """
+    try:
+        data = request.get_json()
+        permisos = data.get('permisos', [])
+        
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor()
+        
+        # Eliminar permisos existentes
+        cursor.execute("DELETE FROM permisos_roles WHERE rol_id = %s", (rol_id,))
+        
+        # Insertar nuevos permisos
+        for permiso in permisos:
+            cursor.execute("""
+                INSERT INTO permisos_roles 
+                (rol_id, permiso_id, puede_leer, puede_escribir, puede_actualizar, puede_eliminar)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                rol_id,
+                permiso['permiso_id'],
+                permiso.get('puede_leer', False),
+                permiso.get('puede_escribir', False),
+                permiso.get('puede_actualizar', False),
+                permiso.get('puede_eliminar', False)
+            ))
+        
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Permisos actualizados exitosamente'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al actualizar permisos: {str(e)}'
+        }), 500
+
+# ============================================================================
+# APIs DEL SISTEMA DE GESTIÓN DE ESTADOS
+# ============================================================================
+
+@app.route('/api/devoluciones/<int:devolucion_id>/estado', methods=['PUT'])
+@login_required()
+@role_required('logistica')
+def actualizar_estado_devolucion(devolucion_id):
+    """
+    API para actualizar el estado de una devolución específica
+    """
+    try:
+        # Obtener datos de la petición
+        data = request.get_json() if request.is_json else request.form
+        
+        nuevo_estado = data.get('nuevo_estado')
+        motivo = data.get('motivo')
+        usuario_id = session.get('user_id')
+        
+        # Validaciones de entrada
+        if not nuevo_estado:
+            return jsonify({
+                'success': False,
+                'error': 'El nuevo estado es obligatorio'
+            }), 400
+        
+        if not motivo:
+            return jsonify({
+                'success': False,
+                'error': 'El motivo del cambio es obligatorio'
+            }), 400
+        
+        estados_validos = ['REGISTRADA', 'PROCESANDO', 'COMPLETADA', 'CANCELADA']
+        if nuevo_estado not in estados_validos:
+            return jsonify({
+                'success': False,
+                'error': f'Estado no válido. Estados permitidos: {", ".join(estados_validos)}'
+            }), 400
+        
+        # Conectar a la base de datos
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener estado actual de la devolución
+        cursor.execute(
+            "SELECT estado FROM devoluciones_dotacion WHERE id = %s",
+            (devolucion_id,)
+        )
+        
+        devolucion = cursor.fetchone()
+        
+        if not devolucion:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'error': 'Devolución no encontrada'
+            }), 404
+        
+        estado_actual = devolucion['estado']
+        
+        # Verificar si el estado ya es el mismo
+        if estado_actual == nuevo_estado:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'error': f'La devolución ya se encuentra en estado {nuevo_estado}'
+            }), 400
+        
+        # Validar transición
+        validacion = validar_transicion_estado(estado_actual, nuevo_estado, usuario_id)
+        
+        if not validacion['valida']:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'error': validacion['mensaje'],
+                'rol_usuario': validacion['rol_usuario']
+            }), 403
+        
+        # Actualizar estado en la base de datos
+        cursor.execute(
+            "UPDATE devoluciones_dotacion SET estado = %s, updated_by = %s WHERE id = %s",
+            (nuevo_estado, usuario_id, devolucion_id)
+        )
+        
+        connection.commit()
+        
+        # Registrar en auditoría
+        auditoria_exitosa = registrar_auditoria_estado(
+            devolucion_id, estado_actual, nuevo_estado, usuario_id, motivo
+        )
+        
+        # Enviar notificaciones
+        notificacion_exitosa = enviar_notificacion_cambio_estado(
+            devolucion_id, estado_actual, nuevo_estado
+        )
+        
+        cursor.close()
+        connection.close()
+        
+        response_data = {
+            'success': True,
+            'mensaje': 'Estado actualizado exitosamente',
+            'estado_anterior': estado_actual,
+            'estado_nuevo': nuevo_estado,
+            'devolucion_id': devolucion_id
+        }
+        
+        # Agregar información adicional sobre procesos auxiliares
+        if not auditoria_exitosa:
+            response_data['advertencia_auditoria'] = 'No se pudo registrar en auditoría'
+        
+        if not notificacion_exitosa:
+            response_data['advertencia_notificacion'] = 'No se pudieron enviar notificaciones'
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        print(f"Error al actualizar estado de devolución: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Error interno del servidor: {str(e)}'
+        }), 500
+
+@app.route('/api/devoluciones/<int:devolucion_id>/transiciones', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def obtener_transiciones_devolucion(devolucion_id):
+    """
+    API para obtener las transiciones válidas para una devolución específica
+    """
+    try:
+        usuario_id = session.get('user_id')
+        
+        # Conectar a la base de datos
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener estado actual de la devolución
+        cursor.execute(
+            "SELECT estado FROM devoluciones_dotacion WHERE id = %s",
+            (devolucion_id,)
+        )
+        
+        devolucion = cursor.fetchone()
+        
+        if not devolucion:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'error': 'Devolución no encontrada'
+            }), 404
+        
+        estado_actual = devolucion['estado']
+        
+        # Obtener transiciones válidas
+        transiciones_validas = obtener_transiciones_validas(estado_actual, usuario_id)
+        
+        # Obtener información del rol del usuario
+        cursor.execute("""
+            SELECT r.nombre as rol_nombre
+            FROM usuarios u
+            JOIN roles r ON u.rol_id = r.id
+            WHERE u.id = %s
+        """, (usuario_id,))
+        
+        usuario_info = cursor.fetchone()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'devolucion_id': devolucion_id,
+            'estado_actual': estado_actual,
+            'transiciones_validas': transiciones_validas,
+            'rol_usuario': usuario_info['rol_nombre'] if usuario_info else 'Sin rol'
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener transiciones: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Error interno del servidor: {str(e)}'
+        }), 500
+
+@app.route('/api/devoluciones/<int:devolucion_id>/historial', methods=['GET'])
+@login_required_api(role='logistica')
+def obtener_historial_estados(devolucion_id):
+    """
+    API para consultar el historial de cambios de estado de una devolución
+    """
+    try:
+        # Conectar a la base de datos
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Verificar que la devolución existe
+        cursor.execute(
+            "SELECT id, estado FROM devoluciones_dotacion WHERE id = %s",
+            (devolucion_id,)
+        )
+        
+        devolucion = cursor.fetchone()
+        
+        if not devolucion:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'error': 'Devolución no encontrada'
+            }), 404
+        
+        # Obtener historial de auditoría
+        cursor.execute("""
+            SELECT 
+                ae.id,
+                ae.estado_anterior,
+                ae.estado_nuevo,
+                ae.motivo_cambio,
+                ae.fecha_cambio,
+                ro.nombre as usuario_nombre,
+                r.nombre_rol as rol_usuario
+            FROM auditoria_estados_devolucion ae
+            LEFT JOIN recurso_operativo ro ON ae.usuario_id = ro.recurso_operativo_cedula
+            LEFT JOIN roles r ON ro.id_roles = r.id_roles
+            WHERE ae.devolucion_id = %s
+            ORDER BY ae.fecha_cambio DESC
+        """, (devolucion_id,))
+        
+        historial = cursor.fetchall()
+        
+        # Formatear fechas para JSON
+        for registro in historial:
+            if registro['fecha_cambio']:
+                registro['fecha_cambio'] = registro['fecha_cambio'].isoformat()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'devolucion_id': devolucion_id,
+            'estado_actual': devolucion['estado'],
+            'total_cambios': len(historial),
+            'historial': historial
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener historial de estados: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Error interno del servidor: {str(e)}'
+        }), 500
+
+@app.route('/api/estados/validar-transicion', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def validar_transicion_api():
+    """
+    API para validar si una transición de estado es permitida
+    """
+    try:
+        data = request.get_json() if request.is_json else request.form
+        
+        estado_actual = data.get('estado_actual')
+        estado_nuevo = data.get('estado_nuevo')
+        usuario_id = session.get('user_id')
+        
+        if not estado_actual or not estado_nuevo:
+            return jsonify({
+                'success': False,
+                'error': 'Estado actual y nuevo estado son obligatorios'
+            }), 400
+        
+        validacion = validar_transicion_estado(estado_actual, estado_nuevo, usuario_id)
+        
+        return jsonify({
+            'success': True,
+            'validacion': validacion
+        })
+        
+    except Exception as e:
+        print(f"Error al validar transición: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Error interno del servidor: {str(e)}'
         }), 500
 
 if __name__ == '__main__':
