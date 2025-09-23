@@ -382,7 +382,10 @@
         cargarComparacionMensual(); // Cargar gráfico de comparación mensual
         
         // Eventos para los filtros
-        document.getElementById('btnActualizarEstadisticas').addEventListener('click', cargarEstadisticasFerretero);
+        document.getElementById('btnActualizarEstadisticas').addEventListener('click', function() {
+            cargarEstadisticasFerretero();
+            cargarResumenInventario(); // Actualizar también el cuadro "Asignado Este Mes"
+        });
         document.getElementById('btnExportarExcel').addEventListener('click', exportarEstadisticasExcel);
         
         // Eventos para comparación mensual
@@ -1253,7 +1256,16 @@
     
     // Función para cargar resumen de inventario
     function cargarResumenInventario() {
-        fetch('/logistica/stock_ferretero', {
+        // Obtener el filtro de mes seleccionado
+        const filtroMes = document.getElementById('filtroMes').value;
+        
+        // Construir la URL con el parámetro de mes si está seleccionado
+        let url = '/logistica/stock_ferretero';
+        if (filtroMes && filtroMes !== 'todos') {
+            url += `?mes=${filtroMes}`;
+        }
+        
+        fetch(url, {
             method: 'GET',
             credentials: 'include',
             headers: {
