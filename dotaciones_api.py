@@ -389,7 +389,8 @@ def registrar_rutas_dotaciones(app):
                 cargo,
                 recurso_operativo_cedula,
                 cliente,
-                estado
+                estado,
+                ciudad
             FROM recurso_operativo 
             WHERE 1=1
             """

@@ -11625,7 +11625,7 @@ def devoluciones_dotacion():
 @login_required()
 @role_required('logistica')
 def registrar_cambio_dotacion():
-    """Procesar registro de cambio de dotación"""
+    """Procesar registro de cambio de dotación con gestión diferenciada de stock"""
     try:
         # Conectar a la base de datos capired
         import mysql.connector
@@ -11636,59 +11636,211 @@ def registrar_cambio_dotacion():
             database='capired'
         )
         
-        cursor = connection.cursor()
+        cursor = connection.cursor(dictionary=True)
         
         # Obtener datos del formulario
         id_codigo_consumidor = request.form.get('id_codigo_consumidor')
         fecha_cambio = request.form.get('fecha_cambio')
         observaciones = request.form.get('observaciones', '')
         
-        # Obtener cantidades y tallas de dotación
-        pantalon = request.form.get('pantalon') or None
-        pantalon_talla = request.form.get('pantalon_talla') or None
-        camisetagris = request.form.get('camisetagris') or None
-        camiseta_gris_talla = request.form.get('camiseta_gris_talla') or None
-        guerrera = request.form.get('guerrera') or None
-        guerrera_talla = request.form.get('guerrera_talla') or None
-        camisetapolo = request.form.get('camisetapolo') or None
-        camiseta_polo_talla = request.form.get('camiseta_polo_talla') or None
-        guantes_nitrilo = request.form.get('guantes_nitrilo') or None
-        guantes_carnaza = request.form.get('guantes_carnaza') or None
-        gafas = request.form.get('gafas') or None
-        gorra = request.form.get('gorra') or None
-        casco = request.form.get('casco') or None
-        botas = request.form.get('botas') or None
-        botas_talla = request.form.get('botas_talla') or None
+        # Función auxiliar para convertir cantidad a entero o None
+        def convertir_cantidad(valor):
+            if valor is None or valor == '' or valor == '0':
+                return None
+            try:
+                cantidad = int(valor)
+                return cantidad if cantidad > 0 else None
+            except (ValueError, TypeError):
+                return None
+        
+        # Función auxiliar para convertir talla a valor válido o None si está vacío
+        def convertir_talla(valor):
+            if valor is None or valor == '' or valor.strip() == '':
+                return None
+            return valor.strip()
+        
+        # Obtener cantidades, tallas y estados de valoración de dotación
+        elementos_dotacion = {
+            'pantalon': {
+                'cantidad': convertir_cantidad(request.form.get('pantalon')),
+                'talla': convertir_talla(request.form.get('pantalon_talla')),
+                'valorado': request.form.get('pantalon_valorado') == 'on'
+            },
+            'camisetagris': {
+                'cantidad': convertir_cantidad(request.form.get('camisetagris')),
+                'talla': convertir_talla(request.form.get('camiseta_gris_talla')),
+                'valorado': request.form.get('camisetagris_valorado') == 'on'
+            },
+            'guerrera': {
+                'cantidad': convertir_cantidad(request.form.get('guerrera')),
+                'talla': convertir_talla(request.form.get('guerrera_talla')),
+                'valorado': request.form.get('guerrera_valorado') == 'on'
+            },
+            'camisetapolo': {
+                'cantidad': convertir_cantidad(request.form.get('camisetapolo')),
+                'talla': convertir_talla(request.form.get('camiseta_polo_talla')),
+                'valorado': request.form.get('camisetapolo_valorado') == 'on'
+            },
+            'guantes_nitrilo': {
+                'cantidad': convertir_cantidad(request.form.get('guantes_nitrilo')),
+                'talla': None,
+                'valorado': request.form.get('guantesnitrilo_valorado') == 'on'
+            },
+            'guantes_carnaza': {
+                'cantidad': convertir_cantidad(request.form.get('guantes_carnaza')),
+                'talla': None,
+                'valorado': request.form.get('guantescarnaza_valorado') == 'on'
+            },
+            'gafas': {
+                'cantidad': convertir_cantidad(request.form.get('gafas')),
+                'talla': None,
+                'valorado': request.form.get('gafas_valorado') == 'on'
+            },
+            'gorra': {
+                'cantidad': convertir_cantidad(request.form.get('gorra')),
+                'talla': None,
+                'valorado': request.form.get('gorra_valorado') == 'on'
+            },
+            'casco': {
+                'cantidad': convertir_cantidad(request.form.get('casco')),
+                'talla': None,
+                'valorado': request.form.get('casco_valorado') == 'on'
+            },
+            'botas': {
+                'cantidad': convertir_cantidad(request.form.get('botas')),
+                'talla': convertir_talla(request.form.get('botas_talla')),
+                'valorado': request.form.get('botas_valorado') == 'on'
+            }
+        }
         
         # Validaciones básicas
         if not id_codigo_consumidor or not fecha_cambio:
             flash('Técnico y fecha son campos obligatorios', 'danger')
             return redirect(url_for('cambios_dotacion'))
         
-        # Insertar en la base de datos
-        query = """
+        # Obtener configuración de valoración de elementos
+        cursor.execute("SELECT elemento, es_valorado FROM dotacion_elementos_config")
+        config_valoracion = {row['elemento']: row['es_valorado'] for row in cursor.fetchall()}
+        
+        # Validar stock disponible antes de procesar
+        errores_stock = []
+        for elemento, datos in elementos_dotacion.items():
+            cantidad = datos['cantidad']
+            if cantidad is not None and cantidad > 0:
+                
+                # Verificar stock disponible según estado valorado del formulario
+                es_valorado = datos['valorado']
+                tipo_stock = "VALORADO" if es_valorado else "NO VALORADO"
+                
+                # Obtener stock actual del elemento
+                cursor.execute("""
+                    SELECT 
+                        COALESCE(SUM(cantidad), 0) as stock_ingresado,
+                        (
+                            SELECT COALESCE(SUM({}), 0) 
+                            FROM dotaciones 
+                            WHERE {} IS NOT NULL AND {} > 0
+                        ) as stock_entregado
+                    FROM ingresos_dotaciones 
+                    WHERE tipo_elemento = %s
+                """.format(elemento, elemento, elemento), (elemento,))
+                
+                stock_data = cursor.fetchone()
+                stock_disponible = stock_data['stock_ingresado'] - stock_data['stock_entregado']
+                
+                if stock_disponible < cantidad:
+                    errores_stock.append(
+                        f"Stock insuficiente para {elemento.replace('_', ' ').title()}: "
+                        f"Disponible: {stock_disponible}, Solicitado: {cantidad} ({tipo_stock})"
+                    )
+        
+        # Si hay errores de stock, mostrarlos y no procesar
+        if errores_stock:
+            for error in errores_stock:
+                flash(error, 'warning')
+            return redirect(url_for('cambios_dotacion'))
+        
+        # Procesar el cambio de dotación
+        # 1. Insertar en cambios_dotacion con estados de valoración
+        query_cambio = """
             INSERT INTO cambios_dotacion (
-                id_codigo_consumidor, fecha_cambio, pantalon, pantalon_talla,
-                camisetagris, camiseta_gris_talla, guerrera, guerrera_talla,
-                camisetapolo, camiseta_polo_talla, guantes_nitrilo, guantes_carnaza,
-                gafas, gorra, casco, botas, botas_talla, observaciones
+                id_codigo_consumidor, fecha_cambio, pantalon, pantalon_talla, estado_pantalon,
+                camisetagris, camiseta_gris_talla, estado_camiseta_gris, guerrera, guerrera_talla, estado_guerrera,
+                camisetapolo, camiseta_polo_talla, estado_camiseta_polo, guantes_nitrilo, estado_guantes_nitrilo,
+                guantes_carnaza, estado_guantes_carnaza, gafas, estado_gafas, gorra, estado_gorra,
+                casco, estado_casco, botas, botas_talla, estado_botas, observaciones
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
         """
         
-        cursor.execute(query, (
-            id_codigo_consumidor, fecha_cambio, pantalon, pantalon_talla,
-            camisetagris, camiseta_gris_talla, guerrera, guerrera_talla,
-            camisetapolo, camiseta_polo_talla, guantes_nitrilo, guantes_carnaza,
-            gafas, gorra, casco, botas, botas_talla, observaciones
+        cursor.execute(query_cambio, (
+            id_codigo_consumidor, fecha_cambio, 
+            elementos_dotacion['pantalon']['cantidad'], elementos_dotacion['pantalon']['talla'], 
+            'VALORADO' if elementos_dotacion['pantalon']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['camisetagris']['cantidad'], elementos_dotacion['camisetagris']['talla'],
+            'VALORADO' if elementos_dotacion['camisetagris']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['guerrera']['cantidad'], elementos_dotacion['guerrera']['talla'],
+            'VALORADO' if elementos_dotacion['guerrera']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['camisetapolo']['cantidad'], elementos_dotacion['camisetapolo']['talla'],
+            'VALORADO' if elementos_dotacion['camisetapolo']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['guantes_nitrilo']['cantidad'], 
+            'VALORADO' if elementos_dotacion['guantes_nitrilo']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['guantes_carnaza']['cantidad'],
+            'VALORADO' if elementos_dotacion['guantes_carnaza']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['gafas']['cantidad'],
+            'VALORADO' if elementos_dotacion['gafas']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['gorra']['cantidad'],
+            'VALORADO' if elementos_dotacion['gorra']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['casco']['cantidad'],
+            'VALORADO' if elementos_dotacion['casco']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['botas']['cantidad'], elementos_dotacion['botas']['talla'],
+            'VALORADO' if elementos_dotacion['botas']['valorado'] else 'NO VALORADO',
+            observaciones
+        ))
+        
+        # 2. Registrar en dotaciones (para mantener el historial de entregas)
+        query_dotacion = """
+            INSERT INTO dotaciones (
+                cliente, id_codigo_consumidor, pantalon, pantalon_talla,
+                camisetagris, camiseta_gris_talla, guerrera, guerrera_talla,
+                camisetapolo, camiseta_polo_talla, guantes_nitrilo, guantes_carnaza,
+                gafas, gorra, casco, botas, botas_talla, fecha_registro
+            ) VALUES (
+                (SELECT cliente FROM recurso_operativo WHERE id_codigo_consumidor = %s),
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+        """
+        
+        cursor.execute(query_dotacion, (
+            id_codigo_consumidor, id_codigo_consumidor,
+            elementos_dotacion['pantalon']['cantidad'], elementos_dotacion['pantalon']['talla'],
+            elementos_dotacion['camisetagris']['cantidad'], elementos_dotacion['camisetagris']['talla'],
+            elementos_dotacion['guerrera']['cantidad'], elementos_dotacion['guerrera']['talla'],
+            elementos_dotacion['camisetapolo']['cantidad'], elementos_dotacion['camisetapolo']['talla'],
+            elementos_dotacion['guantes_nitrilo']['cantidad'], elementos_dotacion['guantes_carnaza']['cantidad'],
+            elementos_dotacion['gafas']['cantidad'], elementos_dotacion['gorra']['cantidad'],
+            elementos_dotacion['casco']['cantidad'], elementos_dotacion['botas']['cantidad'],
+            elementos_dotacion['botas']['talla'], fecha_cambio
         ))
         
         connection.commit()
+        
+        # Preparar mensaje de éxito con detalles de estado valorado
+        elementos_procesados = []
+        for elemento, datos in elementos_dotacion.items():
+            cantidad = datos['cantidad']
+            if cantidad is not None and cantidad > 0:
+                estado_valorado = "VALORADO" if datos['valorado'] else "NO VALORADO"
+                nombre_elemento = elemento.replace('_', ' ').title()
+                elementos_procesados.append(f"{nombre_elemento}: {cantidad} ({estado_valorado})")
+        
+        mensaje_exito = f"Cambio de dotación registrado exitosamente. Elementos procesados: {', '.join(elementos_procesados)}"
+        flash(mensaje_exito, 'success')
+        
         cursor.close()
         connection.close()
         
-        flash('Cambio de dotación registrado exitosamente', 'success')
         return redirect(url_for('cambios_dotacion'))
         
     except Exception as e:
@@ -11713,12 +11865,13 @@ def api_cambios_dotacion_historial():
         
         cursor = connection.cursor(dictionary=True)
         
-        # Consulta con JOIN para obtener información del técnico
+        # Consulta mejorada con JOIN para obtener información completa del técnico
         query = """
             SELECT 
                 cd.id_cambio as id,
                 cd.id_codigo_consumidor,
                 ro.nombre as tecnico_nombre,
+                ro.recurso_operativo_cedula as tecnico_cedula,
                 cd.fecha_cambio,
                 cd.pantalon,
                 cd.pantalon_talla,
@@ -11745,38 +11898,97 @@ def api_cambios_dotacion_historial():
         cursor.execute(query)
         cambios = cursor.fetchall()
         
-        # Formatear los datos para el frontend
+        # Obtener configuración de valoración de elementos
+        cursor.execute("SELECT elemento, es_valorado FROM dotacion_elementos_config")
+        config_valoracion = {row['elemento']: row['es_valorado'] for row in cursor.fetchall()}
+        
+        # Formatear los datos para el frontend con información mejorada
         historial = []
         for cambio in cambios:
-            # Crear lista de elementos modificados
+            # Crear lista de elementos modificados con estado de valoración
             elementos_modificados = []
             
-            if cambio['pantalon']:
-                elementos_modificados.append(f"Pantalón: {cambio['pantalon']} (Talla: {cambio['pantalon_talla'] or 'N/A'})")
-            if cambio['camisetagris']:
-                elementos_modificados.append(f"Camiseta Gris: {cambio['camisetagris']} (Talla: {cambio['camiseta_gris_talla'] or 'N/A'})")
-            if cambio['guerrera']:
-                elementos_modificados.append(f"Guerrera: {cambio['guerrera']} (Talla: {cambio['guerrera_talla'] or 'N/A'})")
-            if cambio['camisetapolo']:
-                elementos_modificados.append(f"Camiseta Polo: {cambio['camisetapolo']} (Talla: {cambio['camiseta_polo_talla'] or 'N/A'})")
-            if cambio['guantes_nitrilo']:
-                elementos_modificados.append(f"Guantes Nitrilo: {cambio['guantes_nitrilo']}")
-            if cambio['guantes_carnaza']:
-                elementos_modificados.append(f"Guantes Carnaza: {cambio['guantes_carnaza']}")
-            if cambio['gafas']:
-                elementos_modificados.append(f"Gafas: {cambio['gafas']}")
-            if cambio['gorra']:
-                elementos_modificados.append(f"Gorra: {cambio['gorra']}")
-            if cambio['casco']:
-                elementos_modificados.append(f"Casco: {cambio['casco']}")
-            if cambio['botas']:
-                elementos_modificados.append(f"Botas: {cambio['botas']} (Talla: {cambio['botas_talla'] or 'N/A'})")
+            # Mapeo de elementos con sus configuraciones
+            elementos_data = [
+                ('pantalon', cambio['pantalon'], cambio['pantalon_talla']),
+                ('camisetagris', cambio['camisetagris'], cambio['camiseta_gris_talla']),
+                ('guerrera', cambio['guerrera'], cambio['guerrera_talla']),
+                ('camisetapolo', cambio['camisetapolo'], cambio['camiseta_polo_talla']),
+                ('guantes_nitrilo', cambio['guantes_nitrilo'], None),
+                ('guantes_carnaza', cambio['guantes_carnaza'], None),
+                ('gafas', cambio['gafas'], None),
+                ('gorra', cambio['gorra'], None),
+                ('casco', cambio['casco'], None),
+                ('botas', cambio['botas'], cambio['botas_talla'])
+            ]
+            
+            # Nombres descriptivos para elementos
+            nombres_elementos = {
+                'pantalon': 'Pantalón',
+                'camisetagris': 'Camiseta Gris',
+                'guerrera': 'Guerrera',
+                'camisetapolo': 'Camiseta Polo',
+                'guantes_nitrilo': 'Guantes Nitrilo',
+                'guantes_carnaza': 'Guantes Carnaza',
+                'gafas': 'Gafas',
+                'gorra': 'Gorra',
+                'casco': 'Casco',
+                'botas': 'Botas'
+            }
+            
+            for elemento, cantidad, talla in elementos_data:
+                if cantidad and cantidad > 0:
+                    es_valorado = config_valoracion.get(elemento, False)
+                    nombre_elemento = nombres_elementos.get(elemento, elemento.title())
+                    
+                    # Crear objeto con la estructura que espera el frontend
+                    elemento_obj = {
+                        'descripcion': nombre_elemento,
+                        'elemento': nombre_elemento,
+                        'cantidad': cantidad,
+                        'es_valorado': es_valorado,
+                        'precio_unitario': None  # Se puede agregar lógica de precios aquí si es necesario
+                    }
+                    
+                    if talla:
+                        elemento_obj['talla'] = talla
+                    
+                    elementos_modificados.append(elemento_obj)
+            
+            # Formatear información completa del técnico
+            tecnico_info = "Técnico no encontrado"
+            if cambio['tecnico_nombre'] and cambio['tecnico_cedula']:
+                tecnico_info = f"{cambio['tecnico_nombre']} (ID: {cambio['tecnico_cedula']})"
+            elif cambio['tecnico_nombre']:
+                tecnico_info = f"{cambio['tecnico_nombre']} (ID: {cambio['id_codigo_consumidor']})"
+            elif cambio['tecnico_cedula']:
+                tecnico_info = f"Cédula: {cambio['tecnico_cedula']}"
+            else:
+                tecnico_info = f"ID Sistema: {cambio['id_codigo_consumidor']}"
+            
+            # Enviar fechas en formato ISO para que JavaScript pueda parsearlas correctamente
+            fecha_cambio_iso = None
+            fecha_registro_iso = None
+            
+            if cambio['fecha_cambio']:
+                fecha_cambio_iso = cambio['fecha_cambio'].isoformat()
+            
+            if cambio['created_at']:
+                fecha_registro_iso = cambio['created_at'].isoformat()
+            
+            # Crear string de elementos para compatibilidad con versiones anteriores
+            elementos_texto = ', '.join([f"{elem['descripcion']}: {elem['cantidad']}" + (f" (Talla: {elem['talla']})" if elem.get('talla') else "") for elem in elementos_modificados]) if elementos_modificados else 'Sin elementos especificados'
             
             historial.append({
                 'id': cambio['id'],
-                'tecnico': cambio['tecnico_nombre'] or f"ID: {cambio['id_codigo_consumidor']}",
-                'elementos_modificados': ', '.join(elementos_modificados) if elementos_modificados else 'Sin elementos especificados',
-                'fecha_hora': cambio['fecha_cambio'].strftime('%Y-%m-%d %H:%M:%S') if cambio['fecha_cambio'] else 'N/A',
+                'tecnico': tecnico_info,
+                'tecnico_nombre': cambio['tecnico_nombre'] or 'No disponible',
+                'tecnico_cedula': cambio['tecnico_cedula'] or 'No disponible',
+                'id_codigo_consumidor': cambio['id_codigo_consumidor'],
+                'elementos_modificados': elementos_texto,  # String para compatibilidad
+                'elementos_modificados_detalle': elementos_modificados,  # Array de objetos para el frontend
+                'fecha_cambio': fecha_cambio_iso,
+                'fecha_registro': fecha_registro_iso,
                 'observaciones': cambio['observaciones'] or 'Sin observaciones'
             })
         
