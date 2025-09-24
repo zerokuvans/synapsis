@@ -1,0 +1,750 @@
+{
+  "fecha_prueba": "2025-09-24T10:52:25.447490",
+  "modo": "SIMULACION",
+  "tablas_analizadas": [
+    {
+      "nombre": "auditoria_estados_devolucion",
+      "existe": true,
+      "registros": 0,
+      "tamaño_mb": 0.08,
+      "foreign_keys_entrantes": [],
+      "foreign_keys_salientes": [],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "idx_devolucion_id",
+          "COLUMN_NAME": "devolucion_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_estado_nuevo",
+          "COLUMN_NAME": "estado_nuevo",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_fecha_cambio",
+          "COLUMN_NAME": "fecha_cambio",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_usuario_id",
+          "COLUMN_NAME": "usuario_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "movimientos_equipos_dotaciones",
+      "existe": true,
+      "registros": 0,
+      "tamaño_mb": 0.09,
+      "foreign_keys_entrantes": [],
+      "foreign_keys_salientes": [
+        {
+          "columna_origen": "equipo_id",
+          "tabla_destino": "equipos_dotaciones",
+          "columna_destino": "id"
+        },
+        {
+          "columna_origen": "asignacion_id",
+          "tabla_destino": "asignaciones_equipos_dotaciones",
+          "columna_destino": "id"
+        }
+      ],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "asignacion_id",
+          "COLUMN_NAME": "asignacion_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_equipo_movimiento",
+          "COLUMN_NAME": "equipo_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_fecha_movimiento",
+          "COLUMN_NAME": "fecha_movimiento",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_tecnico_movimiento",
+          "COLUMN_NAME": "tecnico_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_tipo_movimiento",
+          "COLUMN_NAME": "tipo_movimiento",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "cambios_dotaciones_detalle",
+      "existe": true,
+      "registros": 30,
+      "tamaño_mb": 0.06,
+      "foreign_keys_entrantes": [],
+      "foreign_keys_salientes": [
+        {
+          "columna_origen": "id_cambio_dotacion",
+          "tabla_destino": "cambios_dotaciones",
+          "columna_destino": "id_cambio_dotacion"
+        }
+      ],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "IX_cambios_detalle_cambio",
+          "COLUMN_NAME": "id_cambio_dotacion",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "IX_cambios_detalle_elemento",
+          "COLUMN_NAME": "elemento",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "IX_cambios_detalle_tipo",
+          "COLUMN_NAME": "tipo_estado",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id_detalle",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "historial_cambios_dotaciones",
+      "existe": true,
+      "registros": 0,
+      "tamaño_mb": 0.06,
+      "foreign_keys_entrantes": [],
+      "foreign_keys_salientes": [
+        {
+          "columna_origen": "id_cambio_dotacion",
+          "tabla_destino": "cambios_dotaciones",
+          "columna_destino": "id_cambio_dotacion"
+        }
+      ],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "IX_historial_cambios_dotacion",
+          "COLUMN_NAME": "id_cambio_dotacion",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "IX_historial_cambios_fecha",
+          "COLUMN_NAME": "fecha_cambio_estado",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "IX_historial_cambios_usuario",
+          "COLUMN_NAME": "usuario_cambio",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id_historial",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "devolucion_detalles",
+      "existe": true,
+      "registros": 3,
+      "tamaño_mb": 0.05,
+      "foreign_keys_entrantes": [],
+      "foreign_keys_salientes": [
+        {
+          "columna_origen": "devolucion_id",
+          "tabla_destino": "devoluciones_dotacion",
+          "columna_destino": "id"
+        }
+      ],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "idx_devolucion_id",
+          "COLUMN_NAME": "devolucion_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_elemento",
+          "COLUMN_NAME": "elemento",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "devoluciones_elementos",
+      "existe": true,
+      "registros": 0,
+      "tamaño_mb": 0.05,
+      "foreign_keys_entrantes": [],
+      "foreign_keys_salientes": [
+        {
+          "columna_origen": "devolucion_id",
+          "tabla_destino": "devoluciones_dotacion",
+          "columna_destino": "id"
+        }
+      ],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "idx_devolucion_id",
+          "COLUMN_NAME": "devolucion_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_tipo_elemento",
+          "COLUMN_NAME": "tipo_elemento",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "historial_notificaciones",
+      "existe": true,
+      "registros": 0,
+      "tamaño_mb": 0.09,
+      "foreign_keys_entrantes": [],
+      "foreign_keys_salientes": [
+        {
+          "columna_origen": "devolucion_id",
+          "tabla_destino": "devoluciones_dotacion",
+          "columna_destino": "id"
+        },
+        {
+          "columna_origen": "configuracion_id",
+          "tabla_destino": "configuracion_notificaciones",
+          "columna_destino": "id"
+        }
+      ],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "configuracion_id",
+          "COLUMN_NAME": "configuracion_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_destinatario",
+          "COLUMN_NAME": "destinatario",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_devolucion",
+          "COLUMN_NAME": "devolucion_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_estado_envio",
+          "COLUMN_NAME": "estado_envio",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_fecha_programada",
+          "COLUMN_NAME": "fecha_programada",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "devoluciones_historial",
+      "existe": true,
+      "registros": 0,
+      "tamaño_mb": 0.05,
+      "foreign_keys_entrantes": [],
+      "foreign_keys_salientes": [
+        {
+          "columna_origen": "devolucion_id",
+          "tabla_destino": "devoluciones_dotacion",
+          "columna_destino": "id"
+        }
+      ],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "idx_devolucion_id",
+          "COLUMN_NAME": "devolucion_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_fecha_cambio",
+          "COLUMN_NAME": "fecha_cambio",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "asignaciones_equipos_dotaciones",
+      "existe": true,
+      "registros": 0,
+      "tamaño_mb": 0.08,
+      "foreign_keys_entrantes": [
+        {
+          "tabla_origen": "movimientos_equipos_dotaciones",
+          "columna_origen": "asignacion_id",
+          "columna_destino": "id"
+        }
+      ],
+      "foreign_keys_salientes": [
+        {
+          "columna_origen": "equipo_id",
+          "tabla_destino": "equipos_dotaciones",
+          "columna_destino": "id"
+        },
+        {
+          "columna_origen": "estado_id",
+          "tabla_destino": "estados_dotaciones",
+          "columna_destino": "id"
+        }
+      ],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "idx_equipo",
+          "COLUMN_NAME": "equipo_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_estado",
+          "COLUMN_NAME": "estado_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_fecha_asignacion",
+          "COLUMN_NAME": "fecha_asignacion",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_tecnico",
+          "COLUMN_NAME": "tecnico_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "cambios_dotaciones",
+      "existe": true,
+      "registros": 5,
+      "tamaño_mb": 0.11,
+      "foreign_keys_entrantes": [
+        {
+          "tabla_origen": "cambios_dotaciones_detalle",
+          "columna_origen": "id_cambio_dotacion",
+          "columna_destino": "id_cambio_dotacion"
+        },
+        {
+          "tabla_origen": "historial_cambios_dotaciones",
+          "columna_origen": "id_cambio_dotacion",
+          "columna_destino": "id_cambio_dotacion"
+        }
+      ],
+      "foreign_keys_salientes": [],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "IX_cambios_dotaciones_cliente",
+          "COLUMN_NAME": "cliente",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "IX_cambios_dotaciones_cliente_estado_fecha",
+          "COLUMN_NAME": "cliente",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "IX_cambios_dotaciones_cliente_estado_fecha",
+          "COLUMN_NAME": "estado_cambio",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "IX_cambios_dotaciones_cliente_estado_fecha",
+          "COLUMN_NAME": "fecha_cambio",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "IX_cambios_dotaciones_estado",
+          "COLUMN_NAME": "estado_cambio",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "IX_cambios_dotaciones_fecha",
+          "COLUMN_NAME": "fecha_cambio",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "IX_cambios_dotaciones_tecnico",
+          "COLUMN_NAME": "id_tecnico",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "IX_cambios_dotaciones_tipo",
+          "COLUMN_NAME": "tipo_cambio",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id_cambio_dotacion",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "devoluciones_dotacion",
+      "existe": true,
+      "registros": 1,
+      "tamaño_mb": 0.08,
+      "foreign_keys_entrantes": [
+        {
+          "tabla_origen": "devolucion_detalles",
+          "columna_origen": "devolucion_id",
+          "columna_destino": "id"
+        },
+        {
+          "tabla_origen": "devoluciones_elementos",
+          "columna_origen": "devolucion_id",
+          "columna_destino": "id"
+        },
+        {
+          "tabla_origen": "devoluciones_historial",
+          "columna_origen": "devolucion_id",
+          "columna_destino": "id"
+        },
+        {
+          "tabla_origen": "historial_notificaciones",
+          "columna_origen": "devolucion_id",
+          "columna_destino": "id"
+        }
+      ],
+      "foreign_keys_salientes": [],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "idx_cliente_id",
+          "COLUMN_NAME": "cliente_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_estado",
+          "COLUMN_NAME": "estado",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_fecha_devolucion",
+          "COLUMN_NAME": "fecha_devolucion",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_tecnico_id",
+          "COLUMN_NAME": "tecnico_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "equipos_dotaciones",
+      "existe": true,
+      "registros": 5,
+      "tamaño_mb": 0.08,
+      "foreign_keys_entrantes": [
+        {
+          "tabla_origen": "asignaciones_equipos_dotaciones",
+          "columna_origen": "equipo_id",
+          "columna_destino": "id"
+        },
+        {
+          "tabla_origen": "movimientos_equipos_dotaciones",
+          "columna_origen": "equipo_id",
+          "columna_destino": "id"
+        }
+      ],
+      "foreign_keys_salientes": [
+        {
+          "columna_origen": "categoria_id",
+          "tabla_destino": "categorias_dotaciones",
+          "columna_destino": "id"
+        }
+      ],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "codigo",
+          "COLUMN_NAME": "codigo",
+          "NON_UNIQUE": 0
+        },
+        {
+          "INDEX_NAME": "idx_categoria",
+          "COLUMN_NAME": "categoria_id",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_codigo",
+          "COLUMN_NAME": "codigo",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_stock",
+          "COLUMN_NAME": "stock_actual",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "ingresos_dotaciones",
+      "existe": true,
+      "registros": 12,
+      "tamaño_mb": 0.06,
+      "foreign_keys_entrantes": [],
+      "foreign_keys_salientes": [],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "idx_fecha_ingreso",
+          "COLUMN_NAME": "fecha_ingreso",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_tipo_elemento",
+          "COLUMN_NAME": "tipo_elemento",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_usuario_registro",
+          "COLUMN_NAME": "usuario_registro",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id_ingreso",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "historial_vencimientos",
+      "existe": true,
+      "registros": 138,
+      "tamaño_mb": 0.09,
+      "foreign_keys_entrantes": [
+        {
+          "tabla_origen": "alertas_vencimiento",
+          "columna_origen": "id_historial",
+          "columna_destino": "id_historial"
+        }
+      ],
+      "foreign_keys_salientes": [
+        {
+          "columna_origen": "id_vehiculo",
+          "tabla_destino": "parque_automotor",
+          "columna_destino": "id_parque_automotor"
+        },
+        {
+          "columna_origen": "usuario_actualizacion",
+          "tabla_destino": "recurso_operativo",
+          "columna_destino": "id_codigo_consumidor"
+        }
+      ],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "idx_historial_estado",
+          "COLUMN_NAME": "estado_documento",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_historial_fecha_vencimiento",
+          "COLUMN_NAME": "fecha_vencimiento_nueva",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_historial_tipo_documento",
+          "COLUMN_NAME": "tipo_documento",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "idx_historial_vehiculo",
+          "COLUMN_NAME": "id_vehiculo",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id_historial",
+          "NON_UNIQUE": 0
+        },
+        {
+          "INDEX_NAME": "usuario_actualizacion",
+          "COLUMN_NAME": "usuario_actualizacion",
+          "NON_UNIQUE": 1
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "devolucion_dotaciones",
+      "existe": true,
+      "registros": 0,
+      "tamaño_mb": 0.03,
+      "foreign_keys_entrantes": [],
+      "foreign_keys_salientes": [],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "idcosu_idx",
+          "COLUMN_NAME": "id_codigo_consumidor",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id_dotacion",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "cambios_dotacion",
+      "existe": true,
+      "registros": 2,
+      "tamaño_mb": 0.03,
+      "foreign_keys_entrantes": [],
+      "foreign_keys_salientes": [
+        {
+          "columna_origen": "id_codigo_consumidor",
+          "tabla_destino": "recurso_operativo",
+          "columna_destino": "id_codigo_consumidor"
+        }
+      ],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "id_codigo_consumidor",
+          "COLUMN_NAME": "id_codigo_consumidor",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id_cambio",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    },
+    {
+      "nombre": "dotaciones",
+      "existe": true,
+      "registros": 4,
+      "tamaño_mb": 0.03,
+      "foreign_keys_entrantes": [],
+      "foreign_keys_salientes": [
+        {
+          "columna_origen": "id_codigo_consumidor",
+          "tabla_destino": "recurso_operativo",
+          "columna_destino": "id_codigo_consumidor"
+        }
+      ],
+      "triggers": [],
+      "indices": [
+        {
+          "INDEX_NAME": "idcosu_idx",
+          "COLUMN_NAME": "id_codigo_consumidor",
+          "NON_UNIQUE": 1
+        },
+        {
+          "INDEX_NAME": "PRIMARY",
+          "COLUMN_NAME": "id_dotacion",
+          "NON_UNIQUE": 0
+        }
+      ],
+      "dependencias": []
+    }
+  ],
+  "impacto_estimado": {
+    "tablas_procesadas": 17,
+    "registros_afectados": 200,
+    "tiempo_estimado_segundos": 1.7000000000000004,
+    "problemas_potenciales": [],
+    "warnings": [
+      "Tabla asignaciones_equipos_dotaciones tiene 1 foreign keys entrantes",
+      "Tabla cambios_dotaciones tiene 2 foreign keys entrantes",
+      "Tabla devoluciones_dotacion tiene 4 foreign keys entrantes",
+      "Tabla equipos_dotaciones tiene 2 foreign keys entrantes",
+      "Tabla historial_vencimientos tiene 1 foreign keys entrantes"
+    ]
+  },
+  "problemas_detectados": [],
+  "recomendaciones": [
+    "Realizar backup completo antes del truncate real",
+    "Ejecutar en horario de menor actividad del sistema",
+    "Notificar a usuarios sobre mantenimiento programado",
+    "Tener plan de rollback preparado",
+    "Verificar espacio en disco para logs y backups"
+  ],
+  "tiempo_estimado": 0,
+  "riesgos_identificados": []
+}

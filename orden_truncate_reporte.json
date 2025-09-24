@@ -1,0 +1,61 @@
+{
+  "timestamp": "2025-09-24T10:47:04",
+  "total_tablas": 17,
+  "tablas_con_relaciones": 11,
+  "tablas_sin_relaciones": 6,
+  "orden_truncate": [
+    "equipos_dotaciones",
+    "devoluciones_dotacion",
+    "cambios_dotaciones",
+    "asignaciones_equipos_dotaciones",
+    "devoluciones_historial",
+    "historial_notificaciones",
+    "devoluciones_elementos",
+    "devolucion_detalles",
+    "historial_cambios_dotaciones",
+    "cambios_dotaciones_detalle",
+    "movimientos_equipos_dotaciones",
+    "auditoria_estados_devolucion",
+    "cambios_dotacion",
+    "devolucion_dotaciones",
+    "dotaciones",
+    "historial_vencimientos",
+    "ingresos_dotaciones"
+  ],
+  "tablas_independientes": [
+    "auditoria_estados_devolucion",
+    "cambios_dotacion",
+    "devolucion_dotaciones",
+    "dotaciones",
+    "historial_vencimientos",
+    "ingresos_dotaciones"
+  ],
+  "relaciones_analizadas": 13,
+  "dependencias": {
+    "asignaciones_equipos_dotaciones": [
+      "equipos_dotaciones"
+    ],
+    "cambios_dotaciones_detalle": [
+      "cambios_dotaciones"
+    ],
+    "devolucion_detalles": [
+      "devoluciones_dotacion"
+    ],
+    "devoluciones_elementos": [
+      "devoluciones_dotacion"
+    ],
+    "devoluciones_historial": [
+      "devoluciones_dotacion"
+    ],
+    "historial_cambios_dotaciones": [
+      "cambios_dotaciones"
+    ],
+    "historial_notificaciones": [
+      "devoluciones_dotacion"
+    ],
+    "movimientos_equipos_dotaciones": [
+      "asignaciones_equipos_dotaciones",
+      "equipos_dotaciones"
+    ]
+  }
+}

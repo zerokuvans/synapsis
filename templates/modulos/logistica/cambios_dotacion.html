@@ -55,10 +55,94 @@
     }
     
     .elementos-modificados {
-        max-width: 300px;
+        max-width: 350px;
         word-wrap: break-word;
         font-size: 0.85rem;
-        line-height: 1.3;
+        line-height: 1.4;
+    }
+    
+    .elemento-item {
+        padding: 8px 12px;
+        margin-bottom: 6px;
+        background-color: #f8f9fa;
+        border-radius: 6px;
+        border-left: 4px solid #3583E8;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
+    }
+    
+    .elemento-item:hover {
+        background-color: #e9ecef;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    
+    .elemento-item .badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        font-weight: 600;
+        border-radius: 4px;
+    }
+    
+    .badge.bg-success {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+        color: white;
+        box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+    }
+    
+    .badge.bg-secondary {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%) !important;
+        color: white;
+        box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+    }
+    
+    .precio-info {
+        font-size: 0.8rem;
+        color: #28a745;
+        font-weight: 500;
+        margin-top: 2px;
+    }
+    
+    .tecnico-info {
+        min-width: 180px;
+    }
+    
+    .tecnico-info strong {
+        color: #2c3e50;
+        font-size: 0.9rem;
+    }
+    
+    .fecha-cambio {
+        min-width: 140px;
+        text-align: center;
+        background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+        border-radius: 8px;
+        padding: 8px;
+        border: 1px solid #e1f5fe;
+    }
+    
+    .fecha-cambio strong {
+        color: #1976d2;
+        font-size: 0.95rem;
+        font-weight: 600;
+    }
+    
+    .fecha-cambio i {
+        color: #1976d2;
+    }
+    
+    .fecha-registro {
+        min-width: 160px;
+        text-align: center;
+        font-size: 0.85rem;
+        background: linear-gradient(135deg, #f1f8e9 0%, #e8f5e8 100%);
+        border-radius: 6px;
+        padding: 6px;
+        border: 1px solid #c8e6c9;
+    }
+    
+    .fecha-registro i {
+        color: #388e3c;
     }
     
     .observaciones-cell {
@@ -68,12 +152,12 @@
     }
     
     #tablaHistorialCambios tbody tr:hover {
-        background-color: rgba(102, 126, 234, 0.1);
+        background-color: rgba(53, 131, 232, 0.1);
         transition: background-color 0.2s ease;
     }
     
     .table-dark {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #3583E8 0%, #2c5aa0 100%);
     }
     
     .spinner-border {
@@ -82,8 +166,304 @@
     }
     
     .btn-outline-primary:hover {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-color: #667eea;
+        background: linear-gradient(135deg, #3583E8 0%, #2c5aa0 100%);
+        border-color: #3583E8;
+    }
+    
+    /* Técnico Selector Styles */
+    .tecnico-selector {
+        position: relative;
+    }
+    
+    .tecnico-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        z-index: 1050;
+        max-height: 400px;
+        overflow: hidden;
+    }
+    
+    .dropdown-header {
+        padding: 0.75rem;
+        border-bottom: 1px solid #dee2e6;
+        background-color: #f8f9fa;
+    }
+    
+    .dropdown-body {
+        display: flex;
+        flex-direction: column;
+        height: 300px;
+    }
+    
+    .tecnicos-list {
+        flex: 1;
+        overflow-y: auto;
+        max-height: 250px;
+    }
+    
+    .tecnico-item {
+        padding: 0.75rem;
+        border-bottom: 1px solid #f1f3f4;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .tecnico-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .tecnico-item.selected {
+        background-color: #e3f2fd;
+        border-left: 3px solid #2196f3;
+    }
+    
+    .tecnico-nombre {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.25rem;
+    }
+    
+    .tecnico-cedula {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+    
+    .tecnico-ciudad {
+        font-size: 0.8rem;
+        color: #28a745;
+        font-weight: 500;
+    }
+    
+    .dropdown-footer {
+        padding: 0.5rem 0.75rem;
+        border-top: 1px solid #dee2e6;
+        background-color: #f8f9fa;
+    }
+    
+    .pagination-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .pagination-info {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 2rem;
+        color: #6c757d;
+    }
+    
+    .no-results i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        opacity: 0.5;
+    }
+    
+    /* Indicadores de estado mejorados */
+    .estado-valoracion {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .indicador-valorado {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        box-shadow: 0 0 6px rgba(40, 167, 69, 0.4);
+    }
+    
+    .indicador-no-valorado {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        box-shadow: 0 0 6px rgba(108, 117, 125, 0.4);
+    }
+    
+    /* Mejoras en la tabla */
+    .table-responsive {
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    #tablaHistorialCambios thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        border: none;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 1200px) {
+        .elementos-modificados {
+            max-width: 300px;
+        }
+        
+        .fecha-cambio, .fecha-registro {
+            min-width: 120px;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .elementos-modificados {
+            max-width: 250px;
+        }
+        
+        .tecnico-info {
+            min-width: 140px;
+        }
+        
+        .fecha-cambio, .fecha-registro {
+            min-width: 100px;
+            padding: 4px;
+        }
+        
+        #tablaHistorialCambios {
+            font-size: 0.8rem;
+        }
+        
+        .elemento-item {
+            padding: 6px 8px;
+            margin-bottom: 4px;
+        }
+        
+        .badge {
+            font-size: 0.7rem !important;
+            padding: 2px 6px !important;
+        }
+        
+        .tecnico-dropdown {
+            max-height: 350px;
+        }
+        
+        .dropdown-body {
+            height: 250px;
+        }
+        
+        .tecnicos-list {
+            max-height: 200px;
+        }
+        
+        .dropdown-header .row {
+            margin: 0;
+        }
+        
+        .dropdown-header .col-6 {
+            padding: 0 0.25rem;
+        }
+        
+        .form-section {
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .card-body {
+            padding: 1rem;
+        }
+        
+        .elementos-modificados {
+            max-width: 200px;
+        }
+        
+        .tecnico-info {
+            min-width: 120px;
+        }
+        
+        .fecha-cambio, .fecha-registro {
+            min-width: 90px;
+            font-size: 0.75rem;
+        }
+        
+        .observaciones-cell {
+            max-width: 150px;
+        }
+        
+        #tablaHistorialCambios {
+            font-size: 0.75rem;
+        }
+        
+        .form-section {
+            padding: 10px;
+        }
+        
+        .section-title {
+            font-size: 1rem;
+        }
+    }
+    
+    /* Estilos para elementos en líneas separadas */
+    .item-row {
+        background: #ffffff;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+        border: 1px solid #e9ecef;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    
+    .item-row:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border-color: #3583E8;
+        transform: translateY(-2px);
+    }
+    
+    .item-row::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: linear-gradient(135deg, #3583E8 0%, #667eea 100%);
+        border-radius: 8px 0 0 8px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .item-row:hover::before {
+        opacity: 1;
+    }
+    
+    .item-row .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+        font-size: 0.95rem;
+    }
+    
+    .item-row .form-control,
+    .item-row .form-select {
+        border-radius: 6px;
+        border: 1px solid #ced4da;
+        transition: all 0.2s ease;
+    }
+    
+    .item-row .form-control:focus,
+    .item-row .form-select:focus {
+        border-color: #3583E8;
+        box-shadow: 0 0 0 0.2rem rgba(53, 131, 232, 0.25);
     }
 </style>
 {% endblock %}
@@ -123,14 +503,54 @@
                                     <label for="id_codigo_consumidor" class="form-label">
                                         Técnico <span class="required">*</span>
                                     </label>
-                                    <select class="form-select" id="id_codigo_consumidor" name="id_codigo_consumidor" required>
-                                        <option value="">Seleccione un técnico...</option>
-                                        {% for tecnico in tecnicos %}
-                                            <option value="{{ tecnico.id_codigo_consumidor }}">
-                                                {{ tecnico.nombre }} - {{ tecnico.recurso_operativo_cedula }}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
+                                    <div class="tecnico-selector">
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="buscarTecnico" placeholder="Buscar por nombre o cédula..." autocomplete="off">
+                                            <button type="button" class="btn btn-outline-secondary" id="btnMostrarTecnicos">
+                                                <i class="fas fa-chevron-down"></i>
+                                            </button>
+                                        </div>
+                                        <input type="hidden" id="id_codigo_consumidor" name="id_codigo_consumidor" required>
+                                        <div class="tecnico-dropdown" id="tecnicoDropdown" style="display: none;">
+                                            <div class="dropdown-header">
+                                                <div class="row">
+                                                    <div class="col-6">
+                                                        <select class="form-select form-select-sm" id="ordenarPor">
+                                                            <option value="nombre">Ordenar por Nombre</option>
+                                                            <option value="cedula">Ordenar por Cédula</option>
+                                                            <option value="ciudad">Ordenar por Ciudad</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <select class="form-select form-select-sm" id="filtrarCiudad">
+                                                            <option value="">Todas las ciudades</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="dropdown-body">
+                                                <div class="tecnicos-list" id="tecnicosList">
+                                                    <div class="text-center p-3">
+                                                        <div class="spinner-border spinner-border-sm" role="status">
+                                                            <span class="visually-hidden">Cargando...</span>
+                                                        </div>
+                                                        <p class="mt-2 mb-0 small">Cargando técnicos...</p>
+                                                    </div>
+                                                </div>
+                                                <div class="dropdown-footer">
+                                                    <div class="pagination-controls" id="paginationControls">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnAnterior" disabled>
+                                                            <i class="fas fa-chevron-left"></i> Anterior
+                                                        </button>
+                                                        <span class="pagination-info" id="paginationInfo">Página 1 de 1</span>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnSiguiente" disabled>
+                                                            Siguiente <i class="fas fa-chevron-right"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="fecha_cambio" class="form-label">
@@ -147,27 +567,43 @@
                                 <i class="fas fa-tshirt me-2"></i>
                                 Dotación de Vestimenta
                             </h5>
-                            <div class="row">
+                            
+                            <!-- Pantalón -->
+                            <div class="row mb-3 item-row">
                                 <div class="col-md-3">
-                                    <label for="pantalon" class="form-label">Pantalón (Cantidad)</label>
-                                    <input type="number" class="form-control cantidad-input" id="pantalon" name="pantalon" min="0" max="10">
+                                    <label for="pantalon" class="form-label">Pantalón</label>
+                                    <input type="number" class="form-control cantidad-input" id="pantalon" name="pantalon" min="0" max="10" placeholder="Cantidad">
                                 </div>
                                 <div class="col-md-3">
                                     <label for="pantalon_talla" class="form-label">Talla Pantalón</label>
                                     <select class="form-select talla-input" id="pantalon_talla" name="pantalon_talla">
                                         <option value="">Seleccionar...</option>
-                                        <option value="XS">XS</option>
-                                        <option value="S">S</option>
-                                        <option value="M">M</option>
-                                        <option value="L">L</option>
-                                        <option value="XL">XL</option>
-                                        <option value="XXL">XXL</option>
-                                        <option value="XXXL">XXXL</option>
+                                        <option value="28">28</option>
+                                        <option value="30">30</option>
+                                        <option value="32">32</option>
+                                        <option value="34">34</option>
+                                        <option value="36">36</option>
+                                        <option value="38">38</option>
+                                        <option value="40">40</option>
+                                        <option value="42">42</option>
                                     </select>
                                 </div>
                                 <div class="col-md-3">
-                                    <label for="camisetagris" class="form-label">Camiseta Gris (Cantidad)</label>
-                                    <input type="number" class="form-control cantidad-input" id="camisetagris" name="camisetagris" min="0" max="10">
+                                    <label for="estado_pantalon" class="form-label">Estado Pantalón</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_pantalon" name="pantalon_valorado">
+                                        <label class="form-check-label text-muted" for="estado_pantalon" id="label_estado_pantalon">
+                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Camiseta Gris -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="camisetagris" class="form-label">Camiseta Gris</label>
+                                    <input type="number" class="form-control cantidad-input" id="camisetagris" name="camisetagris" min="0" max="10" placeholder="Cantidad">
                                 </div>
                                 <div class="col-md-3">
                                     <label for="camiseta_gris_talla" class="form-label">Talla Camiseta Gris</label>
@@ -182,11 +618,22 @@
                                         <option value="XXXL">XXXL</option>
                                     </select>
                                 </div>
-                            </div>
-                            <div class="row mt-3">
                                 <div class="col-md-3">
-                                    <label for="guerrera" class="form-label">Guerrera (Cantidad)</label>
-                                    <input type="number" class="form-control cantidad-input" id="guerrera" name="guerrera" min="0" max="10">
+                                    <label for="estado_camiseta_gris" class="form-label">Estado Camiseta Gris</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_camiseta_gris" name="camisetagris_valorado">
+                                        <label class="form-check-label text-muted" for="estado_camiseta_gris" id="label_estado_camiseta_gris">
+                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Guerrera -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="guerrera" class="form-label">Guerrera</label>
+                                    <input type="number" class="form-control cantidad-input" id="guerrera" name="guerrera" min="0" max="10" placeholder="Cantidad">
                                 </div>
                                 <div class="col-md-3">
                                     <label for="guerrera_talla" class="form-label">Talla Guerrera</label>
@@ -202,8 +649,21 @@
                                     </select>
                                 </div>
                                 <div class="col-md-3">
-                                    <label for="camisetapolo" class="form-label">Camiseta Polo (Cantidad)</label>
-                                    <input type="number" class="form-control cantidad-input" id="camisetapolo" name="camisetapolo" min="0" max="10">
+                                    <label for="estado_guerrera" class="form-label">Estado Guerrera</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_guerrera" name="guerrera_valorado">
+                                        <label class="form-check-label text-muted" for="estado_guerrera" id="label_estado_guerrera">
+                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Camiseta Polo -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="camisetapolo" class="form-label">Camiseta Polo</label>
+                                    <input type="number" class="form-control cantidad-input" id="camisetapolo" name="camisetapolo" min="0" max="10" placeholder="Cantidad">
                                 </div>
                                 <div class="col-md-3">
                                     <label for="camiseta_polo_talla" class="form-label">Talla Camiseta Polo</label>
@@ -218,6 +678,15 @@
                                         <option value="XXXL">XXXL</option>
                                     </select>
                                 </div>
+                                <div class="col-md-3">
+                                    <label for="estado_camiseta_polo" class="form-label">Estado Camiseta Polo</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_camiseta_polo" name="camisetapolo_valorado">
+                                        <label class="form-check-label text-muted" for="estado_camiseta_polo" id="label_estado_camiseta_polo">
+                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -225,35 +694,100 @@
                         <div class="form-section">
                             <h5 class="section-title">
                                 <i class="fas fa-hard-hat me-2"></i>
-                                Elementos de Protección Personal
+                                Elementos de Protección Personal (EPP)
                             </h5>
-                            <div class="row">
-                                <div class="col-md-2">
+                            
+                            <!-- Guantes Nitrilo -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
                                     <label for="guantes_nitrilo" class="form-label">Guantes Nitrilo</label>
-                                    <input type="number" class="form-control cantidad-input" id="guantes_nitrilo" name="guantes_nitrilo" min="0" max="20">
+                                    <input type="number" class="form-control cantidad-input" id="guantes_nitrilo" name="guantes_nitrilo" min="0" max="20" placeholder="Cantidad">
                                 </div>
-                                <div class="col-md-2">
-                                    <label for="guantes_carnaza" class="form-label">Guantes Carnaza</label>
-                                    <input type="number" class="form-control cantidad-input" id="guantes_carnaza" name="guantes_carnaza" min="0" max="20">
-                                </div>
-                                <div class="col-md-2">
-                                    <label for="gafas" class="form-label">Gafas</label>
-                                    <input type="number" class="form-control cantidad-input" id="gafas" name="gafas" min="0" max="5">
-                                </div>
-                                <div class="col-md-2">
-                                    <label for="gorra" class="form-label">Gorra</label>
-                                    <input type="number" class="form-control cantidad-input" id="gorra" name="gorra" min="0" max="5">
-                                </div>
-                                <div class="col-md-2">
-                                    <label for="casco" class="form-label">Casco</label>
-                                    <input type="number" class="form-control cantidad-input" id="casco" name="casco" min="0" max="3">
-                                </div>
-                                <div class="col-md-2">
-                                    <label for="botas" class="form-label">Botas</label>
-                                    <input type="number" class="form-control cantidad-input" id="botas" name="botas" min="0" max="3">
+                                <div class="col-md-3">
+                                    <label for="estado_guantes_nitrilo" class="form-label">Estado Guantes Nitrilo</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_guantes_nitrilo" name="guantesnitrilo_valorado">
+                                        <label class="form-check-label text-muted" for="estado_guantes_nitrilo" id="label_estado_guantes_nitrilo">
+                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="row mt-3">
+                            
+                            <!-- Guantes Carnaza -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="guantes_carnaza" class="form-label">Guantes Carnaza</label>
+                                    <input type="number" class="form-control cantidad-input" id="guantes_carnaza" name="guantes_carnaza" min="0" max="20" placeholder="Cantidad">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="estado_guantes_carnaza" class="form-label">Estado Guantes Carnaza</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_guantes_carnaza" name="guantescarnaza_valorado">
+                                        <label class="form-check-label text-muted" for="estado_guantes_carnaza" id="label_estado_guantes_carnaza">
+                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Gafas -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="gafas" class="form-label">Gafas</label>
+                                    <input type="number" class="form-control cantidad-input" id="gafas" name="gafas" min="0" max="5" placeholder="Cantidad">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="estado_gafas" class="form-label">Estado Gafas</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_gafas" name="gafas_valorado">
+                                        <label class="form-check-label text-muted" for="estado_gafas" id="label_estado_gafas">
+                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Gorra -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="gorra" class="form-label">Gorra</label>
+                                    <input type="number" class="form-control cantidad-input" id="gorra" name="gorra" min="0" max="5" placeholder="Cantidad">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="estado_gorra" class="form-label">Estado Gorra</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_gorra" name="gorra_valorado">
+                                        <label class="form-check-label text-muted" for="estado_gorra" id="label_estado_gorra">
+                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Casco -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="casco" class="form-label">Casco</label>
+                                    <input type="number" class="form-control cantidad-input" id="casco" name="casco" min="0" max="3" placeholder="Cantidad">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="estado_casco" class="form-label">Estado Casco</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_casco" name="casco_valorado">
+                                        <label class="form-check-label text-muted" for="estado_casco" id="label_estado_casco">
+                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Botas -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="botas" class="form-label">Botas</label>
+                                    <input type="number" class="form-control cantidad-input" id="botas" name="botas" min="0" max="3" placeholder="Cantidad">
+                                </div>
                                 <div class="col-md-3">
                                     <label for="botas_talla" class="form-label">Talla Botas</label>
                                     <select class="form-select talla-input" id="botas_talla" name="botas_talla">
@@ -262,6 +796,15 @@
                                             <option value="{{ i }}">{{ i }}</option>
                                         {% endfor %}
                                     </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="estado_botas" class="form-label">Estado Botas</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_botas" name="botas_valorado">
+                                        <label class="form-check-label text-muted" for="estado_botas" id="label_estado_botas">
+                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -325,13 +868,14 @@
                                     <th>ID</th>
                                     <th>Técnico</th>
                                     <th>Elementos Modificados</th>
-                                    <th>Fecha y Hora</th>
+                                    <th>Fecha de Cambio</th>
+                                    <th>Fecha de Registro</th>
                                     <th>Observaciones</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colspan="5" class="text-center">
+                                    <td colspan="6" class="text-center">
                                         <div class="spinner-border text-primary" role="status">
                                             <span class="visually-hidden">Cargando...</span>
                                         </div>
@@ -348,11 +892,21 @@
 </div>
 
 <script>
-// Establecer fecha actual por defecto
+// Variables globales para el selector de técnicos
+let tecnicosData = [];
+let tecnicosFiltrados = [];
+let paginaActual = 1;
+const elementosPorPagina = 10;
+let tecnicoSeleccionado = null;
+
 document.addEventListener('DOMContentLoaded', function() {
+    // Establecer fecha actual por defecto
     const fechaInput = document.getElementById('fecha_cambio');
     const today = new Date().toISOString().split('T')[0];
     fechaInput.value = today;
+    
+    // Inicializar selector de técnicos
+    inicializarSelectorTecnicos();
     
     // Cargar historial de cambios al cargar la página
     cargarHistorialCambios();
@@ -393,6 +947,216 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Función para inicializar el selector de técnicos
+function inicializarSelectorTecnicos() {
+    cargarTecnicos();
+    
+    const buscarInput = document.getElementById('buscarTecnico');
+    const btnMostrar = document.getElementById('btnMostrarTecnicos');
+    const dropdown = document.getElementById('tecnicoDropdown');
+    const ordenarSelect = document.getElementById('ordenarPor');
+    const filtrarCiudad = document.getElementById('filtrarCiudad');
+    const btnAnterior = document.getElementById('btnAnterior');
+    const btnSiguiente = document.getElementById('btnSiguiente');
+    
+    // Event listeners
+    buscarInput.addEventListener('input', filtrarTecnicos);
+    btnMostrar.addEventListener('click', toggleDropdown);
+    ordenarSelect.addEventListener('change', aplicarOrdenamiento);
+    filtrarCiudad.addEventListener('change', filtrarPorCiudad);
+    btnAnterior.addEventListener('click', () => cambiarPagina(-1));
+    btnSiguiente.addEventListener('click', () => cambiarPagina(1));
+    
+    // Cerrar dropdown al hacer clic fuera
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.tecnico-selector')) {
+            dropdown.style.display = 'none';
+        }
+    });
+}
+
+// Función para cargar técnicos desde el servidor
+function cargarTecnicos() {
+    fetch('/api/tecnicos', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            tecnicosData = data.data || [];
+            tecnicosFiltrados = [...tecnicosData];
+            llenarFiltrosCiudades();
+            mostrarTecnicos();
+        } else {
+            console.error('Error al cargar técnicos:', data.error);
+            mostrarErrorTecnicos('Error al cargar la lista de técnicos');
+        }
+    })
+    .catch(error => {
+        console.error('Error en la petición:', error);
+        mostrarErrorTecnicos('Error de conexión al cargar técnicos');
+    });
+}
+
+// Función para llenar el filtro de ciudades
+function llenarFiltrosCiudades() {
+    const filtrarCiudad = document.getElementById('filtrarCiudad');
+    const ciudades = [...new Set(tecnicosData.map(t => t.ciudad).filter(c => c))];
+    
+    filtrarCiudad.innerHTML = '<option value="">Todas las ciudades</option>';
+    ciudades.sort().forEach(ciudad => {
+        const option = document.createElement('option');
+        option.value = ciudad;
+        option.textContent = ciudad;
+        filtrarCiudad.appendChild(option);
+    });
+}
+
+// Función para filtrar técnicos por búsqueda
+function filtrarTecnicos() {
+    const busqueda = document.getElementById('buscarTecnico').value.toLowerCase();
+    const ciudadFiltro = document.getElementById('filtrarCiudad').value;
+    
+    tecnicosFiltrados = tecnicosData.filter(tecnico => {
+        const coincideBusqueda = !busqueda || 
+            tecnico.nombre.toLowerCase().includes(busqueda) ||
+            (tecnico.recurso_operativo_cedula && tecnico.recurso_operativo_cedula.toString().includes(busqueda));
+        
+        const coincideCiudad = !ciudadFiltro || tecnico.ciudad === ciudadFiltro;
+        
+        return coincideBusqueda && coincideCiudad;
+    });
+    
+    paginaActual = 1;
+    aplicarOrdenamiento();
+}
+
+// Función para filtrar por ciudad
+function filtrarPorCiudad() {
+    filtrarTecnicos();
+}
+
+// Función para aplicar ordenamiento
+function aplicarOrdenamiento() {
+    const criterio = document.getElementById('ordenarPor').value;
+    
+    tecnicosFiltrados.sort((a, b) => {
+        switch (criterio) {
+            case 'nombre':
+                return a.nombre.localeCompare(b.nombre);
+            case 'cedula':
+                return (a.recurso_operativo_cedula || '').toString().localeCompare((b.recurso_operativo_cedula || '').toString());
+            case 'ciudad':
+                return (a.ciudad || '').localeCompare(b.ciudad || '');
+            default:
+                return 0;
+        }
+    });
+    
+    mostrarTecnicos();
+}
+
+// Función para mostrar técnicos en la lista
+function mostrarTecnicos() {
+    const lista = document.getElementById('tecnicosList');
+    const inicio = (paginaActual - 1) * elementosPorPagina;
+    const fin = inicio + elementosPorPagina;
+    const tecnicosPagina = tecnicosFiltrados.slice(inicio, fin);
+    
+    if (tecnicosFiltrados.length === 0) {
+        lista.innerHTML = `
+            <div class="no-results">
+                <i class="fas fa-search"></i>
+                <p>No se encontraron técnicos</p>
+                <small>Intenta con otros criterios de búsqueda</small>
+            </div>
+        `;
+    } else {
+        lista.innerHTML = tecnicosPagina.map(tecnico => `
+            <div class="tecnico-item" data-id="${tecnico.id_codigo_consumidor}" onclick="seleccionarTecnico(${tecnico.id_codigo_consumidor}, '${tecnico.nombre}', '${tecnico.recurso_operativo_cedula || ''}')">
+                <div class="tecnico-nombre">${tecnico.nombre}</div>
+                <div class="tecnico-cedula">Cédula: ${tecnico.recurso_operativo_cedula || 'No disponible'}</div>
+                <div class="tecnico-ciudad">${tecnico.ciudad || 'Ciudad no especificada'}</div>
+            </div>
+        `).join('');
+    }
+    
+    actualizarPaginacion();
+}
+
+// Función para actualizar controles de paginación
+function actualizarPaginacion() {
+    const totalPaginas = Math.ceil(tecnicosFiltrados.length / elementosPorPagina);
+    const btnAnterior = document.getElementById('btnAnterior');
+    const btnSiguiente = document.getElementById('btnSiguiente');
+    const paginationInfo = document.getElementById('paginationInfo');
+    
+    btnAnterior.disabled = paginaActual <= 1;
+    btnSiguiente.disabled = paginaActual >= totalPaginas;
+    
+    paginationInfo.textContent = `Página ${paginaActual} de ${totalPaginas || 1} (${tecnicosFiltrados.length} técnicos)`;
+}
+
+// Función para cambiar página
+function cambiarPagina(direccion) {
+    const totalPaginas = Math.ceil(tecnicosFiltrados.length / elementosPorPagina);
+    const nuevaPagina = paginaActual + direccion;
+    
+    if (nuevaPagina >= 1 && nuevaPagina <= totalPaginas) {
+        paginaActual = nuevaPagina;
+        mostrarTecnicos();
+    }
+}
+
+// Función para seleccionar un técnico
+function seleccionarTecnico(id, nombre, cedula) {
+    tecnicoSeleccionado = { id, nombre, cedula };
+    
+    document.getElementById('buscarTecnico').value = `${nombre} - ${cedula}`;
+    document.getElementById('id_codigo_consumidor').value = id;
+    document.getElementById('tecnicoDropdown').style.display = 'none';
+    
+    // Marcar como seleccionado visualmente
+    document.querySelectorAll('.tecnico-item').forEach(item => {
+        item.classList.remove('selected');
+    });
+    document.querySelector(`[data-id="${id}"]`).classList.add('selected');
+}
+
+// Función para mostrar/ocultar dropdown
+function toggleDropdown() {
+    const dropdown = document.getElementById('tecnicoDropdown');
+    const isVisible = dropdown.style.display === 'block';
+    
+    if (isVisible) {
+        dropdown.style.display = 'none';
+    } else {
+        dropdown.style.display = 'block';
+        if (tecnicosData.length === 0) {
+            cargarTecnicos();
+        }
+    }
+}
+
+// Función para mostrar error en la carga de técnicos
+function mostrarErrorTecnicos(mensaje) {
+    const lista = document.getElementById('tecnicosList');
+    lista.innerHTML = `
+        <div class="text-center p-3 text-danger">
+            <i class="fas fa-exclamation-triangle mb-2"></i>
+            <p>${mensaje}</p>
+            <button class="btn btn-sm btn-outline-primary" onclick="cargarTecnicos()">
+                <i class="fas fa-refresh me-1"></i>
+                Reintentar
+            </button>
+        </div>
+    `;
+}
+
 // Función para cargar el historial de cambios
 function cargarHistorialCambios() {
     fetch('/api/cambios_dotacion/historial', {
@@ -429,7 +1193,7 @@ function mostrarHistorialCambios(cambios) {
     if (cambios.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" class="text-center text-muted">
+                <td colspan="6" class="text-center text-muted">
                     <i class="fas fa-info-circle me-2"></i>
                     No hay cambios de dotación registrados
                 </td>
@@ -441,25 +1205,42 @@ function mostrarHistorialCambios(cambios) {
     tbody.innerHTML = '';
     
     cambios.forEach(cambio => {
-        const fechaFormateada = formatearFechaHora(cambio.fecha_registro || cambio.fecha_cambio);
+        const fechaCambio = formatearFecha(cambio.fecha_cambio);
+        const fechaRegistro = formatearFechaHora(cambio.fecha_registro);
         const observaciones = cambio.observaciones || 'Sin observaciones';
+        
+        // Formatear elementos modificados con estado de valoración
+        const elementosHTML = formatearElementosConValoracion(cambio.elementos_modificados_detalle || cambio.elementos_modificados);
         
         const fila = document.createElement('tr');
         fila.innerHTML = `
             <td><span class="badge bg-primary">${cambio.id}</span></td>
             <td>
-                <strong>${cambio.tecnico_nombre || 'Técnico no encontrado'}</strong>
-                <br>
-                <small class="text-muted">ID: ${cambio.id_codigo_consumidor}</small>
-            </td>
-            <td>
-                <div class="elementos-modificados">
-                    ${cambio.elementos_modificados}
+                <div class="tecnico-info">
+                    <strong>${cambio.tecnico_nombre || 'Técnico no encontrado'}</strong>
+                    <br>
+                    <small class="text-muted">
+                        <i class="fas fa-id-card me-1"></i>
+                        Cédula: ${cambio.tecnico_cedula || cambio.id_codigo_consumidor}
+                    </small>
                 </div>
             </td>
             <td>
-                <i class="fas fa-calendar-alt me-1"></i>
-                ${fechaFormateada}
+                <div class="elementos-modificados">
+                    ${elementosHTML}
+                </div>
+            </td>
+            <td>
+                <div class="fecha-cambio">
+                    <i class="fas fa-calendar-alt me-1 text-primary"></i>
+                    <strong>${fechaCambio}</strong>
+                </div>
+            </td>
+            <td>
+                <div class="fecha-registro">
+                    <i class="fas fa-clock me-1 text-secondary"></i>
+                    ${fechaRegistro}
+                </div>
             </td>
             <td>
                 <div class="observaciones-cell">
@@ -477,7 +1258,7 @@ function mostrarErrorHistorial(mensaje) {
     const tbody = document.querySelector('#tablaHistorialCambios tbody');
     tbody.innerHTML = `
         <tr>
-            <td colspan="5" class="text-center text-danger">
+            <td colspan="6" class="text-center text-danger">
                 <i class="fas fa-exclamation-triangle me-2"></i>
                 ${mensaje}
                 <br>
@@ -492,23 +1273,128 @@ function mostrarErrorHistorial(mensaje) {
 
 // Función para formatear fecha y hora
 function formatearFechaHora(fechaString) {
-    if (!fechaString) return 'Fecha no disponible';
+    if (!fechaString || fechaString === null) return 'Fecha no disponible';
     
     try {
         const fecha = new Date(fechaString);
-        const opciones = {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false
-        };
-        return fecha.toLocaleDateString('es-CO', opciones);
+        
+        // Verificar si la fecha es válida
+        if (isNaN(fecha.getTime())) {
+            return 'Fecha no disponible';
+        }
+        
+        const dia = fecha.getDate().toString().padStart(2, '0');
+        const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
+        const año = fecha.getFullYear();
+        const hora = fecha.getHours().toString().padStart(2, '0');
+        const minutos = fecha.getMinutes().toString().padStart(2, '0');
+        
+        return `${dia}/${mes}/${año} ${hora}:${minutos}`;
     } catch (error) {
-        return fechaString;
+        console.error('Error al formatear fecha y hora:', error, fechaString);
+        return 'Fecha no disponible';
     }
 }
+
+// Función para formatear solo fecha
+function formatearFecha(fechaString) {
+    if (!fechaString || fechaString === null) return 'Fecha no disponible';
+    
+    try {
+        const fecha = new Date(fechaString);
+        
+        // Verificar si la fecha es válida
+        if (isNaN(fecha.getTime())) {
+            return 'Fecha no disponible';
+        }
+        
+        const dia = fecha.getDate().toString().padStart(2, '0');
+        const mes = (fecha.getMonth() + 1).toString().padStart(2, '0');
+        const año = fecha.getFullYear();
+        
+        return `${dia}/${mes}/${año}`;
+    } catch (error) {
+        console.error('Error al formatear fecha:', error, fechaString);
+        return 'Fecha no disponible';
+    }
+}
+
+// Función para formatear elementos con estado de valoración
+function formatearElementosConValoracion(elementos) {
+    if (!elementos) return '<div class="text-muted"><i class="fas fa-info-circle me-1"></i>Sin elementos registrados</div>';
+    
+    // Si es un string simple, devolverlo tal como está
+    if (typeof elementos === 'string') {
+        return `<div class="elemento-item">${elementos}</div>`;
+    }
+    
+    // Si es un array de objetos con información detallada
+    if (Array.isArray(elementos)) {
+        return elementos.map(elemento => {
+            const valoradoBadge = elemento.es_valorado ? 
+                '<span class="badge bg-success ms-2"><i class="fas fa-dollar-sign me-1"></i>VALORADO</span>' : 
+                '<span class="badge bg-secondary ms-2"><i class="fas fa-box me-1"></i>NO VALORADO</span>';
+            
+            const precioInfo = elemento.precio_unitario && elemento.es_valorado ? 
+                `<div class="precio-info mt-1">
+                    <i class="fas fa-tag me-1"></i>
+                    Precio unitario: $${elemento.precio_unitario.toLocaleString('es-CO')}
+                    ${elemento.cantidad > 1 ? ` | Total: $${(elemento.precio_unitario * elemento.cantidad).toLocaleString('es-CO')}` : ''}
+                </div>` : '';
+            
+            return `
+                <div class="elemento-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <strong class="text-primary">${elemento.descripcion || elemento.elemento}</strong>
+                            <span class="text-muted ms-2">Cantidad: <strong>${elemento.cantidad}</strong></span>
+                            ${elemento.talla ? `<span class="text-muted ms-2">Talla: <strong>${elemento.talla}</strong></span>` : ''}
+                        </div>
+                        ${valoradoBadge}
+                    </div>
+                    ${precioInfo}
+                </div>
+            `;
+        }).join('');
+    }
+    
+    return `<div class="elemento-item">${elementos}</div>`;
+}
+
+// Función para manejar el cambio de estado de los checkboxes de valoración
+function toggleEstadoValorado(elemento) {
+    const checkbox = document.getElementById(`estado_${elemento}`);
+    const label = document.getElementById(`label_estado_${elemento}`);
+    
+    if (checkbox.checked) {
+        label.innerHTML = '<i class="fas fa-check-circle me-1"></i>VALORADO';
+        label.className = 'form-check-label text-success fw-bold';
+    } else {
+        label.innerHTML = '<i class="fas fa-times-circle me-1"></i>NO VALORADO';
+        label.className = 'form-check-label text-muted';
+    }
+}
+
+// Inicializar los event listeners para los checkboxes de estado
+document.addEventListener('DOMContentLoaded', function() {
+    // Lista de elementos con checkboxes de estado
+    const elementos = [
+        'pantalon', 'camiseta_gris', 'guerrera', 'camiseta_polo',
+        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'
+    ];
+    
+    elementos.forEach(elemento => {
+        const checkbox = document.getElementById(`estado_${elemento}`);
+        if (checkbox) {
+            checkbox.addEventListener('change', function() {
+                toggleEstadoValorado(elemento);
+            });
+        }
+    });
+    
+    // Cargar técnicos y historial al inicializar la página
+    cargarTecnicos();
+    cargarHistorialCambios();
+});
 </script>
 {% endblock %}

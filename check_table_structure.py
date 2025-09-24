@@ -2,37 +2,44 @@ import mysql.connector
 
 try:
     # Conectar a la base de datos
-    connection = mysql.connector.connect(
+    conn = mysql.connector.connect(
         host='localhost',
         user='root',
         password='732137A031E4b@',
         database='capired'
     )
+    cursor = conn.cursor()
     
-    cursor = connection.cursor()
+    # Obtener estructura de la tabla
+    cursor.execute('DESCRIBE cambios_dotacion')
+    result = cursor.fetchall()
     
-    # Verificar estructura de devoluciones_dotacion
-    print("Estructura de la tabla devoluciones_dotacion:")
-    cursor.execute("DESCRIBE devoluciones_dotacion")
-    for row in cursor.fetchall():
-        print(f"Campo: {row[0]}, Tipo: {row[1]}, Null: {row[2]}, Key: {row[3]}, Default: {row[4]}, Extra: {row[5]}")
+    print('Estructura de la tabla cambios_dotacion:')
+    print('Campo | Tipo | Null | Key | Default | Extra')
+    print('-' * 60)
+    for row in result:
+        print(f'{row[0]} | {row[1]} | {row[2]} | {row[3]} | {row[4]} | {row[5]}')
     
-    print("\n" + "="*50 + "\n")
+    # También obtener información adicional sobre las columnas
+    cursor.execute("""
+        SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = 'capired' AND TABLE_NAME = 'cambios_dotacion'
+        ORDER BY ORDINAL_POSITION
+    """)
     
-    # Verificar si existe tabla devolucion_detalles
-    print("Verificando si existe tabla devolucion_detalles:")
-    cursor.execute("SHOW TABLES LIKE 'devolucion_detalles'")
-    result = cursor.fetchone()
-    if result:
-        print("La tabla devolucion_detalles ya existe")
-        cursor.execute("DESCRIBE devolucion_detalles")
-        for row in cursor.fetchall():
-            print(f"Campo: {row[0]}, Tipo: {row[1]}, Null: {row[2]}, Key: {row[3]}, Default: {row[4]}, Extra: {row[5]}")
-    else:
-        print("La tabla devolucion_detalles NO existe")
+    detailed_result = cursor.fetchall()
+    print('\nInformación detallada de columnas:')
+    print('Campo | Tipo | Longitud | Nullable | Default')
+    print('-' * 50)
+    for row in detailed_result:
+        length = row[2] if row[2] is not None else 'N/A'
+        print(f'{row[0]} | {row[1]} | {length} | {row[3]} | {row[4]}')
     
-    cursor.close()
-    connection.close()
-    
-except Exception as e:
-    print(f"Error: {str(e)}")
+except mysql.connector.Error as err:
+    print(f'Error: {err}')
+finally:
+    if 'conn' in locals() and conn.is_connected():
+        cursor.close()
+        conn.close()
+        print('\nConexión cerrada.')
