@@ -11722,7 +11722,7 @@ def registrar_cambio_dotacion():
         cursor.execute("SELECT elemento, es_valorado FROM dotacion_elementos_config")
         config_valoracion = {row['elemento']: row['es_valorado'] for row in cursor.fetchall()}
         
-        # Validar stock disponible antes de procesar
+        # Validar stock disponible antes de procesar usando el stock unificado por estado
         errores_stock = []
         for elemento, datos in elementos_dotacion.items():
             cantidad = datos['cantidad']
@@ -11732,26 +11732,50 @@ def registrar_cambio_dotacion():
                 es_valorado = datos['valorado']
                 tipo_stock = "VALORADO" if es_valorado else "NO VALORADO"
                 
-                # Obtener stock actual del elemento
+                # Obtener stock actual del elemento filtrado por estado valorado
                 cursor.execute("""
-                    SELECT 
-                        COALESCE(SUM(cantidad), 0) as stock_ingresado,
-                        (
-                            SELECT COALESCE(SUM({}), 0) 
-                            FROM dotaciones 
-                            WHERE {} IS NOT NULL AND {} > 0
-                        ) as stock_entregado
+                    SELECT COALESCE(SUM(cantidad), 0) as stock_disponible
                     FROM ingresos_dotaciones 
-                    WHERE tipo_elemento = %s
-                """.format(elemento, elemento, elemento), (elemento,))
+                    WHERE tipo_elemento = %s AND estado = %s
+                """, (elemento, tipo_stock))
                 
-                stock_data = cursor.fetchone()
-                stock_disponible = stock_data['stock_ingresado'] - stock_data['stock_entregado']
+                ingresos_result = cursor.fetchone()
+                stock_ingresos = ingresos_result['stock_disponible'] if ingresos_result else 0
+                
+                # Obtener salidas del elemento con el mismo estado
+                cursor.execute("""
+                    SELECT COALESCE(SUM(
+                        CASE 
+                            WHEN %s = 'pantalon' AND estado_pantalon = %s THEN pantalon
+                            WHEN %s = 'camisetagris' AND estado_camiseta_gris = %s THEN camisetagris
+                            WHEN %s = 'guerrera' AND estado_guerrera = %s THEN guerrera
+                            WHEN %s = 'camisetapolo' AND estado_camiseta_polo = %s THEN camisetapolo
+                            WHEN %s = 'guantes_nitrilo' AND estado_guantes_nitrilo = %s THEN guantes_nitrilo
+                            WHEN %s = 'guantes_carnaza' AND estado_guantes_carnaza = %s THEN guantes_carnaza
+                            WHEN %s = 'gafas' AND estado_gafas = %s THEN gafas
+                            WHEN %s = 'gorra' AND estado_gorra = %s THEN gorra
+                            WHEN %s = 'casco' AND estado_casco = %s THEN casco
+                            WHEN %s = 'botas' AND estado_botas = %s THEN botas
+                            ELSE 0
+                        END
+                    ), 0) as total_salidas
+                    FROM cambios_dotacion
+                """, (elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock, 
+                      elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock,
+                      elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock,
+                      elemento, tipo_stock))
+                
+                salidas_result = cursor.fetchone()
+                stock_salidas = salidas_result['total_salidas'] if salidas_result else 0
+                
+                # Calcular stock disponible real por estado
+                stock_disponible = stock_ingresos - stock_salidas
                 
                 if stock_disponible < cantidad:
+                    nombre_elemento = elemento.replace('_', ' ').title()
                     errores_stock.append(
-                        f"Stock insuficiente para {elemento.replace('_', ' ').title()}: "
-                        f"Disponible: {stock_disponible}, Solicitado: {cantidad} ({tipo_stock})"
+                        f"Stock insuficiente para {nombre_elemento} ({tipo_stock}): "
+                        f"Disponible: {stock_disponible}, Solicitado: {cantidad}"
                     )
         
         # Si hay errores de stock, mostrarlos y no procesar
@@ -11866,6 +11890,7 @@ def api_cambios_dotacion_historial():
         cursor = connection.cursor(dictionary=True)
         
         # Consulta mejorada con JOIN para obtener información completa del técnico
+        # Incluye los campos de estado (valorado/no valorado) directamente de cambios_dotacion
         query = """
             SELECT 
                 cd.id_cambio as id,
@@ -11875,19 +11900,29 @@ def api_cambios_dotacion_historial():
                 cd.fecha_cambio,
                 cd.pantalon,
                 cd.pantalon_talla,
+                cd.estado_pantalon,
                 cd.camisetagris,
                 cd.camiseta_gris_talla,
+                cd.estado_camiseta_gris,
                 cd.guerrera,
                 cd.guerrera_talla,
+                cd.estado_guerrera,
                 cd.camisetapolo,
                 cd.camiseta_polo_talla,
+                cd.estado_camiseta_polo,
                 cd.guantes_nitrilo,
+                cd.estado_guantes_nitrilo,
                 cd.guantes_carnaza,
+                cd.estado_guantes_carnaza,
                 cd.gafas,
+                cd.estado_gafas,
                 cd.gorra,
+                cd.estado_gorra,
                 cd.casco,
+                cd.estado_casco,
                 cd.botas,
                 cd.botas_talla,
+                cd.estado_botas,
                 cd.observaciones,
                 cd.fecha_registro as created_at
             FROM cambios_dotacion cd
@@ -11898,28 +11933,24 @@ def api_cambios_dotacion_historial():
         cursor.execute(query)
         cambios = cursor.fetchall()
         
-        # Obtener configuración de valoración de elementos
-        cursor.execute("SELECT elemento, es_valorado FROM dotacion_elementos_config")
-        config_valoracion = {row['elemento']: row['es_valorado'] for row in cursor.fetchall()}
-        
         # Formatear los datos para el frontend con información mejorada
         historial = []
         for cambio in cambios:
             # Crear lista de elementos modificados con estado de valoración
             elementos_modificados = []
             
-            # Mapeo de elementos con sus configuraciones
+            # Mapeo de elementos con sus configuraciones incluyendo estados de valoración
             elementos_data = [
-                ('pantalon', cambio['pantalon'], cambio['pantalon_talla']),
-                ('camisetagris', cambio['camisetagris'], cambio['camiseta_gris_talla']),
-                ('guerrera', cambio['guerrera'], cambio['guerrera_talla']),
-                ('camisetapolo', cambio['camisetapolo'], cambio['camiseta_polo_talla']),
-                ('guantes_nitrilo', cambio['guantes_nitrilo'], None),
-                ('guantes_carnaza', cambio['guantes_carnaza'], None),
-                ('gafas', cambio['gafas'], None),
-                ('gorra', cambio['gorra'], None),
-                ('casco', cambio['casco'], None),
-                ('botas', cambio['botas'], cambio['botas_talla'])
+                ('pantalon', cambio['pantalon'], cambio['pantalon_talla'], cambio['estado_pantalon']),
+                ('camisetagris', cambio['camisetagris'], cambio['camiseta_gris_talla'], cambio['estado_camiseta_gris']),
+                ('guerrera', cambio['guerrera'], cambio['guerrera_talla'], cambio['estado_guerrera']),
+                ('camisetapolo', cambio['camisetapolo'], cambio['camiseta_polo_talla'], cambio['estado_camiseta_polo']),
+                ('guantes_nitrilo', cambio['guantes_nitrilo'], None, cambio['estado_guantes_nitrilo']),
+                ('guantes_carnaza', cambio['guantes_carnaza'], None, cambio['estado_guantes_carnaza']),
+                ('gafas', cambio['gafas'], None, cambio['estado_gafas']),
+                ('gorra', cambio['gorra'], None, cambio['estado_gorra']),
+                ('casco', cambio['casco'], None, cambio['estado_casco']),
+                ('botas', cambio['botas'], cambio['botas_talla'], cambio['estado_botas'])
             ]
             
             # Nombres descriptivos para elementos
@@ -11936,9 +11967,10 @@ def api_cambios_dotacion_historial():
                 'botas': 'Botas'
             }
             
-            for elemento, cantidad, talla in elementos_data:
+            for elemento, cantidad, talla, estado_valoracion in elementos_data:
                 if cantidad and cantidad > 0:
-                    es_valorado = config_valoracion.get(elemento, False)
+                    # Usar el estado de valoración directamente de cambios_dotacion
+                    es_valorado = estado_valoracion == 'VALORADO' if estado_valoracion else False
                     nombre_elemento = nombres_elementos.get(elemento, elemento.title())
                     
                     # Crear objeto con la estructura que espera el frontend
@@ -11947,6 +11979,7 @@ def api_cambios_dotacion_historial():
                         'elemento': nombre_elemento,
                         'cantidad': cantidad,
                         'es_valorado': es_valorado,
+                        'estado_valoracion': estado_valoracion or 'NO VALORADO',  # Campo adicional para mostrar el estado exacto
                         'precio_unitario': None  # Se puede agregar lógica de precios aquí si es necesario
                     }
                     
