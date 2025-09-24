@@ -1170,6 +1170,13 @@ function cargarHistorialCambios() {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
+            
+            // Verificar si la respuesta es HTML (redirección a login)
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('text/html')) {
+                throw new Error('AUTHENTICATION_REQUIRED');
+            }
+            
             return response.json();
         })
         .then(data => {
@@ -1182,7 +1189,14 @@ function cargarHistorialCambios() {
         })
         .catch(error => {
             console.error('Error en la petición:', error);
-            mostrarErrorHistorial('Error de conexión al cargar el historial');
+            
+            if (error.message === 'AUTHENTICATION_REQUIRED') {
+                mostrarErrorHistorial('Sesión expirada. Por favor, inicie sesión nuevamente.');
+            } else if (error.name === 'SyntaxError' && error.message.includes('JSON')) {
+                mostrarErrorHistorial('Error de autenticación. Por favor, recargue la página e inicie sesión.');
+            } else {
+                mostrarErrorHistorial('Error de conexión al cargar el historial');
+            }
         });
 }
 
@@ -1256,16 +1270,36 @@ function mostrarHistorialCambios(cambios) {
 // Función para mostrar error en el historial
 function mostrarErrorHistorial(mensaje) {
     const tbody = document.querySelector('#tablaHistorialCambios tbody');
+    
+    // Determinar qué botones mostrar según el tipo de error
+    let botonesHTML = '';
+    if (mensaje.includes('Sesión expirada') || mensaje.includes('autenticación')) {
+        botonesHTML = `
+            <button class="btn btn-sm btn-primary mt-2 me-2" onclick="window.location.href='/login'">
+                <i class="fas fa-sign-in-alt me-1"></i>
+                Iniciar Sesión
+            </button>
+            <button class="btn btn-sm btn-outline-secondary mt-2" onclick="window.location.reload()">
+                <i class="fas fa-refresh me-1"></i>
+                Recargar Página
+            </button>
+        `;
+    } else {
+        botonesHTML = `
+            <button class="btn btn-sm btn-outline-primary mt-2" onclick="cargarHistorialCambios()">
+                <i class="fas fa-refresh me-1"></i>
+                Reintentar
+            </button>
+        `;
+    }
+    
     tbody.innerHTML = `
         <tr>
             <td colspan="6" class="text-center text-danger">
                 <i class="fas fa-exclamation-triangle me-2"></i>
                 ${mensaje}
                 <br>
-                <button class="btn btn-sm btn-outline-primary mt-2" onclick="cargarHistorialCambios()">
-                    <i class="fas fa-refresh me-1"></i>
-                    Reintentar
-                </button>
+                ${botonesHTML}
             </td>
         </tr>
     `;
