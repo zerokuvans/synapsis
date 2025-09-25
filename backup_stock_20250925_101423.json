@@ -1,0 +1,65 @@
+{
+  "vista_stock_dotaciones": [
+    {
+      "tipo_elemento": "pantalon",
+      "cantidad_ingresada": "0",
+      "cantidad_entregada": "0",
+      "saldo_disponible": "0"
+    },
+    {
+      "tipo_elemento": "camisetagris",
+      "cantidad_ingresada": "0",
+      "cantidad_entregada": "0",
+      "saldo_disponible": "0"
+    },
+    {
+      "tipo_elemento": "guerrera",
+      "cantidad_ingresada": "0",
+      "cantidad_entregada": "0",
+      "saldo_disponible": "0"
+    },
+    {
+      "tipo_elemento": "camisetapolo",
+      "cantidad_ingresada": "0",
+      "cantidad_entregada": "0",
+      "saldo_disponible": "0"
+    },
+    {
+      "tipo_elemento": "botas",
+      "cantidad_ingresada": "29",
+      "cantidad_entregada": "2",
+      "saldo_disponible": "27"
+    },
+    {
+      "tipo_elemento": "guantes_nitrilo",
+      "cantidad_ingresada": "0",
+      "cantidad_entregada": "0",
+      "saldo_disponible": "0"
+    },
+    {
+      "tipo_elemento": "guantes_carnaza",
+      "cantidad_ingresada": "0",
+      "cantidad_entregada": "0",
+      "saldo_disponible": "0"
+    },
+    {
+      "tipo_elemento": "gafas",
+      "cantidad_ingresada": "0",
+      "cantidad_entregada": "0",
+      "saldo_disponible": "0"
+    },
+    {
+      "tipo_elemento": "gorra",
+      "cantidad_ingresada": "0",
+      "cantidad_entregada": "0",
+      "saldo_disponible": "0"
+    },
+    {
+      "tipo_elemento": "casco",
+      "cantidad_ingresada": "0",
+      "cantidad_entregada": "0",
+      "saldo_disponible": "0"
+    }
+  ],
+  "stock_ferretero": []
+}

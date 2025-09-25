@@ -1958,6 +1958,125 @@ def registrar_rutas_dotaciones(app):
             if connection:
                 connection.close()
 
+    @app.route('/api/refresh-stock-dotaciones', methods=['POST'])
+    def refresh_stock_dotaciones():
+        """Endpoint para refrescar y recalcular el stock de dotaciones"""
+        connection = None
+        try:
+            logger.info("Iniciando refresh de stock de dotaciones")
+            
+            # Conectar a la base de datos
+            connection = mysql.connector.connect(**DB_CONFIG)
+            cursor = connection.cursor(dictionary=True)
+            
+            # Obtener todos los materiales únicos de stock_ferretero
+            cursor.execute("""
+                SELECT DISTINCT material_tipo as material 
+                FROM stock_ferretero 
+                ORDER BY material_tipo
+            """)
+            materiales = cursor.fetchall()
+            
+            stock_actualizado = []
+            
+            for material_row in materiales:
+                material = material_row['material']
+                
+                # Calcular stock inicial (entradas)
+                cursor.execute("""
+                    SELECT COALESCE(SUM(cantidad_disponible), 0) as stock_inicial
+                    FROM stock_ferretero 
+                    WHERE material_tipo = %s
+                """, (material,))
+                stock_inicial = cursor.fetchone()['stock_inicial']
+                
+                # Calcular asignaciones por material
+                cursor.execute("""
+                    SELECT COALESCE(SUM(
+                        CASE 
+                            WHEN %s = 'pantalon' THEN pantalon
+                            WHEN %s = 'camisetagris' THEN camisetagris
+                            WHEN %s = 'guerrera' THEN guerrera
+                            WHEN %s = 'camisetapolo' THEN camisetapolo
+                            WHEN %s = 'guantes_nitrilo' THEN guantes_nitrilo
+                            WHEN %s = 'guantes_carnaza' THEN guantes_carnaza
+                            WHEN %s = 'gafas' THEN gafas
+                            WHEN %s = 'gorra' THEN gorra
+                            WHEN %s = 'casco' THEN casco
+                            WHEN %s = 'botas' THEN botas
+                            ELSE 0
+                        END
+                    ), 0) as total_asignaciones
+                    FROM dotaciones
+                """, (material,) * 10)
+                total_asignaciones = cursor.fetchone()['total_asignaciones']
+                
+                # Calcular cambios por material
+                cursor.execute("""
+                    SELECT COALESCE(SUM(
+                        CASE 
+                            WHEN %s = 'pantalon' THEN pantalon
+                            WHEN %s = 'camisetagris' THEN camisetagris
+                            WHEN %s = 'guerrera' THEN guerrera
+                            WHEN %s = 'camisetapolo' THEN camisetapolo
+                            WHEN %s = 'guantes_nitrilo' THEN guantes_nitrilo
+                            WHEN %s = 'guantes_carnaza' THEN guantes_carnaza
+                            WHEN %s = 'gafas' THEN gafas
+                            WHEN %s = 'gorra' THEN gorra
+                            WHEN %s = 'casco' THEN casco
+                            WHEN %s = 'botas' THEN botas
+                            ELSE 0
+                        END
+                    ), 0) as total_cambios
+                    FROM cambios_dotacion
+                """, (material,) * 10)
+                total_cambios = cursor.fetchone()['total_cambios']
+                
+                # Calcular stock actual usando la fórmula
+                stock_actual = stock_inicial - total_asignaciones - total_cambios
+                
+                stock_actualizado.append({
+                    'material': material,
+                    'stock_inicial': stock_inicial,
+                    'total_asignaciones': total_asignaciones,
+                    'total_cambios': total_cambios,
+                    'stock_actual': stock_actual
+                })
+                
+                logger.info(f"Stock recalculado para {material}: {stock_inicial} - {total_asignaciones} - {total_cambios} = {stock_actual}")
+            
+            # Confirmar transacción
+            connection.commit()
+            
+            logger.info(f"Stock de dotaciones refrescado exitosamente. {len(stock_actualizado)} materiales procesados")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Stock refrescado exitosamente. {len(stock_actualizado)} materiales procesados.',
+                'stock_actualizado': stock_actualizado,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except mysql.connector.Error as e:
+            logger.error(f"Error de base de datos al refrescar stock: {e}")
+            if connection:
+                connection.rollback()
+            return jsonify({
+                'success': False, 
+                'message': f'Error de base de datos: {str(e)}'
+            }), 500
+        except Exception as e:
+            logger.error(f"Error inesperado al refrescar stock: {e}")
+            if connection:
+                connection.rollback()
+            return jsonify({
+                'success': False, 
+                'message': f'Error interno: {str(e)}'
+            }), 500
+        finally:
+            if connection:
+                connection.close()
+
     logger.info("Rutas de dotaciones registradas correctamente")
 
 if __name__ == '__main__':
