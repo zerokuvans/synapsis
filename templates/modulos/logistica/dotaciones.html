@@ -434,9 +434,13 @@
                     <div class="col-md-4">
                         <label class="form-label">&nbsp;</label>
                         <div>
-                            <button class="btn btn-outline-secondary" onclick="limpiarFiltrosStock()">
+                            <button class="btn btn-outline-secondary me-2" onclick="limpiarFiltrosStock()">
                                 <i class="fas fa-times me-1"></i>
                                 Limpiar Filtros
+                            </button>
+                            <button class="btn btn-primary" onclick="refreshStock()" id="btnRefreshStock">
+                                <i class="fas fa-sync-alt me-1"></i>
+                                Actualizar Stock
                             </button>
                         </div>
                     </div>
@@ -2547,6 +2551,50 @@
         function mostrarError(mensaje) {
             // Implementar notificación de error
             alert(mensaje);
+        }
+
+        // Función para refrescar el stock de dotaciones
+        function refreshStock() {
+            const btnRefresh = document.getElementById('btnRefreshStock');
+            const originalText = btnRefresh.innerHTML;
+            
+            // Mostrar estado de carga
+            btnRefresh.disabled = true;
+            btnRefresh.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...';
+            
+            // Llamar al endpoint de refresh
+            fetch('/api/refresh-stock-dotaciones', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Mostrar mensaje de éxito
+                    mostrarExito(data.message);
+                    
+                    // Recargar los datos de stock
+                    cargarDatosStock();
+                    cargarStockPorEstado();
+                    
+                    // Log de información para debugging
+                    console.log('Stock actualizado:', data.stock_actualizado);
+                    
+                } else {
+                    mostrarError('Error al actualizar stock: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error al refrescar stock:', error);
+                mostrarError('Error de conexión al actualizar el stock');
+            })
+            .finally(() => {
+                // Restaurar el botón
+                btnRefresh.disabled = false;
+                btnRefresh.innerHTML = originalText;
+            });
         }
 
         // Inicializar cuando se carga la página
