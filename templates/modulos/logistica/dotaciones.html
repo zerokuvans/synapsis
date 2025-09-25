@@ -603,7 +603,8 @@
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">Pantalón</label>
-                                <input type="number" class="form-control" id="pantalon" min="0">
+                                <input type="number" class="form-control" id="pantalon" min="0" oninput="validarStockDisponible('pantalon')">
+                                <small class="text-muted" id="stockPantalon">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Talla Pantalón</label>
@@ -634,7 +635,8 @@
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">Camiseta Gris</label>
-                                <input type="number" class="form-control" id="camisetagris" min="0">
+                                <input type="number" class="form-control" id="camisetagris" min="0" oninput="validarStockDisponible('camisetagris')">
+                                <small class="text-muted" id="stockCamisetagris">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Talla Camiseta Gris</label>
@@ -662,7 +664,8 @@
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">Guerrera</label>
-                                <input type="number" class="form-control" id="guerrera" min="0">
+                                <input type="number" class="form-control" id="guerrera" min="0" oninput="validarStockDisponible('guerrera')">
+                                <small class="text-muted" id="stockGuerrera">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Talla Guerrera</label>
@@ -690,7 +693,8 @@
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">Camiseta Polo</label>
-                                <input type="number" class="form-control" id="camisetapolo" min="0">
+                                <input type="number" class="form-control" id="camisetapolo" min="0" oninput="validarStockDisponible('camisetapolo')">
+                                <small class="text-muted" id="stockCamisetapolo">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Talla Camiseta Polo</label>
@@ -720,7 +724,8 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Guantes Nitrilo</label>
-                                <input type="number" class="form-control" id="guantesNitrilo" min="0">
+                                <input type="number" class="form-control" id="guantesNitrilo" min="0" oninput="validarStockDisponible('guantes_nitrilo')">
+                                <small class="text-muted" id="stockGuantesNitrilo">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Estado Guantes Nitrilo</label>
@@ -737,7 +742,8 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Guantes Carnaza</label>
-                                <input type="number" class="form-control" id="guantesCarnaza" min="0">
+                                <input type="number" class="form-control" id="guantesCarnaza" min="0" oninput="validarStockDisponible('guantes_carnaza')">
+                                <small class="text-muted" id="stockGuantesCarnaza">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Estado Guantes Carnaza</label>
@@ -754,7 +760,8 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Gafas</label>
-                                <input type="number" class="form-control" id="gafas" min="0">
+                                <input type="number" class="form-control" id="gafas" min="0" oninput="validarStockDisponible('gafas')">
+                                <small class="text-muted" id="stockGafas">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Estado Gafas</label>
@@ -1682,19 +1689,29 @@
                 id_codigo_consumidor: document.getElementById('idCodigoConsumidor').value || null,
                 pantalon: parseInt(document.getElementById('pantalon').value) || null,
                 pantalon_talla: parseInt(document.getElementById('pantalonTalla').value) || null,
+                pantalon_valorado: document.getElementById('estadoPantalon').checked ? 1 : 0,
                 camisetagris: parseInt(document.getElementById('camisetagris').value) || null,
                 camiseta_gris_talla: document.getElementById('camisetaGrisTalla').value || null,
+                camiseta_gris_valorado: document.getElementById('estadoCamisetaGris').checked ? 1 : 0,
                 guerrera: parseInt(document.getElementById('guerrera').value) || null,
                 guerrera_talla: document.getElementById('guerreraTalla').value || null,
+                guerrera_valorado: document.getElementById('estadoGuerrera').checked ? 1 : 0,
                 camisetapolo: parseInt(document.getElementById('camisetapolo').value) || null,
                 camiseta_polo_talla: document.getElementById('camisetaPoloTalla').value || null,
+                camiseta_polo_valorado: document.getElementById('estadoCamisetaPolo').checked ? 1 : 0,
                 guantes_nitrilo: parseInt(document.getElementById('guantesNitrilo').value) || null,
+                guantes_nitrilo_valorado: document.getElementById('estadoGuantesNitrilo').checked ? 1 : 0,
                 guantes_carnaza: parseInt(document.getElementById('guantesCarnaza').value) || null,
+                guantes_carnaza_valorado: document.getElementById('estadoGuantesCarnaza').checked ? 1 : 0,
                 gafas: parseInt(document.getElementById('gafas').value) || null,
+                gafas_valorado: document.getElementById('estadoGafas').checked ? 1 : 0,
                 gorra: parseInt(document.getElementById('gorra').value) || null,
+                gorra_valorado: document.getElementById('estadoGorra').checked ? 1 : 0,
                 casco: parseInt(document.getElementById('casco').value) || null,
+                casco_valorado: document.getElementById('estadoCasco').checked ? 1 : 0,
                 botas: parseInt(document.getElementById('botas').value) || null,
-                botas_talla: document.getElementById('botasTalla').value || null
+                botas_talla: document.getElementById('botasTalla').value || null,
+                botas_valorado: document.getElementById('estadoBotas').checked ? 1 : 0
             };
 
             const url = id ? `/api/dotaciones/${id}` : '/api/dotaciones';
@@ -2386,6 +2403,141 @@
             }
         }
 
+        // Variables globales para stock por estado
+        let stockPorEstado = {};
+
+        // Función para cargar stock por estado de valoración
+        function cargarStockPorEstado() {
+            fetch('/api/stock_por_estado')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        stockPorEstado = data.stock;
+                        actualizarIndicadoresStock();
+                    } else {
+                        console.error('Error al cargar stock por estado:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar stock por estado:', error);
+                });
+        }
+
+        // Función para actualizar indicadores de stock en el formulario
+        function actualizarIndicadoresStock() {
+            const elementos = {
+                'pantalon': 'stockPantalon',
+                'camisetagris': 'stockCamisetagris', 
+                'guerrera': 'stockGuerrera',
+                'camisetapolo': 'stockCamisetapolo',
+                'guantes_nitrilo': 'stockGuantesNitrilo',
+                'guantes_carnaza': 'stockGuantesCarnaza',
+                'gafas': 'stockGafas'
+            };
+
+            Object.keys(elementos).forEach(elemento => {
+                const stockElement = document.getElementById(elementos[elemento]);
+                if (stockElement && stockPorEstado[elemento]) {
+                    const valorado = stockPorEstado[elemento]['VALORADO'] || 0;
+                    const noValorado = stockPorEstado[elemento]['NO VALORADO'] || 0;
+                    stockElement.innerHTML = `Stock: <span class="text-success">Valorado: ${valorado}</span> | <span class="text-info">No Valorado: ${noValorado}</span>`;
+                } else if (stockElement) {
+                    stockElement.innerHTML = 'Stock: <span class="text-muted">No disponible</span>';
+                }
+            });
+        }
+
+        // Función para validar stock disponible al cambiar cantidad
+        function validarStockDisponible(elemento) {
+            const input = document.getElementById(elemento === 'guantes_nitrilo' ? 'guantesNitrilo' : 
+                                                elemento === 'guantes_carnaza' ? 'guantesCarnaza' : elemento);
+            
+            // Mapear correctamente los IDs de los checkboxes
+            let checkboxId;
+            if (elemento === 'botas') {
+                checkboxId = 'estadoBotas';
+            } else if (elemento === 'guantes_nitrilo') {
+                checkboxId = 'estadoGuantesNitrilo';
+            } else if (elemento === 'guantes_carnaza') {
+                checkboxId = 'estadoGuantesCarnaza';
+            } else {
+                checkboxId = 'estado' + elemento.charAt(0).toUpperCase() + elemento.slice(1);
+            }
+            
+            const checkbox = document.getElementById(checkboxId);
+            const cantidad = parseInt(input.value) || 0;
+            
+            if (cantidad > 0 && stockPorEstado[elemento]) {
+                const esValorado = checkbox && checkbox.checked;
+                const estadoSeleccionado = esValorado ? 'VALORADO' : 'NO VALORADO';
+                const stockDisponible = stockPorEstado[elemento][estadoSeleccionado] || 0;
+                
+                if (cantidad > stockDisponible) {
+                    input.classList.add('is-invalid');
+                    mostrarError(`Stock insuficiente para ${elemento} ${estadoSeleccionado}. Disponible: ${stockDisponible}`);
+                    input.value = stockDisponible;
+                } else {
+                    input.classList.remove('is-invalid');
+                }
+            } else {
+                input.classList.remove('is-invalid');
+            }
+        }
+
+        // Función para validar formulario antes de envío
+        function validarFormularioCompleto() {
+            const elementos = {
+                'pantalon': 'pantalon',
+                'camisetagris': 'camisetagris',
+                'guerrera': 'guerrera', 
+                'camisetapolo': 'camisetapolo',
+                'guantes_nitrilo': 'guantesNitrilo',
+                'guantes_carnaza': 'guantesCarnaza',
+                'gafas': 'gafas',
+                'gorra': 'gorra',
+                'casco': 'casco',
+                'botas': 'botas'
+            };
+
+            let errores = [];
+            
+            Object.keys(elementos).forEach(elemento => {
+                const input = document.getElementById(elementos[elemento]);
+                
+                // Mapear correctamente los IDs de los checkboxes
+                let checkboxId;
+                if (elemento === 'botas') {
+                    checkboxId = 'estadoBotas';
+                } else if (elemento === 'guantes_nitrilo') {
+                    checkboxId = 'estadoGuantesNitrilo';
+                } else if (elemento === 'guantes_carnaza') {
+                    checkboxId = 'estadoGuantesCarnaza';
+                } else {
+                    checkboxId = 'estado' + elemento.charAt(0).toUpperCase() + elemento.slice(1);
+                }
+                
+                const checkbox = document.getElementById(checkboxId);
+                const cantidad = parseInt(input.value) || 0;
+                
+                if (cantidad > 0 && stockPorEstado[elemento]) {
+                    const esValorado = checkbox && checkbox.checked;
+                    const estadoSeleccionado = esValorado ? 'VALORADO' : 'NO VALORADO';
+                    const stockDisponible = stockPorEstado[elemento][estadoSeleccionado] || 0;
+                    
+                    if (cantidad > stockDisponible) {
+                        errores.push(`${elemento}: Stock insuficiente para ${estadoSeleccionado}. Solicitado: ${cantidad}, Disponible: ${stockDisponible}`);
+                    }
+                }
+            });
+            
+            if (errores.length > 0) {
+                mostrarError('Errores de stock:\n' + errores.join('\n'));
+                return false;
+            }
+            
+            return true;
+        }
+
         // Funciones de utilidad
         function mostrarExito(mensaje) {
             // Implementar notificación de éxito
@@ -2417,8 +2569,22 @@
             // Cargar datos de stock para los gráficos
             cargarDatosStock();
             
+            // Cargar stock por estado de valoración
+            cargarStockPorEstado();
+            
             // Cargar reportes
             cargarReportes();
+            
+            // Agregar validación al formulario de dotación
+             const formDotacion = document.getElementById('formDotacion');
+             if (formDotacion) {
+                 formDotacion.addEventListener('submit', function(e) {
+                     if (!validarFormularioCompleto()) {
+                         e.preventDefault();
+                         return false;
+                     }
+                 });
+             }
         });
     </script>
 {% endblock %}
