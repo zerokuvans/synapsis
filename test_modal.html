@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Modal Firma</title>
+    <script>
+        async function doLogin() {
+            console.log('Intentando hacer login...');
+            
+            const loginData = new FormData();
+            loginData.append('username', '80833959');
+            loginData.append('password', 'M4r14l4r@');
+            
+            try {
+                const response = await fetch('/', {
+                    method: 'POST',
+                    body: loginData,
+                    credentials: 'include'
+                });
+                
+                console.log('Login response status:', response.status);
+                const text = await response.text();
+                console.log('Login response:', text.substring(0, 200));
+                
+                if (response.ok) {
+                    console.log('✅ Login exitoso');
+                    return true;
+                } else {
+                    console.log('❌ Login falló');
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error en login:', error);
+                return false;
+            }
+        }
+        
+        async function testFirma() {
+            const idDotacion = 13; // ID que sabemos que tiene firma
+            console.log('Probando carga de firma para dotación:', idDotacion);
+            
+            try {
+                const response = await fetch(`/api/obtener-firma/${idDotacion}`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Respuesta del servidor:', response.status, response.statusText);
+                const text = await response.text();
+                console.log('Respuesta completa:', text);
+                
+                try {
+                    const data = JSON.parse(text);
+                    console.log('Datos parseados:', data);
+                    
+                    if (data.success && data.firma_url) {
+                        console.log('✅ Firma encontrada!');
+                        document.getElementById('result').innerHTML = `
+                            <h3>Firma encontrada:</h3>
+                            <p><strong>Técnico:</strong> ${data.tecnico_nombre}</p>
+                            <p><strong>Fecha:</strong> ${data.fecha_firma}</p>
+                            <p><strong>Cliente:</strong> ${data.cliente}</p>
+                            <img src="${data.firma_url}" style="max-width: 300px; border: 1px solid #ccc;" />
+                        `;
+                    } else {
+                        console.log('❌ Sin firma o error:', data.message);
+                        document.getElementById('result').innerHTML = `<p style="color: red;">Sin firma: ${data.message}</p>`;
+                    }
+                } catch (e) {
+                    console.error('Error al parsear JSON:', e);
+                    document.getElementById('result').innerHTML = `<p style="color: red;">Error al parsear respuesta</p>`;
+                }
+            } catch (error) {
+                console.error('Error en fetch:', error);
+                document.getElementById('result').innerHTML = `<p style="color: red;">Error de conexión: ${error.message}</p>`;
+            }
+        }
+        
+        async function testDetalles() {
+            const idDotacion = 13;
+            console.log('Probando obtención de detalles para dotación:', idDotacion);
+            
+            try {
+                const response = await fetch(`/api/dotacion_detalle/${idDotacion}`, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                console.log('Respuesta detalles:', response.status, response.statusText);
+                const text = await response.text();
+                console.log('Respuesta detalles completa:', text.substring(0, 500));
+                
+                try {
+                    const data = JSON.parse(text);
+                    console.log('Datos detalles parseados:', data);
+                } catch (e) {
+                    console.error('Error al parsear JSON detalles:', e);
+                }
+            } catch (error) {
+                console.error('Error en fetch detalles:', error);
+            }
+        }
+        
+        async function testCompleto() {
+            console.log('=== INICIANDO PRUEBA COMPLETA ===');
+            
+            // Paso 1: Login
+            const loginOk = await doLogin();
+            if (!loginOk) {
+                document.getElementById('result').innerHTML = '<p style="color: red;">Error en login</p>';
+                return;
+            }
+            
+            // Paso 2: Probar detalles
+            await testDetalles();
+            
+            // Paso 3: Probar firma
+            await testFirma();
+        }
+    </script>
+</head>
+<body>
+    <h1>Test Modal Firma</h1>
+    <button onclick="doLogin()">1. Login</button>
+    <button onclick="testDetalles()">2. Test Detalles</button>
+    <button onclick="testFirma()">3. Test Firma</button>
+    <button onclick="testCompleto()" style="background: #007bff; color: white; padding: 10px;">🚀 Test Completo</button>
+    
+    <div id="result" style="margin-top: 20px; padding: 10px; border: 1px solid #ddd;"></div>
+    
+    <p><strong>Instrucciones:</strong></p>
+    <ol>
+        <li>Abre la consola del navegador (F12)</li>
+        <li>Haz clic en "Test Completo" para probar todo el flujo</li>
+        <li>Revisa los logs en la consola y el resultado aquí</li>
+    </ol>
+</body>
+</html>

@@ -320,9 +320,333 @@
         .fecha-cambio, .fecha-registro {
             min-width: 120px;
         }
+        
+        /* Ocultar columna de observaciones en tablets */
+        #tablaHistorialCambios th:nth-child(6),
+        #tablaHistorialCambios td:nth-child(6) {
+            display: none;
+        }
     }
     
-    @media (max-width: 768px) {
+    @media (max-width: 992px) {
+        /* Ocultar fecha de registro en pantallas medianas */
+        #tablaHistorialCambios th:nth-child(5),
+        #tablaHistorialCambios td:nth-child(5) {
+            display: none;
+        }
+    }
+    
+    /* Breakpoint para tablets y móviles grandes (481px - 768px) */
+    @media (max-width: 768px) and (min-width: 481px) {
+        .table-responsive {
+            display: block !important;
+        }
+        
+        #tablaHistorialCambios {
+            display: table !important;
+            font-size: 0.85rem;
+        }
+        
+        .mobile-cards-container {
+            display: none !important;
+        }
+        
+        .elementos-modificados {
+            max-width: 200px;
+            font-size: 0.8rem;
+        }
+        
+        .tecnico-info {
+            min-width: 120px;
+        }
+        
+        .fecha-cambio, .fecha-registro {
+            min-width: 100px;
+            font-size: 0.8rem;
+        }
+    }
+    
+    /* Breakpoint para móviles normales (301px - 480px) */
+    @media (max-width: 480px) and (min-width: 301px) {
+        .table-responsive {
+            display: none !important;
+        }
+        
+        #tablaHistorialCambios {
+            display: none !important;
+        }
+        
+        .mobile-cards-container {
+            display: block !important;
+            width: 100%;
+            padding: 0.5rem;
+        }
+        
+        .mobile-card {
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border-radius: 8px;
+        }
+        
+        .mobile-card-label {
+            font-size: 0.9rem;
+        }
+        
+        .mobile-card-value {
+            font-size: 0.95rem;
+        }
+    }
+    
+    @media (max-width: 300px) {
+        /* Mostrar tabla en modo tarjetas para móviles ultra pequeños */
+        .table-responsive {
+            display: none !important;
+        }
+        
+        #tablaHistorialCambios {
+            display: none !important;
+        }
+        
+        .mobile-cards-container {
+            display: block !important;
+            width: 100%;
+            padding: 0.25rem;
+        }
+        
+        /* Optimización para pantallas de 300px */
+        .mobile-card {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .mobile-card-header {
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+        }
+        
+        .mobile-card-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 0.2rem;
+        }
+        
+        .mobile-card-value {
+            font-size: 0.85rem;
+            line-height: 1.3;
+        }
+        
+        .mobile-card-section {
+            margin-bottom: 0.5rem;
+            padding: 0.4rem;
+            border-radius: 4px;
+        }
+        
+        .mobile-elemento-item {
+            font-size: 0.75rem;
+            padding: 0.3rem;
+            margin-bottom: 0.2rem;
+        }
+        
+        .badge {
+            font-size: 0.65rem !important;
+            padding: 0.2rem 0.4rem !important;
+        }
+        
+        /* Ajustes para el header de la página */
+        .card-header h4 {
+            font-size: 1rem;
+        }
+        
+        .btn {
+            font-size: 0.8rem;
+            padding: 0.4rem 0.8rem;
+        }
+        
+        /* Mejoras para legibilidad */
+        .mobile-observaciones {
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+        }
+        
+        .mobile-elementos-title {
+            font-size: 0.8rem;
+            margin-bottom: 0.4rem;
+        }
+        
+        /* Estilos para filas y tarjetas clickeables */
+        .clickable-row {
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        
+        .clickable-row:hover {
+            background-color: #f8f9fa !important;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .clickable-card {
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .clickable-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        /* Animaciones para el modal */
+        .modal.fade .modal-dialog {
+            transition: transform 0.3s ease-out;
+            transform: translate(0, -50px);
+        }
+        
+        .modal.show .modal-dialog {
+            transform: none;
+        }
+        
+        /* Estilos para el modal de detalles */
+        #modalDetallesCambio .modal-header {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+            border-bottom: none;
+        }
+        
+        #modalDetallesCambio .modal-header .btn-close {
+            filter: invert(1);
+        }
+        
+        #modalDetallesCambio .section-title {
+            color: #007bff;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        #modalDetallesCambio .info-item {
+            background-color: #f8f9fa;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-left: 4px solid #007bff;
+        }
+        
+        #modalDetallesCambio .info-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.25rem;
+        }
+        
+        #modalDetallesCambio .info-value {
+            color: #212529;
+            font-size: 1.1em;
+        }
+        
+        /* Indicador visual para más información */
+        .more-info-indicator {
+            font-size: 0.85em;
+            color: #6c757d;
+            font-style: italic;
+        }
+        
+        /* Responsive para el modal */
+        @media (max-width: 300px) {
+            #modalDetallesCambio .modal-dialog {
+                margin: 0.25rem;
+                max-width: calc(100% - 0.5rem);
+            }
+            
+            #modalDetallesCambio .modal-body {
+                padding: 0.75rem;
+            }
+            
+            .clickable-row:hover {
+                transform: none;
+                box-shadow: none;
+            }
+        }
+        
+        .mobile-card {
+            background: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            padding: 1.25rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .mobile-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+            border-color: #007bff;
+        }
+        
+        .mobile-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        .mobile-card-section {
+            margin-bottom: 0.75rem;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 3px solid #007bff;
+        }
+        
+        .mobile-card-label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9rem;
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+        
+        .mobile-card-value {
+            color: #212529;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+        
+        .mobile-elementos {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .mobile-elementos-title {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .mobile-elemento-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 0.5rem;
+            margin-bottom: 0.25rem;
+            font-size: 0.8rem;
+        }
+        
+        .mobile-observaciones {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #e9ecef;
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        
         .elementos-modificados {
             max-width: 250px;
         }
@@ -378,7 +702,28 @@
     
     @media (max-width: 576px) {
         .card-body {
-            padding: 1rem;
+            padding: 0.75rem;
+        }
+        
+        .mobile-card {
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .mobile-card-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        
+        .mobile-card-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
+        }
+        
+        .mobile-card-value {
+            text-align: left;
         }
         
         .elementos-modificados {
@@ -408,6 +753,102 @@
         
         .section-title {
             font-size: 1rem;
+        }
+    }
+    
+    /* Ocultar contenedor de tarjetas móviles por defecto */
+    .mobile-cards-container {
+        display: none;
+    }
+    
+    /* Estilos adicionales para mejor responsive */
+    @media (max-width: 480px) {
+        .card-header h4 {
+            font-size: 1.1rem;
+        }
+        
+        .mobile-cards-container {
+            padding: 0.25rem;
+        }
+        
+        .mobile-card {
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .mobile-card-label {
+            font-size: 0.85rem;
+        }
+        
+        .mobile-card-value {
+            font-size: 0.9rem;
+        }
+        
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        
+        .mobile-elemento-item {
+            font-size: 0.75rem;
+            padding: 0.4rem;
+        }
+        
+        /* Mejoras adicionales para legibilidad móvil */
+        .tecnico-info strong {
+            font-size: 0.85rem;
+            line-height: 1.2;
+        }
+        
+        .tecnico-info small {
+            font-size: 0.7rem;
+        }
+        
+        .elementos-modificados {
+            line-height: 1.3;
+        }
+        
+        .elemento-item {
+            margin-bottom: 0.3rem;
+            padding: 0.3rem 0.5rem;
+            border-radius: 0.25rem;
+            background-color: rgba(0,123,255,0.05);
+            border-left: 3px solid #007bff;
+        }
+        
+        .badge.bg-success, .badge.bg-secondary {
+            font-size: 0.6rem;
+            padding: 0.15rem 0.3rem;
+            margin-left: 0.25rem;
+        }
+        
+        /* Espaciado mejorado para tabla */
+        .table td {
+            padding: 0.4rem 0.2rem;
+            vertical-align: middle;
+        }
+        
+        .table th {
+            padding: 0.4rem 0.2rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        /* Ajustes para observaciones */
+        .observaciones-cell {
+            font-size: 0.75rem;
+            max-width: 120px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        /* Mejoras para fechas */
+        .fecha-cambio strong {
+            font-size: 0.8rem;
+        }
+        
+        .fecha-registro {
+            font-size: 0.7rem;
         }
     }
     
@@ -473,11 +914,17 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="mb-0" >
                         <i class="fas fa-exchange-alt me-2"></i>
                         Registro de Cambios de Dotación
                     </h4>
+                    <!--
+                    <button type="button" class="btn btn-light" data-bs-toggle="modal" data-bs-target="#modalCambiosDotacion">
+                        <i class="fas fa-plus me-2"></i>
+                        Nuevo Cambio
+                    </button>
+                    -->
                 </div>
                 <div class="card-body">
                     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -871,20 +1318,20 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table id="tablaHistorialCambios" class="table table-striped table-hover">
+                        <table id="tablaHistorialCambios" class="table table-striped table-hover clickable-table">
                             <thead class="table-dark">
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Técnico</th>
-                                    <th>Elementos Modificados</th>
-                                    <th>Fecha de Cambio</th>
-                                    <th>Fecha de Registro</th>
-                                    <th>Observaciones</th>
+                                    <th>Técnico
+                                        <small class="d-block text-light opacity-75 mt-1">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Haz clic para ver detalles
+                                        </small>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td colspan="6" class="text-center">
+                                    <td class="text-center">
                                         <div class="spinner-border text-primary" role="status">
                                             <span class="visually-hidden">Cargando...</span>
                                         </div>
@@ -894,7 +1341,491 @@
                             </tbody>
                         </table>
                     </div>
+                    
+                    <!-- Contenedor de tarjetas para móviles -->
+                    <div class="mobile-cards-container" id="mobileCardsContainer">
+                        <div class="text-center p-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <p class="mt-2 mb-0">Cargando historial de cambios...</p>
+                        </div>
+                    </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Registro de Cambios de Dotación -->
+<div class="modal fade" id="modalCambiosDotacion" tabindex="-1" aria-labelledby="modalCambiosDotacionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCambiosDotacionLabel">
+                    <i class="fas fa-exchange-alt me-2"></i>
+                    Registro de Cambios de Dotación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCambiosDotacionModal">
+                    <!-- Información General -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Información General
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="id_codigo_consumidor_modal" class="form-label">
+                                    Técnico <span class="required">*</span>
+                                </label>
+                                <div class="tecnico-selector">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="buscarTecnicoModal" placeholder="Buscar por nombre o cédula..." autocomplete="off">
+                                        <button type="button" class="btn btn-outline-secondary" id="btnMostrarTecnicosModal">
+                                            <i class="fas fa-chevron-down"></i>
+                                        </button>
+                                    </div>
+                                    <input type="hidden" id="id_codigo_consumidor_modal" name="id_codigo_consumidor" required>
+                                    <div class="tecnico-dropdown" id="tecnicoDropdownModal" style="display: none;">
+                                        <div class="dropdown-header">
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <select class="form-select form-select-sm" id="ordenarPorModal">
+                                                        <option value="nombre">Ordenar por Nombre</option>
+                                                        <option value="cedula">Ordenar por Cédula</option>
+                                                        <option value="ciudad">Ordenar por Ciudad</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-6">
+                                                    <select class="form-select form-select-sm" id="filtrarCiudadModal">
+                                                        <option value="">Todas las ciudades</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="dropdown-body">
+                                            <div class="tecnicos-list" id="tecnicosListModal">
+                                                <div class="text-center p-3">
+                                                    <div class="spinner-border spinner-border-sm" role="status">
+                                                        <span class="visually-hidden">Cargando...</span>
+                                                    </div>
+                                                    <p class="mt-2 mb-0 small">Cargando técnicos...</p>
+                                                </div>
+                                            </div>
+                                            <div class="dropdown-footer">
+                                                <div class="pagination-controls" id="paginationControlsModal">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnAnteriorModal" disabled>
+                                                        <i class="fas fa-chevron-left"></i> Anterior
+                                                    </button>
+                                                    <span class="pagination-info" id="paginationInfoModal">Página 1 de 1</span>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnSiguienteModal" disabled>
+                                                        Siguiente <i class="fas fa-chevron-right"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="fecha_cambio_modal" class="form-label">
+                                    Fecha de Cambio <span class="required">*</span>
+                                </label>
+                                <input type="date" class="form-control" id="fecha_cambio_modal" name="fecha_cambio" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dotación de Vestimenta -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-tshirt me-2"></i>
+                            Dotación de Vestimenta
+                        </h5>
+                        
+                        <!-- Pantalón -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-3">
+                                <label for="pantalon_modal" class="form-label">Pantalón</label>
+                                <input type="number" class="form-control cantidad-input" id="pantalon_modal" name="pantalon" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('pantalon')">
+                                <small class="text-muted" id="stock_pantalon_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="pantalon_talla_modal" class="form-label">Talla Pantalón</label>
+                                <select class="form-select talla-input" id="pantalon_talla_modal" name="pantalon_talla">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="28">28</option>
+                                    <option value="30">30</option>
+                                    <option value="32">32</option>
+                                    <option value="34">34</option>
+                                    <option value="36">36</option>
+                                    <option value="38">38</option>
+                                    <option value="40">40</option>
+                                    <option value="42">42</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="estado_pantalon_modal" class="form-label">Estado Pantalón</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_pantalon_modal" name="pantalon_valorado">
+                                    <label class="form-check-label text-muted" for="estado_pantalon_modal" id="label_estado_pantalon_modal">
+                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Camiseta Gris -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-3">
+                                <label for="camisetagris_modal" class="form-label">Camiseta Gris</label>
+                                <input type="number" class="form-control cantidad-input" id="camisetagris_modal" name="camisetagris" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('camisetagris')">
+                                <small class="text-muted" id="stock_camisetagris_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="camisetagris_talla_modal" class="form-label">Talla Camiseta Gris</label>
+                                <select class="form-select talla-input" id="camisetagris_talla_modal" name="camisetagris_talla">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="XS">XS</option>
+                                    <option value="S">S</option>
+                                    <option value="M">M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="XXL">XXL</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="estado_camiseta_gris_modal" class="form-label">Estado Camiseta Gris</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_camiseta_gris_modal" name="camisetagris_valorado">
+                                    <label class="form-check-label text-muted" for="estado_camiseta_gris_modal" id="label_estado_camiseta_gris_modal">
+                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Guerrera -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-3">
+                                <label for="guerrera_modal" class="form-label">Guerrera</label>
+                                <input type="number" class="form-control cantidad-input" id="guerrera_modal" name="guerrera" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('guerrera')">
+                                <small class="text-muted" id="stock_guerrera_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="guerrera_talla_modal" class="form-label">Talla Guerrera</label>
+                                <select class="form-select talla-input" id="guerrera_talla_modal" name="guerrera_talla">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="XS">XS</option>
+                                    <option value="S">S</option>
+                                    <option value="M">M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="XXL">XXL</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="estado_guerrera_modal" class="form-label">Estado Guerrera</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_guerrera_modal" name="guerrera_valorado">
+                                    <label class="form-check-label text-muted" for="estado_guerrera_modal" id="label_estado_guerrera_modal">
+                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Camiseta Polo -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-3">
+                                <label for="camisetapolo_modal" class="form-label">Camiseta Polo</label>
+                                <input type="number" class="form-control cantidad-input" id="camisetapolo_modal" name="camisetapolo" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('camisetapolo')">
+                                <small class="text-muted" id="stock_camisetapolo_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="camisetapolo_talla_modal" class="form-label">Talla Camiseta Polo</label>
+                                <select class="form-select talla-input" id="camisetapolo_talla_modal" name="camisetapolo_talla">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="XS">XS</option>
+                                    <option value="S">S</option>
+                                    <option value="M">M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="XXL">XXL</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="estado_camiseta_polo_modal" class="form-label">Estado Camiseta Polo</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_camiseta_polo_modal" name="camisetapolo_valorado">
+                                    <label class="form-check-label text-muted" for="estado_camiseta_polo_modal" id="label_estado_camiseta_polo_modal">
+                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Elementos de Protección Personal -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-hard-hat me-2"></i>
+                            Elementos de Protección Personal
+                        </h5>
+                        
+                        <!-- Guantes de Nitrilo -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-4">
+                                <label for="guantes_nitrilo_modal" class="form-label">Guantes de Nitrilo</label>
+                                <input type="number" class="form-control cantidad-input" id="guantes_nitrilo_modal" name="guantes_nitrilo" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('guantes_nitrilo')">
+                                <small class="text-muted" id="stock_guantes_nitrilo_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="estado_guantes_nitrilo_modal" class="form-label">Estado Guantes Nitrilo</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_guantes_nitrilo_modal" name="guantes_nitrilo_valorado">
+                                    <label class="form-check-label text-muted" for="estado_guantes_nitrilo_modal" id="label_estado_guantes_nitrilo_modal">
+                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Guantes de Carnaza -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-4">
+                                <label for="guantes_carnaza_modal" class="form-label">Guantes de Carnaza</label>
+                                <input type="number" class="form-control cantidad-input" id="guantes_carnaza_modal" name="guantes_carnaza" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('guantes_carnaza')">
+                                <small class="text-muted" id="stock_guantes_carnaza_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="estado_guantes_carnaza_modal" class="form-label">Estado Guantes Carnaza</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_guantes_carnaza_modal" name="guantes_carnaza_valorado">
+                                    <label class="form-check-label text-muted" for="estado_guantes_carnaza_modal" id="label_estado_guantes_carnaza_modal">
+                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gafas -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-4">
+                                <label for="gafas_modal" class="form-label">Gafas</label>
+                                <input type="number" class="form-control cantidad-input" id="gafas_modal" name="gafas" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('gafas')">
+                                <small class="text-muted" id="stock_gafas_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="estado_gafas_modal" class="form-label">Estado Gafas</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_gafas_modal" name="gafas_valorado">
+                                    <label class="form-check-label text-muted" for="estado_gafas_modal" id="label_estado_gafas_modal">
+                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gorra -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-4">
+                                <label for="gorra_modal" class="form-label">Gorra</label>
+                                <input type="number" class="form-control cantidad-input" id="gorra_modal" name="gorra" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('gorra')">
+                                <small class="text-muted" id="stock_gorra_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="estado_gorra_modal" class="form-label">Estado Gorra</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_gorra_modal" name="gorra_valorado">
+                                    <label class="form-check-label text-muted" for="estado_gorra_modal" id="label_estado_gorra_modal">
+                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Casco -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-4">
+                                <label for="casco_modal" class="form-label">Casco</label>
+                                <input type="number" class="form-control cantidad-input" id="casco_modal" name="casco" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('casco')">
+                                <small class="text-muted" id="stock_casco_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="estado_casco_modal" class="form-label">Estado Casco</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_casco_modal" name="casco_valorado">
+                                    <label class="form-check-label text-muted" for="estado_casco_modal" id="label_estado_casco_modal">
+                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botas -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-3">
+                                <label for="botas_modal" class="form-label">Botas</label>
+                                <input type="number" class="form-control cantidad-input" id="botas_modal" name="botas" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('botas')">
+                                <small class="text-muted" id="stock_botas_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="botas_talla_modal" class="form-label">Talla Botas</label>
+                                <select class="form-select talla-input" id="botas_talla_modal" name="botas_talla">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="35">35</option>
+                                    <option value="36">36</option>
+                                    <option value="37">37</option>
+                                    <option value="38">38</option>
+                                    <option value="39">39</option>
+                                    <option value="40">40</option>
+                                    <option value="41">41</option>
+                                    <option value="42">42</option>
+                                    <option value="43">43</option>
+                                    <option value="44">44</option>
+                                    <option value="45">45</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="estado_botas_modal" class="form-label">Estado Botas</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_botas_modal" name="botas_valorado">
+                                    <label class="form-check-label text-muted" for="estado_botas_modal" id="label_estado_botas_modal">
+                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Observaciones Adicionales -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-comment me-2"></i>
+                            Observaciones
+                        </h5>
+                        <div class="row">
+                            <div class="col-12">
+                                <label for="observaciones_modal" class="form-label">Observaciones Adicionales</label>
+                                <textarea class="form-control" id="observaciones_modal" name="observaciones" rows="3" placeholder="Ingrese cualquier observación adicional sobre el cambio de dotación..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" onclick="limpiarFormularioCambios()">
+                    <i class="fas fa-undo me-2"></i>
+                    Limpiar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="registrarCambioDotacion()">
+                    <i class="fas fa-save me-2"></i>
+                    Registrar Cambio
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalles del Cambio -->
+<div class="modal fade" id="modalDetallesCambio" tabindex="-1" aria-labelledby="modalDetallesCambioLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalDetallesCambioLabel">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Detalles del Cambio de Dotación
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="container-fluid">
+                    <!-- Información del Técnico -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="fas fa-user me-2"></i>
+                                Información del Técnico
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Técnico:</strong>
+                                    <p class="mb-1" id="detalle-tecnico">-</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Cédula:</strong>
+                                    <p class="mb-1" id="detalle-cedula">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información del Cambio -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="fas fa-calendar me-2"></i>
+                                Información del Cambio
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Fecha de Cambio:</strong>
+                                    <p class="mb-1" id="detalle-fecha-cambio">-</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Fecha de Registro:</strong>
+                                    <p class="mb-1" id="detalle-fecha-registro">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Elementos de Dotación -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="fas fa-tshirt me-2"></i>
+                                Elementos de Dotación
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row" id="detalle-elementos">
+                                <!-- Los elementos se cargarán dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Observaciones -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0">
+                                <i class="fas fa-comment me-2"></i>
+                                Observaciones
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-0" id="detalle-observaciones">Sin observaciones</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>
+                    Cerrar
+                </button>
             </div>
         </div>
     </div>
@@ -1227,6 +2158,12 @@ function mostrarHistorialCambios(cambios) {
     
     tbody.innerHTML = '';
     
+    // Limpiar contenedor móvil
+    const mobileContainer = document.getElementById('mobileCardsContainer');
+    if (mobileContainer) {
+        mobileContainer.innerHTML = '';
+    }
+    
     cambios.forEach(cambio => {
         const fechaCambio = formatearFecha(cambio.fecha_cambio);
         const fechaRegistro = formatearFechaHora(cambio.fecha_registro);
@@ -1235,9 +2172,12 @@ function mostrarHistorialCambios(cambios) {
         // Formatear elementos modificados con estado de valoración
         const elementosHTML = formatearElementosConValoracion(cambio.elementos_modificados_detalle || cambio.elementos_modificados);
         
+        // Crear fila para tabla desktop
         const fila = document.createElement('tr');
+        fila.className = 'clickable-row';
+        fila.style.cursor = 'pointer';
+        fila.setAttribute('data-cambio-id', cambio.id);
         fila.innerHTML = `
-            <td><span class="badge bg-primary">${cambio.id}</span></td>
             <td>
                 <div class="tecnico-info">
                     <strong>${cambio.tecnico_nombre || 'Técnico no encontrado'}</strong>
@@ -1246,34 +2186,176 @@ function mostrarHistorialCambios(cambios) {
                         <i class="fas fa-id-card me-1"></i>
                         Cédula: ${cambio.tecnico_cedula || cambio.id_codigo_consumidor}
                     </small>
-                </div>
-            </td>
-            <td>
-                <div class="elementos-modificados">
-                    ${elementosHTML}
-                </div>
-            </td>
-            <td>
-                <div class="fecha-cambio">
-                    <i class="fas fa-calendar-alt me-1 text-primary"></i>
-                    <strong>${fechaCambio}</strong>
-                </div>
-            </td>
-            <td>
-                <div class="fecha-registro">
-                    <i class="fas fa-clock me-1 text-secondary"></i>
-                    ${fechaRegistro}
-                </div>
-            </td>
-            <td>
-                <div class="observaciones-cell">
-                    ${observaciones}
+                    <br>
+                    <small class="text-info">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Haz clic para ver detalles
+                    </small>
                 </div>
             </td>
         `;
         
+        // Agregar evento click para abrir modal de detalles
+        fila.addEventListener('click', () => {
+            mostrarDetallesCambio(cambio);
+        });
+        
         tbody.appendChild(fila);
+        
+        // Crear tarjeta para móvil
+        if (mobileContainer) {
+            const card = document.createElement('div');
+            card.className = 'mobile-card clickable-card';
+            card.style.cursor = 'pointer';
+            card.setAttribute('data-cambio-id', cambio.id);
+            card.innerHTML = `
+                <div class="mobile-card-header">
+                    <span class="badge bg-primary">#${cambio.id}</span>
+                    <div class="mobile-card-date">
+                        <i class="fas fa-calendar-alt me-1"></i>
+                        ${fechaCambio}
+                    </div>
+                </div>
+                <div class="mobile-card-body">
+                    <div class="mobile-card-section">
+                        <div class="mobile-card-label">
+                            <i class="fas fa-user me-1"></i>
+                            Técnico
+                        </div>
+                        <div class="mobile-card-value">
+                            <strong>${cambio.tecnico_nombre || 'Técnico no encontrado'}</strong>
+                            <br>
+                            <small class="text-muted">
+                                <i class="fas fa-id-card me-1"></i>
+                                ${cambio.tecnico_cedula || cambio.id_codigo_consumidor}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="mobile-card-section">
+                        <div class="mobile-card-label">
+                            <i class="fas fa-box me-1"></i>
+                            Elementos Modificados
+                        </div>
+                        <div class="mobile-card-value">
+                            ${elementosHTML}
+                        </div>
+                    </div>
+                    <div class="mobile-card-section">
+                        <div class="mobile-card-label">
+                            <i class="fas fa-clock me-1"></i>
+                            Fecha de Registro
+                        </div>
+                        <div class="mobile-card-value">
+                            ${fechaRegistro}
+                        </div>
+                    </div>
+                    ${observaciones !== 'Sin observaciones' ? `
+                    <div class="mobile-card-section">
+                        <div class="mobile-card-label">
+                            <i class="fas fa-comment me-1"></i>
+                            Observaciones
+                        </div>
+                        <div class="mobile-card-value">
+                            ${observaciones}
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;            
+            
+            // Agregar evento click para abrir modal de detalles
+            card.addEventListener('click', () => {
+                mostrarDetallesCambio(cambio);
+            });
+            
+            mobileContainer.appendChild(card);
+        }
     });
+}
+
+// Función para mostrar detalles del cambio en el modal
+function mostrarDetallesCambio(cambio) {
+    // Poblar información del técnico
+    document.getElementById('detalle-tecnico').textContent = cambio.tecnico_nombre || 'Técnico no encontrado';
+    document.getElementById('detalle-cedula').textContent = cambio.tecnico_cedula || cambio.id_codigo_consumidor || 'No disponible';
+    
+    // Poblar información del cambio
+    document.getElementById('detalle-fecha-cambio').textContent = formatearFecha(cambio.fecha_cambio);
+    document.getElementById('detalle-fecha-registro').textContent = formatearFechaHora(cambio.fecha_registro);
+    
+    // Poblar elementos de dotación
+    const elementosContainer = document.getElementById('detalle-elementos');
+    elementosContainer.innerHTML = '';
+    
+    if (cambio.elementos_modificados_detalle && Array.isArray(cambio.elementos_modificados_detalle)) {
+        cambio.elementos_modificados_detalle.forEach(elemento => {
+            const elementoDiv = document.createElement('div');
+            elementoDiv.className = 'col-md-6 mb-3';
+            
+            const valoradoBadge = elemento.es_valorado ? 
+                '<span class="badge bg-success ms-2"><i class="fas fa-dollar-sign me-1"></i>VALORADO</span>' : 
+                '<span class="badge bg-secondary ms-2"><i class="fas fa-box me-1"></i>NO VALORADO</span>';
+            
+            const precioInfo = elemento.precio_unitario && elemento.es_valorado ? 
+                `<div class="mt-2 text-muted">
+                    <i class="fas fa-tag me-1"></i>
+                    Precio unitario: <strong>$${elemento.precio_unitario.toLocaleString('es-CO')}</strong>
+                    ${elemento.cantidad > 1 ? `<br><i class="fas fa-calculator me-1"></i>Total: <strong>$${(elemento.precio_unitario * elemento.cantidad).toLocaleString('es-CO')}</strong>` : ''}
+                </div>` : '';
+            
+            elementoDiv.innerHTML = `
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h6 class="card-title text-primary">
+                            <i class="fas fa-tshirt me-2"></i>
+                            ${elemento.descripcion || elemento.elemento}
+                        </h6>
+                        <div class="mb-2">
+                            <span class="badge bg-primary">Cantidad: ${elemento.cantidad}</span>
+                            ${elemento.talla ? `<span class="badge bg-info ms-1">Talla: ${elemento.talla}</span>` : ''}
+                            ${valoradoBadge}
+                        </div>
+                        ${precioInfo}
+                    </div>
+                </div>
+            `;
+            
+            elementosContainer.appendChild(elementoDiv);
+        });
+    } else if (cambio.elementos_modificados) {
+        // Fallback para formato simple
+        const elementoDiv = document.createElement('div');
+        elementoDiv.className = 'col-12';
+        elementoDiv.innerHTML = `
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-primary">
+                        <i class="fas fa-tshirt me-2"></i>
+                        Elementos Modificados
+                    </h6>
+                    <p class="card-text">${cambio.elementos_modificados}</p>
+                </div>
+            </div>
+        `;
+        elementosContainer.appendChild(elementoDiv);
+    } else {
+        elementosContainer.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No hay elementos registrados para este cambio
+                </div>
+            </div>
+        `;
+    }
+    
+    // Poblar observaciones
+    const observaciones = cambio.observaciones || 'Sin observaciones';
+    document.getElementById('detalle-observaciones').textContent = observaciones;
+    
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('modalDetallesCambio'));
+    modal.show();
 }
 
 // Función para mostrar error en el historial
@@ -1600,5 +2682,578 @@ function validarFormularioCompleto() {
     
     return true;
 }
+
+// ===== FUNCIONES DEL MODAL =====
+
+// Variables globales para el modal
+let tecnicosDataCambios = [];
+let tecnicosFiltradosCambios = [];
+let paginaActualCambios = 1;
+const tecnicosPorPaginaCambios = 10;
+let ordenActualCambios = { campo: 'nombre', direccion: 'asc' };
+let filtroActualCambios = '';
+let ciudadSeleccionadaCambios = '';
+
+// Función para abrir el modal de cambios
+function abrirModalCambios() {
+    const modal = new bootstrap.Modal(document.getElementById('modalCambiosDotacion'));
+    modal.show();
+    inicializarModalCambios();
+}
+
+// Función para inicializar el modal
+function inicializarModalCambios() {
+    // Limpiar formulario
+    limpiarFormularioCambios();
+    
+    // Cargar técnicos
+    cargarTecnicosCambios();
+    
+    // Cargar stock por estado
+    cargarStockPorEstadoCambios();
+}
+
+// Función para manejar el cambio de estado de los checkboxes de valoración en el modal
+function toggleEstadoValoradoCambios(elemento) {
+    const checkbox = document.getElementById(`modal_estado_${elemento}`);
+    const label = document.getElementById(`modal_label_estado_${elemento}`);
+    
+    if (checkbox.checked) {
+        label.innerHTML = '<i class="fas fa-check-circle me-1"></i>VALORADO';
+        label.className = 'form-check-label text-success fw-bold';
+    } else {
+        label.innerHTML = '<i class="fas fa-times-circle me-1"></i>NO VALORADO';
+        label.className = 'form-check-label text-muted';
+    }
+    
+    // Validar stock después del cambio
+    const cantidadInput = document.getElementById(`modal_${elemento}`);
+    if (cantidadInput && cantidadInput.value) {
+        validarStockDisponibleCambios(elemento);
+    }
+}
+
+// Función para cargar técnicos en el modal
+function cargarTecnicosCambios() {
+    fetch('/api/tecnicos')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                tecnicosDataCambios = data.tecnicos;
+                tecnicosFiltradosCambios = [...tecnicosDataCambios];
+                llenarFiltrosCiudadesCambios();
+                mostrarTecnicosCambios();
+            } else {
+                mostrarErrorTecnicosCambios('Error al cargar técnicos: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarErrorTecnicosCambios('Error de conexión al cargar técnicos');
+        });
+}
+
+// Función para llenar el filtro de ciudades en el modal
+function llenarFiltrosCiudadesCambios() {
+    const ciudades = [...new Set(tecnicosDataCambios.map(t => t.ciudad))].sort();
+    const selectCiudad = document.getElementById('modal_filtroCiudad');
+    
+    if (selectCiudad) {
+        selectCiudad.innerHTML = '<option value="">Todas las ciudades</option>';
+        ciudades.forEach(ciudad => {
+            selectCiudad.innerHTML += `<option value="${ciudad}">${ciudad}</option>`;
+        });
+    }
+}
+
+// Función para filtrar técnicos en el modal
+function filtrarTecnicosCambios() {
+    const filtro = document.getElementById('modal_filtroTecnico').value.toLowerCase();
+    filtroActualCambios = filtro;
+    
+    tecnicosFiltradosCambios = tecnicosDataCambios.filter(tecnico => {
+        const coincideNombre = tecnico.nombre.toLowerCase().includes(filtro) || 
+                              tecnico.cedula.includes(filtro);
+        const coincideCiudad = !ciudadSeleccionadaCambios || tecnico.ciudad === ciudadSeleccionadaCambios;
+        return coincideNombre && coincideCiudad;
+    });
+    
+    aplicarOrdenamientoCambios();
+    paginaActualCambios = 1;
+    mostrarTecnicosCambios();
+}
+
+// Función para filtrar por ciudad en el modal
+function filtrarPorCiudadCambios() {
+    ciudadSeleccionadaCambios = document.getElementById('modal_filtroCiudad').value;
+    filtrarTecnicosCambios();
+}
+
+// Función para aplicar ordenamiento en el modal
+function aplicarOrdenamientoCambios() {
+    tecnicosFiltradosCambios.sort((a, b) => {
+        let valorA = a[ordenActualCambios.campo];
+        let valorB = b[ordenActualCambios.campo];
+        
+        if (typeof valorA === 'string') {
+            valorA = valorA.toLowerCase();
+            valorB = valorB.toLowerCase();
+        }
+        
+        if (ordenActualCambios.direccion === 'asc') {
+            return valorA < valorB ? -1 : valorA > valorB ? 1 : 0;
+        } else {
+            return valorA > valorB ? -1 : valorA < valorB ? 1 : 0;
+        }
+    });
+}
+
+// Función para mostrar técnicos en el modal
+function mostrarTecnicosCambios() {
+    const contenedor = document.getElementById('modal_listaTecnicos');
+    const inicio = (paginaActualCambios - 1) * tecnicosPorPaginaCambios;
+    const fin = inicio + tecnicosPorPaginaCambios;
+    const tecnicosPagina = tecnicosFiltradosCambios.slice(inicio, fin);
+    
+    if (tecnicosPagina.length === 0) {
+        contenedor.innerHTML = '<div class="text-center text-muted py-3">No se encontraron técnicos</div>';
+        document.getElementById('modal_paginacionTecnicos').innerHTML = '';
+        return;
+    }
+    
+    contenedor.innerHTML = tecnicosPagina.map(tecnico => `
+        <div class="tecnico-item" onclick="seleccionarTecnicoCambios('${tecnico.cedula}', '${tecnico.nombre}')">
+            <div class="tecnico-info">
+                <div class="tecnico-nombre">${tecnico.nombre}</div>
+                <div class="tecnico-detalles">
+                    <span class="badge bg-primary">${tecnico.cedula}</span>
+                    <span class="badge bg-secondary">${tecnico.ciudad}</span>
+                    <span class="badge bg-info">${tecnico.cargo}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    actualizarPaginacionCambios();
+}
+
+// Función para actualizar paginación en el modal
+function actualizarPaginacionCambios() {
+    const totalPaginas = Math.ceil(tecnicosFiltradosCambios.length / tecnicosPorPaginaCambios);
+    const contenedor = document.getElementById('modal_paginacionTecnicos');
+    
+    if (totalPaginas <= 1) {
+        contenedor.innerHTML = '';
+        return;
+    }
+    
+    let html = '<nav><ul class="pagination pagination-sm justify-content-center">';
+    
+    // Botón anterior
+    html += `<li class="page-item ${paginaActualCambios === 1 ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="cambiarPaginaCambios(${paginaActualCambios - 1})">&laquo;</a>
+    </li>`;
+    
+    // Páginas
+    for (let i = 1; i <= totalPaginas; i++) {
+        html += `<li class="page-item ${i === paginaActualCambios ? 'active' : ''}">
+            <a class="page-link" href="#" onclick="cambiarPaginaCambios(${i})">${i}</a>
+        </li>`;
+    }
+    
+    // Botón siguiente
+    html += `<li class="page-item ${paginaActualCambios === totalPaginas ? 'disabled' : ''}">
+        <a class="page-link" href="#" onclick="cambiarPaginaCambios(${paginaActualCambios + 1})">&raquo;</a>
+    </li>`;
+    
+    html += '</ul></nav>';
+    contenedor.innerHTML = html;
+}
+
+// Función para cambiar página en el modal
+function cambiarPaginaCambios(nuevaPagina) {
+    const totalPaginas = Math.ceil(tecnicosFiltradosCambios.length / tecnicosPorPaginaCambios);
+    if (nuevaPagina >= 1 && nuevaPagina <= totalPaginas) {
+        paginaActualCambios = nuevaPagina;
+        mostrarTecnicosCambios();
+    }
+}
+
+// Función para seleccionar técnico en el modal
+function seleccionarTecnicoCambios(cedula, nombre) {
+    document.getElementById('modal_tecnico_seleccionado').value = cedula;
+    document.getElementById('modal_tecnico_nombre').textContent = nombre;
+    document.getElementById('modal_tecnico_display').style.display = 'block';
+    
+    // Cerrar dropdown
+    toggleDropdownCambios();
+}
+
+// Función para toggle del dropdown en el modal
+function toggleDropdownCambios() {
+    const dropdown = document.getElementById('modal_dropdownTecnicos');
+    dropdown.classList.toggle('show');
+}
+
+// Función para mostrar errores de técnicos en el modal
+function mostrarErrorTecnicosCambios(mensaje) {
+    const contenedor = document.getElementById('modal_listaTecnicos');
+    contenedor.innerHTML = `<div class="alert alert-danger">${mensaje}</div>`;
+}
+
+// Función para cargar stock por estado en el modal
+function cargarStockPorEstadoCambios() {
+    fetch('/api/stock_por_estado')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                stockPorEstado = data.stock;
+                actualizarIndicadoresStockCambios();
+            } else {
+                console.error('Error al cargar stock:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar stock:', error);
+        });
+}
+
+// Función para actualizar indicadores de stock en el modal
+function actualizarIndicadoresStockCambios() {
+    const elementos = {
+        'pantalon': 'Pantalón',
+        'camisetagris': 'Camiseta Gris',
+        'guerrera': 'Guerrera',
+        'camisetapolo': 'Camiseta Polo',
+        'guantes_nitrilo': 'Guantes Nitrilo',
+        'guantes_carnaza': 'Guantes Carnaza',
+        'gafas': 'Gafas',
+        'gorra': 'Gorra',
+        'casco': 'Casco'
+    };
+    
+    Object.keys(elementos).forEach(elemento => {
+        const stockElement = document.getElementById(`modal_stock_${elemento}`);
+        if (stockElement && stockPorEstado[elementos[elemento]]) {
+            const stock = stockPorEstado[elementos[elemento]];
+            const valorado = stock.VALORADO || 0;
+            const noValorado = stock['NO VALORADO'] || 0;
+            
+            stockElement.innerHTML = `Stock: <span class="text-success">Valorado: ${valorado}</span> | <span class="text-secondary">No Valorado: ${noValorado}</span>`;
+        }
+    });
+}
+
+// Función para validar stock disponible en el modal
+function validarStockDisponibleCambios(elemento) {
+    const cantidadInput = document.getElementById(`modal_${elemento}`);
+    const estadoCheckbox = document.getElementById(`modal_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
+    const stockElement = document.getElementById(`modal_stock_${elemento}`);
+    
+    if (!cantidadInput || !estadoCheckbox || !stockElement) return;
+    
+    const cantidad = parseInt(cantidadInput.value) || 0;
+    const esValorado = estadoCheckbox.checked;
+    
+    const elementos = {
+        'pantalon': 'Pantalón',
+        'camisetagris': 'Camiseta Gris',
+        'guerrera': 'Guerrera',
+        'camisetapolo': 'Camiseta Polo',
+        'guantes_nitrilo': 'Guantes Nitrilo',
+        'guantes_carnaza': 'Guantes Carnaza',
+        'gafas': 'Gafas',
+        'gorra': 'Gorra',
+        'casco': 'Casco'
+    };
+    
+    const nombreElemento = elementos[elemento];
+    if (!stockPorEstado[nombreElemento]) return;
+    
+    const stock = stockPorEstado[nombreElemento];
+    const stockDisponible = esValorado ? (stock.VALORADO || 0) : (stock['NO VALORADO'] || 0);
+    const estado = esValorado ? 'VALORADO' : 'NO VALORADO';
+    
+    if (cantidad > stockDisponible) {
+        cantidadInput.classList.add('is-invalid');
+        stockElement.innerHTML = `<span class="text-danger">⚠️ Stock insuficiente para ${estado}: ${stockDisponible} disponibles</span>`;
+    } else {
+        cantidadInput.classList.remove('is-invalid');
+        const valorado = stock.VALORADO || 0;
+        const noValorado = stock['NO VALORADO'] || 0;
+        stockElement.innerHTML = `Stock: <span class="text-success">Valorado: ${valorado}</span> | <span class="text-secondary">No Valorado: ${noValorado}</span>`;
+    }
+}
+
+// Función para validar todo el formulario del modal
+function validarFormularioCompletoCambios() {
+    const elementos = {
+        'pantalon': 'Pantalón',
+        'camisetagris': 'Camiseta Gris',
+        'guerrera': 'Guerrera',
+        'camisetapolo': 'Camiseta Polo',
+        'guantes_nitrilo': 'Guantes Nitrilo',
+        'guantes_carnaza': 'Guantes Carnaza',
+        'gafas': 'Gafas',
+        'gorra': 'Gorra',
+        'casco': 'Casco'
+    };
+    
+    let errores = [];
+    
+    Object.keys(elementos).forEach(elemento => {
+        const cantidadInput = document.getElementById(`modal_${elemento}`);
+        const estadoCheckbox = document.getElementById(`modal_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
+        
+        if (!cantidadInput || !estadoCheckbox) return;
+        
+        const cantidad = parseInt(cantidadInput.value) || 0;
+        if (cantidad === 0) return;
+        
+        const esValorado = estadoCheckbox.checked;
+        const nombreElemento = elementos[elemento];
+        
+        if (!stockPorEstado[nombreElemento]) {
+            errores.push(`No se pudo verificar el stock para ${nombreElemento}`);
+            return;
+        }
+        
+        const stock = stockPorEstado[nombreElemento];
+        const stockDisponible = esValorado ? (stock.VALORADO || 0) : (stock['NO VALORADO'] || 0);
+        const estado = esValorado ? 'VALORADO' : 'NO VALORADO';
+        
+        if (cantidad > stockDisponible) {
+            errores.push(`${nombreElemento}: Stock insuficiente para ${estado} (Solicitado: ${cantidad}, Disponible: ${stockDisponible})`);
+        }
+    });
+    
+    if (errores.length > 0) {
+        alert('Errores de validación de stock:\n\n' + errores.join('\n'));
+        return false;
+    }
+    
+    return true;
+}
+
+// Función para limpiar el formulario del modal
+function limpiarFormularioCambios() {
+    // Limpiar campos de técnico
+    document.getElementById('modal_tecnico_seleccionado').value = '';
+    document.getElementById('modal_tecnico_display').style.display = 'none';
+    document.getElementById('modal_filtroTecnico').value = '';
+    document.getElementById('modal_filtroCiudad').value = '';
+    
+    // Limpiar fecha (establecer fecha actual)
+    const fechaInput = document.getElementById('modal_fecha');
+    if (fechaInput) {
+        const hoy = new Date();
+        fechaInput.value = hoy.toISOString().split('T')[0];
+    }
+    
+    // Limpiar todos los campos de elementos
+    const elementos = [
+        'pantalon', 'camisetagris', 'guerrera', 'camisetapolo',
+        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'
+    ];
+    
+    elementos.forEach(elemento => {
+        // Limpiar cantidad
+        const cantidadInput = document.getElementById(`modal_${elemento}`);
+        if (cantidadInput) {
+            cantidadInput.value = '';
+            cantidadInput.classList.remove('is-invalid');
+        }
+        
+        // Limpiar talla
+        const tallaInput = document.getElementById(`modal_talla_${elemento}`);
+        if (tallaInput) {
+            tallaInput.value = '';
+        }
+        
+        // Resetear estado de valoración
+        const estadoCheckbox = document.getElementById(`modal_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
+        const estadoLabel = document.getElementById(`modal_label_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
+        
+        if (estadoCheckbox && estadoLabel) {
+            estadoCheckbox.checked = false;
+            estadoLabel.innerHTML = '<i class="fas fa-times-circle me-1"></i>NO VALORADO';
+            estadoLabel.className = 'form-check-label text-muted';
+        }
+        
+        // Limpiar indicadores de stock
+        const stockElement = document.getElementById(`modal_stock_${elemento}`);
+        if (stockElement) {
+            stockElement.innerHTML = '';
+        }
+    });
+    
+    // Limpiar observaciones
+    const observacionesInput = document.getElementById('modal_observaciones');
+    if (observacionesInput) {
+        observacionesInput.value = '';
+    }
+    
+    // Resetear variables de filtrado
+    filtroActualCambios = '';
+    ciudadSeleccionadaCambios = '';
+    paginaActualCambios = 1;
+    
+    // Cerrar dropdown si está abierto
+    const dropdown = document.getElementById('modal_dropdownTecnicos');
+    if (dropdown) {
+        dropdown.classList.remove('show');
+    }
+}
+
+// Función para registrar cambio de dotación desde el modal
+function registrarCambioDotacion() {
+    // Validar que se haya seleccionado un técnico
+    const tecnicoSeleccionado = document.getElementById('modal_tecnico_seleccionado').value;
+    if (!tecnicoSeleccionado) {
+        alert('Por favor seleccione un técnico');
+        return;
+    }
+    
+    // Validar stock antes de enviar
+    if (!validarFormularioCompletoCambios()) {
+        return;
+    }
+    
+    // Recopilar datos del formulario
+    const formData = new FormData();
+    formData.append('tecnico_cedula', tecnicoSeleccionado);
+    formData.append('fecha', document.getElementById('modal_fecha').value);
+    
+    // Mapeo de elementos
+    const elementos = {
+        'pantalon': 'Pantalón',
+        'camisetagris': 'Camiseta Gris',
+        'guerrera': 'Guerrera',
+        'camisetapolo': 'Camiseta Polo',
+        'guantes_nitrilo': 'Guantes Nitrilo',
+        'guantes_carnaza': 'Guantes Carnaza',
+        'gafas': 'Gafas',
+        'gorra': 'Gorra',
+        'casco': 'Casco',
+        'botas': 'Botas'
+    };
+    
+    // Agregar elementos con cantidad > 0
+    let hayElementos = false;
+    Object.keys(elementos).forEach(elemento => {
+        const cantidadInput = document.getElementById(`modal_${elemento}`);
+        const cantidad = parseInt(cantidadInput?.value) || 0;
+        
+        if (cantidad > 0) {
+            hayElementos = true;
+            const estadoCheckbox = document.getElementById(`modal_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
+            const tallaInput = document.getElementById(`modal_talla_${elemento}`);
+            
+            formData.append('elementos[]', JSON.stringify({
+                nombre: elementos[elemento],
+                cantidad: cantidad,
+                talla: tallaInput?.value || '',
+                estado: estadoCheckbox?.checked ? 'VALORADO' : 'NO VALORADO'
+            }));
+        }
+    });
+    
+    if (!hayElementos) {
+        alert('Por favor agregue al menos un elemento con cantidad mayor a 0');
+        return;
+    }
+    
+    // Agregar observaciones
+    const observaciones = document.getElementById('modal_observaciones').value;
+    if (observaciones) {
+        formData.append('observaciones', observaciones);
+    }
+    
+    // Enviar datos
+    fetch('/registrar_cambio_dotacion', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Cambio de dotación registrado exitosamente');
+            
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalCambiosDotacion'));
+            modal.hide();
+            
+            // Recargar historial
+            cargarHistorialCambios();
+            
+            // Recargar stock
+            cargarStockPorEstado();
+            cargarStockPorEstadoCambios();
+        } else {
+            alert('Error al registrar cambio: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error de conexión al registrar cambio');
+    });
+}
+
+// Event listeners para el modal
+document.addEventListener('DOMContentLoaded', function() {
+    // Event listeners para los checkboxes de estado del modal
+    const elementosModal = [
+        'pantalon', 'camiseta_gris', 'guerrera', 'camiseta_polo',
+        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'
+    ];
+    
+    elementosModal.forEach(elemento => {
+        const checkbox = document.getElementById(`modal_estado_${elemento}`);
+        if (checkbox) {
+            checkbox.addEventListener('change', function() {
+                toggleEstadoValoradoCambios(elemento);
+            });
+        }
+    });
+    
+    // Event listeners para validación de stock en tiempo real del modal
+    const elementosValidacion = [
+        'pantalon', 'camisetagris', 'guerrera', 'camisetapolo',
+        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco'
+    ];
+    
+    elementosValidacion.forEach(elemento => {
+        const cantidadInput = document.getElementById(`modal_${elemento}`);
+        const estadoCheckbox = document.getElementById(`modal_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
+        
+        if (cantidadInput) {
+            cantidadInput.addEventListener('input', function() {
+                if (this.value) {
+                    validarStockDisponibleCambios(elemento);
+                }
+            });
+        }
+        
+        if (estadoCheckbox) {
+            estadoCheckbox.addEventListener('change', function() {
+                const cantidadInput = document.getElementById(`modal_${elemento}`);
+                if (cantidadInput && cantidadInput.value) {
+                    validarStockDisponibleCambios(elemento);
+                }
+            });
+        }
+    });
+    
+    // Event listener para cerrar dropdown al hacer clic fuera
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('modal_dropdownTecnicos');
+        const button = document.querySelector('[onclick="toggleDropdownCambios()"]');
+        
+        if (dropdown && !dropdown.contains(event.target) && event.target !== button) {
+            dropdown.classList.remove('show');
+        }
+    });
+});
+
 </script>
 {% endblock %}

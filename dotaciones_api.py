@@ -6,7 +6,7 @@ Sistema de Logística - Capired
 """
 
 import mysql.connector
-from flask import jsonify, request, render_template_string, render_template
+from flask import jsonify, request, render_template_string, render_template, session
 from datetime import datetime
 import json
 import logging
@@ -2407,6 +2407,206 @@ def registrar_rutas_dotaciones(app):
                 connection.rollback()
             return jsonify({
                 'success': False, 
+                'message': f'Error interno: {str(e)}'
+            }), 500
+        finally:
+            if connection:
+                connection.close()
+
+    @app.route('/api/firmar-dotacion', methods=['POST'])
+    def firmar_dotacion():
+        """Endpoint para guardar la firma digital de una dotación"""
+        connection = None
+        try:
+            # Verificar que el usuario esté logueado
+            if 'user_id' not in session:
+                return jsonify({
+                    'success': False,
+                    'message': 'Usuario no autenticado'
+                }), 401
+            
+            # Obtener datos del request
+            data = request.get_json()
+            if not data:
+                return jsonify({
+                    'success': False,
+                    'message': 'No se recibieron datos'
+                }), 400
+            
+            id_dotacion = data.get('id_dotacion')
+            firma_base64 = data.get('firma_base64')
+            
+            # Validar datos requeridos
+            if not id_dotacion or not firma_base64:
+                return jsonify({
+                    'success': False,
+                    'message': 'ID de dotación y firma son requeridos'
+                }), 400
+            
+            logger.info(f"Procesando firma para dotación {id_dotacion}")
+            
+            # Conectar a la base de datos
+            connection = mysql.connector.connect(**DB_CONFIG)
+            cursor = connection.cursor(dictionary=True)
+            
+            # Verificar que la dotación existe y obtener el técnico asignado
+            cursor.execute("""
+                SELECT d.id_dotacion, d.id_codigo_consumidor, d.cliente, r.nombre as tecnico_nombre
+                FROM dotaciones d
+                LEFT JOIN recurso_operativo r ON d.id_codigo_consumidor = r.id_codigo_consumidor
+                WHERE d.id_dotacion = %s
+            """, (id_dotacion,))
+            dotacion = cursor.fetchone()
+            
+            if not dotacion:
+                return jsonify({
+                    'success': False,
+                    'message': 'Dotación no encontrada'
+                }), 404
+            
+            # Verificar que solo el técnico asignado pueda firmar (o un administrativo)
+            user_id_session = session.get('user_id') or session.get('id_codigo_consumidor')
+            user_role = session.get('user_role')
+            
+            # Permitir firma solo si:
+            # 1. Es el técnico asignado a la dotación
+            # 2. Es un usuario administrativo
+            if (str(user_id_session) != str(dotacion['id_codigo_consumidor']) and 
+                user_role != 'administrativo'):
+                return jsonify({
+                    'success': False,
+                    'message': f'Solo el técnico asignado ({dotacion["tecnico_nombre"]}) puede firmar esta dotación'
+                }), 403
+            
+            # Verificar que la dotación no esté ya firmada
+            cursor.execute("""
+                SELECT firmado, fecha_firma 
+                FROM dotaciones 
+                WHERE id_dotacion = %s AND firmado = 1
+            """, (id_dotacion,))
+            ya_firmada = cursor.fetchone()
+            
+            if ya_firmada:
+                return jsonify({
+                    'success': False,
+                    'message': 'Esta dotación ya ha sido firmada'
+                }), 400
+            
+            # Procesar la imagen base64 (remover el prefijo data:image/png;base64,)
+            if firma_base64.startswith('data:image/png;base64,'):
+                firma_base64 = firma_base64.replace('data:image/png;base64,', '')
+            
+            # Actualizar la dotación con la firma
+            fecha_firma = datetime.now()
+            cursor.execute("""
+                UPDATE dotaciones 
+                SET firmado = 1, 
+                    fecha_firma = %s, 
+                    firma_imagen = %s,
+                    usuario_firma = %s
+                WHERE id_dotacion = %s
+            """, (fecha_firma, firma_base64, session['user_id'], id_dotacion))
+            
+            # Verificar que se actualizó correctamente
+            if cursor.rowcount == 0:
+                return jsonify({
+                    'success': False,
+                    'message': 'No se pudo actualizar la dotación'
+                }), 500
+            
+            # Confirmar transacción
+            connection.commit()
+            
+            logger.info(f"Firma guardada exitosamente para dotación {id_dotacion} por usuario {session['user_id']}")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Firma guardada exitosamente',
+                'id_dotacion': id_dotacion,
+                'fecha_firma': fecha_firma.isoformat(),
+                'firmado': True
+            })
+            
+        except mysql.connector.Error as e:
+            logger.error(f"Error de base de datos al guardar firma: {e}")
+            if connection:
+                connection.rollback()
+            return jsonify({
+                'success': False,
+                'message': f'Error de base de datos: {str(e)}'
+            }), 500
+        except Exception as e:
+            logger.error(f"Error inesperado al guardar firma: {e}")
+            if connection:
+                connection.rollback()
+            return jsonify({
+                'success': False,
+                'message': f'Error interno: {str(e)}'
+            }), 500
+        finally:
+            if connection:
+                connection.close()
+
+    @app.route('/api/obtener-firma/<int:id_dotacion>', methods=['GET'])
+    def obtener_firma(id_dotacion):
+        """Obtener la firma digital de una dotación"""
+        connection = None
+        try:
+            # Nota: Sin verificación de autenticación para consistencia con dotacion_detalle
+            
+            connection = mysql.connector.connect(**DB_CONFIG)
+            cursor = connection.cursor(dictionary=True)
+            
+            # Verificar que la dotación existe y obtener información de la firma
+            cursor.execute("""
+                SELECT d.id_dotacion, d.cliente, d.firmado, d.firma_imagen, 
+                       d.fecha_firma, d.usuario_firma, ro.nombre as tecnico_nombre
+                FROM dotaciones d
+                LEFT JOIN recurso_operativo ro ON d.id_codigo_consumidor = ro.id_codigo_consumidor
+                WHERE d.id_dotacion = %s
+            """, (id_dotacion,))
+            
+            dotacion = cursor.fetchone()
+            
+            if not dotacion:
+                return jsonify({
+                    'success': False,
+                    'message': 'Dotación no encontrada'
+                }), 404
+            
+            if not dotacion['firmado'] or not dotacion['firma_imagen']:
+                return jsonify({
+                    'success': False,
+                    'message': 'Esta dotación no tiene firma digital'
+                }), 404
+            
+            # Formatear la fecha de firma
+            fecha_firma_str = ''
+            if dotacion['fecha_firma']:
+                fecha_firma_str = dotacion['fecha_firma'].strftime('%d/%m/%Y %H:%M:%S')
+            
+            # Crear URL de la imagen base64
+            firma_url = f"data:image/png;base64,{dotacion['firma_imagen']}"
+            
+            return jsonify({
+                'success': True,
+                'firma_url': firma_url,
+                'fecha_firma': fecha_firma_str,
+                'usuario_firma': dotacion['usuario_firma'],
+                'tecnico_nombre': dotacion['tecnico_nombre'],
+                'cliente': dotacion['cliente']
+            })
+            
+        except mysql.connector.Error as e:
+            logger.error(f"Error de base de datos al obtener firma: {e}")
+            return jsonify({
+                'success': False,
+                'message': f'Error de base de datos: {str(e)}'
+            }), 500
+        except Exception as e:
+            logger.error(f"Error inesperado al obtener firma: {e}")
+            return jsonify({
+                'success': False,
                 'message': f'Error interno: {str(e)}'
             }), 500
         finally:
