@@ -11823,30 +11823,8 @@ def registrar_cambio_dotacion():
             observaciones
         ))
         
-        # 2. Registrar en dotaciones (para mantener el historial de entregas)
-        query_dotacion = """
-            INSERT INTO dotaciones (
-                cliente, id_codigo_consumidor, pantalon, pantalon_talla,
-                camisetagris, camiseta_gris_talla, guerrera, guerrera_talla,
-                camisetapolo, camiseta_polo_talla, guantes_nitrilo, guantes_carnaza,
-                gafas, gorra, casco, botas, botas_talla, fecha_registro
-            ) VALUES (
-                (SELECT cliente FROM recurso_operativo WHERE id_codigo_consumidor = %s),
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-            )
-        """
-        
-        cursor.execute(query_dotacion, (
-            id_codigo_consumidor, id_codigo_consumidor,
-            elementos_dotacion['pantalon']['cantidad'], elementos_dotacion['pantalon']['talla'],
-            elementos_dotacion['camisetagris']['cantidad'], elementos_dotacion['camisetagris']['talla'],
-            elementos_dotacion['guerrera']['cantidad'], elementos_dotacion['guerrera']['talla'],
-            elementos_dotacion['camisetapolo']['cantidad'], elementos_dotacion['camisetapolo']['talla'],
-            elementos_dotacion['guantes_nitrilo']['cantidad'], elementos_dotacion['guantes_carnaza']['cantidad'],
-            elementos_dotacion['gafas']['cantidad'], elementos_dotacion['gorra']['cantidad'],
-            elementos_dotacion['casco']['cantidad'], elementos_dotacion['botas']['cantidad'],
-            elementos_dotacion['botas']['talla'], fecha_cambio
-        ))
+        # NOTA: Los cambios de dotación solo se registran en cambios_dotacion
+        # NO se debe insertar en la tabla dotaciones para evitar contaminación cruzada
         
         connection.commit()
         
