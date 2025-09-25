@@ -2045,6 +2045,341 @@ def registrar_rutas_dotaciones(app):
                 
                 logger.info(f"Stock recalculado para {material}: {stock_inicial} - {total_asignaciones} - {total_cambios} = {stock_actual}")
             
+            # Después del recálculo, actualizar la vista vista_stock_dotaciones
+            logger.info("Actualizando vista_stock_dotaciones...")
+            
+            try:
+                # Recrear la vista vista_stock_dotaciones para reflejar los cambios
+                cursor.execute("DROP VIEW IF EXISTS vista_stock_dotaciones")
+                
+                create_view_query = """
+                CREATE VIEW vista_stock_dotaciones AS
+                SELECT 
+                    'pantalon' AS tipo_elemento,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'pantalon'
+                    ) AS cantidad_ingresada,
+                    (
+                        SELECT COALESCE(SUM(pantalon), 0) 
+                        FROM dotaciones 
+                        WHERE pantalon IS NOT NULL AND pantalon > 0
+                    ) + (
+                        SELECT COALESCE(SUM(pantalon), 0) 
+                        FROM cambios_dotacion 
+                        WHERE pantalon IS NOT NULL AND pantalon > 0
+                    ) AS cantidad_entregada,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'pantalon'
+                    ) - (
+                        SELECT COALESCE(SUM(pantalon), 0) 
+                        FROM dotaciones 
+                        WHERE pantalon IS NOT NULL AND pantalon > 0
+                    ) - (
+                        SELECT COALESCE(SUM(pantalon), 0) 
+                        FROM cambios_dotacion 
+                        WHERE pantalon IS NOT NULL AND pantalon > 0
+                    ) AS saldo_disponible
+                
+                UNION ALL
+                
+                SELECT 
+                    'camisetagris' AS tipo_elemento,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'camisetagris'
+                    ) AS cantidad_ingresada,
+                    (
+                        SELECT COALESCE(SUM(camisetagris), 0) 
+                        FROM dotaciones 
+                        WHERE camisetagris IS NOT NULL AND camisetagris > 0
+                    ) + (
+                        SELECT COALESCE(SUM(camisetagris), 0) 
+                        FROM cambios_dotacion 
+                        WHERE camisetagris IS NOT NULL AND camisetagris > 0
+                    ) AS cantidad_entregada,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'camisetagris'
+                    ) - (
+                        SELECT COALESCE(SUM(camisetagris), 0) 
+                        FROM dotaciones 
+                        WHERE camisetagris IS NOT NULL AND camisetagris > 0
+                    ) - (
+                        SELECT COALESCE(SUM(camisetagris), 0) 
+                        FROM cambios_dotacion 
+                        WHERE camisetagris IS NOT NULL AND camisetagris > 0
+                    ) AS saldo_disponible
+                
+                UNION ALL
+                
+                SELECT 
+                    'guerrera' AS tipo_elemento,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'guerrera'
+                    ) AS cantidad_ingresada,
+                    (
+                        SELECT COALESCE(SUM(guerrera), 0) 
+                        FROM dotaciones 
+                        WHERE guerrera IS NOT NULL AND guerrera > 0
+                    ) + (
+                        SELECT COALESCE(SUM(guerrera), 0) 
+                        FROM cambios_dotacion 
+                        WHERE guerrera IS NOT NULL AND guerrera > 0
+                    ) AS cantidad_entregada,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'guerrera'
+                    ) - (
+                        SELECT COALESCE(SUM(guerrera), 0) 
+                        FROM dotaciones 
+                        WHERE guerrera IS NOT NULL AND guerrera > 0
+                    ) - (
+                        SELECT COALESCE(SUM(guerrera), 0) 
+                        FROM cambios_dotacion 
+                        WHERE guerrera IS NOT NULL AND guerrera > 0
+                    ) AS saldo_disponible
+                
+                UNION ALL
+                
+                SELECT 
+                    'camisetapolo' AS tipo_elemento,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'camisetapolo'
+                    ) AS cantidad_ingresada,
+                    (
+                        SELECT COALESCE(SUM(camisetapolo), 0) 
+                        FROM dotaciones 
+                        WHERE camisetapolo IS NOT NULL AND camisetapolo > 0
+                    ) + (
+                        SELECT COALESCE(SUM(camisetapolo), 0) 
+                        FROM cambios_dotacion 
+                        WHERE camisetapolo IS NOT NULL AND camisetapolo > 0
+                    ) AS cantidad_entregada,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'camisetapolo'
+                    ) - (
+                        SELECT COALESCE(SUM(camisetapolo), 0) 
+                        FROM dotaciones 
+                        WHERE camisetapolo IS NOT NULL AND camisetapolo > 0
+                    ) - (
+                        SELECT COALESCE(SUM(camisetapolo), 0) 
+                        FROM cambios_dotacion 
+                        WHERE camisetapolo IS NOT NULL AND camisetapolo > 0
+                    ) AS saldo_disponible
+                
+                UNION ALL
+                
+                SELECT 
+                    'botas' AS tipo_elemento,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'botas'
+                    ) AS cantidad_ingresada,
+                    (
+                        SELECT COALESCE(SUM(botas), 0) 
+                        FROM dotaciones 
+                        WHERE botas IS NOT NULL AND botas > 0
+                    ) + (
+                        SELECT COALESCE(SUM(botas), 0) 
+                        FROM cambios_dotacion 
+                        WHERE botas IS NOT NULL AND botas > 0
+                    ) AS cantidad_entregada,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'botas'
+                    ) - (
+                        SELECT COALESCE(SUM(botas), 0) 
+                        FROM dotaciones 
+                        WHERE botas IS NOT NULL AND botas > 0
+                    ) - (
+                        SELECT COALESCE(SUM(botas), 0) 
+                        FROM cambios_dotacion 
+                        WHERE botas IS NOT NULL AND botas > 0
+                    ) AS saldo_disponible
+                
+                UNION ALL
+                
+                SELECT 
+                    'guantes_nitrilo' AS tipo_elemento,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'guantes_nitrilo'
+                    ) AS cantidad_ingresada,
+                    (
+                        SELECT COALESCE(SUM(guantes_nitrilo), 0) 
+                        FROM dotaciones 
+                        WHERE guantes_nitrilo IS NOT NULL AND guantes_nitrilo > 0
+                    ) + (
+                        SELECT COALESCE(SUM(guantes_nitrilo), 0) 
+                        FROM cambios_dotacion 
+                        WHERE guantes_nitrilo IS NOT NULL AND guantes_nitrilo > 0
+                    ) AS cantidad_entregada,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'guantes_nitrilo'
+                    ) - (
+                        SELECT COALESCE(SUM(guantes_nitrilo), 0) 
+                        FROM dotaciones 
+                        WHERE guantes_nitrilo IS NOT NULL AND guantes_nitrilo > 0
+                    ) - (
+                        SELECT COALESCE(SUM(guantes_nitrilo), 0) 
+                        FROM cambios_dotacion 
+                        WHERE guantes_nitrilo IS NOT NULL AND guantes_nitrilo > 0
+                    ) AS saldo_disponible
+                
+                UNION ALL
+                
+                SELECT 
+                    'guantes_carnaza' AS tipo_elemento,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'guantes_carnaza'
+                    ) AS cantidad_ingresada,
+                    (
+                        SELECT COALESCE(SUM(guantes_carnaza), 0) 
+                        FROM dotaciones 
+                        WHERE guantes_carnaza IS NOT NULL AND guantes_carnaza > 0
+                    ) + (
+                        SELECT COALESCE(SUM(guantes_carnaza), 0) 
+                        FROM cambios_dotacion 
+                        WHERE guantes_carnaza IS NOT NULL AND guantes_carnaza > 0
+                    ) AS cantidad_entregada,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'guantes_carnaza'
+                    ) - (
+                        SELECT COALESCE(SUM(guantes_carnaza), 0) 
+                        FROM dotaciones 
+                        WHERE guantes_carnaza IS NOT NULL AND guantes_carnaza > 0
+                    ) - (
+                        SELECT COALESCE(SUM(guantes_carnaza), 0) 
+                        FROM cambios_dotacion 
+                        WHERE guantes_carnaza IS NOT NULL AND guantes_carnaza > 0
+                    ) AS saldo_disponible
+                
+                UNION ALL
+                
+                SELECT 
+                    'gafas' AS tipo_elemento,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'gafas'
+                    ) AS cantidad_ingresada,
+                    (
+                        SELECT COALESCE(SUM(gafas), 0) 
+                        FROM dotaciones 
+                        WHERE gafas IS NOT NULL AND gafas > 0
+                    ) + (
+                        SELECT COALESCE(SUM(gafas), 0) 
+                        FROM cambios_dotacion 
+                        WHERE gafas IS NOT NULL AND gafas > 0
+                    ) AS cantidad_entregada,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'gafas'
+                    ) - (
+                        SELECT COALESCE(SUM(gafas), 0) 
+                        FROM dotaciones 
+                        WHERE gafas IS NOT NULL AND gafas > 0
+                    ) - (
+                        SELECT COALESCE(SUM(gafas), 0) 
+                        FROM cambios_dotacion 
+                        WHERE gafas IS NOT NULL AND gafas > 0
+                    ) AS saldo_disponible
+                
+                UNION ALL
+                
+                SELECT 
+                    'gorra' AS tipo_elemento,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'gorra'
+                    ) AS cantidad_ingresada,
+                    (
+                        SELECT COALESCE(SUM(gorra), 0) 
+                        FROM dotaciones 
+                        WHERE gorra IS NOT NULL AND gorra > 0
+                    ) + (
+                        SELECT COALESCE(SUM(gorra), 0) 
+                        FROM cambios_dotacion 
+                        WHERE gorra IS NOT NULL AND gorra > 0
+                    ) AS cantidad_entregada,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'gorra'
+                    ) - (
+                        SELECT COALESCE(SUM(gorra), 0) 
+                        FROM dotaciones 
+                        WHERE gorra IS NOT NULL AND gorra > 0
+                    ) - (
+                        SELECT COALESCE(SUM(gorra), 0) 
+                        FROM cambios_dotacion 
+                        WHERE gorra IS NOT NULL AND gorra > 0
+                    ) AS saldo_disponible
+                
+                UNION ALL
+                
+                SELECT 
+                    'casco' AS tipo_elemento,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'casco'
+                    ) AS cantidad_ingresada,
+                    (
+                        SELECT COALESCE(SUM(casco), 0) 
+                        FROM dotaciones 
+                        WHERE casco IS NOT NULL AND casco > 0
+                    ) + (
+                        SELECT COALESCE(SUM(casco), 0) 
+                        FROM cambios_dotacion 
+                        WHERE casco IS NOT NULL AND casco > 0
+                    ) AS cantidad_entregada,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'casco'
+                    ) - (
+                        SELECT COALESCE(SUM(casco), 0) 
+                        FROM dotaciones 
+                        WHERE casco IS NOT NULL AND casco > 0
+                    ) - (
+                        SELECT COALESCE(SUM(casco), 0) 
+                        FROM cambios_dotacion 
+                        WHERE casco IS NOT NULL AND casco > 0
+                    ) AS saldo_disponible
+                """
+                
+                cursor.execute(create_view_query)
+                logger.info("Vista vista_stock_dotaciones actualizada exitosamente")
+                
+            except Exception as view_error:
+                logger.error(f"Error actualizando vista_stock_dotaciones: {view_error}")
+                # No fallar el endpoint si hay error con la vista, solo registrar
+            
             # Confirmar transacción
             connection.commit()
             
@@ -2054,6 +2389,7 @@ def registrar_rutas_dotaciones(app):
                 'success': True,
                 'message': f'Stock refrescado exitosamente. {len(stock_actualizado)} materiales procesados.',
                 'stock_actualizado': stock_actualizado,
+                'vista_actualizada': True,
                 'timestamp': datetime.now().isoformat()
             })
             
