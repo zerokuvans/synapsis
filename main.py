@@ -12513,10 +12513,10 @@ def validar_transicion_estado(estado_actual, estado_nuevo, usuario_id):
         
         # Obtener rol del usuario
         cursor.execute("""
-            SELECT r.id as rol_id, r.nombre as rol_nombre
-            FROM usuarios u
-            JOIN roles r ON u.rol_id = r.id
-            WHERE u.id = %s
+            SELECT r.id_roles as rol_id, r.nombre_rol as rol_nombre
+            FROM recurso_operativo ro
+            JOIN roles r ON ro.id_roles = r.id_roles
+            WHERE ro.id_codigo_consumidor = %s
         """, (usuario_id,))
         
         usuario_rol = cursor.fetchone()
@@ -12637,10 +12637,10 @@ def obtener_transiciones_validas(estado_actual, usuario_id):
         
         # Obtener rol del usuario
         cursor.execute("""
-            SELECT r.id as rol_id
-            FROM usuarios u
-            JOIN roles r ON u.rol_id = r.id
-            WHERE u.id = %s
+            SELECT r.id_roles as rol_id
+            FROM recurso_operativo ro
+            JOIN roles r ON ro.id_roles = r.id_roles
+            WHERE ro.id_codigo_consumidor = %s
         """, (usuario_id,))
         
         usuario_rol = cursor.fetchone()
@@ -12736,10 +12736,10 @@ def enviar_notificacion_cambio_estado(devolucion_id, estado_anterior, estado_nue
             # Convertir nombres de roles a IDs
             placeholders = ','.join(['%s'] * len(roles_destinatarios))
             cursor.execute(f"""
-                SELECT u.id, u.email, u.telefono, u.nombre, r.nombre as rol_nombre
-                FROM usuarios u
-                JOIN roles r ON u.rol_id = r.id
-                WHERE r.nombre IN ({placeholders}) AND u.activo = 1
+                SELECT ro.id_codigo_consumidor as id, ro.nombre, r.nombre_rol as rol_nombre
+                FROM recurso_operativo ro
+                JOIN roles r ON ro.id_roles = r.id_roles
+                WHERE r.nombre_rol IN ({placeholders}) AND ro.estado = 'Activo'
             """, roles_destinatarios)
             
             usuarios_destinatarios = cursor.fetchall()
@@ -13447,7 +13447,7 @@ def actualizar_estado_devolucion(devolucion_id):
                 'error': 'El motivo del cambio es obligatorio'
             }), 400
         
-        estados_validos = ['REGISTRADA', 'PROCESANDO', 'COMPLETADA', 'CANCELADA']
+        estados_validos = ['PENDIENTE', 'REGISTRADA', 'EN_REVISION', 'APROBADA', 'RECHAZADA', 'PROCESADA', 'COMPLETADA', 'CANCELADA']
         if nuevo_estado not in estados_validos:
             return jsonify({
                 'success': False,
@@ -13593,10 +13593,10 @@ def obtener_transiciones_devolucion(devolucion_id):
         
         # Obtener información del rol del usuario
         cursor.execute("""
-            SELECT r.nombre as rol_nombre
-            FROM usuarios u
-            JOIN roles r ON u.rol_id = r.id
-            WHERE u.id = %s
+            SELECT r.nombre_rol as rol_nombre
+            FROM recurso_operativo ro
+            JOIN roles r ON ro.id_roles = r.id_roles
+            WHERE ro.id_codigo_consumidor = %s
         """, (usuario_id,))
         
         usuario_info = cursor.fetchone()
