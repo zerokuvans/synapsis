@@ -11,6 +11,10 @@ from datetime import datetime
 import json
 import logging
 
+# Importar sistema de validación por estado
+from validacion_stock_por_estado import ValidadorStockPorEstado
+from gestor_stock_con_validacion_estado import GestorStockConValidacionEstado
+
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -237,7 +241,7 @@ def registrar_rutas_dotaciones(app):
     
     @app.route('/api/dotaciones', methods=['POST'])
     def crear_dotacion():
-        """Crear una nueva dotación"""
+        """Crear una nueva dotación con validación por estado"""
         connection = get_db_connection()
         if not connection:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
@@ -248,6 +252,45 @@ def registrar_rutas_dotaciones(app):
             # Validar datos requeridos
             if not data.get('cliente'):
                 return jsonify({'success': False, 'message': 'El campo cliente es requerido'}), 400
+            
+            # Preparar items con estados para validación
+            items_con_estado = {}
+            elementos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 
+                        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas']
+            
+            for elemento in elementos:
+                cantidad = data.get(elemento, 0)
+                if cantidad and cantidad > 0:
+                    # Mapear nombres de elementos para el validador
+                    elemento_mapeado = elemento
+                    if elemento == 'camisetagris':
+                        elemento_mapeado = 'camiseta_gris'
+                    elif elemento == 'camisetapolo':
+                        elemento_mapeado = 'camiseta_polo'
+                    
+                    # Obtener el estado de valoración desde el campo _valorado
+                    valorado_key = f'{elemento}_valorado'
+                    es_valorado = data.get(valorado_key, False)
+                    estado = 'VALORADO' if es_valorado else 'NO VALORADO'
+                    items_con_estado[elemento_mapeado] = (cantidad, estado)
+            
+            # Validar stock por estado antes de crear la dotación
+            if items_con_estado:
+                validador = ValidadorStockPorEstado()
+                
+                # Separar items y estados para el validador
+                items_dict = {k: v[0] for k, v in items_con_estado.items()}
+                estados_dict = {k: v[1] for k, v in items_con_estado.items()}
+                
+                es_valido, resultado = validador.validar_asignacion_con_estados(
+                    data.get('id_codigo_consumidor', 0), items_dict, estados_dict
+                )
+                
+                if not es_valido:
+                    return jsonify({
+                        'success': False, 
+                        'message': f'Stock insuficiente: {resultado}'
+                    }), 400
             
             cursor = connection.cursor()
             
@@ -285,21 +328,44 @@ def registrar_rutas_dotaciones(app):
                 data.get('casco'),
                 data.get('botas'),
                 data.get('botas_talla'),
-                # Estados de valoración
-                data.get('estado_pantalon', 'VALORADO'),
-                data.get('estado_camisetagris', 'VALORADO'),
-                data.get('estado_guerrera', 'VALORADO'),
-                data.get('estado_camisetapolo', 'VALORADO'),
-                data.get('estado_guantes_nitrilo', 'VALORADO'),
-                data.get('estado_guantes_carnaza', 'VALORADO'),
-                data.get('estado_gafas', 'VALORADO'),
-                data.get('estado_gorra', 'VALORADO'),
-                data.get('estado_casco', 'VALORADO'),
-                data.get('estado_botas', 'VALORADO')
+                # Estados de valoración - convertir de _valorado a texto
+                'VALORADO' if data.get('pantalon_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('camiseta_gris_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('guerrera_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('camiseta_polo_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('guantes_nitrilo_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('guantes_carnaza_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('gafas_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('gorra_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('casco_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('botas_valorado') else 'NO VALORADO'
             )
             
             cursor.execute(query, valores)
             id_dotacion = cursor.lastrowid
+            
+            # Procesar stock con validación por estado después de crear la dotación
+            if items_con_estado:
+                try:
+                    gestor = GestorStockConValidacionEstado()
+                    
+                    # Preparar datos para el gestor
+                    items_dict = {k: v[0] for k, v in items_con_estado.items()}
+                    estados_dict = {k: v[1] for k, v in items_con_estado.items()}
+                    
+                    # Procesar asignación con estado
+                    exito_stock, mensaje_stock = gestor.procesar_asignacion_dotacion_con_estado(
+                        data.get('id_codigo_consumidor', 0), items_dict, estados_dict
+                    )
+                    
+                    if not exito_stock:
+                        logger.warning(f"Advertencia en procesamiento de stock para dotación {id_dotacion}: {mensaje_stock}")
+                    else:
+                        logger.info(f"Stock procesado correctamente para dotación {id_dotacion}")
+                        
+                except Exception as e:
+                    logger.error(f"Error procesando stock para dotación {id_dotacion}: {e}")
+                    # No fallar la creación de la dotación por errores de stock
             
             logger.info(f"Dotación creada con ID: {id_dotacion}")
             
@@ -311,6 +377,288 @@ def registrar_rutas_dotaciones(app):
             
         except mysql.connector.Error as e:
             logger.error(f"Error creando dotación: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        except Exception as e:
+            logger.error(f"Error inesperado: {e}")
+            return jsonify({'success': False, 'message': f'Error interno: {e}'}), 500
+        finally:
+            if connection:
+                connection.close()
+    
+    @app.route('/api/cambios_dotacion', methods=['POST'])
+    def crear_cambio_dotacion():
+        """Crear un nuevo cambio de dotación con validación por estado"""
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        
+        try:
+            data = request.get_json()
+            
+            # Validaciones básicas
+            id_codigo_consumidor = data.get('id_codigo_consumidor')
+            fecha_cambio = data.get('fecha_cambio')
+            
+            if not id_codigo_consumidor or not fecha_cambio:
+                return jsonify({
+                    'success': False, 
+                    'message': 'Técnico y fecha son campos obligatorios'
+                }), 400
+            
+            cursor = connection.cursor(dictionary=True)
+            
+            # Mapeo de elementos con sus datos
+            elementos_dotacion = {
+                'pantalon': {
+                    'cantidad': data.get('pantalon'),
+                    'talla': data.get('pantalon_talla'),
+                    'valorado': data.get('pantalon_valorado', False)
+                },
+                'camisetagris': {
+                    'cantidad': data.get('camisetagris'),
+                    'talla': data.get('camiseta_gris_talla'),
+                    'valorado': data.get('camisetagris_valorado', False)
+                },
+                'guerrera': {
+                    'cantidad': data.get('guerrera'),
+                    'talla': data.get('guerrera_talla'),
+                    'valorado': data.get('guerrera_valorado', False)
+                },
+                'camisetapolo': {
+                    'cantidad': data.get('camisetapolo'),
+                    'talla': data.get('camiseta_polo_talla'),
+                    'valorado': data.get('camisetapolo_valorado', False)
+                },
+                'guantes_nitrilo': {
+                    'cantidad': data.get('guantes_nitrilo'),
+                    'talla': None,
+                    'valorado': data.get('guantes_nitrilo_valorado', False)
+                },
+                'guantes_carnaza': {
+                    'cantidad': data.get('guantes_carnaza'),
+                    'talla': None,
+                    'valorado': data.get('guantes_carnaza_valorado', False)
+                },
+                'gafas': {
+                    'cantidad': data.get('gafas'),
+                    'talla': None,
+                    'valorado': data.get('gafas_valorado', False)
+                },
+                'gorra': {
+                    'cantidad': data.get('gorra'),
+                    'talla': None,
+                    'valorado': data.get('gorra_valorado', False)
+                },
+                'casco': {
+                    'cantidad': data.get('casco'),
+                    'talla': None,
+                    'valorado': data.get('casco_valorado', False)
+                },
+                'botas': {
+                    'cantidad': data.get('botas'),
+                    'talla': data.get('botas_talla'),
+                    'valorado': data.get('botas_valorado', False)
+                }
+            }
+            
+            # Validar stock disponible antes de procesar usando el stock unificado por estado
+            errores_stock = []
+            for elemento, datos in elementos_dotacion.items():
+                cantidad = datos['cantidad']
+                if cantidad is not None and cantidad > 0:
+                    
+                    # Verificar stock disponible según estado valorado del formulario
+                    es_valorado = datos['valorado']
+                    tipo_stock = "VALORADO" if es_valorado else "NO VALORADO"
+                    
+                    # Obtener stock actual del elemento filtrado por estado valorado
+                    cursor.execute("""
+                        SELECT COALESCE(SUM(cantidad), 0) as stock_disponible
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = %s AND estado = %s
+                    """, (elemento, tipo_stock))
+                    
+                    ingresos_result = cursor.fetchone()
+                    stock_ingresos = ingresos_result['stock_disponible'] if ingresos_result else 0
+                    
+                    # Obtener salidas del elemento con el mismo estado
+                    cursor.execute("""
+                        SELECT COALESCE(SUM(
+                            CASE 
+                                WHEN %s = 'pantalon' AND estado_pantalon = %s THEN pantalon
+                                WHEN %s = 'camisetagris' AND estado_camiseta_gris = %s THEN camisetagris
+                                WHEN %s = 'guerrera' AND estado_guerrera = %s THEN guerrera
+                                WHEN %s = 'camisetapolo' AND estado_camiseta_polo = %s THEN camisetapolo
+                                WHEN %s = 'guantes_nitrilo' AND estado_guantes_nitrilo = %s THEN guantes_nitrilo
+                                WHEN %s = 'guantes_carnaza' AND estado_guantes_carnaza = %s THEN guantes_carnaza
+                                WHEN %s = 'gafas' AND estado_gafas = %s THEN gafas
+                                WHEN %s = 'gorra' AND estado_gorra = %s THEN gorra
+                                WHEN %s = 'casco' AND estado_casco = %s THEN casco
+                                WHEN %s = 'botas' AND estado_botas = %s THEN botas
+                                ELSE 0
+                            END
+                        ), 0) as total_salidas
+                        FROM cambios_dotacion
+                    """, (elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock, 
+                          elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock,
+                          elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock,
+                          elemento, tipo_stock))
+                    
+                    salidas_result = cursor.fetchone()
+                    stock_salidas = salidas_result['total_salidas'] if salidas_result else 0
+                    
+                    # Calcular stock disponible real por estado
+                    stock_disponible = stock_ingresos - stock_salidas
+                    
+                    if stock_disponible < cantidad:
+                        nombre_elemento = elemento.replace('_', ' ').title()
+                        errores_stock.append(
+                            f"Stock insuficiente para {nombre_elemento} ({tipo_stock}): "
+                            f"Disponible: {stock_disponible}, Solicitado: {cantidad}"
+                        )
+            
+            # Si hay errores de stock, retornarlos
+            if errores_stock:
+                return jsonify({
+                    'success': False,
+                    'message': 'Stock insuficiente',
+                    'errors': errores_stock
+                }), 400
+            
+            # Procesar el cambio de dotación
+            query_cambio = """
+                INSERT INTO cambios_dotacion (
+                    id_codigo_consumidor, fecha_cambio, pantalon, pantalon_talla, estado_pantalon,
+                    camisetagris, camiseta_gris_talla, estado_camiseta_gris, guerrera, guerrera_talla, estado_guerrera,
+                    camisetapolo, camiseta_polo_talla, estado_camiseta_polo, guantes_nitrilo, estado_guantes_nitrilo,
+                    guantes_carnaza, estado_guantes_carnaza, gafas, estado_gafas, gorra, estado_gorra,
+                    casco, estado_casco, botas, botas_talla, estado_botas, observaciones
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                )
+            """
+            
+            cursor.execute(query_cambio, (
+                id_codigo_consumidor, fecha_cambio, 
+                elementos_dotacion['pantalon']['cantidad'], elementos_dotacion['pantalon']['talla'], 
+                'VALORADO' if elementos_dotacion['pantalon']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['camisetagris']['cantidad'], elementos_dotacion['camisetagris']['talla'],
+                'VALORADO' if elementos_dotacion['camisetagris']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['guerrera']['cantidad'], elementos_dotacion['guerrera']['talla'],
+                'VALORADO' if elementos_dotacion['guerrera']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['camisetapolo']['cantidad'], elementos_dotacion['camisetapolo']['talla'],
+                'VALORADO' if elementos_dotacion['camisetapolo']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['guantes_nitrilo']['cantidad'], 
+                'VALORADO' if elementos_dotacion['guantes_nitrilo']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['guantes_carnaza']['cantidad'],
+                'VALORADO' if elementos_dotacion['guantes_carnaza']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['gafas']['cantidad'],
+                'VALORADO' if elementos_dotacion['gafas']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['gorra']['cantidad'],
+                'VALORADO' if elementos_dotacion['gorra']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['casco']['cantidad'],
+                'VALORADO' if elementos_dotacion['casco']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['botas']['cantidad'], elementos_dotacion['botas']['talla'],
+                'VALORADO' if elementos_dotacion['botas']['valorado'] else 'NO VALORADO',
+                data.get('observaciones', '')
+            ))
+            
+            id_cambio = cursor.lastrowid
+            connection.commit()
+            
+            # Preparar mensaje de éxito con detalles de estado valorado
+            elementos_procesados = []
+            for elemento, datos in elementos_dotacion.items():
+                cantidad = datos['cantidad']
+                if cantidad is not None and cantidad > 0:
+                    estado_valorado = "VALORADO" if datos['valorado'] else "NO VALORADO"
+                    nombre_elemento = elemento.replace('_', ' ').title()
+                    elementos_procesados.append(f"{nombre_elemento}: {cantidad} ({estado_valorado})")
+            
+            return jsonify({
+                'success': True,
+                'message': f'Cambio de dotación registrado exitosamente. Elementos procesados: {", ".join(elementos_procesados)}',
+                'id_cambio': id_cambio
+            }), 201
+            
+        except mysql.connector.Error as e:
+            logger.error(f"Error creando cambio de dotación: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        except Exception as e:
+            logger.error(f"Error inesperado: {e}")
+            return jsonify({'success': False, 'message': f'Error interno: {e}'}), 500
+        finally:
+            if connection:
+                connection.close()
+    
+    @app.route('/api/stock_por_estado', methods=['GET'])
+    def obtener_stock_por_estado():
+        """Obtener stock disponible por elemento y estado de valoración"""
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        
+        try:
+            cursor = connection.cursor(dictionary=True)
+            
+            # Lista de elementos de dotación
+            elementos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 
+                        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas']
+            
+            stock_por_estado = {}
+            
+            for elemento in elementos:
+                stock_por_estado[elemento] = {
+                    'VALORADO': 0,
+                    'NO VALORADO': 0
+                }
+                
+                # Obtener ingresos por estado
+                for estado in ['VALORADO', 'NO VALORADO']:
+                    cursor.execute("""
+                        SELECT COALESCE(SUM(cantidad), 0) as total_ingresos
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = %s AND estado = %s
+                    """, (elemento, estado))
+                    
+                    ingresos_result = cursor.fetchone()
+                    total_ingresos = ingresos_result['total_ingresos'] if ingresos_result else 0
+                    
+                    # Obtener salidas de dotaciones por estado
+                    cursor.execute(f"""
+                        SELECT COALESCE(SUM(
+                            CASE WHEN estado_{elemento} = %s THEN {elemento} ELSE 0 END
+                        ), 0) as total_dotaciones
+                        FROM dotaciones
+                        WHERE {elemento} IS NOT NULL AND {elemento} > 0
+                    """, (estado,))
+                    
+                    dotaciones_result = cursor.fetchone()
+                    total_dotaciones = dotaciones_result['total_dotaciones'] if dotaciones_result else 0
+                    
+                    # Obtener salidas de cambios por estado
+                    cursor.execute(f"""
+                        SELECT COALESCE(SUM(
+                            CASE WHEN estado_{elemento} = %s THEN {elemento} ELSE 0 END
+                        ), 0) as total_cambios
+                        FROM cambios_dotacion
+                        WHERE {elemento} IS NOT NULL AND {elemento} > 0
+                    """, (estado,))
+                    
+                    cambios_result = cursor.fetchone()
+                    total_cambios = cambios_result['total_cambios'] if cambios_result else 0
+                    
+                    # Calcular stock disponible
+                    stock_disponible = total_ingresos - total_dotaciones - total_cambios
+                    stock_por_estado[elemento][estado] = max(0, stock_disponible)
+            
+            return jsonify({
+                'success': True,
+                'stock_por_estado': stock_por_estado
+            }), 200
+            
+        except mysql.connector.Error as e:
+            logger.error(f"Error obteniendo stock por estado: {e}")
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
         except Exception as e:
             logger.error(f"Error inesperado: {e}")
@@ -387,17 +735,17 @@ def registrar_rutas_dotaciones(app):
                 data.get('casco'),
                 data.get('botas'),
                 data.get('botas_talla'),
-                # Estados de valoración
-                data.get('estado_pantalon', 'VALORADO'),
-                data.get('estado_camisetagris', 'VALORADO'),
-                data.get('estado_guerrera', 'VALORADO'),
-                data.get('estado_camisetapolo', 'VALORADO'),
-                data.get('estado_guantes_nitrilo', 'VALORADO'),
-                data.get('estado_guantes_carnaza', 'VALORADO'),
-                data.get('estado_gafas', 'VALORADO'),
-                data.get('estado_gorra', 'VALORADO'),
-                data.get('estado_casco', 'VALORADO'),
-                data.get('estado_botas', 'VALORADO'),
+                # Estados de valoración - respetar exactamente lo que envía el frontend
+                data.get('estado_pantalon'),
+                data.get('estado_camisetagris'),
+                data.get('estado_guerrera'),
+                data.get('estado_camisetapolo'),
+                data.get('estado_guantes_nitrilo'),
+                data.get('estado_guantes_carnaza'),
+                data.get('estado_gafas'),
+                data.get('estado_gorra'),
+                data.get('estado_casco'),
+                data.get('estado_botas'),
                 id_dotacion
             )
             
