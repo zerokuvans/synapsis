@@ -129,14 +129,148 @@
     }
     
     .valorado-text {
-        color: #28a745;
-        font-weight: bold;
-    }
-    
-    .no-valorado-text {
-        color: #dc3545;
-        font-weight: bold;
-    }
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .no-valorado-text {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        /* Estilos para vista visual */
+        .vista-visual {
+            display: none;
+        }
+        
+        .tecnico-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .tecnico-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+        
+        .tecnico-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .tecnico-nombre {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .tecnico-cliente {
+            font-size: 0.9rem;
+            color: #666;
+            background: #f8f9fa;
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+        
+        .elementos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .elemento-grupo {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 10px;
+        }
+        
+        .elemento-titulo {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+        
+        .elemento-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            padding: 3px 0;
+        }
+        
+        .elemento-icono {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .elemento-info {
+            flex: 1;
+            font-size: 0.85rem;
+        }
+        
+        .elemento-cantidad {
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .elemento-talla {
+            color: #6c757d;
+            font-size: 0.8rem;
+        }
+        
+        .elemento-estado {
+            margin-left: 5px;
+        }
+        
+        .badge-valorado {
+            background-color: #28a745;
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+        
+        .badge-no-valorado {
+            background-color: #dc3545;
+            color: white;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+        }
+        
+        .sin-elementos {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 20px;
+        }
+        
+        .toggle-vista {
+            margin-bottom: 15px;
+        }
+        
+        .btn-vista {
+            margin-right: 10px;
+        }
+        
+        .btn-vista.active {
+            background-color: #007bff;
+            color: white;
+        }
 </style>
 {% endblock %}
 
@@ -334,6 +468,17 @@
                     Gestión de Dotaciones
                 </h5>
                 <div>
+                    <!-- Botones de vista -->
+                    <div class="btn-group me-3" role="group">
+                        <button type="button" class="btn btn-outline-primary view-toggle active" id="btnVistaTabla" onclick="cambiarVista('tabla')">
+                            <i class="fas fa-table me-1"></i>
+                            Tabla
+                        </button>
+                        <button type="button" class="btn btn-outline-primary view-toggle" id="btnVistaVisual" onclick="cambiarVista('visual')">
+                            <i class="fas fa-th-large me-1"></i>
+                            Visual
+                        </button>
+                    </div>
                     <button class="btn btn-success me-2" onclick="abrirModalIngreso()">
                         <i class="fas fa-box me-1"></i>
                         Registrar Ingreso
@@ -382,8 +527,15 @@
                     </div>
                 </div>
 
+                <!-- Vista Visual -->
+                <div id="vistaVisual" class="visual-view" style="display: none;">
+                    <div id="contenedorTecnicos" class="technician-grid">
+                        <!-- Los técnicos se cargarán dinámicamente aquí -->
+                    </div>
+                </div>
+
                 <!-- Tabla -->
-                <div class="table-responsive">
+                <div id="vistaTabla" class="table-responsive">
                     <table id="tablaDotaciones" class="table table-striped table-hover">
                         <thead class="table-dark">
                             <tr>
@@ -825,6 +977,190 @@
         </div>
     </div>
 
+    <!-- Modal Ver Detalles Dotación -->
+    <div class="modal fade" id="modalDetallesDotacion" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-eye me-2"></i>
+                        Detalles de Asignación
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Información del Técnico -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-user me-2"></i>
+                                Información del Técnico
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <strong>Nombre:</strong>
+                                    <p id="detalleTecnicoNombre" class="mb-1">-</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Cédula:</strong>
+                                    <p id="detalleTecnicoCedula" class="mb-1">-</p>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Cliente:</strong>
+                                    <p id="detalleTecnicoCliente" class="mb-1">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Elementos Asignados -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas fa-tshirt me-2"></i>
+                                Elementos Asignados
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <!-- Ropa de Trabajo -->
+                                <div class="col-12">
+                                    <h6 class="text-primary mb-3">Ropa de Trabajo</h6>
+                                </div>
+                                
+                                <!-- Pantalón -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-user-tie me-2 text-secondary"></i>
+                                        <div>
+                                            <strong>Pantalón:</strong>
+                                            <span id="detallePantalon">-</span>
+                                            <span id="detallePantalonTalla" class="text-muted">-</span>
+                                            <span id="detallePantalonEstado" class="badge ms-2">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Camiseta Gris -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-tshirt me-2 text-secondary"></i>
+                                        <div>
+                                            <strong>Camiseta Gris:</strong>
+                                            <span id="detalleCamisetaGris">-</span>
+                                            <span id="detalleCamisetaGrisTalla" class="text-muted">-</span>
+                                            <span id="detalleCamisetaGrisEstado" class="badge ms-2">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Guerrera -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-vest me-2 text-secondary"></i>
+                                        <div>
+                                            <strong>Guerrera:</strong>
+                                            <span id="detalleGuerrera">-</span>
+                                            <span id="detalleGuerreraTalla" class="text-muted">-</span>
+                                            <span id="detalleGuerreraEstado" class="badge ms-2">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Camiseta Polo -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-tshirt me-2 text-secondary"></i>
+                                        <div>
+                                            <strong>Camiseta Polo:</strong>
+                                            <span id="detalleCamisetaPolo">-</span>
+                                            <span id="detalleCamisetaPoloTalla" class="text-muted">-</span>
+                                            <span id="detalleCamisetaPoloEstado" class="badge ms-2">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- EPP -->
+                                <div class="col-12 mt-3">
+                                    <h6 class="text-primary mb-3">Elementos de Protección Personal</h6>
+                                </div>
+
+                                <!-- Guantes -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-hand-paper me-2 text-secondary"></i>
+                                        <div>
+                                            <strong>Guantes:</strong>
+                                            <div class="ms-2">
+                                                <span>Nitrilo: <span id="detalleGuantesNitrilo">-</span></span>
+                                                <span id="detalleGuantesNitriloEstado" class="badge ms-1">-</span>
+                                                <br>
+                                                <span>Carnaza: <span id="detalleGuantesCarnaza">-</span></span>
+                                                <span id="detalleGuantesCarnazaEstado" class="badge ms-1">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- EPP Adicional -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-hard-hat me-2 text-secondary"></i>
+                                        <div>
+                                            <strong>EPP Adicional:</strong>
+                                            <div class="ms-2">
+                                                <span>Gafas: <span id="detalleGafas">-</span></span>
+                                                <span id="detalleGafasEstado" class="badge ms-1">-</span>
+                                                <br>
+                                                <span>Gorra: <span id="detalleGorra">-</span></span>
+                                                <span id="detalleGorraEstado" class="badge ms-1">-</span>
+                                                <br>
+                                                <span>Casco: <span id="detalleCasco">-</span></span>
+                                                <span id="detalleCascoEstado" class="badge ms-1">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Botas -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-shoe-prints me-2 text-secondary"></i>
+                                        <div>
+                                            <strong>Botas:</strong>
+                                            <span id="detalleBotas">-</span>
+                                            <span id="detalleBotasTalla" class="text-muted">-</span>
+                                            <span id="detalleBotasEstado" class="badge ms-2">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Fecha de Registro -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-calendar me-2 text-secondary"></i>
+                                        <div>
+                                            <strong>Fecha de Registro:</strong>
+                                            <span id="detalleFechaRegistro">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
@@ -1110,10 +1446,12 @@
                     `${dotacion.botas || 0} (T: ${dotacion.botas_talla || 'N/A'})`,
                     dotacion.fecha_registro ? new Date(dotacion.fecha_registro).toLocaleDateString() : 'N/A',
                     `
+                        <button class="btn btn-sm btn-outline-info me-1" onclick="verDetallesDotacion(${dotacion.id_dotacion})" title="Ver Detalles">
+                            <i class="fas fa-eye"></i>
+                        </button>
                         <button class="btn btn-sm btn-outline-primary me-1" onclick="editarDotacion(${dotacion.id_dotacion})" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
-
                     `
                 ];
                 tablaDotaciones.row.add(fila);
@@ -1394,6 +1732,12 @@
             
             // Implementar filtrado en DataTable
             tablaDotaciones.search(busqueda).draw();
+            
+            // Si la vista visual está activa, actualizarla también
+            const vistaVisual = document.getElementById('vistaVisual');
+            if (vistaVisual && vistaVisual.style.display !== 'none') {
+                generarVistaVisual();
+            }
         }
 
         // Exportar datos
@@ -1817,6 +2161,228 @@
         function cargarReportes() {
             // Cargar la nueva gráfica de movimientos
             cargarGraficaMovimientos();
+        }
+
+        // Funciones para la vista visual
+        function cambiarVista(tipoVista) {
+            const vistaTabla = document.getElementById('vistaTabla');
+            const vistaVisual = document.getElementById('vistaVisual');
+            const btnTabla = document.getElementById('btnVistaTabla');
+            const btnVisual = document.getElementById('btnVistaVisual');
+            
+            if (tipoVista === 'tabla') {
+                vistaTabla.style.display = 'block';
+                vistaVisual.style.display = 'none';
+                btnTabla.classList.add('active');
+                btnVisual.classList.remove('active');
+            } else {
+                vistaTabla.style.display = 'none';
+                vistaVisual.style.display = 'block';
+                btnTabla.classList.remove('active');
+                btnVisual.classList.add('active');
+                generarVistaVisual();
+            }
+        }
+        
+        function generarVistaVisual() {
+            const contenedor = document.getElementById('contenedorTecnicos');
+            contenedor.innerHTML = '';
+            
+            // Obtener datos filtrados de la tabla
+            const filas = document.querySelectorAll('#tablaDotaciones tbody tr:not([style*="display: none"])');
+            
+            filas.forEach(fila => {
+                const celdas = fila.querySelectorAll('td');
+                if (celdas.length < 11) return;
+                
+                const tecnico = {
+                    id: celdas[0].textContent.trim(),
+                    cliente: celdas[1].textContent.trim(),
+                    nombre: celdas[2].textContent.trim(),
+                    pantalon: celdas[3].textContent.trim(),
+                    camisetagris: celdas[4].textContent.trim(),
+                    guerrera: celdas[5].textContent.trim(),
+                    camisetapolo: celdas[6].textContent.trim(),
+                    guantes: celdas[7].textContent.trim(),
+                    epp: celdas[8].textContent.trim(),
+                    botas: celdas[9].textContent.trim(),
+                    fecha: celdas[10].textContent.trim()
+                };
+                
+                const tarjetaTecnico = crearTarjetaTecnico(tecnico);
+                contenedor.appendChild(tarjetaTecnico);
+            });
+        }
+        
+        function crearTarjetaTecnico(tecnico) {
+            const tarjeta = document.createElement('div');
+            tarjeta.className = 'technician-card';
+            
+            const items = [
+                { nombre: 'Pantalón', valor: tecnico.pantalon, icono: 'fas fa-tshirt' },
+                { nombre: 'Camiseta Gris', valor: tecnico.camisetagris, icono: 'fas fa-tshirt' },
+                { nombre: 'Guerrera', valor: tecnico.guerrera, icono: 'fas fa-vest' },
+                { nombre: 'Camiseta Polo', valor: tecnico.camisetapolo, icono: 'fas fa-tshirt' },
+                { nombre: 'Guantes', valor: tecnico.guantes, icono: 'fas fa-mitten' },
+                { nombre: 'EPP', valor: tecnico.epp, icono: 'fas fa-hard-hat' },
+                { nombre: 'Botas', valor: tecnico.botas, icono: 'fas fa-shoe-prints' }
+            ];
+            
+            let itemsHTML = '';
+            items.forEach(item => {
+                const tieneAsignacion = item.valor && item.valor !== '0 (T: N/A)' && item.valor !== 'N: 0, C: 0';
+                const esValorado = item.valor && item.valor.includes('VALORADO');
+                
+                itemsHTML += `
+                    <div class="item-badge ${tieneAsignacion ? 'assigned' : 'not-assigned'}">
+                        <i class="${item.icono}"></i>
+                        <span class="item-name">${item.nombre}</span>
+                        ${tieneAsignacion ? `<span class="badge ${esValorado ? 'badge-valorado' : 'badge-no-valorado'}">${esValorado ? 'VALORADO' : 'NO VALORADO'}</span>` : ''}
+                        <small class="item-details">${item.valor || 'Sin asignar'}</small>
+                    </div>
+                `;
+            });
+            
+            tarjeta.innerHTML = `
+                <div class="technician-header">
+                    <h6 class="technician-name">${tecnico.nombre}</h6>
+                    <small class="technician-client">${tecnico.cliente}</small>
+                    <small class="technician-date">Registro: ${tecnico.fecha}</small>
+                </div>
+                <div class="items-grid">
+                    ${itemsHTML}
+                </div>
+            `;
+            
+            return tarjeta;
+        }
+
+        // Función para ver detalles de dotación
+        function verDetallesDotacion(idDotacion) {
+            // Mostrar loading
+            const modal = new bootstrap.Modal(document.getElementById('modalDetallesDotacion'));
+            modal.show();
+            
+            // Limpiar datos anteriores
+            limpiarModalDetalles();
+            
+            // Realizar petición AJAX para obtener detalles
+            fetch(`/api/dotacion_detalle/${idDotacion}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error al obtener detalles de la dotación');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    llenarModalDetalles(data.dotacion);
+                } else {
+                    throw new Error(data.message || 'Error al cargar los detalles');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al cargar los detalles de la dotación: ' + error.message);
+                modal.hide();
+            });
+        }
+
+        // Función para limpiar el modal de detalles
+        function limpiarModalDetalles() {
+            // Información del técnico
+            document.getElementById('detalleTecnicoNombre').textContent = 'Cargando...';
+            document.getElementById('detalleTecnicoCedula').textContent = 'Cargando...';
+            document.getElementById('detalleTecnicoCliente').textContent = 'Cargando...';
+            
+            // Elementos de dotación
+            const elementos = [
+                'Pantalon', 'CamisetaGris', 'Guerrera', 'CamisetaPolo',
+                'GuantesNitrilo', 'GuantesCarnaza', 'Gafas', 'Gorra', 'Casco', 'Botas'
+            ];
+            
+            elementos.forEach(elemento => {
+                const cantidadEl = document.getElementById(`detalle${elemento}`);
+                const tallaEl = document.getElementById(`detalle${elemento}Talla`);
+                const estadoEl = document.getElementById(`detalle${elemento}Estado`);
+                
+                if (cantidadEl) cantidadEl.textContent = '-';
+                if (tallaEl) tallaEl.textContent = '-';
+                if (estadoEl) {
+                    estadoEl.textContent = '-';
+                    estadoEl.className = 'badge ms-2';
+                }
+            });
+            
+            document.getElementById('detalleFechaRegistro').textContent = 'Cargando...';
+        }
+
+        // Función para llenar el modal con los detalles
+        function llenarModalDetalles(dotacion) {
+            // Información del técnico
+            document.getElementById('detalleTecnicoNombre').textContent = dotacion.tecnico_nombre || '-';
+            document.getElementById('detalleTecnicoCedula').textContent = dotacion.tecnico_cedula || '-';
+            document.getElementById('detalleTecnicoCliente').textContent = dotacion.cliente_nombre || '-';
+            
+            // Función auxiliar para mostrar elemento
+            function mostrarElemento(nombre, cantidad, talla, valorado) {
+                const cantidadEl = document.getElementById(`detalle${nombre}`);
+                const tallaEl = document.getElementById(`detalle${nombre}Talla`);
+                const estadoEl = document.getElementById(`detalle${nombre}Estado`);
+                
+                if (cantidadEl) {
+                    cantidadEl.textContent = cantidad > 0 ? cantidad : 'No asignado';
+                }
+                
+                if (tallaEl && talla) {
+                    tallaEl.textContent = `(Talla: ${talla})`;
+                } else if (tallaEl) {
+                    tallaEl.textContent = '';
+                }
+                
+                if (estadoEl) {
+                    if (cantidad > 0) {
+                        if (valorado === 1) {
+                            estadoEl.textContent = 'VALORADO';
+                            estadoEl.className = 'badge bg-success ms-2';
+                        } else {
+                            estadoEl.textContent = 'NO VALORADO';
+                            estadoEl.className = 'badge bg-info ms-2';
+                        }
+                    } else {
+                        estadoEl.textContent = 'NO ASIGNADO';
+                        estadoEl.className = 'badge bg-secondary ms-2';
+                    }
+                }
+            }
+            
+            // Mostrar elementos de ropa
+            mostrarElemento('Pantalon', dotacion.pantalon_cantidad || 0, dotacion.pantalon_talla, dotacion.pantalon_valorado);
+            mostrarElemento('CamisetaGris', dotacion.camiseta_gris_cantidad || 0, dotacion.camiseta_gris_talla, dotacion.camiseta_gris_valorado);
+            mostrarElemento('Guerrera', dotacion.guerrera_cantidad || 0, dotacion.guerrera_talla, dotacion.guerrera_valorado);
+            mostrarElemento('CamisetaPolo', dotacion.camiseta_polo_cantidad || 0, dotacion.camiseta_polo_talla, dotacion.camiseta_polo_valorado);
+            
+            // Mostrar EPP
+            mostrarElemento('GuantesNitrilo', dotacion.guantes_nitrilo_cantidad || 0, null, dotacion.guantes_nitrilo_valorado);
+            mostrarElemento('GuantesCarnaza', dotacion.guantes_carnaza_cantidad || 0, null, dotacion.guantes_carnaza_valorado);
+            mostrarElemento('Gafas', dotacion.gafas_cantidad || 0, null, dotacion.gafas_valorado);
+            mostrarElemento('Gorra', dotacion.gorra_cantidad || 0, null, dotacion.gorra_valorado);
+            mostrarElemento('Casco', dotacion.casco_cantidad || 0, null, dotacion.casco_valorado);
+            mostrarElemento('Botas', dotacion.botas_cantidad || 0, dotacion.botas_talla, dotacion.botas_valorado);
+            
+            // Fecha de registro
+            if (dotacion.fecha_registro) {
+                const fecha = new Date(dotacion.fecha_registro);
+                document.getElementById('detalleFechaRegistro').textContent = fecha.toLocaleDateString('es-ES');
+            } else {
+                document.getElementById('detalleFechaRegistro').textContent = '-';
+            }
         }
 
         // Funciones de utilidad

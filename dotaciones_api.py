@@ -147,6 +147,94 @@ def registrar_rutas_dotaciones(app):
             if connection:
                 connection.close()
     
+    @app.route('/api/dotacion_detalle/<int:id_dotacion>', methods=['GET'])
+    def obtener_dotacion_detalle(id_dotacion):
+        """Obtener detalles completos de una dotación específica para el modal de visualización"""
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        
+        try:
+            cursor = connection.cursor(dictionary=True)
+            
+            query = """
+            SELECT 
+                d.*,
+                ro.nombre as tecnico_nombre,
+                ro.recurso_operativo_cedula as tecnico_cedula,
+                d.cliente as cliente_nombre
+            FROM dotaciones d
+            LEFT JOIN recurso_operativo ro ON d.id_codigo_consumidor = ro.id_codigo_consumidor
+            WHERE d.id_dotacion = %s
+            """
+            
+            cursor.execute(query, (id_dotacion,))
+            dotacion = cursor.fetchone()
+            
+            if not dotacion:
+                return jsonify({'success': False, 'message': 'Dotación no encontrada'}), 404
+            
+            # Mapear campos para el frontend con nombres consistentes
+            dotacion_detalle = {
+                'id_dotacion': dotacion['id_dotacion'],
+                'tecnico_nombre': dotacion['tecnico_nombre'] or 'No asignado',
+                'tecnico_cedula': dotacion['tecnico_cedula'] or 'No disponible',
+                'cliente_nombre': dotacion['cliente_nombre'] or 'No disponible',
+                'fecha_registro': dotacion['fecha_registro'],
+                
+                # Elementos de ropa con cantidades, tallas y estados
+                'pantalon_cantidad': dotacion.get('pantalon') or 0,
+                'pantalon_talla': dotacion.get('pantalon_talla'),
+                'pantalon_valorado': 1 if dotacion.get('estado_pantalon') == 'VALORADO' else 0,
+                
+                'camiseta_gris_cantidad': dotacion.get('camisetagris') or 0,
+                'camiseta_gris_talla': dotacion.get('camiseta_gris_talla'),
+                'camiseta_gris_valorado': 1 if dotacion.get('estado_camisetagris') == 'VALORADO' else 0,
+                
+                'guerrera_cantidad': dotacion.get('guerrera') or 0,
+                'guerrera_talla': dotacion.get('guerrera_talla'),
+                'guerrera_valorado': 1 if dotacion.get('estado_guerrera') == 'VALORADO' else 0,
+                
+                'camiseta_polo_cantidad': dotacion.get('camisetapolo') or 0,
+                'camiseta_polo_talla': dotacion.get('camiseta_polo_talla'),
+                'camiseta_polo_valorado': 1 if dotacion.get('estado_camisetapolo') == 'VALORADO' else 0,
+                
+                # EPP sin tallas
+                'guantes_nitrilo_cantidad': dotacion.get('guantes_nitrilo') or 0,
+                'guantes_nitrilo_valorado': 1 if dotacion.get('estado_guantes_nitrilo') == 'VALORADO' else 0,
+                
+                'guantes_carnaza_cantidad': dotacion.get('guantes_carnaza') or 0,
+                'guantes_carnaza_valorado': 1 if dotacion.get('estado_guantes_carnaza') == 'VALORADO' else 0,
+                
+                'gafas_cantidad': dotacion.get('gafas') or 0,
+                'gafas_valorado': 1 if dotacion.get('estado_gafas') == 'VALORADO' else 0,
+                
+                'gorra_cantidad': dotacion.get('gorra') or 0,
+                'gorra_valorado': 1 if dotacion.get('estado_gorra') == 'VALORADO' else 0,
+                
+                'casco_cantidad': dotacion.get('casco') or 0,
+                'casco_valorado': 1 if dotacion.get('estado_casco') == 'VALORADO' else 0,
+                
+                'botas_cantidad': dotacion.get('botas') or 0,
+                'botas_talla': dotacion.get('botas_talla'),
+                'botas_valorado': 1 if dotacion.get('estado_botas') == 'VALORADO' else 0
+            }
+            
+            return jsonify({
+                'success': True,
+                'dotacion': dotacion_detalle
+            })
+            
+        except mysql.connector.Error as e:
+            logger.error(f"Error obteniendo detalles de dotación {id_dotacion}: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        except Exception as e:
+            logger.error(f"Error inesperado: {e}")
+            return jsonify({'success': False, 'message': f'Error interno: {e}'}), 500
+        finally:
+            if connection:
+                connection.close()
+    
     @app.route('/api/dotaciones', methods=['POST'])
     def crear_dotacion():
         """Crear una nueva dotación"""
