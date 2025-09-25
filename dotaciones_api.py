@@ -1116,7 +1116,7 @@ def registrar_rutas_dotaciones(app):
             cursor.execute(ingresos_query, params_ingresos)
             ingresos_data = cursor.fetchall()
             
-            # Query para obtener entregas por tallas
+            # Query para obtener entregas por tallas (DOTACIONES + CAMBIOS)
             entregas_query = """
             SELECT 
                 'pantalon' as tipo_elemento,
@@ -1124,6 +1124,17 @@ def registrar_rutas_dotaciones(app):
                 COALESCE(pantalon_talla, 'Sin número') as numero_calzado,
                 SUM(pantalon) as total_entregado
             FROM dotaciones
+            WHERE pantalon > 0
+            GROUP BY pantalon_talla
+            
+            UNION ALL
+            
+            SELECT 
+                'pantalon' as tipo_elemento,
+                'Sin talla' as talla,
+                COALESCE(pantalon_talla, 'Sin número') as numero_calzado,
+                SUM(pantalon) as total_entregado
+            FROM cambios_dotacion
             WHERE pantalon > 0
             GROUP BY pantalon_talla
             
@@ -1141,11 +1152,33 @@ def registrar_rutas_dotaciones(app):
             UNION ALL
             
             SELECT 
+                'camisetagris' as tipo_elemento,
+                COALESCE(camiseta_gris_talla, 'Sin talla') as talla,
+                'Sin número' as numero_calzado,
+                SUM(camisetagris) as total_entregado
+            FROM cambios_dotacion
+            WHERE camisetagris > 0
+            GROUP BY camiseta_gris_talla
+            
+            UNION ALL
+            
+            SELECT 
                 'guerrera' as tipo_elemento,
                 COALESCE(guerrera_talla, 'Sin talla') as talla,
                 'Sin número' as numero_calzado,
                 SUM(guerrera) as total_entregado
             FROM dotaciones
+            WHERE guerrera > 0
+            GROUP BY guerrera_talla
+            
+            UNION ALL
+            
+            SELECT 
+                'guerrera' as tipo_elemento,
+                COALESCE(guerrera_talla, 'Sin talla') as talla,
+                'Sin número' as numero_calzado,
+                SUM(guerrera) as total_entregado
+            FROM cambios_dotacion
             WHERE guerrera > 0
             GROUP BY guerrera_talla
             
@@ -1163,11 +1196,33 @@ def registrar_rutas_dotaciones(app):
             UNION ALL
             
             SELECT 
+                'camisetapolo' as tipo_elemento,
+                COALESCE(camiseta_polo_talla, 'Sin talla') as talla,
+                'Sin número' as numero_calzado,
+                SUM(camisetapolo) as total_entregado
+            FROM cambios_dotacion
+            WHERE camisetapolo > 0
+            GROUP BY camiseta_polo_talla
+            
+            UNION ALL
+            
+            SELECT 
                 'botas' as tipo_elemento,
                 'Sin talla' as talla,
                 COALESCE(botas_talla, 'Sin número') as numero_calzado,
                 SUM(botas) as total_entregado
             FROM dotaciones
+            WHERE botas > 0
+            GROUP BY botas_talla
+            
+            UNION ALL
+            
+            SELECT 
+                'botas' as tipo_elemento,
+                'Sin talla' as talla,
+                COALESCE(botas_talla, 'Sin número') as numero_calzado,
+                SUM(botas) as total_entregado
+            FROM cambios_dotacion
             WHERE botas > 0
             GROUP BY botas_talla
             """
@@ -1203,7 +1258,7 @@ def registrar_rutas_dotaciones(app):
                     }
                 stock_por_tallas[key]['total_ingresado'] = int(ingreso['total_ingresado'])
             
-            # Procesar entregas
+            # Procesar entregas (sumar dotaciones + cambios)
             for entrega in entregas_data:
                 key = f"{entrega['tipo_elemento']}_{entrega['talla']}_{entrega['numero_calzado']}"
                 if key not in stock_por_tallas:
@@ -1215,7 +1270,8 @@ def registrar_rutas_dotaciones(app):
                         'total_entregado': 0,
                         'stock_disponible': 0
                     }
-                stock_por_tallas[key]['total_entregado'] = int(entrega['total_entregado'])
+                # Sumar entregas (pueden venir de dotaciones y cambios)
+                stock_por_tallas[key]['total_entregado'] += int(entrega['total_entregado'])
             
             # Calcular stock disponible
             for key in stock_por_tallas:
