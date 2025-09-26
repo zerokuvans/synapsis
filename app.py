@@ -8,7 +8,53 @@ import os
 from datetime import date
 
 app = Flask(__name__)
+app.secret_key = 'synapsis-secret-key-2024-production-secure-key-12345'
 db = SQLAlchemy()
+
+# Configuración de Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'  # Redirigir al login cuando se requiera autenticación
+
+# Roles definition
+ROLES = {
+    '1': 'administrativo',
+    '2': 'tecnicos',
+    '3': 'operativo',
+    '4': 'contabilidad',
+    '5': 'logistica'
+}
+
+# Definición de la clase User para Flask-Login
+class User(UserMixin):
+    def __init__(self, id, nombre, role):
+        self.id = id
+        self.nombre = nombre
+        self.role = role
+    
+    def has_role(self, role):
+        return self.role == role
+
+# Función para cargar usuario para Flask-Login
+@login_manager.user_loader
+def load_user(user_id):
+    connection = get_db_connection()
+    if connection is None:
+        return None
+        
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT id_codigo_consumidor, nombre, id_roles FROM recurso_operativo WHERE id_codigo_consumidor = %s", (user_id,))
+    user_data = cursor.fetchone()
+    cursor.close()
+    connection.close()
+    
+    if user_data:
+        return User(
+            id=user_data['id_codigo_consumidor'],
+            nombre=user_data['nombre'],
+            role=ROLES.get(str(user_data['id_roles']))
+        )
+    return None
 
 # Función para obtener conexión a la base de datos
 def get_db_connection():
@@ -479,6 +525,285 @@ def verificar_registro_preoperacional():
             'success': False,
             'message': f'Error al verificar registro: {str(e)}'
         }), 500
+
+# ============================================================================
+# MÓDULO ANALISTAS - API ENDPOINTS
+# ============================================================================
+
+@app.route('/analistas')
+@login_required
+def analistas_index():
+    """Renderizar la página principal del módulo analistas"""
+    return render_template('modulos/analistas/index.html')
+
+@app.route('/api/analistas/causas-cierre', methods=['GET'])
+@login_required
+def api_causas_cierre():
+    """API endpoint para obtener todas las causas de cierre con filtros opcionales"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener parámetros de filtro
+        texto_busqueda = request.args.get('busqueda', '').strip()
+        tecnologia = request.args.get('tecnologia', '').strip()
+        agrupacion = request.args.get('agrupacion', '').strip()
+        grupo = request.args.get('grupo', '').strip()
+        
+        # Construir consulta base
+        query = """
+            SELECT 
+                idbase_causas_cierre,
+                codigo_causas_cierre,
+                tipo_causas_cierre,
+                nombre_causas_cierre,
+                tecnologia_causas_cierre,
+                instrucciones_de_uso_causas_cierre,
+                agrupaciones_causas_cierre,
+                todos_los_grupos_causas_cierre
+            FROM base_causas_cierre
+            WHERE 1=1
+        """
+        
+        params = []
+        
+        # Agregar filtros dinámicamente
+        if texto_busqueda:
+            query += """
+                AND (
+                    codigo_causas_cierre LIKE %s OR 
+                    nombre_causas_cierre LIKE %s OR 
+                    instrucciones_de_uso_causas_cierre LIKE %s
+                )
+            """
+            busqueda_param = f"%{texto_busqueda}%"
+            params.extend([busqueda_param, busqueda_param, busqueda_param])
+            
+        if tecnologia:
+            query += " AND tecnologia_causas_cierre = %s"
+            params.append(tecnologia)
+            
+        if agrupacion:
+            query += " AND agrupaciones_causas_cierre = %s"
+            params.append(agrupacion)
+            
+        if grupo:
+            query += " AND todos_los_grupos_causas_cierre = %s"
+            params.append(grupo)
+            
+        query += " ORDER BY codigo_causas_cierre ASC"
+        
+        cursor.execute(query, params)
+        resultados = cursor.fetchall()
+        
+        return jsonify(resultados)
+        
+    except mysql.connector.Error as e:
+        logging.error(f"Error en API causas-cierre: {str(e)}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    except Exception as e:
+        logging.error(f"Error inesperado en API causas-cierre: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/analistas/grupos', methods=['GET'])
+@login_required
+def api_grupos_causas_cierre():
+    """API endpoint para obtener la lista única de grupos disponibles"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        query = """
+            SELECT DISTINCT todos_los_grupos_causas_cierre
+            FROM base_causas_cierre
+            WHERE todos_los_grupos_causas_cierre IS NOT NULL 
+                AND todos_los_grupos_causas_cierre != ''
+            ORDER BY todos_los_grupos_causas_cierre ASC
+        """
+        
+        cursor.execute(query)
+        resultados = cursor.fetchall()
+        
+        # Extraer solo los valores de la tupla
+        grupos = [row[0] for row in resultados]
+        
+        return jsonify(grupos)
+        
+    except mysql.connector.Error as e:
+        logging.error(f"Error en API grupos: {str(e)}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    except Exception as e:
+        logging.error(f"Error inesperado en API grupos: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/analistas/tecnologias', methods=['GET'])
+@login_required
+def api_tecnologias_causas_cierre():
+    """API endpoint para obtener la lista única de tecnologías disponibles"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        query = """
+            SELECT DISTINCT tecnologia_causas_cierre
+            FROM base_causas_cierre
+            WHERE tecnologia_causas_cierre IS NOT NULL 
+                AND tecnologia_causas_cierre != ''
+            ORDER BY tecnologia_causas_cierre ASC
+        """
+        
+        cursor.execute(query)
+        resultados = cursor.fetchall()
+        
+        # Extraer solo los valores de la tupla
+        tecnologias = [row[0] for row in resultados]
+        
+        return jsonify(tecnologias)
+        
+    except mysql.connector.Error as e:
+        logging.error(f"Error en API tecnologías: {str(e)}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    except Exception as e:
+        logging.error(f"Error inesperado en API tecnologías: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/analistas/agrupaciones', methods=['GET'])
+@login_required
+def api_agrupaciones_causas_cierre():
+    """API endpoint para obtener la lista única de agrupaciones disponibles"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        query = """
+            SELECT DISTINCT agrupaciones_causas_cierre
+            FROM base_causas_cierre
+            WHERE agrupaciones_causas_cierre IS NOT NULL 
+                AND agrupaciones_causas_cierre != ''
+            ORDER BY agrupaciones_causas_cierre ASC
+        """
+        
+        cursor.execute(query)
+        resultados = cursor.fetchall()
+        
+        # Extraer solo los valores de la tupla
+        agrupaciones = [row[0] for row in resultados]
+        
+        return jsonify(agrupaciones)
+        
+    except mysql.connector.Error as e:
+        logging.error(f"Error en API agrupaciones: {str(e)}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    except Exception as e:
+        logging.error(f"Error inesperado en API agrupaciones: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/analistas/estadisticas', methods=['GET'])
+@login_required
+def api_estadisticas_causas_cierre():
+    """API endpoint para obtener estadísticas generales de las causas de cierre"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Estadísticas generales
+        estadisticas = {}
+        
+        # Total de registros
+        cursor.execute("SELECT COUNT(*) as total FROM base_causas_cierre")
+        estadisticas['total_registros'] = cursor.fetchone()['total']
+        
+        # Distribución por tecnología
+        cursor.execute("""
+            SELECT tecnologia_causas_cierre, COUNT(*) as cantidad
+            FROM base_causas_cierre
+            WHERE tecnologia_causas_cierre IS NOT NULL
+            GROUP BY tecnologia_causas_cierre
+            ORDER BY cantidad DESC
+        """)
+        estadisticas['por_tecnologia'] = cursor.fetchall()
+        
+        # Distribución por agrupación
+        cursor.execute("""
+            SELECT agrupaciones_causas_cierre, COUNT(*) as cantidad
+            FROM base_causas_cierre
+            WHERE agrupaciones_causas_cierre IS NOT NULL
+            GROUP BY agrupaciones_causas_cierre
+            ORDER BY cantidad DESC
+        """)
+        estadisticas['por_agrupacion'] = cursor.fetchall()
+        
+        # Top 10 grupos más frecuentes
+        cursor.execute("""
+            SELECT todos_los_grupos_causas_cierre, COUNT(*) as cantidad
+            FROM base_causas_cierre
+            WHERE todos_los_grupos_causas_cierre IS NOT NULL
+            GROUP BY todos_los_grupos_causas_cierre
+            ORDER BY cantidad DESC
+            LIMIT 10
+        """)
+        estadisticas['top_grupos'] = cursor.fetchall()
+        
+        return jsonify(estadisticas)
+        
+    except mysql.connector.Error as e:
+        logging.error(f"Error en API estadísticas: {str(e)}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    except Exception as e:
+        logging.error(f"Error inesperado en API estadísticas: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Ruta de login básica para Flask-Login"""
+    if request.method == 'POST':
+        # Aquí iría la lógica de autenticación
+        # Por ahora, redirigir a una página de error o dashboard
+        return redirect(url_for('analistas'))
+    
+    # Para GET, mostrar un mensaje básico o redirigir
+    return "<h1>Login Page</h1><p>Esta es una página de login básica.</p>"
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)

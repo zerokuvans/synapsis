@@ -1,0 +1,475 @@
+/**
+ * Estilos específicos para el módulo Analistas
+ * Diccionario de Causas de Cierre IMM
+ */
+
+/* Contenedor principal */
+.analistas-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px 0;
+}
+
+/* Header del módulo */
+.analistas-header {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+    padding: 30px;
+}
+
+.analistas-title {
+    color: #2c3e50;
+    font-weight: 700;
+    margin-bottom: 10px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.analistas-subtitle {
+    color: #7f8c8d;
+    font-weight: 400;
+    margin-bottom: 0;
+}
+
+/* Panel de búsqueda */
+.search-panel {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+    padding: 25px;
+    transition: all 0.3s ease;
+}
+
+.search-panel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* Campos de búsqueda */
+.search-input {
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    padding: 12px 15px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    background: #fff;
+}
+
+.search-input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    transform: translateY(-1px);
+}
+
+.input-group .search-input {
+    border-right: none;
+}
+
+.input-group-text {
+    background: #667eea;
+    border: 2px solid #667eea;
+    border-left: none;
+    color: white;
+    border-radius: 0 10px 10px 0;
+}
+
+/* Botones */
+.btn-search {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-weight: 600;
+    padding: 12px 25px;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-search:hover {
+    background: linear-gradient(45deg, #5a6fd8, #6a4190);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    color: white;
+}
+
+.btn-clear {
+    background: #6c757d;
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-weight: 600;
+    padding: 12px 25px;
+    transition: all 0.3s ease;
+}
+
+.btn-clear:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+    color: white;
+}
+
+/* Controles de vista */
+.view-controls {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    padding: 20px;
+}
+
+.view-toggle {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    color: #6c757d;
+    padding: 10px 20px;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.view-toggle:hover {
+    background: #e9ecef;
+    color: #495057;
+    text-decoration: none;
+}
+
+.view-toggle.active {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    border-color: #667eea;
+    color: white;
+}
+
+/* Contador de resultados */
+.results-counter {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 10px;
+    padding: 15px 20px;
+    font-weight: 600;
+    color: #2c3e50;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.counter-number {
+    color: #667eea;
+    font-size: 1.2em;
+    font-weight: 700;
+}
+
+/* Área de resultados */
+.results-area {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    padding: 25px;
+    min-height: 400px;
+}
+
+/* Tabla */
+.table-responsive {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.table {
+    margin-bottom: 0;
+    background: white;
+}
+
+.table thead th {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 15px 12px;
+}
+
+.table tbody tr {
+    transition: all 0.3s ease;
+}
+
+.table tbody tr:hover {
+    background-color: #f8f9fa;
+    transform: scale(1.01);
+}
+
+.table tbody td {
+    padding: 15px 12px;
+    vertical-align: middle;
+    border-color: #e9ecef;
+}
+
+/* Cards */
+.causa-card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    background: white;
+}
+
+.causa-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+}
+
+.causa-card .card-header {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    border: none;
+    padding: 15px 20px;
+}
+
+.causa-card .card-body {
+    padding: 20px;
+}
+
+.causa-card .card-footer {
+    background: #f8f9fa;
+    border: none;
+    padding: 15px 20px;
+}
+
+.card-title {
+    color: #2c3e50;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+/* Badges */
+.codigo-badge {
+    font-size: 0.9em;
+    font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 8px;
+    letter-spacing: 0.5px;
+}
+
+.badge {
+    font-size: 0.8em;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+
+/* Paginación */
+.pagination {
+    margin-bottom: 0;
+    justify-content: center;
+}
+
+.page-link {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    color: #667eea;
+    font-weight: 600;
+    margin: 0 2px;
+    padding: 10px 15px;
+    transition: all 0.3s ease;
+}
+
+.page-link:hover {
+    background: #667eea;
+    border-color: #667eea;
+    color: white;
+    transform: translateY(-2px);
+}
+
+.page-item.active .page-link {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    border-color: #667eea;
+    color: white;
+}
+
+.page-item.disabled .page-link {
+    background: #f8f9fa;
+    border-color: #e9ecef;
+    color: #6c757d;
+}
+
+/* Modal */
+.modal-content {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    border-radius: 15px 15px 0 0;
+    padding: 20px 25px;
+}
+
+.modal-title {
+    font-weight: 600;
+    margin-bottom: 0;
+}
+
+.modal-body {
+    padding: 25px;
+}
+
+.modal-footer {
+    border: none;
+    padding: 20px 25px;
+    background: #f8f9fa;
+    border-radius: 0 0 15px 15px;
+}
+
+/* Loading overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-spinner {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.spinner-border {
+    color: #667eea;
+}
+
+/* Utilidades */
+.text-truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .analistas-container {
+        padding: 10px 0;
+    }
+    
+    .analistas-header,
+    .search-panel,
+    .view-controls,
+    .results-area {
+        margin-left: 10px;
+        margin-right: 10px;
+        padding: 20px;
+    }
+    
+    .analistas-title {
+        font-size: 1.5rem;
+    }
+    
+    .btn-search,
+    .btn-clear {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    
+    .view-toggle {
+        padding: 8px 15px;
+        font-size: 0.9rem;
+    }
+    
+    .table {
+        font-size: 0.9rem;
+    }
+    
+    .causa-card {
+        margin-bottom: 15px;
+    }
+}
+
+@media (max-width: 576px) {
+    .search-panel .row > div {
+        margin-bottom: 15px;
+    }
+    
+    .view-controls .d-flex {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .btn-group {
+        width: 100%;
+    }
+    
+    .view-toggle {
+        flex: 1;
+        text-align: center;
+    }
+}
+
+/* Mejoras de accesibilidad */
+.btn:focus,
+.form-control:focus,
+.form-select:focus {
+    outline: 2px solid #667eea;
+    outline-offset: 2px;
+}
+
+/* Estados de hover mejorados */
+.table tbody tr:hover td {
+    background-color: rgba(102, 126, 234, 0.1);
+}
+
+.causa-card:hover .card-header {
+    background: linear-gradient(45deg, #5a6fd8, #6a4190);
+}
+
+/* Scrollbar personalizado */
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #667eea;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #5a6fd8;
+}
