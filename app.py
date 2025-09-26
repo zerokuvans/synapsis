@@ -563,7 +563,8 @@ def api_causas_cierre():
                 tecnologia_causas_cierre,
                 instrucciones_de_uso_causas_cierre,
                 agrupaciones_causas_cierre,
-                todos_los_grupos_causas_cierre
+                todos_los_grupos_causas_cierre,
+                facturable_causas_cierre
             FROM base_causas_cierre
             WHERE 1=1
         """
@@ -616,7 +617,7 @@ def api_causas_cierre():
 @app.route('/api/analistas/grupos', methods=['GET'])
 @login_required
 def api_grupos_causas_cierre():
-    """API endpoint para obtener la lista única de grupos disponibles"""
+    """API endpoint para obtener la lista única de grupos disponibles, opcionalmente filtrados por tecnología y agrupación"""
     try:
         connection = get_db_connection()
         if connection is None:
@@ -624,15 +625,36 @@ def api_grupos_causas_cierre():
             
         cursor = connection.cursor()
         
+        # Obtener parámetros de filtrado si se proporcionan
+        tecnologia = request.args.get('tecnologia', '').strip()
+        agrupacion = request.args.get('agrupacion', '').strip()
+        
+        # Construir la consulta base
         query = """
             SELECT DISTINCT todos_los_grupos_causas_cierre
             FROM base_causas_cierre
             WHERE todos_los_grupos_causas_cierre IS NOT NULL 
                 AND todos_los_grupos_causas_cierre != ''
-            ORDER BY todos_los_grupos_causas_cierre ASC
         """
         
-        cursor.execute(query)
+        params = []
+        
+        # Agregar filtros según los parámetros proporcionados
+        if tecnologia:
+            query += " AND tecnologia_causas_cierre = %s"
+            params.append(tecnologia)
+            
+        if agrupacion:
+            query += " AND agrupaciones_causas_cierre = %s"
+            params.append(agrupacion)
+            
+        query += " ORDER BY todos_los_grupos_causas_cierre ASC"
+        
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)
+            
         resultados = cursor.fetchall()
         
         # Extraer solo los valores de la tupla
@@ -694,7 +716,7 @@ def api_tecnologias_causas_cierre():
 @app.route('/api/analistas/agrupaciones', methods=['GET'])
 @login_required
 def api_agrupaciones_causas_cierre():
-    """API endpoint para obtener la lista única de agrupaciones disponibles"""
+    """API endpoint para obtener la lista única de agrupaciones disponibles, opcionalmente filtradas por tecnología"""
     try:
         connection = get_db_connection()
         if connection is None:
@@ -702,15 +724,31 @@ def api_agrupaciones_causas_cierre():
             
         cursor = connection.cursor()
         
-        query = """
-            SELECT DISTINCT agrupaciones_causas_cierre
-            FROM base_causas_cierre
-            WHERE agrupaciones_causas_cierre IS NOT NULL 
-                AND agrupaciones_causas_cierre != ''
-            ORDER BY agrupaciones_causas_cierre ASC
-        """
+        # Obtener parámetro de tecnología si se proporciona
+        tecnologia = request.args.get('tecnologia', '').strip()
         
-        cursor.execute(query)
+        if tecnologia:
+            # Filtrar agrupaciones por tecnología específica
+            query = """
+                SELECT DISTINCT agrupaciones_causas_cierre
+                FROM base_causas_cierre
+                WHERE agrupaciones_causas_cierre IS NOT NULL 
+                    AND agrupaciones_causas_cierre != ''
+                    AND tecnologia_causas_cierre = %s
+                ORDER BY agrupaciones_causas_cierre ASC
+            """
+            cursor.execute(query, (tecnologia,))
+        else:
+            # Obtener todas las agrupaciones
+            query = """
+                SELECT DISTINCT agrupaciones_causas_cierre
+                FROM base_causas_cierre
+                WHERE agrupaciones_causas_cierre IS NOT NULL 
+                    AND agrupaciones_causas_cierre != ''
+                ORDER BY agrupaciones_causas_cierre ASC
+            """
+            cursor.execute(query)
+        
         resultados = cursor.fetchall()
         
         # Extraer solo los valores de la tupla

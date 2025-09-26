@@ -19,6 +19,7 @@ class AnalistasModule {
         this.setupEventListeners();
         this.cargarDatos();
         this.cargarGrupos();
+        this.cargarAgrupaciones();
     }
     
     setupEventListeners() {
@@ -28,8 +29,14 @@ class AnalistasModule {
         );
         
         // Filtros
-        document.getElementById('filtroTecnologia').addEventListener('change', () => this.aplicarFiltros());
-        document.getElementById('filtroAgrupacion').addEventListener('change', () => this.aplicarFiltros());
+        document.getElementById('filtroTecnologia').addEventListener('change', () => {
+            this.actualizarAgrupacionesPorTecnologia();
+            this.aplicarFiltros();
+        });
+        document.getElementById('filtroAgrupacion').addEventListener('change', () => {
+            this.actualizarGruposPorTecnologiaYAgrupacion();
+            this.aplicarFiltros();
+        });
         document.getElementById('filtroGrupo').addEventListener('change', () => this.aplicarFiltros());
         
         // Botones
@@ -81,9 +88,23 @@ class AnalistasModule {
         }
     }
     
-    async cargarGrupos() {
+    async cargarGrupos(tecnologia = '', agrupacion = '') {
         try {
-            const response = await fetch('/api/analistas/grupos');
+            let url = '/api/analistas/grupos';
+            const params = new URLSearchParams();
+            
+            if (tecnologia) {
+                params.append('tecnologia', tecnologia);
+            }
+            if (agrupacion) {
+                params.append('agrupacion', agrupacion);
+            }
+            
+            if (params.toString()) {
+                url += '?' + params.toString();
+            }
+            
+            const response = await fetch(url);
             if (!response.ok) {
                 throw new Error('Error al cargar los grupos');
             }
@@ -94,6 +115,51 @@ class AnalistasModule {
         } catch (error) {
             console.error('Error al cargar grupos:', error);
         }
+    }
+    
+    async cargarAgrupaciones(tecnologia = '') {
+        try {
+            let url = '/api/analistas/agrupaciones';
+            if (tecnologia) {
+                url += `?tecnologia=${encodeURIComponent(tecnologia)}`;
+            }
+            
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error('Error al cargar las agrupaciones');
+            }
+            
+            const agrupaciones = await response.json();
+            this.renderizarOpcionesAgrupaciones(agrupaciones);
+            
+        } catch (error) {
+            console.error('Error al cargar agrupaciones:', error);
+        }
+    }
+    
+    async actualizarAgrupacionesPorTecnologia() {
+        const tecnologiaSeleccionada = document.getElementById('filtroTecnologia').value;
+        
+        // Limpiar las selecciones dependientes
+        document.getElementById('filtroAgrupacion').value = '';
+        document.getElementById('filtroGrupo').value = '';
+        
+        // Cargar agrupaciones filtradas por tecnología
+        await this.cargarAgrupaciones(tecnologiaSeleccionada);
+        
+        // Cargar todos los grupos para la tecnología seleccionada
+        await this.cargarGrupos(tecnologiaSeleccionada);
+    }
+    
+    async actualizarGruposPorTecnologiaYAgrupacion() {
+        const tecnologiaSeleccionada = document.getElementById('filtroTecnologia').value;
+        const agrupacionSeleccionada = document.getElementById('filtroAgrupacion').value;
+        
+        // Limpiar la selección de grupo
+        document.getElementById('filtroGrupo').value = '';
+        
+        // Cargar grupos filtrados por tecnología y agrupación
+        await this.cargarGrupos(tecnologiaSeleccionada, agrupacionSeleccionada);
     }
     
     renderizarOpcionesGrupos() {
@@ -109,6 +175,23 @@ class AnalistasModule {
             const option = document.createElement('option');
             option.value = grupo;
             option.textContent = grupo;
+            select.appendChild(option);
+        });
+    }
+    
+    renderizarOpcionesAgrupaciones(agrupaciones) {
+        const select = document.getElementById('filtroAgrupacion');
+        
+        // Limpiar opciones existentes (excepto la primera)
+        while (select.children.length > 1) {
+            select.removeChild(select.lastChild);
+        }
+        
+        // Agregar nuevas opciones
+        agrupaciones.forEach(agrupacion => {
+            const option = document.createElement('option');
+            option.value = agrupacion;
+            option.textContent = agrupacion;
             select.appendChild(option);
         });
     }
@@ -144,11 +227,15 @@ class AnalistasModule {
         this.renderizarPaginacion();
     }
     
-    limpiarFiltros() {
+    async limpiarFiltros() {
         document.getElementById('buscarTexto').value = '';
         document.getElementById('filtroTecnologia').value = '';
         document.getElementById('filtroAgrupacion').value = '';
         document.getElementById('filtroGrupo').value = '';
+        
+        // Recargar todas las opciones sin filtros
+        await this.cargarAgrupaciones();
+        await this.cargarGrupos();
         
         this.aplicarFiltros();
     }
@@ -191,7 +278,7 @@ class AnalistasModule {
         if (datosPagina.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center py-4">
+                    <td colspan="7" class="text-center py-4">
                         <i class="fas fa-search fa-2x text-muted mb-2"></i>
                         <p class="text-muted mb-0">No se encontraron resultados</p>
                     </td>
@@ -220,6 +307,11 @@ class AnalistasModule {
                 </td>
                 <td>
                     <small class="text-muted">${item.todos_los_grupos_causas_cierre || 'N/A'}</small>
+                </td>
+                <td>
+                    <span class="badge ${item.facturable_causas_cierre === 'NO ES FACTURABLE' ? 'bg-danger' : 'bg-success'}">
+                        ${item.facturable_causas_cierre || 'N/A'}
+                    </span>
                 </td>
                 <td>
                     <button class="btn btn-sm btn-outline-info" onclick="analistasModule.mostrarDetalles(${item.idbase_causas_cierre})">
@@ -266,7 +358,8 @@ class AnalistasModule {
                         <p class="card-text">
                             <small class="text-muted">
                                 <strong>Agrupación:</strong> ${item.agrupaciones_causas_cierre || 'N/A'}<br>
-                                <strong>Grupo:</strong> ${item.todos_los_grupos_causas_cierre || 'N/A'}
+                                <strong>Grupo:</strong> ${item.todos_los_grupos_causas_cierre || 'N/A'}<br>
+                                <strong>Facturable:</strong> <span class="badge ${item.facturable_causas_cierre === 'NO ES FACTURABLE' ? 'bg-danger' : 'bg-success'}">${item.facturable_causas_cierre || 'N/A'}</span>
                             </small>
                         </p>
                     </div>
@@ -385,6 +478,10 @@ class AnalistasModule {
                             <tr>
                                 <td class="fw-bold">Grupo:</td>
                                 <td>${item.todos_los_grupos_causas_cierre || 'N/A'}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">Facturable:</td>
+                                <td><span class="badge ${item.facturable_causas_cierre === 'NO ES FACTURABLE' ? 'bg-danger' : 'bg-success'}">${item.facturable_causas_cierre || 'N/A'}</span></td>
                             </tr>
                         </table>
                     </div>

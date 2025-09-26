@@ -2119,6 +2119,38 @@ def registrar_rutas_dotaciones(app):
                 UNION ALL
                 
                 SELECT 
+                    'chaqueta' AS tipo_elemento,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'chaqueta'
+                    ) AS cantidad_ingresada,
+                    (
+                        SELECT COALESCE(SUM(chaqueta), 0) 
+                        FROM dotaciones 
+                        WHERE chaqueta IS NOT NULL AND chaqueta > 0
+                    ) + (
+                        SELECT COALESCE(SUM(chaqueta), 0) 
+                        FROM cambios_dotacion 
+                        WHERE chaqueta IS NOT NULL AND chaqueta > 0
+                    ) AS cantidad_entregada,
+                    (
+                        SELECT COALESCE(SUM(cantidad), 0) 
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'chaqueta'
+                    ) - (
+                        SELECT COALESCE(SUM(chaqueta), 0) 
+                        FROM dotaciones 
+                        WHERE chaqueta IS NOT NULL AND chaqueta > 0
+                    ) - (
+                        SELECT COALESCE(SUM(chaqueta), 0) 
+                        FROM cambios_dotacion 
+                        WHERE chaqueta IS NOT NULL AND chaqueta > 0
+                    ) AS saldo_disponible
+                
+                UNION ALL
+                
+                SELECT 
                     'guerrera' AS tipo_elemento,
                     (
                         SELECT COALESCE(SUM(cantidad), 0) 
