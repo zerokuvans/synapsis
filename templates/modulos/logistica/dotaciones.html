@@ -698,6 +698,8 @@
                                     <option value="L">L</option>
                                     <option value="XL">XL</option>
                                     <option value="XXL">XXL</option>
+                                    <option value="XXXL">XXXL</option>
+                                    <option value="XXXXL">XXXXL</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
@@ -904,6 +906,7 @@
                                         <option value="">Seleccionar tipo...</option>
                                         <option value="pantalon">Pantalón</option>
                                         <option value="camisetagris">Camiseta Gris</option>
+                                        <option value="chaqueta">Chaqueta</option>
                                         <option value="guerrera">Guerrera</option>
                                         <option value="camisetapolo">Camiseta Polo</option>
                                         <option value="guantes_nitrilo">Guantes Nitrilo</option>
@@ -934,6 +937,8 @@
                                         <option value="L">L</option>
                                         <option value="XL">XL</option>
                                         <option value="XXL">XXL</option>
+                                        <option value="XXXL">XXXL</option>
+                                        <option value="XXXXL">XXXXL</option>
                                     </select>
                                 </div>
                             </div>
@@ -952,7 +957,46 @@
                                         <option value="42">42</option>
                                         <option value="43">43</option>
                                         <option value="44">44</option>
-                                        <option value="45">45</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3" id="campoPantalon" style="display: none;">
+                                    <label for="tallaPantalonIngreso" class="form-label">Talla Pantalón</label>
+                                    <select class="form-select" id="tallaPantalonIngreso">
+                                        <option value="">Seleccionar talla...</option>
+                                        <option value="28">28</option>
+                                        <option value="30">30</option>
+                                        <option value="32">32</option>
+                                        <option value="34">34</option>
+                                        <option value="36">36</option>
+                                        <option value="38">38</option>
+                                        <option value="40">40</option>
+                                        <option value="42">42</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3" id="campoGuantes" style="display: none;">
+                                    <label for="tallaGuantesIngreso" class="form-label">Talla Guantes</label>
+                                    <select class="form-select" id="tallaGuantesIngreso">
+                                        <option value="">Seleccionar talla...</option>
+                                        <option value="8">8</option>
+                                        <option value="9">9</option>
+                                        <option value="10">10</option>
+                                        <option value="11">11</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3" id="campoTallaUnica" style="display: none;">
+                                    <label for="tallaUnicaIngreso" class="form-label">Talla</label>
+                                    <select class="form-select" id="tallaUnicaIngreso">
+                                        <option value="TALLA UNICA">TALLA ÚNICA</option>
                                     </select>
                                 </div>
                             </div>
@@ -1970,26 +2014,47 @@
             const tipoElemento = document.getElementById('tipoElemento').value;
             const campoTalla = document.getElementById('campoTalla');
             const campoNumeroCalzado = document.getElementById('campoNumeroCalzado');
+            const campoPantalon = document.getElementById('campoPantalon');
+            const campoGuantes = document.getElementById('campoGuantes');
+            const campoTallaUnica = document.getElementById('campoTallaUnica');
             
-            // Ocultar ambos campos por defecto
+            // Ocultar todos los campos por defecto
             campoTalla.style.display = 'none';
             campoNumeroCalzado.style.display = 'none';
+            campoPantalon.style.display = 'none';
+            campoGuantes.style.display = 'none';
+            campoTallaUnica.style.display = 'none';
             
-            // Elementos que requieren talla (solo camisetas y guerrera)
-            const elementosConTalla = ['camisetagris', 'guerrera', 'camisetapolo'];
+            // Elementos que requieren talla de ropa (XS-XXXXL)
+            const elementosConTallaRopa = ['camisetagris', 'guerrera', 'camisetapolo', 'chaqueta'];
             
-            // Elementos que requieren número de calzado (pantalones y botas)
-            const elementosConCalzado = ['pantalon', 'botas'];
+            // Elementos que requieren número de calzado (35-44)
+            const elementosConCalzado = ['botas'];
             
-            if (elementosConTalla.includes(tipoElemento)) {
+            // Elementos que requieren talla de pantalón (28, 30, 32, 34, 36, 38)
+            const elementosConTallaPantalon = ['pantalon'];
+            
+            // Elementos que requieren talla de guantes (8, 9, 10, 11)
+            const elementosConTallaGuantes = ['guantesnitrilo', 'guantescarnaza', 'guantes'];
+            
+            // Elementos que requieren talla única
+            const elementosConTallaUnica = ['gafas', 'gorra', 'casco'];
+            
+            if (elementosConTallaRopa.includes(tipoElemento)) {
                 campoTalla.style.display = 'block';
             } else if (elementosConCalzado.includes(tipoElemento)) {
                 campoNumeroCalzado.style.display = 'block';
+            } else if (elementosConTallaPantalon.includes(tipoElemento)) {
+                campoPantalon.style.display = 'block';
+            } else if (elementosConTallaGuantes.includes(tipoElemento)) {
+                campoGuantes.style.display = 'block';
+            } else if (elementosConTallaUnica.includes(tipoElemento)) {
+                campoTallaUnica.style.display = 'block';
             }
         }
 
         // Función para validar duplicados
-        function validarDuplicados(tipoElemento, talla, numeroCalzado, fechaIngreso, proveedor) {
+        function validarDuplicados(tipoElemento, talla, numeroCalzado, tallaPantalon, tallaGuantes, tallaUnica, fechaIngreso, proveedor) {
             return fetch(`/api/ingresos-dotaciones?tipo_elemento=${tipoElemento}&fecha_inicio=${fechaIngreso}&fecha_fin=${fechaIngreso}`)
                 .then(response => response.json())
                 .then(data => {
@@ -1998,10 +2063,13 @@
                         const duplicado = data.ingresos.find(ingreso => {
                             const mismaTalla = (talla && ingreso.talla === talla) || (!talla && !ingreso.talla);
                             const mismoCalzado = (numeroCalzado && ingreso.numero_calzado === numeroCalzado) || (!numeroCalzado && !ingreso.numero_calzado);
+                            const mismaTallaPantalon = (tallaPantalon && ingreso.talla_pantalon === tallaPantalon) || (!tallaPantalon && !ingreso.talla_pantalon);
+                            const mismaTallaGuantes = (tallaGuantes && ingreso.talla_guantes === tallaGuantes) || (!tallaGuantes && !ingreso.talla_guantes);
+                            const mismaTallaUnica = (tallaUnica && ingreso.talla_unica === tallaUnica) || (!tallaUnica && !ingreso.talla_unica);
                             const mismoProveedor = ingreso.proveedor === proveedor;
                             const mismaFecha = ingreso.fecha_ingreso === fechaIngreso;
                             
-                            return mismaTalla && mismoCalzado && mismoProveedor && mismaFecha;
+                            return mismaTalla && mismoCalzado && mismaTallaPantalon && mismaTallaGuantes && mismaTallaUnica && mismoProveedor && mismaFecha;
                         });
                         
                         return duplicado ? true : false;
@@ -2019,6 +2087,9 @@
             const cantidad = document.getElementById('cantidadIngreso').value;
             const talla = document.getElementById('tallaIngreso').value;
             const numeroCalzado = document.getElementById('numeroCalzadoIngreso').value;
+            const tallaPantalon = document.getElementById('tallaPantalonIngreso').value;
+            const tallaGuantes = document.getElementById('tallaGuantesIngreso').value;
+            const tallaUnica = document.getElementById('tallaUnicaIngreso').value;
             const proveedor = document.getElementById('proveedorIngreso').value;
             const estado = document.getElementById('estadoIngreso').value;
             const fechaIngreso = document.getElementById('fechaIngreso').value;
@@ -2036,26 +2107,47 @@
             }
 
             // Validar campos específicos según tipo de elemento
-            const elementosConTalla = ['camisetagris', 'guerrera', 'camisetapolo'];
-            const elementosConCalzado = ['pantalon', 'botas'];
+            const elementosConTallaRopa = ['camisetagris', 'guerrera', 'camisetapolo', 'chaqueta'];
+            const elementosConCalzado = ['botas'];
+            const elementosConTallaPantalon = ['pantalon'];
+            const elementosConTallaGuantes = ['guantesnitrilo', 'guantescarnaza', 'guantes'];
+            const elementosConTallaUnica = ['gafas', 'gorra', 'casco'];
             
-            if (elementosConTalla.includes(tipoElemento) && !talla) {
+            if (elementosConTallaRopa.includes(tipoElemento) && !talla) {
                 mostrarError('Por favor seleccione una talla para este tipo de elemento');
                 return;
             }
             
             if (elementosConCalzado.includes(tipoElemento) && !numeroCalzado) {
-                mostrarError('Por favor seleccione un número para este tipo de elemento');
+                mostrarError('Por favor seleccione un número de calzado para este tipo de elemento');
+                return;
+            }
+            
+            if (elementosConTallaPantalon.includes(tipoElemento) && !tallaPantalon) {
+                mostrarError('Por favor seleccione una talla de pantalón para este tipo de elemento');
+                return;
+            }
+            
+            if (elementosConTallaGuantes.includes(tipoElemento) && !tallaGuantes) {
+                mostrarError('Por favor seleccione una talla de guantes para este tipo de elemento');
+                return;
+            }
+            
+            if (elementosConTallaUnica.includes(tipoElemento) && !tallaUnica) {
+                mostrarError('Por favor seleccione talla única para este tipo de elemento');
                 return;
             }
 
             // Validar duplicados antes de proceder
-            validarDuplicados(tipoElemento, talla, numeroCalzado, fechaIngreso, proveedor)
+            validarDuplicados(tipoElemento, talla, numeroCalzado, tallaPantalon, tallaGuantes, tallaUnica, fechaIngreso, proveedor)
                 .then(esDuplicado => {
                     if (esDuplicado) {
                         const detalles = [];
                         if (talla) detalles.push(`Talla: ${talla}`);
                         if (numeroCalzado) detalles.push(`Número: ${numeroCalzado}`);
+                        if (tallaPantalon) detalles.push(`Talla Pantalón: ${tallaPantalon}`);
+                        if (tallaGuantes) detalles.push(`Talla Guantes: ${tallaGuantes}`);
+                        if (tallaUnica) detalles.push(`Talla: ${tallaUnica}`);
                         const detalleTexto = detalles.length > 0 ? ` (${detalles.join(', ')})` : '';
                         
                         mostrarError(`Ya existe un ingreso idéntico para ${tipoElemento}${detalleTexto} del proveedor ${proveedor} en la fecha ${fechaIngreso}. No se permiten duplicados.`);
@@ -2068,6 +2160,9 @@
                         cantidad: parseInt(cantidad),
                         talla: talla || null,
                         numero_calzado: numeroCalzado || null,
+                        talla_pantalon: tallaPantalon || null,
+                        talla_guantes: tallaGuantes || null,
+                        talla_unica: tallaUnica || null,
                         proveedor: proveedor,
                         estado: estado,
                         fecha_ingreso: fechaIngreso,
