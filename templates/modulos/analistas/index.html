@@ -189,6 +189,8 @@
 
 <script src="{{ url_for('static', filename='js/analistas.js') }}?v={{ range(1000, 9999) | random }}"></script>
 
+
+
 <style>
 .bg-gradient {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
@@ -249,4 +251,30 @@
     border-color: #667eea;
 }
 </style>
+{% endblock %}
+
+{% block scripts %}
+<!-- Inicialización del módulo analistas -->
+<script>
+$(document).ready(function() {
+    console.log('Inicializando módulo analistas...');
+    
+    // Verificar que AnalistasModule esté disponible
+    if (typeof AnalistasModule !== 'undefined') {
+        try {
+            // Instanciar el módulo
+            const analistas = new AnalistasModule();
+            
+            // Inicializar
+            analistas.init();
+            
+            console.log('Módulo analistas inicializado correctamente');
+        } catch (error) {
+            console.error('Error al inicializar módulo analistas:', error);
+        }
+    } else {
+        console.error('AnalistasModule no está definido. Verificar que analistas.js se haya cargado.');
+    }
+});
+</script>
 {% endblock %}
