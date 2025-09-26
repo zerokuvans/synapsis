@@ -108,6 +108,9 @@ def load_user(user_id):
 # Importar rutas desde app.py
 from app import administrativo_asistencia, obtener_supervisores, obtener_tecnicos_por_supervisor, guardar_asistencia_administrativa
 
+# Importar rutas del módulo analistas desde app.py
+from app import analistas_index, api_causas_cierre, api_grupos_causas_cierre, api_tecnologias_causas_cierre, api_agrupaciones_causas_cierre, api_estadisticas_causas_cierre
+
 # Importar módulo de dotaciones
 from dotaciones_api import registrar_rutas_dotaciones
 
@@ -116,6 +119,14 @@ app.route('/administrativo/asistencia')(administrativo_asistencia)
 app.route('/api/supervisores', methods=['GET'])(obtener_supervisores)
 app.route('/api/tecnicos_por_supervisor', methods=['GET'])(obtener_tecnicos_por_supervisor)
 app.route('/api/asistencia/guardar', methods=['POST'])(guardar_asistencia_administrativa)
+
+# Registrar rutas del módulo analistas
+app.route('/analistas')(analistas_index)
+app.route('/api/analistas/causas-cierre', methods=['GET'])(api_causas_cierre)
+app.route('/api/analistas/grupos', methods=['GET'])(api_grupos_causas_cierre)
+app.route('/api/analistas/tecnologias', methods=['GET'])(api_tecnologias_causas_cierre)
+app.route('/api/analistas/agrupaciones', methods=['GET'])(api_agrupaciones_causas_cierre)
+app.route('/api/analistas/estadisticas', methods=['GET'])(api_estadisticas_causas_cierre)
 
 # Registrar rutas del módulo de dotaciones
 registrar_rutas_dotaciones(app)
@@ -165,7 +176,8 @@ ROLES = {
     '2': 'tecnicos',
     '3': 'operativo',
     '4': 'contabilidad',
-    '5': 'logistica'
+    '5': 'logistica',
+    '6': 'analista'
 }
 
 # Decorador para requerir rol específico
@@ -1196,7 +1208,11 @@ def dashboard():
             flash(f'Error al cargar usuarios: {str(e)}', 'error')
             return render_template('modulos/administrativo/dashboard.html')
     elif user_role in ROLES.values():
-        return redirect(url_for(f'{user_role}_dashboard'))
+        # Manejar redirección específica para cada rol
+        if user_role == 'analista':
+            return redirect(url_for('analistas_index'))
+        else:
+            return redirect(url_for(f'{user_role}_dashboard'))
     else:
         flash('No tienes un rol válido asignado.', 'error')
         return redirect(url_for('logout'))
