@@ -109,7 +109,7 @@ def load_user(user_id):
 from app import administrativo_asistencia, obtener_supervisores, obtener_tecnicos_por_supervisor, guardar_asistencia_administrativa
 
 # Importar rutas del módulo analistas desde app.py
-from app import analistas_index, api_causas_cierre, api_grupos_causas_cierre, api_tecnologias_causas_cierre, api_agrupaciones_causas_cierre, api_estadisticas_causas_cierre
+from app import analistas_index, analistas_causas, analistas_dashboard, api_causas_cierre, api_grupos_causas_cierre, api_tecnologias_causas_cierre, api_agrupaciones_causas_cierre, api_estadisticas_causas_cierre
 
 # Importar módulo de dotaciones
 from dotaciones_api import registrar_rutas_dotaciones
@@ -122,6 +122,8 @@ app.route('/api/asistencia/guardar', methods=['POST'])(guardar_asistencia_admini
 
 # Registrar rutas del módulo analistas
 app.route('/analistas')(analistas_index)
+app.route('/analistas/causas')(analistas_causas)
+app.route('/analistas/dashboard')(analistas_dashboard)
 app.route('/api/analistas/causas-cierre', methods=['GET'])(api_causas_cierre)
 app.route('/api/analistas/grupos', methods=['GET'])(api_grupos_causas_cierre)
 app.route('/api/analistas/tecnologias', methods=['GET'])(api_tecnologias_causas_cierre)
@@ -3235,7 +3237,7 @@ def ver_asignaciones_ferretero():
                 'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
                 'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
+                'grapas_blancas': {'cantidad': 150, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'POSTVENTA': {
@@ -3481,7 +3483,7 @@ def registrar_ferretero():
                 'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
                 'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
+                'grapas_blancas': {'cantidad': 150,'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'POSTVENTA': {
@@ -11160,7 +11162,7 @@ def obtener_limites_tecnico(id_codigo_consumidor):
                 'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
                 'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
                 'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
+                'grapas_blancas': {'cantidad': 150, 'periodo': 7, 'unidad': 'días'},
                 'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
             },
             'POSTVENTA': {

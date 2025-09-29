@@ -112,6 +112,25 @@
                             </div>
                         </div>
 
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-search fa-3x text-info mb-3"></i>
+                                    <h5 class="card-title">Causas de Cierre</h5>
+                                    <p class="card-text">Consulta y filtra las causas de cierre disponibles en el sistema.</p>
+                                    {% if tiene_asistencia %}
+                                        <a href="/analistas/causas" class="btn btn-info">
+                                            <i class="fas fa-list-alt me-2"></i>Ver Causas de Cierre
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-secondary disabled" disabled title="Debe registrar asistencia primero">
+                                            <i class="fas fa-list-alt me-2"></i>Ver Causas de Cierre
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
                         
                     </div> <!-- Close row mt-4 -->
                 </div> <!-- Close card-body -->

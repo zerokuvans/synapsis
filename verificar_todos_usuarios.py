@@ -5,8 +5,8 @@ import mysql.connector
 from mysql.connector import Error
 import bcrypt
 
-def verificar_password_usuario(cedula):
-    """Verificar si un usuario tiene contraseña configurada"""
+def verificar_todos_usuarios():
+    """Verificar contraseñas de todos los usuarios"""
     try:
         # Configuración de la base de datos
         connection = mysql.connector.connect(
@@ -20,7 +20,7 @@ def verificar_password_usuario(cedula):
         if connection.is_connected():
             cursor = connection.cursor(dictionary=True)
             
-            print(f"=== VERIFICANDO CONTRASEÑA PARA CÉDULA: {cedula} ===")
+            print("=== VERIFICANDO CONTRASEÑAS DE TODOS LOS USUARIOS ===")
             cursor.execute("""
                 SELECT 
                     id_codigo_consumidor,
@@ -30,23 +30,23 @@ def verificar_password_usuario(cedula):
                     estado,
                     id_roles
                 FROM recurso_operativo 
-                WHERE recurso_operativo_cedula = %s
-            """, (cedula,))
+                WHERE estado = 'Activo'
+                LIMIT 5
+            """)
             
-            usuario = cursor.fetchone()
+            usuarios = cursor.fetchall()
             
-            if usuario:
-                print(f"\nUsuario encontrado:")
-                print(f"ID: {usuario['id_codigo_consumidor']}")
+            passwords_to_test = ['admin', '123456', '12345', 'password', 'capired', '1234']
+            
+            for usuario in usuarios:
+                print(f"\n{'='*60}")
+                print(f"Usuario: {usuario['nombre']}")
                 print(f"Cédula: {usuario['recurso_operativo_cedula']}")
-                print(f"Nombre: {usuario['nombre']}")
-                print(f"Estado: {usuario['estado']}")
                 print(f"Rol ID: {usuario['id_roles']}")
                 
                 password = usuario['recurso_operativo_password']
                 if password:
-                    print(f"\nTiene contraseña configurada: SÍ")
-                    print(f"Longitud del hash: {len(password)}")
+                    print("Tiene contraseña: SÍ")
                     
                     # Verificar si es un hash bcrypt válido
                     if isinstance(password, str):
@@ -55,28 +55,23 @@ def verificar_password_usuario(cedula):
                         password_bytes = password
                         
                     if password_bytes.startswith(b'$2b$') or password_bytes.startswith(b'$2a$'):
-                        print("Formato de hash: bcrypt válido")
+                        print("Formato: bcrypt válido")
                         
-                        # Probar algunas contraseñas comunes
-                        passwords_to_test = ['admin', '123456', '12345', 'password', cedula, 'capired']
-                        
-                        print("\nProbando contraseñas comunes...")
+                        # Probar contraseñas comunes
                         for test_password in passwords_to_test:
                             try:
                                 if bcrypt.checkpw(test_password.encode('utf-8'), password_bytes):
-                                    print(f"✓ CONTRASEÑA ENCONTRADA: '{test_password}'")
-                                    return test_password
-                                else:
-                                    print(f"✗ '{test_password}' - No coincide")
+                                    print(f"\n🎉 CONTRASEÑA ENCONTRADA para {usuario['recurso_operativo_cedula']}: '{test_password}'")
+                                    print(f"Usuario: {usuario['nombre']}")
+                                    print(f"Rol: {usuario['id_roles']}")
+                                    return usuario['recurso_operativo_cedula'], test_password
                             except Exception as e:
-                                print(f"✗ '{test_password}' - Error: {e}")
+                                continue
+                        print("No se encontró contraseña común")
                     else:
-                        print("Formato de hash: NO es bcrypt válido")
-                        print(f"Primeros 20 caracteres: {password[:20]}")
+                        print("Formato: NO es bcrypt válido")
                 else:
-                    print(f"\nTiene contraseña configurada: NO")
-            else:
-                print("Usuario no encontrado")
+                    print("Tiene contraseña: NO")
                 
     except Error as e:
         print(f"Error de MySQL: {e}")
@@ -88,8 +83,13 @@ def verificar_password_usuario(cedula):
             connection.close()
             print("\nConexión cerrada")
     
-    return None
+    return None, None
 
 if __name__ == "__main__":
-    # Verificar el usuario administrativo
-    verificar_password_usuario('80833959')
+    cedula, password = verificar_todos_usuarios()
+    if cedula and password:
+        print(f"\n✅ CREDENCIALES ENCONTRADAS:")
+        print(f"Usuario: {cedula}")
+        print(f"Contraseña: {password}")
+    else:
+        print("\n❌ No se encontraron credenciales válidas")

@@ -533,8 +533,20 @@ def verificar_registro_preoperacional():
 @app.route('/analistas')
 @login_required
 def analistas_index():
-    """Renderizar la página principal del módulo analistas"""
+    """Renderizar el dashboard del módulo analistas"""
+    return render_template('modulos/analistas/dashboard.html')
+
+@app.route('/analistas/causas')
+@login_required
+def analistas_causas():
+    """Renderizar la página de causas de cierre"""
     return render_template('modulos/analistas/index.html')
+
+@app.route('/analistas/dashboard')
+@login_required
+def analistas_dashboard():
+    """Renderizar el dashboard del módulo analistas"""
+    return render_template('modulos/analistas/dashboard.html')
 
 @app.route('/api/analistas/causas-cierre', methods=['GET'])
 @login_required
@@ -831,17 +843,7 @@ def api_estadisticas_causas_cierre():
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
-@app.route('/', methods=['GET', 'POST'])
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    """Ruta de login básica para Flask-Login"""
-    if request.method == 'POST':
-        # Aquí iría la lógica de autenticación
-        # Por ahora, redirigir a una página de error o dashboard
-        return redirect(url_for('analistas'))
-    
-    # Para GET, mostrar un mensaje básico o redirigir
-    return "<h1>Login Page</h1><p>Esta es una página de login básica.</p>"
+# Función de login removida - se usa la de main.py
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
