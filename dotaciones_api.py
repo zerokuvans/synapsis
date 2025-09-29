@@ -301,7 +301,7 @@ def registrar_rutas_dotaciones(app):
                 camisetagris, camiseta_gris_talla, guerrera, guerrera_talla,
                 chaqueta, chaqueta_talla, camisetapolo, camiseta_polo_talla, 
                 guantes_nitrilo, guantes_carnaza, gafas, gorra, casco, botas, botas_talla,
-                estado_pantalon, estado_camiseta_gris, estado_guerrera, estado_chaqueta,
+                estado_pantalon, estado_camisetagris, estado_guerrera, estado_chaqueta,
                 estado_camiseta_polo, estado_guantes_nitrilo, estado_guantes_carnaza, 
                 estado_gafas, estado_gorra, estado_casco, estado_botas, fecha_registro
             ) VALUES (
@@ -619,7 +619,22 @@ def registrar_rutas_dotaciones(app):
             stock_por_estado = {}
             
             # Mapeo de elementos a sus columnas de estado correspondientes
-            estado_columns = {
+            # Nota: dotaciones usa estado_camisetagris, cambios_dotacion usa estado_camiseta_gris
+            estado_columns_dotaciones = {
+                'pantalon': 'estado_pantalon',
+                'camisetagris': 'estado_camisetagris',
+                'guerrera': 'estado_guerrera',
+                'chaqueta': 'estado_chaqueta',
+                'camisetapolo': 'estado_camisetapolo',
+                'guantes_nitrilo': 'estado_guantes_nitrilo',
+                'guantes_carnaza': 'estado_guantes_carnaza',
+                'gafas': 'estado_gafas',
+                'gorra': 'estado_gorra',
+                'casco': 'estado_casco',
+                'botas': 'estado_botas'
+            }
+            
+            estado_columns_cambios = {
                 'pantalon': 'estado_pantalon',
                 'camisetagris': 'estado_camiseta_gris',
                 'guerrera': 'estado_guerrera',
@@ -639,7 +654,8 @@ def registrar_rutas_dotaciones(app):
                     'NO VALORADO': 0
                 }
                 
-                estado_column = estado_columns.get(elemento, f'estado_{elemento}')
+                estado_column_dotaciones = estado_columns_dotaciones.get(elemento, f'estado_{elemento}')
+                estado_column_cambios = estado_columns_cambios.get(elemento, f'estado_{elemento}')
                 
                 # Obtener ingresos por estado
                 for estado in ['VALORADO', 'NO VALORADO']:
@@ -655,7 +671,7 @@ def registrar_rutas_dotaciones(app):
                     # Obtener salidas de dotaciones por estado
                     cursor.execute(f"""
                         SELECT COALESCE(SUM(
-                            CASE WHEN {estado_column} = %s THEN {elemento} ELSE 0 END
+                            CASE WHEN {estado_column_dotaciones} = %s THEN {elemento} ELSE 0 END
                         ), 0) as total_dotaciones
                         FROM dotaciones
                         WHERE {elemento} IS NOT NULL AND {elemento} > 0
@@ -667,7 +683,7 @@ def registrar_rutas_dotaciones(app):
                     # Obtener salidas de cambios por estado
                     cursor.execute(f"""
                         SELECT COALESCE(SUM(
-                            CASE WHEN {estado_column} = %s THEN {elemento} ELSE 0 END
+                            CASE WHEN {estado_column_cambios} = %s THEN {elemento} ELSE 0 END
                         ), 0) as total_cambios
                         FROM cambios_dotacion
                         WHERE {elemento} IS NOT NULL AND {elemento} > 0
@@ -734,7 +750,7 @@ def registrar_rutas_dotaciones(app):
                 botas = %s,
                 botas_talla = %s,
                 estado_pantalon = %s,
-                estado_camiseta_gris = %s,
+                estado_camisetagris = %s,
                 estado_guerrera = %s,
                 estado_chaqueta = %s,
                 estado_camiseta_polo = %s,
@@ -770,7 +786,7 @@ def registrar_rutas_dotaciones(app):
                 data.get('botas_talla'),
                 # Estados de valoración - respetar exactamente lo que envía el frontend
                 data.get('estado_pantalon'),
-                data.get('estado_camiseta_gris'),
+                data.get('estado_camisetagris'),
                 data.get('estado_guerrera'),
                 data.get('estado_chaqueta'),
                 data.get('estado_camiseta_polo'),
@@ -1170,7 +1186,7 @@ def registrar_rutas_dotaciones(app):
             cursor = connection.cursor(dictionary=True)
             
             # Calcular stock para cada elemento de dotación
-            elementos = ['pantalon', 'camisetagris', 'guerrera', 'chaqueta', 'camisetapolo', 
+            elementos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'chaqueta',
                         'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas']
             
             stock_data = []
@@ -1215,6 +1231,8 @@ def registrar_rutas_dotaciones(app):
                     'cantidad_entregada': int(total_dotaciones + total_cambios),
                     'stock_disponible': int(max(0, stock_disponible))
                 })
+            
+            # Chaqueta ahora se procesa en el bucle principal junto con los demás elementos
             
             return jsonify({
                 'success': True,

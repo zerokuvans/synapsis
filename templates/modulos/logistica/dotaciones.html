@@ -2377,7 +2377,8 @@
                 'gafas': 'Gafas',
                 'gorra': 'Gorra',
                 'guantes_carnaza': 'Guantes Carnaza',
-                'guantes_nitrilo': 'Guantes Nitrilo'
+                'guantes_nitrilo': 'Guantes Nitrilo',
+                'chaqueta': 'Chaqueta'
             };
 
             // Crear un mapa de datos por tallas para acceso rápido
@@ -2400,7 +2401,7 @@
 
             // Procesar cada elemento de stock
             stockData.forEach(item => {
-                const saldo = parseInt(item.saldo_disponible) || 0;
+                const saldo = parseInt(item.stock_disponible) || 0;
                 const stockMinimo = getStockMinimo(item.tipo_elemento);
                 const nombreMaterial = nombresElementos[item.tipo_elemento] || item.tipo_elemento;
                 
@@ -2872,24 +2873,33 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        stockPorEstado = data.stock;
+                        stockPorEstado = data.stock_por_estado || {};
                         actualizarIndicadoresStock();
                     } else {
                         console.error('Error al cargar stock por estado:', data.message);
+                        stockPorEstado = {}; // Inicializar como objeto vacío
+                        actualizarIndicadoresStock(); // Actualizar con estado "No disponible"
                     }
                 })
                 .catch(error => {
                     console.error('Error al cargar stock por estado:', error);
+                    stockPorEstado = {}; // Inicializar como objeto vacío
+                    actualizarIndicadoresStock(); // Actualizar con estado "No disponible"
                 });
         }
 
         // Función para actualizar indicadores de stock en el formulario
         function actualizarIndicadoresStock() {
+            // Validar que stockPorEstado esté definido
+            if (!stockPorEstado || typeof stockPorEstado !== 'object') {
+                console.warn('stockPorEstado no está definido o no es un objeto válido');
+                return;
+            }
+
             const elementos = {
                 'pantalon': 'stockPantalon',
                 'camisetagris': 'stockCamisetagris', 
                 'guerrera': 'stockGuerrera',
-                'chaqueta': 'stockChaqueta',
                 'camisetapolo': 'stockCamisetapolo',
                 'guantes_nitrilo': 'stockGuantesNitrilo',
                 'guantes_carnaza': 'stockGuantesCarnaza',
@@ -2898,12 +2908,15 @@
 
             Object.keys(elementos).forEach(elemento => {
                 const stockElement = document.getElementById(elementos[elemento]);
-                if (stockElement && stockPorEstado[elemento]) {
-                    const valorado = stockPorEstado[elemento]['VALORADO'] || 0;
-                    const noValorado = stockPorEstado[elemento]['NO VALORADO'] || 0;
-                    stockElement.innerHTML = `Stock: <span class="text-success">Valorado: ${valorado}</span> | <span class="text-info">No Valorado: ${noValorado}</span>`;
-                } else if (stockElement) {
-                    stockElement.innerHTML = 'Stock: <span class="text-muted">No disponible</span>';
+                if (stockElement) {
+                    // Validar que el elemento existe en stockPorEstado y es un objeto
+                    if (stockPorEstado[elemento] && typeof stockPorEstado[elemento] === 'object') {
+                        const valorado = stockPorEstado[elemento]['VALORADO'] || 0;
+                        const noValorado = stockPorEstado[elemento]['NO VALORADO'] || 0;
+                        stockElement.innerHTML = `Stock: <span class="text-success">Valorado: ${valorado}</span> | <span class="text-info">No Valorado: ${noValorado}</span>`;
+                    } else {
+                        stockElement.innerHTML = 'Stock: <span class="text-muted">No disponible</span>';
+                    }
                 }
             });
         }
@@ -2951,7 +2964,6 @@
                 'pantalon': 'pantalon',
                 'camisetagris': 'camisetagris',
                 'guerrera': 'guerrera',
-                'chaqueta': 'chaqueta',
                 'camisetapolo': 'camisetapolo',
                 'guantes_nitrilo': 'guantesNitrilo',
                 'guantes_carnaza': 'guantesCarnaza',
