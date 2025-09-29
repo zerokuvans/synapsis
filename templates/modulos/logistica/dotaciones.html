@@ -2352,8 +2352,8 @@
                     if (!tallasPorTipo[item.tipo_elemento]) {
                         tallasPorTipo[item.tipo_elemento] = [];
                     }
-                    // Para pantalones y botas usar número de calzado, para otros usar talla
-                    const tallaInfo = (item.tipo_elemento === 'pantalon' || item.tipo_elemento === 'botas') && item.numero_calzado ? 
+                    // Para botas usar número de calzado, para pantalones y otros usar talla
+                    const tallaInfo = item.tipo_elemento === 'botas' && item.numero_calzado ? 
                                      `#${item.numero_calzado}: ${item.stock_disponible}` :
                                      item.talla ? `T${item.talla}: ${item.stock_disponible}` : 
                                      `${item.stock_disponible}`;
