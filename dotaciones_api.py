@@ -607,11 +607,27 @@ def registrar_rutas_dotaciones(app):
             
             stock_por_estado = {}
             
+            # Mapeo de elementos a sus columnas de estado correspondientes
+            estado_columns = {
+                'pantalon': 'estado_pantalon',
+                'camisetagris': 'estado_camiseta_gris',
+                'guerrera': 'estado_guerrera',
+                'camisetapolo': 'estado_camiseta_polo',
+                'guantes_nitrilo': 'estado_guantes_nitrilo',
+                'guantes_carnaza': 'estado_guantes_carnaza',
+                'gafas': 'estado_gafas',
+                'gorra': 'estado_gorra',
+                'casco': 'estado_casco',
+                'botas': 'estado_botas'
+            }
+            
             for elemento in elementos:
                 stock_por_estado[elemento] = {
                     'VALORADO': 0,
                     'NO VALORADO': 0
                 }
+                
+                estado_column = estado_columns.get(elemento, f'estado_{elemento}')
                 
                 # Obtener ingresos por estado
                 for estado in ['VALORADO', 'NO VALORADO']:
@@ -627,7 +643,7 @@ def registrar_rutas_dotaciones(app):
                     # Obtener salidas de dotaciones por estado
                     cursor.execute(f"""
                         SELECT COALESCE(SUM(
-                            CASE WHEN estado_{elemento} = %s THEN {elemento} ELSE 0 END
+                            CASE WHEN {estado_column} = %s THEN {elemento} ELSE 0 END
                         ), 0) as total_dotaciones
                         FROM dotaciones
                         WHERE {elemento} IS NOT NULL AND {elemento} > 0
@@ -639,7 +655,7 @@ def registrar_rutas_dotaciones(app):
                     # Obtener salidas de cambios por estado
                     cursor.execute(f"""
                         SELECT COALESCE(SUM(
-                            CASE WHEN estado_{elemento} = %s THEN {elemento} ELSE 0 END
+                            CASE WHEN {estado_column} = %s THEN {elemento} ELSE 0 END
                         ), 0) as total_cambios
                         FROM cambios_dotacion
                         WHERE {elemento} IS NOT NULL AND {elemento} > 0
@@ -1135,16 +1151,52 @@ def registrar_rutas_dotaciones(app):
         try:
             cursor = connection.cursor(dictionary=True)
             
-            # Obtener stock usando la vista creada
-            query = "SELECT * FROM vista_stock_dotaciones ORDER BY tipo_elemento"
-            cursor.execute(query)
-            stock_data = cursor.fetchall()
+            # Calcular stock para cada elemento de dotación
+            elementos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 
+                        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas']
             
-            # Convertir Decimal a int para JSON
-            for item in stock_data:
-                for key, value in item.items():
-                    if hasattr(value, 'is_integer'):
-                        item[key] = int(value)
+            stock_data = []
+            
+            for elemento in elementos:
+                # Obtener total de ingresos
+                cursor.execute("""
+                    SELECT COALESCE(SUM(cantidad), 0) as total_ingresos
+                    FROM ingresos_dotaciones 
+                    WHERE tipo_elemento = %s
+                """, (elemento,))
+                
+                ingresos_result = cursor.fetchone()
+                total_ingresos = ingresos_result['total_ingresos'] if ingresos_result else 0
+                
+                # Obtener total de entregas en dotaciones
+                cursor.execute(f"""
+                    SELECT COALESCE(SUM({elemento}), 0) as total_dotaciones
+                    FROM dotaciones
+                    WHERE {elemento} IS NOT NULL AND {elemento} > 0
+                """, ())
+                
+                dotaciones_result = cursor.fetchone()
+                total_dotaciones = dotaciones_result['total_dotaciones'] if dotaciones_result else 0
+                
+                # Obtener total de entregas en cambios
+                cursor.execute(f"""
+                    SELECT COALESCE(SUM({elemento}), 0) as total_cambios
+                    FROM cambios_dotacion
+                    WHERE {elemento} IS NOT NULL AND {elemento} > 0
+                """, ())
+                
+                cambios_result = cursor.fetchone()
+                total_cambios = cambios_result['total_cambios'] if cambios_result else 0
+                
+                # Calcular stock disponible
+                stock_disponible = total_ingresos - total_dotaciones - total_cambios
+                
+                stock_data.append({
+                    'tipo_elemento': elemento,
+                    'cantidad_ingresada': int(total_ingresos),
+                    'cantidad_entregada': int(total_dotaciones + total_cambios),
+                    'stock_disponible': int(max(0, stock_disponible))
+                })
             
             return jsonify({
                 'success': True,
