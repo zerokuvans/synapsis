@@ -489,7 +489,6 @@ def registrar_rutas_dotaciones(app):
                                 WHEN %s = 'pantalon' AND estado_pantalon = %s THEN pantalon
                                 WHEN %s = 'camisetagris' AND estado_camiseta_gris = %s THEN camisetagris
                                 WHEN %s = 'guerrera' AND estado_guerrera = %s THEN guerrera
-                                WHEN %s = 'chaqueta' AND estado_chaqueta = %s THEN chaqueta
                                 WHEN %s = 'camisetapolo' AND estado_camiseta_polo = %s THEN camisetapolo
                                 WHEN %s = 'guantes_nitrilo' AND estado_guantes_nitrilo = %s THEN guantes_nitrilo
                                 WHEN %s = 'guantes_carnaza' AND estado_guantes_carnaza = %s THEN guantes_carnaza
@@ -504,7 +503,7 @@ def registrar_rutas_dotaciones(app):
                     """, (elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock, 
                           elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock,
                           elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock,
-                          elemento, tipo_stock, elemento, tipo_stock))
+                          elemento, tipo_stock))
                     
                     salidas_result = cursor.fetchone()
                     stock_salidas = salidas_result['total_salidas'] if salidas_result else 0
@@ -1169,7 +1168,7 @@ def registrar_rutas_dotaciones(app):
             cursor = connection.cursor(dictionary=True)
             
             # Calcular stock para cada elemento de dotación
-            elementos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'chaqueta',
+            elementos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo',
                         'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas']
             
             stock_data = []
@@ -1215,7 +1214,7 @@ def registrar_rutas_dotaciones(app):
                     'stock_disponible': int(max(0, stock_disponible))
                 })
             
-            # Chaqueta ahora se procesa en el bucle principal junto con los demás elementos
+            # Todos los elementos se procesan en el bucle principal
             
             return jsonify({
                 'success': True,
