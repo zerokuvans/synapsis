@@ -604,7 +604,7 @@ def registrar_rutas_dotaciones(app):
             
             # Lista de elementos de dotación
             elementos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 
-                        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas']
+                        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas', 'chaqueta']
             
             stock_por_estado = {}
             
@@ -620,7 +620,8 @@ def registrar_rutas_dotaciones(app):
                 'gafas': 'estado_gafas',
                 'gorra': 'estado_gorra',
                 'casco': 'estado_casco',
-                'botas': 'estado_botas'
+                'botas': 'estado_botas',
+                'chaqueta': 'estado_chaqueta'
             }
             
             estado_columns_cambios = {
@@ -633,7 +634,8 @@ def registrar_rutas_dotaciones(app):
                 'gafas': 'estado_gafas',
                 'gorra': 'estado_gorra',
                 'casco': 'estado_casco',
-                'botas': 'estado_botas'
+                'botas': 'estado_botas',
+                'chaqueta': 'estado_chaqueta'
             }
             
             for elemento in elementos:
@@ -1169,7 +1171,7 @@ def registrar_rutas_dotaciones(app):
             
             # Calcular stock para cada elemento de dotación
             elementos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo',
-                        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas']
+                        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas', 'chaqueta']
             
             stock_data = []
             
@@ -1269,7 +1271,8 @@ def registrar_rutas_dotaciones(app):
                 SUM(gafas) as gafas,
                 SUM(gorra) as gorra,
                 SUM(casco) as casco,
-                SUM(botas) as botas
+                SUM(botas) as botas,
+                SUM(chaqueta) as chaqueta
             FROM dotaciones
             WHERE fecha_registro >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
             GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
@@ -1442,6 +1445,17 @@ def registrar_rutas_dotaciones(app):
             FROM dotaciones
             WHERE botas > 0 AND fecha_registro >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
             GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
+            
+            UNION ALL
+            
+            SELECT 
+                DATE_FORMAT(fecha_registro, '%Y-%m') as mes,
+                DATE_FORMAT(fecha_registro, '%M %Y') as mes_nombre,
+                'chaqueta' as elemento,
+                SUM(chaqueta) as cantidad
+            FROM dotaciones
+            WHERE chaqueta > 0 AND fecha_registro >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(fecha_registro, '%Y-%m')
             """
             
             # Construir query final con filtros
@@ -1473,7 +1487,8 @@ def registrar_rutas_dotaciones(app):
                 SELECT 'gafas' as elemento UNION ALL
                 SELECT 'gorra' as elemento UNION ALL
                 SELECT 'casco' as elemento UNION ALL
-                SELECT 'botas' as elemento
+                SELECT 'botas' as elemento UNION ALL
+                SELECT 'chaqueta' as elemento
             ) as elementos
             ORDER BY elemento
             """
