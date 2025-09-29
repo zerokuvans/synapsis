@@ -713,6 +713,37 @@
                             </div>
                         </div>
 
+                        <!-- Chaqueta -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Chaqueta</label>
+                                <input type="number" class="form-control" id="chaqueta" min="0" oninput="validarStockDisponible('chaqueta')">
+                                <small class="text-muted" id="stockChaqueta">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Talla Chaqueta</label>
+                                <select class="form-select" id="chaquetaTalla">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="S">S</option>
+                                    <option value="M">M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="XXL">XXL</option>
+                                    <option value="XXXL">XXXL</option>
+                                    <option value="XXXXL">XXXXL</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Estado Chaqueta</label>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estadoChaqueta" checked>
+                                    <label class="form-check-label valorado-text" for="estadoChaqueta">
+                                        VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Camiseta Polo -->
                         <div class="row mb-3">
                             <div class="col-md-4">
@@ -1879,6 +1910,8 @@
                             document.getElementById('camisetaGrisTalla').value = dotacion.camiseta_gris_talla || '';
                             document.getElementById('guerrera').value = dotacion.guerrera || '';
                             document.getElementById('guerreraTalla').value = dotacion.guerrera_talla || '';
+                            document.getElementById('chaqueta').value = dotacion.chaqueta || '';
+                            document.getElementById('chaquetaTalla').value = dotacion.chaqueta_talla || '';
                             document.getElementById('camisetapolo').value = dotacion.camisetapolo || '';
                             document.getElementById('camisetaPoloTalla').value = dotacion.camiseta_polo_talla || '';
                             document.getElementById('guantesNitrilo').value = dotacion.guantes_nitrilo || '';
@@ -1925,6 +1958,9 @@
                 guerrera: parseInt(document.getElementById('guerrera').value) || null,
                 guerrera_talla: document.getElementById('guerreraTalla').value || null,
                 guerrera_valorado: document.getElementById('estadoGuerrera').checked ? 1 : 0,
+                chaqueta: parseInt(document.getElementById('chaqueta').value) || null,
+                chaqueta_talla: document.getElementById('chaquetaTalla').value || null,
+                chaqueta_valorado: document.getElementById('estadoChaqueta').checked ? 1 : 0,
                 camisetapolo: parseInt(document.getElementById('camisetapolo').value) || null,
                 camiseta_polo_talla: document.getElementById('camisetaPoloTalla').value || null,
                 camiseta_polo_valorado: document.getElementById('estadoCamisetaPolo').checked ? 1 : 0,
@@ -2807,6 +2843,7 @@
             mostrarElemento('Pantalon', dotacion.pantalon_cantidad || 0, dotacion.pantalon_talla, dotacion.pantalon_valorado);
             mostrarElemento('CamisetaGris', dotacion.camiseta_gris_cantidad || 0, dotacion.camiseta_gris_talla, dotacion.camiseta_gris_valorado);
             mostrarElemento('Guerrera', dotacion.guerrera_cantidad || 0, dotacion.guerrera_talla, dotacion.guerrera_valorado);
+            mostrarElemento('Chaqueta', dotacion.chaqueta_cantidad || 0, dotacion.chaqueta_talla, dotacion.chaqueta_valorado);
             mostrarElemento('CamisetaPolo', dotacion.camiseta_polo_cantidad || 0, dotacion.camiseta_polo_talla, dotacion.camiseta_polo_valorado);
             
             // Mostrar EPP
@@ -2852,6 +2889,7 @@
                 'pantalon': 'stockPantalon',
                 'camisetagris': 'stockCamisetagris', 
                 'guerrera': 'stockGuerrera',
+                'chaqueta': 'stockChaqueta',
                 'camisetapolo': 'stockCamisetapolo',
                 'guantes_nitrilo': 'stockGuantesNitrilo',
                 'guantes_carnaza': 'stockGuantesCarnaza',
@@ -2912,7 +2950,8 @@
             const elementos = {
                 'pantalon': 'pantalon',
                 'camisetagris': 'camisetagris',
-                'guerrera': 'guerrera', 
+                'guerrera': 'guerrera',
+                'chaqueta': 'chaqueta',
                 'camisetapolo': 'camisetapolo',
                 'guantes_nitrilo': 'guantesNitrilo',
                 'guantes_carnaza': 'guantesCarnaza',
