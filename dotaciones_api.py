@@ -1064,6 +1064,26 @@ def registrar_rutas_dotaciones(app):
             
             cursor = connection.cursor()
             
+            # Determinar la talla correcta según el tipo de elemento
+            talla_final = None
+            numero_calzado_final = None
+            
+            # Para pantalón, usar talla_pantalon
+            if data.get('tipo_elemento') == 'pantalon' and data.get('talla_pantalon'):
+                talla_final = data.get('talla_pantalon')
+            # Para botas, usar numero_calzado
+            elif data.get('tipo_elemento') == 'botas' and data.get('numero_calzado'):
+                numero_calzado_final = data.get('numero_calzado')
+            # Para otros elementos con talla genérica
+            elif data.get('talla'):
+                talla_final = data.get('talla')
+            # Para elementos con talla de guantes
+            elif data.get('talla_guantes'):
+                talla_final = data.get('talla_guantes')
+            # Para elementos con talla única
+            elif data.get('talla_unica'):
+                talla_final = data.get('talla_unica')
+            
             # Insertar nuevo ingreso
             query = """
             INSERT INTO ingresos_dotaciones (
@@ -1075,8 +1095,8 @@ def registrar_rutas_dotaciones(app):
             valores = (
                 data.get('tipo_elemento'),
                 data.get('cantidad'),
-                data.get('talla'),
-                data.get('numero_calzado'),
+                talla_final,
+                numero_calzado_final,
                 data.get('proveedor', ''),
                 data.get('estado'),
                 data.get('fecha_ingreso'),
@@ -1445,10 +1465,15 @@ def registrar_rutas_dotaciones(app):
             SELECT 
                 tipo_elemento,
                 CASE 
-                    WHEN tipo_elemento = 'pantalon' THEN 'Sin talla'
+                    WHEN tipo_elemento = 'pantalon' THEN COALESCE(talla, 'Sin talla')
+                    WHEN tipo_elemento = 'botas' THEN 'Sin talla'
                     ELSE COALESCE(talla, 'Sin talla')
                 END as talla,
-                COALESCE(numero_calzado, 'Sin número') as numero_calzado,
+                CASE 
+                    WHEN tipo_elemento = 'pantalon' THEN COALESCE(talla, 'Sin talla')
+                    WHEN tipo_elemento = 'botas' THEN COALESCE(numero_calzado, 'Sin número')
+                    ELSE 'Sin número'
+                END as numero_calzado,
                 SUM(cantidad) as total_ingresado
             FROM ingresos_dotaciones
             WHERE 1=1
@@ -1468,8 +1493,8 @@ def registrar_rutas_dotaciones(app):
             entregas_query = """
             SELECT 
                 'pantalon' as tipo_elemento,
-                'Sin talla' as talla,
-                COALESCE(pantalon_talla, 'Sin número') as numero_calzado,
+                COALESCE(pantalon_talla, 'Sin talla') as talla,
+                COALESCE(pantalon_talla, 'Sin talla') as numero_calzado,
                 SUM(pantalon) as total_entregado
             FROM dotaciones
             WHERE pantalon > 0
@@ -1479,8 +1504,8 @@ def registrar_rutas_dotaciones(app):
             
             SELECT 
                 'pantalon' as tipo_elemento,
-                'Sin talla' as talla,
-                COALESCE(pantalon_talla, 'Sin número') as numero_calzado,
+                COALESCE(pantalon_talla, 'Sin talla') as talla,
+                COALESCE(pantalon_talla, 'Sin talla') as numero_calzado,
                 SUM(pantalon) as total_entregado
             FROM cambios_dotacion
             WHERE pantalon > 0
