@@ -3023,7 +3023,7 @@ function actualizarIndicadoresStockCambios() {
                 const tallasPantalon = stockPorTallas.filter(item => item.tipo_elemento === 'pantalon');
                 if (tallasPantalon.length > 0) {
                     const tallasInfo = tallasPantalon.map(item => {
-                        const talla = item.numero_calzado || item.talla || 'S/T';
+                        const talla = item.talla || 'S/T';
                         return `${talla}(${item.stock_disponible})`;
                     }).join(', ');
                     stockHtml += `<br><small class="text-info"><i class="fas fa-ruler me-1"></i>Tallas disponibles: ${tallasInfo}</small>`;
