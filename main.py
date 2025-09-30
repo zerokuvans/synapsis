@@ -8890,6 +8890,167 @@ def obtener_supervisores_asistencia():
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
+# API para obtener resumen agrupado de asistencia por tipificación
+@app.route('/api/asistencia/resumen_agrupado', methods=['GET'])
+@login_required(role='administrativo')
+def obtener_resumen_agrupado_asistencia():
+    """Obtener resumen de asistencia agrupado por grupos de tipificación"""
+    try:
+        # Obtener parámetros de filtro
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        supervisor_filtro = request.args.get('supervisor')
+        
+        # Si no se proporcionan fechas, usar la fecha actual
+        if not fecha_inicio or not fecha_fin:
+            fecha_actual = get_bogota_datetime().date()
+            fecha_inicio = fecha_fin = fecha_actual
+        else:
+            try:
+                fecha_inicio = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+                fecha_fin = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+                
+                # Validaciones adicionales de rango de fechas
+                if fecha_inicio > fecha_fin:
+                    return jsonify({
+                        'success': False,
+                        'message': 'La fecha de inicio no puede ser mayor que la fecha de fin'
+                    }), 400
+                
+                # Validar que las fechas no sean futuras
+                fecha_actual = get_bogota_datetime().date()
+                if fecha_inicio > fecha_actual or fecha_fin > fecha_actual:
+                    return jsonify({
+                        'success': False,
+                        'message': 'No se pueden consultar fechas futuras'
+                    }), 400
+                
+                # Validar rango máximo (1 año)
+                diferencia_dias = (fecha_fin - fecha_inicio).days
+                if diferencia_dias > 365:
+                    return jsonify({
+                        'success': False,
+                        'message': 'El rango de fechas no puede ser mayor a 1 año'
+                    }), 400
+                    
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Formato de fecha inválido. Use YYYY-MM-DD'
+                }), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Consulta base para obtener datos agrupados (solo registros con grupo válido)
+        query_base = """
+            SELECT 
+                t.grupo,
+                t.nombre_tipificacion as carpeta,
+                COUNT(DISTINCT a.id_codigo_consumidor) as total_tecnicos
+            FROM asistencia a
+            INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                AND t.grupo IS NOT NULL 
+                AND t.grupo != ''
+                AND t.grupo IN ('ARREGLOS', 'AUSENCIA INJUSTIFICADA', 'AUSENCIA JUSTIFICADA', 'INSTALACIONES', 'POSTVENTA')
+        """
+        
+        params = [fecha_inicio, fecha_fin]
+        
+        # Agregar filtro por supervisor si se proporciona
+        if supervisor_filtro:
+            query_base += " AND a.super = %s"
+            params.append(supervisor_filtro)
+        
+        query_base += """
+            GROUP BY t.grupo, t.nombre_tipificacion
+            ORDER BY t.grupo, t.nombre_tipificacion
+        """
+        
+        # Ejecutar consulta principal
+        cursor.execute(query_base, tuple(params))
+        resultados = cursor.fetchall()
+        
+        # Calcular total de técnicos para porcentajes (solo registros con grupo válido)
+        query_total = """
+            SELECT COUNT(DISTINCT a.id_codigo_consumidor) as total_general
+            FROM asistencia a
+            INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                AND t.grupo IS NOT NULL 
+                AND t.grupo != ''
+                AND t.grupo IN ('ARREGLOS', 'AUSENCIA INJUSTIFICADA', 'AUSENCIA JUSTIFICADA', 'INSTALACIONES', 'POSTVENTA')
+        """
+        
+        params_total = [fecha_inicio, fecha_fin]
+        if supervisor_filtro:
+            query_total += " AND a.super = %s"
+            params_total.append(supervisor_filtro)
+        
+        cursor.execute(query_total, tuple(params_total))
+        total_general = cursor.fetchone()['total_general'] or 0
+        
+        # Procesar resultados y calcular porcentajes
+        resumen_agrupado = []
+        grupos_totales = {}
+        
+        # Primero, calcular totales por grupo
+        for resultado in resultados:
+            grupo = resultado['grupo']
+            if grupo not in grupos_totales:
+                grupos_totales[grupo] = 0
+            grupos_totales[grupo] += resultado['total_tecnicos']
+        
+        # Luego, crear el resumen con porcentajes
+        for resultado in resultados:
+            grupo = resultado['grupo']
+            carpeta = resultado['carpeta']
+            total_tecnicos = resultado['total_tecnicos']
+            
+            # Calcular porcentaje respecto al total general
+            porcentaje = round((total_tecnicos * 100) / total_general, 2) if total_general > 0 else 0
+            
+            resumen_agrupado.append({
+                'grupo': grupo,
+                'carpeta': carpeta,
+                'total_tecnicos': total_tecnicos,
+                'porcentaje': porcentaje
+            })
+        
+        # Calcular resumen por grupos
+        resumen_grupos = []
+        for grupo, total_grupo in grupos_totales.items():
+            porcentaje_grupo = round((total_grupo * 100) / total_general, 2) if total_general > 0 else 0
+            resumen_grupos.append({
+                'grupo': grupo,
+                'total_tecnicos': total_grupo,
+                'porcentaje': porcentaje_grupo
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'detallado': resumen_agrupado,
+                'resumen_grupos': resumen_grupos,
+                'total_general': total_general,
+                'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
+                'fecha_fin': fecha_fin.strftime('%Y-%m-%d'),
+                'supervisor_filtro': supervisor_filtro
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
 @app.route('/api/indicadores/cumplimiento')
 @login_required(role='administrativo')
 def obtener_indicadores_cumplimiento():
