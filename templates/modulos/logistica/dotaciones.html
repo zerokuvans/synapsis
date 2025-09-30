@@ -291,6 +291,17 @@
             background-color: #007bff;
             color: white;
         }
+        
+        /* Estilos para validación inteligente */
+        .is-warning {
+            border-color: #ffc107 !important;
+            background-color: #fff3cd !important;
+        }
+        
+        .is-warning:focus {
+            border-color: #ffc107 !important;
+            box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25) !important;
+        }
 </style>
 {% endblock %}
 
@@ -625,7 +636,7 @@
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">Pantalón</label>
-                                <input type="number" class="form-control" id="pantalon" min="0" oninput="validarStockDisponible('pantalon')">
+                                <input type="number" class="form-control" id="pantalon" min="0" oninput="debouncedValidarStockDisponible('pantalon')">
                                 <small class="text-muted" id="stockPantalon">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
@@ -657,7 +668,7 @@
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">Camiseta Gris</label>
-                                <input type="number" class="form-control" id="camisetagris" min="0" oninput="validarStockDisponible('camisetagris')">
+                                <input type="number" class="form-control" id="camisetagris" min="0" oninput="debouncedValidarStockDisponible('camisetagris')">
                                 <small class="text-muted" id="stockCamisetagris">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
@@ -686,7 +697,7 @@
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">Guerrera</label>
-                                <input type="number" class="form-control" id="guerrera" min="0" oninput="validarStockDisponible('guerrera')">
+                                <input type="number" class="form-control" id="guerrera" min="0" oninput="debouncedValidarStockDisponible('guerrera')">
                                 <small class="text-muted" id="stockGuerrera">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
@@ -717,7 +728,7 @@
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">Chaqueta</label>
-                                <input type="number" class="form-control" id="chaqueta" min="0" oninput="validarStockDisponible('chaqueta')">
+                                <input type="number" class="form-control" id="chaqueta" min="0" oninput="debouncedValidarStockDisponible('chaqueta')">
                                 <small class="text-muted" id="stockChaqueta">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
@@ -748,7 +759,7 @@
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">Camiseta Polo</label>
-                                <input type="number" class="form-control" id="camisetapolo" min="0" oninput="validarStockDisponible('camisetapolo')">
+                                <input type="number" class="form-control" id="camisetapolo" min="0" oninput="debouncedValidarStockDisponible('camisetapolo')">
                                 <small class="text-muted" id="stockCamisetapolo">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
@@ -779,7 +790,7 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Guantes Nitrilo</label>
-                                <input type="number" class="form-control" id="guantesNitrilo" min="0" oninput="validarStockDisponible('guantes_nitrilo')">
+                                <input type="number" class="form-control" id="guantesNitrilo" min="0" oninput="debouncedValidarStockDisponible('guantes_nitrilo')">
                                 <small class="text-muted" id="stockGuantesNitrilo">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-6">
@@ -797,7 +808,7 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Guantes Carnaza</label>
-                                <input type="number" class="form-control" id="guantesCarnaza" min="0" oninput="validarStockDisponible('guantes_carnaza')">
+                                <input type="number" class="form-control" id="guantesCarnaza" min="0" oninput="debouncedValidarStockDisponible('guantes_carnaza')">
                                 <small class="text-muted" id="stockGuantesCarnaza">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-6">
@@ -815,7 +826,7 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">Gafas</label>
-                                <input type="number" class="form-control" id="gafas" min="0" oninput="validarStockDisponible('gafas')">
+                                <input type="number" class="form-control" id="gafas" min="0" oninput="debouncedValidarStockDisponible('gafas')">
                                 <small class="text-muted" id="stockGafas">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-6">
@@ -1413,6 +1424,9 @@
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 
     <script>
+        // Cache busting - Forzar recarga del JavaScript
+        console.log('🔄 Dotaciones JS cargado - Versión:', new Date().getTime());
+        
         // Variables globales
         let tablaDotaciones;
 
@@ -1423,6 +1437,22 @@
             cedula: '{{ session.get("user_cedula", "") }}',
             name: '{{ session.get("user_name", "") }}',
             role: '{{ session.get("user_role", "") }}'
+        }
+
+        // Variables para debouncing
+        let validationTimeouts = {};
+
+        // Función de debouncing para validación de stock
+        function debouncedValidarStockDisponible(elemento, delay = 300) {
+            // Cancelar timeout anterior si existe
+            if (validationTimeouts[elemento]) {
+                clearTimeout(validationTimeouts[elemento]);
+            }
+            
+            // Crear nuevo timeout
+            validationTimeouts[elemento] = setTimeout(() => {
+                validarStockDisponible(elemento);
+            }, delay);
         }
 
         // Función para obtener stock mínimo por tipo de elemento
@@ -2900,6 +2930,7 @@
                 'pantalon': 'stockPantalon',
                 'camisetagris': 'stockCamisetagris', 
                 'guerrera': 'stockGuerrera',
+                'chaqueta': 'stockChaqueta',
                 'camisetapolo': 'stockCamisetapolo',
                 'guantes_nitrilo': 'stockGuantesNitrilo',
                 'guantes_carnaza': 'stockGuantesCarnaza',
@@ -2921,8 +2952,10 @@
             });
         }
 
-        // Función para validar stock disponible al cambiar cantidad
+        // Función para validar stock disponible con lógica inteligente
         function validarStockDisponible(elemento) {
+            console.log('🔍 validarStockDisponible (Nueva Dotación) llamada para:', elemento);
+            
             const input = document.getElementById(elemento === 'guantes_nitrilo' ? 'guantesNitrilo' : 
                                                 elemento === 'guantes_carnaza' ? 'guantesCarnaza' : elemento);
             
@@ -2941,29 +2974,59 @@
             const checkbox = document.getElementById(checkboxId);
             const cantidad = parseInt(input.value) || 0;
             
+            console.log('📋 Validación Nueva Dotación:', {
+                elemento,
+                cantidad,
+                checkboxId,
+                esValorado: checkbox && checkbox.checked
+            });
+            
             if (cantidad > 0 && stockPorEstado[elemento]) {
                 const esValorado = checkbox && checkbox.checked;
-                const estadoSeleccionado = esValorado ? 'VALORADO' : 'NO VALORADO';
-                const stockDisponible = stockPorEstado[elemento][estadoSeleccionado] || 0;
+                const estadoPreferido = esValorado ? 'VALORADO' : 'NO VALORADO';
+                const estadoAlternativo = esValorado ? 'NO VALORADO' : 'VALORADO';
                 
-                if (cantidad > stockDisponible) {
+                const stockPreferido = stockPorEstado[elemento][estadoPreferido] || 0;
+                const stockAlternativo = stockPorEstado[elemento][estadoAlternativo] || 0;
+                const stockTotal = stockPreferido + stockAlternativo;
+                
+                console.log('📊 Stock disponible:', {
+                    estadoPreferido,
+                    stockPreferido,
+                    estadoAlternativo,
+                    stockAlternativo,
+                    stockTotal
+                });
+                
+                if (cantidad > stockTotal) {
+                    // Error: No hay suficiente stock total
                     input.classList.add('is-invalid');
-                    mostrarError(`Stock insuficiente para ${elemento} ${estadoSeleccionado}. Disponible: ${stockDisponible}`);
-                    input.value = stockDisponible;
-                } else {
+                    mostrarError(`Stock insuficiente para ${elemento}. Total disponible: ${stockTotal} (${estadoPreferido}: ${stockPreferido}, ${estadoAlternativo}: ${stockAlternativo})`);
+                    input.value = stockTotal;
+                } else if (cantidad > stockPreferido && stockAlternativo > 0) {
+                    // Advertencia: Se usará stock mixto (sin mostrar mensaje ya que la validación inteligente funciona)
                     input.classList.remove('is-invalid');
+                    input.classList.add('is-warning');
+                    const cantidadAlternativa = cantidad - stockPreferido;
+                    // mostrarAdvertencia(`Stock insuficiente en ${estadoPreferido} (${stockPreferido}), pero hay stock ${estadoAlternativo} disponible (${stockAlternativo}). Se tomarán ${stockPreferido} de ${estadoPreferido} y ${cantidadAlternativa} de ${estadoAlternativo}.`);
+                } else {
+                    // OK: Stock suficiente en estado preferido
+                    input.classList.remove('is-invalid', 'is-warning');
                 }
             } else {
-                input.classList.remove('is-invalid');
+                input.classList.remove('is-invalid', 'is-warning');
             }
         }
 
-        // Función para validar formulario antes de envío
+        // Función para validar formulario antes de envío con lógica inteligente
         function validarFormularioCompleto() {
+            console.log('🔍 Validando formulario completo (Nueva Dotación)');
+            
             const elementos = {
                 'pantalon': 'pantalon',
                 'camisetagris': 'camisetagris',
                 'guerrera': 'guerrera',
+                'chaqueta': 'chaqueta',
                 'camisetapolo': 'camisetapolo',
                 'guantes_nitrilo': 'guantesNitrilo',
                 'guantes_carnaza': 'guantesCarnaza',
@@ -2974,6 +3037,7 @@
             };
 
             let errores = [];
+            let advertencias = [];
             
             Object.keys(elementos).forEach(elemento => {
                 const input = document.getElementById(elementos[elemento]);
@@ -2995,18 +3059,33 @@
                 
                 if (cantidad > 0 && stockPorEstado[elemento]) {
                     const esValorado = checkbox && checkbox.checked;
-                    const estadoSeleccionado = esValorado ? 'VALORADO' : 'NO VALORADO';
-                    const stockDisponible = stockPorEstado[elemento][estadoSeleccionado] || 0;
+                    const estadoPreferido = esValorado ? 'VALORADO' : 'NO VALORADO';
+                    const estadoAlternativo = esValorado ? 'NO VALORADO' : 'VALORADO';
                     
-                    if (cantidad > stockDisponible) {
-                        errores.push(`${elemento}: Stock insuficiente para ${estadoSeleccionado}. Solicitado: ${cantidad}, Disponible: ${stockDisponible}`);
+                    const stockPreferido = stockPorEstado[elemento][estadoPreferido] || 0;
+                    const stockAlternativo = stockPorEstado[elemento][estadoAlternativo] || 0;
+                    const stockTotal = stockPreferido + stockAlternativo;
+                    
+                    if (cantidad > stockTotal) {
+                        // Error: No hay suficiente stock total
+                        errores.push(`${elemento}: Stock insuficiente. Total disponible: ${stockTotal} (${estadoPreferido}: ${stockPreferido}, ${estadoAlternativo}: ${stockAlternativo})`);
+                    } else if (cantidad > stockPreferido && stockAlternativo > 0) {
+                        // Advertencia: Se usará stock mixto
+                        const cantidadAlternativa = cantidad - stockPreferido;
+                        advertencias.push(`${elemento}: Se usará stock mixto - ${stockPreferido} de ${estadoPreferido} y ${cantidadAlternativa} de ${estadoAlternativo}`);
                     }
                 }
             });
             
+            // Solo bloquear si hay errores reales (stock total insuficiente)
             if (errores.length > 0) {
                 mostrarError('Errores de stock:\n' + errores.join('\n'));
                 return false;
+            }
+            
+            // Mostrar advertencias pero permitir continuar
+            if (advertencias.length > 0) {
+                mostrarAdvertencia('Se detectó uso de stock mixto:\n' + advertencias.join('\n') + '\n\n¿Desea continuar?');
             }
             
             return true;
@@ -3021,6 +3100,12 @@
         function mostrarError(mensaje) {
             // Implementar notificación de error
             alert(mensaje);
+        }
+
+        function mostrarAdvertencia(mensaje) {
+            // Implementar notificación de advertencia
+            console.warn('⚠️ Advertencia:', mensaje);
+            alert('⚠️ ' + mensaje);
         }
 
         // Función para refrescar el stock de dotaciones

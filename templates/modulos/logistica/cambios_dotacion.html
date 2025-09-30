@@ -906,6 +906,17 @@
         border-color: #3583E8;
         box-shadow: 0 0 0 0.2rem rgba(53, 131, 232, 0.25);
     }
+    
+    /* Estilos para validación inteligente */
+    .is-warning {
+        border-color: #ffc107 !important;
+        background-color: #fff3cd !important;
+    }
+    
+    .is-warning:focus {
+        border-color: #ffc107 !important;
+        box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25) !important;
+    }
 </style>
 {% endblock %}
 
@@ -1019,7 +1030,7 @@
                             <div class="row mb-3 item-row">
                                 <div class="col-md-3">
                                     <label for="pantalon" class="form-label">Pantalón</label>
-                                    <input type="number" class="form-control cantidad-input" id="pantalon" name="pantalon" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponible('pantalon')">
+                                    <input type="number" class="form-control cantidad-input" id="pantalon" name="pantalon" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('pantalon')">
                                     <small class="text-muted" id="stock_pantalon">Stock: Cargando...</small>
                                 </div>
                                 <div class="col-md-3">
@@ -1051,7 +1062,7 @@
                             <div class="row mb-3 item-row">
                                 <div class="col-md-3">
                                     <label for="camisetagris" class="form-label">Camiseta Gris</label>
-                                    <input type="number" class="form-control cantidad-input" id="camisetagris" name="camisetagris" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponible('camisetagris')">
+                                    <input type="number" class="form-control cantidad-input" id="camisetagris" name="camisetagris" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('camisetagris')">
                                     <small class="text-muted" id="stock_camisetagris">Stock: Cargando...</small>
                                 </div>
                                 <div class="col-md-3">
@@ -1082,7 +1093,7 @@
                             <div class="row mb-3 item-row">
                                 <div class="col-md-3">
                                     <label for="guerrera" class="form-label">Guerrera</label>
-                                    <input type="number" class="form-control cantidad-input" id="guerrera" name="guerrera" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponible('guerrera')">
+                                    <input type="number" class="form-control cantidad-input" id="guerrera" name="guerrera" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('guerrera')">
                                     <small class="text-muted" id="stock_guerrera">Stock: Cargando...</small>
                                 </div>
                                 <div class="col-md-3">
@@ -1113,7 +1124,7 @@
                             <div class="row mb-3 item-row">
                                 <div class="col-md-3">
                                     <label for="camisetapolo" class="form-label">Camiseta Polo</label>
-                                    <input type="number" class="form-control cantidad-input" id="camisetapolo" name="camisetapolo" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponible('camisetapolo')">
+                                    <input type="number" class="form-control cantidad-input" id="camisetapolo" name="camisetapolo" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('camisetapolo')">
                                     <small class="text-muted" id="stock_camisetapolo">Stock: Cargando...</small>
                                 </div>
                                 <div class="col-md-3">
@@ -1152,7 +1163,7 @@
                             <div class="row mb-3 item-row">
                                 <div class="col-md-3">
                                     <label for="guantes_nitrilo" class="form-label">Guantes Nitrilo</label>
-                                    <input type="number" class="form-control cantidad-input" id="guantes_nitrilo" name="guantes_nitrilo" min="0" max="20" placeholder="Cantidad" oninput="validarStockDisponible('guantes_nitrilo')">
+                                    <input type="number" class="form-control cantidad-input" id="guantes_nitrilo" name="guantes_nitrilo" min="0" max="20" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('guantes_nitrilo')">
                                     <small class="text-muted" id="stock_guantes_nitrilo">Stock: Cargando...</small>
                                 </div>
                                 <div class="col-md-3">
@@ -1170,7 +1181,7 @@
                             <div class="row mb-3 item-row">
                                 <div class="col-md-3">
                                     <label for="guantes_carnaza" class="form-label">Guantes Carnaza</label>
-                                    <input type="number" class="form-control cantidad-input" id="guantes_carnaza" name="guantes_carnaza" min="0" max="20" placeholder="Cantidad" oninput="validarStockDisponible('guantes_carnaza')">
+                                    <input type="number" class="form-control cantidad-input" id="guantes_carnaza" name="guantes_carnaza" min="0" max="20" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('guantes_carnaza')">
                                     <small class="text-muted" id="stock_guantes_carnaza">Stock: Cargando...</small>
                                 </div>
                                 <div class="col-md-3">
@@ -1188,7 +1199,7 @@
                             <div class="row mb-3 item-row">
                                 <div class="col-md-3">
                                     <label for="gafas" class="form-label">Gafas</label>
-                                    <input type="number" class="form-control cantidad-input" id="gafas" name="gafas" min="0" max="5" placeholder="Cantidad" oninput="validarStockDisponible('gafas')">
+                                    <input type="number" class="form-control cantidad-input" id="gafas" name="gafas" min="0" max="5" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('gafas')">
                                     <small class="text-muted" id="stock_gafas">Stock: Cargando...</small>
                                 </div>
                                 <div class="col-md-3">
@@ -1206,7 +1217,7 @@
                             <div class="row mb-3 item-row">
                                 <div class="col-md-3">
                                     <label for="gorra" class="form-label">Gorra</label>
-                                    <input type="number" class="form-control cantidad-input" id="gorra" name="gorra" min="0" max="5" placeholder="Cantidad" oninput="validarStockDisponible('gorra')">
+                                    <input type="number" class="form-control cantidad-input" id="gorra" name="gorra" min="0" max="5" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('gorra')">
                                     <small class="text-muted" id="stock_gorra">Stock: Cargando...</small>
                                 </div>
                                 <div class="col-md-3">
@@ -1224,7 +1235,7 @@
                             <div class="row mb-3 item-row">
                                 <div class="col-md-3">
                                     <label for="casco" class="form-label">Casco</label>
-                                    <input type="number" class="form-control cantidad-input" id="casco" name="casco" min="0" max="3" placeholder="Cantidad" oninput="validarStockDisponible('casco')">
+                                    <input type="number" class="form-control cantidad-input" id="casco" name="casco" min="0" max="3" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('casco')">
                                     <small class="text-muted" id="stock_casco">Stock: Cargando...</small>
                                 </div>
                                 <div class="col-md-3">
@@ -1450,7 +1461,7 @@
                         <div class="row mb-3 item-row">
                             <div class="col-md-3">
                                 <label for="pantalon_modal" class="form-label">Pantalón</label>
-                                <input type="number" class="form-control cantidad-input" id="pantalon_modal" name="pantalon" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('pantalon')">
+                                <input type="number" class="form-control cantidad-input" id="pantalon_modal" name="pantalon" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('pantalon')">
                                 <small class="text-muted" id="stock_pantalon_modal">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-3">
@@ -1482,7 +1493,7 @@
                         <div class="row mb-3 item-row">
                             <div class="col-md-3">
                                 <label for="camisetagris_modal" class="form-label">Camiseta Gris</label>
-                                <input type="number" class="form-control cantidad-input" id="camisetagris_modal" name="camisetagris" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('camisetagris')">
+                                <input type="number" class="form-control cantidad-input" id="camisetagris_modal" name="camisetagris" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('camisetagris')">
                                 <small class="text-muted" id="stock_camisetagris_modal">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-3">
@@ -1512,7 +1523,7 @@
                         <div class="row mb-3 item-row">
                             <div class="col-md-3">
                                 <label for="guerrera_modal" class="form-label">Guerrera</label>
-                                <input type="number" class="form-control cantidad-input" id="guerrera_modal" name="guerrera" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('guerrera')">
+                                <input type="number" class="form-control cantidad-input" id="guerrera_modal" name="guerrera" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('guerrera')">
                                 <small class="text-muted" id="stock_guerrera_modal">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-3">
@@ -1542,7 +1553,7 @@
                         <div class="row mb-3 item-row">
                             <div class="col-md-3">
                                 <label for="camisetapolo_modal" class="form-label">Camiseta Polo</label>
-                                <input type="number" class="form-control cantidad-input" id="camisetapolo_modal" name="camisetapolo" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('camisetapolo')">
+                                <input type="number" class="form-control cantidad-input" id="camisetapolo_modal" name="camisetapolo" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('camisetapolo')">
                                 <small class="text-muted" id="stock_camisetapolo_modal">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-3">
@@ -1580,7 +1591,7 @@
                         <div class="row mb-3 item-row">
                             <div class="col-md-4">
                                 <label for="guantes_nitrilo_modal" class="form-label">Guantes de Nitrilo</label>
-                                <input type="number" class="form-control cantidad-input" id="guantes_nitrilo_modal" name="guantes_nitrilo" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('guantes_nitrilo')">
+                                <input type="number" class="form-control cantidad-input" id="guantes_nitrilo_modal" name="guantes_nitrilo" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('guantes_nitrilo')">
                                 <small class="text-muted" id="stock_guantes_nitrilo_modal">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
@@ -1598,7 +1609,7 @@
                         <div class="row mb-3 item-row">
                             <div class="col-md-4">
                                 <label for="guantes_carnaza_modal" class="form-label">Guantes de Carnaza</label>
-                                <input type="number" class="form-control cantidad-input" id="guantes_carnaza_modal" name="guantes_carnaza" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('guantes_carnaza')">
+                                <input type="number" class="form-control cantidad-input" id="guantes_carnaza_modal" name="guantes_carnaza" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('guantes_carnaza')">
                                 <small class="text-muted" id="stock_guantes_carnaza_modal">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
@@ -1616,7 +1627,7 @@
                         <div class="row mb-3 item-row">
                             <div class="col-md-4">
                                 <label for="gafas_modal" class="form-label">Gafas</label>
-                                <input type="number" class="form-control cantidad-input" id="gafas_modal" name="gafas" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('gafas')">
+                                <input type="number" class="form-control cantidad-input" id="gafas_modal" name="gafas" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('gafas')">
                                 <small class="text-muted" id="stock_gafas_modal">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
@@ -1634,7 +1645,7 @@
                         <div class="row mb-3 item-row">
                             <div class="col-md-4">
                                 <label for="gorra_modal" class="form-label">Gorra</label>
-                                <input type="number" class="form-control cantidad-input" id="gorra_modal" name="gorra" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('gorra')">
+                                <input type="number" class="form-control cantidad-input" id="gorra_modal" name="gorra" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('gorra')">
                                 <small class="text-muted" id="stock_gorra_modal">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
@@ -1652,7 +1663,7 @@
                         <div class="row mb-3 item-row">
                             <div class="col-md-4">
                                 <label for="casco_modal" class="form-label">Casco</label>
-                                <input type="number" class="form-control cantidad-input" id="casco_modal" name="casco" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('casco')">
+                                <input type="number" class="form-control cantidad-input" id="casco_modal" name="casco" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('casco')">
                                 <small class="text-muted" id="stock_casco_modal">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-4">
@@ -1670,7 +1681,7 @@
                         <div class="row mb-3 item-row">
                             <div class="col-md-3">
                                 <label for="botas_modal" class="form-label">Botas</label>
-                                <input type="number" class="form-control cantidad-input" id="botas_modal" name="botas" min="0" max="10" placeholder="Cantidad" oninput="validarStockDisponibleCambios('botas')">
+                                <input type="number" class="form-control cantidad-input" id="botas_modal" name="botas" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('botas')">
                                 <small class="text-muted" id="stock_botas_modal">Stock: Cargando...</small>
                             </div>
                             <div class="col-md-3">
@@ -1832,12 +1843,44 @@
 </div>
 
 <script>
+// Cache busting - Forzar recarga del JavaScript
+console.log('🔄 Cambios Dotación JS cargado - Versión:', new Date().getTime());
+
 // Variables globales para el selector de técnicos
 let tecnicosData = [];
 let tecnicosFiltrados = [];
 let paginaActual = 1;
 const elementosPorPagina = 10;
 let tecnicoSeleccionado = null;
+
+// Variables para debouncing
+let validationTimeouts = {};
+
+// Función de debouncing para validación de stock
+function debouncedValidarStockDisponible(elemento, delay = 300) {
+    // Cancelar timeout anterior si existe
+    if (validationTimeouts[elemento]) {
+        clearTimeout(validationTimeouts[elemento]);
+    }
+    
+    // Crear nuevo timeout
+    validationTimeouts[elemento] = setTimeout(() => {
+        validarStockDisponible(elemento);
+    }, delay);
+}
+
+// Función de debouncing para validación de stock en cambios
+function debouncedValidarStockDisponibleCambios(elemento, delay = 300) {
+    // Cancelar timeout anterior si existe
+    if (validationTimeouts[elemento + '_cambios']) {
+        clearTimeout(validationTimeouts[elemento + '_cambios']);
+    }
+    
+    // Crear nuevo timeout
+    validationTimeouts[elemento + '_cambios'] = setTimeout(() => {
+        validarStockDisponibleCambios(elemento);
+    }, delay);
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     // Establecer fecha actual por defecto
@@ -2557,7 +2600,7 @@ function cargarStockPorEstado() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                stockPorEstado = data.stock;
+                stockPorEstado = data.stock_por_estado;
                 actualizarIndicadoresStock();
             } else {
                 console.error('Error al cargar stock:', data.error);
@@ -2642,11 +2685,19 @@ function actualizarIndicadoresStock() {
     });
 }
 
-// Función para validar stock disponible
+// Función para validar stock disponible con lógica inteligente
 function validarStockDisponible(elemento) {
+    console.log('🔍 validarStockDisponible llamada para:', elemento);
+    
     const cantidadInput = document.getElementById(elemento);
     const estadoCheckbox = document.getElementById(`estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
     const stockElement = document.getElementById(`stock_${elemento}`);
+    
+    console.log('📋 Elementos encontrados:', {
+        cantidadInput: !!cantidadInput,
+        estadoCheckbox: !!estadoCheckbox,
+        stockElement: !!stockElement
+    });
     
     if (!cantidadInput || !estadoCheckbox || !stockElement) return;
     
@@ -2669,8 +2720,14 @@ function validarStockDisponible(elemento) {
     if (!stockPorEstado[nombreElemento]) return;
     
     const stock = stockPorEstado[nombreElemento];
-    const stockDisponible = esValorado ? (stock.VALORADO || 0) : (stock['NO VALORADO'] || 0);
+    const stockValorado = stock.VALORADO || 0;
+    const stockNoValorado = stock['NO VALORADO'] || 0;
+    const stockTotal = stockValorado + stockNoValorado;
+    
+    const stockDisponible = esValorado ? stockValorado : stockNoValorado;
+    const stockAlternativo = esValorado ? stockNoValorado : stockValorado;
     const estado = esValorado ? 'VALORADO' : 'NO VALORADO';
+    const estadoAlternativo = esValorado ? 'NO VALORADO' : 'VALORADO';
     
     // Validación adicional para pantalones con talla específica
     if (elemento === 'pantalon') {
@@ -2685,14 +2742,44 @@ function validarStockDisponible(elemento) {
         }
     }
     
+    // Lógica inteligente de validación de stock
     if (cantidad > stockDisponible) {
-        cantidadInput.classList.add('is-invalid');
-        stockElement.innerHTML = `<span class="text-danger">⚠️ Stock insuficiente para ${estado}: ${stockDisponible} disponibles</span>`;
+        if (cantidad <= stockTotal && stockAlternativo > 0) {
+            // Hay stock suficiente en el estado alternativo
+            cantidadInput.classList.remove('is-invalid');
+            const stockNecesarioAlternativo = cantidad - stockDisponible;
+            let stockHtml = `Stock: <span class="text-success">Valorado: ${stockValorado}</span> | <span class="text-secondary">No Valorado: ${stockNoValorado}</span>`;
+            // Comentado: mensaje de advertencia ya no necesario con validación inteligente
+            // stockHtml += `<br><span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>`;
+            // stockHtml += `Stock insuficiente en ${estado} (${stockDisponible}), pero hay stock ${estadoAlternativo} disponible (${stockAlternativo}). `;
+            // stockHtml += `Se usarán ${Math.min(stockDisponible, cantidad)} de ${estado}`;
+            // if (stockNecesarioAlternativo > 0) {
+            //     stockHtml += ` y ${stockNecesarioAlternativo} de ${estadoAlternativo}`;
+            // }
+            // stockHtml += `. La operación será permitida.</span>`;
+            
+            // Agregar información de tallas para pantalones
+            if (elemento === 'pantalon' && stockPorTallas && Array.isArray(stockPorTallas)) {
+                const tallasPantalon = stockPorTallas.filter(item => item.tipo_elemento === 'pantalon');
+                if (tallasPantalon.length > 0) {
+                    const tallasInfo = tallasPantalon.map(item => {
+                        const talla = item.talla || 'S/T';
+                        return `${talla}(${item.stock_disponible})`;
+                    }).join(', ');
+                    stockHtml += `<br><small class="text-info"><i class="fas fa-ruler me-1"></i>Tallas disponibles: ${tallasInfo}</small>`;
+                }
+            }
+            
+            stockElement.innerHTML = stockHtml;
+        } else {
+            // No hay stock suficiente en ningún estado
+            cantidadInput.classList.add('is-invalid');
+            stockElement.innerHTML = `<span class="text-danger">⚠️ Stock insuficiente total. Solicitado: ${cantidad}, Disponible: ${stockTotal} (${estado}: ${stockDisponible}, ${estadoAlternativo}: ${stockAlternativo})</span>`;
+        }
     } else {
+        // Hay stock suficiente en el estado preferido
         cantidadInput.classList.remove('is-invalid');
-        const valorado = stock.VALORADO || 0;
-        const noValorado = stock['NO VALORADO'] || 0;
-        let stockHtml = `Stock: <span class="text-success">Valorado: ${valorado}</span> | <span class="text-secondary">No Valorado: ${noValorado}</span>`;
+        let stockHtml = `Stock: <span class="text-success">Valorado: ${stockValorado}</span> | <span class="text-secondary">No Valorado: ${stockNoValorado}</span>`;
         
         // Agregar información de tallas para pantalones
         if (elemento === 'pantalon' && stockPorTallas && Array.isArray(stockPorTallas)) {
@@ -2744,11 +2831,19 @@ function validarFormularioCompleto() {
         }
         
         const stock = stockPorEstado[nombreElemento];
-        const stockDisponible = esValorado ? (stock.VALORADO || 0) : (stock['NO VALORADO'] || 0);
+        const stockValorado = stock.VALORADO || 0;
+        const stockNoValorado = stock['NO VALORADO'] || 0;
+        const stockTotal = stockValorado + stockNoValorado;
+        
+        const stockDisponible = esValorado ? stockValorado : stockNoValorado;
         const estado = esValorado ? 'VALORADO' : 'NO VALORADO';
         
-        if (cantidad > stockDisponible) {
-            errores.push(`${nombreElemento}: Stock insuficiente para ${estado} (Solicitado: ${cantidad}, Disponible: ${stockDisponible})`);
+        // Lógica inteligente: solo error si no hay stock total suficiente
+        if (cantidad > stockTotal) {
+            errores.push(`${nombreElemento}: Stock insuficiente total (Solicitado: ${cantidad}, Disponible: ${stockTotal})`);
+        } else if (cantidad > stockDisponible) {
+            // Advertencia pero no error - se usará stock de ambos estados
+            console.log(`${nombreElemento}: Se usará stock mixto - ${estado}: ${Math.min(stockDisponible, cantidad)}, ${esValorado ? 'NO VALORADO' : 'VALORADO'}: ${cantidad - Math.min(stockDisponible, cantidad)}`);
         }
     });
     
@@ -2984,7 +3079,7 @@ function cargarStockPorEstadoCambios() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                stockPorEstado = data.stock;
+                stockPorEstado = data.stock_por_estado;
                 actualizarIndicadoresStockCambios();
             } else {
                 console.error('Error al cargar stock:', data.error);
@@ -3035,7 +3130,7 @@ function actualizarIndicadoresStockCambios() {
     });
 }
 
-// Función para validar stock disponible en el modal
+// Función para validar stock disponible en el modal con lógica inteligente
 function validarStockDisponibleCambios(elemento) {
     const cantidadInput = document.getElementById(`modal_${elemento}`);
     const estadoCheckbox = document.getElementById(`modal_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
@@ -3062,17 +3157,40 @@ function validarStockDisponibleCambios(elemento) {
     if (!stockPorEstado[nombreElemento]) return;
     
     const stock = stockPorEstado[nombreElemento];
-    const stockDisponible = esValorado ? (stock.VALORADO || 0) : (stock['NO VALORADO'] || 0);
-    const estado = esValorado ? 'VALORADO' : 'NO VALORADO';
+    const stockValorado = stock.VALORADO || 0;
+    const stockNoValorado = stock['NO VALORADO'] || 0;
+    const stockTotal = stockValorado + stockNoValorado;
     
+    const stockDisponible = esValorado ? stockValorado : stockNoValorado;
+    const stockAlternativo = esValorado ? stockNoValorado : stockValorado;
+    const estado = esValorado ? 'VALORADO' : 'NO VALORADO';
+    const estadoAlternativo = esValorado ? 'NO VALORADO' : 'VALORADO';
+    
+    // Lógica inteligente de validación de stock
     if (cantidad > stockDisponible) {
-        cantidadInput.classList.add('is-invalid');
-        stockElement.innerHTML = `<span class="text-danger">⚠️ Stock insuficiente para ${estado}: ${stockDisponible} disponibles</span>`;
+        if (cantidad <= stockTotal && stockAlternativo > 0) {
+            // Hay stock suficiente en el estado alternativo
+            cantidadInput.classList.remove('is-invalid');
+            const stockNecesarioAlternativo = cantidad - stockDisponible;
+            let stockHtml = `Stock: <span class="text-success">Valorado: ${stockValorado}</span> | <span class="text-secondary">No Valorado: ${stockNoValorado}</span>`;
+            // Comentado: mensaje de advertencia ya no necesario con validación inteligente
+            // stockHtml += `<br><span class="text-warning"><i class="fas fa-exclamation-triangle me-1"></i>`;
+            // stockHtml += `Stock insuficiente en ${estado} (${stockDisponible}), pero hay stock ${estadoAlternativo} disponible (${stockAlternativo}). `;
+            // stockHtml += `Se usarán ${Math.min(stockDisponible, cantidad)} de ${estado}`;
+            // if (stockNecesarioAlternativo > 0) {
+            //     stockHtml += ` y ${stockNecesarioAlternativo} de ${estadoAlternativo}`;
+            // }
+            // stockHtml += `. La operación será permitida.</span>`;
+            stockElement.innerHTML = stockHtml;
+        } else {
+            // No hay stock suficiente en ningún estado
+            cantidadInput.classList.add('is-invalid');
+            stockElement.innerHTML = `<span class="text-danger">⚠️ Stock insuficiente total. Solicitado: ${cantidad}, Disponible: ${stockTotal} (${estado}: ${stockDisponible}, ${estadoAlternativo}: ${stockAlternativo})</span>`;
+        }
     } else {
+        // Hay stock suficiente en el estado preferido
         cantidadInput.classList.remove('is-invalid');
-        const valorado = stock.VALORADO || 0;
-        const noValorado = stock['NO VALORADO'] || 0;
-        stockElement.innerHTML = `Stock: <span class="text-success">Valorado: ${valorado}</span> | <span class="text-secondary">No Valorado: ${noValorado}</span>`;
+        stockElement.innerHTML = `Stock: <span class="text-success">Valorado: ${stockValorado}</span> | <span class="text-secondary">No Valorado: ${stockNoValorado}</span>`;
     }
 }
 
@@ -3110,11 +3228,19 @@ function validarFormularioCompletoCambios() {
         }
         
         const stock = stockPorEstado[nombreElemento];
-        const stockDisponible = esValorado ? (stock.VALORADO || 0) : (stock['NO VALORADO'] || 0);
+        const stockValorado = stock.VALORADO || 0;
+        const stockNoValorado = stock['NO VALORADO'] || 0;
+        const stockTotal = stockValorado + stockNoValorado;
+        
+        const stockDisponible = esValorado ? stockValorado : stockNoValorado;
         const estado = esValorado ? 'VALORADO' : 'NO VALORADO';
         
-        if (cantidad > stockDisponible) {
-            errores.push(`${nombreElemento}: Stock insuficiente para ${estado} (Solicitado: ${cantidad}, Disponible: ${stockDisponible})`);
+        // Lógica inteligente: solo error si no hay stock total suficiente
+        if (cantidad > stockTotal) {
+            errores.push(`${nombreElemento}: Stock insuficiente total (Solicitado: ${cantidad}, Disponible: ${stockTotal})`);
+        } else if (cantidad > stockDisponible) {
+            // Advertencia pero no error - se usará stock de ambos estados
+            console.log(`${nombreElemento}: Se usará stock mixto - ${estado}: ${Math.min(stockDisponible, cantidad)}, ${esValorado ? 'NO VALORADO' : 'VALORADO'}: ${cantidad - Math.min(stockDisponible, cantidad)}`);
         }
     });
     

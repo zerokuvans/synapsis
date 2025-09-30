@@ -462,69 +462,112 @@ def registrar_rutas_dotaciones(app):
                 }
             }
             
-            # Validar stock disponible antes de procesar usando el stock unificado por estado
+            # Validar stock disponible con lógica inteligente (usar ambos estados si es necesario)
             errores_stock = []
+            elementos_con_stock_mixto = []
+            
             for elemento, datos in elementos_dotacion.items():
                 cantidad = datos['cantidad']
                 if cantidad is not None and cantidad > 0:
                     
-                    # Verificar stock disponible según estado valorado del formulario
+                    # Verificar stock disponible en ambos estados
                     es_valorado = datos['valorado']
-                    tipo_stock = "VALORADO" if es_valorado else "NO VALORADO"
+                    tipo_stock_preferido = "VALORADO" if es_valorado else "NO VALORADO"
+                    tipo_stock_alternativo = "NO VALORADO" if es_valorado else "VALORADO"
                     
-                    # Obtener stock actual del elemento filtrado por estado valorado
-                    cursor.execute("""
-                        SELECT COALESCE(SUM(cantidad), 0) as stock_disponible
-                        FROM ingresos_dotaciones 
-                        WHERE tipo_elemento = %s AND estado = %s
-                    """, (elemento, tipo_stock))
+                    # Función auxiliar para obtener stock de un estado específico
+                    def obtener_stock_por_estado(tipo_estado):
+                        # Obtener ingresos
+                        cursor.execute("""
+                            SELECT COALESCE(SUM(cantidad), 0) as stock_disponible
+                            FROM ingresos_dotaciones 
+                            WHERE tipo_elemento = %s AND estado = %s
+                        """, (elemento, tipo_estado))
+                        
+                        ingresos_result = cursor.fetchone()
+                        stock_ingresos = ingresos_result['stock_disponible'] if ingresos_result else 0
+                        
+                        # Obtener salidas
+                        cursor.execute("""
+                            SELECT COALESCE(SUM(
+                                CASE 
+                                    WHEN %s = 'pantalon' AND estado_pantalon = %s THEN pantalon
+                                    WHEN %s = 'camisetagris' AND estado_camiseta_gris = %s THEN camisetagris
+                                    WHEN %s = 'guerrera' AND estado_guerrera = %s THEN guerrera
+                                    WHEN %s = 'camisetapolo' AND estado_camiseta_polo = %s THEN camisetapolo
+                                    WHEN %s = 'guantes_nitrilo' AND estado_guantes_nitrilo = %s THEN guantes_nitrilo
+                                    WHEN %s = 'guantes_carnaza' AND estado_guantes_carnaza = %s THEN guantes_carnaza
+                                    WHEN %s = 'gafas' AND estado_gafas = %s THEN gafas
+                                    WHEN %s = 'gorra' AND estado_gorra = %s THEN gorra
+                                    WHEN %s = 'casco' AND estado_casco = %s THEN casco
+                                    WHEN %s = 'botas' AND estado_botas = %s THEN botas
+                                    ELSE 0
+                                END
+                            ), 0) as total_salidas
+                            FROM cambios_dotacion
+                        """, (elemento, tipo_estado, elemento, tipo_estado, elemento, tipo_estado, 
+                              elemento, tipo_estado, elemento, tipo_estado, elemento, tipo_estado,
+                              elemento, tipo_estado, elemento, tipo_estado, elemento, tipo_estado,
+                              elemento, tipo_estado))
+                        
+                        salidas_result = cursor.fetchone()
+                        stock_salidas = salidas_result['total_salidas'] if salidas_result else 0
+                        
+                        return stock_ingresos - stock_salidas
                     
-                    ingresos_result = cursor.fetchone()
-                    stock_ingresos = ingresos_result['stock_disponible'] if ingresos_result else 0
+                    # Obtener stock de ambos estados
+                    stock_preferido = obtener_stock_por_estado(tipo_stock_preferido)
+                    stock_alternativo = obtener_stock_por_estado(tipo_stock_alternativo)
+                    stock_total = stock_preferido + stock_alternativo
                     
-                    # Obtener salidas del elemento con el mismo estado
-                    cursor.execute("""
-                        SELECT COALESCE(SUM(
-                            CASE 
-                                WHEN %s = 'pantalon' AND estado_pantalon = %s THEN pantalon
-                                WHEN %s = 'camisetagris' AND estado_camiseta_gris = %s THEN camisetagris
-                                WHEN %s = 'guerrera' AND estado_guerrera = %s THEN guerrera
-                                WHEN %s = 'camisetapolo' AND estado_camiseta_polo = %s THEN camisetapolo
-                                WHEN %s = 'guantes_nitrilo' AND estado_guantes_nitrilo = %s THEN guantes_nitrilo
-                                WHEN %s = 'guantes_carnaza' AND estado_guantes_carnaza = %s THEN guantes_carnaza
-                                WHEN %s = 'gafas' AND estado_gafas = %s THEN gafas
-                                WHEN %s = 'gorra' AND estado_gorra = %s THEN gorra
-                                WHEN %s = 'casco' AND estado_casco = %s THEN casco
-                                WHEN %s = 'botas' AND estado_botas = %s THEN botas
-                                ELSE 0
-                            END
-                        ), 0) as total_salidas
-                        FROM cambios_dotacion
-                    """, (elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock, 
-                          elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock,
-                          elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock,
-                          elemento, tipo_stock))
-                    
-                    salidas_result = cursor.fetchone()
-                    stock_salidas = salidas_result['total_salidas'] if salidas_result else 0
-                    
-                    # Calcular stock disponible real por estado
-                    stock_disponible = stock_ingresos - stock_salidas
-                    
-                    if stock_disponible < cantidad:
+                    # Lógica inteligente de validación
+                    if cantidad > stock_total:
+                        # No hay stock suficiente en ningún estado
                         nombre_elemento = elemento.replace('_', ' ').title()
                         errores_stock.append(
-                            f"Stock insuficiente para {nombre_elemento} ({tipo_stock}): "
-                            f"Disponible: {stock_disponible}, Solicitado: {cantidad}"
+                            f"{nombre_elemento}: Stock insuficiente total. "
+                            f"Solicitado: {cantidad}, Disponible: {stock_total} "
+                            f"({tipo_stock_preferido}: {stock_preferido}, {tipo_stock_alternativo}: {stock_alternativo})"
                         )
+                    elif cantidad > stock_preferido and stock_alternativo > 0:
+                        # Usar stock mixto - registrar para logging
+                        nombre_elemento = elemento.replace('_', ' ').title()
+                        stock_del_preferido = min(stock_preferido, cantidad)
+                        stock_del_alternativo = cantidad - stock_del_preferido
+                        
+                        elementos_con_stock_mixto.append({
+                            'elemento': nombre_elemento,
+                            'cantidad_total': cantidad,
+                            'stock_preferido': stock_del_preferido,
+                            'tipo_preferido': tipo_stock_preferido,
+                            'stock_alternativo': stock_del_alternativo,
+                            'tipo_alternativo': tipo_stock_alternativo
+                        })
+                        
+                        logger.info(
+                            f"Stock mixto para {nombre_elemento}: "
+                            f"{stock_del_preferido} de {tipo_stock_preferido} + "
+                            f"{stock_del_alternativo} de {tipo_stock_alternativo}"
+                        )
+                    else:
+                        # Hay stock suficiente en el estado preferido
+                        logger.info(f"Stock suficiente para {elemento.replace('_', ' ').title()}: {cantidad} de {tipo_stock_preferido}")
             
-            # Si hay errores de stock, retornarlos
+            # Si hay errores de stock total insuficiente, rechazar la operación
             if errores_stock:
                 return jsonify({
                     'success': False,
-                    'message': 'Stock insuficiente',
+                    'message': 'Stock insuficiente total',
                     'errors': errores_stock
                 }), 400
+            
+            # Comentado: No bloquear operaciones por stock insuficiente
+            # if errores_stock:
+            #     return jsonify({
+            #         'success': False,
+            #         'message': 'Stock insuficiente',
+            #         'errors': errores_stock
+            #     }), 400
             
             # Procesar el cambio de dotación
             query_cambio = """
@@ -567,19 +610,40 @@ def registrar_rutas_dotaciones(app):
             id_cambio = cursor.lastrowid
             connection.commit()
             
-            # Preparar mensaje de éxito con detalles de estado valorado
+            # Preparar mensaje de éxito con detalles de estado valorado y stock mixto
             elementos_procesados = []
+            advertencias_stock_mixto = []
+            
             for elemento, datos in elementos_dotacion.items():
                 cantidad = datos['cantidad']
                 if cantidad is not None and cantidad > 0:
                     estado_valorado = "VALORADO" if datos['valorado'] else "NO VALORADO"
                     nombre_elemento = elemento.replace('_', ' ').title()
-                    elementos_procesados.append(f"{nombre_elemento}: {cantidad} ({estado_valorado})")
+                    
+                    # Verificar si este elemento usó stock mixto
+                    elemento_mixto = next((item for item in elementos_con_stock_mixto if item['elemento'] == nombre_elemento), None)
+                    
+                    if elemento_mixto:
+                        elementos_procesados.append(f"{nombre_elemento}: {cantidad} (Stock mixto)")
+                        advertencias_stock_mixto.append(
+                            f"{nombre_elemento}: {elemento_mixto['stock_preferido']} de {elemento_mixto['tipo_preferido']} + "
+                            f"{elemento_mixto['stock_alternativo']} de {elemento_mixto['tipo_alternativo']}"
+                        )
+                    else:
+                        elementos_procesados.append(f"{nombre_elemento}: {cantidad} ({estado_valorado})")
+            
+            # Construir mensaje final
+            mensaje_base = f'Cambio de dotación registrado exitosamente. Elementos procesados: {", ".join(elementos_procesados)}'
+            
+            if advertencias_stock_mixto:
+                mensaje_base += f'. NOTA: Se utilizó stock mixto para: {"; ".join(advertencias_stock_mixto)}'
             
             return jsonify({
                 'success': True,
-                'message': f'Cambio de dotación registrado exitosamente. Elementos procesados: {", ".join(elementos_procesados)}',
-                'id_cambio': id_cambio
+                'message': mensaje_base,
+                'id_cambio': id_cambio,
+                'stock_mixto_usado': len(elementos_con_stock_mixto) > 0,
+                'detalles_stock_mixto': elementos_con_stock_mixto
             }), 201
             
         except mysql.connector.Error as e:
