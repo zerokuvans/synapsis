@@ -22,7 +22,8 @@ ROLES = {
     '2': 'tecnicos',
     '3': 'operativo',
     '4': 'contabilidad',
-    '5': 'logistica'
+    '5': 'logistica',
+    '6': 'sstt'
 }
 
 # Definición de la clase User para Flask-Login
@@ -837,6 +838,382 @@ def api_estadisticas_causas_cierre():
     except Exception as e:
         logging.error(f"Error inesperado en API estadísticas: {str(e)}")
         return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# ============================================================================
+# MÓDULO SSTT (SEGURIDAD Y SALUD EN EL TRABAJO) - RUTAS Y API ENDPOINTS
+# ============================================================================
+
+@app.route('/sstt')
+@login_required
+def sstt_dashboard():
+    """Dashboard principal del módulo SSTT"""
+    if not current_user.has_role('sstt') and not current_user.has_role('administrativo'):
+        return redirect(url_for('login'))
+    return render_template('modulos/sstt/dashboard.html')
+
+@app.route('/sstt/inspecciones')
+@login_required
+def sstt_inspecciones():
+    """Página de gestión de inspecciones de seguridad"""
+    if not current_user.has_role('sstt') and not current_user.has_role('administrativo'):
+        return redirect(url_for('login'))
+    return render_template('modulos/sstt/inspecciones.html')
+
+@app.route('/sstt/capacitaciones')
+@login_required
+def sstt_capacitaciones():
+    """Página de gestión de capacitaciones"""
+    if not current_user.has_role('sstt') and not current_user.has_role('administrativo'):
+        return redirect(url_for('login'))
+    return render_template('modulos/sstt/capacitaciones.html')
+
+@app.route('/sstt/incidentes')
+@login_required
+def sstt_incidentes():
+    """Página de gestión de incidentes laborales"""
+    if not current_user.has_role('sstt') and not current_user.has_role('administrativo'):
+        return redirect(url_for('login'))
+    return render_template('modulos/sstt/incidentes.html')
+
+@app.route('/sstt/epp')
+@login_required
+def sstt_epp():
+    """Página de control de EPP (Elementos de Protección Personal)"""
+    if not current_user.has_role('sstt') and not current_user.has_role('administrativo'):
+        return redirect(url_for('login'))
+    return render_template('modulos/sstt/epp.html')
+
+# API Endpoints para SSTT
+
+@app.route('/api/sstt/tipos-riesgo', methods=['GET'])
+@login_required
+def api_sstt_tipos_riesgo():
+    """API para obtener tipos de riesgo"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM sstt_tipos_riesgo ORDER BY nombre_riesgo")
+        tipos_riesgo = cursor.fetchall()
+        
+        return jsonify({'tipos_riesgo': tipos_riesgo})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/sstt/inspecciones', methods=['GET', 'POST'])
+@login_required
+def api_sstt_inspecciones():
+    """API para gestionar inspecciones de seguridad"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        if request.method == 'GET':
+            # Obtener inspecciones con filtros opcionales
+            fecha_desde = request.args.get('fecha_desde')
+            fecha_hasta = request.args.get('fecha_hasta')
+            estado = request.args.get('estado')
+            
+            query = """
+                SELECT i.*, tr.nombre_riesgo, ro.nombre as inspector_nombre
+                FROM sstt_inspecciones i
+                LEFT JOIN sstt_tipos_riesgo tr ON i.tipo_riesgo_id = tr.id
+                LEFT JOIN recurso_operativo ro ON i.usuario_creador = ro.id_codigo_consumidor
+                WHERE 1=1
+            """
+            params = []
+            
+            if fecha_desde:
+                query += " AND i.fecha_inspeccion >= %s"
+                params.append(fecha_desde)
+            if fecha_hasta:
+                query += " AND i.fecha_inspeccion <= %s"
+                params.append(fecha_hasta)
+            if estado:
+                query += " AND i.estado = %s"
+                params.append(estado)
+                
+            query += " ORDER BY i.fecha_inspeccion DESC"
+            
+            cursor.execute(query, params)
+            inspecciones = cursor.fetchall()
+            
+            return jsonify({'inspecciones': inspecciones})
+            
+        elif request.method == 'POST':
+            # Crear nueva inspección
+            data = request.get_json()
+            
+            cursor.execute("""
+                INSERT INTO sstt_inspecciones 
+                (area_inspeccionada, fecha_inspeccion, tipo_riesgo_id, descripcion, 
+                 estado, usuario_creador, fecha_creacion)
+                VALUES (%s, %s, %s, %s, %s, %s, NOW())
+            """, (
+                data['area_inspeccionada'],
+                data['fecha_inspeccion'],
+                data['tipo_riesgo_id'],
+                data['descripcion'],
+                data.get('estado', 'pendiente'),
+                current_user.id
+            ))
+            
+            connection.commit()
+            inspeccion_id = cursor.lastrowid
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Inspección creada exitosamente',
+                'inspeccion_id': inspeccion_id
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/sstt/capacitaciones', methods=['GET', 'POST'])
+@login_required
+def api_sstt_capacitaciones():
+    """API para gestionar capacitaciones"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        if request.method == 'GET':
+            cursor.execute("""
+                SELECT c.*, ro.nombre as instructor_nombre
+                FROM sstt_capacitaciones c
+                LEFT JOIN recurso_operativo ro ON c.usuario_creador = ro.id_codigo_consumidor
+                ORDER BY c.fecha_programada DESC
+            """)
+            capacitaciones = cursor.fetchall()
+            
+            return jsonify({'capacitaciones': capacitaciones})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            
+            cursor.execute("""
+                INSERT INTO sstt_capacitaciones 
+                (titulo, descripcion, fecha_programada, duracion_horas, 
+                 ubicacion, estado, usuario_creador, fecha_creacion)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+            """, (
+                data['titulo'],
+                data['descripcion'],
+                data['fecha_programada'],
+                data['duracion_horas'],
+                data['ubicacion'],
+                data.get('estado', 'programada'),
+                current_user.id
+            ))
+            
+            connection.commit()
+            capacitacion_id = cursor.lastrowid
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Capacitación creada exitosamente',
+                'capacitacion_id': capacitacion_id
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/sstt/incidentes', methods=['GET', 'POST'])
+@login_required
+def api_sstt_incidentes():
+    """API para gestionar incidentes laborales"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        if request.method == 'GET':
+            cursor.execute("""
+                SELECT i.*, ro.nombre as reporta_nombre
+                FROM sstt_incidentes i
+                LEFT JOIN recurso_operativo ro ON i.usuario_reporta = ro.id_codigo_consumidor
+                ORDER BY i.fecha_incidente DESC
+            """)
+            incidentes = cursor.fetchall()
+            
+            return jsonify({'incidentes': incidentes})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            
+            cursor.execute("""
+                INSERT INTO sstt_incidentes 
+                (fecha_incidente, ubicacion, descripcion, tipo_incidente, 
+                 gravedad, usuario_reporta, fecha_reporte)
+                VALUES (%s, %s, %s, %s, %s, %s, NOW())
+            """, (
+                data['fecha_incidente'],
+                data['ubicacion'],
+                data['descripcion'],
+                data['tipo_incidente'],
+                data['gravedad'],
+                current_user.id
+            ))
+            
+            connection.commit()
+            incidente_id = cursor.lastrowid
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Incidente reportado exitosamente',
+                'incidente_id': incidente_id
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/sstt/epp', methods=['GET', 'POST'])
+@login_required
+def api_sstt_epp():
+    """API para control de EPP (Elementos de Protección Personal)"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        if request.method == 'GET':
+            cursor.execute("""
+                SELECT e.*, ro.nombre as usuario_nombre
+                FROM sstt_epp_control e
+                LEFT JOIN recurso_operativo ro ON e.usuario_id = ro.id_codigo_consumidor
+                ORDER BY e.fecha_entrega DESC
+            """)
+            epp_registros = cursor.fetchall()
+            
+            return jsonify({'epp_registros': epp_registros})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            
+            cursor.execute("""
+                INSERT INTO sstt_epp_control 
+                (usuario_id, tipo_epp, marca, modelo, fecha_entrega, 
+                 fecha_vencimiento, estado, observaciones)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                data['usuario_id'],
+                data['tipo_epp'],
+                data['marca'],
+                data['modelo'],
+                data['fecha_entrega'],
+                data.get('fecha_vencimiento'),
+                data.get('estado', 'activo'),
+                data.get('observaciones', '')
+            ))
+            
+            connection.commit()
+            epp_id = cursor.lastrowid
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Registro de EPP creado exitosamente',
+                'epp_id': epp_id
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/sstt/dashboard-stats', methods=['GET'])
+@login_required
+def api_sstt_dashboard_stats():
+    """API para estadísticas del dashboard SSTT"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        stats = {}
+        
+        # Estadísticas de inspecciones
+        cursor.execute("SELECT COUNT(*) as total FROM sstt_inspecciones")
+        stats['total_inspecciones'] = cursor.fetchone()['total']
+        
+        cursor.execute("SELECT COUNT(*) as pendientes FROM sstt_inspecciones WHERE estado = 'pendiente'")
+        stats['inspecciones_pendientes'] = cursor.fetchone()['pendientes']
+        
+        # Estadísticas de capacitaciones
+        cursor.execute("SELECT COUNT(*) as total FROM sstt_capacitaciones")
+        stats['total_capacitaciones'] = cursor.fetchone()['total']
+        
+        cursor.execute("SELECT COUNT(*) as programadas FROM sstt_capacitaciones WHERE estado = 'programada'")
+        stats['capacitaciones_programadas'] = cursor.fetchone()['programadas']
+        
+        # Estadísticas de incidentes
+        cursor.execute("SELECT COUNT(*) as total FROM sstt_incidentes")
+        stats['total_incidentes'] = cursor.fetchone()['total']
+        
+        cursor.execute("""
+            SELECT COUNT(*) as recientes 
+            FROM sstt_incidentes 
+            WHERE fecha_incidente >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        """)
+        stats['incidentes_mes'] = cursor.fetchone()['recientes']
+        
+        # Estadísticas de EPP
+        cursor.execute("SELECT COUNT(*) as total FROM sstt_epp_control")
+        stats['total_epp'] = cursor.fetchone()['total']
+        
+        cursor.execute("""
+            SELECT COUNT(*) as vencidos 
+            FROM sstt_epp_control 
+            WHERE fecha_vencimiento <= NOW() AND estado = 'activo'
+        """)
+        stats['epp_vencidos'] = cursor.fetchone()['vencidos']
+        
+        return jsonify(stats)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     finally:
         if 'cursor' in locals() and cursor:
             cursor.close()

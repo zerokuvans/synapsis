@@ -1,0 +1,546 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%) !important;">
+                    <h3 class="mb-0">
+                        <i class="fas fa-hard-hat me-2"></i>Control de Elementos de Protección Personal (EPP)
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- Botón para nuevo EPP -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#modalNuevoEPP">
+                                <i class="fas fa-plus me-2"></i>Registrar EPP
+                            </button>
+                            <button type="button" class="btn btn-success ms-2" data-bs-toggle="modal" data-bs-target="#modalAsignarEPP">
+                                <i class="fas fa-user-plus me-2"></i>Asignar EPP
+                            </button>
+                        </div>
+                        <div>
+                            <input type="text" class="form-control" id="buscarEPP" placeholder="Buscar EPP...">
+                        </div>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <select class="form-select" id="filtroTipoEPP">
+                                <option value="">Todos los tipos</option>
+                                <option value="casco">Casco</option>
+                                <option value="gafas">Gafas de Seguridad</option>
+                                <option value="guantes">Guantes</option>
+                                <option value="botas">Botas de Seguridad</option>
+                                <option value="chaleco">Chaleco Reflectivo</option>
+                                <option value="respirador">Respirador</option>
+                                <option value="arnes">Arnés</option>
+                                <option value="protector_auditivo">Protector Auditivo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="filtroEstado">
+                                <option value="">Todos los estados</option>
+                                <option value="disponible">Disponible</option>
+                                <option value="asignado">Asignado</option>
+                                <option value="en_mantenimiento">En Mantenimiento</option>
+                                <option value="dado_de_baja">Dado de Baja</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" id="filtroVencimientoDesde" placeholder="Vencimiento desde">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" id="filtroVencimientoHasta" placeholder="Vencimiento hasta">
+                        </div>
+                    </div>
+
+                    <!-- Tabla de EPP -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Tipo</th>
+                                    <th>Marca/Modelo</th>
+                                    <th>Serie/Código</th>
+                                    <th>Estado</th>
+                                    <th>Asignado a</th>
+                                    <th>Fecha Vencimiento</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaEPP">
+                                <!-- Datos cargados dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nuevo EPP -->
+<div class="modal fade" id="modalNuevoEPP" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registrar Nuevo EPP</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formNuevoEPP">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="tipoEPP" class="form-label">Tipo de EPP</label>
+                            <select class="form-select" id="tipoEPP" required>
+                                <option value="">Seleccionar tipo</option>
+                                <option value="casco">Casco</option>
+                                <option value="gafas">Gafas de Seguridad</option>
+                                <option value="guantes">Guantes</option>
+                                <option value="botas">Botas de Seguridad</option>
+                                <option value="chaleco">Chaleco Reflectivo</option>
+                                <option value="respirador">Respirador</option>
+                                <option value="arnes">Arnés</option>
+                                <option value="protector_auditivo">Protector Auditivo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="marcaModelo" class="form-label">Marca/Modelo</label>
+                            <input type="text" class="form-control" id="marcaModelo" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="serieCodigo" class="form-label">Serie/Código</label>
+                            <input type="text" class="form-control" id="serieCodigo" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="talla" class="form-label">Talla</label>
+                            <input type="text" class="form-control" id="talla">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="fechaAdquisicion" class="form-label">Fecha de Adquisición</label>
+                            <input type="date" class="form-control" id="fechaAdquisicion" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="fechaVencimiento" class="form-label">Fecha de Vencimiento</label>
+                            <input type="date" class="form-control" id="fechaVencimiento">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="certificacion" class="form-label">Certificación</label>
+                            <input type="text" class="form-control" id="certificacion">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="proveedor" class="form-label">Proveedor</label>
+                            <input type="text" class="form-control" id="proveedor">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="observaciones" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-info" onclick="guardarEPP()">Registrar EPP</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Asignar EPP -->
+<div class="modal fade" id="modalAsignarEPP" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Asignar EPP</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAsignarEPP">
+                    <div class="mb-3">
+                        <label for="eppDisponible" class="form-label">EPP Disponible</label>
+                        <select class="form-select" id="eppDisponible" required>
+                            <option value="">Seleccionar EPP</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="empleadoAsignar" class="form-label">Empleado</label>
+                        <select class="form-select" id="empleadoAsignar" required>
+                            <option value="">Seleccionar empleado</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fechaAsignacion" class="form-label">Fecha de Asignación</label>
+                        <input type="date" class="form-control" id="fechaAsignacion" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="observacionesAsignacion" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="observacionesAsignacion" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="asignarEPP()">Asignar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ver EPP -->
+<div class="modal fade" id="modalVerEPP" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalles del EPP</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="detalleEPP">
+                    <!-- Contenido cargado dinámicamente -->
+                </div>
+                
+                <!-- Historial de asignaciones -->
+                <div class="mt-4">
+                    <h6>Historial de Asignaciones</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Empleado</th>
+                                    <th>Fecha Asignación</th>
+                                    <th>Fecha Devolución</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historialAsignaciones">
+                                <!-- Historial de asignaciones -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-warning" onclick="editarEPP()">Editar</button>
+                <button type="button" class="btn btn-danger" onclick="darDeBajaEPP()">Dar de Baja</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let eppList = [];
+let eppActual = null;
+
+// Cargar datos iniciales
+document.addEventListener('DOMContentLoaded', function() {
+    cargarEPP();
+    cargarEPPDisponibles();
+    cargarEmpleados();
+    
+    // Establecer fecha actual para asignación
+    document.getElementById('fechaAsignacion').value = new Date().toISOString().split('T')[0];
+    document.getElementById('fechaAdquisicion').value = new Date().toISOString().split('T')[0];
+    
+    // Event listeners para filtros
+    document.getElementById('buscarEPP').addEventListener('input', filtrarEPP);
+    document.getElementById('filtroTipoEPP').addEventListener('change', filtrarEPP);
+    document.getElementById('filtroEstado').addEventListener('change', filtrarEPP);
+    document.getElementById('filtroVencimientoDesde').addEventListener('change', filtrarEPP);
+    document.getElementById('filtroVencimientoHasta').addEventListener('change', filtrarEPP);
+});
+
+function cargarEPP() {
+    fetch('/api/sstt/epp')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                eppList = data.data;
+                mostrarEPP(eppList);
+            }
+        })
+        .catch(error => console.error('Error al cargar EPP:', error));
+}
+
+function cargarEPPDisponibles() {
+    fetch('/api/sstt/epp?estado=disponible')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('eppDisponible');
+                select.innerHTML = '<option value="">Seleccionar EPP</option>';
+                
+                data.data.forEach(epp => {
+                    const option = new Option(
+                        `${epp.tipo} - ${epp.marca_modelo} (${epp.serie_codigo})`,
+                        epp.id
+                    );
+                    select.add(option);
+                });
+            }
+        })
+        .catch(error => console.error('Error al cargar EPP disponibles:', error));
+}
+
+function cargarEmpleados() {
+    // Simular carga de empleados - en producción vendría de la API
+    const empleados = [
+        { id: 1, nombre: 'Juan Pérez' },
+        { id: 2, nombre: 'María García' },
+        { id: 3, nombre: 'Carlos López' }
+    ];
+    
+    const select = document.getElementById('empleadoAsignar');
+    empleados.forEach(empleado => {
+        const option = new Option(empleado.nombre, empleado.id);
+        select.add(option);
+    });
+}
+
+function mostrarEPP(datos) {
+    const tbody = document.getElementById('tablaEPP');
+    tbody.innerHTML = '';
+    
+    datos.forEach(epp => {
+        const tr = document.createElement('tr');
+        const fechaVencimiento = epp.fecha_vencimiento ? new Date(epp.fecha_vencimiento) : null;
+        const proximoVencimiento = fechaVencimiento && fechaVencimiento <= new Date(Date.now() + 30*24*60*60*1000);
+        
+        tr.className = proximoVencimiento ? 'table-warning' : '';
+        tr.innerHTML = `
+            <td>${epp.id}</td>
+            <td><span class="badge bg-secondary">${epp.tipo}</span></td>
+            <td>${epp.marca_modelo}</td>
+            <td>${epp.serie_codigo}</td>
+            <td><span class="badge bg-${getEstadoEPPColor(epp.estado)}">${epp.estado}</span></td>
+            <td>${epp.asignado_a_nombre || 'No asignado'}</td>
+            <td>
+                ${fechaVencimiento ? fechaVencimiento.toLocaleDateString() : 'Sin vencimiento'}
+                ${proximoVencimiento ? '<i class="fas fa-exclamation-triangle text-warning ms-1" title="Próximo a vencer"></i>' : ''}
+            </td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="verEPP(${epp.id})">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-warning" onclick="editarEPP(${epp.id})">
+                    <i class="fas fa-edit"></i>
+                </button>
+                ${epp.estado === 'asignado' ? 
+                    `<button class="btn btn-sm btn-outline-danger" onclick="devolverEPP(${epp.id})">
+                        <i class="fas fa-undo"></i>
+                    </button>` : ''
+                }
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function getEstadoEPPColor(estado) {
+    const colores = {
+        'disponible': 'success',
+        'asignado': 'primary',
+        'en_mantenimiento': 'warning',
+        'dado_de_baja': 'danger'
+    };
+    return colores[estado] || 'secondary';
+}
+
+function filtrarEPP() {
+    const busqueda = document.getElementById('buscarEPP').value.toLowerCase();
+    const tipo = document.getElementById('filtroTipoEPP').value;
+    const estado = document.getElementById('filtroEstado').value;
+    const vencimientoDesde = document.getElementById('filtroVencimientoDesde').value;
+    const vencimientoHasta = document.getElementById('filtroVencimientoHasta').value;
+    
+    let eppFiltrado = eppList.filter(epp => {
+        const cumpleBusqueda = !busqueda || 
+            epp.tipo.toLowerCase().includes(busqueda) ||
+            epp.marca_modelo.toLowerCase().includes(busqueda) ||
+            epp.serie_codigo.toLowerCase().includes(busqueda) ||
+            (epp.asignado_a_nombre && epp.asignado_a_nombre.toLowerCase().includes(busqueda));
+        
+        const cumpleTipo = !tipo || epp.tipo === tipo;
+        const cumpleEstado = !estado || epp.estado === estado;
+        
+        let cumpleVencimiento = true;
+        if (epp.fecha_vencimiento) {
+            const fechaVencimiento = new Date(epp.fecha_vencimiento);
+            const cumpleVencimientoDesde = !vencimientoDesde || fechaVencimiento >= new Date(vencimientoDesde);
+            const cumpleVencimientoHasta = !vencimientoHasta || fechaVencimiento <= new Date(vencimientoHasta);
+            cumpleVencimiento = cumpleVencimientoDesde && cumpleVencimientoHasta;
+        }
+        
+        return cumpleBusqueda && cumpleTipo && cumpleEstado && cumpleVencimiento;
+    });
+    
+    mostrarEPP(eppFiltrado);
+}
+
+function guardarEPP() {
+    const formData = {
+        tipo: document.getElementById('tipoEPP').value,
+        marca_modelo: document.getElementById('marcaModelo').value,
+        serie_codigo: document.getElementById('serieCodigo').value,
+        talla: document.getElementById('talla').value,
+        fecha_adquisicion: document.getElementById('fechaAdquisicion').value,
+        fecha_vencimiento: document.getElementById('fechaVencimiento').value,
+        certificacion: document.getElementById('certificacion').value,
+        proveedor: document.getElementById('proveedor').value,
+        observaciones: document.getElementById('observaciones').value
+    };
+    
+    fetch('/api/sstt/epp', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire('Éxito', 'EPP registrado correctamente', 'success');
+            document.getElementById('modalNuevoEPP').querySelector('.btn-close').click();
+            document.getElementById('formNuevoEPP').reset();
+            cargarEPP();
+            cargarEPPDisponibles();
+        } else {
+            Swal.fire('Error', data.message || 'Error al registrar el EPP', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire('Error', 'Error al registrar el EPP', 'error');
+    });
+}
+
+function asignarEPP() {
+    const formData = {
+        epp_id: document.getElementById('eppDisponible').value,
+        usuario_id: document.getElementById('empleadoAsignar').value,
+        fecha_asignacion: document.getElementById('fechaAsignacion').value,
+        observaciones: document.getElementById('observacionesAsignacion').value
+    };
+    
+    fetch('/api/sstt/epp/asignar', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire('Éxito', 'EPP asignado correctamente', 'success');
+            document.getElementById('modalAsignarEPP').querySelector('.btn-close').click();
+            document.getElementById('formAsignarEPP').reset();
+            cargarEPP();
+            cargarEPPDisponibles();
+        } else {
+            Swal.fire('Error', data.message || 'Error al asignar el EPP', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire('Error', 'Error al asignar el EPP', 'error');
+    });
+}
+
+function verEPP(id) {
+    fetch(`/api/sstt/epp/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                eppActual = data.data;
+                mostrarDetalleEPP(data.data);
+                document.getElementById('modalVerEPP').querySelector('.modal-title').textContent = 
+                    `EPP: ${data.data.tipo} - ${data.data.serie_codigo}`;
+                new bootstrap.Modal(document.getElementById('modalVerEPP')).show();
+            }
+        })
+        .catch(error => console.error('Error al cargar EPP:', error));
+}
+
+function mostrarDetalleEPP(epp) {
+    const detalle = document.getElementById('detalleEPP');
+    detalle.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Tipo:</strong> ${epp.tipo}</p>
+                <p><strong>Marca/Modelo:</strong> ${epp.marca_modelo}</p>
+                <p><strong>Serie/Código:</strong> ${epp.serie_codigo}</p>
+                <p><strong>Talla:</strong> ${epp.talla || 'No especificada'}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Estado:</strong> <span class="badge bg-${getEstadoEPPColor(epp.estado)}">${epp.estado}</span></p>
+                <p><strong>Fecha Adquisición:</strong> ${new Date(epp.fecha_adquisicion).toLocaleDateString()}</p>
+                <p><strong>Fecha Vencimiento:</strong> ${epp.fecha_vencimiento ? new Date(epp.fecha_vencimiento).toLocaleDateString() : 'Sin vencimiento'}</p>
+                <p><strong>Certificación:</strong> ${epp.certificacion || 'No especificada'}</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Proveedor:</strong> ${epp.proveedor || 'No especificado'}</p>
+                <p><strong>Asignado a:</strong> ${epp.asignado_a_nombre || 'No asignado'}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Observaciones:</strong></p>
+                <p>${epp.observaciones || 'Sin observaciones'}</p>
+            </div>
+        </div>
+    `;
+}
+
+function editarEPP(id) {
+    // Implementar edición de EPP
+    console.log('Editar EPP:', id);
+}
+
+function devolverEPP(id) {
+    Swal.fire({
+        title: '¿Devolver EPP?',
+        text: 'Esta acción marcará el EPP como disponible',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, devolver',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Implementar devolución de EPP
+            console.log('Devolver EPP:', id);
+        }
+    });
+}
+
+function darDeBajaEPP() {
+    if (!eppActual) return;
+    
+    Swal.fire({
+        title: '¿Dar de baja EPP?',
+        text: 'Esta acción es irreversible',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, dar de baja',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Implementar dar de baja EPP
+            console.log('Dar de baja EPP:', eppActual.id);
+        }
+    });
+}
+</script>
+{% endblock %}

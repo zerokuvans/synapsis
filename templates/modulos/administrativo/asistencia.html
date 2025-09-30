@@ -99,6 +99,48 @@
     </div>
 </div>
 
+<!-- Sección de Exportación a Excel -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-file-excel me-2"></i>Exportación a Excel
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Filtros para exportación -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="supervisorExportacion" class="form-label">Supervisor:</label>
+                        <select class="form-select" id="supervisorExportacion">
+                            <option value="">Seleccione un supervisor</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fechaInicio" class="form-label">Fecha Inicio:</label>
+                        <input type="date" class="form-control" id="fechaInicio">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="fechaFin" class="form-label">Fecha Fin:</label>
+                        <input type="date" class="form-control" id="fechaFin">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="button" class="btn btn-success w-100" id="btnExportarExcel" onclick="exportarAsistenciaExcel()">
+                            <i class="fas fa-file-excel me-1"></i>Exportar
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Seleccione un supervisor y el rango de fechas para exportar los registros de asistencia a Excel.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Sección de Edición de Asistencia -->
 <div class="row mt-4">
     <div class="col-12">
@@ -590,21 +632,39 @@ async function cargarSupervisoresDisponibles() {
     }
 }
 
-// Cargar supervisores para la sección de edición
+// Cargar supervisores para ambas secciones
 async function cargarSupervisoresEdicion() {
     try {
         const response = await fetch('/api/supervisores');
         const data = await response.json();
         
         if (data.success) {
-            const select = document.getElementById('supervisorEdicion');
-            select.innerHTML = '<option value="">Seleccione un supervisor</option>';
+            // Cargar supervisores para la sección de edición
+            const selectEdicion = document.getElementById('supervisorEdicion');
+            selectEdicion.innerHTML = '<option value="">Seleccione un supervisor</option>';
+            
+            // Cargar supervisores para la sección de exportación
+            const selectExportacion = document.getElementById('supervisorExportacion');
+            selectExportacion.innerHTML = '<option value="">Seleccione un supervisor</option>';
+            
+            // Agregar opción "Todos" solo para exportación
+            const optionTodos = document.createElement('option');
+            optionTodos.value = 'TODOS';
+            optionTodos.textContent = 'Todos los supervisores';
+            selectExportacion.appendChild(optionTodos);
             
             data.supervisores.forEach(supervisor => {
-                const option = document.createElement('option');
-                option.value = supervisor;
-                option.textContent = supervisor;
-                select.appendChild(option);
+                // Opción para edición
+                const optionEdicion = document.createElement('option');
+                optionEdicion.value = supervisor;
+                optionEdicion.textContent = supervisor;
+                selectEdicion.appendChild(optionEdicion);
+                
+                // Opción para exportación
+                const optionExportacion = document.createElement('option');
+                optionExportacion.value = supervisor;
+                optionExportacion.textContent = supervisor;
+                selectExportacion.appendChild(optionExportacion);
             });
         }
     } catch (error) {
@@ -616,9 +676,9 @@ async function cargarSupervisoresEdicion() {
 // Cargar registros de asistencia para edición
 async function cargarRegistrosAsistencia() {
     const supervisor = document.getElementById('supervisorEdicion').value;
-    const fecha = document.getElementById('fechaEdicion').value;
+    const fechaEdicion = document.getElementById('fechaEdicion').value;
     
-    if (!supervisor || !fecha) {
+    if (!supervisor || !fechaEdicion) {
         const tablaEdicionCard = document.getElementById('tablaEdicionCard');
         const mensajeSinRegistros = document.getElementById('mensajeSinRegistros');
         if (tablaEdicionCard) tablaEdicionCard.style.display = 'none';
@@ -635,7 +695,10 @@ async function cargarRegistrosAsistencia() {
             await cargarSupervisoresDisponibles();
         }
         
-        const response = await fetch(`/api/asistencia/consultar?supervisor=${encodeURIComponent(supervisor)}&fecha=${fecha}`);
+        // Construir URL con parámetros
+        let url = `/api/asistencia/consultar?supervisor=${encodeURIComponent(supervisor)}&fecha=${fechaEdicion}`;
+        
+        const response = await fetch(url);
         const data = await response.json();
         
         if (data.success) {
@@ -826,6 +889,72 @@ function cancelarEdicion() {
     
     registrosEdicion = [];
     registrosModificados = [];
+}
+
+// Función para exportar asistencias a Excel
+async function exportarAsistenciaExcel() {
+    const supervisor = document.getElementById('supervisorExportacion').value;
+    const fechaInicio = document.getElementById('fechaInicio').value;
+    const fechaFin = document.getElementById('fechaFin').value;
+    
+    if (!supervisor) {
+        mostrarAlerta('Debe seleccionar un supervisor', 'warning');
+        return;
+    }
+    
+    if (!fechaInicio || !fechaFin) {
+        mostrarAlerta('Debe seleccionar fecha de inicio y fecha de fin', 'warning');
+        return;
+    }
+    
+    if (new Date(fechaInicio) > new Date(fechaFin)) {
+        mostrarAlerta('La fecha de inicio no puede ser mayor que la fecha de fin', 'warning');
+        return;
+    }
+    
+    try {
+        // Mostrar indicador de carga
+        const btnExportar = document.getElementById('btnExportarExcel');
+        const textoOriginal = btnExportar.innerHTML;
+        btnExportar.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Exportando...';
+        btnExportar.disabled = true;
+        
+        // Construir URL para exportación
+        let url = `/api/asistencia/exportar_excel?supervisor=${encodeURIComponent(supervisor)}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
+        
+        const response = await fetch(url);
+        
+        if (response.ok) {
+            // Crear un blob con el archivo Excel
+            const blob = await response.blob();
+            
+            // Crear un enlace temporal para descargar el archivo
+            const urlBlob = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = urlBlob;
+            
+            // Generar nombre del archivo
+            a.download = `asistencia_${supervisor}_${fechaInicio}_${fechaFin}.xlsx`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(urlBlob);
+            
+            mostrarAlerta('Archivo Excel exportado correctamente', 'success');
+        } else {
+            const errorData = await response.json();
+            mostrarAlerta('Error al exportar: ' + (errorData.message || 'Error desconocido'), 'danger');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        mostrarAlerta('Error al exportar archivo Excel', 'danger');
+    } finally {
+        // Restaurar botón
+        const btnExportar = document.getElementById('btnExportarExcel');
+        btnExportar.innerHTML = textoOriginal;
+        btnExportar.disabled = false;
+    }
 }
 
 // Inicializar la sección de edición al cargar la página
