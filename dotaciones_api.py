@@ -201,7 +201,7 @@ def registrar_rutas_dotaciones(app):
                 
                 'camiseta_polo_cantidad': dotacion.get('camisetapolo') or 0,
                 'camiseta_polo_talla': dotacion.get('camiseta_polo_talla'),
-                'camiseta_polo_valorado': 1 if dotacion.get('estado_camisetapolo') == 'VALORADO' else 0,
+                'camiseta_polo_valorado': 1 if dotacion.get('estado_camiseta_polo') == 'VALORADO' else 0,
                 
                 # EPP sin tallas
                 'guantes_nitrilo_cantidad': dotacion.get('guantes_nitrilo') or 0,
@@ -614,7 +614,7 @@ def registrar_rutas_dotaciones(app):
                 'pantalon': 'estado_pantalon',
                 'camisetagris': 'estado_camisetagris',
                 'guerrera': 'estado_guerrera',
-                'camisetapolo': 'estado_camisetapolo',
+                'camisetapolo': 'estado_camiseta_polo',
                 'guantes_nitrilo': 'estado_guantes_nitrilo',
                 'guantes_carnaza': 'estado_guantes_carnaza',
                 'gafas': 'estado_gafas',
