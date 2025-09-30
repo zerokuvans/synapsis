@@ -8699,6 +8699,42 @@ def actualizar_asistencia():
             
         cursor = connection.cursor()
         
+        # Obtener la fecha del registro de asistencia
+        cursor.execute("""
+            SELECT DATE(fecha_asistencia) as fecha_registro
+            FROM asistencia 
+            WHERE id_asistencia = %s
+        """, (data.get('id_asistencia'),))
+        
+        resultado = cursor.fetchone()
+        if not resultado:
+            return jsonify({
+                'success': False,
+                'message': 'No se encontró el registro de asistencia'
+            }), 404
+            
+        fecha_registro = resultado[0]
+        
+        # Obtener fecha actual en zona horaria de Bogotá
+        bogota_tz = pytz.timezone('America/Bogota')
+        fecha_actual = datetime.now(bogota_tz).date()
+        
+        # Calcular la diferencia en días
+        diferencia_dias = (fecha_actual - fecha_registro).days
+        
+        # Validar que la fecha esté dentro del rango permitido (3 días hacia atrás)
+        if diferencia_dias > 3:
+            return jsonify({
+                'success': False,
+                'message': f'No se puede editar asistencia de más de 3 días atrás. La asistencia es del {fecha_registro.strftime("%d/%m/%Y")} y han pasado {diferencia_dias} días.'
+            }), 400
+        
+        if diferencia_dias < 0:
+            return jsonify({
+                'success': False,
+                'message': 'No se puede editar asistencia de fechas futuras.'
+            }), 400
+        
         # Actualizar el registro
         cursor.execute("""
             UPDATE asistencia 

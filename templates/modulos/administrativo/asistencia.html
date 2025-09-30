@@ -201,6 +201,13 @@
                     <i class="fas fa-info-circle me-2"></i>
                     No se encontraron registros de asistencia para el supervisor y fecha seleccionados.
                 </div>
+                
+                <!-- Alerta informativa sobre restricciones de edición -->
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Restricciones de edición:</strong> Solo se pueden editar registros de asistencia de los últimos 3 días (incluyendo el día actual). 
+                    Los registros más antiguos aparecerán deshabilitados y marcados con <i class="fas fa-lock"></i>.
+                </div>
             </div>
         </div>
     </div>
@@ -726,24 +733,38 @@ async function cargarRegistrosAsistencia() {
     }
 }
 
+// Función para validar si una fecha está dentro del rango editable (3 días hacia atrás)
+function esFechaEditable(fechaAsistencia) {
+    const fechaRegistro = new Date(fechaAsistencia);
+    const fechaActual = new Date();
+    
+    // Normalizar fechas a medianoche para comparación exacta de días
+    fechaRegistro.setHours(0, 0, 0, 0);
+    fechaActual.setHours(0, 0, 0, 0);
+    
+    const diferenciaDias = Math.floor((fechaActual - fechaRegistro) / (1000 * 60 * 60 * 24));
+    
+    return diferenciaDias >= 0 && diferenciaDias <= 3;
+}
+
 // Crear select de tipificaciones
-function crearSelectTipificacion(valorActual, index) {
+function crearSelectTipificacion(valorActual, index, disabled = false) {
     let options = '<option value="">Seleccione...</option>';
     tipificacionesDisponibles.forEach(tip => {
         const selected = tip.codigo === valorActual ? 'selected' : '';
         options += `<option value="${tip.codigo}" ${selected}>${tip.codigo} - ${tip.descripcion}</option>`;
     });
-    return `<select class="form-control form-control-sm" onchange="marcarModificado(${index}, 'carpeta_dia', this.value)">${options}</select>`;
+    return `<select class="form-control form-control-sm" ${disabled ? 'disabled' : ''} onchange="marcarModificado(${index}, 'carpeta_dia', this.value)">${options}</select>`;
 }
 
 // Crear select de supervisores
-function crearSelectSupervisor(valorActual, index) {
+function crearSelectSupervisor(valorActual, index, disabled = false) {
     let options = '<option value="">Seleccione...</option>';
     supervisoresDisponibles.forEach(sup => {
         const selected = sup === valorActual ? 'selected' : '';
         options += `<option value="${sup}" ${selected}>${sup}</option>`;
     });
-    return `<select class="form-control form-control-sm" onchange="marcarModificado(${index}, 'super', this.value)">${options}</select>`;
+    return `<select class="form-control form-control-sm" ${disabled ? 'disabled' : ''} onchange="marcarModificado(${index}, 'super', this.value)">${options}</select>`;
 }
 
 // Mostrar tabla de edición
@@ -752,7 +773,21 @@ function mostrarTablaEdicion() {
     tbody.innerHTML = '';
     
     registrosEdicion.forEach((registro, index) => {
+        const esEditable = esFechaEditable(registro.fecha_asistencia);
+        const fechaRegistro = new Date(registro.fecha_asistencia);
+        const fechaActual = new Date();
+        fechaRegistro.setHours(0, 0, 0, 0);
+        fechaActual.setHours(0, 0, 0, 0);
+        const diferenciaDias = Math.floor((fechaActual - fechaRegistro) / (1000 * 60 * 60 * 24));
+        
         const tr = document.createElement('tr');
+        
+        // Agregar clase visual para registros no editables
+        if (!esEditable) {
+            tr.classList.add('table-secondary');
+            tr.style.opacity = '0.6';
+        }
+        
         tr.innerHTML = `
             <td>
                 <input type="text" class="form-control form-control-sm" 
@@ -765,21 +800,26 @@ function mostrarTablaEdicion() {
                        readonly style="background-color: #f8f9fa;">
             </td>
             <td>
-                ${crearSelectTipificacion(registro.carpeta_dia, index)}
+                ${crearSelectTipificacion(registro.carpeta_dia, index, !esEditable)}
             </td>
             <td>
                 <input type="text" class="form-control form-control-sm" 
                        value="${registro.carpeta}" 
+                       ${!esEditable ? 'disabled' : ''}
                        onchange="marcarModificado(${index}, 'carpeta', this.value)">
             </td>
             <td>
-                ${crearSelectSupervisor(registro.super, index)}
+                ${crearSelectSupervisor(registro.super, index, !esEditable)}
             </td>
             <td>
                 <small class="text-muted">${new Date(registro.fecha_asistencia).toLocaleString()}</small>
+                ${!esEditable ? `<br><small class="text-danger"><i class="fas fa-lock me-1"></i>No editable (${diferenciaDias} días)</small>` : ''}
             </td>
             <td>
-                <button class="btn btn-danger btn-sm" onclick="eliminarRegistroEdicion(${index})" title="Eliminar">
+                <button class="btn btn-danger btn-sm" 
+                        onclick="eliminarRegistroEdicion(${index})" 
+                        ${!esEditable ? 'disabled' : ''}
+                        title="${esEditable ? 'Eliminar' : 'No se puede eliminar (más de 3 días)'}">
                     <i class="fas fa-trash"></i>
                 </button>
             </td>
@@ -840,6 +880,21 @@ async function guardarCambiosEdicion() {
         return;
     }
     
+    // Validar que todos los registros modificados sean editables
+    const registrosNoEditables = registrosModificados.filter(registro => {
+        const registroOriginal = registrosEdicion.find(r => r.id_asistencia === registro.id_asistencia);
+        return registroOriginal && !esFechaEditable(registroOriginal.fecha_asistencia);
+    });
+    
+    if (registrosNoEditables.length > 0) {
+        mostrarAlerta('Algunos registros que intentas modificar tienen más de 3 días de antigüedad y no pueden ser editados.', 'danger');
+        return;
+    }
+    
+    if (!confirm(`¿Confirmar cambios? Se actualizarán ${registrosModificados.length} registro(s).`)) {
+        return;
+    }
+    
     try {
         const promesas = registrosModificados.map(registro => 
             fetch('/api/asistencia/actualizar', {
@@ -849,10 +904,17 @@ async function guardarCambiosEdicion() {
                 },
                 body: JSON.stringify(registro)
             })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(data => {
+                        throw new Error(data.message || 'Error al actualizar registro');
+                    });
+                }
+                return response.json();
+            })
         );
         
-        const respuestas = await Promise.all(promesas);
-        const resultados = await Promise.all(respuestas.map(r => r.json()));
+        const resultados = await Promise.all(promesas);
         
         const exitosos = resultados.filter(r => r.success).length;
         const fallidos = resultados.filter(r => !r.success).length;
@@ -861,6 +923,8 @@ async function guardarCambiosEdicion() {
             mostrarAlerta(`Se actualizaron ${exitosos} registros correctamente`, 'success');
             registrosModificados = [];
             document.getElementById('btnGuardarCambios').disabled = true;
+            // Recargar la tabla para mostrar los cambios
+            cargarRegistrosAsistencia();
         }
         
         if (fallidos > 0) {
@@ -869,7 +933,7 @@ async function guardarCambiosEdicion() {
         
     } catch (error) {
         console.error('Error:', error);
-        mostrarAlerta('Error al guardar cambios', 'danger');
+        mostrarAlerta('Error al guardar cambios: ' + (error.message || 'Error desconocido'), 'danger');
     }
 }
 
