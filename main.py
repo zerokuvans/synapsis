@@ -3222,73 +3222,56 @@ def ver_asignaciones_ferretero():
         fecha_actual = datetime.now()
         tecnicos_con_limites = []
         
-        # Definir límites según área de trabajo (igual que en registrar_ferretero)
-        limites = {
-            'FTTH INSTALACIONES': {
-                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
-            },
-            'INSTALACIONES DOBLES': {
-                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 150, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
-            },
-            'POSTVENTA': {
-                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
-            },
-            'MANTENIMIENTO FTTH': {
-                'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
-            },
-            'ARREGLOS HFC': {
-                'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
-            },
-            'CONDUCTOR': {
-                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
-            },
-            'SUPERVISORES': {
-                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
-            },
-            'BROWNFIELD': {
-                'cinta_aislante': {'cantidad': 5, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 200, 'periodo': 15, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 200, 'periodo': 15, 'unidad': 'días'}
-            }
-        }
+        # Función para obtener límites desde la base de datos
+        def obtener_limites_desde_db(cursor):
+            """Obtiene los límites configurables desde la base de datos"""
+            try:
+                cursor.execute("""
+                    SELECT 
+                        area_trabajo,
+                        material_tipo,
+                        cantidad_limite,
+                        periodo_dias,
+                        unidad_medida
+                    FROM limites_ferretero 
+                    WHERE activo = TRUE
+                    ORDER BY area_trabajo, material_tipo
+                """)
+                limites_db = cursor.fetchall()
+                
+                # Convertir a estructura de diccionario
+                limites = {}
+                for limite in limites_db:
+                    area = limite['area_trabajo']
+                    material = limite['material_tipo']
+                    
+                    if area not in limites:
+                        limites[area] = {}
+                    
+                    limites[area][material] = {
+                        'cantidad': limite['cantidad_limite'],
+                        'periodo': limite['periodo_dias'],
+                        'unidad': limite['unidad_medida']
+                    }
+                
+                return limites
+                
+            except Exception as e:
+                print(f"Error al obtener límites desde DB: {str(e)}")
+                # Fallback a límites por defecto en caso de error
+                return {
+                    'FTTH INSTALACIONES': {
+                        'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
+                        'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                        'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                        'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                        'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
+                        'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+                    }
+                }
+        
+        # Obtener límites configurables desde la base de datos
+        limites = obtener_limites_desde_db(cursor)
         
         for tecnico in tecnicos:
             # Determinar área de trabajo basada EXCLUSIVAMENTE en la carpeta asignada
@@ -3468,73 +3451,56 @@ def registrar_ferretero():
         # Determinar la carpeta del técnico (EXCLUSIVAMENTE)
         carpeta = tecnico.get('carpeta', '').upper() if tecnico.get('carpeta') else ''
         
-        # Definir límites según área de trabajo
-        limites = {
-            'FTTH INSTALACIONES': {
-                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
-            },
-            'INSTALACIONES DOBLES': {
-                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 150,'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
-            },
-            'POSTVENTA': {
-                'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 12, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
-            },
-            'MANTENIMIENTO FTTH': {
-                'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
-            },
-            'ARREGLOS HFC': {
-                'cinta_aislante': {'cantidad': 1, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 8, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
-            },
-            'CONDUCTOR': {
-                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
-            },
-            'SUPERVISORES': {
-                'cinta_aislante': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 99, 'periodo': 15, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 99, 'periodo': 7, 'unidad': 'días'}
-            },
-            'BROWNFIELD': {
-                'cinta_aislante': {'cantidad': 5, 'periodo': 15, 'unidad': 'días'},
-                'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
-                'amarres_negros': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
-                'amarres_blancos': {'cantidad': 50, 'periodo': 15, 'unidad': 'días'},
-                'grapas_blancas': {'cantidad': 200, 'periodo': 15, 'unidad': 'días'},
-                'grapas_negras': {'cantidad': 200, 'periodo': 15, 'unidad': 'días'}
-            },
-        }
+        # Función para obtener límites desde la base de datos
+        def obtener_limites_desde_db(cursor):
+            """Obtiene los límites configurables desde la base de datos"""
+            try:
+                cursor.execute("""
+                    SELECT 
+                        area_trabajo,
+                        material_tipo,
+                        cantidad_limite,
+                        periodo_dias,
+                        unidad_medida
+                    FROM limites_ferretero 
+                    WHERE activo = TRUE
+                    ORDER BY area_trabajo, material_tipo
+                """)
+                limites_db = cursor.fetchall()
+                
+                # Convertir a estructura de diccionario
+                limites = {}
+                for limite in limites_db:
+                    area = limite['area_trabajo']
+                    material = limite['material_tipo']
+                    
+                    if area not in limites:
+                        limites[area] = {}
+                    
+                    limites[area][material] = {
+                        'cantidad': limite['cantidad_limite'],
+                        'periodo': limite['periodo_dias'],
+                        'unidad': limite['unidad_medida']
+                    }
+                
+                return limites
+                
+            except Exception as e:
+                print(f"Error al obtener límites desde DB: {str(e)}")
+                # Fallback a límites por defecto en caso de error
+                return {
+                    'FTTH INSTALACIONES': {
+                        'cinta_aislante': {'cantidad': 3, 'periodo': 15, 'unidad': 'días'},
+                        'silicona': {'cantidad': 16, 'periodo': 7, 'unidad': 'días'},
+                        'amarres_negros': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                        'amarres_blancos': {'cantidad': 50, 'periodo': 7, 'unidad': 'días'},
+                        'grapas_blancas': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'},
+                        'grapas_negras': {'cantidad': 100, 'periodo': 7, 'unidad': 'días'}
+                    }
+                }
+        
+        # Obtener límites configurables desde la base de datos
+        limites = obtener_limites_desde_db(cursor)
         
         # Determinar área de trabajo basada EXCLUSIVAMENTE en la carpeta asignada
         area_trabajo = None
@@ -13723,6 +13689,450 @@ def validar_transicion_api():
         return jsonify({
             'success': False,
             'error': f'Error interno del servidor: {str(e)}'
+        }), 500
+
+# ==================== MÓDULO DE LÍMITES FERRETERO ====================
+
+@app.route('/logistica/limites_ferretero')
+@login_required()
+@role_required('logistica')
+def ver_limites_ferretero():
+    """Página principal del módulo de límites ferretero"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return render_template('error.html', 
+                               mensaje='Error de conexión a la base de datos',
+                               error='No se pudo establecer conexión con la base de datos')
+                               
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener todas las áreas de trabajo disponibles
+        cursor.execute("SELECT DISTINCT area_trabajo FROM limites_ferretero ORDER BY area_trabajo")
+        areas_trabajo = cursor.fetchall()
+        
+        # Obtener todos los límites configurados
+        cursor.execute("""
+            SELECT 
+                id_limite,
+                area_trabajo,
+                material_tipo,
+                cantidad_limite,
+                periodo_dias,
+                unidad_medida,
+                descripcion,
+                activo,
+                fecha_actualizacion,
+                usuario_actualizacion
+            FROM limites_ferretero 
+            ORDER BY area_trabajo, material_tipo
+        """)
+        limites = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return render_template('modulos/logistica/limites_ferretero.html',
+                             areas_trabajo=areas_trabajo,
+                             limites=limites)
+                             
+    except Exception as e:
+        print(f"Error al cargar límites ferretero: {str(e)}")
+        return render_template('error.html',
+                           mensaje='Error al cargar los límites de ferretero',
+                           error=str(e))
+
+@app.route('/api/limites_ferretero', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def obtener_limites_ferretero():
+    """API para obtener límites ferretero con filtros opcionales"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener parámetros de filtro
+        area_trabajo = request.args.get('area_trabajo')
+        material_tipo = request.args.get('material_tipo')
+        activo = request.args.get('activo', 'true').lower() == 'true'
+        
+        # Construir consulta con filtros
+        query = """
+            SELECT 
+                id_limite,
+                area_trabajo,
+                material_tipo,
+                cantidad_limite,
+                periodo_dias,
+                unidad_medida,
+                descripcion,
+                activo,
+                fecha_creacion,
+                fecha_actualizacion,
+                usuario_creacion,
+                usuario_actualizacion
+            FROM limites_ferretero 
+            WHERE activo = %s
+        """
+        params = [activo]
+        
+        if area_trabajo:
+            query += " AND area_trabajo = %s"
+            params.append(area_trabajo)
+            
+        if material_tipo:
+            query += " AND material_tipo = %s"
+            params.append(material_tipo)
+            
+        query += " ORDER BY area_trabajo, material_tipo"
+        
+        cursor.execute(query, params)
+        limites = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'status': 'success',
+            'data': limites,
+            'total': len(limites)
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener límites: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al obtener límites: {str(e)}'
+        }), 500
+
+@app.route('/api/limites_ferretero/<int:id_limite>', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def obtener_limite_ferretero(id_limite):
+    """API para obtener un límite específico"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        cursor.execute("""
+            SELECT 
+                id_limite,
+                area_trabajo,
+                material_tipo,
+                cantidad_limite,
+                periodo_dias,
+                unidad_medida,
+                descripcion,
+                activo,
+                fecha_creacion,
+                fecha_actualizacion,
+                usuario_creacion,
+                usuario_actualizacion
+            FROM limites_ferretero 
+            WHERE id_limite = %s
+        """, (id_limite,))
+        
+        limite = cursor.fetchone()
+        
+        cursor.close()
+        connection.close()
+        
+        if limite:
+            return jsonify({
+                'status': 'success',
+                'data': limite
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Límite no encontrado'
+            }), 404
+            
+    except Exception as e:
+        print(f"Error al obtener límite: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al obtener límite: {str(e)}'
+        }), 500
+
+@app.route('/api/limites_ferretero', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def crear_limite_ferretero():
+    """API para crear un nuevo límite"""
+    try:
+        data = request.get_json() if request.is_json else request.form
+        
+        # Validar campos requeridos
+        campos_requeridos = ['area_trabajo', 'material_tipo', 'cantidad_limite', 'periodo_dias']
+        for campo in campos_requeridos:
+            if not data.get(campo):
+                return jsonify({
+                    'status': 'error',
+                    'message': f'El campo {campo} es requerido'
+                }), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar si ya existe un límite para esta combinación
+        cursor.execute("""
+            SELECT id_limite FROM limites_ferretero 
+            WHERE area_trabajo = %s AND material_tipo = %s
+        """, (data['area_trabajo'], data['material_tipo']))
+        
+        if cursor.fetchone():
+            return jsonify({
+                'status': 'error',
+                'message': 'Ya existe un límite para esta área de trabajo y material'
+            }), 400
+        
+        # Insertar nuevo límite
+        cursor.execute("""
+            INSERT INTO limites_ferretero 
+            (area_trabajo, material_tipo, cantidad_limite, periodo_dias, unidad_medida, descripcion, usuario_creacion)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (
+            data['area_trabajo'],
+            data['material_tipo'],
+            int(data['cantidad_limite']),
+            int(data['periodo_dias']),
+            data.get('unidad_medida', 'unidades'),
+            data.get('descripcion', ''),
+            session.get('username', 'sistema')
+        ))
+        
+        id_limite = cursor.lastrowid
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Límite creado exitosamente',
+            'id_limite': id_limite
+        }), 201
+        
+    except Exception as e:
+        print(f"Error al crear límite: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al crear límite: {str(e)}'
+        }), 500
+
+@app.route('/api/limites_ferretero/<int:id_limite>', methods=['PUT'])
+@login_required()
+@role_required('logistica')
+def actualizar_limite_ferretero(id_limite):
+    """API para actualizar un límite existente"""
+    try:
+        data = request.get_json() if request.is_json else request.form
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar que el límite existe
+        cursor.execute("SELECT id_limite FROM limites_ferretero WHERE id_limite = %s", (id_limite,))
+        if not cursor.fetchone():
+            return jsonify({
+                'status': 'error',
+                'message': 'Límite no encontrado'
+            }), 404
+        
+        # Construir consulta de actualización dinámicamente
+        campos_actualizables = ['cantidad_limite', 'periodo_dias', 'unidad_medida', 'descripcion', 'activo']
+        campos_update = []
+        valores = []
+        
+        for campo in campos_actualizables:
+            if campo in data:
+                campos_update.append(f"{campo} = %s")
+                valores.append(data[campo])
+        
+        if not campos_update:
+            return jsonify({
+                'status': 'error',
+                'message': 'No se proporcionaron campos para actualizar'
+            }), 400
+        
+        # Agregar usuario y fecha de actualización
+        campos_update.append("usuario_actualizacion = %s")
+        valores.append(session.get('username', 'sistema'))
+        valores.append(id_limite)
+        
+        query = f"UPDATE limites_ferretero SET {', '.join(campos_update)} WHERE id_limite = %s"
+        cursor.execute(query, valores)
+        
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Límite actualizado exitosamente'
+        })
+        
+    except Exception as e:
+        print(f"Error al actualizar límite: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al actualizar límite: {str(e)}'
+        }), 500
+
+@app.route('/api/limites_ferretero/<int:id_limite>', methods=['DELETE'])
+@login_required()
+@role_required('logistica')
+def eliminar_limite_ferretero(id_limite):
+    """API para eliminar (desactivar) un límite"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar que el límite existe
+        cursor.execute("SELECT id_limite FROM limites_ferretero WHERE id_limite = %s", (id_limite,))
+        if not cursor.fetchone():
+            return jsonify({
+                'status': 'error',
+                'message': 'Límite no encontrado'
+            }), 404
+        
+        # Desactivar el límite en lugar de eliminarlo
+        cursor.execute("""
+            UPDATE limites_ferretero 
+            SET activo = FALSE, usuario_actualizacion = %s 
+            WHERE id_limite = %s
+        """, (session.get('username', 'sistema'), id_limite))
+        
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Límite desactivado exitosamente'
+        })
+        
+    except Exception as e:
+        print(f"Error al eliminar límite: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al eliminar límite: {str(e)}'
+        }), 500
+
+@app.route('/api/limites_ferretero/areas', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def obtener_areas_trabajo():
+    """API para obtener todas las áreas de trabajo disponibles"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        cursor.execute("SELECT DISTINCT area_trabajo FROM limites_ferretero ORDER BY area_trabajo")
+        areas = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'status': 'success',
+            'data': [area['area_trabajo'] for area in areas]
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener áreas: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al obtener áreas: {str(e)}'
+        }), 500
+
+@app.route('/api/limites_ferretero/historial/<int:id_limite>', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def obtener_historial_limite(id_limite):
+    """API para obtener el historial de cambios de un límite"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        cursor.execute("""
+            SELECT 
+                id_historial,
+                area_trabajo,
+                material_tipo,
+                cantidad_limite_anterior,
+                cantidad_limite_nueva,
+                periodo_dias_anterior,
+                periodo_dias_nuevo,
+                accion,
+                usuario,
+                fecha_cambio,
+                observaciones
+            FROM historial_limites_ferretero 
+            WHERE id_limite = %s 
+            ORDER BY fecha_cambio DESC
+        """, (id_limite,))
+        
+        historial = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'status': 'success',
+            'data': historial
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener historial: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Error al obtener historial: {str(e)}'
         }), 500
 
 if __name__ == '__main__':
