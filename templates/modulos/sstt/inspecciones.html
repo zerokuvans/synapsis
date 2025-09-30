@@ -1,0 +1,296 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;">
+                    <h3 class="mb-0">
+                        <i class="fas fa-clipboard-check me-2"></i>Gestión de Inspecciones
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- Botón para nueva inspección -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNuevaInspeccion">
+                                <i class="fas fa-plus me-2"></i>Nueva Inspección
+                            </button>
+                        </div>
+                        <div>
+                            <input type="text" class="form-control" id="buscarInspeccion" placeholder="Buscar inspección...">
+                        </div>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <select class="form-select" id="filtroTipoRiesgo">
+                                <option value="">Todos los tipos de riesgo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="filtroEstado">
+                                <option value="">Todos los estados</option>
+                                <option value="programada">Programada</option>
+                                <option value="en_proceso">En Proceso</option>
+                                <option value="completada">Completada</option>
+                                <option value="cancelada">Cancelada</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" id="filtroFechaDesde" placeholder="Fecha desde">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" id="filtroFechaHasta" placeholder="Fecha hasta">
+                        </div>
+                    </div>
+
+                    <!-- Tabla de inspecciones -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Tipo de Riesgo</th>
+                                    <th>Área/Ubicación</th>
+                                    <th>Fecha Programada</th>
+                                    <th>Estado</th>
+                                    <th>Inspector</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaInspecciones">
+                                <!-- Datos cargados dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nueva Inspección -->
+<div class="modal fade" id="modalNuevaInspeccion" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nueva Inspección</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formNuevaInspeccion">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="tipoRiesgo" class="form-label">Tipo de Riesgo</label>
+                            <select class="form-select" id="tipoRiesgo" required>
+                                <option value="">Seleccionar tipo de riesgo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="areaUbicacion" class="form-label">Área/Ubicación</label>
+                            <input type="text" class="form-control" id="areaUbicacion" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="fechaProgramada" class="form-label">Fecha Programada</label>
+                            <input type="datetime-local" class="form-control" id="fechaProgramada" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="prioridad" class="form-label">Prioridad</label>
+                            <select class="form-select" id="prioridad" required>
+                                <option value="">Seleccionar prioridad</option>
+                                <option value="baja">Baja</option>
+                                <option value="media">Media</option>
+                                <option value="alta">Alta</option>
+                                <option value="critica">Crítica</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descripcion" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="descripcion" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarInspeccion()">Guardar Inspección</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ver/Editar Inspección -->
+<div class="modal fade" id="modalVerInspeccion" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalles de Inspección</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="detalleInspeccion">
+                    <!-- Contenido cargado dinámicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let inspecciones = [];
+let tiposRiesgo = [];
+
+// Cargar datos iniciales
+document.addEventListener('DOMContentLoaded', function() {
+    cargarTiposRiesgo();
+    cargarInspecciones();
+    
+    // Event listeners para filtros
+    document.getElementById('buscarInspeccion').addEventListener('input', filtrarInspecciones);
+    document.getElementById('filtroTipoRiesgo').addEventListener('change', filtrarInspecciones);
+    document.getElementById('filtroEstado').addEventListener('change', filtrarInspecciones);
+    document.getElementById('filtroFechaDesde').addEventListener('change', filtrarInspecciones);
+    document.getElementById('filtroFechaHasta').addEventListener('change', filtrarInspecciones);
+});
+
+function cargarTiposRiesgo() {
+    fetch('/api/sstt/tipos-riesgo')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                tiposRiesgo = data.data;
+                const selectTipoRiesgo = document.getElementById('tipoRiesgo');
+                const filtroTipoRiesgo = document.getElementById('filtroTipoRiesgo');
+                
+                tiposRiesgo.forEach(tipo => {
+                    const option1 = new Option(tipo.nombre, tipo.id);
+                    const option2 = new Option(tipo.nombre, tipo.id);
+                    selectTipoRiesgo.add(option1);
+                    filtroTipoRiesgo.add(option2);
+                });
+            }
+        })
+        .catch(error => console.error('Error al cargar tipos de riesgo:', error));
+}
+
+function cargarInspecciones() {
+    fetch('/api/sstt/inspecciones')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                inspecciones = data.data;
+                mostrarInspecciones(inspecciones);
+            }
+        })
+        .catch(error => console.error('Error al cargar inspecciones:', error));
+}
+
+function mostrarInspecciones(datos) {
+    const tbody = document.getElementById('tablaInspecciones');
+    tbody.innerHTML = '';
+    
+    datos.forEach(inspeccion => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${inspeccion.id}</td>
+            <td>${inspeccion.tipo_riesgo_nombre}</td>
+            <td>${inspeccion.area_ubicacion}</td>
+            <td>${new Date(inspeccion.fecha_programada).toLocaleDateString()}</td>
+            <td><span class="badge bg-${getEstadoColor(inspeccion.estado)}">${inspeccion.estado}</span></td>
+            <td>${inspeccion.inspector_nombre || 'No asignado'}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="verInspeccion(${inspeccion.id})">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-warning" onclick="editarInspeccion(${inspeccion.id})">
+                    <i class="fas fa-edit"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function getEstadoColor(estado) {
+    const colores = {
+        'programada': 'secondary',
+        'en_proceso': 'warning',
+        'completada': 'success',
+        'cancelada': 'danger'
+    };
+    return colores[estado] || 'secondary';
+}
+
+function filtrarInspecciones() {
+    const busqueda = document.getElementById('buscarInspeccion').value.toLowerCase();
+    const tipoRiesgo = document.getElementById('filtroTipoRiesgo').value;
+    const estado = document.getElementById('filtroEstado').value;
+    const fechaDesde = document.getElementById('filtroFechaDesde').value;
+    const fechaHasta = document.getElementById('filtroFechaHasta').value;
+    
+    let inspeccionesFiltradas = inspecciones.filter(inspeccion => {
+        const cumpleBusqueda = !busqueda || 
+            inspeccion.area_ubicacion.toLowerCase().includes(busqueda) ||
+            inspeccion.tipo_riesgo_nombre.toLowerCase().includes(busqueda);
+        
+        const cumpleTipoRiesgo = !tipoRiesgo || inspeccion.tipo_riesgo_id == tipoRiesgo;
+        const cumpleEstado = !estado || inspeccion.estado === estado;
+        
+        const fechaInspeccion = new Date(inspeccion.fecha_programada);
+        const cumpleFechaDesde = !fechaDesde || fechaInspeccion >= new Date(fechaDesde);
+        const cumpleFechaHasta = !fechaHasta || fechaInspeccion <= new Date(fechaHasta);
+        
+        return cumpleBusqueda && cumpleTipoRiesgo && cumpleEstado && cumpleFechaDesde && cumpleFechaHasta;
+    });
+    
+    mostrarInspecciones(inspeccionesFiltradas);
+}
+
+function guardarInspeccion() {
+    const formData = {
+        tipo_riesgo_id: document.getElementById('tipoRiesgo').value,
+        area_ubicacion: document.getElementById('areaUbicacion').value,
+        fecha_programada: document.getElementById('fechaProgramada').value,
+        prioridad: document.getElementById('prioridad').value,
+        descripcion: document.getElementById('descripcion').value
+    };
+    
+    fetch('/api/sstt/inspecciones', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire('Éxito', 'Inspección creada correctamente', 'success');
+            document.getElementById('modalNuevaInspeccion').querySelector('.btn-close').click();
+            document.getElementById('formNuevaInspeccion').reset();
+            cargarInspecciones();
+        } else {
+            Swal.fire('Error', data.message || 'Error al crear la inspección', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire('Error', 'Error al crear la inspección', 'error');
+    });
+}
+
+function verInspeccion(id) {
+    // Implementar vista detallada de inspección
+    console.log('Ver inspección:', id);
+}
+
+function editarInspeccion(id) {
+    // Implementar edición de inspección
+    console.log('Editar inspección:', id);
+}
+</script>
+{% endblock %}

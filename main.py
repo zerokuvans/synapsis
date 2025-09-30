@@ -184,7 +184,7 @@ ROLES = {
 
 # Decorador para requerir rol específico
 def role_required(role):
-    def decorator(f):
+    def role_decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if 'user_role' not in session:
@@ -195,24 +195,23 @@ def role_required(role):
                 return redirect(url_for('dashboard'))
             return f(*args, **kwargs)
         return decorated_function
-    return decorator
+    return role_decorator
 
 # Login required decorator personalizado para roles
 def role_required_login(role=None):
-    def decorator(f):
+    def role_login_decorator(f):
         @wraps(f)
-        @login_required
         def decorated_function(*args, **kwargs):
             if role and not current_user.has_role(role) and current_user.role != 'administrativo':
                 flash("No tienes permisos para acceder a esta página.", 'danger')
                 return redirect(url_for('login'))
             return f(*args, **kwargs)
         return decorated_function
-    return decorator
+    return role_login_decorator
 
 # Mantener el decorador original para compatibilidad con código existente
 def login_required(role=None):
-    def decorator(f):
+    def login_decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if 'user_id' not in session:
@@ -235,11 +234,11 @@ def login_required(role=None):
             
             return f(*args, **kwargs)
         return decorated_function
-    return decorator
+    return login_decorator
 
 def login_required_api(role=None):
     """Decorador para requerir autenticación en APIs"""
-    def decorator(f):
+    def api_decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if 'user_id' not in session:
@@ -250,7 +249,7 @@ def login_required_api(role=None):
             
             return f(*args, **kwargs)
         return decorated_function
-    return decorator
+    return api_decorator
 
 @app.route('/register', methods=['GET', 'POST'])
 @login_required(role='administrativo')  # Solo los administrativos pueden registrar usuarios
@@ -8389,19 +8388,19 @@ def api_preoperacionales_tecnicos():
 @app.route('/api/asistencia/consultar', methods=['GET'])
 @login_required(role='administrativo')
 def consultar_asistencia():
-    """Consultar registros de asistencia por supervisor y fecha para edición"""
+    """Consultar registros de asistencia por supervisor y fecha/rango de fechas para edición"""
     try:
         supervisor = request.args.get('supervisor')
         fecha = request.args.get('fecha')
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
         
-        if not supervisor or not fecha:
-            return jsonify({'success': False, 'message': 'Supervisor y fecha son requeridos'}), 400
+        if not supervisor:
+            return jsonify({'success': False, 'message': 'Supervisor es requerido'}), 400
             
-        # Validar formato de fecha
-        try:
-            fecha_obj = datetime.strptime(fecha, '%Y-%m-%d').date()
-        except ValueError:
-            return jsonify({'success': False, 'message': 'Formato de fecha inválido. Use YYYY-MM-DD'}), 400
+        # Validar que se proporcione fecha única o rango de fechas
+        if not fecha and (not fecha_inicio or not fecha_fin):
+            return jsonify({'success': False, 'message': 'Debe proporcionar fecha única o rango de fechas (fecha_inicio y fecha_fin)'}), 400
             
         connection = get_db_connection()
         if connection is None:
@@ -8409,21 +8408,55 @@ def consultar_asistencia():
             
         cursor = connection.cursor(dictionary=True)
         
-        # Consultar registros de asistencia para el supervisor y fecha especificados
-        cursor.execute("""
-            SELECT 
-                id_asistencia,
-                cedula,
-                tecnico,
-                carpeta_dia,
-                carpeta,
-                super,
-                fecha_asistencia,
-                id_codigo_consumidor
-            FROM asistencia 
-            WHERE super = %s AND DATE(fecha_asistencia) = %s
-            ORDER BY tecnico
-        """, (supervisor, fecha_obj))
+        # Construir consulta según el tipo de filtro de fecha
+        if fecha:
+            # Validar formato de fecha única
+            try:
+                fecha_obj = datetime.strptime(fecha, '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'success': False, 'message': 'Formato de fecha inválido. Use YYYY-MM-DD'}), 400
+                
+            # Consultar registros para fecha específica
+            cursor.execute("""
+                SELECT 
+                    id_asistencia,
+                    cedula,
+                    tecnico,
+                    carpeta_dia,
+                    carpeta,
+                    super,
+                    fecha_asistencia,
+                    id_codigo_consumidor
+                FROM asistencia 
+                WHERE super = %s AND DATE(fecha_asistencia) = %s
+                ORDER BY tecnico, fecha_asistencia
+            """, (supervisor, fecha_obj))
+        else:
+            # Validar formato de rango de fechas
+            try:
+                fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+                fecha_fin_obj = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'success': False, 'message': 'Formato de fechas inválido. Use YYYY-MM-DD'}), 400
+                
+            if fecha_inicio_obj > fecha_fin_obj:
+                return jsonify({'success': False, 'message': 'La fecha de inicio no puede ser mayor que la fecha de fin'}), 400
+                
+            # Consultar registros para rango de fechas
+            cursor.execute("""
+                SELECT 
+                    id_asistencia,
+                    cedula,
+                    tecnico,
+                    carpeta_dia,
+                    carpeta,
+                    super,
+                    fecha_asistencia,
+                    id_codigo_consumidor
+                FROM asistencia 
+                WHERE super = %s AND DATE(fecha_asistencia) BETWEEN %s AND %s
+                ORDER BY tecnico, fecha_asistencia
+            """, (supervisor, fecha_inicio_obj, fecha_fin_obj))
         
         registros = cursor.fetchall()
         
@@ -8435,6 +8468,213 @@ def consultar_asistencia():
         
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para exportar registros de asistencia a Excel
+@app.route('/api/asistencia/exportar_excel', methods=['GET'])
+@login_required(role='administrativo')
+def exportar_asistencia_excel():
+    """Exportar registros de asistencia a Excel con filtros de supervisor y fecha/rango"""
+    try:
+        supervisor = request.args.get('supervisor')
+        fecha = request.args.get('fecha')
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        
+        if not supervisor:
+            return jsonify({'success': False, 'message': 'Supervisor es requerido'}), 400
+            
+        # Validar que se proporcione fecha única o rango de fechas
+        if not fecha and (not fecha_inicio or not fecha_fin):
+            return jsonify({'success': False, 'message': 'Debe proporcionar fecha única o rango de fechas'}), 400
+            
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Construir consulta según el tipo de filtro de fecha
+        if fecha:
+            # Validar formato de fecha única
+            try:
+                fecha_obj = datetime.strptime(fecha, '%Y-%m-%d').date()
+                fecha_inicio_obj = fecha_obj
+                fecha_fin_obj = fecha_obj
+            except ValueError:
+                return jsonify({'success': False, 'message': 'Formato de fecha inválido. Use YYYY-MM-DD'}), 400
+                
+            # Consultar registros para fecha específica
+            if supervisor == 'TODOS':
+                cursor.execute("""
+                    SELECT 
+                        cedula,
+                        tecnico,
+                        carpeta_dia,
+                        carpeta,
+                        super,
+                        DATE(fecha_asistencia) as fecha,
+                        TIME(fecha_asistencia) as hora
+                    FROM asistencia 
+                    WHERE DATE(fecha_asistencia) = %s
+                    ORDER BY super, tecnico, fecha_asistencia
+                """, (fecha_obj,))
+            else:
+                cursor.execute("""
+                    SELECT 
+                        cedula,
+                        tecnico,
+                        carpeta_dia,
+                        carpeta,
+                        super,
+                        DATE(fecha_asistencia) as fecha,
+                        TIME(fecha_asistencia) as hora
+                    FROM asistencia 
+                    WHERE super = %s AND DATE(fecha_asistencia) = %s
+                    ORDER BY tecnico, fecha_asistencia
+                """, (supervisor, fecha_obj))
+        else:
+            # Validar formato de rango de fechas
+            try:
+                fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+                fecha_fin_obj = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'success': False, 'message': 'Formato de fechas inválido. Use YYYY-MM-DD'}), 400
+                
+            if fecha_inicio_obj > fecha_fin_obj:
+                return jsonify({'success': False, 'message': 'La fecha de inicio no puede ser mayor que la fecha de fin'}), 400
+                
+            # Consultar registros para rango de fechas
+            if supervisor == 'TODOS':
+                cursor.execute("""
+                    SELECT 
+                        cedula,
+                        tecnico,
+                        carpeta_dia,
+                        carpeta,
+                        super,
+                        DATE(fecha_asistencia) as fecha,
+                        TIME(fecha_asistencia) as hora
+                    FROM asistencia 
+                    WHERE DATE(fecha_asistencia) BETWEEN %s AND %s
+                    ORDER BY super, tecnico, fecha_asistencia
+                """, (fecha_inicio_obj, fecha_fin_obj))
+            else:
+                cursor.execute("""
+                    SELECT 
+                        cedula,
+                        tecnico,
+                        carpeta_dia,
+                        carpeta,
+                        super,
+                        DATE(fecha_asistencia) as fecha,
+                        TIME(fecha_asistencia) as hora
+                    FROM asistencia 
+                    WHERE super = %s AND DATE(fecha_asistencia) BETWEEN %s AND %s
+                    ORDER BY tecnico, fecha_asistencia
+                """, (supervisor, fecha_inicio_obj, fecha_fin_obj))
+        
+        registros = cursor.fetchall()
+        
+        if not registros:
+            return jsonify({'success': False, 'message': 'No se encontraron registros para exportar'}), 404
+        
+        # Crear DataFrame con los registros
+        df_registros = pd.DataFrame(registros)
+        
+        # Obtener lista de técnicos únicos para la tabla de novedades
+        tecnicos_unicos = df_registros['tecnico'].unique()
+        
+        # Obtener todas las tipificaciones disponibles
+        cursor.execute("SELECT codigo_tipificacion as codigo, nombre_tipificacion as descripcion FROM tipificacion_asistencia ORDER BY codigo_tipificacion")
+        tipificaciones = cursor.fetchall()
+        
+        # Crear tabla de técnicos con novedades del período
+        tecnicos_novedades = []
+        for tecnico in sorted(tecnicos_unicos):
+            # Obtener registros del técnico en el período
+            registros_tecnico = df_registros[df_registros['tecnico'] == tecnico]
+            
+            # Contar novedades por tipo
+            novedades_count = registros_tecnico['carpeta_dia'].value_counts().to_dict()
+            
+            # Crear fila para el técnico
+            fila_tecnico = {
+                'Técnico': tecnico,
+                'Total Registros': len(registros_tecnico)
+            }
+            
+            # Agregar columnas para cada tipificación
+            for tip in tipificaciones:
+                codigo = tip['codigo']
+                descripcion = tip['descripcion']
+                count = novedades_count.get(codigo, 0)
+                fila_tecnico[f'{codigo} - {descripcion}'] = count
+            
+            tecnicos_novedades.append(fila_tecnico)
+        
+        df_novedades = pd.DataFrame(tecnicos_novedades)
+        
+        # Crear archivo Excel en memoria
+        output = io.BytesIO()
+        
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            # Hoja 1: Registros de asistencia
+            df_registros.to_excel(writer, sheet_name='Registros Asistencia', index=False)
+            
+            # Hoja 2: Tabla de técnicos con novedades
+            df_novedades.to_excel(writer, sheet_name='Resumen Técnicos', index=False)
+            
+            # Obtener workbook para formatear
+            workbook = writer.book
+            
+            # Formatear hoja de registros
+            worksheet_registros = writer.sheets['Registros Asistencia']
+            for column in worksheet_registros.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                worksheet_registros.column_dimensions[column_letter].width = adjusted_width
+            
+            # Formatear hoja de resumen
+            worksheet_resumen = writer.sheets['Resumen Técnicos']
+            for column in worksheet_resumen.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 30)
+                worksheet_resumen.column_dimensions[column_letter].width = adjusted_width
+        
+        output.seek(0)
+        
+        # Generar nombre del archivo
+        fecha_str = fecha if fecha else f"{fecha_inicio}_{fecha_fin}"
+        filename = f"asistencia_{supervisor}_{fecha_str}.xlsx"
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error al exportar: {str(e)}'}), 500
     finally:
         if 'cursor' in locals() and cursor:
             cursor.close()
@@ -14134,6 +14374,387 @@ def obtener_historial_limite(id_limite):
             'status': 'error',
             'message': f'Error al obtener historial: {str(e)}'
         }), 500
+
+# ============================================================================
+# MÓDULO SSTT (SEGURIDAD Y SALUD EN EL TRABAJO) - RUTAS Y API ENDPOINTS
+# ============================================================================
+
+@app.route('/sstt')
+@login_required()
+def sstt_dashboard():
+    """Dashboard principal del módulo SSTT"""
+    if session.get('user_role') not in ['sstt', 'administrativo']:
+        flash('No tienes permisos para acceder a este módulo', 'error')
+        return redirect(url_for('dashboard'))
+    return render_template('modulos/sstt/dashboard.html')
+
+@app.route('/sstt/inspecciones')
+@login_required()
+def sstt_inspecciones():
+    """Página de gestión de inspecciones de seguridad"""
+    if session.get('user_role') not in ['sstt', 'administrativo']:
+        flash('No tienes permisos para acceder a este módulo', 'error')
+        return redirect(url_for('dashboard'))
+    return render_template('modulos/sstt/inspecciones.html')
+
+@app.route('/sstt/capacitaciones')
+@login_required()
+def sstt_capacitaciones():
+    """Página de gestión de capacitaciones"""
+    if session.get('user_role') not in ['sstt', 'administrativo']:
+        flash('No tienes permisos para acceder a este módulo', 'error')
+        return redirect(url_for('dashboard'))
+    return render_template('modulos/sstt/capacitaciones.html')
+
+@app.route('/sstt/incidentes')
+@login_required()
+def sstt_incidentes():
+    """Página de gestión de incidentes laborales"""
+    if session.get('user_role') not in ['sstt', 'administrativo']:
+        flash('No tienes permisos para acceder a este módulo', 'error')
+        return redirect(url_for('dashboard'))
+    return render_template('modulos/sstt/incidentes.html')
+
+@app.route('/sstt/epp')
+@login_required()
+def sstt_epp():
+    """Página de control de EPP (Elementos de Protección Personal)"""
+    if session.get('user_role') not in ['sstt', 'administrativo']:
+        flash('No tienes permisos para acceder a este módulo', 'error')
+        return redirect(url_for('dashboard'))
+    return render_template('modulos/sstt/epp.html')
+
+# API Endpoints para SSTT
+
+@app.route('/api/sstt/tipos-riesgo', methods=['GET'])
+@login_required()
+def api_sstt_tipos_riesgo():
+    """API para obtener tipos de riesgo"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM sstt_tipos_riesgo ORDER BY nombre_riesgo")
+        tipos_riesgo = cursor.fetchall()
+        
+        return jsonify({'tipos_riesgo': tipos_riesgo})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/sstt/inspecciones', methods=['GET', 'POST'])
+@login_required()
+def api_sstt_inspecciones():
+    """API para gestionar inspecciones de seguridad"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        if request.method == 'GET':
+            # Obtener inspecciones con filtros opcionales
+            fecha_desde = request.args.get('fecha_desde')
+            fecha_hasta = request.args.get('fecha_hasta')
+            estado = request.args.get('estado')
+            
+            query = """
+                SELECT i.*, tr.nombre_riesgo, ro.nombre as inspector_nombre
+                FROM sstt_inspecciones i
+                LEFT JOIN sstt_tipos_riesgo tr ON i.tipo_riesgo_id = tr.id
+                LEFT JOIN recurso_operativo ro ON i.usuario_creador = ro.id_codigo_consumidor
+                WHERE 1=1
+            """
+            params = []
+            
+            if fecha_desde:
+                query += " AND i.fecha_inspeccion >= %s"
+                params.append(fecha_desde)
+            if fecha_hasta:
+                query += " AND i.fecha_inspeccion <= %s"
+                params.append(fecha_hasta)
+            if estado:
+                query += " AND i.estado = %s"
+                params.append(estado)
+                
+            query += " ORDER BY i.fecha_inspeccion DESC"
+            
+            cursor.execute(query, params)
+            inspecciones = cursor.fetchall()
+            
+            return jsonify({'inspecciones': inspecciones})
+            
+        elif request.method == 'POST':
+            # Crear nueva inspección
+            data = request.get_json()
+            
+            cursor.execute("""
+                INSERT INTO sstt_inspecciones 
+                (area_inspeccionada, fecha_inspeccion, tipo_riesgo_id, descripcion, 
+                 estado, usuario_creador, fecha_creacion)
+                VALUES (%s, %s, %s, %s, %s, %s, NOW())
+            """, (
+                data['area_inspeccionada'],
+                data['fecha_inspeccion'],
+                data['tipo_riesgo_id'],
+                data['descripcion'],
+                data.get('estado', 'pendiente'),
+                session.get('user_id')
+            ))
+            
+            connection.commit()
+            inspeccion_id = cursor.lastrowid
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Inspección creada exitosamente',
+                'inspeccion_id': inspeccion_id
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/sstt/capacitaciones', methods=['GET', 'POST'])
+@login_required()
+def api_sstt_capacitaciones():
+    """API para gestionar capacitaciones"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        if request.method == 'GET':
+            cursor.execute("""
+                SELECT c.*, ro.nombre as instructor_nombre
+                FROM sstt_capacitaciones c
+                LEFT JOIN recurso_operativo ro ON c.usuario_creador = ro.id_codigo_consumidor
+                ORDER BY c.fecha_programada DESC
+            """)
+            capacitaciones = cursor.fetchall()
+            
+            return jsonify({'capacitaciones': capacitaciones})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            
+            cursor.execute("""
+                INSERT INTO sstt_capacitaciones 
+                (titulo, descripcion, fecha_programada, duracion_horas, 
+                 ubicacion, estado, usuario_creador, fecha_creacion)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+            """, (
+                data['titulo'],
+                data['descripcion'],
+                data['fecha_programada'],
+                data['duracion_horas'],
+                data['ubicacion'],
+                data.get('estado', 'programada'),
+                session.get('user_id')
+            ))
+            
+            connection.commit()
+            capacitacion_id = cursor.lastrowid
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Capacitación creada exitosamente',
+                'capacitacion_id': capacitacion_id
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/sstt/incidentes', methods=['GET', 'POST'])
+@login_required()
+def api_sstt_incidentes():
+    """API para gestionar incidentes laborales"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        if request.method == 'GET':
+            cursor.execute("""
+                SELECT i.*, ro.nombre as reporta_nombre
+                FROM sstt_incidentes i
+                LEFT JOIN recurso_operativo ro ON i.usuario_reporta = ro.id_codigo_consumidor
+                ORDER BY i.fecha_incidente DESC
+            """)
+            incidentes = cursor.fetchall()
+            
+            return jsonify({'incidentes': incidentes})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            
+            cursor.execute("""
+                INSERT INTO sstt_incidentes 
+                (fecha_incidente, ubicacion, descripcion, tipo_incidente, 
+                 gravedad, usuario_reporta, fecha_reporte)
+                VALUES (%s, %s, %s, %s, %s, %s, NOW())
+            """, (
+                data['fecha_incidente'],
+                data['ubicacion'],
+                data['descripcion'],
+                data['tipo_incidente'],
+                data['gravedad'],
+                session.get('user_id')
+            ))
+            
+            connection.commit()
+            incidente_id = cursor.lastrowid
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Incidente reportado exitosamente',
+                'incidente_id': incidente_id
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/sstt/epp', methods=['GET', 'POST'])
+@login_required()
+def api_sstt_epp():
+    """API para control de EPP (Elementos de Protección Personal)"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        if request.method == 'GET':
+            cursor.execute("""
+                SELECT e.*, ro.nombre as usuario_nombre
+                FROM sstt_epp_control e
+                LEFT JOIN recurso_operativo ro ON e.usuario_id = ro.id_codigo_consumidor
+                ORDER BY e.fecha_entrega DESC
+            """)
+            epp_registros = cursor.fetchall()
+            
+            return jsonify({'epp_registros': epp_registros})
+            
+        elif request.method == 'POST':
+            data = request.get_json()
+            
+            cursor.execute("""
+                INSERT INTO sstt_epp_control 
+                (usuario_id, tipo_epp, marca, modelo, fecha_entrega, 
+                 fecha_vencimiento, estado, observaciones)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                data['usuario_id'],
+                data['tipo_epp'],
+                data['marca'],
+                data['modelo'],
+                data['fecha_entrega'],
+                data.get('fecha_vencimiento'),
+                data.get('estado', 'activo'),
+                data.get('observaciones', '')
+            ))
+            
+            connection.commit()
+            epp_id = cursor.lastrowid
+            
+            return jsonify({
+                'success': True, 
+                'message': 'Registro de EPP creado exitosamente',
+                'epp_id': epp_id
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/sstt/dashboard-stats', methods=['GET'])
+@login_required()
+def api_sstt_dashboard_stats():
+    """API para estadísticas del dashboard SSTT"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        stats = {}
+        
+        # Estadísticas de inspecciones
+        cursor.execute("SELECT COUNT(*) as total FROM sstt_inspecciones")
+        stats['total_inspecciones'] = cursor.fetchone()['total']
+        
+        cursor.execute("SELECT COUNT(*) as pendientes FROM sstt_inspecciones WHERE estado = 'pendiente'")
+        stats['inspecciones_pendientes'] = cursor.fetchone()['pendientes']
+        
+        # Estadísticas de capacitaciones
+        cursor.execute("SELECT COUNT(*) as total FROM sstt_capacitaciones")
+        stats['total_capacitaciones'] = cursor.fetchone()['total']
+        
+        cursor.execute("SELECT COUNT(*) as programadas FROM sstt_capacitaciones WHERE estado = 'programada'")
+        stats['capacitaciones_programadas'] = cursor.fetchone()['programadas']
+        
+        # Estadísticas de incidentes
+        cursor.execute("SELECT COUNT(*) as total FROM sstt_incidentes")
+        stats['total_incidentes'] = cursor.fetchone()['total']
+        
+        cursor.execute("""
+            SELECT COUNT(*) as recientes 
+            FROM sstt_incidentes 
+            WHERE fecha_incidente >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        """)
+        stats['incidentes_mes'] = cursor.fetchone()['recientes']
+        
+        # Estadísticas de EPP
+        cursor.execute("SELECT COUNT(*) as total FROM sstt_epp_control")
+        stats['total_epp'] = cursor.fetchone()['total']
+        
+        cursor.execute("""
+            SELECT COUNT(*) as vencidos 
+            FROM sstt_epp_control 
+            WHERE fecha_vencimiento <= NOW() AND estado = 'activo'
+        """)
+        stats['epp_vencidos'] = cursor.fetchone()['vencidos']
+        
+        return jsonify(stats)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=8080)

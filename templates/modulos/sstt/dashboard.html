@@ -1,0 +1,160 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;">
+                    <h3 class="mb-0">
+                        <i class="fas fa-hard-hat me-2"></i>Seguridad y Salud en el Trabajo
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-success">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        Bienvenido al módulo de Seguridad y Salud en el Trabajo. Gestiona riesgos laborales, inspecciones, capacitaciones, incidentes y EPP.
+                    </div>
+                    
+                    <!-- Estadísticas principales -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="total-inspecciones">0</h4>
+                                            <p class="mb-0">Inspecciones</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-clipboard-check fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="total-capacitaciones">0</h4>
+                                            <p class="mb-0">Capacitaciones</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-graduation-cap fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="total-incidentes">0</h4>
+                                            <p class="mb-0">Incidentes</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="total-epp">0</h4>
+                                            <p class="mb-0">EPP Activos</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-hard-hat fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Módulos principales -->
+                    <div class="row mt-4">
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-clipboard-check fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Inspecciones</h5>
+                                    <p class="card-text">Gestiona inspecciones de seguridad y registra hallazgos.</p>
+                                    <a href="/sstt/inspecciones" class="btn btn-primary">
+                                        <i class="fas fa-search me-2"></i>Ver Inspecciones
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-graduation-cap fa-3x text-warning mb-3"></i>
+                                    <h5 class="card-title">Capacitaciones</h5>
+                                    <p class="card-text">Programa y gestiona capacitaciones en seguridad laboral.</p>
+                                    <a href="/sstt/capacitaciones" class="btn btn-warning">
+                                        <i class="fas fa-chalkboard-teacher me-2"></i>Ver Capacitaciones
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                                    <h5 class="card-title">Incidentes</h5>
+                                    <p class="card-text">Registra y gestiona incidentes de seguridad laboral.</p>
+                                    <a href="/sstt/incidentes" class="btn btn-danger">
+                                        <i class="fas fa-file-medical-alt me-2"></i>Ver Incidentes
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-hard-hat fa-3x text-info mb-3"></i>
+                                    <h5 class="card-title">Control EPP</h5>
+                                    <p class="card-text">Controla y gestiona elementos de protección personal.</p>
+                                    <a href="/sstt/epp" class="btn btn-info">
+                                        <i class="fas fa-shield-alt me-2"></i>Ver EPP
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Cargar estadísticas del dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/sstt/dashboard-stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('total-inspecciones').textContent = data.data.inspecciones || 0;
+                document.getElementById('total-capacitaciones').textContent = data.data.capacitaciones || 0;
+                document.getElementById('total-incidentes').textContent = data.data.incidentes || 0;
+                document.getElementById('total-epp').textContent = data.data.epp_activos || 0;
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar estadísticas:', error);
+        });
+});
+</script>
+{% endblock %}

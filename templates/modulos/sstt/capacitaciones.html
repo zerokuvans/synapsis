@@ -1,0 +1,365 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%) !important;">
+                    <h3 class="mb-0">
+                        <i class="fas fa-graduation-cap me-2"></i>Gestión de Capacitaciones
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- Botón para nueva capacitación -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalNuevaCapacitacion">
+                                <i class="fas fa-plus me-2"></i>Nueva Capacitación
+                            </button>
+                        </div>
+                        <div>
+                            <input type="text" class="form-control" id="buscarCapacitacion" placeholder="Buscar capacitación...">
+                        </div>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <select class="form-select" id="filtroEstado">
+                                <option value="">Todos los estados</option>
+                                <option value="programada">Programada</option>
+                                <option value="en_curso">En Curso</option>
+                                <option value="completada">Completada</option>
+                                <option value="cancelada">Cancelada</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" id="filtroFechaDesde" placeholder="Fecha desde">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" id="filtroFechaHasta" placeholder="Fecha hasta">
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="filtroModalidad">
+                                <option value="">Todas las modalidades</option>
+                                <option value="presencial">Presencial</option>
+                                <option value="virtual">Virtual</option>
+                                <option value="mixta">Mixta</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de capacitaciones -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Título</th>
+                                    <th>Fecha</th>
+                                    <th>Duración</th>
+                                    <th>Modalidad</th>
+                                    <th>Estado</th>
+                                    <th>Asistentes</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaCapacitaciones">
+                                <!-- Datos cargados dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nueva Capacitación -->
+<div class="modal fade" id="modalNuevaCapacitacion" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nueva Capacitación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formNuevaCapacitacion">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="titulo" class="form-label">Título</label>
+                            <input type="text" class="form-control" id="titulo" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="modalidad" class="form-label">Modalidad</label>
+                            <select class="form-select" id="modalidad" required>
+                                <option value="">Seleccionar modalidad</option>
+                                <option value="presencial">Presencial</option>
+                                <option value="virtual">Virtual</option>
+                                <option value="mixta">Mixta</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="fechaInicio" class="form-label">Fecha de Inicio</label>
+                            <input type="datetime-local" class="form-control" id="fechaInicio" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="duracionHoras" class="form-label">Duración (horas)</label>
+                            <input type="number" class="form-control" id="duracionHoras" min="1" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="instructor" class="form-label">Instructor</label>
+                            <input type="text" class="form-control" id="instructor" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="ubicacion" class="form-label">Ubicación</label>
+                            <input type="text" class="form-control" id="ubicacion">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descripcionCapacitacion" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="descripcionCapacitacion" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="objetivos" class="form-label">Objetivos</label>
+                        <textarea class="form-control" id="objetivos" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" onclick="guardarCapacitacion()">Guardar Capacitación</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ver Capacitación -->
+<div class="modal fade" id="modalVerCapacitacion" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalles de Capacitación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="detalleCapacitacion">
+                    <!-- Contenido cargado dinámicamente -->
+                </div>
+                
+                <!-- Sección de asistencia -->
+                <div class="mt-4">
+                    <h6>Control de Asistencia</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Empleado</th>
+                                    <th>Asistió</th>
+                                    <th>Calificación</th>
+                                    <th>Observaciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaAsistencia">
+                                <!-- Datos de asistencia -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-warning" onclick="editarCapacitacion()">Editar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let capacitaciones = [];
+
+// Cargar datos iniciales
+document.addEventListener('DOMContentLoaded', function() {
+    cargarCapacitaciones();
+    
+    // Event listeners para filtros
+    document.getElementById('buscarCapacitacion').addEventListener('input', filtrarCapacitaciones);
+    document.getElementById('filtroEstado').addEventListener('change', filtrarCapacitaciones);
+    document.getElementById('filtroFechaDesde').addEventListener('change', filtrarCapacitaciones);
+    document.getElementById('filtroFechaHasta').addEventListener('change', filtrarCapacitaciones);
+    document.getElementById('filtroModalidad').addEventListener('change', filtrarCapacitaciones);
+});
+
+function cargarCapacitaciones() {
+    fetch('/api/sstt/capacitaciones')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                capacitaciones = data.data;
+                mostrarCapacitaciones(capacitaciones);
+            }
+        })
+        .catch(error => console.error('Error al cargar capacitaciones:', error));
+}
+
+function mostrarCapacitaciones(datos) {
+    const tbody = document.getElementById('tablaCapacitaciones');
+    tbody.innerHTML = '';
+    
+    datos.forEach(capacitacion => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${capacitacion.id}</td>
+            <td>${capacitacion.titulo}</td>
+            <td>${new Date(capacitacion.fecha_inicio).toLocaleDateString()}</td>
+            <td>${capacitacion.duracion_horas}h</td>
+            <td><span class="badge bg-info">${capacitacion.modalidad}</span></td>
+            <td><span class="badge bg-${getEstadoColor(capacitacion.estado)}">${capacitacion.estado}</span></td>
+            <td>${capacitacion.total_asistentes || 0}</td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="verCapacitacion(${capacitacion.id})">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-warning" onclick="editarCapacitacion(${capacitacion.id})">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="gestionarAsistencia(${capacitacion.id})">
+                    <i class="fas fa-users"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function getEstadoColor(estado) {
+    const colores = {
+        'programada': 'secondary',
+        'en_curso': 'warning',
+        'completada': 'success',
+        'cancelada': 'danger'
+    };
+    return colores[estado] || 'secondary';
+}
+
+function filtrarCapacitaciones() {
+    const busqueda = document.getElementById('buscarCapacitacion').value.toLowerCase();
+    const estado = document.getElementById('filtroEstado').value;
+    const fechaDesde = document.getElementById('filtroFechaDesde').value;
+    const fechaHasta = document.getElementById('filtroFechaHasta').value;
+    const modalidad = document.getElementById('filtroModalidad').value;
+    
+    let capacitacionesFiltradas = capacitaciones.filter(capacitacion => {
+        const cumpleBusqueda = !busqueda || 
+            capacitacion.titulo.toLowerCase().includes(busqueda) ||
+            capacitacion.instructor.toLowerCase().includes(busqueda);
+        
+        const cumpleEstado = !estado || capacitacion.estado === estado;
+        const cumpleModalidad = !modalidad || capacitacion.modalidad === modalidad;
+        
+        const fechaCapacitacion = new Date(capacitacion.fecha_inicio);
+        const cumpleFechaDesde = !fechaDesde || fechaCapacitacion >= new Date(fechaDesde);
+        const cumpleFechaHasta = !fechaHasta || fechaCapacitacion <= new Date(fechaHasta);
+        
+        return cumpleBusqueda && cumpleEstado && cumpleModalidad && cumpleFechaDesde && cumpleFechaHasta;
+    });
+    
+    mostrarCapacitaciones(capacitacionesFiltradas);
+}
+
+function guardarCapacitacion() {
+    const formData = {
+        titulo: document.getElementById('titulo').value,
+        modalidad: document.getElementById('modalidad').value,
+        fecha_inicio: document.getElementById('fechaInicio').value,
+        duracion_horas: document.getElementById('duracionHoras').value,
+        instructor: document.getElementById('instructor').value,
+        ubicacion: document.getElementById('ubicacion').value,
+        descripcion: document.getElementById('descripcionCapacitacion').value,
+        objetivos: document.getElementById('objetivos').value
+    };
+    
+    fetch('/api/sstt/capacitaciones', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire('Éxito', 'Capacitación creada correctamente', 'success');
+            document.getElementById('modalNuevaCapacitacion').querySelector('.btn-close').click();
+            document.getElementById('formNuevaCapacitacion').reset();
+            cargarCapacitaciones();
+        } else {
+            Swal.fire('Error', data.message || 'Error al crear la capacitación', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire('Error', 'Error al crear la capacitación', 'error');
+    });
+}
+
+function verCapacitacion(id) {
+    fetch(`/api/sstt/capacitaciones/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarDetalleCapacitacion(data.data);
+                document.getElementById('modalVerCapacitacion').querySelector('.modal-title').textContent = 
+                    `Capacitación: ${data.data.titulo}`;
+                new bootstrap.Modal(document.getElementById('modalVerCapacitacion')).show();
+            }
+        })
+        .catch(error => console.error('Error al cargar capacitación:', error));
+}
+
+function mostrarDetalleCapacitacion(capacitacion) {
+    const detalle = document.getElementById('detalleCapacitacion');
+    detalle.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Título:</strong> ${capacitacion.titulo}</p>
+                <p><strong>Instructor:</strong> ${capacitacion.instructor}</p>
+                <p><strong>Modalidad:</strong> ${capacitacion.modalidad}</p>
+                <p><strong>Duración:</strong> ${capacitacion.duracion_horas} horas</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Fecha:</strong> ${new Date(capacitacion.fecha_inicio).toLocaleString()}</p>
+                <p><strong>Ubicación:</strong> ${capacitacion.ubicacion || 'No especificada'}</p>
+                <p><strong>Estado:</strong> <span class="badge bg-${getEstadoColor(capacitacion.estado)}">${capacitacion.estado}</span></p>
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-12">
+                <p><strong>Descripción:</strong></p>
+                <p>${capacitacion.descripcion || 'Sin descripción'}</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12">
+                <p><strong>Objetivos:</strong></p>
+                <p>${capacitacion.objetivos || 'Sin objetivos definidos'}</p>
+            </div>
+        </div>
+    `;
+}
+
+function editarCapacitacion(id) {
+    // Implementar edición de capacitación
+    console.log('Editar capacitación:', id);
+}
+
+function gestionarAsistencia(id) {
+    // Implementar gestión de asistencia
+    console.log('Gestionar asistencia para capacitación:', id);
+}
+</script>
+{% endblock %}
