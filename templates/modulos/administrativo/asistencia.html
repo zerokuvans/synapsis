@@ -17,6 +17,83 @@
         </div>
     </div>
     
+    <!-- Cuadro de Resumen de Asistencia por Grupos -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>Resumen de Asistencia por Grupos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Filtros para el resumen -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="supervisorResumen" class="form-label">Supervisor:</label>
+                            <select class="form-select" id="supervisorResumen">
+                                <option value="">Todos los supervisores</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="fechaInicioResumen" class="form-label">Fecha Inicio:</label>
+                            <input type="date" class="form-control" id="fechaInicioResumen">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="fechaFinResumen" class="form-label">Fecha Fin:</label>
+                            <input type="date" class="form-control" id="fechaFinResumen">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="button" class="btn btn-primary w-100" id="btnActualizarResumen">
+                                <i class="fas fa-sync-alt me-1"></i>Actualizar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabla de resumen agrupado -->
+                    <div id="tablaResumenCard">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover" id="tablaResumenAgrupado">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>GRUPO</th>
+                                        <th>CARPETA</th>
+                                        <th>TÉCNICOS</th>
+                                        <th>PORCENTAJE</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cuerpoTablaResumen">
+                                    <!-- Los datos se cargarán dinámicamente -->
+                                </tbody>
+                                <tfoot class="table-secondary">
+                                    <tr>
+                                        <th colspan="2">TOTAL GENERAL</th>
+                                        <th id="totalTecnicosGeneral">0</th>
+                                        <th>100%</th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Mensaje de carga -->
+                    <div id="mensajeCargaResumen" class="text-center" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Cargando resumen de asistencia...</p>
+                    </div>
+                    
+                    <!-- Mensaje cuando no hay datos -->
+                    <div id="mensajeSinDatosResumen" class="alert alert-info" style="display: none;">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No se encontraron registros de asistencia para los filtros seleccionados.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- Sección de registro oculta -->
     <div style="display: none;">
         <div class="card mb-4">
@@ -1021,9 +1098,318 @@ async function exportarAsistenciaExcel() {
     }
 }
 
-// Inicializar la sección de edición al cargar la página
+// Variables globales para el manejo de peticiones
+let currentResumenRequest = null;
+let isLoadingResumen = false;
+let debounceTimer = null;
+
+// Funciones para el resumen agrupado
+async function cargarSupervisoresResumen() {
+    try {
+        const response = await fetch('/api/supervisores');
+        const data = await response.json();
+        
+        const selectSupervisor = document.getElementById('supervisorResumen');
+        selectSupervisor.innerHTML = '<option value="">Todos los supervisores</option>';
+        
+        if (data.supervisores) {
+            data.supervisores.forEach(supervisor => {
+                const option = document.createElement('option');
+                option.value = supervisor;
+                option.textContent = supervisor;
+                selectSupervisor.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error al cargar supervisores:', error);
+        mostrarAlerta('Error al cargar supervisores', 'danger');
+    }
+}
+
+// Función con debounce para evitar múltiples peticiones rápidas
+function cargarResumenAgrupadoDebounced() {
+    // Limpiar timer anterior si existe
+    if (debounceTimer) {
+        clearTimeout(debounceTimer);
+    }
+    
+    // Establecer nuevo timer con delay de 300ms
+    debounceTimer = setTimeout(() => {
+        cargarResumenAgrupado();
+    }, 300);
+}
+
+async function cargarResumenAgrupado() {
+    // Prevenir múltiples peticiones simultáneas
+    if (isLoadingResumen) {
+        console.log('Ya hay una petición en curso, cancelando la anterior...');
+        if (currentResumenRequest) {
+            currentResumenRequest.abort();
+        }
+    }
+    
+    const supervisor = document.getElementById('supervisorResumen').value;
+    const fechaInicio = document.getElementById('fechaInicioResumen').value;
+    const fechaFin = document.getElementById('fechaFinResumen').value;
+    
+    // Validaciones mejoradas de fechas
+    if (!fechaInicio || !fechaFin) {
+        mostrarAlerta('Debe seleccionar fecha de inicio y fecha de fin', 'warning');
+        return;
+    }
+    
+    // Validar formato de fechas
+    const fechaInicioObj = new Date(fechaInicio);
+    const fechaFinObj = new Date(fechaFin);
+    
+    if (isNaN(fechaInicioObj.getTime()) || isNaN(fechaFinObj.getTime())) {
+        mostrarAlerta('Las fechas seleccionadas no son válidas', 'danger');
+        return;
+    }
+    
+    if (fechaInicioObj > fechaFinObj) {
+        mostrarAlerta('La fecha de inicio no puede ser mayor que la fecha de fin', 'warning');
+        return;
+    }
+    
+    // Validar rango máximo (opcional: limitar a 1 año)
+    const diferenciaDias = Math.abs((fechaFinObj - fechaInicioObj) / (1000 * 60 * 60 * 24));
+    if (diferenciaDias > 365) {
+        mostrarAlerta('El rango de fechas no puede ser mayor a 1 año', 'warning');
+        return;
+    }
+    
+    // Validar que las fechas no sean futuras
+    const hoy = new Date();
+    hoy.setHours(23, 59, 59, 999); // Fin del día actual
+    
+    if (fechaInicioObj > hoy || fechaFinObj > hoy) {
+        mostrarAlerta('No se pueden seleccionar fechas futuras', 'warning');
+        return;
+    }
+    
+    // Marcar como cargando y limpiar estados anteriores
+    isLoadingResumen = true;
+    
+    // Deshabilitar botón de actualizar mientras se carga
+    const btnActualizar = document.getElementById('btnActualizarResumen');
+    if (btnActualizar) {
+        btnActualizar.disabled = true;
+        btnActualizar.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Cargando...';
+    }
+    
+    // Limpiar contenido anterior inmediatamente
+    const cuerpoTabla = document.getElementById('cuerpoTablaResumen');
+    const totalTecnicos = document.getElementById('totalTecnicosGeneral');
+    const mensajeCarga = document.getElementById('mensajeCargaResumen');
+    const tablaCard = document.getElementById('tablaResumenCard');
+    const mensajeSinDatos = document.getElementById('mensajeSinDatosResumen');
+    
+    if (cuerpoTabla) cuerpoTabla.innerHTML = '';
+    if (totalTecnicos) totalTecnicos.textContent = '0';
+    
+    // Mostrar indicador de carga
+    if (mensajeCarga) mensajeCarga.style.display = 'block';
+    if (tablaCard) tablaCard.style.display = 'none';
+    if (mensajeSinDatos) mensajeSinDatos.style.display = 'none';
+    
+    // Crear AbortController para poder cancelar la petición
+    const abortController = new AbortController();
+    currentResumenRequest = abortController;
+    
+    try {
+        let url = `/api/asistencia/resumen_agrupado?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
+        if (supervisor) {
+            url += `&supervisor=${encodeURIComponent(supervisor)}`;
+        }
+        
+        console.log('Llamando a URL:', url); // Debug
+        
+        // Configurar timeout de 30 segundos
+        const timeoutId = setTimeout(() => {
+            abortController.abort();
+        }, 30000);
+        
+        const response = await fetch(url, {
+            signal: abortController.signal,
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        // Limpiar timeout si la petición fue exitosa
+        clearTimeout(timeoutId);
+        
+        // Verificar si la petición fue cancelada
+        if (abortController.signal.aborted) {
+            console.log('Petición cancelada');
+            return;
+        }
+        
+        // Verificar si la respuesta es HTML (redirección a login)
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+            console.error('Respuesta HTML recibida, posible problema de autenticación');
+            mostrarAlerta('Sesión expirada. Por favor, recargue la página e inicie sesión nuevamente.', 'warning');
+            if (mensajeSinDatos) mensajeSinDatos.style.display = 'block';
+            return;
+        }
+        
+        // Verificar si la respuesta es exitosa
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Respuesta del servidor:', data); // Debug
+        
+        // Verificar nuevamente si la petición fue cancelada después de recibir la respuesta
+        if (abortController.signal.aborted) {
+            console.log('Petición cancelada después de recibir respuesta');
+            return;
+        }
+        
+        if (data.success) {
+            mostrarTablaResumen(data.data);
+        } else {
+            mostrarAlerta('Error al cargar resumen: ' + (data.message || 'Error desconocido'), 'danger');
+            const mensajeSinDatos = document.getElementById('mensajeSinDatosResumen');
+            if (mensajeSinDatos) mensajeSinDatos.style.display = 'block';
+        }
+    } catch (error) {
+        // No mostrar error si la petición fue cancelada intencionalmente
+        if (error.name === 'AbortError') {
+            console.log('Petición cancelada por el usuario o por timeout');
+            // Si fue por timeout, mostrar mensaje específico
+            if (isLoadingResumen) {
+                mostrarAlerta('La petición tardó demasiado tiempo. Intente con un rango de fechas más pequeño.', 'warning');
+                const mensajeSinDatos = document.getElementById('mensajeSinDatosResumen');
+                if (mensajeSinDatos) mensajeSinDatos.style.display = 'block';
+            }
+            return;
+        }
+        
+        console.error('Error al cargar resumen agrupado:', error);
+        
+        // Manejo específico de diferentes tipos de errores
+        let mensajeError = 'Error al cargar resumen agrupado';
+        
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            mensajeError = 'Error de conexión. Verifique su conexión a internet';
+        } else if (error.message.includes('HTTP')) {
+            mensajeError = 'Error del servidor. Intente nuevamente en unos momentos';
+        } else if (error.message.includes('NetworkError')) {
+            mensajeError = 'Error de red. Verifique su conexión';
+        } else if (error.message) {
+            mensajeError += ': ' + error.message;
+        }
+        
+        mostrarAlerta(mensajeError, 'danger');
+        const mensajeSinDatos = document.getElementById('mensajeSinDatosResumen');
+        if (mensajeSinDatos) mensajeSinDatos.style.display = 'block';
+    } finally {
+        // Limpiar estado de carga solo si esta es la petición actual
+        if (currentResumenRequest === abortController) {
+            isLoadingResumen = false;
+            currentResumenRequest = null;
+            
+            const mensajeCarga = document.getElementById('mensajeCargaResumen');
+            if (mensajeCarga) mensajeCarga.style.display = 'none';
+            
+            // Rehabilitar botón de actualizar
+            const btnActualizar = document.getElementById('btnActualizarResumen');
+            if (btnActualizar) {
+                btnActualizar.disabled = false;
+                btnActualizar.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Actualizar';
+            }
+        }
+    }
+}
+
+function mostrarTablaResumen(data) {
+    const tbody = document.getElementById('cuerpoTablaResumen');
+    const totalTecnicos = document.getElementById('totalTecnicosGeneral');
+    
+    // Limpiar tabla completamente
+    tbody.innerHTML = '';
+    
+    // Ocultar todos los mensajes primero
+    const mensajeCarga = document.getElementById('mensajeCargaResumen');
+    const mensajeSinDatos = document.getElementById('mensajeSinDatosResumen');
+    const tablaCard = document.getElementById('tablaResumenCard');
+    
+    if (mensajeCarga) mensajeCarga.style.display = 'none';
+    if (mensajeSinDatos) mensajeSinDatos.style.display = 'none';
+    if (tablaCard) tablaCard.style.display = 'none';
+    
+    // Usar datos detallados que incluyen las carpetas específicas (nombre_tipificacion)
+    const datosParaMostrar = data.detallado || [];
+    
+    if (datosParaMostrar.length === 0) {
+        // Actualizar total a 0 cuando no hay datos
+        if (totalTecnicos) {
+            totalTecnicos.textContent = '0';
+        }
+        if (mensajeSinDatos) mensajeSinDatos.style.display = 'block';
+        return;
+    }
+    
+    // Agregar filas de datos con validación mejorada
+    datosParaMostrar.forEach(item => {
+        const tr = document.createElement('tr');
+        
+        // Validar y formatear datos
+        const grupo = item.grupo || 'Sin Grupo';
+        const carpeta = item.carpeta || '-';
+        const totalTecnicosItem = parseInt(item.total_tecnicos) || 0;
+        const porcentaje = parseFloat(item.porcentaje) || 0;
+        
+        tr.innerHTML = `
+            <td class="fw-bold">${grupo}</td>
+            <td>${carpeta}</td>
+            <td class="text-center">
+                <span class="badge bg-primary">${totalTecnicosItem}</span>
+            </td>
+            <td class="text-center">
+                <span class="badge bg-success">${porcentaje.toFixed(2)}%</span>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+    
+    // Actualizar total de técnicos con validación
+    if (totalTecnicos) {
+        const totalGeneral = parseInt(data.total_general) || 0;
+        totalTecnicos.textContent = totalGeneral;
+    }
+    
+    // Mostrar la tabla solo después de que todo esté listo
+    if (tablaCard) tablaCard.style.display = 'block';
+}
+
+function inicializarResumen() {
+    // Establecer fecha actual por defecto
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('fechaInicioResumen').value = hoy;
+    document.getElementById('fechaFinResumen').value = hoy;
+    
+    // Configurar event listeners para los filtros
+    document.getElementById('supervisorResumen').addEventListener('change', cargarResumenAgrupadoDebounced);
+    document.getElementById('fechaInicioResumen').addEventListener('change', cargarResumenAgrupadoDebounced);
+    document.getElementById('fechaFinResumen').addEventListener('change', cargarResumenAgrupadoDebounced);
+    document.getElementById('btnActualizarResumen').addEventListener('click', cargarResumenAgrupado);
+    
+    // Cargar supervisores y resumen inicial
+    cargarSupervisoresResumen();
+    cargarResumenAgrupado();
+}
+
+// Inicializar la página al cargar
 document.addEventListener('DOMContentLoaded', function() {
     cargarSupervisoresEdicion();
+    inicializarResumen();
 });
 </script>
 {% endblock %}
