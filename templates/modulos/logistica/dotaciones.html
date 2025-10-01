@@ -1478,6 +1478,7 @@
                 'estadoPantalon',
                 'estadoCamisetaGris', 
                 'estadoGuerrera',
+                'estadoChaqueta',
                 'estadoCamisetaPolo',
                 'estadoGuantesNitrilo',
                 'estadoGuantesCarnaza',
@@ -1501,6 +1502,9 @@
                     // Asegurar que las clases CSS estén aplicadas
                     checkbox.classList.add('form-check-input');
                     label.classList.add('form-check-label');
+                    
+                    // Establecer checkbox como checked por defecto (VALORADO)
+                    checkbox.checked = true;
                     
                     // Función para actualizar el texto del label
                     const actualizarLabel = () => {
@@ -1993,7 +1997,7 @@
                 chaqueta_valorado: document.getElementById('estadoChaqueta').checked ? 1 : 0,
                 camisetapolo: parseInt(document.getElementById('camisetapolo').value) || null,
                 camiseta_polo_talla: document.getElementById('camisetaPoloTalla').value || null,
-                camiseta_polo_valorado: document.getElementById('estadoCamisetaPolo').checked ? 1 : 0,
+                camisetapolo_valorado: document.getElementById('estadoCamisetaPolo').checked ? 1 : 0,
                 guantes_nitrilo: parseInt(document.getElementById('guantesNitrilo').value) || null,
                 guantes_nitrilo_valorado: document.getElementById('estadoGuantesNitrilo').checked ? 1 : 0,
                 guantes_carnaza: parseInt(document.getElementById('guantesCarnaza').value) || null,
@@ -2875,7 +2879,7 @@
             mostrarElemento('CamisetaGris', dotacion.camiseta_gris_cantidad || 0, dotacion.camiseta_gris_talla, dotacion.camiseta_gris_valorado);
             mostrarElemento('Guerrera', dotacion.guerrera_cantidad || 0, dotacion.guerrera_talla, dotacion.guerrera_valorado);
             mostrarElemento('Chaqueta', dotacion.chaqueta_cantidad || 0, dotacion.chaqueta_talla, dotacion.chaqueta_valorado);
-            mostrarElemento('CamisetaPolo', dotacion.camiseta_polo_cantidad || 0, dotacion.camiseta_polo_talla, dotacion.camiseta_polo_valorado);
+            mostrarElemento('CamisetaPolo', dotacion.camiseta_polo_cantidad || 0, dotacion.camiseta_polo_talla, dotacion.camisetapolo_valorado);
             
             // Mostrar EPP
             mostrarElemento('GuantesNitrilo', dotacion.guantes_nitrilo_cantidad || 0, null, dotacion.guantes_nitrilo_valorado);

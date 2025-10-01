@@ -85,24 +85,36 @@ class ValidadorStockPorEstado:
             int: Stock disponible
         """
         try:
-            # Obtener ingresos por estado
-            cursor.execute("""
-                SELECT COALESCE(SUM(cantidad), 0) as stock_ingresos
-                FROM ingresos_dotaciones 
-                WHERE tipo_elemento = %s AND estado = %s
-            """, (elemento, estado))
+            # Obtener el nombre correcto de la columna para buscar en ingresos_dotaciones
+            nombre_columna = self._obtener_nombre_columna(elemento)
+            
+            # Para camiseta polo, buscar ambas variantes: 'camisetapolo' y 'camiseta_polo'
+            if elemento in ['camiseta_polo', 'camisetapolo']:
+                cursor.execute("""
+                    SELECT COALESCE(SUM(cantidad), 0) as stock_ingresos
+                    FROM ingresos_dotaciones 
+                    WHERE (tipo_elemento = 'camisetapolo' OR tipo_elemento = 'camiseta_polo') 
+                    AND estado = %s
+                """, (estado,))
+            else:
+                # Obtener ingresos por estado para otros elementos
+                cursor.execute("""
+                    SELECT COALESCE(SUM(cantidad), 0) as stock_ingresos
+                    FROM ingresos_dotaciones 
+                    WHERE tipo_elemento = %s AND estado = %s
+                """, (nombre_columna, estado))
             
             ingresos_result = cursor.fetchone()
             stock_ingresos = ingresos_result['stock_ingresos'] if ingresos_result else 0
             
             # Obtener salidas por estado desde dotaciones
-            campo_estado = self._obtener_campo_estado(elemento)
-            campo_cantidad = elemento
+            campo_estado_dotaciones = self._obtener_campo_estado(elemento, 'dotaciones')
+            campo_cantidad = self._obtener_nombre_columna(elemento)
             
             query_dotaciones = f"""
                 SELECT COALESCE(SUM({campo_cantidad}), 0) as total_dotaciones
                 FROM dotaciones 
-                WHERE {campo_estado} = %s AND {campo_cantidad} IS NOT NULL AND {campo_cantidad} > 0
+                WHERE {campo_estado_dotaciones} = %s AND {campo_cantidad} IS NOT NULL AND {campo_cantidad} > 0
             """
             
             cursor.execute(query_dotaciones, (estado,))
@@ -110,10 +122,12 @@ class ValidadorStockPorEstado:
             stock_dotaciones = dotaciones_result['total_dotaciones'] if dotaciones_result else 0
             
             # Obtener salidas por estado desde cambios_dotacion
+            campo_estado_cambios = self._obtener_campo_estado(elemento, 'cambios_dotacion')
+            
             query_cambios = f"""
                 SELECT COALESCE(SUM({campo_cantidad}), 0) as total_cambios
                 FROM cambios_dotacion 
-                WHERE {campo_estado} = %s AND {campo_cantidad} IS NOT NULL AND {campo_cantidad} > 0
+                WHERE {campo_estado_cambios} = %s AND {campo_cantidad} IS NOT NULL AND {campo_cantidad} > 0
             """
             
             cursor.execute(query_cambios, (estado,))
@@ -129,20 +143,24 @@ class ValidadorStockPorEstado:
             print(f"Error calculando stock para {elemento} ({estado}): {e}")
             return 0
     
-    def _obtener_campo_estado(self, elemento):
+    def _obtener_campo_estado(self, elemento, tabla='dotaciones'):
         """Obtener el nombre del campo de estado para un elemento
         
         Args:
             elemento (str): Nombre del elemento
+            tabla (str): Nombre de la tabla ('dotaciones' o 'cambios_dotacion')
             
         Returns:
             str: Nombre del campo de estado en la base de datos
         """
-        mapeo_estados = {
+        # Mapeo para tabla dotaciones
+        mapeo_dotaciones = {
             'pantalon': 'estado_pantalon',
-            'camisetagris': 'estado_camiseta_gris',
+            'camisetagris': 'estado_camisetagris',
+            'camiseta_gris': 'estado_camisetagris',
             'guerrera': 'estado_guerrera',
             'camisetapolo': 'estado_camiseta_polo',
+            'camiseta_polo': 'estado_camiseta_polo',
             'guantes_nitrilo': 'estado_guantes_nitrilo',
             'guantes_carnaza': 'estado_guantes_carnaza',
             'gafas': 'estado_gafas',
@@ -151,7 +169,53 @@ class ValidadorStockPorEstado:
             'botas': 'estado_botas'
         }
         
-        return mapeo_estados.get(elemento, f'estado_{elemento}')
+        # Mapeo para tabla cambios_dotacion (tiene nombres diferentes)
+        mapeo_cambios = {
+            'pantalon': 'estado_pantalon',
+            'camisetagris': 'estado_camiseta_gris',  # Diferente en cambios_dotacion
+            'camiseta_gris': 'estado_camiseta_gris',
+            'guerrera': 'estado_guerrera',
+            'camisetapolo': 'estado_camiseta_polo',
+            'camiseta_polo': 'estado_camiseta_polo',
+            'guantes_nitrilo': 'estado_guantes_nitrilo',
+            'guantes_carnaza': 'estado_guantes_carnaza',
+            'gafas': 'estado_gafas',
+            'gorra': 'estado_gorra',
+            'casco': 'estado_casco',
+            'botas': 'estado_botas'
+        }
+        
+        if tabla == 'cambios_dotacion':
+            return mapeo_cambios.get(elemento, f'estado_{elemento}')
+        else:
+            return mapeo_dotaciones.get(elemento, f'estado_{elemento}')
+    
+    def _obtener_nombre_columna(self, elemento):
+        """Obtener el nombre correcto de la columna para un elemento
+        
+        Args:
+            elemento (str): Nombre del elemento
+            
+        Returns:
+            str: Nombre de la columna en las tablas dotaciones/cambios_dotacion
+        """
+        # Mapeo de elementos a nombres de columnas
+        mapeo_columnas = {
+            'camiseta_gris': 'camisetagris',
+            'camiseta_polo': 'camisetapolo',
+            'camisetagris': 'camisetagris',
+            'camisetapolo': 'camisetapolo',
+            'pantalon': 'pantalon',
+            'guerrera': 'guerrera',
+            'guantes_nitrilo': 'guantes_nitrilo',
+            'guantes_carnaza': 'guantes_carnaza',
+            'gafas': 'gafas',
+            'gorra': 'gorra',
+            'casco': 'casco',
+            'botas': 'botas'
+        }
+        
+        return mapeo_columnas.get(elemento, elemento)
     
     def validar_asignacion_con_estados(self, id_codigo_consumidor, items_dict, estados_dict):
         """Validar una asignación completa considerando estados de valoración
@@ -185,30 +249,90 @@ class ValidadorStockPorEstado:
         }
     
     def obtener_stock_detallado_por_estado(self, elemento):
-        """Obtener stock detallado de un elemento por estado
+        """Obtener información detallada del stock por estado para un elemento
         
         Args:
             elemento (str): Nombre del elemento
             
         Returns:
-            dict: Stock por estado
+            dict: Información detallada del stock
         """
         if not self.conexion:
             return {}
         
         try:
             cursor = self.conexion.cursor(dictionary=True)
+            campo_estado_dotaciones = self._obtener_campo_estado(elemento, 'dotaciones')
+            campo_estado_cambios = self._obtener_campo_estado(elemento, 'cambios_dotacion')
             
             resultado = {
-                'VALORADO': self._calcular_stock_por_estado(cursor, elemento, 'VALORADO'),
-                'NO VALORADO': self._calcular_stock_por_estado(cursor, elemento, 'NO VALORADO')
+                'elemento': elemento,
+                'valorado': {
+                    'ingresos': 0,
+                    'dotaciones': 0,
+                    'cambios': 0,
+                    'disponible': 0
+                },
+                'no_valorado': {
+                    'ingresos': 0,
+                    'dotaciones': 0,
+                    'cambios': 0,
+                    'disponible': 0
+                }
             }
+            
+            for estado in ['VALORADO', 'NO VALORADO']:
+                estado_key = 'valorado' if estado == 'VALORADO' else 'no_valorado'
+                
+                # Ingresos - Para camiseta polo, buscar ambas variantes
+                if elemento in ['camiseta_polo', 'camisetapolo']:
+                    query_ingresos = """
+                        SELECT COALESCE(SUM(cantidad), 0)
+                        FROM ingresos_dotaciones 
+                        WHERE (tipo_elemento = 'camisetapolo' OR tipo_elemento = 'camiseta_polo') 
+                        AND estado = %s
+                    """
+                    cursor.execute(query_ingresos, (estado,))
+                else:
+                    query_ingresos = """
+                        SELECT COALESCE(SUM(cantidad), 0)
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = %s AND estado = %s
+                    """
+                    cursor.execute(query_ingresos, (elemento, estado))
+                ingresos = cursor.fetchone()['COALESCE(SUM(cantidad), 0)'] or 0
+                resultado[estado_key]['ingresos'] = ingresos
+                
+                # Dotaciones - usar nombre de columna correcto
+                nombre_columna_tabla = self._obtener_nombre_columna(elemento)
+                query_dotaciones = f"""
+                    SELECT COALESCE(SUM({nombre_columna_tabla}), 0)
+                    FROM dotaciones 
+                    WHERE {campo_estado_dotaciones} = %s
+                """
+                cursor.execute(query_dotaciones, (estado,))
+                dotaciones = cursor.fetchone()[f'COALESCE(SUM({nombre_columna_tabla}), 0)'] or 0
+                resultado[estado_key]['dotaciones'] = dotaciones
+                
+                # Cambios - usar nombre de columna correcto
+                query_cambios = f"""
+                    SELECT COALESCE(SUM({nombre_columna_tabla}), 0)
+                    FROM cambios_dotacion 
+                    WHERE {campo_estado_cambios} = %s
+                """
+                cursor.execute(query_cambios, (estado,))
+                cambios = cursor.fetchone()[f'COALESCE(SUM({nombre_columna_tabla}), 0)'] or 0
+                resultado[estado_key]['cambios'] = cambios
+                
+                # Disponible
+                disponible = max(0, ingresos - dotaciones - cambios)
+                resultado[estado_key]['disponible'] = disponible
             
             cursor.close()
             return resultado
             
         except Exception as e:
-            print(f"Error obteniendo stock detallado: {e}")
+            print(f"Error obteniendo stock detallado para {elemento}: {e}")
             return {}
     
     def cerrar_conexion(self):
