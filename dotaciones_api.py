@@ -201,7 +201,7 @@ def registrar_rutas_dotaciones(app):
                 
                 'camiseta_polo_cantidad': dotacion.get('camisetapolo') or 0,
                 'camiseta_polo_talla': dotacion.get('camiseta_polo_talla'),
-                'camiseta_polo_valorado': 1 if dotacion.get('estado_camiseta_polo') == 'VALORADO' else 0,
+                'camisetapolo_valorado': 1 if dotacion.get('estado_camiseta_polo') == 'VALORADO' else 0,
                 
                 # EPP sin tallas
                 'guantes_nitrilo_cantidad': dotacion.get('guantes_nitrilo') or 0,
@@ -249,6 +249,15 @@ def registrar_rutas_dotaciones(app):
         try:
             data = request.get_json()
             
+            # DEBUG: Log de los datos recibidos
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            logger.info(f"=== DATOS RECIBIDOS EN CREAR_DOTACION [{timestamp}] ===")
+            logger.info(f"Data completa: {json.dumps(data, indent=2)}")
+            
+            # DEBUG: Log específico de campos valorado
+            valorado_fields = {k: v for k, v in data.items() if 'valorado' in k}
+            logger.info(f"Campos valorado recibidos: {valorado_fields}")
+            
             # Validar datos requeridos
             if not data.get('cliente'):
                 return jsonify({'success': False, 'message': 'El campo cliente es requerido'}), 400
@@ -269,10 +278,29 @@ def registrar_rutas_dotaciones(app):
                         elemento_mapeado = 'camiseta_polo'
                     
                     # Obtener el estado de valoración desde el campo _valorado
-                    valorado_key = f'{elemento}_valorado'
+                    # Mapear correctamente los nombres de campos valorado
+                    if elemento == 'camisetapolo':
+                        valorado_key = 'camisetapolo_valorado'
+                    elif elemento == 'camisetagris':
+                        valorado_key = 'camiseta_gris_valorado'
+                    else:
+                        valorado_key = f'{elemento}_valorado'
+                    
                     es_valorado = data.get(valorado_key, False)
                     estado = 'VALORADO' if es_valorado else 'NO VALORADO'
+                    
+                    # DEBUG: Log detallado del mapeo
+                    logger.info(f"🔍 MAPEO ELEMENTO: {elemento}")
+                    logger.info(f"   - Elemento mapeado: {elemento_mapeado}")
+                    logger.info(f"   - Valorado key buscado: {valorado_key}")
+                    logger.info(f"   - Valor encontrado: {es_valorado}")
+                    logger.info(f"   - Estado final: {estado}")
+                    logger.info(f"   - Cantidad: {cantidad}")
                     items_con_estado[elemento_mapeado] = (cantidad, estado)
+            
+            # DEBUG: Imprimir datos recibidos
+            print(f"🔍 DEBUG - Datos recibidos: {data}")
+            print(f"🔍 DEBUG - Items con estado: {items_con_estado}")
             
             # Validar stock por estado antes de crear la dotación
             if items_con_estado:
@@ -281,6 +309,9 @@ def registrar_rutas_dotaciones(app):
                 # Separar items y estados para el validador
                 items_dict = {k: v[0] for k, v in items_con_estado.items()}
                 estados_dict = {k: v[1] for k, v in items_con_estado.items()}
+                
+                print(f"🔍 DEBUG - Items dict: {items_dict}")
+                print(f"🔍 DEBUG - Estados dict: {estados_dict}")
                 
                 es_valido, resultado = validador.validar_asignacion_con_estados(
                     data.get('id_codigo_consumidor', 0), items_dict, estados_dict
@@ -299,14 +330,14 @@ def registrar_rutas_dotaciones(app):
             INSERT INTO dotaciones (
                 cliente, id_codigo_consumidor, pantalon, pantalon_talla,
                 camisetagris, camiseta_gris_talla, guerrera, guerrera_talla,
-                camisetapolo, camiseta_polo_talla, 
+                chaqueta, chaqueta_talla, camisetapolo, camiseta_polo_talla, 
                 guantes_nitrilo, guantes_carnaza, gafas, gorra, casco, botas, botas_talla,
-                estado_pantalon, estado_camisetagris, estado_guerrera,
+                estado_pantalon, estado_camisetagris, estado_guerrera, estado_chaqueta,
                 estado_camiseta_polo, estado_guantes_nitrilo, estado_guantes_carnaza, 
                 estado_gafas, estado_gorra, estado_casco, estado_botas, fecha_registro
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW()
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW()
             )
             """
             
@@ -319,6 +350,8 @@ def registrar_rutas_dotaciones(app):
                 data.get('camiseta_gris_talla'),
                 data.get('guerrera'),
                 data.get('guerrera_talla'),
+                data.get('chaqueta'),
+                data.get('chaqueta_talla'),
                 data.get('camisetapolo'),
                 data.get('camiseta_polo_talla'),
                 data.get('guantes_nitrilo'),
@@ -332,7 +365,8 @@ def registrar_rutas_dotaciones(app):
                 'VALORADO' if data.get('pantalon_valorado') else 'NO VALORADO',
                 'VALORADO' if data.get('camiseta_gris_valorado') else 'NO VALORADO',
                 'VALORADO' if data.get('guerrera_valorado') else 'NO VALORADO',
-                'VALORADO' if data.get('camiseta_polo_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('chaqueta_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('camisetapolo_valorado') else 'NO VALORADO',
                 'VALORADO' if data.get('guantes_nitrilo_valorado') else 'NO VALORADO',
                 'VALORADO' if data.get('guantes_carnaza_valorado') else 'NO VALORADO',
                 'VALORADO' if data.get('gafas_valorado') else 'NO VALORADO',
@@ -424,7 +458,11 @@ def registrar_rutas_dotaciones(app):
                     'talla': data.get('guerrera_talla'),
                     'valorado': data.get('guerrera_valorado', False)
                 },
-
+                'chaqueta': {
+                    'cantidad': data.get('chaqueta'),
+                    'talla': data.get('chaqueta_talla'),
+                    'valorado': data.get('chaqueta_valorado', False)
+                },
                 'camisetapolo': {
                     'cantidad': data.get('camisetapolo'),
                     'talla': data.get('camiseta_polo_talla'),
@@ -462,12 +500,19 @@ def registrar_rutas_dotaciones(app):
                 }
             }
             
+            # DEBUG: Imprimir todos los valores recibidos
+            print(f"\n🔍 DEBUG CREAR_DOTACION - {datetime.now().strftime('%H:%M:%S')}")
+            print("📦 ELEMENTOS RECIBIDOS:")
+            for elemento, datos in elementos_dotacion.items():
+                print(f"  {elemento}: cantidad={datos['cantidad']} (tipo: {type(datos['cantidad'])}), valorado={datos['valorado']}")
+            
             # Validar stock disponible con lógica inteligente (usar ambos estados si es necesario)
             errores_stock = []
             elementos_con_stock_mixto = []
             
             for elemento, datos in elementos_dotacion.items():
                 cantidad = datos['cantidad']
+                print(f"🔍 Evaluando {elemento}: cantidad={cantidad}, tipo={type(cantidad)}, es_none={cantidad is None}, es_mayor_0={cantidad > 0 if cantidad is not None else 'N/A'}")
                 if cantidad is not None and cantidad > 0:
                     
                     # Verificar stock disponible en ambos estados
@@ -494,6 +539,7 @@ def registrar_rutas_dotaciones(app):
                                     WHEN %s = 'pantalon' AND estado_pantalon = %s THEN pantalon
                                     WHEN %s = 'camisetagris' AND estado_camiseta_gris = %s THEN camisetagris
                                     WHEN %s = 'guerrera' AND estado_guerrera = %s THEN guerrera
+                                    WHEN %s = 'chaqueta' AND estado_chaqueta = %s THEN chaqueta
                                     WHEN %s = 'camisetapolo' AND estado_camiseta_polo = %s THEN camisetapolo
                                     WHEN %s = 'guantes_nitrilo' AND estado_guantes_nitrilo = %s THEN guantes_nitrilo
                                     WHEN %s = 'guantes_carnaza' AND estado_guantes_carnaza = %s THEN guantes_carnaza
@@ -508,7 +554,7 @@ def registrar_rutas_dotaciones(app):
                         """, (elemento, tipo_estado, elemento, tipo_estado, elemento, tipo_estado, 
                               elemento, tipo_estado, elemento, tipo_estado, elemento, tipo_estado,
                               elemento, tipo_estado, elemento, tipo_estado, elemento, tipo_estado,
-                              elemento, tipo_estado))
+                              elemento, tipo_estado, elemento, tipo_estado))
                         
                         salidas_result = cursor.fetchone()
                         stock_salidas = salidas_result['total_salidas'] if salidas_result else 0
@@ -582,15 +628,19 @@ def registrar_rutas_dotaciones(app):
                 )
             """
             
+            # Función auxiliar para manejar tallas vacías
+            def procesar_talla(talla):
+                return None if talla == "" or talla is None else talla
+            
             cursor.execute(query_cambio, (
                 id_codigo_consumidor, fecha_cambio, 
-                elementos_dotacion['pantalon']['cantidad'], elementos_dotacion['pantalon']['talla'], 
+                elementos_dotacion['pantalon']['cantidad'], procesar_talla(elementos_dotacion['pantalon']['talla']), 
                 'VALORADO' if elementos_dotacion['pantalon']['valorado'] else 'NO VALORADO',
-                elementos_dotacion['camisetagris']['cantidad'], elementos_dotacion['camisetagris']['talla'],
+                elementos_dotacion['camisetagris']['cantidad'], procesar_talla(elementos_dotacion['camisetagris']['talla']),
                 'VALORADO' if elementos_dotacion['camisetagris']['valorado'] else 'NO VALORADO',
-                elementos_dotacion['guerrera']['cantidad'], elementos_dotacion['guerrera']['talla'],
+                elementos_dotacion['guerrera']['cantidad'], procesar_talla(elementos_dotacion['guerrera']['talla']),
                 'VALORADO' if elementos_dotacion['guerrera']['valorado'] else 'NO VALORADO',
-                elementos_dotacion['camisetapolo']['cantidad'], elementos_dotacion['camisetapolo']['talla'],
+                elementos_dotacion['camisetapolo']['cantidad'], procesar_talla(elementos_dotacion['camisetapolo']['talla']),
                 'VALORADO' if elementos_dotacion['camisetapolo']['valorado'] else 'NO VALORADO',
                 elementos_dotacion['guantes_nitrilo']['cantidad'], 
                 'VALORADO' if elementos_dotacion['guantes_nitrilo']['valorado'] else 'NO VALORADO',
@@ -602,7 +652,7 @@ def registrar_rutas_dotaciones(app):
                 'VALORADO' if elementos_dotacion['gorra']['valorado'] else 'NO VALORADO',
                 elementos_dotacion['casco']['cantidad'],
                 'VALORADO' if elementos_dotacion['casco']['valorado'] else 'NO VALORADO',
-                elementos_dotacion['botas']['cantidad'], elementos_dotacion['botas']['talla'],
+                elementos_dotacion['botas']['cantidad'], procesar_talla(elementos_dotacion['botas']['talla']),
                 'VALORADO' if elementos_dotacion['botas']['valorado'] else 'NO VALORADO',
                 data.get('observaciones', '')
             ))
@@ -1240,12 +1290,19 @@ def registrar_rutas_dotaciones(app):
             stock_data = []
             
             for elemento in elementos:
-                # Obtener total de ingresos
-                cursor.execute("""
-                    SELECT COALESCE(SUM(cantidad), 0) as total_ingresos
-                    FROM ingresos_dotaciones 
-                    WHERE tipo_elemento = %s
-                """, (elemento,))
+                # Obtener total de ingresos - Para camisetapolo, buscar ambas variantes
+                if elemento == 'camisetapolo':
+                    cursor.execute("""
+                        SELECT COALESCE(SUM(cantidad), 0) as total_ingresos
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = 'camisetapolo' OR tipo_elemento = 'camiseta_polo'
+                    """)
+                else:
+                    cursor.execute("""
+                        SELECT COALESCE(SUM(cantidad), 0) as total_ingresos
+                        FROM ingresos_dotaciones 
+                        WHERE tipo_elemento = %s
+                    """, (elemento,))
                 
                 ingresos_result = cursor.fetchone()
                 total_ingresos = ingresos_result['total_ingresos'] if ingresos_result else 0
@@ -2331,7 +2388,7 @@ def registrar_rutas_dotaciones(app):
                     (
                         SELECT COALESCE(SUM(cantidad), 0) 
                         FROM ingresos_dotaciones 
-                        WHERE tipo_elemento = 'camisetapolo'
+                        WHERE tipo_elemento = 'camisetapolo' OR tipo_elemento = 'camiseta_polo'
                     ) AS cantidad_ingresada,
                     (
                         SELECT COALESCE(SUM(camisetapolo), 0) 
@@ -2345,7 +2402,7 @@ def registrar_rutas_dotaciones(app):
                     (
                         SELECT COALESCE(SUM(cantidad), 0) 
                         FROM ingresos_dotaciones 
-                        WHERE tipo_elemento = 'camisetapolo'
+                        WHERE tipo_elemento = 'camisetapolo' OR tipo_elemento = 'camiseta_polo'
                     ) - (
                         SELECT COALESCE(SUM(camisetapolo), 0) 
                         FROM dotaciones 

@@ -290,6 +290,35 @@
     .alert-info {
         border-left-color: #0dcaf0;
     }
+
+    /* Estilo para la etiqueta de versión beta */
+    .version-beta {
+        position: fixed;
+        bottom: 15px;
+        right: 15px;
+        background: rgba(108, 117, 125, 0.8);
+        color: rgba(255, 255, 255, 0.9);
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: 400;
+        z-index: 1000;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        pointer-events: none;
+        user-select: none;
+        opacity: 0.6;
+        transition: opacity 0.3s ease;
+        backdrop-filter: blur(4px);
+    }
+
+    .version-beta:hover {
+        opacity: 0.8;
+    }
     </style>
+
+    <!-- Etiqueta de Versión Beta -->
+    <div class="version-beta">
+        <i class="fas fa-flask me-1"></i>Versión Beta
+    </div>
 </body>
 </html>
