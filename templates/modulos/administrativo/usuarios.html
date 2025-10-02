@@ -307,6 +307,16 @@
                             </select>
                         </div>
                     </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="edit_analista" class="form-label">Analista</label>
+                            <select class="form-select" id="edit_analista" name="analista">
+                                <option value="">Seleccione un analista</option>
+                                <!-- Las opciones se cargarán dinámicamente desde /api/analistas -->
+                            </select>
+                            <div class="form-text">Analista asignado al técnico (solo para técnicos).</div>
+                        </div>
+                    </div>
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle me-2"></i> Los campos marcados con * son obligatorios.
                     </div>
@@ -568,6 +578,57 @@
                 });
         });
     }
+
+    // Función para cargar analistas desde la API
+    function cargarAnalistas() {
+        return new Promise((resolve, reject) => {
+            fetch('/api/analistas')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error al obtener analistas: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Respuesta completa de analistas:', data); // Para depuración
+                    
+                    // Verificar que la respuesta sea exitosa y contenga analistas
+                    if (!data.success) {
+                        throw new Error(data.message || 'Error al obtener analistas');
+                    }
+                    
+                    if (!data.analistas || !Array.isArray(data.analistas)) {
+                        throw new Error('La respuesta no contiene un array de analistas válido');
+                    }
+                    
+                    console.log('Analistas obtenidos:', data.analistas); // Para depuración
+                    
+                    // Cargar analistas en el select de edición
+                    const editAnalistaSelect = document.getElementById('edit_analista');
+                    if (editAnalistaSelect) {
+                        // Mantener la opción "Seleccione un analista"
+                        const primeraOpcion = editAnalistaSelect.options[0];
+                        editAnalistaSelect.innerHTML = '';
+                        editAnalistaSelect.appendChild(primeraOpcion);
+                        
+                        // Agregar los analistas obtenidos
+                        data.analistas.forEach(analista => {
+                            const option = document.createElement('option');
+                            option.value = analista.nombre; // Usar el nombre como value para que coincida con el campo analista de la BD
+                            option.textContent = `${analista.nombre} (${analista.recurso_operativo_cedula})`;
+                            editAnalistaSelect.appendChild(option);
+                        });
+                    }
+                    
+                    resolve();
+                })
+                .catch(error => {
+                    console.error('Error al cargar analistas:', error);
+                    mostrarAlerta('Error al cargar los analistas: ' + error.message, 'danger');
+                    reject(error);
+                });
+        });
+    }
 </script>
 
 <script>
@@ -609,6 +670,9 @@
         
         // Cargar cargos dinámicamente
         cargarCargos();
+        
+        // Cargar analistas dinámicamente
+        cargarAnalistas();
         
         // Variables para el contador de registros y paginación
         let totalRegistros = 0;
@@ -1110,9 +1174,9 @@
         }
         
         // Primero cargar las opciones para los dropdowns
-        cargarOpcionesUsuario()
+        Promise.all([cargarOpcionesUsuario(), cargarAnalistas()])
             .then(() => {
-                console.log('Opciones cargadas correctamente, obteniendo datos del usuario'); // Para depuración
+                console.log('Opciones y analistas cargados correctamente, obteniendo datos del usuario'); // Para depuración
                 // Luego obtener los datos del usuario
                 return fetch('/obtener_usuario/' + id);
             })
@@ -1150,6 +1214,7 @@
                 establecerValorDropdown('edit_cliente', data.cliente);
                 establecerValorDropdown('edit_ciudad', data.ciudad);
                 establecerValorDropdown('edit_super', data.super);
+                establecerValorDropdown('edit_analista', data.analista);
                 
                 // Limpiar el campo de contraseña ya que no se muestra por seguridad
                 document.getElementById('edit_password').value = '';
