@@ -500,6 +500,34 @@ def logout():
     # Redirigir al login
     return redirect(url_for('login'))
 
+# ============================================================================
+# MÓDULO ANALISTAS - RUTAS PRINCIPALES
+# ============================================================================
+
+@app.route('/analistas')
+@login_required()
+def main_analistas_index():
+    """Renderizar el dashboard del módulo analistas"""
+    return render_template('modulos/analistas/dashboard.html')
+
+@app.route('/analistas/causas')
+@login_required()
+def main_analistas_causas():
+    """Renderizar la página de causas de cierre"""
+    return render_template('modulos/analistas/index.html')
+
+@app.route('/analistas/dashboard')
+@login_required()
+def main_analistas_dashboard():
+    """Renderizar el dashboard del módulo analistas"""
+    return render_template('modulos/analistas/dashboard.html')
+
+@app.route('/analistas/inicio-operacion-tecnicos')
+@login_required()
+def main_inicio_operacion_tecnicos():
+    """Renderizar la página de inicio de operación para técnicos"""
+    return render_template('inicio_operacion_tecnicos.html')
+
 @app.route('/tecnicos')
 @login_required(role='tecnicos')
 def tecnicos_dashboard():
@@ -2571,6 +2599,195 @@ def verificar_registro_preoperacional():
     except Error as e:
         print(f"Error en verificar_registro_preoperacional: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+# API Routes para Analistas
+@app.route('/api/analistas/causas-cierre', methods=['GET'])
+@login_required
+def api_causas_cierre():
+    """API endpoint para obtener causas de cierre con filtros"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener parámetros de filtro
+        grupo = request.args.get('grupo')
+        tecnologia = request.args.get('tecnologia')
+        agrupacion = request.args.get('agrupacion')
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        
+        # Construir la consulta base
+        query = """
+            SELECT 
+                cc.id,
+                cc.grupo,
+                cc.tecnologia,
+                cc.agrupacion,
+                cc.causa_cierre,
+                cc.descripcion,
+                cc.fecha_creacion,
+                cc.activo
+            FROM causas_cierre cc
+            WHERE cc.activo = 1
+        """
+        
+        params = []
+        
+        # Agregar filtros
+        if grupo:
+            query += " AND cc.grupo = %s"
+            params.append(grupo)
+        if tecnologia:
+            query += " AND cc.tecnologia = %s"
+            params.append(tecnologia)
+        if agrupacion:
+            query += " AND cc.agrupacion = %s"
+            params.append(agrupacion)
+        if fecha_inicio:
+            query += " AND DATE(cc.fecha_creacion) >= %s"
+            params.append(fecha_inicio)
+        if fecha_fin:
+            query += " AND DATE(cc.fecha_creacion) <= %s"
+            params.append(fecha_fin)
+            
+        query += " ORDER BY cc.fecha_creacion DESC"
+        
+        cursor.execute(query, params)
+        causas = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'total': len(causas),
+            'causas': causas
+        })
+        
+    except mysql.connector.Error as e:
+        logging.error(f"Error en API causas de cierre: {str(e)}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    except Exception as e:
+        logging.error(f"Error inesperado en API causas de cierre: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/analistas/tecnicos-asignados', methods=['GET'])
+@login_required()
+def main_api_tecnicos_asignados():
+    """API endpoint para obtener técnicos asignados al analista actual con su información de asistencia"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener el nombre del analista actual desde la sesión
+        analista_nombre = session.get('user_name') if session.get('user_name') else None
+        
+        if not analista_nombre:
+            return jsonify({'error': 'No se pudo identificar al analista actual'}), 401
+            
+        # Obtener parámetro de fecha (por defecto fecha actual)
+        fecha_filtro = request.args.get('fecha')
+        if not fecha_filtro:
+            from datetime import date
+            fecha_filtro = date.today().strftime('%Y-%m-%d')
+        
+        # Consulta para obtener técnicos asignados al analista actual
+        query_tecnicos = """
+            SELECT DISTINCT
+                ro.id_codigo_consumidor,
+                ro.recurso_operativo_cedula as cedula,
+                ro.nombre as tecnico,
+                ro.carpeta,
+                ro.cliente,
+                ro.ciudad,
+                ro.super as supervisor,
+                ro.analista
+            FROM recurso_operativo ro
+            WHERE ro.analista = %s
+            AND ro.estado = 'Activo'
+            ORDER BY ro.nombre
+        """
+        
+        cursor.execute(query_tecnicos, (analista_nombre,))
+        tecnicos = cursor.fetchall()
+        
+        # Para cada técnico, obtener información de asistencia del día actual
+        tecnicos_con_asistencia = []
+        
+        for tecnico in tecnicos:
+            # Buscar asistencia del día filtrado
+            query_asistencia = """
+                SELECT 
+                    a.carpeta_dia,
+                    a.fecha_asistencia,
+                    ta.nombre_tipificacion,
+                    ta.codigo_tipificacion,
+                    ta.grupo as grupo_tipificacion,
+                    pc.presupuesto_eventos,
+                    pc.presupuesto_diario,
+                    pc.presupuesto_carpeta as nombre_presupuesto_carpeta
+                FROM asistencia a
+                LEFT JOIN tipificacion_asistencia ta ON a.carpeta_dia = ta.codigo_tipificacion
+                LEFT JOIN presupuesto_carpeta pc ON ta.nombre_tipificacion = pc.presupuesto_carpeta
+                WHERE a.cedula = %s
+                AND DATE(a.fecha_asistencia) = %s
+                ORDER BY a.fecha_asistencia DESC
+                LIMIT 1
+            """
+            
+            cursor.execute(query_asistencia, (tecnico['cedula'], fecha_filtro))
+            asistencia = cursor.fetchone()
+            
+            # Agregar información de asistencia al técnico
+            tecnico_info = {
+                'id_codigo_consumidor': tecnico['id_codigo_consumidor'],
+                'cedula': tecnico['cedula'],
+                'tecnico': tecnico['tecnico'],
+                'carpeta': tecnico['carpeta'],
+                'cliente': tecnico['cliente'],
+                'ciudad': tecnico['ciudad'],
+                'supervisor': tecnico['supervisor'],
+                'analista': tecnico['analista'],
+                'asistencia_hoy': {
+                    'carpeta_dia': asistencia['carpeta_dia'] if asistencia else None,
+                    'fecha_asistencia': asistencia['fecha_asistencia'].isoformat() if asistencia and asistencia['fecha_asistencia'] else None,
+                    'tipificacion': asistencia['nombre_tipificacion'] if asistencia else 'Sin registro',
+                    'codigo_tipificacion': asistencia['codigo_tipificacion'] if asistencia else None,
+                    'grupo_tipificacion': asistencia['grupo_tipificacion'] if asistencia else None,
+                    'presupuesto_eventos': asistencia['presupuesto_eventos'] if asistencia else None,
+                    'presupuesto_diario': asistencia['presupuesto_diario'] if asistencia else None,
+                    'nombre_presupuesto_carpeta': asistencia['nombre_presupuesto_carpeta'] if asistencia else None
+                }
+            }
+            
+            tecnicos_con_asistencia.append(tecnico_info)
+        
+        return jsonify({
+            'success': True,
+            'analista': analista_nombre,
+            'total_tecnicos': len(tecnicos_con_asistencia),
+            'tecnicos': tecnicos_con_asistencia
+        })
+        
+    except mysql.connector.Error as e:
+        logging.error(f"Error en API técnicos asignados: {str(e)}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    except Exception as e:
+        logging.error(f"Error inesperado en API técnicos asignados: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
 
 @app.route('/logistica/asignaciones')
 @login_required()
