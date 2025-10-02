@@ -80,6 +80,44 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
+        
+        /* Estilos para campos bloqueados */
+        .campo-bloqueado {
+            background-color: #f8f9fa !important;
+            color: #6c757d !important;
+            border-color: #dee2e6 !important;
+            cursor: not-allowed !important;
+            opacity: 0.8;
+        }
+        
+        .campo-bloqueado:focus {
+            box-shadow: none !important;
+            border-color: #dee2e6 !important;
+        }
+        
+        .boton-bloqueado {
+            background-color: #f8f9fa !important;
+            border-color: #dee2e6 !important;
+            color: #6c757d !important;
+            cursor: not-allowed !important;
+            opacity: 0.8;
+        }
+        
+        .boton-bloqueado:hover {
+            background-color: #f8f9fa !important;
+            border-color: #dee2e6 !important;
+            color: #6c757d !important;
+            transform: none !important;
+        }
+        
+        /* Indicador visual de que los datos están guardados */
+        .fila-guardada {
+            background-color: #f8fff8 !important;
+        }
+        
+        .fila-guardada td {
+            border-color: #d4edda !important;
+        }
     </style>
     <!-- SheetJS library for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -178,6 +216,9 @@
                     </div>
                     <input type="text" class="form-control me-2" id="filtro-busqueda" 
                            placeholder="Buscar técnico, carpeta o tipificación..." style="width: 400px;">
+                    <button class="btn btn-primary me-2" onclick="guardarTodosLosCambios()" title="Guardar todos los cambios">
+                        <i class="fas fa-save me-1"></i>Guardar Cambios
+                    </button>
                     <button class="btn btn-success me-2" onclick="exportarAExcel()" title="Exportar a Excel">
                         <i class="fas fa-file-excel me-1"></i>Excel
                     </button>
@@ -203,6 +244,10 @@
                             <th>Carpeta Día / Tipificación</th>
                             <th>Presupuesto Eventos</th>
                             <th>Presupuesto Diario ↓</th>
+                            <th>Hora Inicio</th>
+                            <th>Estado</th>
+                            <th>Novedad</th>
+                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="tabla-tecnicos">
@@ -519,8 +564,13 @@
             });
 
             tecnicosOrdenados.forEach(tecnico => {
+                const horaInicio = tecnico.asistencia_hoy.hora_inicio || '';
+                const estado = tecnico.asistencia_hoy.estado || '';
+                const novedad = tecnico.asistencia_hoy.novedad || '';
+                const novedadDisabled = (estado !== 'NOVEDAD' && estado !== 'NO APLICA') ? 'disabled' : '';
+                
                 const row = `
-                    <tr>
+                    <tr data-cedula="${tecnico.cedula}">
                         <td>${tecnico.cedula}</td>
                         <td><strong>${tecnico.tecnico}</strong></td>
                         <td>${tecnico.carpeta || 'N/A'}</td>
@@ -541,9 +591,54 @@
                                 `<span class="badge bg-info text-dark">$${tecnico.asistencia_hoy.presupuesto_diario.toLocaleString()}</span>` 
                                 : '<span class="text-muted">-</span>'}
                         </td>
+                        <td>
+                            <input type="time" class="form-control form-control-sm hora-inicio" 
+                                   value="${horaInicio}" 
+                                   data-cedula="${tecnico.cedula}"
+                                   onchange="validarCamposCompletos('${tecnico.cedula}')"
+                                   style="width: 120px;">
+                        </td>
+                        <td>
+                            <select class="form-select form-select-sm estado-select" 
+                                    data-cedula="${tecnico.cedula}"
+                                    onchange="manejarCambioEstado('${tecnico.cedula}', this.value)"
+                                    style="width: 140px;">
+                                <option value="">Seleccionar</option>
+                                <option value="CUMPLE" ${estado === 'CUMPLE' ? 'selected' : ''}>CUMPLE</option>
+                                <option value="NO CUMPLE" ${estado === 'NO CUMPLE' ? 'selected' : ''}>NO CUMPLE</option>
+                                <option value="NOVEDAD" ${estado === 'NOVEDAD' ? 'selected' : ''}>NOVEDAD</option>
+                                <option value="NO APLICA" ${estado === 'NO APLICA' ? 'selected' : ''}>NO APLICA</option>
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control form-control-sm novedad-input" 
+                                   value="${novedad}" 
+                                   data-cedula="${tecnico.cedula}"
+                                   placeholder="Descripción de novedad"
+                                   onchange="validarCamposCompletos('${tecnico.cedula}')"
+                                   ${novedadDisabled}
+                                   style="width: 200px;">
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-success btn-sm guardar-cambios-btn" 
+                                    data-cedula="${tecnico.cedula}"
+                                    onclick="guardarCambiosTecnico('${tecnico.cedula}')"
+                                    disabled
+                                    style="width: 120px;">
+                                <i class="fas fa-save"></i> Guardar
+                            </button>
+                        </td>
                     </tr>
                 `;
                 tbody.innerHTML += row;
+            });
+
+            // Verificar y bloquear campos que ya están completos
+            tecnicosOrdenados.forEach(tecnico => {
+                // Usar setTimeout para asegurar que los elementos estén en el DOM
+                setTimeout(() => {
+                    verificarYBloquearSiCompleto(tecnico.cedula);
+                }, 100);
             });
 
             actualizarContadorResultados(tecnicosOrdenados.length);
@@ -664,7 +759,10 @@
                     'Supervisor',
                     'Carpeta Día / Tipificación',
                     'Presupuesto Eventos',
-                    'Presupuesto Diario'
+                    'Presupuesto Diario',
+                    'Hora Inicio',
+                    'Estado',
+                    'Novedad'
                 ]);
                 
                 // Obtener datos de la tabla visible
@@ -672,7 +770,12 @@
                 if (tabla && tabla.children.length > 0) {
                     Array.from(tabla.children).forEach(fila => {
                         const celdas = fila.children;
-                        if (celdas.length >= 7) {
+                        if (celdas.length >= 10) {
+                            // Obtener valores de los inputs para las nuevas columnas
+                            const horaInicio = fila.querySelector('.hora-inicio')?.value || '';
+                            const estado = fila.querySelector('.estado-select')?.value || '';
+                            const novedad = fila.querySelector('.novedad-input')?.value || '';
+                            
                             datosTecnicos.push([
                                 celdas[0].textContent.trim(),
                                 celdas[1].textContent.trim(),
@@ -680,12 +783,15 @@
                                 celdas[3].textContent.trim(),
                                 celdas[4].textContent.trim(),
                                 celdas[5].textContent.trim(),
-                                celdas[6].textContent.trim()
+                                celdas[6].textContent.trim(),
+                                horaInicio,
+                                estado,
+                                novedad
                             ]);
                         }
                     });
                 } else {
-                    datosTecnicos.push(['No hay datos disponibles', '', '', '', '', '', '']);
+                    datosTecnicos.push(['No hay datos disponibles', '', '', '', '', '', '', '', '', '']);
                 }
                 
                 const wsTecnicos = XLSX.utils.aoa_to_sheet(datosTecnicos);
@@ -698,7 +804,10 @@
                     { width: 20 }, // Supervisor
                     { width: 25 }, // Carpeta Día / Tipificación
                     { width: 18 }, // Presupuesto Eventos
-                    { width: 18 }  // Presupuesto Diario
+                    { width: 18 }, // Presupuesto Diario
+                    { width: 12 }, // Hora Inicio
+                    { width: 15 }, // Estado
+                    { width: 30 }  // Novedad
                 ];
                 
                 XLSX.utils.book_append_sheet(workbook, wsTecnicos, 'Técnicos');
@@ -769,36 +878,401 @@
             });
         }
 
-        // Fallback adicional usando jQuery para asegurar que los dropdowns funcionen
-        $(document).ready(function() {
-            // Esperar un poco más para asegurar que todo esté cargado
-            setTimeout(function() {
-                // Forzar la inicialización de dropdowns usando jQuery
-                $('.dropdown-toggle').each(function() {
-                    if (!$(this).hasClass('dropdown-initialized')) {
-                        $(this).addClass('dropdown-initialized');
-                        // Agregar event listeners manualmente si Bootstrap no funciona
-                        $(this).on('click', function(e) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            
-                            // Cerrar otros dropdowns
-                            $('.dropdown-menu').removeClass('show');
-                            
-                            // Toggle del dropdown actual
-                            const menu = $(this).next('.dropdown-menu');
-                            menu.toggleClass('show');
-                            
-                            // Cerrar dropdown al hacer click fuera
-                            $(document).one('click', function() {
-                                menu.removeClass('show');
-                            });
-                        });
-                    }
+        // Función para manejar el cambio de estado y habilitar/deshabilitar el campo novedad
+        function manejarCambioEstado(cedula, estado) {
+            // Encontrar el campo de novedad correspondiente
+            const novedadInput = document.querySelector(`input.novedad-input[data-cedula="${cedula}"]`);
+            
+            if (novedadInput) {
+                if (estado === 'NOVEDAD' || estado === 'NO APLICA') {
+                    // Habilitar el campo de novedad
+                    novedadInput.disabled = false;
+                    novedadInput.style.backgroundColor = '';
+                    novedadInput.placeholder = 'Descripción de novedad';
+                } else {
+                    // Deshabilitar el campo de novedad y limpiar su valor
+                    novedadInput.disabled = true;
+                    novedadInput.value = '';
+                    novedadInput.style.backgroundColor = '#f8f9fa';
+                    novedadInput.placeholder = 'No aplica';
+                }
+            }
+            
+            // Validar si todos los campos están completos
+            validarCamposCompletos(cedula);
+        }
+
+        // Función para validar si todos los campos están completos y habilitar/deshabilitar el botón
+        function validarCamposCompletos(cedula) {
+            const horaInicio = document.querySelector(`input.hora-inicio[data-cedula="${cedula}"]`).value;
+            const estado = document.querySelector(`select.estado-select[data-cedula="${cedula}"]`).value;
+            const novedadInput = document.querySelector(`input.novedad-input[data-cedula="${cedula}"]`);
+            const novedad = novedadInput.value;
+            const botonGuardar = document.querySelector(`button.guardar-cambios-btn[data-cedula="${cedula}"]`);
+            
+            // Verificar si todos los campos requeridos están completos
+            let camposCompletos = false;
+            
+            if (horaInicio && estado) {
+                // Si el estado requiere novedad, verificar que esté completa
+                if (estado === 'NOVEDAD' || estado === 'NO APLICA') {
+                    camposCompletos = novedad.trim() !== '';
+                } else {
+                    camposCompletos = true;
+                }
+            }
+            
+            // Habilitar/deshabilitar el botón
+            if (botonGuardar) {
+                botonGuardar.disabled = !camposCompletos;
+                if (camposCompletos) {
+                    botonGuardar.classList.remove('btn-secondary');
+                    botonGuardar.classList.add('btn-success');
+                } else {
+                    botonGuardar.classList.remove('btn-success');
+                    botonGuardar.classList.add('btn-secondary');
+                }
+            }
+        }
+
+        // Función para guardar los cambios de un técnico específico
+        async function guardarCambiosTecnico(cedula) {
+            const horaInicio = document.querySelector(`input.hora-inicio[data-cedula="${cedula}"]`).value;
+            const estado = document.querySelector(`select.estado-select[data-cedula="${cedula}"]`).value;
+            const novedad = document.querySelector(`input.novedad-input[data-cedula="${cedula}"]`).value;
+            const botonGuardar = document.querySelector(`button.guardar-cambios-btn[data-cedula="${cedula}"]`);
+            
+            // Deshabilitar el botón mientras se guarda
+            botonGuardar.disabled = true;
+            botonGuardar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            
+            try {
+                // Guardar cada campo
+                const promesas = [
+                    guardarCampoAsistencia(cedula, 'hora_inicio', horaInicio),
+                    guardarCampoAsistencia(cedula, 'estado', estado),
+                    guardarCampoAsistencia(cedula, 'novedad', novedad)
+                ];
+                
+                await Promise.all(promesas);
+                
+                // Mostrar mensaje de éxito
+                mostrarMensajeExito(`Cambios guardados exitosamente para el técnico con cédula ${cedula}`);
+                
+                // Cambiar el botón a estado guardado
+                botonGuardar.innerHTML = '<i class="fas fa-check"></i> Guardado';
+                botonGuardar.classList.remove('btn-success');
+                botonGuardar.classList.add('btn-outline-success');
+                
+                // Después de 2 segundos, volver al estado normal
+                setTimeout(() => {
+                    botonGuardar.innerHTML = '<i class="fas fa-save"></i> Guardar';
+                    botonGuardar.classList.remove('btn-outline-success');
+                    botonGuardar.classList.add('btn-secondary');
+                    botonGuardar.disabled = true;
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Error al guardar cambios:', error);
+                mostrarMensajeError(`Error al guardar cambios: ${error.message}`);
+                
+                // Restaurar el botón
+                botonGuardar.innerHTML = '<i class="fas fa-save"></i> Guardar';
+                validarCamposCompletos(cedula);
+            }
+        }
+
+        // Función para bloquear campos después del guardado exitoso
+        function bloquearCamposTecnico(cedula) {
+            const horaInput = document.querySelector(`input.hora-inicio[data-cedula="${cedula}"]`);
+            const estadoSelect = document.querySelector(`select.estado-select[data-cedula="${cedula}"]`);
+            const novedadInput = document.querySelector(`input.novedad-input[data-cedula="${cedula}"]`);
+            const botonGuardar = document.querySelector(`button.guardar-cambios-btn[data-cedula="${cedula}"]`);
+            
+            // Encontrar la fila del técnico para aplicar estilo de fila guardada
+            const fila = document.querySelector(`tr[data-cedula="${cedula}"]`);
+            if (!fila) {
+                // Si no existe el atributo data-cedula en la fila, buscar por el botón
+                const filaAlternativa = botonGuardar ? botonGuardar.closest('tr') : null;
+                if (filaAlternativa) {
+                    filaAlternativa.classList.add('fila-guardada');
+                }
+            } else {
+                fila.classList.add('fila-guardada');
+            }
+            
+            // Desactivar todos los campos y aplicar estilos
+            if (horaInput) {
+                horaInput.disabled = true;
+                horaInput.classList.add('campo-bloqueado');
+            }
+            
+            if (estadoSelect) {
+                estadoSelect.disabled = true;
+                estadoSelect.classList.add('campo-bloqueado');
+            }
+            
+            if (novedadInput) {
+                novedadInput.disabled = true;
+                novedadInput.classList.add('campo-bloqueado');
+            }
+            
+            // Cambiar el botón a estado bloqueado
+            if (botonGuardar) {
+                botonGuardar.disabled = true;
+                botonGuardar.innerHTML = '<i class="fas fa-lock"></i> Bloqueado';
+                botonGuardar.classList.remove('btn-success', 'btn-secondary');
+                botonGuardar.classList.add('btn-outline-secondary', 'boton-bloqueado');
+                botonGuardar.title = 'Los datos ya han sido guardados y están bloqueados para evitar modificaciones';
+            }
+        }
+
+        // Función para verificar si todos los campos están completos y bloquear si es necesario
+        function verificarYBloquearSiCompleto(cedula) {
+            const horaInput = document.querySelector(`input.hora-inicio[data-cedula="${cedula}"]`);
+            const estadoSelect = document.querySelector(`select.estado-select[data-cedula="${cedula}"]`);
+            const novedadInput = document.querySelector(`input.novedad-input[data-cedula="${cedula}"]`);
+            
+            const horaInicio = horaInput ? horaInput.value : '';
+            const estado = estadoSelect ? estadoSelect.value : '';
+            const novedad = novedadInput ? novedadInput.value : '';
+            
+            // Si todos los campos requeridos están completos, bloquear
+            if (horaInicio && estado && 
+                (estado === 'CUMPLE' || estado === 'NO CUMPLE' || 
+                 (estado === 'NOVEDAD' && novedad) || 
+                 (estado === 'NO APLICA' && novedad))) {
+                bloquearCamposTecnico(cedula);
+            }
+        }
+
+        // Función para guardar todos los cambios de un técnico específico
+        async function guardarCambiosTecnico(cedula) {
+            const botonGuardar = document.querySelector(`button.guardar-cambios-btn[data-cedula="${cedula}"]`);
+            
+            try {
+                // Deshabilitar el botón mientras se guarda
+                botonGuardar.disabled = true;
+                botonGuardar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
+                
+                // Obtener los valores de los campos
+                const horaInicio = document.querySelector(`input.hora-inicio[data-cedula="${cedula}"]`).value;
+                const estado = document.querySelector(`select.estado-select[data-cedula="${cedula}"]`).value;
+                const novedad = document.querySelector(`input.novedad-input[data-cedula="${cedula}"]`).value;
+                
+                // Guardar cada campo (sin mostrar errores individuales)
+                const promesas = [];
+                
+                if (horaInicio) {
+                    promesas.push(guardarCampoAsistencia(cedula, 'hora_inicio', horaInicio, false));
+                }
+                
+                if (estado) {
+                    promesas.push(guardarCampoAsistencia(cedula, 'estado', estado, false));
+                }
+                
+                if (novedad && (estado === 'NOVEDAD' || estado === 'NO APLICA')) {
+                    promesas.push(guardarCampoAsistencia(cedula, 'novedad', novedad, false));
+                }
+                
+                // Esperar a que todos los guardados se completen
+                await Promise.all(promesas);
+                
+                // Mostrar mensaje de éxito
+                mostrarMensajeExito(`Cambios guardados exitosamente para el técnico ${cedula}`);
+                
+                // BLOQUEAR CAMPOS DESPUÉS DEL GUARDADO EXITOSO
+                bloquearCamposTecnico(cedula);
+                
+            } catch (error) {
+                console.error('Error al guardar cambios:', error);
+                mostrarMensajeError(`Error al guardar cambios para el técnico ${cedula}: ${error.message}`);
+                
+                // Restaurar el botón en caso de error
+                botonGuardar.disabled = false;
+                botonGuardar.innerHTML = '<i class="fas fa-save"></i> Guardar';
+                botonGuardar.classList.remove('btn-success');
+                botonGuardar.classList.add('btn-secondary');
+            }
+        }
+
+        // Función para mostrar mensaje de éxito
+        function mostrarMensajeExito(mensaje) {
+            // Crear o actualizar el contenedor de mensajes
+            let contenedorMensajes = document.getElementById('mensajes-container');
+            if (!contenedorMensajes) {
+                contenedorMensajes = document.createElement('div');
+                contenedorMensajes.id = 'mensajes-container';
+                contenedorMensajes.style.position = 'fixed';
+                contenedorMensajes.style.top = '20px';
+                contenedorMensajes.style.right = '20px';
+                contenedorMensajes.style.zIndex = '9999';
+                document.body.appendChild(contenedorMensajes);
+            }
+            
+            // Crear el mensaje de éxito
+            const mensajeDiv = document.createElement('div');
+            mensajeDiv.className = 'alert alert-success alert-dismissible fade show';
+            mensajeDiv.innerHTML = `
+                ${mensaje}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            contenedorMensajes.appendChild(mensajeDiv);
+            
+            // Auto-remover después de 5 segundos
+            setTimeout(() => {
+                if (mensajeDiv.parentNode) {
+                    mensajeDiv.remove();
+                }
+            }, 5000);
+        }
+
+        // Función para guardar un campo de asistencia
+        async function guardarCampoAsistencia(cedula, campo, valor, mostrarErrores = true) {
+            try {
+                const fechaSeleccionada = document.getElementById('filtro-fecha').value;
+                
+                const response = await fetch('/api/asistencia/actualizar-campo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        cedula: cedula,
+                        campo: campo,
+                        valor: valor,
+                        fecha: fechaSeleccionada
+                    })
                 });
-                console.log('Fallback de dropdowns aplicado');
-            }, 500);
-        });
+
+                const data = await response.json();
+                
+                if (!data.success) {
+                    console.error('Error al guardar:', data.message || data.error);
+                    if (mostrarErrores) {
+                        mostrarMensajeError(`Error al guardar ${campo}: ${data.message || data.error || 'Error desconocido'}`);
+                    }
+                    throw new Error(data.message || data.error || 'Error desconocido');
+                } else {
+                    // Mostrar indicador visual de guardado exitoso solo si no es guardado masivo
+                    if (mostrarErrores) {
+                        mostrarIndicadorGuardado(cedula, campo);
+                    }
+                    return data;
+                }
+            } catch (error) {
+                console.error('Error al guardar campo:', error);
+                if (mostrarErrores) {
+                    mostrarMensajeError(`Error de conexión al guardar ${campo}: ${error.message || 'Error de red'}`);
+                }
+                throw error;
+            }
+        }
+
+        // Función para mostrar indicador visual de guardado exitoso
+        function mostrarIndicadorGuardado(cedula, campo) {
+            const elemento = document.querySelector(`[data-cedula="${cedula}"].${campo === 'hora_inicio' ? 'hora-inicio' : campo === 'estado' ? 'estado-select' : 'novedad-input'}`);
+            
+            if (elemento) {
+                // Agregar clase de éxito temporalmente
+                elemento.classList.add('border-success');
+                setTimeout(() => {
+                    elemento.classList.remove('border-success');
+                }, 1000);
+            }
+        }
+
+        // Función para guardar todos los cambios de asistencia (botón de guardado masivo)
+        async function guardarTodosLosCambios() {
+            const cambios = [];
+            const fechaSeleccionada = document.getElementById('filtro-fecha').value;
+            
+            // Recopilar todos los cambios de la tabla
+            document.querySelectorAll('tr[data-cedula]').forEach(fila => {
+                const cedula = fila.getAttribute('data-cedula');
+                const horaInicio = fila.querySelector('.hora-inicio').value;
+                const estado = fila.querySelector('.estado-select').value;
+                const novedad = fila.querySelector('.novedad-input').value;
+                
+                cambios.push({
+                    cedula: cedula,
+                    hora_inicio: horaInicio,
+                    estado: estado,
+                    novedad: novedad,
+                    fecha: fechaSeleccionada
+                });
+            });
+            
+            try {
+                const response = await fetch('/api/asistencia/actualizar-masivo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        cambios: cambios
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    mostrarMensajeExito('Todos los cambios se guardaron correctamente');
+                } else {
+                    mostrarMensajeError(`Error al guardar cambios: ${data.error}`);
+                }
+            } catch (error) {
+                console.error('Error al guardar cambios masivos:', error);
+                mostrarMensajeError('Error de conexión al guardar cambios');
+            }
+        }
+
+        // Fallback adicional usando jQuery para asegurar que los dropdowns funcionen
+        // Esperar a que jQuery esté disponible
+        function initializeDropdownFallback() {
+            if (typeof $ !== 'undefined' && $.fn) {
+                $(document).ready(function() {
+                    // Esperar un poco más para asegurar que todo esté cargado
+                    setTimeout(function() {
+                        // Forzar la inicialización de dropdowns usando jQuery
+                        $('.dropdown-toggle').each(function() {
+                            if (!$(this).hasClass('dropdown-initialized')) {
+                                $(this).addClass('dropdown-initialized');
+                                // Agregar event listeners manualmente si Bootstrap no funciona
+                                $(this).on('click', function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    
+                                    // Cerrar otros dropdowns
+                                    $('.dropdown-menu').removeClass('show');
+                                    
+                                    // Toggle del dropdown actual
+                                    const menu = $(this).next('.dropdown-menu');
+                                    menu.toggleClass('show');
+                                    
+                                    // Cerrar dropdown al hacer click fuera
+                                    $(document).one('click', function() {
+                                        menu.removeClass('show');
+                                    });
+                                });
+                            }
+                        });
+                        console.log('Fallback de dropdowns aplicado');
+                    }, 500);
+                });
+            } else {
+                // Si jQuery no está disponible, intentar de nuevo en 100ms
+                setTimeout(initializeDropdownFallback, 100);
+            }
+        }
+        
+        // Inicializar cuando la página esté lista
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeDropdownFallback);
+        } else {
+            initializeDropdownFallback();
+        }
 
     </script>
                         </div>

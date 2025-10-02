@@ -874,6 +874,16 @@ def api_tecnicos_asignados():
         if not analista_nombre:
             return jsonify({'error': 'No se pudo identificar al analista actual'}), 401
         
+        # Obtener parámetro de fecha opcional
+        fecha_consulta = request.args.get('fecha')
+        if not fecha_consulta:
+            # Si no se proporciona fecha, usar la fecha actual
+            fecha_consulta = 'CURDATE()'
+            fecha_param = None
+        else:
+            # Si se proporciona fecha, usarla como parámetro
+            fecha_param = fecha_consulta
+        
         # Consulta para obtener técnicos asignados al analista actual
         query_tecnicos = """
             SELECT DISTINCT
@@ -898,27 +908,53 @@ def api_tecnicos_asignados():
         tecnicos_con_asistencia = []
         
         for tecnico in tecnicos:
-            # Buscar asistencia del día actual
-            query_asistencia = """
-                SELECT 
-                    a.carpeta_dia,
-                    a.fecha_asistencia,
-                    ta.nombre_tipificacion,
-                    ta.codigo_tipificacion,
-                    ta.grupo as grupo_tipificacion,
-                    pc.presupuesto_eventos,
-                    pc.presupuesto_diario,
-                    pc.presupuesto_carpeta as nombre_presupuesto_carpeta
-                FROM asistencia a
-                LEFT JOIN tipificacion_asistencia ta ON a.carpeta_dia = ta.codigo_tipificacion
-                LEFT JOIN presupuesto_carpeta pc ON ta.nombre_tipificacion = pc.presupuesto_carpeta
-                WHERE a.cedula = %s
-                AND DATE(a.fecha_asistencia) = CURDATE()
-                ORDER BY a.fecha_asistencia DESC
-                LIMIT 1
-            """
-            
-            cursor.execute(query_asistencia, (tecnico['cedula'],))
+            # Buscar asistencia del día especificado o actual
+            if fecha_param:
+                query_asistencia = """
+                    SELECT 
+                        a.carpeta_dia,
+                        a.fecha_asistencia,
+                        a.hora_inicio,
+                        a.estado,
+                        a.novedad,
+                        ta.nombre_tipificacion,
+                        ta.codigo_tipificacion,
+                        ta.grupo as grupo_tipificacion,
+                        pc.presupuesto_eventos,
+                        pc.presupuesto_diario,
+                        pc.presupuesto_carpeta as nombre_presupuesto_carpeta
+                    FROM asistencia a
+                    LEFT JOIN tipificacion_asistencia ta ON a.carpeta_dia = ta.codigo_tipificacion
+                    LEFT JOIN presupuesto_carpeta pc ON ta.nombre_tipificacion = pc.presupuesto_carpeta
+                    WHERE a.cedula = %s
+                    AND DATE(a.fecha_asistencia) = %s
+                    ORDER BY a.fecha_asistencia DESC
+                    LIMIT 1
+                """
+                cursor.execute(query_asistencia, (tecnico['cedula'], fecha_param))
+            else:
+                query_asistencia = """
+                    SELECT 
+                        a.carpeta_dia,
+                        a.fecha_asistencia,
+                        a.hora_inicio,
+                        a.estado,
+                        a.novedad,
+                        ta.nombre_tipificacion,
+                        ta.codigo_tipificacion,
+                        ta.grupo as grupo_tipificacion,
+                        pc.presupuesto_eventos,
+                        pc.presupuesto_diario,
+                        pc.presupuesto_carpeta as nombre_presupuesto_carpeta
+                    FROM asistencia a
+                    LEFT JOIN tipificacion_asistencia ta ON a.carpeta_dia = ta.codigo_tipificacion
+                    LEFT JOIN presupuesto_carpeta pc ON ta.nombre_tipificacion = pc.presupuesto_carpeta
+                    WHERE a.cedula = %s
+                    AND DATE(a.fecha_asistencia) = CURDATE()
+                    ORDER BY a.fecha_asistencia DESC
+                    LIMIT 1
+                """
+                cursor.execute(query_asistencia, (tecnico['cedula'],))
             asistencia = cursor.fetchone()
             
             # Agregar información de asistencia al técnico
@@ -934,6 +970,9 @@ def api_tecnicos_asignados():
                 'asistencia_hoy': {
                     'carpeta_dia': asistencia['carpeta_dia'] if asistencia else None,
                     'fecha_asistencia': asistencia['fecha_asistencia'].isoformat() if asistencia and asistencia['fecha_asistencia'] else None,
+                    'hora_inicio': str(asistencia['hora_inicio']) if asistencia and asistencia['hora_inicio'] else None,
+                    'estado': asistencia['estado'] if asistencia else None,
+                    'novedad': asistencia['novedad'] if asistencia else None,
                     'tipificacion': asistencia['nombre_tipificacion'] if asistencia else 'Sin registro',
                     'codigo_tipificacion': asistencia['codigo_tipificacion'] if asistencia else None,
                     'grupo_tipificacion': asistencia['grupo_tipificacion'] if asistencia else None,
