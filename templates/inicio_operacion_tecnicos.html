@@ -124,19 +124,30 @@
                 </div>
             </div>
         </div>
-        
-        <!-- Presupuesto del Día y Novedades Sin Presupuesto -->
+
+        <!-- Presupuesto Hoy, OK Diarias Total y Novedades Sin Presupuesto -->
         <div class="row mb-4">
+
+            <!-- OK Diarias Total -->
+            <div class="col-md-4">
+                <div class="stats-card text-center h-100">
+                    <h3 class="text-info mb-1" id="ok-diarias-total">$0</h3>
+                    <p class="mb-0">OK Diarias Total</p>
+                </div>
+            </div>
+
             <!-- Presupuesto del Día -->
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="stats-card text-center h-100">
                     <h3 class="text-success mb-1" id="presupuesto-hoy">$0</h3>
                     <p class="mb-0">Presupuesto Hoy</p>
                 </div>
             </div>
             
+            
+            
             <!-- Novedades Sin Presupuesto -->
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="stats-card h-100">
                     <h5 class="text-center mb-3">
                         <i class="fas fa-exclamation-triangle text-warning me-2"></i>
@@ -351,11 +362,21 @@
                 return total;
             }, 0);
 
+            // Calcular total de OK diarias (presupuesto_eventos)
+            const okDiariasTotal = data.tecnicos.reduce((total, tecnico) => {
+                const presupuestoEventos = tecnico.asistencia_hoy.presupuesto_eventos;
+                if (presupuestoEventos && !isNaN(presupuestoEventos)) {
+                    return total + parseFloat(presupuestoEventos);
+                }
+                return total;
+            }, 0);
+
             const totalElement = document.getElementById('total-tecnicos');
             const presentesElement = document.getElementById('tecnicos-presentes');
             const ausentesElement = document.getElementById('tecnicos-ausentes');
             const analistaElement = document.getElementById('analista-nombre');
             const presupuestoElement = document.getElementById('presupuesto-hoy');
+            const okDiariasElement = document.getElementById('ok-diarias-total');
 
             if (totalElement) totalElement.textContent = totalTecnicos;
             if (presentesElement) presentesElement.textContent = tecnicosConPresupuesto;
@@ -369,6 +390,13 @@
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0
                 }).format(presupuestoTotal);
+            }
+            if (okDiariasElement) {
+                // Formatear el total de OK diarias como número sin símbolo de moneda
+                okDiariasElement.textContent = new Intl.NumberFormat('es-CO', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(okDiariasTotal);
             }
             
             // Actualizar novedades sin presupuesto
