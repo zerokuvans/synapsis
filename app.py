@@ -556,6 +556,12 @@ def analistas_dashboard():
     """Renderizar el dashboard del módulo analistas"""
     return render_template('modulos/analistas/dashboard.html')
 
+@app.route('/analistas/inicio-operacion-tecnicos')
+@login_required
+def inicio_operacion_tecnicos():
+    """Renderizar la página de inicio de operación para técnicos"""
+    return render_template('inicio_operacion_tecnicos.html')
+
 @app.route('/api/analistas/causas-cierre', methods=['GET'])
 @login_required
 def api_causas_cierre():
@@ -844,6 +850,113 @@ def api_estadisticas_causas_cierre():
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
     except Exception as e:
         logging.error(f"Error inesperado en API estadísticas: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/analistas/tecnicos-asignados', methods=['GET'])
+@login_required
+def api_tecnicos_asignados():
+    """API endpoint para obtener técnicos asignados al analista actual con su información de asistencia"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener el nombre del analista actual desde la sesión
+        analista_nombre = current_user.nombre if current_user else None
+        
+        if not analista_nombre:
+            return jsonify({'error': 'No se pudo identificar al analista actual'}), 401
+        
+        # Consulta para obtener técnicos asignados al analista actual
+        query_tecnicos = """
+            SELECT DISTINCT
+                ro.id_codigo_consumidor,
+                ro.recurso_operativo_cedula as cedula,
+                ro.nombre as tecnico,
+                ro.carpeta,
+                ro.cliente,
+                ro.ciudad,
+                ro.super as supervisor,
+                ro.analista
+            FROM recurso_operativo ro
+            WHERE ro.analista = %s
+            AND ro.estado = 'Activo'
+            ORDER BY ro.nombre
+        """
+        
+        cursor.execute(query_tecnicos, (analista_nombre,))
+        tecnicos = cursor.fetchall()
+        
+        # Para cada técnico, obtener información de asistencia del día actual
+        tecnicos_con_asistencia = []
+        
+        for tecnico in tecnicos:
+            # Buscar asistencia del día actual
+            query_asistencia = """
+                SELECT 
+                    a.carpeta_dia,
+                    a.fecha_asistencia,
+                    ta.nombre_tipificacion,
+                    ta.codigo_tipificacion,
+                    ta.grupo as grupo_tipificacion,
+                    pc.presupuesto_eventos,
+                    pc.presupuesto_diario,
+                    pc.presupuesto_carpeta as nombre_presupuesto_carpeta
+                FROM asistencia a
+                LEFT JOIN tipificacion_asistencia ta ON a.carpeta_dia = ta.codigo_tipificacion
+                LEFT JOIN presupuesto_carpeta pc ON ta.nombre_tipificacion = pc.presupuesto_carpeta
+                WHERE a.cedula = %s
+                AND DATE(a.fecha_asistencia) = CURDATE()
+                ORDER BY a.fecha_asistencia DESC
+                LIMIT 1
+            """
+            
+            cursor.execute(query_asistencia, (tecnico['cedula'],))
+            asistencia = cursor.fetchone()
+            
+            # Agregar información de asistencia al técnico
+            tecnico_info = {
+                'id_codigo_consumidor': tecnico['id_codigo_consumidor'],
+                'cedula': tecnico['cedula'],
+                'tecnico': tecnico['tecnico'],
+                'carpeta': tecnico['carpeta'],
+                'cliente': tecnico['cliente'],
+                'ciudad': tecnico['ciudad'],
+                'supervisor': tecnico['supervisor'],
+                'analista': tecnico['analista'],
+                'asistencia_hoy': {
+                    'carpeta_dia': asistencia['carpeta_dia'] if asistencia else None,
+                    'fecha_asistencia': asistencia['fecha_asistencia'].isoformat() if asistencia and asistencia['fecha_asistencia'] else None,
+                    'tipificacion': asistencia['nombre_tipificacion'] if asistencia else 'Sin registro',
+                    'codigo_tipificacion': asistencia['codigo_tipificacion'] if asistencia else None,
+                    'grupo_tipificacion': asistencia['grupo_tipificacion'] if asistencia else None,
+                    'presupuesto_eventos': asistencia['presupuesto_eventos'] if asistencia else None,
+                    'presupuesto_diario': asistencia['presupuesto_diario'] if asistencia else None,
+                    'nombre_presupuesto_carpeta': asistencia['nombre_presupuesto_carpeta'] if asistencia else None
+                }
+            }
+            
+            tecnicos_con_asistencia.append(tecnico_info)
+        
+        return jsonify({
+            'success': True,
+            'analista': analista_nombre,
+            'total_tecnicos': len(tecnicos_con_asistencia),
+            'tecnicos': tecnicos_con_asistencia
+        })
+        
+    except mysql.connector.Error as e:
+        logging.error(f"Error en API técnicos asignados: {str(e)}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    except Exception as e:
+        logging.error(f"Error inesperado en API técnicos asignados: {str(e)}")
         return jsonify({'error': 'Error interno del servidor'}), 500
     finally:
         if 'cursor' in locals() and cursor:

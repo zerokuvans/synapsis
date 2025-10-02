@@ -1,0 +1,436 @@
+{% extends "header.html" %}
+{% block content %}
+<style>
+
+        
+        .stats-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1rem;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            overflow-x: auto;
+        }
+        
+        .table-responsive {
+            min-width: 1200px;
+        }
+        
+        .table {
+            min-width: 1200px;
+            margin-bottom: 0;
+        }
+        
+        .table th,
+        .table td {
+            white-space: nowrap;
+            padding: 0.75rem 1rem;
+            vertical-align: middle;
+        }
+        
+        .table th:nth-child(1) { width: 10%; } /* Cédula */
+        .table th:nth-child(2) { width: 20%; } /* Técnico */
+        .table th:nth-child(3) { width: 15%; } /* Carpeta */
+        .table th:nth-child(4) { width: 15%; } /* Supervisor */
+        .table th:nth-child(5) { width: 20%; } /* Carpeta Día / Tipificación */
+        .table th:nth-child(6) { width: 10%; } /* Presupuesto Eventos */
+        .table th:nth-child(7) { width: 10%; } /* Presupuesto Diario */
+        
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .status-presente {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .status-ausente {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-5 px-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;">
+                        <h3 class="mb-0">
+                            <i class="fas fa-users-cog me-2"></i>Inicio de Operación - Técnicos
+                        </h3>
+                        <small class="d-block mt-1 opacity-75">Gestión y seguimiento de técnicos asignados</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="container-fluid">
+        <!-- Estadísticas Resumen -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stats-card text-center">
+                    <h3 class="text-primary mb-1" id="total-tecnicos">0</h3>
+                    <p class="mb-0">Total Técnicos</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card text-center">
+                    <h3 class="text-success mb-1" id="tecnicos-presentes">0</h3>
+                    <p class="mb-0">Con Presupuesto</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card text-center">
+                    <h3 class="text-warning mb-1" id="tecnicos-ausentes">0</h3>
+                    <p class="mb-0">Sin Presupuesto</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card text-center">
+                    <h3 class="text-info mb-1" id="analista-nombre">-</h3>
+                    <p class="mb-0">Analista</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Presupuesto del Día -->
+        <div class="row mb-4">
+            <div class="col-md-4 offset-md-4">
+                <div class="stats-card text-center">
+                    <h3 class="text-success mb-1" id="presupuesto-hoy">$0</h3>
+                    <p class="mb-0">Presupuesto Hoy</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de Técnicos -->
+        <div class="table-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4><i class="fas fa-table me-2"></i>Técnicos Asignados</h4>
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <label for="filtro-fecha" class="form-label mb-1" style="font-size: 0.875rem;">Fecha:</label>
+                        <input type="date" class="form-control" id="filtro-fecha" 
+                               style="width: 150px;" onchange="cargarTecnicosConDebounce()">
+                    </div>
+                    <input type="text" class="form-control me-2" id="filtro-busqueda" 
+                           placeholder="Buscar técnico, carpeta o tipificación..." style="width: 400px;">
+                    <span class="badge bg-secondary" id="contador-resultados">0 resultados</span>
+                </div>
+            </div>
+
+            <div class="loading-spinner" id="loading-spinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Cargando información de técnicos...</p>
+            </div>
+
+            <div class="table-responsive" id="tabla-container" style="display: none;">
+                <table class="table table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Cédula</th>
+                            <th>Técnico</th>
+                            <th>Carpeta</th>
+                            <th>Supervisor</th>
+                            <th>Carpeta Día / Tipificación</th>
+                            <th>Presupuesto Eventos</th>
+                            <th>Presupuesto Diario ↓</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-tecnicos">
+                        <!-- Los datos se cargarán dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="alert alert-info" id="sin-datos" style="display: none;">
+                <i class="fas fa-info-circle me-2"></i>
+                No se encontraron técnicos asignados a este analista.
+            </div>
+
+            <div class="alert alert-danger" id="error-mensaje" style="display: none;">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <span id="error-texto"></span>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let tecnicosData = [];
+        let cargandoDatos = false; // Flag para prevenir múltiples llamadas
+        let timeoutId = null; // Para debounce
+
+        // Cargar técnicos al iniciar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            // Establecer fecha actual por defecto
+            const hoy = new Date();
+            const fechaHoy = hoy.toISOString().split('T')[0];
+            document.getElementById('filtro-fecha').value = fechaHoy;
+            
+            cargarTecnicos();
+            
+            // Configurar filtro de búsqueda
+            document.getElementById('filtro-busqueda').addEventListener('input', filtrarTecnicos);
+        });
+
+        // Función con debounce para cargar técnicos
+        function cargarTecnicosConDebounce() {
+            // Limpiar timeout anterior si existe
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+            
+            // Establecer nuevo timeout
+            timeoutId = setTimeout(() => {
+                cargarTecnicos();
+            }, 300); // Esperar 300ms antes de ejecutar
+        }
+
+        async function cargarTecnicos() {
+            // Prevenir múltiples llamadas simultáneas
+            if (cargandoDatos) {
+                return;
+            }
+            
+            try {
+                cargandoDatos = true;
+                mostrarCargando(true);
+                ocultarMensajes();
+
+                // Obtener la fecha seleccionada
+                const fechaSeleccionada = document.getElementById('filtro-fecha').value;
+                const url = `/api/analistas/tecnicos-asignados${fechaSeleccionada ? `?fecha=${fechaSeleccionada}` : ''}`;
+                
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Validar que la respuesta tenga la estructura esperada
+                if (!data || typeof data !== 'object') {
+                    throw new Error('Respuesta inválida del servidor');
+                }
+
+                if (data.success) {
+                    tecnicosData = data.tecnicos || [];
+                    actualizarEstadisticas(data);
+                    mostrarTecnicos(tecnicosData);
+                } else {
+                    mostrarError(data.error || 'Error al cargar los datos');
+                }
+            } catch (error) {
+                if (error && error.message) {
+                    console.error('Error al cargar técnicos:', error.message);
+                } else if (error) {
+                    console.error('Error al cargar técnicos:', error);
+                }
+                mostrarError('Error de conexión al servidor');
+            } finally {
+                cargandoDatos = false; // Resetear flag de carga
+            }
+        }
+
+        function actualizarEstadisticas(data) {
+            const totalTecnicos = data.total_tecnicos;
+            // Contar técnicos que tienen presupuesto de eventos asignado
+            const tecnicosConPresupuesto = data.tecnicos.filter(t => 
+                t.asistencia_hoy.presupuesto_eventos && 
+                t.asistencia_hoy.presupuesto_eventos !== null && 
+                t.asistencia_hoy.presupuesto_eventos !== ''
+            ).length;
+            const tecnicosSinPresupuesto = totalTecnicos - tecnicosConPresupuesto;
+
+            // Calcular presupuesto total del día
+            const presupuestoTotal = data.tecnicos.reduce((total, tecnico) => {
+                const presupuestoDiario = tecnico.asistencia_hoy.presupuesto_diario;
+                if (presupuestoDiario && !isNaN(presupuestoDiario)) {
+                    return total + parseFloat(presupuestoDiario);
+                }
+                return total;
+            }, 0);
+
+            const totalElement = document.getElementById('total-tecnicos');
+            const presentesElement = document.getElementById('tecnicos-presentes');
+            const ausentesElement = document.getElementById('tecnicos-ausentes');
+            const analistaElement = document.getElementById('analista-nombre');
+            const presupuestoElement = document.getElementById('presupuesto-hoy');
+
+            if (totalElement) totalElement.textContent = totalTecnicos;
+            if (presentesElement) presentesElement.textContent = tecnicosConPresupuesto;
+            if (ausentesElement) ausentesElement.textContent = tecnicosSinPresupuesto;
+            if (analistaElement) analistaElement.textContent = data.analista || 'N/A';
+            if (presupuestoElement) {
+                // Formatear el presupuesto como moneda
+                presupuestoElement.textContent = new Intl.NumberFormat('es-CO', {
+                    style: 'currency',
+                    currency: 'COP',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(presupuestoTotal);
+            }
+        }
+
+        function mostrarTecnicos(tecnicos) {
+            // Asegurar que el spinner esté oculto
+            mostrarCargando(false);
+            
+            const tbody = document.getElementById('tabla-tecnicos');
+            if (!tbody) {
+                console.error('Elemento tabla-tecnicos no encontrado');
+                return;
+            }
+            tbody.innerHTML = '';
+
+            const sinDatosElement = document.getElementById('sin-datos');
+            const tablaContainerElement = document.getElementById('tabla-container');
+
+            if (tecnicos.length === 0) {
+                if (sinDatosElement) sinDatosElement.style.display = 'block';
+                if (tablaContainerElement) tablaContainerElement.style.display = 'none';
+                actualizarContadorResultados(0);
+                return;
+            }
+
+            if (sinDatosElement) sinDatosElement.style.display = 'none';
+            if (tablaContainerElement) tablaContainerElement.style.display = 'block';
+
+            // Ordenar automáticamente por presupuesto diario de mayor a menor
+            const tecnicosOrdenados = [...tecnicos].sort((a, b) => {
+                const presupuestoA = parseFloat(a.asistencia_hoy?.presupuesto_diario) || 0;
+                const presupuestoB = parseFloat(b.asistencia_hoy?.presupuesto_diario) || 0;
+                return presupuestoB - presupuestoA; // De mayor a menor
+            });
+
+            tecnicosOrdenados.forEach(tecnico => {
+                const row = `
+                    <tr>
+                        <td>${tecnico.cedula}</td>
+                        <td><strong>${tecnico.tecnico}</strong></td>
+                        <td>${tecnico.carpeta || 'N/A'}</td>
+                        <td>${tecnico.supervisor || 'N/A'}</td>
+                        <td>
+                            ${tecnico.asistencia_hoy.carpeta_dia ? 
+                                `<span class="badge bg-primary me-1">${tecnico.asistencia_hoy.carpeta_dia}</span>
+                                 <small class="text-muted">${tecnico.asistencia_hoy.tipificacion || 'Sin descripción'}</small>` 
+                                : '-'}
+                        </td>
+                        <td>
+                            ${tecnico.asistencia_hoy.presupuesto_eventos ? 
+                                `<span class="badge bg-success">${tecnico.asistencia_hoy.presupuesto_eventos}</span>` 
+                                : '<span class="text-muted">-</span>'}
+                        </td>
+                        <td>
+                            ${tecnico.asistencia_hoy.presupuesto_diario ? 
+                                `<span class="badge bg-info text-dark">$${tecnico.asistencia_hoy.presupuesto_diario.toLocaleString()}</span>` 
+                                : '<span class="text-muted">-</span>'}
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+
+            actualizarContadorResultados(tecnicosOrdenados.length);
+        }
+
+        function filtrarTecnicos() {
+            const filtro = document.getElementById('filtro-busqueda').value.toLowerCase();
+            const tecnicosFiltrados = tecnicosData.filter(tecnico => 
+                tecnico.tecnico.toLowerCase().includes(filtro) ||
+                tecnico.cedula.includes(filtro) ||
+                (tecnico.carpeta && tecnico.carpeta.toLowerCase().includes(filtro)) ||
+                (tecnico.supervisor && tecnico.supervisor.toLowerCase().includes(filtro)) ||
+                (tecnico.asistencia_hoy.carpeta_dia && tecnico.asistencia_hoy.carpeta_dia.toLowerCase().includes(filtro)) ||
+                (tecnico.asistencia_hoy.tipificacion && tecnico.asistencia_hoy.tipificacion.toLowerCase().includes(filtro))
+            );
+
+            mostrarTecnicos(tecnicosFiltrados);
+        }
+
+        function actualizarContadorResultados(cantidad) {
+            const contadorElement = document.getElementById('contador-resultados');
+            if (contadorElement) {
+                contadorElement.textContent = `${cantidad} resultado${cantidad !== 1 ? 's' : ''}`;
+            }
+        }
+
+        function mostrarCargando(mostrar) {
+            const spinnerElement = document.getElementById('loading-spinner');
+            if (spinnerElement) {
+                spinnerElement.style.display = mostrar ? 'block' : 'none';
+            }
+        }
+
+        function mostrarError(mensaje) {
+            // Asegurar que el spinner esté oculto
+            mostrarCargando(false);
+            
+            // Ocultar tabla y mensaje de sin datos
+            const tablaContainerElement = document.getElementById('tabla-container');
+            const sinDatosElement = document.getElementById('sin-datos');
+            const errorTextoElement = document.getElementById('error-texto');
+            const errorMensajeElement = document.getElementById('error-mensaje');
+            
+            if (tablaContainerElement) tablaContainerElement.style.display = 'none';
+            if (sinDatosElement) sinDatosElement.style.display = 'none';
+            
+            // Mostrar error
+            if (errorTextoElement) errorTextoElement.textContent = mensaje;
+            if (errorMensajeElement) errorMensajeElement.style.display = 'block';
+            
+            // Actualizar contador
+            actualizarContadorResultados(0);
+        }
+
+        function ocultarMensajes() {
+            const errorMensajeElement = document.getElementById('error-mensaje');
+            const sinDatosElement = document.getElementById('sin-datos');
+            
+            if (errorMensajeElement) errorMensajeElement.style.display = 'none';
+            if (sinDatosElement) sinDatosElement.style.display = 'none';
+        }
+
+
+    </script>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
