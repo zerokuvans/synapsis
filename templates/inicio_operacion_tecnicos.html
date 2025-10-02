@@ -81,6 +81,8 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
     </style>
+    <!-- SheetJS library for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="container-fluid mt-5 px-4">
@@ -140,11 +142,18 @@
                 <div class="d-flex align-items-center">
                     <div class="me-3">
                         <label for="filtro-fecha" class="form-label mb-1" style="font-size: 0.875rem;">Fecha:</label>
+                        
+                    </div>
+                    <div class="me-3">
+                    
                         <input type="date" class="form-control" id="filtro-fecha" 
                                style="width: 150px;" onchange="cargarTecnicosConDebounce()">
                     </div>
                     <input type="text" class="form-control me-2" id="filtro-busqueda" 
                            placeholder="Buscar técnico, carpeta o tipificación..." style="width: 400px;">
+                    <button class="btn btn-success me-2" onclick="exportarAExcel()" title="Exportar a Excel">
+                        <i class="fas fa-file-excel me-1"></i>Excel
+                    </button>
                     <span class="badge bg-secondary" id="contador-resultados">0 resultados</span>
                 </div>
             </div>
@@ -423,6 +432,169 @@
             
             if (errorMensajeElement) errorMensajeElement.style.display = 'none';
             if (sinDatosElement) sinDatosElement.style.display = 'none';
+        }
+
+        function exportarAExcel() {
+            try {
+                // Crear un nuevo libro de trabajo
+                const workbook = XLSX.utils.book_new();
+                
+                // Función auxiliar para obtener texto de elemento de forma segura
+                function obtenerTextoSeguro(id, valorPorDefecto = '') {
+                    const elemento = document.getElementById(id);
+                    return elemento ? elemento.textContent.trim() : valorPorDefecto;
+                }
+                
+                // Función auxiliar para obtener valor de input de forma segura
+                function obtenerValorSeguro(id, valorPorDefecto = '') {
+                    const elemento = document.getElementById(id);
+                    return elemento ? elemento.value : valorPorDefecto;
+                }
+                
+                // HOJA 1: ESTADÍSTICAS
+                const estadisticas = [
+                    ['ESTADÍSTICAS - INICIO DE OPERACIÓN TÉCNICOS'],
+                    [''],
+                    ['Fecha de Reporte:', new Date().toLocaleDateString('es-CO')],
+                    ['Hora de Generación:', new Date().toLocaleTimeString('es-CO')],
+                    [''],
+                    ['RESUMEN GENERAL'],
+                    ['Total Técnicos:', obtenerTextoSeguro('total-tecnicos', '0')],
+                    ['Con Presupuesto:', obtenerTextoSeguro('tecnicos-presentes', '0')],
+                    ['Sin Presupuesto:', obtenerTextoSeguro('tecnicos-ausentes', '0')],
+                    ['Presupuesto Hoy:', obtenerTextoSeguro('presupuesto-hoy', '$0')],
+                    ['Analista:', obtenerTextoSeguro('analista-nombre', '-')],
+                    [''],
+                    ['FILTROS APLICADOS'],
+                    ['Fecha Seleccionada:', obtenerValorSeguro('filtro-fecha', 'Todas las fechas')],
+                    ['Búsqueda:', obtenerValorSeguro('filtro-busqueda', 'Sin filtro')],
+                    ['Resultados Mostrados:', obtenerTextoSeguro('contador-resultados', '0 resultados')]
+                ];
+                
+                const wsEstadisticas = XLSX.utils.aoa_to_sheet(estadisticas);
+                
+                // Aplicar estilos a la hoja de estadísticas
+                wsEstadisticas['!cols'] = [
+                    { width: 25 }, // Columna A
+                    { width: 20 }  // Columna B
+                ];
+                
+                XLSX.utils.book_append_sheet(workbook, wsEstadisticas, 'Estadísticas');
+                
+                // HOJA 2: DATOS DE TÉCNICOS
+                const datosTecnicos = [];
+                
+                // Encabezados
+                datosTecnicos.push([
+                    'Cédula',
+                    'Técnico',
+                    'Carpeta',
+                    'Supervisor',
+                    'Carpeta Día / Tipificación',
+                    'Presupuesto Eventos',
+                    'Presupuesto Diario'
+                ]);
+                
+                // Obtener datos de la tabla visible
+                const tabla = document.getElementById('tabla-tecnicos');
+                if (tabla && tabla.children.length > 0) {
+                    Array.from(tabla.children).forEach(fila => {
+                        const celdas = fila.children;
+                        if (celdas.length >= 7) {
+                            datosTecnicos.push([
+                                celdas[0].textContent.trim(),
+                                celdas[1].textContent.trim(),
+                                celdas[2].textContent.trim(),
+                                celdas[3].textContent.trim(),
+                                celdas[4].textContent.trim(),
+                                celdas[5].textContent.trim(),
+                                celdas[6].textContent.trim()
+                            ]);
+                        }
+                    });
+                } else {
+                    datosTecnicos.push(['No hay datos disponibles', '', '', '', '', '', '']);
+                }
+                
+                const wsTecnicos = XLSX.utils.aoa_to_sheet(datosTecnicos);
+                
+                // Aplicar estilos a la hoja de técnicos
+                wsTecnicos['!cols'] = [
+                    { width: 12 }, // Cédula
+                    { width: 25 }, // Técnico
+                    { width: 15 }, // Carpeta
+                    { width: 20 }, // Supervisor
+                    { width: 25 }, // Carpeta Día / Tipificación
+                    { width: 18 }, // Presupuesto Eventos
+                    { width: 18 }  // Presupuesto Diario
+                ];
+                
+                XLSX.utils.book_append_sheet(workbook, wsTecnicos, 'Técnicos');
+                
+                // Generar nombre del archivo con fecha y hora
+                const fecha = new Date();
+                const fechaFormateada = fecha.toISOString().slice(0, 10);
+                const horaFormateada = fecha.toTimeString().slice(0, 5).replace(':', '');
+                const nombreArchivo = `Inicio_Operacion_Tecnicos_${fechaFormateada}_${horaFormateada}.xlsx`;
+                
+                // Descargar el archivo
+                XLSX.writeFile(workbook, nombreArchivo);
+                
+                // Mostrar mensaje de éxito
+                mostrarMensajeExito('Excel exportado exitosamente: ' + nombreArchivo);
+                
+            } catch (error) {
+                console.error('Error al exportar Excel:', error);
+                mostrarMensajeError('Error al exportar Excel: ' + error.message);
+            }
+        }
+        
+        function mostrarMensajeExito(mensaje) {
+            // Crear toast de éxito
+            const toast = document.createElement('div');
+            toast.className = 'toast align-items-center text-white bg-success border-0 position-fixed';
+            toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="fas fa-check-circle me-2"></i>${mensaje}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            document.body.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            // Remover el toast después de que se oculte
+            toast.addEventListener('hidden.bs.toast', () => {
+                toast.remove();
+            });
+        }
+        
+        function mostrarMensajeError(mensaje) {
+            // Crear toast de error
+            const toast = document.createElement('div');
+            toast.className = 'toast align-items-center text-white bg-danger border-0 position-fixed';
+            toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+            toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        <i class="fas fa-exclamation-circle me-2"></i>${mensaje}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+            
+            document.body.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+            
+            // Remover el toast después de que se oculte
+            toast.addEventListener('hidden.bs.toast', () => {
+                toast.remove();
+            });
         }
 
 
