@@ -68,7 +68,7 @@
         }
         
         .refresh-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea 0%, #667eea 100%);
             border: none;
             color: white;
             padding: 0.5rem 1rem;
@@ -196,14 +196,35 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let tecnicosData = [];
         let cargandoDatos = false; // Flag para prevenir múltiples llamadas
         let timeoutId = null; // Para debounce
 
+        // Función para inicializar dropdowns de Bootstrap
+        function inicializarDropdowns() {
+            try {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
+                    var dropdownElementList = [].slice.call(document.querySelectorAll('.dropdown-toggle'));
+                    var dropdownList = dropdownElementList.map(function (dropdownToggleEl) {
+                        return new bootstrap.Dropdown(dropdownToggleEl);
+                    });
+                    console.log('Dropdowns inicializados correctamente');
+                } else {
+                    console.log('Bootstrap no está disponible, reintentando...');
+                    setTimeout(inicializarDropdowns, 100);
+                }
+            } catch (error) {
+                console.error('Error al inicializar dropdowns:', error);
+                setTimeout(inicializarDropdowns, 100);
+            }
+        }
+
         // Cargar técnicos al iniciar la página
         document.addEventListener('DOMContentLoaded', function() {
+            // Inicializar dropdowns con delay para asegurar que Bootstrap esté cargado
+            setTimeout(inicializarDropdowns, 100);
+            
             // Establecer fecha actual por defecto
             const hoy = new Date();
             const fechaHoy = hoy.toISOString().split('T')[0];
@@ -597,6 +618,36 @@
             });
         }
 
+        // Fallback adicional usando jQuery para asegurar que los dropdowns funcionen
+        $(document).ready(function() {
+            // Esperar un poco más para asegurar que todo esté cargado
+            setTimeout(function() {
+                // Forzar la inicialización de dropdowns usando jQuery
+                $('.dropdown-toggle').each(function() {
+                    if (!$(this).hasClass('dropdown-initialized')) {
+                        $(this).addClass('dropdown-initialized');
+                        // Agregar event listeners manualmente si Bootstrap no funciona
+                        $(this).on('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            // Cerrar otros dropdowns
+                            $('.dropdown-menu').removeClass('show');
+                            
+                            // Toggle del dropdown actual
+                            const menu = $(this).next('.dropdown-menu');
+                            menu.toggleClass('show');
+                            
+                            // Cerrar dropdown al hacer click fuera
+                            $(document).one('click', function() {
+                                menu.removeClass('show');
+                            });
+                        });
+                    }
+                });
+                console.log('Fallback de dropdowns aplicado');
+            }, 500);
+        });
 
     </script>
                         </div>
