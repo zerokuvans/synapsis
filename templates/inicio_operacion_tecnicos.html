@@ -125,12 +125,28 @@
             </div>
         </div>
         
-        <!-- Presupuesto del Día -->
+        <!-- Presupuesto del Día y Novedades Sin Presupuesto -->
         <div class="row mb-4">
-            <div class="col-md-4 offset-md-4">
-                <div class="stats-card text-center">
+            <!-- Presupuesto del Día -->
+            <div class="col-md-6">
+                <div class="stats-card text-center h-100">
                     <h3 class="text-success mb-1" id="presupuesto-hoy">$0</h3>
                     <p class="mb-0">Presupuesto Hoy</p>
+                </div>
+            </div>
+            
+            <!-- Novedades Sin Presupuesto -->
+            <div class="col-md-6">
+                <div class="stats-card h-100">
+                    <h5 class="text-center mb-3">
+                        <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                        Novedades Sin Presupuesto
+                    </h5>
+                    <div id="novedades-sin-presupuesto">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-spinner fa-spin me-2"></i>Cargando novedades...
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -283,6 +299,16 @@
                     mostrarTecnicos(tecnicosData);
                 } else {
                     mostrarError(data.error || 'Error al cargar los datos');
+                    // Mostrar mensaje de error en la tarjeta de novedades
+                    const container = document.getElementById('novedades-sin-presupuesto');
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="text-center text-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Error al cargar datos
+                            </div>
+                        `;
+                    }
                 }
             } catch (error) {
                 if (error && error.message) {
@@ -291,6 +317,16 @@
                     console.error('Error al cargar técnicos:', error);
                 }
                 mostrarError('Error de conexión al servidor');
+                // Mostrar mensaje de error en la tarjeta de novedades
+                const container = document.getElementById('novedades-sin-presupuesto');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="text-center text-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Error de conexión
+                        </div>
+                    `;
+                }
             } finally {
                 cargandoDatos = false; // Resetear flag de carga
             }
@@ -334,6 +370,93 @@
                     maximumFractionDigits: 0
                 }).format(presupuestoTotal);
             }
+            
+            // Actualizar novedades sin presupuesto
+            actualizarNovedadesSinPresupuesto(data.tecnicos);
+        }
+
+        function actualizarNovedadesSinPresupuesto(tecnicos) {
+            const container = document.getElementById('novedades-sin-presupuesto');
+            
+            // Verificar si hay datos de técnicos
+            if (!tecnicos || tecnicos.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No hay datos de técnicos disponibles
+                    </div>
+                `;
+                return;
+            }
+
+            const tecnicosSinPresupuesto = tecnicos.filter(t => 
+                t.asistencia_hoy && (
+                    !t.asistencia_hoy.presupuesto_eventos || 
+                    t.asistencia_hoy.presupuesto_eventos === null || 
+                    t.asistencia_hoy.presupuesto_eventos === ''
+                )
+            );
+            const tipificaciones = {};
+            
+            // Contar tipificaciones
+            tecnicosSinPresupuesto.forEach(tecnico => {
+                if (tecnico.asistencia_hoy && tecnico.asistencia_hoy.tipificacion && tecnico.asistencia_hoy.tipificacion.trim() !== '') {
+                    const tipificacion = tecnico.asistencia_hoy.tipificacion.trim();
+                    tipificaciones[tipificacion] = (tipificaciones[tipificacion] || 0) + 1;
+                }
+            });
+
+            if (tecnicosSinPresupuesto.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        Todos los técnicos tienen presupuesto asignado
+                    </div>
+                `;
+                return;
+            }
+
+            if (Object.keys(tipificaciones).length === 0) {
+                container.innerHTML = `
+                    <div class="text-center">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>Total técnicos sin presupuesto:</strong>
+                            <span class="badge bg-warning text-dark">${tecnicosSinPresupuesto.length}</span>
+                        </div>
+                        <div class="text-muted">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Sin tipificaciones registradas
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Total técnicos sin presupuesto:</strong>
+                        <span class="badge bg-warning text-dark">${tecnicosSinPresupuesto.length}</span>
+                    </div>
+                </div>
+                <div class="tipificaciones-list">
+            `;
+
+            // Ordenar tipificaciones por cantidad (descendente)
+            const tipificacionesOrdenadas = Object.entries(tipificaciones)
+                .sort(([,a], [,b]) => b - a);
+
+            tipificacionesOrdenadas.forEach(([tipificacion, cantidad]) => {
+                html += `
+                    <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                        <span class="text-truncate me-2" title="${tipificacion}">${tipificacion}</span>
+                        <span class="badge bg-secondary">${cantidad}</span>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            container.innerHTML = html;
         }
 
         function mostrarTecnicos(tecnicos) {
