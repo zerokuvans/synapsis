@@ -1362,7 +1362,7 @@ def create_user():
         if connection is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
 
-        cursor = connection.cursor()
+        cursor = connection.cursor(dictionary=True)
         
         # Obtener datos del formulario
         cedula = request.form.get('recurso_operativo_cedula')  # Nombre corregido según el formulario
@@ -1447,7 +1447,7 @@ def update_user():
         if connection is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
 
-        cursor = connection.cursor()
+        cursor = connection.cursor(dictionary=True)
         
         # Obtener datos del formulario
         user_id = request.form.get('id_codigo_consumidor')
@@ -2728,6 +2728,9 @@ def main_api_tecnicos_asignados():
                 SELECT 
                     a.carpeta_dia,
                     a.fecha_asistencia,
+                    a.hora_inicio,
+                    a.estado,
+                    a.novedad,
                     ta.nombre_tipificacion,
                     ta.codigo_tipificacion,
                     ta.grupo as grupo_tipificacion,
@@ -2759,6 +2762,9 @@ def main_api_tecnicos_asignados():
                 'asistencia_hoy': {
                     'carpeta_dia': asistencia['carpeta_dia'] if asistencia else None,
                     'fecha_asistencia': asistencia['fecha_asistencia'].isoformat() if asistencia and asistencia['fecha_asistencia'] else None,
+                    'hora_inicio': str(asistencia['hora_inicio']) if asistencia and asistencia['hora_inicio'] else None,
+                    'estado': asistencia['estado'] if asistencia else None,
+                    'novedad': asistencia['novedad'] if asistencia else None,
                     'tipificacion': asistencia['nombre_tipificacion'] if asistencia else 'Sin registro',
                     'codigo_tipificacion': asistencia['codigo_tipificacion'] if asistencia else None,
                     'grupo_tipificacion': asistencia['grupo_tipificacion'] if asistencia else None,
@@ -8625,7 +8631,7 @@ def api_preoperacionales_tecnicos():
 @app.route('/api/asistencia/consultar', methods=['GET'])
 @login_required(role='administrativo')
 def consultar_asistencia():
-    """Consultar registros de asistencia por supervisor y fecha/rango de fechas para edición"""
+    """Consultar registros de asistencia por supervisor y fecha, incluyendo técnicos sin registro"""
     try:
         supervisor = request.args.get('supervisor')
         fecha = request.args.get('fecha')
@@ -8645,30 +8651,71 @@ def consultar_asistencia():
             
         cursor = connection.cursor(dictionary=True)
         
-        # Construir consulta según el tipo de filtro de fecha
+        # Para consulta de fecha única, incluir todos los técnicos del supervisor
         if fecha:
             # Validar formato de fecha única
             try:
                 fecha_obj = datetime.strptime(fecha, '%Y-%m-%d').date()
             except ValueError:
                 return jsonify({'success': False, 'message': 'Formato de fecha inválido. Use YYYY-MM-DD'}), 400
-                
-            # Consultar registros para fecha específica
+            
+            # Obtener todos los técnicos del supervisor
             cursor.execute("""
                 SELECT 
-                    id_asistencia,
-                    cedula,
-                    tecnico,
-                    carpeta_dia,
+                    id_codigo_consumidor,
+                    recurso_operativo_cedula as cedula,
+                    nombre as tecnico,
                     carpeta,
-                    super,
-                    fecha_asistencia,
-                    id_codigo_consumidor
-                FROM asistencia 
-                WHERE super = %s AND DATE(fecha_asistencia) = %s
-                ORDER BY tecnico, fecha_asistencia
-            """, (supervisor, fecha_obj))
+                    super
+                FROM recurso_operativo 
+                WHERE super = %s AND estado = 'Activo'
+                ORDER BY nombre
+            """, (supervisor,))
+            
+            tecnicos = cursor.fetchall()
+            
+            # Para cada técnico, buscar si tiene registro de asistencia para la fecha
+            registros = []
+            for tecnico in tecnicos:
+                cursor.execute("""
+                    SELECT 
+                        id_asistencia,
+                        cedula,
+                        tecnico,
+                        carpeta_dia,
+                        carpeta,
+                        super,
+                        fecha_asistencia,
+                        id_codigo_consumidor,
+                        hora_inicio,
+                        estado,
+                        novedad
+                    FROM asistencia 
+                    WHERE id_codigo_consumidor = %s AND DATE(fecha_asistencia) = %s
+                """, (tecnico['id_codigo_consumidor'], fecha_obj))
+                
+                registro_asistencia = cursor.fetchone()
+                
+                if registro_asistencia:
+                    # Técnico tiene registro de asistencia
+                    registros.append(registro_asistencia)
+                else:
+                    # Técnico no tiene registro, crear entrada vacía
+                    registros.append({
+                        'id_asistencia': None,
+                        'cedula': tecnico['cedula'],
+                        'tecnico': tecnico['tecnico'],
+                        'carpeta_dia': None,
+                        'carpeta': tecnico['carpeta'],
+                        'super': tecnico['super'],
+                        'fecha_asistencia': fecha_obj.strftime('%Y-%m-%d'),
+                        'id_codigo_consumidor': tecnico['id_codigo_consumidor'],
+                        'hora_inicio': None,
+                        'estado': None,
+                        'novedad': None
+                    })
         else:
+            # Para rango de fechas, mantener comportamiento original (solo registros existentes)
             # Validar formato de rango de fechas
             try:
                 fecha_inicio_obj = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
@@ -8689,13 +8736,30 @@ def consultar_asistencia():
                     carpeta,
                     super,
                     fecha_asistencia,
-                    id_codigo_consumidor
+                    id_codigo_consumidor,
+                    hora_inicio,
+                    estado,
+                    novedad
                 FROM asistencia 
                 WHERE super = %s AND DATE(fecha_asistencia) BETWEEN %s AND %s
                 ORDER BY tecnico, fecha_asistencia
             """, (supervisor, fecha_inicio_obj, fecha_fin_obj))
+            
+            registros = cursor.fetchall()
         
-        registros = cursor.fetchall()
+        # Procesar los registros para formatear hora_inicio correctamente
+        for registro in registros:
+            if registro['hora_inicio']:
+                # El campo time se devuelve como timedelta desde MySQL
+                if hasattr(registro['hora_inicio'], 'total_seconds'):
+                    # Es un timedelta
+                    total_seconds = int(registro['hora_inicio'].total_seconds())
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    registro['hora_inicio'] = f"{hours:02d}:{minutes:02d}"
+                else:
+                    # Es un string o datetime.time
+                    registro['hora_inicio'] = str(registro['hora_inicio'])[:5]  # HH:MM
         
         return jsonify({
             'success': True,
@@ -15217,6 +15281,515 @@ def api_sstt_dashboard_stats():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# ============================================================================
+# ENDPOINTS PARA INICIO DE OPERACIÓN - NUEVOS CAMPOS DE ASISTENCIA
+# ============================================================================
+
+@app.route('/api/asistencia/actualizar-campo', methods=['POST'])
+@login_required_api()
+def actualizar_campo_asistencia():
+    """Actualizar un campo específico de asistencia para inicio de operación"""
+    try:
+        data = request.get_json()
+        
+        # Validar campos requeridos
+        required_fields = ['cedula', 'campo', 'valor']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'success': False, 
+                    'message': f'Campo requerido faltante: {field}'
+                }), 400
+        
+        cedula = data['cedula']
+        campo = data['campo']
+        valor = data['valor']
+        fecha_filtro = data.get('fecha')  # Obtener fecha del frontend
+        
+        # Validar que el campo sea uno de los permitidos
+        campos_permitidos = ['hora_inicio', 'estado', 'novedad']
+        if campo not in campos_permitidos:
+            return jsonify({
+                'success': False,
+                'message': f'Campo no permitido: {campo}. Campos válidos: {campos_permitidos}'
+            }), 400
+        
+        # Validar valores específicos para el campo 'estado'
+        if campo == 'estado':
+            estados_validos = ['CUMPLE', 'NO CUMPLE', 'NOVEDAD', 'NO APLICA']
+            if valor and valor not in estados_validos:
+                return jsonify({
+                    'success': False,
+                    'message': f'Estado no válido: {valor}. Estados válidos: {estados_validos}'
+                }), 400
+        
+        # Validar formato de hora para 'hora_inicio'
+        if campo == 'hora_inicio' and valor:
+            try:
+                # Validar formato HH:MM
+                datetime.strptime(valor, '%H:%M')
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Formato de hora inválido. Use HH:MM (ej: 08:30)'
+                }), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False, 
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Determinar fecha a usar para la búsqueda
+        bogota_tz = pytz.timezone('America/Bogota')
+        if fecha_filtro:
+            # Usar la fecha enviada desde el frontend
+            try:
+                fecha_busqueda = datetime.strptime(fecha_filtro, '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Formato de fecha inválido. Use YYYY-MM-DD'
+                }), 400
+        else:
+            # Si no se envía fecha, usar la fecha actual
+            fecha_busqueda = datetime.now(bogota_tz).date()
+        
+        # Buscar registro de asistencia para la fecha especificada y esta cédula
+        cursor.execute("""
+            SELECT id_asistencia, DATE(fecha_asistencia) as fecha_registro
+            FROM asistencia 
+            WHERE cedula = %s AND DATE(fecha_asistencia) = %s
+            ORDER BY fecha_asistencia DESC
+            LIMIT 1
+        """, (cedula, fecha_busqueda))
+        
+        resultado = cursor.fetchone()
+        
+        if not resultado:
+            # No existe registro para la fecha especificada, crear uno nuevo
+            try:
+                # Obtener información del técnico desde la tabla recurso_operativo
+                cursor.execute("SELECT nombre FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+                usuario = cursor.fetchone()
+                
+                if not usuario:
+                    # Si no está en recurso_operativo, usar la cédula como nombre por defecto
+                    nombre_tecnico = f"Técnico {cedula}"
+                else:
+                    nombre_tecnico = usuario['nombre'] or f"Técnico {cedula}"
+                
+                # Crear nuevo registro de asistencia para la fecha especificada
+                fecha_completa = datetime.combine(fecha_busqueda, datetime.now(bogota_tz).time())
+                cursor.execute("""
+                    INSERT INTO asistencia (cedula, tecnico, carpeta_dia, carpeta, super, fecha_asistencia, estado, novedad)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """, (cedula, nombre_tecnico, '', '', '', fecha_completa, None, None))
+                
+                id_asistencia = cursor.lastrowid
+                
+                app.logger.info(f"Creado nuevo registro de asistencia para cédula {cedula} con ID {id_asistencia}")
+                
+            except Exception as e:
+                app.logger.error(f"Error creando registro de asistencia: {str(e)}")
+                return jsonify({
+                    'success': False,
+                    'message': f'Error creando registro de asistencia: {str(e)}'
+                }), 500
+        else:
+            id_asistencia = resultado['id_asistencia']
+            app.logger.info(f"Registro encontrado - ID: {id_asistencia}, Fecha: {resultado['fecha_registro']}")
+        
+        # Verificar que el registro aún existe antes de actualizar
+        cursor.execute("SELECT id_asistencia, estado, hora_inicio FROM asistencia WHERE id_asistencia = %s", (id_asistencia,))
+        verificacion = cursor.fetchone()
+        if not verificacion:
+            app.logger.error(f"CRÍTICO: El registro {id_asistencia} ya no existe en la base de datos")
+            return jsonify({
+                'success': False,
+                'message': f'El registro {id_asistencia} no existe'
+            }), 500
+        
+        app.logger.info(f"Verificación antes de UPDATE - ID: {id_asistencia}, Estado actual: {verificacion.get('estado')}, Hora actual: {verificacion.get('hora_inicio')}")
+        
+        # Actualizar el campo específico
+        app.logger.info(f"Preparando actualización - ID: {id_asistencia}, Campo: {campo}, Valor: {valor}")
+        query = f"UPDATE asistencia SET {campo} = %s WHERE id_asistencia = %s"
+        app.logger.info(f"Ejecutando query: {query} con valores: ({valor}, {id_asistencia})")
+        cursor.execute(query, (valor if valor else None, id_asistencia))
+        
+        app.logger.info(f"Filas afectadas: {cursor.rowcount}")
+        
+        # Verificar si la actualización fue exitosa o si el valor ya era el mismo
+        if cursor.rowcount > 0:
+            connection.commit()
+            app.logger.info(f"Campo {campo} actualizado exitosamente para cédula {cedula}")
+            return jsonify({
+                'success': True,
+                'message': f'Campo {campo} actualizado correctamente para cédula {cedula}'
+            })
+        else:
+            # Verificar si el valor ya era el mismo (no es un error)
+            cursor.execute(f"SELECT {campo} FROM asistencia WHERE id_asistencia = %s", (id_asistencia,))
+            valor_actual = cursor.fetchone()
+            
+            # Comparar valores considerando diferentes formatos
+            valores_iguales = False
+            if valor_actual:
+                val_actual = valor_actual[campo]
+                if campo == 'hora_inicio':
+                    # Para hora_inicio, comparar considerando formatos diferentes
+                    # Convertir ambos a formato HH:MM para comparar
+                    try:
+                        if val_actual:
+                            # Convertir 8:30:00 a 08:30 para comparar
+                            hora_actual = str(val_actual).split(':')[:2]  # Tomar solo HH:MM
+                            hora_actual_fmt = f"{hora_actual[0].zfill(2)}:{hora_actual[1]}"
+                            hora_nueva_fmt = str(valor)
+                            if ':' not in hora_nueva_fmt and len(hora_nueva_fmt) == 4:
+                                # Convertir 0830 a 08:30
+                                hora_nueva_fmt = f"{hora_nueva_fmt[:2]}:{hora_nueva_fmt[2:]}"
+                            valores_iguales = hora_actual_fmt == hora_nueva_fmt
+                            app.logger.info(f"Comparación hora - Actual: {hora_actual_fmt}, Nueva: {hora_nueva_fmt}, Iguales: {valores_iguales}")
+                    except Exception as e:
+                        app.logger.error(f"Error comparando horas: {e}")
+                        valores_iguales = str(val_actual) == str(valor)
+                else:
+                    # Para otros campos, comparación directa
+                    valores_iguales = str(val_actual) == str(valor)
+            
+            if valores_iguales:
+                app.logger.info(f"Campo {campo} ya tenía el valor {valor} para cédula {cedula} - no requiere actualización")
+                connection.commit()  # Commit por si acaso
+                return jsonify({
+                    'success': True,
+                    'message': f'Campo {campo} ya tenía el valor correcto para cédula {cedula}'
+                })
+            else:
+                app.logger.error(f"No se pudo actualizar el registro. ID: {id_asistencia}, Campo: {campo}, Valor: {valor}")
+                return jsonify({
+                    'success': False,
+                    'message': 'No se pudo actualizar el registro'
+                }), 500
+        
+    except Exception as e:
+        return jsonify({
+            'success': False, 
+            'message': f'Error: {str(e)}'
+        }), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/obtener-datos', methods=['GET'])
+@login_required_api()
+def obtener_datos_asistencia():
+    """Obtener datos existentes de asistencia para una cédula específica"""
+    try:
+        cedula = request.args.get('cedula')
+        
+        if not cedula:
+            return jsonify({
+                'success': False,
+                'message': 'Cédula requerida'
+            }), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False, 
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener fecha actual en zona horaria de Bogotá
+        bogota_tz = pytz.timezone('America/Bogota')
+        fecha_actual = datetime.now(bogota_tz).date()
+        
+        # Buscar registro de asistencia para hoy y esta cédula
+        cursor.execute("""
+            SELECT 
+                id_asistencia,
+                cedula,
+                tecnico,
+                hora_inicio,
+                estado,
+                novedad,
+                fecha_asistencia
+            FROM asistencia 
+            WHERE cedula = %s AND DATE(fecha_asistencia) = %s
+            ORDER BY fecha_asistencia DESC
+            LIMIT 1
+        """, (cedula, fecha_actual))
+        
+        resultado = cursor.fetchone()
+        
+        if resultado:
+            # Formatear hora_inicio si existe
+            if resultado['hora_inicio']:
+                # El campo time se devuelve como timedelta desde MySQL
+                if hasattr(resultado['hora_inicio'], 'total_seconds'):
+                    # Es un timedelta
+                    total_seconds = int(resultado['hora_inicio'].total_seconds())
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    resultado['hora_inicio'] = f"{hours:02d}:{minutes:02d}"
+                else:
+                    # Es un string o datetime.time
+                    resultado['hora_inicio'] = str(resultado['hora_inicio'])[:5]  # HH:MM
+            
+            return jsonify({
+                'success': True,
+                'data': resultado,
+                'exists': True
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'data': {
+                    'cedula': cedula,
+                    'hora_inicio': '',
+                    'estado': '',
+                    'novedad': ''
+                },
+                'exists': False
+            })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False, 
+            'message': f'Error: {str(e)}'
+        }), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/actualizar-masivo', methods=['POST'])
+@login_required_api()
+def actualizar_masivo_asistencia():
+    """Actualizar múltiples registros de asistencia para inicio de operación"""
+    try:
+        data = request.get_json()
+        
+        # Validar que se envíen datos
+        if not data.get('asistencias'):
+            return jsonify({
+                'success': False,
+                'message': 'No se enviaron datos de asistencias'
+            }), 400
+        
+        asistencias = data['asistencias']
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False,
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener fecha actual en zona horaria de Bogotá
+        bogota_tz = pytz.timezone('America/Bogota')
+        fecha_actual = datetime.now(bogota_tz).date()
+        
+        actualizaciones_exitosas = 0
+        errores = []
+        
+        for asistencia in asistencias:
+            try:
+                cedula = asistencia.get('cedula')
+                hora_inicio = asistencia.get('hora_inicio')
+                estado = asistencia.get('estado')
+                novedad = asistencia.get('novedad')
+                
+                if not cedula:
+                    errores.append(f'Cédula faltante en uno de los registros')
+                    continue
+                
+                # Validar estado si se proporciona
+                if estado:
+                    estados_validos = ['CUMPLE', 'NO CUMPLE', 'NOVEDAD', 'NO APLICA']
+                    if estado not in estados_validos:
+                        errores.append(f'Estado inválido para cédula {cedula}: {estado}')
+                        continue
+                
+                # Validar formato de hora si se proporciona
+                if hora_inicio:
+                    try:
+                        datetime.strptime(hora_inicio, '%H:%M')
+                    except ValueError:
+                        errores.append(f'Formato de hora inválido para cédula {cedula}: {hora_inicio}')
+                        continue
+                
+                # Buscar registro de asistencia para hoy y esta cédula
+                cursor.execute("""
+                    SELECT id_asistencia
+                    FROM asistencia 
+                    WHERE cedula = %s AND DATE(fecha_asistencia) = %s
+                    ORDER BY fecha_asistencia DESC
+                    LIMIT 1
+                """, (cedula, fecha_actual))
+                
+                resultado = cursor.fetchone()
+                
+                if not resultado:
+                    errores.append(f'No se encontró registro de asistencia para cédula {cedula}')
+                    continue
+                
+                id_asistencia = resultado[0]
+                
+                # Actualizar los campos
+                cursor.execute("""
+                    UPDATE asistencia 
+                    SET hora_inicio = %s, estado = %s, novedad = %s
+                    WHERE id_asistencia = %s
+                """, (
+                    hora_inicio if hora_inicio else None,
+                    estado if estado else None,
+                    novedad if novedad else None,
+                    id_asistencia
+                ))
+                
+                if cursor.rowcount > 0:
+                    actualizaciones_exitosas += 1
+                else:
+                    errores.append(f'No se pudo actualizar el registro para cédula {cedula}')
+                    
+            except Exception as e:
+                errores.append(f'Error procesando cédula {cedula}: {str(e)}')
+                continue
+        
+        # Confirmar cambios si hubo actualizaciones exitosas
+        if actualizaciones_exitosas > 0:
+            connection.commit()
+        
+        # Preparar respuesta
+        response_data = {
+            'success': actualizaciones_exitosas > 0,
+            'actualizaciones_exitosas': actualizaciones_exitosas,
+            'total_procesados': len(asistencias)
+        }
+        
+        if errores:
+            response_data['errores'] = errores
+            response_data['message'] = f'Se actualizaron {actualizaciones_exitosas} de {len(asistencias)} registros. {len(errores)} errores encontrados.'
+        else:
+            response_data['message'] = f'Se actualizaron {actualizaciones_exitosas} registros exitosamente'
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        }), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/obtener-campos-inicio', methods=['GET'])
+@login_required(role='administrativo')
+def obtener_campos_inicio_operacion():
+    """Obtener los campos de inicio de operación para una fecha específica"""
+    try:
+        # Obtener parámetros
+        fecha = request.args.get('fecha')
+        supervisor = request.args.get('supervisor')
+        
+        # Si no se proporciona fecha, usar la fecha actual
+        if not fecha:
+            bogota_tz = pytz.timezone('America/Bogota')
+            fecha = datetime.now(bogota_tz).date().strftime('%Y-%m-%d')
+        
+        try:
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'message': 'Formato de fecha inválido. Use YYYY-MM-DD'
+            }), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({
+                'success': False,
+                'message': 'Error de conexión a la base de datos'
+            }), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Construir consulta base
+        query = """
+            SELECT 
+                a.cedula,
+                a.tecnico,
+                a.carpeta,
+                a.super as supervisor,
+                a.carpeta_dia,
+                a.hora_inicio,
+                a.estado,
+                a.novedad,
+                a.fecha_asistencia
+            FROM asistencia a
+            WHERE DATE(a.fecha_asistencia) = %s
+        """
+        
+        params = [fecha_obj]
+        
+        # Agregar filtro por supervisor si se proporciona
+        if supervisor:
+            query += " AND a.super = %s"
+            params.append(supervisor)
+        
+        query += " ORDER BY a.tecnico"
+        
+        cursor.execute(query, params)
+        registros = cursor.fetchall()
+        
+        # Formatear los datos para el frontend
+        datos_formateados = []
+        for registro in registros:
+            datos_formateados.append({
+                'cedula': registro['cedula'],
+                'tecnico': registro['tecnico'],
+                'carpeta': registro['carpeta'],
+                'supervisor': registro['supervisor'],
+                'carpeta_dia': registro['carpeta_dia'],
+                'hora_inicio': registro['hora_inicio'].strftime('%H:%M') if registro['hora_inicio'] else '',
+                'estado': registro['estado'] or '',
+                'novedad': registro['novedad'] or '',
+                'fecha_asistencia': registro['fecha_asistencia'].strftime('%Y-%m-%d %H:%M:%S')
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': datos_formateados,
+            'fecha': fecha,
+            'total_registros': len(datos_formateados)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        }), 500
     finally:
         if 'cursor' in locals() and cursor:
             cursor.close()
