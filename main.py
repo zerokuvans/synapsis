@@ -7340,7 +7340,8 @@ def obtener_usuario(id):
                 carpeta,
                 cliente,
                 ciudad,
-                super
+                super,
+                analista
             FROM recurso_operativo 
             WHERE id_codigo_consumidor = %s
         """, (id,))
@@ -7422,6 +7423,8 @@ def actualizar_usuario():
         cliente = request.form.get('cliente', '')
         ciudad = request.form.get('ciudad', '')
         super_valor = request.form.get('super', '')
+        password = request.form.get('password', '')
+        analista = request.form.get('analista', '')
         
         # Validar datos requeridos
         if not all([id_codigo_consumidor, recurso_operativo_cedula, nombre, id_roles]):
@@ -7434,21 +7437,21 @@ def actualizar_usuario():
         
         cursor = connection.cursor()
         
-        # Actualizar usuario
-        query = """
-        UPDATE recurso_operativo SET 
-            recurso_operativo_cedula = %s, 
-            nombre = %s, 
-            id_roles = %s,
-            estado = %s,
-            cargo = %s,
-            carpeta = %s,
-            cliente = %s,
-            ciudad = %s,
-            super = %s
-        WHERE id_codigo_consumidor = %s
-        """
-        values = (
+        # Preparar la consulta base
+        query_fields = [
+            'recurso_operativo_cedula = %s',
+            'nombre = %s',
+            'id_roles = %s',
+            'estado = %s',
+            'cargo = %s',
+            'carpeta = %s',
+            'cliente = %s',
+            'ciudad = %s',
+            'super = %s',
+            'analista = %s'
+        ]
+        
+        values = [
             recurso_operativo_cedula, 
             nombre, 
             id_roles,
@@ -7458,8 +7461,25 @@ def actualizar_usuario():
             cliente,
             ciudad,
             super_valor,
-            id_codigo_consumidor
-        )
+            analista
+        ]
+        
+        # Si se proporciona una nueva contraseña, agregarla a la actualización
+        if password and password.strip():
+            # Encriptar la nueva contraseña con bcrypt
+            hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+            query_fields.append('password = %s')
+            values.append(hashed_password)
+        
+        # Agregar el ID al final para la cláusula WHERE
+        values.append(id_codigo_consumidor)
+        
+        # Construir la consulta final
+        query = f"""
+        UPDATE recurso_operativo SET 
+            {', '.join(query_fields)}
+        WHERE id_codigo_consumidor = %s
+        """
         
         cursor.execute(query, values)
         connection.commit()
@@ -9761,6 +9781,39 @@ def get_cargos():
         
     except Error as e:
         return jsonify({'success': False, 'message': f'Error al obtener cargos: {str(e)}'}), 500
+        
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/analistas', methods=['GET'])
+@login_required(role='administrativo')
+def get_analistas():
+    """Obtener lista de usuarios con cargo ANALISTA para el dropdown de analistas"""
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener usuarios con cargo ANALISTA que estén activos
+        cursor.execute("""
+            SELECT id_codigo_consumidor, nombre, recurso_operativo_cedula 
+            FROM recurso_operativo 
+            WHERE cargo = 'ANALISTA' AND estado = 'Activo' 
+            ORDER BY nombre
+        """)
+        analistas = cursor.fetchall()
+        
+        return jsonify({'success': True, 'analistas': analistas})
+        
+    except Error as e:
+        return jsonify({'success': False, 'message': f'Error al obtener analistas: {str(e)}'}), 500
         
     finally:
         if cursor:
