@@ -283,7 +283,7 @@ def register():
 
     return redirect(url_for('dashboard'))
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         # Añadir logging para depuración
@@ -473,6 +473,14 @@ def login():
 
     # Para solicitudes GET simplemente mostrar la plantilla de login
     return render_template('login.html')
+
+# Redirigir la ruta raíz a la página de login para consistencia y aceptar POST
+@app.route('/', methods=['GET', 'POST'])
+def root():
+    if request.method == 'POST':
+        # Delegar a la misma lógica de login para compatibilidad con clientes que postean a '/'
+        return login()
+    return redirect(url_for('login'))
 
 @app.route('/logout', methods=['GET', 'POST'])
 def logout():
@@ -2675,6 +2683,59 @@ def api_causas_cierre():
             cursor.close()
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
+def _normalizar_hora(valor):
+    """Normaliza distintos formatos de hora a 'HH:MM'."""
+    try:
+        from datetime import datetime, time as dtime
+        import re
+        if not valor:
+            return None
+        # Tipos datetime/time
+        if isinstance(valor, dtime):
+            return valor.strftime('%H:%M')
+        if isinstance(valor, datetime):
+            return valor.strftime('%H:%M')
+
+        # Convertir a texto y limpiar variantes
+        s = str(valor).strip()
+        s = s.replace('.', ':')
+        s = (s
+             .replace('a. m.', 'AM').replace('p. m.', 'PM')
+             .replace('a.m.', 'AM').replace('p.m.', 'PM')
+             .replace('A. M.', 'AM').replace('P. M.', 'PM')
+             .replace('am', 'AM').replace('pm', 'PM'))
+        s = re.sub(r'\s+', ' ', s).strip()
+
+        # Intentar parseo con AM/PM
+        for fmt in ('%I:%M %p', '%I:%M%p'):
+            try:
+                dt = datetime.strptime(s.upper(), fmt)
+                return dt.strftime('%H:%M')
+            except Exception:
+                pass
+
+        # Intentar formato 24h HH:MM
+        m = re.search(r'(\d{1,2})[:](\d{2})', s)
+        if m:
+            h = int(m.group(1)); mnt = int(m.group(2))
+            if 0 <= h <= 23 and 0 <= mnt <= 59:
+                return f"{h:02d}:{mnt:02d}"
+
+        # Dígitos 3-4 como 830 u 0830
+        md = re.search(r'\b(\d{3,4})\b', s)
+        if md:
+            d = md.group(1)
+            if len(d) == 3:
+                h = int(d[0]); mnt = int(d[1:])
+            else:
+                h = int(d[:2]); mnt = int(d[2:])
+            if 0 <= h <= 23 and 0 <= mnt <= 59:
+                return f"{h:02d}:{mnt:02d}"
+
+        return None
+    except Exception:
+        # Si ocurre cualquier error inesperado al normalizar, retornar None
+        return None
 
 @app.route('/api/analistas/tecnicos-asignados', methods=['GET'])
 @login_required()
@@ -2762,7 +2823,7 @@ def main_api_tecnicos_asignados():
                 'asistencia_hoy': {
                     'carpeta_dia': asistencia['carpeta_dia'] if asistencia else None,
                     'fecha_asistencia': asistencia['fecha_asistencia'].isoformat() if asistencia and asistencia['fecha_asistencia'] else None,
-                    'hora_inicio': str(asistencia['hora_inicio']) if asistencia and asistencia['hora_inicio'] else None,
+                    'hora_inicio': _normalizar_hora(asistencia['hora_inicio']) if asistencia and asistencia['hora_inicio'] else None,
                     'estado': asistencia['estado'] if asistencia else None,
                     'novedad': asistencia['novedad'] if asistencia else None,
                     'tipificacion': asistencia['nombre_tipificacion'] if asistencia else 'Sin registro',
