@@ -13,6 +13,7 @@ import io
 from collections import defaultdict
 import calendar
 import pytz
+import logging
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -8681,6 +8682,8 @@ def api_preoperacionales_tecnicos():
         })
         
     except Exception as e:
+        logging.error(f"Error en obtener_datos_grafica_operacion_recurso: {str(e)}")
+        logging.error(f"Parámetros recibidos: fecha_inicio={request.args.get('fecha_inicio')}, fecha_fin={request.args.get('fecha_fin')}, supervisor={request.args.get('supervisor')}, agrupacion={request.args.get('agrupacion')}")
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
     finally:
         if 'cursor' in locals() and cursor:
@@ -8829,6 +8832,8 @@ def consultar_asistencia():
         })
         
     except Exception as e:
+        logging.error(f"Error en obtener_datos_grafica_carpeta_dia: {str(e)}")
+        logging.error(f"Parámetros recibidos: fecha_inicio={request.args.get('fecha_inicio')}, fecha_fin={request.args.get('fecha_fin')}, supervisor={request.args.get('supervisor')}, agrupacion={request.args.get('agrupacion')}")
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
     finally:
         if 'cursor' in locals() and cursor:
@@ -9256,7 +9261,7 @@ def obtener_supervisores_asistencia():
 @app.route('/api/asistencia/resumen_agrupado', methods=['GET'])
 @login_required(role='administrativo')
 def obtener_resumen_agrupado_asistencia():
-    """Obtener resumen de asistencia agrupado por grupos de tipificación"""
+    """Obtener resumen de asistencia agrupado por grupos de tipificación y operación por recurso operativo"""
     try:
         # Obtener parámetros de filtro
         fecha_inicio = request.args.get('fecha_inicio')
@@ -9307,6 +9312,92 @@ def obtener_resumen_agrupado_asistencia():
             
         cursor = connection.cursor(dictionary=True)
         
+        # ===== NUEVA FUNCIONALIDAD: OPERACIÓN X RECURSO OPERATIVO =====
+        # Consulta para obtener datos agrupados por grupo y carpeta (excluyendo ausencias)
+        query_operacion = """
+            SELECT 
+                CASE 
+                    WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH') THEN 'ARREGLOS'
+                    WHEN a.carpeta IN ('BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES') THEN 'INSTALACIONES'
+                    WHEN a.carpeta IN ('POSTVENTA', 'POSTVENTA FTTH') THEN 'POSTVENTA'
+                    ELSE 'OTROS'
+                END as grupo,
+                a.carpeta,
+                COUNT(DISTINCT a.id_codigo_consumidor) as total_tecnicos
+            FROM asistencia a
+            INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                AND t.grupo IS NOT NULL 
+                AND t.grupo != ''
+                AND t.grupo NOT IN ('AUSENCIA INJUSTIFICADA', 'AUSENCIA JUSTIFICADA')
+                AND t.grupo IN ('ARREGLOS', 'INSTALACIONES', 'POSTVENTA')
+                AND a.carpeta IS NOT NULL
+                AND a.carpeta != ''
+                AND a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH', 'BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES', 'POSTVENTA', 'POSTVENTA FTTH')
+        """
+        
+        params_operacion = [fecha_inicio, fecha_fin]
+        
+        # Agregar filtro por supervisor si se proporciona
+        if supervisor_filtro:
+            query_operacion += " AND a.super = %s"
+            params_operacion.append(supervisor_filtro)
+        
+        query_operacion += """
+            GROUP BY CASE 
+                WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH') THEN 'ARREGLOS'
+                WHEN a.carpeta IN ('BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES') THEN 'INSTALACIONES'
+                WHEN a.carpeta IN ('POSTVENTA', 'POSTVENTA FTTH') THEN 'POSTVENTA'
+                ELSE 'OTROS'
+            END, a.carpeta
+            ORDER BY grupo, a.carpeta
+        """
+        
+        # Ejecutar consulta para operación por recurso operativo
+        cursor.execute(query_operacion, tuple(params_operacion))
+        resultados_operacion = cursor.fetchall()
+        
+        # Calcular total operativo (excluyendo ausencias)
+        query_total_operativo = """
+            SELECT COUNT(DISTINCT a.id_codigo_consumidor) as total_operativo
+            FROM asistencia a
+            INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                AND t.grupo IS NOT NULL 
+                AND t.grupo != ''
+                AND t.grupo NOT IN ('AUSENCIA INJUSTIFICADA', 'AUSENCIA JUSTIFICADA')
+                AND t.grupo IN ('ARREGLOS', 'INSTALACIONES', 'POSTVENTA')
+                AND a.carpeta IS NOT NULL
+                AND a.carpeta != ''
+                AND a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH', 'BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES', 'POSTVENTA', 'POSTVENTA FTTH')
+        """
+        
+        params_total_operativo = [fecha_inicio, fecha_fin]
+        if supervisor_filtro:
+            query_total_operativo += " AND a.super = %s"
+            params_total_operativo.append(supervisor_filtro)
+        
+        cursor.execute(query_total_operativo, tuple(params_total_operativo))
+        total_operativo = cursor.fetchone()['total_operativo'] or 0
+        
+        # Procesar resultados de operación por recurso operativo
+        operacion_recurso = []
+        for resultado in resultados_operacion:
+            grupo = resultado['grupo']
+            carpeta = resultado['carpeta']
+            total_tecnicos = resultado['total_tecnicos']
+            
+            # Calcular porcentaje respecto al total operativo (sin ausencias)
+            porcentaje = round((total_tecnicos * 100) / total_operativo, 2) if total_operativo > 0 else 0
+            
+            operacion_recurso.append({
+                'grupo': grupo,
+                'carpeta': carpeta,
+                'total_tecnicos': total_tecnicos,
+                'porcentaje': porcentaje
+            })
+        
+        # ===== FUNCIONALIDAD EXISTENTE: RESUMEN POR GRUPOS =====
         # Consulta base para obtener datos agrupados (solo registros con grupo válido)
         query_base = """
             SELECT 
@@ -9356,6 +9447,26 @@ def obtener_resumen_agrupado_asistencia():
         cursor.execute(query_total, tuple(params_total))
         total_general = cursor.fetchone()['total_general'] or 0
         
+        # Calcular total operativo para la tabla tradicional (excluyendo ausencias)
+        query_total_general_operativo = """
+            SELECT COUNT(DISTINCT a.id_codigo_consumidor) as total_general_operativo
+            FROM asistencia a
+            INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                AND t.grupo IS NOT NULL 
+                AND t.grupo != ''
+                AND t.grupo NOT IN ('AUSENCIA INJUSTIFICADA', 'AUSENCIA JUSTIFICADA')
+                AND t.grupo IN ('ARREGLOS', 'INSTALACIONES', 'POSTVENTA')
+        """
+        
+        params_total_general_operativo = [fecha_inicio, fecha_fin]
+        if supervisor_filtro:
+            query_total_general_operativo += " AND a.super = %s"
+            params_total_general_operativo.append(supervisor_filtro)
+        
+        cursor.execute(query_total_general_operativo, tuple(params_total_general_operativo))
+        total_general_operativo = cursor.fetchone()['total_general_operativo'] or 0
+        
         # Procesar resultados y calcular porcentajes
         resumen_agrupado = []
         grupos_totales = {}
@@ -9373,8 +9484,8 @@ def obtener_resumen_agrupado_asistencia():
             carpeta = resultado['carpeta']
             total_tecnicos = resultado['total_tecnicos']
             
-            # Calcular porcentaje respecto al total general
-            porcentaje = round((total_tecnicos * 100) / total_general, 2) if total_general > 0 else 0
+            # Calcular porcentaje respecto al total operativo (sin ausencias)
+            porcentaje = round((total_tecnicos * 100) / total_general_operativo, 2) if total_general_operativo > 0 else 0
             
             resumen_agrupado.append({
                 'grupo': grupo,
@@ -9386,19 +9497,101 @@ def obtener_resumen_agrupado_asistencia():
         # Calcular resumen por grupos
         resumen_grupos = []
         for grupo, total_grupo in grupos_totales.items():
-            porcentaje_grupo = round((total_grupo * 100) / total_general, 2) if total_general > 0 else 0
+            porcentaje_grupo = round((total_grupo * 100) / total_general_operativo, 2) if total_general_operativo > 0 else 0
             resumen_grupos.append({
                 'grupo': grupo,
                 'total_tecnicos': total_grupo,
                 'porcentaje': porcentaje_grupo
             })
         
+        # ===== NUEVA FUNCIONALIDAD: OBTENER AUSENCIAS =====
+        # Consulta para obtener ausencias para la tabla de operación
+        query_ausencias_operacion = """
+            SELECT 
+                CASE 
+                    WHEN t.grupo = 'AUSENCIA INJUSTIFICADA' THEN 'AUSENCIA INJUSTIFICADA'
+                    WHEN t.grupo = 'AUSENCIA JUSTIFICADA' THEN 'AUSENCIA JUSTIFICADA'
+                    ELSE t.grupo
+                END as grupo,
+                t.nombre_tipificacion as carpeta,
+                COUNT(DISTINCT a.id_codigo_consumidor) as total_tecnicos
+            FROM asistencia a
+            INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                AND t.grupo IS NOT NULL 
+                AND t.grupo != ''
+                AND t.grupo IN ('AUSENCIA INJUSTIFICADA', 'AUSENCIA JUSTIFICADA')
+        """
+        
+        params_ausencias_operacion = [fecha_inicio, fecha_fin]
+        
+        # Agregar filtro por supervisor si se proporciona
+        if supervisor_filtro:
+            query_ausencias_operacion += " AND a.super = %s"
+            params_ausencias_operacion.append(supervisor_filtro)
+        
+        query_ausencias_operacion += """
+            GROUP BY CASE 
+                WHEN t.grupo = 'AUSENCIA INJUSTIFICADA' THEN 'AUSENCIA INJUSTIFICADA'
+                WHEN t.grupo = 'AUSENCIA JUSTIFICADA' THEN 'AUSENCIA JUSTIFICADA'
+                ELSE t.grupo
+            END, t.nombre_tipificacion
+            ORDER BY grupo, t.nombre_tipificacion
+        """
+        
+        # Ejecutar consulta para ausencias de operación
+        cursor.execute(query_ausencias_operacion, tuple(params_ausencias_operacion))
+        resultados_ausencias_operacion = cursor.fetchall()
+        
+        # Procesar ausencias para la tabla de operación
+        ausencias_operacion = []
+        total_ausencias = 0
+        for resultado in resultados_ausencias_operacion:
+            grupo = resultado['grupo']
+            carpeta = resultado['carpeta']
+            total_tecnicos = resultado['total_tecnicos']
+            total_ausencias += total_tecnicos
+            
+            # Calcular porcentaje respecto al total operativo (sin ausencias)
+            porcentaje = round((total_tecnicos * 100) / total_operativo, 2) if total_operativo > 0 else 0
+            
+            ausencias_operacion.append({
+                'grupo': grupo,
+                'carpeta': carpeta,
+                'total_tecnicos': total_tecnicos,
+                'porcentaje': porcentaje,
+                'es_ausencia': True
+            })
+        
+        # Los porcentajes de operación ya están calculados correctamente usando solo total_operativo
+        
+        # Ordenar resumen_agrupado para que las ausencias aparezcan al final
+        resumen_agrupado_ordenado = []
+        ausencias_detalladas = []
+        
+        for item in resumen_agrupado:
+            if item['grupo'] in ['AUSENCIA INJUSTIFICADA', 'AUSENCIA JUSTIFICADA']:
+                item['es_ausencia'] = True
+                ausencias_detalladas.append(item)
+            else:
+                resumen_agrupado_ordenado.append(item)
+        
+        # Agregar ausencias al final
+        resumen_agrupado_ordenado.extend(ausencias_detalladas)
+        
         return jsonify({
             'success': True,
             'data': {
-                'detallado': resumen_agrupado,
+                # Nueva funcionalidad: Operación por Recurso Operativo
+                'operacion_recurso': operacion_recurso,
+                'ausencias_operacion': ausencias_operacion,
+                'total_operativo': total_operativo,
+                'total_ausencias': total_ausencias,
+                # Funcionalidad existente
+                'detallado': resumen_agrupado_ordenado,
                 'resumen_grupos': resumen_grupos,
                 'total_general': total_general,
+                'total_general_operativo': total_general_operativo,
                 'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
                 'fecha_fin': fecha_fin.strftime('%Y-%m-%d'),
                 'supervisor_filtro': supervisor_filtro
@@ -15851,6 +16044,326 @@ def obtener_campos_inicio_operacion():
             'success': False,
             'message': f'Error: {str(e)}'
         }), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/graficas/operacion-recurso', methods=['GET'])
+@login_required_api(role='administrativo')
+def obtener_datos_grafica_operacion_recurso():
+    """Obtener datos temporales para la gráfica de Operación x Recurso Operativo"""
+    try:
+        # Obtener parámetros
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        supervisor_filtro = request.args.get('supervisor')
+        tipo_agrupacion = request.args.get('agrupacion', 'mes')  # 'mes' o 'dia'
+        
+        # Validar fechas
+        if not fecha_inicio or not fecha_fin:
+            return jsonify({
+                'success': False,
+                'message': 'Se requieren fecha_inicio y fecha_fin'
+            }), 400
+        
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+            fecha_fin = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'message': 'Formato de fecha inválido. Use YYYY-MM-DD'
+            }), 400
+        
+        # Validar rango de fechas
+        if fecha_inicio > fecha_fin:
+            return jsonify({
+                'success': False,
+                'message': 'La fecha de inicio no puede ser mayor que la fecha de fin'
+            }), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Determinar el formato de agrupación temporal
+        if tipo_agrupacion == 'mes':
+            formato_fecha = "DATE_FORMAT(a.fecha_asistencia, '%Y-%m')"
+            formato_orden = "DATE_FORMAT(a.fecha_asistencia, '%Y-%m')"
+        else:  # dia
+            formato_fecha = "DATE(a.fecha_asistencia)"
+            formato_orden = "DATE(a.fecha_asistencia)"
+        
+        # Consulta para obtener datos agrupados por tiempo y grupo (sin tabla tipificacion_asistencia)
+        query = f"""
+            SELECT 
+                {formato_fecha} as periodo,
+                CASE 
+                    WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH') THEN 'ARREGLOS'
+                    WHEN a.carpeta IN ('BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES') THEN 'INSTALACIONES'
+                    WHEN a.carpeta IN ('POSTVENTA', 'POSTVENTA FTTH') THEN 'POSTVENTA'
+                    ELSE 'OTROS'
+                END as grupo,
+                COUNT(DISTINCT a.id_codigo_consumidor) as total_tecnicos
+            FROM asistencia a
+            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                AND a.carpeta IS NOT NULL
+                AND a.carpeta != ''
+                AND a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH', 'BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES', 'POSTVENTA', 'POSTVENTA FTTH')
+        """
+        
+        params = [fecha_inicio, fecha_fin]
+        
+        # Agregar filtro por supervisor si se proporciona
+        if supervisor_filtro:
+            query += " AND a.super = %s"
+            params.append(supervisor_filtro)
+        
+        query += f"""
+            GROUP BY {formato_fecha}, CASE 
+                WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH') THEN 'ARREGLOS'
+                WHEN a.carpeta IN ('BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES') THEN 'INSTALACIONES'
+                WHEN a.carpeta IN ('POSTVENTA', 'POSTVENTA FTTH') THEN 'POSTVENTA'
+                ELSE 'OTROS'
+            END
+            ORDER BY {formato_orden}, grupo
+        """
+        
+        # Log the SQL query for debugging
+        logging.info(f"Executing SQL query for operacion-recurso: {query}")
+        logging.info(f"Query parameters: {params}")
+        
+        try:
+            cursor.execute(query, tuple(params))
+            resultados = cursor.fetchall()
+            logging.info(f"Query executed successfully, returned {len(resultados)} rows")
+        except Exception as sql_error:
+            logging.error(f"SQL execution error in operacion-recurso endpoint: {str(sql_error)}")
+            logging.error(f"Failed query: {query}")
+            logging.error(f"Query parameters: {params}")
+            logging.error(f"tipo_agrupacion: {tipo_agrupacion}")
+            raise sql_error
+        
+        # Organizar datos para la gráfica
+        datos_grafica = {}
+        periodos = set()
+        grupos = ['ARREGLOS', 'INSTALACIONES', 'POSTVENTA']
+        
+        # Inicializar estructura de datos
+        for grupo in grupos:
+            datos_grafica[grupo] = {}
+        
+        # Procesar resultados
+        for resultado in resultados:
+            periodo = str(resultado['periodo'])
+            grupo = resultado['grupo']
+            total = resultado['total_tecnicos']
+            
+            periodos.add(periodo)
+            if grupo in datos_grafica:
+                datos_grafica[grupo][periodo] = total
+        
+        # Convertir a lista ordenada de períodos
+        periodos_ordenados = sorted(list(periodos))
+        
+        # Preparar datos finales para Chart.js
+        datasets = []
+        colores = {
+            'ARREGLOS': '#FF6384',
+            'INSTALACIONES': '#36A2EB', 
+            'POSTVENTA': '#FFCE56'
+        }
+        
+        for grupo in grupos:
+            data = []
+            for periodo in periodos_ordenados:
+                data.append(datos_grafica[grupo].get(periodo, 0))
+            
+            datasets.append({
+                'label': grupo,
+                'data': data,
+                'borderColor': colores[grupo],
+                'backgroundColor': colores[grupo] + '20',
+                'fill': False,
+                'tension': 0.1
+            })
+        
+        return jsonify({
+            'success': True,
+            'datos': datasets,
+            'labels': periodos_ordenados,
+            'agrupacion': tipo_agrupacion,
+            'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
+            'fecha_fin': fecha_fin.strftime('%Y-%m-%d'),
+            'supervisor_filtro': supervisor_filtro
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/graficas/carpeta-dia', methods=['GET'])
+@login_required_api(role='administrativo')
+def obtener_datos_grafica_carpeta_dia():
+    """Obtener datos temporales para la gráfica de Operación x Carpeta Día"""
+    try:
+        # Obtener parámetros
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        supervisor_filtro = request.args.get('supervisor')
+        tipo_agrupacion = request.args.get('agrupacion', 'mes')  # 'mes' o 'dia'
+        
+        # Validar fechas
+        if not fecha_inicio or not fecha_fin:
+            return jsonify({
+                'success': False,
+                'message': 'Se requieren fecha_inicio y fecha_fin'
+            }), 400
+        
+        try:
+            fecha_inicio = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+            fecha_fin = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'message': 'Formato de fecha inválido. Use YYYY-MM-DD'
+            }), 400
+        
+        # Validar rango de fechas
+        if fecha_inicio > fecha_fin:
+            return jsonify({
+                'success': False,
+                'message': 'La fecha de inicio no puede ser mayor que la fecha de fin'
+            }), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Determinar el formato de agrupación temporal
+        if tipo_agrupacion == 'mes':
+            formato_fecha = "DATE_FORMAT(a.fecha_asistencia, '%Y-%m')"
+            formato_orden = "DATE_FORMAT(a.fecha_asistencia, '%Y-%m')"
+        else:  # dia
+            formato_fecha = "DATE(a.fecha_asistencia)"
+            formato_orden = "DATE(a.fecha_asistencia)"
+        
+        # Consulta para obtener datos agrupados por tiempo y grupo (basado en carpeta_dia)
+        query = f"""
+            SELECT 
+                {formato_fecha} as periodo,
+                CASE 
+                    WHEN a.carpeta_dia IN ('ARGHFC', 'MTFTTH') THEN 'ARREGLOS'
+                    WHEN a.carpeta_dia IN ('BROW', 'FTTHI', 'HFCI') THEN 'INSTALACIONES'
+                    WHEN a.carpeta_dia IN ('POST', 'FTTHPOST') THEN 'POSTVENTA'
+                    ELSE 'OTROS'
+                END as grupo,
+                COUNT(DISTINCT a.id_codigo_consumidor) as total_tecnicos
+            FROM asistencia a
+            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                AND a.carpeta_dia IS NOT NULL 
+                AND a.carpeta_dia != ''
+                AND a.carpeta_dia IN ('ARGHFC', 'MTFTTH', 'BROW', 'FTTHI', 'HFCI', 'POST', 'FTTHPOST')
+        """
+        
+        params = [fecha_inicio, fecha_fin]
+        
+        # Agregar filtro por supervisor si se proporciona
+        if supervisor_filtro:
+            query += " AND a.super = %s"
+            params.append(supervisor_filtro)
+        
+        query += f"""
+            GROUP BY {formato_fecha}, CASE 
+                WHEN a.carpeta_dia IN ('ARGHFC', 'MTFTTH') THEN 'ARREGLOS'
+                WHEN a.carpeta_dia IN ('BROW', 'FTTHI', 'HFCI') THEN 'INSTALACIONES'
+                WHEN a.carpeta_dia IN ('POST', 'FTTHPOST') THEN 'POSTVENTA'
+                ELSE 'OTROS'
+            END
+            ORDER BY {formato_orden}, grupo
+        """
+        
+        # Log the SQL query for debugging
+        logging.info(f"Executing SQL query for carpeta-dia: {query}")
+        logging.info(f"Query parameters: {params}")
+        
+        try:
+            cursor.execute(query, tuple(params))
+            resultados = cursor.fetchall()
+            logging.info(f"Query executed successfully, returned {len(resultados)} rows")
+        except Exception as sql_error:
+            logging.error(f"SQL execution error in carpeta-dia endpoint: {str(sql_error)}")
+            logging.error(f"Failed query: {query}")
+            logging.error(f"Query parameters: {params}")
+            logging.error(f"tipo_agrupacion: {tipo_agrupacion}")
+            raise sql_error
+        
+        # Organizar datos para la gráfica
+        datos_grafica = {}
+        periodos = set()
+        grupos = ['ARREGLOS', 'INSTALACIONES', 'POSTVENTA']
+        
+        # Inicializar estructura de datos
+        for grupo in grupos:
+            datos_grafica[grupo] = {}
+        
+        # Procesar resultados
+        for resultado in resultados:
+            periodo = str(resultado['periodo'])
+            grupo = resultado['grupo']
+            total = resultado['total_tecnicos']
+            
+            periodos.add(periodo)
+            if grupo in datos_grafica:
+                datos_grafica[grupo][periodo] = total
+        
+        # Convertir a lista ordenada de períodos
+        periodos_ordenados = sorted(list(periodos))
+        
+        # Preparar datos finales para Chart.js
+        datasets = []
+        colores = {
+            'ARREGLOS': '#FF6384',
+            'INSTALACIONES': '#36A2EB', 
+            'POSTVENTA': '#FFCE56'
+        }
+        
+        for grupo in grupos:
+            data = []
+            for periodo in periodos_ordenados:
+                data.append(datos_grafica[grupo].get(periodo, 0))
+            
+            datasets.append({
+                'label': grupo,
+                'data': data,
+                'borderColor': colores[grupo],
+                'backgroundColor': colores[grupo] + '20',
+                'fill': False,
+                'tension': 0.1
+            })
+        
+        return jsonify({
+            'success': True,
+            'datos': datasets,
+            'labels': periodos_ordenados,
+            'agrupacion': tipo_agrupacion,
+            'fecha_inicio': fecha_inicio.strftime('%Y-%m-%d'),
+            'fecha_fin': fecha_fin.strftime('%Y-%m-%d'),
+            'supervisor_filtro': supervisor_filtro
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
     finally:
         if 'cursor' in locals() and cursor:
             cursor.close()

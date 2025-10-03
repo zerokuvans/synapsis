@@ -35,44 +35,79 @@
                                 <option value="">Todos los supervisores</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
-                            <label for="fechaInicioResumen" class="form-label">Fecha Inicio:</label>
+                        <div class="col-md-4">
+                            <label for="fechaInicioResumen" class="form-label">Fecha:</label>
                             <input type="date" class="form-control" id="fechaInicioResumen">
                         </div>
-                        <div class="col-md-3">
-                            <label for="fechaFinResumen" class="form-label">Fecha Fin:</label>
-                            <input type="date" class="form-control" id="fechaFinResumen">
-                        </div>
-                        <div class="col-md-2 d-flex align-items-end">
+                        <div class="col-md-4 d-flex align-items-end">
                             <button type="button" class="btn btn-primary w-100" id="btnActualizarResumen">
                                 <i class="fas fa-sync-alt me-1"></i>Actualizar
                             </button>
                         </div>
                     </div>
                     
-                    <!-- Tabla de resumen agrupado -->
-                    <div id="tablaResumenCard">
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover" id="tablaResumenAgrupado">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th>GRUPO</th>
-                                        <th>CARPETA</th>
-                                        <th>TÉCNICOS</th>
-                                        <th>PORCENTAJE</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="cuerpoTablaResumen">
-                                    <!-- Los datos se cargarán dinámicamente -->
-                                </tbody>
-                                <tfoot class="table-secondary">
-                                    <tr>
-                                        <th colspan="2">TOTAL GENERAL</th>
-                                        <th id="totalTecnicosGeneral">0</th>
-                                        <th>100%</th>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                    <!-- Contenedor para las tablas lado a lado -->
+                    <div class="row">
+                        <!-- Nueva Tabla: OPERACIÓN X RECURSO OPERATIVO -->
+                        <div class="col-md-6">
+                            <div id="tablaOperacionCard" class="mb-4">
+                                <h6 class="text-primary mb-3">
+                                    <i class="fas fa-cogs me-2"></i>OPERACIÓN X RECURSO OPERATIVO
+                                </h6>
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover" id="tablaOperacionRecurso">
+                                        <thead class="table-primary">
+                                            <tr>
+                                                <th>GRUPO</th>
+                                                <th>CARPETA</th>
+                                                <th>TÉCNICOS</th>
+                                                <th>PORCENTAJE</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="cuerpoTablaOperacion">
+                                            <!-- Los datos se cargarán dinámicamente -->
+                                        </tbody>
+                                        <tfoot class="table-info">
+                                            <tr>
+                                                <th colspan="2">TOTAL OPERATIVO</th>
+                                                <th id="totalTecnicosOperativo">0</th>
+                                                <th>100%</th>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tabla de resumen agrupado tradicional -->
+                        <div class="col-md-6">
+                            <div id="tablaResumenCard" class="mb-4">
+                                <h6 class="text-secondary mb-3">
+                                    <i class="fas fa-chart-pie me-2"></i>OPERACIÓN X CARPETA DIA
+                                </h6>
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover" id="tablaResumenAgrupado">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th>GRUPO</th>
+                                                <th>CARPETA</th>
+                                                <th>TÉCNICOS</th>
+                                                <th>PORCENTAJE</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="cuerpoTablaResumen">
+                                            <!-- Los datos se cargarán dinámicamente -->
+                                        </tbody>
+                                        <tfoot class="table-secondary">
+                                            <tr>
+                                                <th colspan="2">TOTAL GENERAL</th>
+                                                <th id="totalTecnicosGeneral">0</th>
+                                                <th>100%</th>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -88,6 +123,146 @@
                     <div id="mensajeSinDatosResumen" class="alert alert-info" style="display: none;">
                         <i class="fas fa-info-circle me-2"></i>
                         No se encontraron registros de asistencia para los filtros seleccionados.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sección de Gráficas Temporales -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>Análisis Temporal por Grupos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Controles de las gráficas -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <label for="fechaInicioGraficas" class="form-label">Fecha Inicio:</label>
+                            <input type="date" class="form-control" id="fechaInicioGraficas">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="fechaFinGraficas" class="form-label">Fecha Fin:</label>
+                            <input type="date" class="form-control" id="fechaFinGraficas">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="supervisorGraficas" class="form-label">Supervisor:</label>
+                            <select class="form-select" id="supervisorGraficas">
+                                <option value="">Todos los supervisores</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="button" class="btn btn-success w-100" id="btnActualizarGraficas">
+                                <i class="fas fa-sync-alt me-1"></i>Actualizar Gráficas
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Pestañas para las gráficas -->
+                    <ul class="nav nav-tabs" id="graficasTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="operacion-recurso-tab" data-bs-toggle="tab" data-bs-target="#operacion-recurso" type="button" role="tab">
+                                <i class="fas fa-cogs me-2"></i>OPERACIÓN X RECURSO OPERATIVO
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="carpeta-dia-tab" data-bs-toggle="tab" data-bs-target="#carpeta-dia" type="button" role="tab">
+                                <i class="fas fa-chart-pie me-2"></i>OPERACIÓN X CARPETA DIA
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <!-- Contenido de las pestañas -->
+                    <div class="tab-content" id="graficasTabContent">
+                        <!-- Gráfica Operación x Recurso Operativo -->
+                        <div class="tab-pane fade show active" id="operacion-recurso" role="tabpanel">
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <!-- Controles de visualización -->
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div class="btn-group" role="group">
+                                            <input type="radio" class="btn-check" name="tipoOperacionRecurso" id="mesOperacionRecurso" value="mes" checked>
+                                            <label class="btn btn-outline-primary" for="mesOperacionRecurso">MES A MES</label>
+                                            
+                                            <input type="radio" class="btn-check" name="tipoOperacionRecurso" id="diaOperacionRecurso" value="dia">
+                                            <label class="btn btn-outline-primary" for="diaOperacionRecurso">DÍA A DÍA</label>
+                                        </div>
+                                        
+                                        <!-- Controles de visibilidad de grupos -->
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-sm btn-outline-danger" id="toggleArreglosOR" data-grupo="ARREGLOS">
+                                                <i class="fas fa-eye me-1"></i>ARREGLOS
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" id="toggleInstalacionesOR" data-grupo="INSTALACIONES">
+                                                <i class="fas fa-eye me-1"></i>INSTALACIONES
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-warning" id="togglePostventaOR" data-grupo="POSTVENTA">
+                                                <i class="fas fa-eye me-1"></i>POSTVENTA
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Canvas para la gráfica -->
+                                    <div class="chart-container" style="position: relative; height: 400px;">
+                                        <canvas id="graficaOperacionRecurso"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Gráfica Operación x Carpeta Día -->
+                        <div class="tab-pane fade" id="carpeta-dia" role="tabpanel">
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <!-- Controles de visualización -->
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div class="btn-group" role="group">
+                                            <input type="radio" class="btn-check" name="tipoCarpetaDia" id="mesCarpetaDia" value="mes" checked>
+                                            <label class="btn btn-outline-primary" for="mesCarpetaDia">MES A MES</label>
+                                            
+                                            <input type="radio" class="btn-check" name="tipoCarpetaDia" id="diaCarpetaDia" value="dia">
+                                            <label class="btn btn-outline-primary" for="diaCarpetaDia">DÍA A DÍA</label>
+                                        </div>
+                                        
+                                        <!-- Controles de visibilidad de grupos -->
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-sm btn-outline-danger" id="toggleArreglosCD" data-grupo="ARREGLOS">
+                                                <i class="fas fa-eye me-1"></i>ARREGLOS
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" id="toggleInstalacionesCD" data-grupo="INSTALACIONES">
+                                                <i class="fas fa-eye me-1"></i>INSTALACIONES
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-warning" id="togglePostventaCD" data-grupo="POSTVENTA">
+                                                <i class="fas fa-eye me-1"></i>POSTVENTA
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Canvas para la gráfica -->
+                                    <div class="chart-container" style="position: relative; height: 400px;">
+                                        <canvas id="graficaCarpetaDia"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Mensaje de carga para gráficas -->
+                    <div id="mensajeCargaGraficas" class="text-center mt-3" style="display: none;">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Cargando datos de las gráficas...</p>
+                    </div>
+                    
+                    <!-- Mensaje cuando no hay datos para gráficas -->
+                    <div id="mensajeSinDatosGraficas" class="alert alert-warning mt-3" style="display: none;">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        No se encontraron datos para generar las gráficas en el período seleccionado.
                     </div>
                 </div>
             </div>
@@ -293,6 +468,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 let asistencias = [];
 
@@ -1149,41 +1325,27 @@ async function cargarResumenAgrupado() {
     }
     
     const supervisor = document.getElementById('supervisorResumen').value;
-    const fechaInicio = document.getElementById('fechaInicioResumen').value;
-    const fechaFin = document.getElementById('fechaFinResumen').value;
+    const fechaSeleccionada = document.getElementById('fechaInicioResumen').value;
     
-    // Validaciones mejoradas de fechas
-    if (!fechaInicio || !fechaFin) {
-        mostrarAlerta('Debe seleccionar fecha de inicio y fecha de fin', 'warning');
+    // Validaciones de fecha
+    if (!fechaSeleccionada) {
+        mostrarAlerta('Debe seleccionar una fecha', 'warning');
         return;
     }
     
-    // Validar formato de fechas
-    const fechaInicioObj = new Date(fechaInicio);
-    const fechaFinObj = new Date(fechaFin);
+    // Validar formato de fecha
+    const fechaObj = new Date(fechaSeleccionada);
     
-    if (isNaN(fechaInicioObj.getTime()) || isNaN(fechaFinObj.getTime())) {
-        mostrarAlerta('Las fechas seleccionadas no son válidas', 'danger');
+    if (isNaN(fechaObj.getTime())) {
+        mostrarAlerta('La fecha seleccionada no es válida', 'danger');
         return;
     }
     
-    if (fechaInicioObj > fechaFinObj) {
-        mostrarAlerta('La fecha de inicio no puede ser mayor que la fecha de fin', 'warning');
-        return;
-    }
-    
-    // Validar rango máximo (opcional: limitar a 1 año)
-    const diferenciaDias = Math.abs((fechaFinObj - fechaInicioObj) / (1000 * 60 * 60 * 24));
-    if (diferenciaDias > 365) {
-        mostrarAlerta('El rango de fechas no puede ser mayor a 1 año', 'warning');
-        return;
-    }
-    
-    // Validar que las fechas no sean futuras
+    // Validar que la fecha no sea futura
     const hoy = new Date();
     hoy.setHours(23, 59, 59, 999); // Fin del día actual
     
-    if (fechaInicioObj > hoy || fechaFinObj > hoy) {
+    if (fechaObj > hoy) {
         mostrarAlerta('No se pueden seleccionar fechas futuras', 'warning');
         return;
     }
@@ -1218,7 +1380,7 @@ async function cargarResumenAgrupado() {
     currentResumenRequest = abortController;
     
     try {
-        let url = `/api/asistencia/resumen_agrupado?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
+        let url = `/api/asistencia/resumen_agrupado?fecha_inicio=${fechaSeleccionada}&fecha_fin=${fechaSeleccionada}`;
         if (supervisor) {
             url += `&supervisor=${encodeURIComponent(supervisor)}`;
         }
@@ -1328,7 +1490,37 @@ async function cargarResumenAgrupado() {
     }
 }
 
+// Función auxiliar para calcular totales por grupo
+function calcularTotalesPorGrupo(datos, totalGeneral) {
+    const grupos = {};
+    
+    // Agrupar datos por grupo
+    datos.forEach(item => {
+        const grupo = item.grupo || 'Sin Grupo';
+        if (!grupos[grupo]) {
+            grupos[grupo] = {
+                totalTecnicos: 0,
+                items: []
+            };
+        }
+        grupos[grupo].totalTecnicos += parseInt(item.total_tecnicos) || 0;
+        grupos[grupo].items.push(item);
+    });
+    
+    // Calcular porcentajes unificados
+    Object.keys(grupos).forEach(grupo => {
+        grupos[grupo].porcentajeUnificado = totalGeneral > 0 ? 
+            (grupos[grupo].totalTecnicos / totalGeneral * 100) : 0;
+    });
+    
+    return grupos;
+}
+
 function mostrarTablaResumen(data) {
+    // ===== NUEVA TABLA: OPERACIÓN X RECURSO OPERATIVO =====
+    mostrarTablaOperacionRecurso(data);
+    
+    // ===== TABLA TRADICIONAL: RESUMEN POR GRUPOS =====
     const tbody = document.getElementById('cuerpoTablaResumen');
     const totalTecnicos = document.getElementById('totalTecnicosGeneral');
     
@@ -1356,49 +1548,271 @@ function mostrarTablaResumen(data) {
         return;
     }
     
-    // Agregar filas de datos con validación mejorada
-    datosParaMostrar.forEach(item => {
-        const tr = document.createElement('tr');
-        
-        // Validar y formatear datos
-        const grupo = item.grupo || 'Sin Grupo';
-        const carpeta = item.carpeta || '-';
-        const totalTecnicosItem = parseInt(item.total_tecnicos) || 0;
-        const porcentaje = parseFloat(item.porcentaje) || 0;
-        
-        tr.innerHTML = `
-            <td class="fw-bold">${grupo}</td>
-            <td>${carpeta}</td>
-            <td class="text-center">
-                <span class="badge bg-primary">${totalTecnicosItem}</span>
-            </td>
-            <td class="text-center">
-                <span class="badge bg-success">${porcentaje.toFixed(2)}%</span>
-            </td>
-        `;
-        tbody.appendChild(tr);
+    // Separar datos operativos de ausencias
+    const datosOperativos = datosParaMostrar.filter(item => !item.es_ausencia);
+    const datosAusencias = datosParaMostrar.filter(item => item.es_ausencia);
+    
+    // Calcular total general operativo
+    const totalGeneralOperativo = parseInt(data.total_general_operativo) || 0;
+    
+    // Calcular totales por grupo para datos operativos
+    const totalesPorGrupo = calcularTotalesPorGrupo(datosOperativos, totalGeneralOperativo);
+    
+    // Agregar filas de datos operativos agrupados con totales
+    const gruposOrdenados = ['ARREGLOS', 'INSTALACIONES', 'POSTVENTA'];
+    
+    gruposOrdenados.forEach(nombreGrupo => {
+        if (totalesPorGrupo[nombreGrupo]) {
+            const grupoData = totalesPorGrupo[nombreGrupo];
+            
+            // Agregar filas individuales del grupo
+            grupoData.items.forEach(item => {
+                const tr = document.createElement('tr');
+                
+                // Validar y formatear datos
+                const grupo = item.grupo || 'Sin Grupo';
+                const carpeta = item.carpeta || '-';
+                const totalTecnicosItem = parseInt(item.total_tecnicos) || 0;
+                const porcentaje = parseFloat(item.porcentaje) || 0;
+                
+                tr.innerHTML = `
+                    <td class="fw-bold">${grupo}</td>
+                    <td>${carpeta}</td>
+                    <td class="text-center">
+                        <span class="badge bg-primary">${totalTecnicosItem}</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-success">${porcentaje.toFixed(2)}%</span>
+                    </td>
+                `;
+                
+                tbody.appendChild(tr);
+            });
+            
+            // Agregar fila de total del grupo
+            const totalTr = document.createElement('tr');
+            totalTr.className = 'tabla-total-grupo';
+            totalTr.style.backgroundColor = '#e3f2fd';
+            totalTr.style.borderTop = '2px solid #1976d2';
+            totalTr.style.borderBottom = '2px solid #1976d2';
+            
+            totalTr.innerHTML = `
+                <td class="fw-bold text-primary">
+                    <i class="fas fa-calculator me-2"></i>TOTAL ${nombreGrupo}
+                </td>
+                <td class="fw-bold text-primary">-</td>
+                <td class="text-center">
+                    <span class="badge bg-primary fs-6">${grupoData.totalTecnicos}</span>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-primary fs-6">${grupoData.porcentajeUnificado.toFixed(2)}%</span>
+                </td>
+            `;
+            
+            tbody.appendChild(totalTr);
+            
+            // Agregar separador entre grupos (excepto después del último)
+            if (nombreGrupo !== 'POSTVENTA') {
+                const separadorTr = document.createElement('tr');
+                separadorTr.innerHTML = `<td colspan="4" style="height: 10px; border: none;"></td>`;
+                tbody.appendChild(separadorTr);
+            }
+        }
     });
     
-    // Actualizar total de técnicos con validación
+    // Agregar separador de ausencias si hay ausencias
+    if (datosAusencias.length > 0) {
+        const separadorTr = document.createElement('tr');
+        separadorTr.style.backgroundColor = '#f8f9fa';
+        separadorTr.style.borderTop = '2px solid #dee2e6';
+        separadorTr.innerHTML = `
+            <td colspan="4" class="text-center fw-bold text-muted py-2">
+                <i class="fas fa-user-times me-2"></i>AUSENCIAS
+            </td>
+        `;
+        tbody.appendChild(separadorTr);
+        
+        // Agregar filas de ausencias
+        datosAusencias.forEach(item => {
+            const tr = document.createElement('tr');
+            
+            // Validar y formatear datos
+            const grupo = item.grupo || 'Sin Grupo';
+            const carpeta = item.carpeta || '-';
+            const totalTecnicosItem = parseInt(item.total_tecnicos) || 0;
+            const porcentaje = parseFloat(item.porcentaje) || 0;
+            
+            tr.style.backgroundColor = '#ffebee'; // Fondo rojo claro para ausencias
+            tr.innerHTML = `
+                <td class="fw-bold text-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>${grupo}
+                </td>
+                <td class="fw-bold text-danger">${carpeta}</td>
+                <td class="text-center">
+                    <span class="badge bg-danger">${totalTecnicosItem}</span>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-danger">${porcentaje.toFixed(2)}%</span>
+                </td>
+            `;
+            
+            tbody.appendChild(tr);
+        });
+    }
+    
+    // Actualizar total de técnicos con validación (usar total operativo sin ausencias)
     if (totalTecnicos) {
-        const totalGeneral = parseInt(data.total_general) || 0;
-        totalTecnicos.textContent = totalGeneral;
+        totalTecnicos.textContent = totalGeneralOperativo;
     }
     
     // Mostrar la tabla solo después de que todo esté listo
     if (tablaCard) tablaCard.style.display = 'block';
 }
 
+function mostrarTablaOperacionRecurso(data) {
+    const tbodyOperacion = document.getElementById('cuerpoTablaOperacion');
+    const totalOperativo = document.getElementById('totalTecnicosOperativo');
+    const tablaOperacionCard = document.getElementById('tablaOperacionCard');
+    
+    // Limpiar tabla de operación
+    if (tbodyOperacion) tbodyOperacion.innerHTML = '';
+    
+    // Obtener datos de operación por recurso operativo
+    const datosOperacion = data.operacion_recurso || [];
+    const ausenciasOperacion = data.ausencias_operacion || [];
+    
+    if (datosOperacion.length === 0 && ausenciasOperacion.length === 0) {
+        // Actualizar total operativo a 0 cuando no hay datos
+        if (totalOperativo) {
+            totalOperativo.textContent = '0';
+        }
+        if (tablaOperacionCard) tablaOperacionCard.style.display = 'none';
+        return;
+    }
+    
+    // Calcular total operativo
+    const totalOperativoValue = parseInt(data.total_operativo) || 0;
+    
+    // Calcular totales por grupo para datos operativos
+    const totalesPorGrupoOperacion = calcularTotalesPorGrupo(datosOperacion, totalOperativoValue);
+    
+    // Agregar filas de datos operativos agrupados con totales
+    const gruposOrdenados = ['ARREGLOS', 'INSTALACIONES', 'POSTVENTA'];
+    
+    gruposOrdenados.forEach(nombreGrupo => {
+        if (totalesPorGrupoOperacion[nombreGrupo]) {
+            const grupoData = totalesPorGrupoOperacion[nombreGrupo];
+            
+            // Agregar filas individuales del grupo
+            grupoData.items.forEach(item => {
+                const tr = document.createElement('tr');
+                
+                // Validar y formatear datos
+                const grupo = item.grupo || '-';
+                const carpeta = item.carpeta || '-';
+                const totalTecnicosItem = parseInt(item.total_tecnicos) || 0;
+                const porcentaje = parseFloat(item.porcentaje) || 0;
+                
+                tr.innerHTML = `
+                    <td class="fw-bold">${grupo}</td>
+                    <td class="fw-bold">${carpeta}</td>
+                    <td class="text-center">
+                        <span class="badge bg-info">${totalTecnicosItem}</span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-warning text-dark">${porcentaje.toFixed(2)}%</span>
+                    </td>
+                `;
+                tbodyOperacion.appendChild(tr);
+            });
+            
+            // Agregar fila de total del grupo
+            const totalTr = document.createElement('tr');
+            totalTr.className = 'tabla-total-grupo';
+            totalTr.style.backgroundColor = '#e3f2fd';
+            totalTr.style.borderTop = '2px solid #2196f3';
+            totalTr.style.borderBottom = '2px solid #2196f3';
+            
+            totalTr.innerHTML = `
+                <td class="fw-bold text-primary">
+                    <i class="fas fa-calculator me-2"></i>TOTAL ${nombreGrupo}
+                </td>
+                <td class="fw-bold text-primary">-</td>
+                <td class="text-center">
+                    <span class="badge bg-primary fs-6">${grupoData.totalTecnicos}</span>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-primary fs-6">${grupoData.porcentajeUnificado.toFixed(2)}%</span>
+                </td>
+            `;
+            
+            tbodyOperacion.appendChild(totalTr);
+            
+            // Agregar separador entre grupos (excepto después del último)
+            if (nombreGrupo !== 'POSTVENTA') {
+                const separadorTr = document.createElement('tr');
+                separadorTr.innerHTML = `<td colspan="4" style="height: 10px; border: none;"></td>`;
+                tbodyOperacion.appendChild(separadorTr);
+            }
+        }
+    });
+    
+    // Agregar separador si hay ausencias
+    if (ausenciasOperacion.length > 0) {
+        const separadorTr = document.createElement('tr');
+        separadorTr.innerHTML = `
+            <td colspan="4" class="text-center fw-bold text-muted" style="background-color: #f8f9fa; border-top: 2px solid #dee2e6;">
+                <i class="fas fa-user-times me-2"></i>AUSENCIAS
+            </td>
+        `;
+        tbodyOperacion.appendChild(separadorTr);
+    }
+    
+    // Agregar filas de ausencias al final
+    ausenciasOperacion.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.style.backgroundColor = '#ffebee'; // Fondo rojo claro para ausencias
+        
+        // Validar y formatear datos
+        const grupo = item.grupo || '-';
+        const carpeta = item.carpeta || '-';
+        const totalTecnicosItem = parseInt(item.total_tecnicos) || 0;
+        const porcentaje = parseFloat(item.porcentaje) || 0;
+        
+        tr.innerHTML = `
+            <td class="fw-bold text-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>${grupo}
+            </td>
+            <td class="fw-bold text-danger">${carpeta}</td>
+            <td class="text-center">
+                <span class="badge bg-danger">${totalTecnicosItem}</span>
+            </td>
+            <td class="text-center">
+                <span class="badge bg-danger">${porcentaje.toFixed(2)}%</span>
+            </td>
+        `;
+        tbodyOperacion.appendChild(tr);
+    });
+    
+    // Actualizar total operativo (solo técnicos operativos, sin ausencias)
+    if (totalOperativo) {
+        totalOperativo.textContent = totalOperativoValue;
+    }
+    
+    // Mostrar la tabla de operación
+    if (tablaOperacionCard) tablaOperacionCard.style.display = 'block';
+}
+
 function inicializarResumen() {
-    // Establecer fecha actual por defecto
+    // Establecer solo la fecha actual para el resumen diario
     const hoy = new Date().toISOString().split('T')[0];
+    
+    // Establecer la fecha actual para mostrar solo el día de hoy
     document.getElementById('fechaInicioResumen').value = hoy;
-    document.getElementById('fechaFinResumen').value = hoy;
     
     // Configurar event listeners para los filtros
     document.getElementById('supervisorResumen').addEventListener('change', cargarResumenAgrupadoDebounced);
     document.getElementById('fechaInicioResumen').addEventListener('change', cargarResumenAgrupadoDebounced);
-    document.getElementById('fechaFinResumen').addEventListener('change', cargarResumenAgrupadoDebounced);
     document.getElementById('btnActualizarResumen').addEventListener('click', cargarResumenAgrupado);
     
     // Cargar supervisores y resumen inicial
@@ -1406,10 +1820,422 @@ function inicializarResumen() {
     cargarResumenAgrupado();
 }
 
+// Variables globales para las gráficas
+let graficaOperacionRecurso = null;
+let graficaCarpetaDia = null;
+
+// Función para inicializar las gráficas
+function inicializarGraficas() {
+    // Establecer rango de fechas de los últimos 30 días por defecto
+    const hoy = new Date();
+    const fechaFin = hoy.toISOString().split('T')[0];
+    
+    // Calcular fecha de inicio (30 días antes)
+    const fechaInicio = new Date(hoy);
+    fechaInicio.setDate(hoy.getDate() - 30);
+    const fechaInicioStr = fechaInicio.toISOString().split('T')[0];
+    
+    document.getElementById('fechaInicioGraficas').value = fechaInicioStr;
+    document.getElementById('fechaFinGraficas').value = fechaFin;
+    
+    // Configurar event listeners para los controles de las gráficas
+    document.getElementById('btnActualizarGraficas').addEventListener('click', actualizarGraficas);
+    
+    // Event listeners para cambio de tipo de visualización
+    document.querySelectorAll('input[name="tipoOperacionRecurso"]').forEach(radio => {
+        radio.addEventListener('change', () => cargarGraficaOperacionRecurso());
+    });
+    
+    document.querySelectorAll('input[name="tipoCarpetaDia"]').forEach(radio => {
+        radio.addEventListener('change', () => cargarGraficaCarpetaDia());
+    });
+    
+    // Event listeners para toggles de grupos
+    document.querySelectorAll('.toggle-grupo-operacion').forEach(toggle => {
+        toggle.addEventListener('click', () => toggleGrupoOperacion(toggle.dataset.grupo));
+    });
+    
+    document.querySelectorAll('.toggle-grupo-carpeta').forEach(toggle => {
+        toggle.addEventListener('click', () => toggleGrupoCarpeta(toggle.dataset.grupo));
+    });
+    
+    // Cargar supervisores para gráficas
+    cargarSupervisoresGraficas();
+}
+
+// Función para cargar supervisores en el select de gráficas
+async function cargarSupervisoresGraficas() {
+    try {
+        const response = await fetch('/api/supervisores');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.getElementById('supervisorGraficas');
+            select.innerHTML = '<option value="">Todos los supervisores</option>';
+            
+            data.supervisores.forEach(supervisor => {
+                const option = document.createElement('option');
+                option.value = supervisor;
+                option.textContent = supervisor;
+                select.appendChild(option);
+            });
+        }
+        
+        // Cargar las gráficas automáticamente después de cargar los supervisores
+        actualizarGraficas();
+    } catch (error) {
+        console.error('Error al cargar supervisores para gráficas:', error);
+    }
+}
+
+// Función para actualizar ambas gráficas
+function actualizarGraficas() {
+    cargarGraficaOperacionRecurso();
+    cargarGraficaCarpetaDia();
+}
+
+// Función para cargar gráfica de Operación x Recurso Operativo
+async function cargarGraficaOperacionRecurso() {
+    const loadingOperacion = document.getElementById('loadingGraficaOperacion');
+    const noDataOperacion = document.getElementById('noDataGraficaOperacion');
+    const canvasOperacion = document.getElementById('graficaOperacionRecurso');
+    
+    // Verificar que el canvas existe
+    if (!canvasOperacion) {
+        console.error('Canvas graficaOperacionRecurso no encontrado');
+        return;
+    }
+    
+    // Mostrar loading solo si el elemento existe
+    if (loadingOperacion) loadingOperacion.style.display = 'block';
+    if (noDataOperacion) noDataOperacion.style.display = 'none';
+    canvasOperacion.style.display = 'none';
+    
+    try {
+        const fechaInicio = document.getElementById('fechaInicioGraficas').value;
+        const fechaFin = document.getElementById('fechaFinGraficas').value;
+        const supervisor = document.getElementById('supervisorGraficas').value;
+        const tipoAgrupacion = document.querySelector('input[name="tipoOperacionRecurso"]:checked').value;
+        
+        const params = new URLSearchParams({
+            fecha_inicio: fechaInicio,
+            fecha_fin: fechaFin,
+            agrupacion: tipoAgrupacion
+        });
+        
+        if (supervisor) {
+            params.append('supervisor', supervisor);
+        }
+        
+        const response = await fetch(`/api/asistencia/graficas/operacion-recurso?${params}`);
+        const data = await response.json();
+        
+        if (loadingOperacion) loadingOperacion.style.display = 'none';
+        
+        if (data.success && data.datos && data.datos.length > 0) {
+            renderizarGraficaOperacionRecurso(data);
+            canvasOperacion.style.display = 'block';
+        } else {
+            if (noDataOperacion) noDataOperacion.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error al cargar gráfica de operación recurso:', error);
+        if (loadingOperacion) loadingOperacion.style.display = 'none';
+        if (noDataOperacion) noDataOperacion.style.display = 'block';
+    }
+}
+
+// Función para cargar gráfica de Operación x Carpeta Día
+async function cargarGraficaCarpetaDia() {
+    const loadingCarpeta = document.getElementById('loadingGraficaCarpeta');
+    const noDataCarpeta = document.getElementById('noDataGraficaCarpeta');
+    const canvasCarpeta = document.getElementById('graficaCarpetaDia');
+    
+    // Verificar que el canvas existe
+    if (!canvasCarpeta) {
+        console.error('Canvas graficaCarpetaDia no encontrado');
+        return;
+    }
+    
+    // Mostrar loading solo si el elemento existe
+    if (loadingCarpeta) loadingCarpeta.style.display = 'block';
+    if (noDataCarpeta) noDataCarpeta.style.display = 'none';
+    canvasCarpeta.style.display = 'none';
+    
+    try {
+        const fechaInicio = document.getElementById('fechaInicioGraficas').value;
+        const fechaFin = document.getElementById('fechaFinGraficas').value;
+        const supervisor = document.getElementById('supervisorGraficas').value;
+        const tipoAgrupacion = document.querySelector('input[name="tipoCarpetaDia"]:checked').value;
+        
+        const params = new URLSearchParams({
+            fecha_inicio: fechaInicio,
+            fecha_fin: fechaFin,
+            agrupacion: tipoAgrupacion
+        });
+        
+        if (supervisor) {
+            params.append('supervisor', supervisor);
+        }
+        
+        const response = await fetch(`/api/asistencia/graficas/carpeta-dia?${params}`);
+        const data = await response.json();
+        
+        if (loadingCarpeta) loadingCarpeta.style.display = 'none';
+        
+        if (data.success && data.datos && data.datos.length > 0) {
+            renderizarGraficaCarpetaDia(data);
+            canvasCarpeta.style.display = 'block';
+        } else {
+            if (noDataCarpeta) noDataCarpeta.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error al cargar gráfica de carpeta día:', error);
+        if (loadingCarpeta) loadingCarpeta.style.display = 'none';
+        if (noDataCarpeta) noDataCarpeta.style.display = 'block';
+    }
+}
+
+// Función para renderizar gráfica de Operación x Recurso Operativo
+function renderizarGraficaOperacionRecurso(data) {
+    const ctx = document.getElementById('graficaOperacionRecurso').getContext('2d');
+    
+    // Destruir gráfica anterior si existe
+    if (graficaOperacionRecurso) {
+        graficaOperacionRecurso.destroy();
+    }
+    
+    // Configurar datasets con colores específicos
+    const datasets = data.datos.map(dataset => ({
+        ...dataset,
+        borderWidth: 3,
+        pointRadius: 5,
+        pointHoverRadius: 8,
+        tension: 0.4,
+        fill: false
+    }));
+    
+    graficaOperacionRecurso = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: `Operación x Recurso Operativo - ${data.agrupacion === 'mes' ? 'Mes a Mes' : 'Día a Día'}`,
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        title: function(context) {
+                            return `Período: ${context[0].label}`;
+                        },
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y} técnicos`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: data.agrupacion === 'mes' ? 'Mes' : 'Día'
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Número de Técnicos'
+                    },
+                    beginAtZero: true
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            }
+        }
+    });
+}
+
+// Función para renderizar gráfica de Operación x Carpeta Día
+function renderizarGraficaCarpetaDia(data) {
+    const ctx = document.getElementById('graficaCarpetaDia').getContext('2d');
+    
+    // Destruir gráfica anterior si existe
+    if (graficaCarpetaDia) {
+        graficaCarpetaDia.destroy();
+    }
+    
+    // Configurar datasets con colores específicos
+    const datasets = data.datos.map(dataset => ({
+        ...dataset,
+        borderWidth: 3,
+        pointRadius: 5,
+        pointHoverRadius: 8,
+        tension: 0.4,
+        fill: false
+    }));
+    
+    graficaCarpetaDia = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: `Operación x Carpeta Día - ${data.agrupacion === 'mes' ? 'Mes a Mes' : 'Día a Día'}`,
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        title: function(context) {
+                            return `Período: ${context[0].label}`;
+                        },
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y} técnicos`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: data.agrupacion === 'mes' ? 'Mes' : 'Día'
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Número de Técnicos'
+                    },
+                    beginAtZero: true
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            }
+        }
+    });
+}
+
+// Función para toggle de grupos en gráfica de operación recurso
+function toggleGrupoOperacion(grupo) {
+    if (!graficaOperacionRecurso) return;
+    
+    const toggle = document.querySelector(`.toggle-grupo-operacion[data-grupo="${grupo}"]`);
+    const dataset = graficaOperacionRecurso.data.datasets.find(d => d.label === grupo);
+    
+    if (dataset) {
+        dataset.hidden = !dataset.hidden;
+        toggle.classList.toggle('btn-outline-secondary');
+        toggle.classList.toggle('btn-secondary');
+        graficaOperacionRecurso.update();
+    }
+}
+
+// Función para toggle de grupos en gráfica de carpeta día
+function toggleGrupoCarpeta(grupo) {
+    if (!graficaCarpetaDia) return;
+    
+    const toggle = document.querySelector(`.toggle-grupo-carpeta[data-grupo="${grupo}"]`);
+    const dataset = graficaCarpetaDia.data.datasets.find(d => d.label === grupo);
+    
+    if (dataset) {
+        dataset.hidden = !dataset.hidden;
+        toggle.classList.toggle('btn-outline-secondary');
+        toggle.classList.toggle('btn-secondary');
+        graficaCarpetaDia.update();
+    }
+}
+
 // Inicializar la página al cargar
 document.addEventListener('DOMContentLoaded', function() {
     cargarSupervisoresEdicion();
     inicializarResumen();
+    inicializarGraficas();
 });
 </script>
+
+<style>
+/* Estilos para las filas de totales por grupo */
+.tabla-total-grupo {
+    font-weight: bold !important;
+    transition: all 0.3s ease;
+}
+
+.tabla-total-grupo:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.tabla-total-grupo .badge {
+    font-size: 0.9rem !important;
+    padding: 0.5rem 0.75rem !important;
+    font-weight: bold !important;
+}
+
+/* Animación suave para las filas de totales */
+@keyframes fadeInTotal {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tabla-total-grupo {
+    animation: fadeInTotal 0.5s ease-in-out;
+}
+
+/* Mejoras visuales para las tablas */
+.table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.table tbody tr:hover:not(.tabla-total-grupo) {
+    background-color: rgba(0,123,255,0.1) !important;
+}
+</style>
+
 {% endblock %}
