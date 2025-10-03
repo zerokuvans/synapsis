@@ -566,8 +566,29 @@
                 return presupuestoB - presupuestoA; // De mayor a menor
             });
 
+            // Helper: normaliza una hora a formato HH:MM aceptado por input time
+            function normalizarHora(hora) {
+                if (!hora) return '';
+                // Acepta 'HH:MM', 'HH:MM:SS', Date strings y valores locales
+                const str = String(hora).trim();
+                // Si viene como 'HH:MM:SS', recortar a HH:MM
+                const match = str.match(/^\d{2}:\d{2}(:\d{2})?$/);
+                if (match) {
+                    return str.slice(0,5);
+                }
+                // Intentar parsear con Date y extraer HH:MM en hora local
+                const d = new Date(str);
+                if (!isNaN(d.getTime())) {
+                    const hh = String(d.getHours()).padStart(2,'0');
+                    const mm = String(d.getMinutes()).padStart(2,'0');
+                    return `${hh}:${mm}`;
+                }
+                return '';
+            }
+
             tecnicosOrdenados.forEach(tecnico => {
-                const horaInicio = tecnico.asistencia_hoy.hora_inicio || '';
+                const horaInicioRaw = tecnico.asistencia_hoy.hora_inicio || '';
+                const horaInicio = normalizarHora(horaInicioRaw);
                 const estado = tecnico.asistencia_hoy.estado || '';
                 const novedad = tecnico.asistencia_hoy.novedad || '';
                 const novedadDisabled = (estado !== 'NOVEDAD' && estado !== 'NO APLICA') ? 'disabled' : '';
@@ -907,7 +928,7 @@
 
         // Función para validar si todos los campos están completos y habilitar/deshabilitar el botón
         function validarCamposCompletos(cedula) {
-            const horaInicio = document.querySelector(`input.hora-inicio[data-cedula="${cedula}"]`).value;
+            const horaInicio = normalizarHora(document.querySelector(`input.hora-inicio[data-cedula="${cedula}"]`).value);
             const estado = document.querySelector(`select.estado-select[data-cedula="${cedula}"]`).value;
             const novedadInput = document.querySelector(`input.novedad-input[data-cedula="${cedula}"]`);
             const novedad = novedadInput.value;
@@ -1036,7 +1057,7 @@
             const estadoSelect = document.querySelector(`select.estado-select[data-cedula="${cedula}"]`);
             const novedadInput = document.querySelector(`input.novedad-input[data-cedula="${cedula}"]`);
             
-            const horaInicio = horaInput ? horaInput.value : '';
+            const horaInicio = horaInput ? normalizarHora(horaInput.value) : '';
             const estado = estadoSelect ? estadoSelect.value : '';
             const novedad = novedadInput ? novedadInput.value : '';
             
@@ -1059,7 +1080,7 @@
                 botonGuardar.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Guardando...';
                 
                 // Obtener los valores de los campos
-                const horaInicio = document.querySelector(`input.hora-inicio[data-cedula="${cedula}"]`).value;
+                const horaInicio = normalizarHora(document.querySelector(`input.hora-inicio[data-cedula="${cedula}"]`).value);
                 const estado = document.querySelector(`select.estado-select[data-cedula="${cedula}"]`).value;
                 const novedad = document.querySelector(`input.novedad-input[data-cedula="${cedula}"]`).value;
                 

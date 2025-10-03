@@ -6,6 +6,7 @@ import logging
 import pytz
 import os
 from datetime import date, datetime
+import bcrypt
 
 app = Flask(__name__)
 app.secret_key = 'synapsis-secret-key-2024-production-secure-key-12345'
@@ -77,6 +78,97 @@ def get_db_connection():
 # Función para obtener la fecha y hora actual en Bogotá
 def get_bogota_datetime():
     return datetime.now(TIMEZONE)
+
+# Ruta de inicio de sesión para compatibilidad con Flask-Login
+@app.route('/', methods=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    try:
+        if request.method == 'GET':
+            # Respuesta simple para GET; los clientes deben hacer POST para autenticar
+            return jsonify({
+                'status': 'ready',
+                'message': 'Use POST con username y password para iniciar sesión'
+            })
+
+        # Método POST: autenticar usuario
+        username = request.form.get('username', '')
+        password_raw = request.form.get('password', '')
+
+        if not username or not password_raw:
+            return jsonify({'status': 'error', 'message': 'Usuario y contraseña requeridos'}), 400
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'status': 'error', 'message': 'Error de conexión a la base de datos'}), 500
+
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT id_codigo_consumidor, id_roles, recurso_operativo_password, nombre, estado
+            FROM recurso_operativo
+            WHERE recurso_operativo_cedula = %s
+            """,
+            (username,)
+        )
+        user_data = cursor.fetchone()
+
+        if not user_data:
+            cursor.close(); connection.close()
+            return jsonify({'status': 'error', 'message': 'Usuario o contraseña inválidos'}), 401
+
+        if user_data.get('estado') != 'Activo':
+            cursor.close(); connection.close()
+            return jsonify({'status': 'error', 'message': 'Cuenta inactiva'}), 403
+
+        stored_password = user_data.get('recurso_operativo_password')
+        if isinstance(stored_password, str):
+            stored_password = stored_password.encode('utf-8')
+
+        # Validar formato del hash y verificar contraseña
+        if not (stored_password.startswith(b'$2b$') or stored_password.startswith(b'$2a$')):
+            cursor.close(); connection.close()
+            return jsonify({'status': 'error', 'message': 'Formato de contraseña inválido'}), 500
+
+        try:
+            if not bcrypt.checkpw(password_raw.encode('utf-8'), stored_password):
+                cursor.close(); connection.close()
+                return jsonify({'status': 'error', 'message': 'Usuario o contraseña inválidos'}), 401
+        except Exception as e:
+            cursor.close(); connection.close()
+            return jsonify({'status': 'error', 'message': f'Error verificando credenciales: {str(e)}'}), 500
+
+        # Crear usuario Flask-Login y establecer sesión
+        try:
+            from flask_login import login_user
+            user_role = ROLES.get(str(user_data['id_roles']))
+            user = User(id=user_data['id_codigo_consumidor'], nombre=user_data['nombre'], role=user_role)
+            login_user(user)
+
+            # Variables de sesión para compatibilidad
+            session['user_id'] = user_data['id_codigo_consumidor']
+            session['id_codigo_consumidor'] = user_data['id_codigo_consumidor']
+            session['user_cedula'] = username
+            session['user_role'] = user_role
+            session['user_name'] = user_data['nombre']
+        finally:
+            cursor.close(); connection.close()
+
+        # Respuesta según cabeceras
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'status': 'success',
+                'message': 'Inicio de sesión exitoso',
+                'user_id': session.get('id_codigo_consumidor'),
+                'user_role': session.get('user_role'),
+                'user_name': session.get('user_name')
+            })
+
+        # Redirección simple post-login; ajustar si existe dashboard específico
+        return redirect(url_for('verificar_registro_preoperacional'))
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Error interno: {str(e)}'}), 500
 
 @app.route('/check_submission', methods=['GET'])
 def check_submission():
@@ -970,7 +1062,11 @@ def api_tecnicos_asignados():
                 'asistencia_hoy': {
                     'carpeta_dia': asistencia['carpeta_dia'] if asistencia else None,
                     'fecha_asistencia': asistencia['fecha_asistencia'].isoformat() if asistencia and asistencia['fecha_asistencia'] else None,
-                    'hora_inicio': str(asistencia['hora_inicio']) if asistencia and asistencia['hora_inicio'] else None,
+                    # Normalizar hora_inicio a formato HH:MM para compatibilidad con input type="time"
+                    'hora_inicio': (
+                        asistencia['hora_inicio'].strftime('%H:%M')
+                        if asistencia and asistencia['hora_inicio'] else None
+                    ),
                     'estado': asistencia['estado'] if asistencia else None,
                     'novedad': asistencia['novedad'] if asistencia else None,
                     'tipificacion': asistencia['nombre_tipificacion'] if asistencia else 'Sin registro',
