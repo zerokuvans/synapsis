@@ -591,7 +591,7 @@
                 const horaInicio = normalizarHora(horaInicioRaw);
                 const estado = tecnico.asistencia_hoy.estado || '';
                 const novedad = tecnico.asistencia_hoy.novedad || '';
-                const novedadDisabled = (estado !== 'NOVEDAD' && estado !== 'NO APLICA') ? 'disabled' : '';
+                const novedadDisabled = (estado !== 'NOVEDAD' && estado !== 'NO APLICA' && estado !== 'NO CUMPLE') ? 'disabled' : '';
                 
                 const row = `
                     <tr data-cedula="${tecnico.cedula}">
@@ -908,7 +908,7 @@
             const novedadInput = document.querySelector(`input.novedad-input[data-cedula="${cedula}"]`);
             
             if (novedadInput) {
-                if (estado === 'NOVEDAD' || estado === 'NO APLICA') {
+                if (estado === 'NOVEDAD' || estado === 'NO APLICA' || estado === 'NO CUMPLE') {
                     // Habilitar el campo de novedad
                     novedadInput.disabled = false;
                     novedadInput.style.backgroundColor = '';
@@ -939,7 +939,7 @@
             
             if (horaInicio && estado) {
                 // Si el estado requiere novedad, verificar que esté completa
-                if (estado === 'NOVEDAD' || estado === 'NO APLICA') {
+                if (estado === 'NOVEDAD' || estado === 'NO APLICA' || estado === 'NO CUMPLE') {
                     camposCompletos = novedad.trim() !== '';
                 } else {
                     camposCompletos = true;
@@ -1063,7 +1063,8 @@
             
             // Si todos los campos requeridos están completos, bloquear
             if (horaInicio && estado && 
-                (estado === 'CUMPLE' || estado === 'NO CUMPLE' || 
+                (estado === 'CUMPLE' || 
+                 (estado === 'NO CUMPLE' && novedad) ||
                  (estado === 'NOVEDAD' && novedad) || 
                  (estado === 'NO APLICA' && novedad))) {
                 bloquearCamposTecnico(cedula);
@@ -1095,7 +1096,7 @@
                     promesas.push(guardarCampoAsistencia(cedula, 'estado', estado, false));
                 }
                 
-                if (novedad && (estado === 'NOVEDAD' || estado === 'NO APLICA')) {
+                if (novedad && (estado === 'NOVEDAD' || estado === 'NO APLICA' || estado === 'NO CUMPLE')) {
                     promesas.push(guardarCampoAsistencia(cedula, 'novedad', novedad, false));
                 }
                 
