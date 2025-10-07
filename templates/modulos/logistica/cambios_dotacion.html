@@ -2628,6 +2628,35 @@ function cargarStockPorTallas() {
         });
 }
 
+// Función auxiliar para generar información de tallas para cualquier elemento
+function generarInfoTallas(elemento) {
+    if (!stockPorTallas || !Array.isArray(stockPorTallas)) {
+        return '';
+    }
+    
+    // Elementos que manejan tallas
+    const elementosConTallas = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'botas', 'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco'];
+    
+    if (!elementosConTallas.includes(elemento)) {
+        return '';
+    }
+    
+    const tallasElemento = stockPorTallas.filter(item => item.tipo_elemento === elemento);
+    if (tallasElemento.length === 0) {
+        return '';
+    }
+    
+    const tallasInfo = tallasElemento.map(item => {
+        const talla = item.talla || item.numero_calzado || 'S/T';
+        return `${talla}(${item.stock_disponible})`;
+    }).join(', ');
+    
+    // Para botas usar "Números disponibles", para guantes y otros elementos "Tallas disponibles"
+    const etiqueta = elemento === 'botas' ? 'Números disponibles' : 'Tallas disponibles';
+    
+    return `<br><small class="text-info"><i class="fas fa-ruler me-1"></i>${etiqueta}: ${tallasInfo}</small>`;
+}
+
 // Función para obtener stock disponible por talla específica
 function obtenerStockPorTalla(tipoElemento, talla) {
     if (!stockPorTallas || !Array.isArray(stockPorTallas)) {
@@ -2668,17 +2697,8 @@ function actualizarIndicadoresStock() {
             
             let stockHtml = `Stock: <span class="text-success">Valorado: ${valorado}</span> | <span class="text-secondary">No Valorado: ${noValorado}</span>`;
             
-            // Agregar información de tallas para pantalones
-            if (elemento === 'pantalon' && stockPorTallas && Array.isArray(stockPorTallas)) {
-                const tallasPantalon = stockPorTallas.filter(item => item.tipo_elemento === 'pantalon');
-                if (tallasPantalon.length > 0) {
-                    const tallasInfo = tallasPantalon.map(item => {
-                const talla = item.talla || 'S/T';
-                return `${talla}(${item.stock_disponible})`;
-            }).join(', ');
-                    stockHtml += `<br><small class="text-info"><i class="fas fa-ruler me-1"></i>Tallas disponibles: ${tallasInfo}</small>`;
-                }
-            }
+            // Agregar información de tallas para todos los elementos que las manejan
+            stockHtml += generarInfoTallas(elemento);
             
             stockElement.innerHTML = stockHtml;
         }
@@ -2758,17 +2778,8 @@ function validarStockDisponible(elemento) {
             // }
             // stockHtml += `. La operación será permitida.</span>`;
             
-            // Agregar información de tallas para pantalones
-            if (elemento === 'pantalon' && stockPorTallas && Array.isArray(stockPorTallas)) {
-                const tallasPantalon = stockPorTallas.filter(item => item.tipo_elemento === 'pantalon');
-                if (tallasPantalon.length > 0) {
-                    const tallasInfo = tallasPantalon.map(item => {
-                        const talla = item.talla || 'S/T';
-                        return `${talla}(${item.stock_disponible})`;
-                    }).join(', ');
-                    stockHtml += `<br><small class="text-info"><i class="fas fa-ruler me-1"></i>Tallas disponibles: ${tallasInfo}</small>`;
-                }
-            }
+            // Agregar información de tallas para todos los elementos que las manejan
+            stockHtml += generarInfoTallas(elemento);
             
             stockElement.innerHTML = stockHtml;
         } else {
@@ -2781,17 +2792,8 @@ function validarStockDisponible(elemento) {
         cantidadInput.classList.remove('is-invalid');
         let stockHtml = `Stock: <span class="text-success">Valorado: ${stockValorado}</span> | <span class="text-secondary">No Valorado: ${stockNoValorado}</span>`;
         
-        // Agregar información de tallas para pantalones
-        if (elemento === 'pantalon' && stockPorTallas && Array.isArray(stockPorTallas)) {
-            const tallasPantalon = stockPorTallas.filter(item => item.tipo_elemento === 'pantalon');
-            if (tallasPantalon.length > 0) {
-                const tallasInfo = tallasPantalon.map(item => {
-                    const talla = item.talla || 'S/T';
-                    return `${talla}(${item.stock_disponible})`;
-                }).join(', ');
-                stockHtml += `<br><small class="text-info"><i class="fas fa-ruler me-1"></i>Tallas disponibles: ${tallasInfo}</small>`;
-            }
-        }
+        // Agregar información de tallas para todos los elementos que las manejan
+        stockHtml += generarInfoTallas(elemento);
         
         stockElement.innerHTML = stockHtml;
     }
@@ -3113,17 +3115,8 @@ function actualizarIndicadoresStockCambios() {
             
             let stockHtml = `Stock: <span class="text-success">Valorado: ${valorado}</span> | <span class="text-secondary">No Valorado: ${noValorado}</span>`;
             
-            // Agregar información de tallas para pantalones en el modal
-            if (elemento === 'pantalon' && stockPorTallas && Array.isArray(stockPorTallas)) {
-                const tallasPantalon = stockPorTallas.filter(item => item.tipo_elemento === 'pantalon');
-                if (tallasPantalon.length > 0) {
-                    const tallasInfo = tallasPantalon.map(item => {
-                        const talla = item.talla || 'S/T';
-                        return `${talla}(${item.stock_disponible})`;
-                    }).join(', ');
-                    stockHtml += `<br><small class="text-info"><i class="fas fa-ruler me-1"></i>Tallas disponibles: ${tallasInfo}</small>`;
-                }
-            }
+            // Agregar información de tallas para todos los elementos que las manejan en el modal
+            stockHtml += generarInfoTallas(elemento);
             
             stockElement.innerHTML = stockHtml;
         }
