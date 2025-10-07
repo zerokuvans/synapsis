@@ -1673,11 +1673,13 @@ def registrar_rutas_dotaciones(app):
                 CASE 
                     WHEN tipo_elemento = 'pantalon' THEN COALESCE(talla, 'Sin talla')
                     WHEN tipo_elemento = 'botas' THEN 'Sin talla'
+                    WHEN tipo_elemento IN ('guantes_nitrilo', 'guantes_carnaza') THEN COALESCE(talla, 'Sin talla')
                     ELSE COALESCE(talla, 'Sin talla')
                 END as talla,
                 CASE 
                     WHEN tipo_elemento = 'pantalon' THEN COALESCE(talla, 'Sin talla')
                     WHEN tipo_elemento = 'botas' THEN COALESCE(numero_calzado, 'Sin número')
+                    WHEN tipo_elemento IN ('guantes_nitrilo', 'guantes_carnaza') THEN 'Sin número'
                     ELSE 'Sin número'
                 END as numero_calzado,
                 SUM(cantidad) as total_ingresado
@@ -1804,6 +1806,66 @@ def registrar_rutas_dotaciones(app):
             FROM cambios_dotacion
             WHERE botas > 0
             GROUP BY botas_talla
+            
+            UNION ALL
+            
+            SELECT 
+                'gafas' as tipo_elemento,
+                'TALLA UNICA' as talla,
+                'Sin número' as numero_calzado,
+                COALESCE(SUM(gafas), 0) as total_entregado
+            FROM dotaciones
+            WHERE gafas > 0
+            
+            UNION ALL
+            
+            SELECT 
+                'gafas' as tipo_elemento,
+                'TALLA UNICA' as talla,
+                'Sin número' as numero_calzado,
+                COALESCE(SUM(gafas), 0) as total_entregado
+            FROM cambios_dotacion
+            WHERE gafas > 0
+            
+            UNION ALL
+            
+            SELECT 
+                'gorra' as tipo_elemento,
+                'TALLA UNICA' as talla,
+                'Sin número' as numero_calzado,
+                COALESCE(SUM(gorra), 0) as total_entregado
+            FROM dotaciones
+            WHERE gorra > 0
+            
+            UNION ALL
+            
+            SELECT 
+                'gorra' as tipo_elemento,
+                'TALLA UNICA' as talla,
+                'Sin número' as numero_calzado,
+                COALESCE(SUM(gorra), 0) as total_entregado
+            FROM cambios_dotacion
+            WHERE gorra > 0
+            
+            UNION ALL
+            
+            SELECT 
+                'casco' as tipo_elemento,
+                'TALLA UNICA' as talla,
+                'Sin número' as numero_calzado,
+                COALESCE(SUM(casco), 0) as total_entregado
+            FROM dotaciones
+            WHERE casco > 0
+            
+            UNION ALL
+            
+            SELECT 
+                'casco' as tipo_elemento,
+                'TALLA UNICA' as talla,
+                'Sin número' as numero_calzado,
+                COALESCE(SUM(casco), 0) as total_entregado
+            FROM cambios_dotacion
+            WHERE casco > 0
             """
             
             # Agregar filtro por tipo si se especifica
