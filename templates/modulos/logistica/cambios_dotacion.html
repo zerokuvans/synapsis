@@ -2661,8 +2661,8 @@ function actualizarIndicadoresStock() {
     
     Object.keys(elementos).forEach(elemento => {
         const stockElement = document.getElementById(`stock_${elemento}`);
-        if (stockElement && stockPorEstado[elementos[elemento]]) {
-            const stock = stockPorEstado[elementos[elemento]];
+        if (stockElement && stockPorEstado[elemento]) {
+            const stock = stockPorEstado[elemento];
             const valorado = stock.VALORADO || 0;
             const noValorado = stock['NO VALORADO'] || 0;
             
@@ -2717,9 +2717,9 @@ function validarStockDisponible(elemento) {
     };
     
     const nombreElemento = elementos[elemento];
-    if (!stockPorEstado[nombreElemento]) return;
+    if (!stockPorEstado[elemento]) return;
     
-    const stock = stockPorEstado[nombreElemento];
+    const stock = stockPorEstado[elemento];
     const stockValorado = stock.VALORADO || 0;
     const stockNoValorado = stock['NO VALORADO'] || 0;
     const stockTotal = stockValorado + stockNoValorado;
@@ -2825,12 +2825,12 @@ function validarFormularioCompleto() {
         const esValorado = estadoCheckbox.checked;
         const nombreElemento = elementos[elemento];
         
-        if (!stockPorEstado[nombreElemento]) {
+        if (!stockPorEstado[elemento]) {
             errores.push(`No se pudo verificar el stock para ${nombreElemento}`);
             return;
         }
         
-        const stock = stockPorEstado[nombreElemento];
+        const stock = stockPorEstado[elemento];
         const stockValorado = stock.VALORADO || 0;
         const stockNoValorado = stock['NO VALORADO'] || 0;
         const stockTotal = stockValorado + stockNoValorado;
@@ -3106,8 +3106,8 @@ function actualizarIndicadoresStockCambios() {
     
     Object.keys(elementos).forEach(elemento => {
         const stockElement = document.getElementById(`modal_stock_${elemento}`);
-        if (stockElement && stockPorEstado[elementos[elemento]]) {
-            const stock = stockPorEstado[elementos[elemento]];
+        if (stockElement && stockPorEstado[elemento]) {
+            const stock = stockPorEstado[elemento];
             const valorado = stock.VALORADO || 0;
             const noValorado = stock['NO VALORADO'] || 0;
             
@@ -3154,9 +3154,9 @@ function validarStockDisponibleCambios(elemento) {
     };
     
     const nombreElemento = elementos[elemento];
-    if (!stockPorEstado[nombreElemento]) return;
+    if (!stockPorEstado[elemento]) return;
     
-    const stock = stockPorEstado[nombreElemento];
+    const stock = stockPorEstado[elemento];
     const stockValorado = stock.VALORADO || 0;
     const stockNoValorado = stock['NO VALORADO'] || 0;
     const stockTotal = stockValorado + stockNoValorado;
@@ -3222,12 +3222,12 @@ function validarFormularioCompletoCambios() {
         const esValorado = estadoCheckbox.checked;
         const nombreElemento = elementos[elemento];
         
-        if (!stockPorEstado[nombreElemento]) {
+        if (!stockPorEstado[elemento]) {
             errores.push(`No se pudo verificar el stock para ${nombreElemento}`);
             return;
         }
         
-        const stock = stockPorEstado[nombreElemento];
+        const stock = stockPorEstado[elemento];
         const stockValorado = stock.VALORADO || 0;
         const stockNoValorado = stock['NO VALORADO'] || 0;
         const stockTotal = stockValorado + stockNoValorado;
