@@ -270,7 +270,7 @@ def register():
                 flash('Error de conexión a la base de datos.', 'error')
                 return redirect(url_for('dashboard'))
                 
-            cursor = connection.cursor(dictionary=True)
+            cursor = connection.cursor(dictionary=True, buffered=True)
             cursor.execute("INSERT INTO recurso_operativo (recurso_operativo_cedula, recurso_operativo_password, id_roles) VALUES (%s, %s, %s)",
                         (username, hashed_password, role_id))
             connection.commit()
@@ -316,7 +316,7 @@ def login():
                     'message': 'Error de conexión a la base de datos. Por favor intente más tarde.'
                 }), 500
                 
-            cursor = connection.cursor(dictionary=True)
+            cursor = connection.cursor(dictionary=True, buffered=True)
             
             # Buscar usuario
             app.logger.info(f"Consultando usuario con cedula: {username}")
@@ -2680,10 +2680,16 @@ def api_causas_cierre():
         logging.error(f"Error inesperado en API causas de cierre: {str(e)}")
         return jsonify({'error': 'Error interno del servidor'}), 500
     finally:
-        if 'cursor' in locals() and cursor:
-            cursor.close()
-        if 'connection' in locals() and connection and connection.is_connected():
-            connection.close()
+        try:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+        except:
+            pass
+        try:
+            if 'connection' in locals() and connection and connection.is_connected():
+                connection.close()
+        except:
+            pass
 def _normalizar_hora(valor):
     """Normaliza distintos formatos de hora a 'HH:MM'."""
     try:
@@ -2852,10 +2858,16 @@ def main_api_tecnicos_asignados():
         logging.error(f"Error inesperado en API técnicos asignados: {str(e)}")
         return jsonify({'error': 'Error interno del servidor'}), 500
     finally:
-        if 'cursor' in locals() and cursor:
-            cursor.close()
-        if 'connection' in locals() and connection and connection.is_connected():
-            connection.close()
+        try:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+        except:
+            pass
+        try:
+            if 'connection' in locals() and connection and connection.is_connected():
+                connection.close()
+        except:
+            pass
 
 @app.route('/logistica/asignaciones')
 @login_required()
@@ -8468,7 +8480,7 @@ def guardar_asistencias_operativo():
         if connection is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
             
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor(dictionary=True, buffered=True)
         
         # Obtener el nombre del usuario actual (será usado como supervisor en los registros)
         nombre_usuario_actual = session.get('user_name', '')
@@ -8604,7 +8616,7 @@ def api_preoperacionales_tecnicos():
         if connection is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
             
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor(dictionary=True, buffered=True)
         
         # Obtener información del usuario actual (supervisor)
         nombre_usuario_actual = session.get('user_name', '')
@@ -8672,9 +8684,6 @@ def api_preoperacionales_tecnicos():
                 'estado': estado_diligenciamiento
             })
         
-        cursor.close()
-        connection.close()
-        
         return jsonify({
             'success': True,
             'data': result_tecnicos,
@@ -8686,10 +8695,16 @@ def api_preoperacionales_tecnicos():
         logging.error(f"Parámetros recibidos: fecha_inicio={request.args.get('fecha_inicio')}, fecha_fin={request.args.get('fecha_fin')}, supervisor={request.args.get('supervisor')}, agrupacion={request.args.get('agrupacion')}")
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
     finally:
-        if 'cursor' in locals() and cursor:
-            cursor.close()
-        if 'connection' in locals() and connection and connection.is_connected():
-            connection.close()
+        try:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+        except:
+            pass
+        try:
+            if 'connection' in locals() and connection and connection.is_connected():
+                connection.close()
+        except:
+            pass
 
 # API para consultar registros de asistencia por supervisor y fecha (para edición)
 @app.route('/api/asistencia/consultar', methods=['GET'])
@@ -8713,7 +8728,7 @@ def consultar_asistencia():
         if connection is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
             
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor(dictionary=True, buffered=True)
         
         # Para consulta de fecha única, incluir todos los técnicos del supervisor
         if fecha:
@@ -8723,7 +8738,7 @@ def consultar_asistencia():
             except ValueError:
                 return jsonify({'success': False, 'message': 'Formato de fecha inválido. Use YYYY-MM-DD'}), 400
             
-            # Obtener todos los técnicos del supervisor
+            # Obtener solo los técnicos que tienen directamente al supervisor especificado
             cursor.execute("""
                 SELECT 
                     id_codigo_consumidor,
@@ -8771,7 +8786,7 @@ def consultar_asistencia():
                         'tecnico': tecnico['tecnico'],
                         'carpeta_dia': None,
                         'carpeta': tecnico['carpeta'],
-                        'super': tecnico['super'],
+                        'super': supervisor,  # Usar el supervisor consultado, no el del técnico
                         'fecha_asistencia': fecha_obj.strftime('%Y-%m-%d'),
                         'id_codigo_consumidor': tecnico['id_codigo_consumidor'],
                         'hora_inicio': None,
@@ -8790,7 +8805,7 @@ def consultar_asistencia():
             if fecha_inicio_obj > fecha_fin_obj:
                 return jsonify({'success': False, 'message': 'La fecha de inicio no puede ser mayor que la fecha de fin'}), 400
                 
-            # Consultar registros para rango de fechas
+            # Consultar solo registros de técnicos que tienen directamente al supervisor especificado
             cursor.execute("""
                 SELECT 
                     id_asistencia,
@@ -8837,9 +8852,15 @@ def consultar_asistencia():
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
     finally:
         if 'cursor' in locals() and cursor:
-            cursor.close()
+            try:
+                cursor.close()
+            except:
+                pass
         if 'connection' in locals() and connection and connection.is_connected():
-            connection.close()
+            try:
+                connection.close()
+            except:
+                pass
 
 # API para exportar registros de asistencia a Excel
 @app.route('/api/asistencia/exportar_excel', methods=['GET'])
@@ -9723,18 +9744,59 @@ def obtener_indicadores_cumplimiento():
         
         # Ejecutar consultas
         cursor.execute(query_asistencia, tuple(params_asistencia))
-        asistencia_por_supervisor = {row['supervisor']: row['total_asistencia'] for row in cursor.fetchall()}
+        asistencia_raw = cursor.fetchall()
         
         print(f"Ejecutando consulta de preoperacional: {query_preoperacional}")
         print(f"Parámetros: {params_preoperacional}")
         
         cursor.execute(query_preoperacional, tuple(params_preoperacional))
-        preop_por_supervisor = {row['supervisor']: row['total_preoperacional'] for row in cursor.fetchall()}
+        preop_raw = cursor.fetchall()
         
-        print(f"Asistencia por supervisor: {asistencia_por_supervisor}")
-        print(f"Preoperacional por supervisor: {preop_por_supervisor}")
+        # Debugging detallado de supervisores
+        print(f"🔍 SUPERVISORES RAW DE ASISTENCIA:")
+        for row in asistencia_raw:
+            supervisor = row['supervisor']
+            print(f"  - '{supervisor}' (len: {len(supervisor) if supervisor else 0}, repr: {repr(supervisor)})")
         
-        # Calcular indicadores
+        print(f"🔍 SUPERVISORES RAW DE PREOPERACIONAL:")
+        for row in preop_raw:
+            supervisor = row['supervisor']
+            print(f"  - '{supervisor}' (len: {len(supervisor) if supervisor else 0}, repr: {repr(supervisor)})")
+        
+        # Normalizar nombres de supervisores (trim espacios y convertir a mayúsculas)
+        def normalizar_supervisor(nombre):
+            if not nombre:
+                return None
+            return nombre.strip().upper()
+        
+        # Procesar asistencia con normalización
+        asistencia_por_supervisor = {}
+        for row in asistencia_raw:
+            supervisor_original = row['supervisor']
+            supervisor_normalizado = normalizar_supervisor(supervisor_original)
+            if supervisor_normalizado:
+                if supervisor_normalizado in asistencia_por_supervisor:
+                    asistencia_por_supervisor[supervisor_normalizado] += row['total_asistencia']
+                    print(f"⚠️  DUPLICADO EN ASISTENCIA: '{supervisor_original}' -> '{supervisor_normalizado}' (sumando {row['total_asistencia']})")
+                else:
+                    asistencia_por_supervisor[supervisor_normalizado] = row['total_asistencia']
+        
+        # Procesar preoperacional con normalización
+        preop_por_supervisor = {}
+        for row in preop_raw:
+            supervisor_original = row['supervisor']
+            supervisor_normalizado = normalizar_supervisor(supervisor_original)
+            if supervisor_normalizado:
+                if supervisor_normalizado in preop_por_supervisor:
+                    preop_por_supervisor[supervisor_normalizado] += row['total_preoperacional']
+                    print(f"⚠️  DUPLICADO EN PREOPERACIONAL: '{supervisor_original}' -> '{supervisor_normalizado}' (sumando {row['total_preoperacional']})")
+                else:
+                    preop_por_supervisor[supervisor_normalizado] = row['total_preoperacional']
+        
+        print(f"✅ ASISTENCIA NORMALIZADA: {asistencia_por_supervisor}")
+        print(f"✅ PREOPERACIONAL NORMALIZADA: {preop_por_supervisor}")
+        
+        # Calcular indicadores con supervisores únicos
         indicadores = []
         supervisores = set(list(asistencia_por_supervisor.keys()) + list(preop_por_supervisor.keys()))
         
@@ -9783,14 +9845,21 @@ def obtener_indicadores_cumplimiento():
 @login_required(role='administrativo')
 def obtener_detalle_tecnicos():
     """Obtener detalle de técnicos por supervisor con estado de asistencia y preoperacional"""
+    print(f"🔍 [DETALLE_TECNICOS] ===== ENDPOINT LLAMADO =====")
+    print(f"🔍 [DETALLE_TECNICOS] Usuario actual: {session.get('user_id', 'No autenticado')}")
+    print(f"🔍 [DETALLE_TECNICOS] Rol usuario: {session.get('role', 'Sin rol')}")
+    print(f"🔍 [DETALLE_TECNICOS] Request method: {request.method}")
+    print(f"🔍 [DETALLE_TECNICOS] Request URL: {request.url}")
+    print(f"🔍 [DETALLE_TECNICOS] Request args: {dict(request.args)}")
+    print(f"🔍 [DETALLE_TECNICOS] Iniciando endpoint...")
     try:
         # Obtener parámetros
         fecha = request.args.get('fecha')
         supervisor = request.args.get('supervisor')
         
-        print(f"Parámetros recibidos en detalle_tecnicos:")
-        print(f"- fecha: {fecha}")
-        print(f"- supervisor: {supervisor}")
+        print(f"🔍 [DETALLE_TECNICOS] Parámetros recibidos:")
+        print(f"  - fecha: '{fecha}'")
+        print(f"  - supervisor: '{supervisor}'")
         
         # Validar parámetros
         if not fecha or not supervisor:
@@ -9808,32 +9877,44 @@ def obtener_detalle_tecnicos():
                 'error': 'Formato de fecha inválido. Use YYYY-MM-DD'
             }), 400
         
+        print(f"🔍 [DETALLE_TECNICOS] Intentando conectar a la base de datos...")
         connection = get_db_connection()
         if connection is None:
+            print(f"❌ [DETALLE_TECNICOS] Error: No se pudo conectar a la base de datos")
             return jsonify({
                 'success': False,
                 'error': 'Error de conexión a la base de datos'
             }), 500
         
+        print(f"✅ [DETALLE_TECNICOS] Conexión a BD exitosa")
         cursor = connection.cursor(dictionary=True)
         
-        # Obtener técnicos del supervisor
-        cursor.execute("""
-            SELECT DISTINCT id_codigo_consumidor, nombre 
+        # Obtener técnicos del supervisor (usando la consulta correcta)
+        query_tecnicos = """
+            SELECT id_codigo_consumidor, nombre, recurso_operativo_cedula as documento
             FROM recurso_operativo 
-            WHERE super = %s AND id_codigo_consumidor IS NOT NULL
+            WHERE super = %s AND estado = 'Activo' AND id_codigo_consumidor IS NOT NULL
             ORDER BY nombre
-        """, (supervisor,))
+        """
         
+        print(f"🔍 [DETALLE_TECNICOS] Ejecutando consulta: {query_tecnicos}")
+        print(f"🔍 [DETALLE_TECNICOS] Con parámetro supervisor: '{supervisor}'")
+        
+        cursor.execute(query_tecnicos, (supervisor,))
         tecnicos_supervisor = cursor.fetchall()
         
+        print(f"✅ [DETALLE_TECNICOS] Técnicos encontrados en BD: {len(tecnicos_supervisor)}")
+        for tecnico in tecnicos_supervisor:
+            print(f"  - {tecnico['nombre']} (ID: {tecnico['id_codigo_consumidor']}, Doc: {tecnico['documento']})")
+        
         if not tecnicos_supervisor:
+            print(f"❌ No se encontraron técnicos activos para el supervisor: '{supervisor}'")
             cursor.close()
             connection.close()
             return jsonify({
                 'success': True,
                 'tecnicos': [],
-                'mensaje': f'No se encontraron técnicos para el supervisor {supervisor}'
+                'mensaje': f'No se encontraron técnicos activos para el supervisor {supervisor}'
             })
         
         # Para cada técnico, verificar asistencia y preoperacional
@@ -9917,11 +9998,29 @@ def obtener_detalle_tecnicos():
         
     except Exception as e:
         import traceback
-        print(f"Error en detalle_tecnicos: {str(e)}")
-        print(f"Traceback: {traceback.format_exc()}")
+        error_msg = str(e)
+        traceback_str = traceback.format_exc()
+        
+        print(f"❌ [DETALLE_TECNICOS] ERROR CRÍTICO:")
+        print(f"  - Tipo de error: {type(e).__name__}")
+        print(f"  - Mensaje: {error_msg}")
+        print(f"  - Traceback completo:")
+        print(traceback_str)
+        print(f"❌ [DETALLE_TECNICOS] FIN DEL ERROR")
+        
+        # Cerrar conexiones si existen
+        try:
+            if 'cursor' in locals():
+                cursor.close()
+            if 'connection' in locals():
+                connection.close()
+        except:
+            pass
+        
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': f"Error interno del servidor: {error_msg}",
+            'error_type': type(e).__name__
         }), 500
 
 @app.route('/indicadores/api')
@@ -9948,136 +10047,7 @@ def indicadores_api():
                           supervisores=supervisores)
 
 
-from flask import jsonify, request
-from datetime import datetime
-import traceback
 
-def register_endpoint(app, get_db_connection, login_required):
-    """
-    Registra el endpoint /api/indicadores/detalle_tecnicos en la aplicación Flask.
-    """
-    @app.route('/api/indicadores/detalle_tecnicos')
-    @login_required(role='administrativo')
-    def obtener_detalle_tecnicos():
-        try:
-            # Obtener parámetros
-            fecha = request.args.get('fecha')
-            supervisor = request.args.get('supervisor')
-            
-            if not fecha or not supervisor:
-                return jsonify({
-                    'success': False,
-                    'error': 'Se requieren los parámetros fecha y supervisor'
-                }), 400
-                
-            # Validar fecha
-            try:
-                fecha_obj = datetime.strptime(fecha, '%Y-%m-%d').date()
-            except ValueError:
-                return jsonify({
-                    'success': False,
-                    'error': 'Formato de fecha inválido. Use YYYY-MM-DD'
-                }), 400
-                
-            print(f"Consultando detalle de técnicos para supervisor {supervisor} en fecha {fecha}")
-            
-            connection = get_db_connection()
-            if connection is None:
-                print("Error: No se pudo establecer conexión a la base de datos")
-                return jsonify({
-                    'success': False,
-                    'error': 'Error de conexión a la base de datos'
-                }), 500
-                
-            cursor = connection.cursor(dictionary=True)
-            
-            # Obtener lista de técnicos asignados al supervisor
-            query_tecnicos = """
-                SELECT id_codigo_consumidor, nombre, recurso_operativo_cedula as documento
-                FROM recurso_operativo
-                WHERE super = %s AND estado = 'Activo'
-            """
-            
-            cursor.execute(query_tecnicos, (supervisor,))
-            tecnicos = cursor.fetchall()
-            
-            if not tecnicos:
-                return jsonify({
-                    'success': True,
-                    'tecnicos': [],
-                    'mensaje': f'No se encontraron técnicos asignados al supervisor {supervisor}'
-                })
-                
-            # Para cada técnico, verificar si tiene asistencia y preoperacional en la fecha indicada
-            result_tecnicos = []
-            for tecnico in tecnicos:
-                id_tecnico = tecnico['id_codigo_consumidor']
-                
-                # Verificar asistencia
-                cursor.execute("""
-                    SELECT a.id_asistencia, a.fecha_asistencia 
-                    FROM asistencia a
-                    JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
-                    WHERE a.id_codigo_consumidor = %s 
-                    AND DATE(a.fecha_asistencia) = %s 
-                    AND t.valor = '1'
-                """, (id_tecnico, fecha_obj))
-                
-                asistencia = cursor.fetchone()
-                tiene_asistencia = asistencia is not None
-                
-                # Verificar preoperacional
-                cursor.execute("""
-                    SELECT id_preoperacional, fecha
-                    FROM preoperacional
-                    WHERE id_codigo_consumidor = %s AND DATE(fecha) = %s
-                """, (id_tecnico, fecha_obj))
-                
-                preoperacional = cursor.fetchone()
-                tiene_preoperacional = preoperacional is not None
-                
-                # Formatear hora de registro - priorizar preoperacional sobre asistencia
-                hora_registro = None
-                if preoperacional and preoperacional['fecha']:
-                    # Si existe preoperacional, usar su hora
-                    hora_registro = preoperacional['fecha'].strftime('%H:%M')
-                elif asistencia and asistencia['fecha_asistencia']:
-                    # Si no hay preoperacional pero sí asistencia, usar hora de asistencia
-                    hora_registro = asistencia['fecha_asistencia'].strftime('%H:%M')
-                else:
-                    # Si no hay ninguno, mostrar N/A
-                    hora_registro = 'N/A'
-                
-                # Agregar a los resultados
-                result_tecnicos.append({
-                    'id': id_tecnico,
-                    'nombre': tecnico['nombre'],
-                    'documento': tecnico['documento'],
-                    'asistencia': tiene_asistencia,
-                    'preoperacional': tiene_preoperacional,
-                    'hora_registro': hora_registro
-                })
-                
-            cursor.close()
-            connection.close()
-            
-            return jsonify({
-                'success': True,
-                'tecnicos': result_tecnicos,
-                'fecha': fecha,
-                'supervisor': supervisor,
-                'total': len(result_tecnicos)
-            })
-            
-        except Exception as e:
-            print(f"Error al obtener detalle de técnicos: {str(e)}")
-            print(f"Traceback: {traceback.format_exc()}")
-            return jsonify({
-                'success': False,
-                'error': str(e)
-            }), 500
-    
-    return obtener_detalle_tecnicos 
 
 @app.route('/api/cargos', methods=['GET'])
 @login_required(role='administrativo')

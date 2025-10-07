@@ -1387,49 +1387,75 @@ function cargarDetalleTecnicos() {
         
         addLog(`Cargando detalle de técnicos para supervisor "${supervisor}" en fecha ${fecha}`, 'info');
 
+        // URL completa para debug
+        const fullUrl = `/api/indicadores/detalle_tecnicos?fecha=${fecha}&supervisor=${encodeURIComponent(supervisor)}`;
+        console.log(`🔍 [FRONTEND] Llamando endpoint: ${fullUrl}`);
+        addLog(`🔍 [FRONTEND] URL: ${fullUrl}`, 'info');
+
         // Realizar consulta AJAX a la API para obtener datos de tecnicos y sus registros
         $.ajax({
-            url: `/api/indicadores/detalle_tecnicos?fecha=${fecha}&supervisor=${encodeURIComponent(supervisor)}`,
+            url: fullUrl,
             type: 'GET',
             dataType: 'json',
+            timeout: 30000, // 30 segundos de timeout
             success: function(data) {
                 // Ocultar loader
                 document.getElementById('tecnicos-loader').style.display = 'none';
                 
-                if (data.success === true && data.tecnicos && data.tecnicos.length > 0) {
+                // DEBUG: Agregar logging detallado
+                console.log('🔍 [FRONTEND] Respuesta del endpoint:', data);
+                console.log('🔍 [FRONTEND] data.success:', data.success);
+                console.log('🔍 [FRONTEND] data.tecnicos:', data.tecnicos);
+                console.log('🔍 [FRONTEND] data.tecnicos.length:', data.tecnicos ? data.tecnicos.length : 'undefined');
+                
+                addLog(`🔍 [DEBUG] Respuesta recibida: success=${data.success}, tecnicos=${data.tecnicos ? data.tecnicos.length : 0}`, 'info');
+                
+                // CORRECCIÓN: Verificar si tenemos datos válidos de cualquier forma
+                const tieneSuccess = data.success === true || data.success === 'true' || data.success == true;
+                const tieneTecnicos = data.tecnicos && Array.isArray(data.tecnicos) && data.tecnicos.length > 0;
+                
+                console.log('🔍 [FRONTEND] tieneSuccess:', tieneSuccess);
+                console.log('🔍 [FRONTEND] tieneTecnicos:', tieneTecnicos);
+                
+                if (tieneSuccess && tieneTecnicos) {
                     // Mostrar tabla y actualizar datos
                     document.getElementById('tecnicos-container').style.display = 'block';
                     document.getElementById('tecnicos-empty').style.display = 'none';
                     
-                    // Actualizar tabla con datos reales
+                    addLog(`✅ [FRONTEND] Condición cumplida - Mostrando datos reales`, 'success');
+                    
+                    // FORZAR: Actualizar tabla con datos reales
                     actualizarTablaDetalleTecnicos(data.tecnicos);
                     
-                    addLog(`Datos reales cargados: ${data.tecnicos.length} técnicos encontrados para ${supervisor}`, 'success');
+                    addLog(`✅ DATOS REALES CARGADOS: ${data.tecnicos.length} técnicos encontrados para ${supervisor}`, 'success');
                 } else {
+                    addLog(`❌ [FRONTEND] Condición NO cumplida - Mostrando mensaje sin datos`, 'warning');
+                    addLog(`   - tieneSuccess: ${tieneSuccess}`, 'warning');
+                    addLog(`   - tieneTecnicos: ${tieneTecnicos}`, 'warning');
+                    addLog(`   - data.success: ${data.success} (tipo: ${typeof data.success})`, 'warning');
+                    addLog(`   - data.tecnicos: ${data.tecnicos ? data.tecnicos.length : 'N/A'}`, 'warning');
                     mostrarMensajeSinDatos(supervisor, fecha);
                 }
             },
             error: function(jqXHR, textStatus, errorThrown) {
-                console.warn(`Error al obtener datos del servidor: ${textStatus}. Usando datos simulados como respaldo.`);
-                addLog(`Error del servidor: ${textStatus}. Usando simulación.`, 'warning');
+                console.error(`❌ [FRONTEND] Error AJAX al obtener datos del servidor:`);
+                console.error(`   - Status: ${textStatus}`);
+                console.error(`   - Error: ${errorThrown}`);
+                console.error(`   - Status Code: ${jqXHR.status}`);
+                console.error(`   - Response Text: ${jqXHR.responseText}`);
                 
-                // Si falla, usar datos simulados como respaldo
-                setTimeout(() => {
-                    // Ocultar loader
-                    document.getElementById('tecnicos-loader').style.display = 'none';
-                    
-                    // Mostrar datos de demostración
-                    document.getElementById('tecnicos-container').style.display = 'block';
-                    document.getElementById('tecnicos-empty').style.display = 'none';
-                    
-                    // Datos simulados para demostrar la funcionalidad
-                    const datosTecnicos = generarDatosDemostracion(supervisor);
-                    
-                    // Actualizar tabla con datos simulados
-                    actualizarTablaDetalleTecnicos(datosTecnicos);
-                    
-                    addLog(`Mostrando datos simulados para supervisor "${supervisor}" (${datosTecnicos.length} técnicos)`, 'warning');
-                }, 300);
+                addLog(`❌ Error del servidor: ${textStatus} (${jqXHR.status})`, 'error');
+                addLog(`   Detalles: ${errorThrown}`, 'error');
+                addLog(`   Respuesta: ${jqXHR.responseText}`, 'error');
+                
+                // Ocultar loader
+                document.getElementById('tecnicos-loader').style.display = 'none';
+                
+                // Mostrar mensaje de error en lugar de datos simulados
+                mostrarMensajeSinDatos(supervisor, fecha);
+                
+                // NO USAR DATOS SIMULADOS - Mostrar error real
+                addLog(`❌ ENDPOINT FALLÓ - No se pueden cargar datos reales para ${supervisor}`, 'error');
             }
         });
     } catch (e) {
