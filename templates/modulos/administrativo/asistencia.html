@@ -1012,11 +1012,24 @@ function crearSelectTipificacion(valorActual, index, disabled = false) {
 
 // Crear select de supervisores
 function crearSelectSupervisor(valorActual, index, disabled = false) {
+    console.log('crearSelectSupervisor - valorActual:', valorActual);
+    console.log('crearSelectSupervisor - supervisoresDisponibles:', supervisoresDisponibles);
+    
     let options = '<option value="">Seleccione...</option>';
+    let encontrado = false;
+    
     supervisoresDisponibles.forEach(sup => {
         const selected = sup === valorActual ? 'selected' : '';
+        if (selected) encontrado = true;
         options += `<option value="${sup}" ${selected}>${sup}</option>`;
     });
+    
+    // Si no se encontró el supervisor en la lista, agregarlo como opción seleccionada
+    if (!encontrado && valorActual && valorActual.trim() !== '') {
+        console.log('Supervisor no encontrado en lista, agregando:', valorActual);
+        options += `<option value="${valorActual}" selected>${valorActual}</option>`;
+    }
+    
     return `<select class="form-control form-control-sm" ${disabled ? 'disabled' : ''} onchange="marcarModificado(${index}, 'super', this.value)">${options}</select>`;
 }
 
