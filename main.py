@@ -8520,9 +8520,32 @@ def guardar_asistencias_operativo():
         for i, asistencia in enumerate(asistencias):
             print(f"DEBUG - Insertando técnico {i+1}: {asistencia}")
             try:
+                # Obtener presupuesto_diario desde presupuesto_carpeta según el nombre de carpeta
+                carpeta_nombre = asistencia.get('carpeta', '')
+                valor_presupuesto = 0
+                if carpeta_nombre:
+                    try:
+                        cursor.execute("""
+                            SELECT presupuesto_diario 
+                            FROM presupuesto_carpeta 
+                            WHERE presupuesto_carpeta = %s 
+                            LIMIT 1
+                        """, (carpeta_nombre,))
+                        row = cursor.fetchone()
+                        if row and 'presupuesto_diario' in row and row['presupuesto_diario'] is not None:
+                            try:
+                                valor_presupuesto = int(float(row['presupuesto_diario']))
+                            except Exception:
+                                valor_presupuesto = 0
+                        else:
+                            print(f"DEBUG - No se encontró presupuesto_diario para carpeta '{carpeta_nombre}'")
+                    except Exception as e_pres:
+                        print(f"DEBUG - Error obteniendo presupuesto_diario para carpeta '{carpeta_nombre}': {str(e_pres)}")
+                        valor_presupuesto = 0
+
                 cursor.execute("""
-                    INSERT INTO asistencia (cedula, tecnico, carpeta_dia, carpeta, super, fecha_asistencia, id_codigo_consumidor)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO asistencia (cedula, tecnico, carpeta_dia, carpeta, super, fecha_asistencia, id_codigo_consumidor, valor)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     asistencia.get('cedula', ''),
                     asistencia.get('tecnico', ''),
@@ -8530,7 +8553,8 @@ def guardar_asistencias_operativo():
                     asistencia.get('carpeta', ''),
                     asistencia.get('super', nombre_usuario_actual),
                     asistencia.get('fecha_asistencia', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
-                    asistencia.get('id_codigo_consumidor', 0)
+                    asistencia.get('id_codigo_consumidor', 0),
+                    valor_presupuesto
                 ))
                 registros_insertados += 1
                 print(f"DEBUG - Técnico {i+1} insertado exitosamente")
