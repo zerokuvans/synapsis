@@ -3496,13 +3496,15 @@ def ver_asignaciones_ferretero():
                                
         cursor = connection.cursor(dictionary=True)
         
-        # Obtener todas las asignaciones ferreteras con información del técnico
+        # Filtro de fecha: mostrar solo registros del día seleccionado (por defecto, hoy)
+        fecha_seleccionada = request.args.get('fecha') or datetime.now().strftime('%Y-%m-%d')
         cursor.execute("""
             SELECT f.*, r.nombre, r.recurso_operativo_cedula, r.cargo
             FROM ferretero f 
             LEFT JOIN recurso_operativo r ON f.id_codigo_consumidor = r.id_codigo_consumidor 
+            WHERE DATE(f.fecha_asignacion) = %s
             ORDER BY f.fecha_asignacion DESC
-        """)
+        """, (fecha_seleccionada,))
         asignaciones = cursor.fetchall()
 
         # Obtener lista de técnicos disponibles
@@ -3672,7 +3674,8 @@ def ver_asignaciones_ferretero():
         return render_template('modulos/logistica/ferretero.html', 
                             asignaciones=asignaciones,
                             tecnicos=tecnicos_con_limites,
-                            materiales_problematicos=materiales_problematicos)
+                            materiales_problematicos=materiales_problematicos,
+                            fecha_seleccionada=fecha_seleccionada)
 
     except Exception as e:
         print(f"Error al obtener asignaciones ferretero: {str(e)}")
