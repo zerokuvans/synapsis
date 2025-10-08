@@ -1,175 +1,80 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Script para verificar usuarios existentes en la base de datos
-"""
-
 import mysql.connector
-from datetime import datetime
+from mysql.connector import Error
 
 def verificar_usuarios():
-    """Verificar usuarios existentes en la base de datos"""
-    
-    print("=== VERIFICACIÓN DE USUARIOS EN LA BASE DE DATOS ===")
-    print(f"Fecha de verificación: {datetime.now()}")
-    print()
-    
     try:
-        # Configuración de la base de datos
-        db_config = {
-            'host': 'localhost',
-            'user': 'root',
-            'password': '732137A031E4b@',
-            'database': 'capired'
-        }
+        # Configuración de conexión a MySQL
+        connection = mysql.connector.connect(
+            host='localhost',
+            database='capired',
+            user='root',
+            password='732137A031E4b@'
+        )
         
-        connection = mysql.connector.connect(**db_config)
-        cursor = connection.cursor(dictionary=True)
-        
-        # Verificar si existe la tabla usuarios
-        cursor.execute("SHOW TABLES LIKE 'usuarios'")
-        tabla_usuarios = cursor.fetchone()
-        
-        if tabla_usuarios:
-            print("✅ Tabla 'usuarios' encontrada")
+        if connection.is_connected():
+            cursor = connection.cursor()
             
-            # Obtener estructura de la tabla usuarios
-            cursor.execute("DESCRIBE usuarios")
-            estructura = cursor.fetchall()
+            print("=== Verificación de Usuarios en la Base de Datos ===")
+            print(f"Base de datos: capired")
+            print(f"Host: localhost")
+            print()
             
-            print("\n=== ESTRUCTURA DE LA TABLA USUARIOS ===")
-            for campo in estructura:
-                print(f"- {campo['Field']}: {campo['Type']} {'(NULL)' if campo['Null'] == 'YES' else '(NOT NULL)'}")
+            # Consultar usuarios en la tabla recurso_operativo
+            query = """
+            SELECT 
+                id_codigo_consumidor,
+                nombre,
+                recurso_operativo_cedula,
+                id_roles,
+                estado
+            FROM recurso_operativo 
+            ORDER BY id_codigo_consumidor
+            """
             
-            # Contar total de usuarios
-            cursor.execute("SELECT COUNT(*) as total FROM usuarios")
-            total_usuarios = cursor.fetchone()['total']
-            print(f"\n📊 Total de usuarios: {total_usuarios}")
+            cursor.execute(query)
+            usuarios = cursor.fetchall()
             
-            if total_usuarios > 0:
-                # Obtener usuarios con rol administrativo
-                cursor.execute("""
-                    SELECT username, rol, activo 
-                    FROM usuarios 
-                    WHERE rol = 'administrativo' 
-                    ORDER BY username
-                """)
-                admins = cursor.fetchall()
+            if usuarios:
+                print(f"Total de usuarios encontrados: {len(usuarios)}")
+                print()
+                print("Usuarios disponibles:")
+                print("-" * 80)
+                print(f"{'ID':<5} {'Cédula':<12} {'Nombre':<25} {'Rol ID':<8} {'Estado':<10}")
+                print("-" * 80)
                 
-                print(f"\n=== USUARIOS ADMINISTRATIVOS ({len(admins)}) ===")
-                if admins:
-                    for admin in admins:
-                        estado = "✅ Activo" if admin['activo'] else "❌ Inactivo"
-                        print(f"- {admin['username']} ({estado})")
+                for usuario in usuarios:
+                    id_codigo, nombre, cedula, rol_id, estado = usuario
+                    # Manejar valores None
+                    id_codigo = id_codigo or 'N/A'
+                    nombre = nombre or 'N/A'
+                    cedula = cedula or 'N/A'
+                    rol_id = rol_id or 'N/A'
+                    estado = estado or 'N/A'
+                    print(f"{str(id_codigo):<5} {str(cedula):<12} {str(nombre):<25} {str(rol_id):<8} {str(estado):<10}")
+                
+                print()
+                print("Usuarios activos con rol ID '5' (logistica):")
+                print("-" * 50)
+                
+                usuarios_logistica = [u for u in usuarios if str(u[3] or '') == '5' and str(u[4] or '').lower() == 'activo']
+                if usuarios_logistica:
+                    for usuario in usuarios_logistica:
+                        id_codigo, nombre, cedula, rol_id, estado = usuario
+                        print(f"- ID: {id_codigo or 'N/A'}, Nombre: {nombre or 'N/A'} (Cédula: {cedula or 'N/A'})")
                 else:
-                    print("⚠️  No se encontraron usuarios administrativos")
-                
-                # Obtener todos los roles disponibles
-                cursor.execute("SELECT DISTINCT rol FROM usuarios ORDER BY rol")
-                roles = cursor.fetchall()
-                
-                print(f"\n=== ROLES DISPONIBLES ({len(roles)}) ===")
-                for rol in roles:
-                    cursor.execute("SELECT COUNT(*) as total FROM usuarios WHERE rol = %s", (rol['rol'],))
-                    total_rol = cursor.fetchone()['total']
-                    print(f"- {rol['rol']}: {total_rol} usuarios")
-                
-                # Mostrar algunos usuarios de ejemplo
-                cursor.execute("""
-                    SELECT username, rol, activo 
-                    FROM usuarios 
-                    WHERE activo = 1
-                    ORDER BY username 
-                    LIMIT 10
-                """)
-                usuarios_activos = cursor.fetchall()
-                
-                print(f"\n=== PRIMEROS 10 USUARIOS ACTIVOS ===")
-                for usuario in usuarios_activos:
-                    print(f"- {usuario['username']} (rol: {usuario['rol']})")
+                    print("No se encontraron usuarios activos con rol ID '5' (logistica)")
                     
-        else:
-            print("❌ Tabla 'usuarios' no encontrada")
-            
-            # Buscar otras tablas que puedan contener usuarios
-            cursor.execute("SHOW TABLES")
-            tablas = cursor.fetchall()
-            
-            print("\n=== TABLAS DISPONIBLES ===")
-            tablas_usuario = []
-            for tabla in tablas:
-                nombre_tabla = list(tabla.values())[0]
-                print(f"- {nombre_tabla}")
-                if 'user' in nombre_tabla.lower() or 'usuario' in nombre_tabla.lower():
-                    tablas_usuario.append(nombre_tabla)
-            
-            if tablas_usuario:
-                print(f"\n=== TABLAS RELACIONADAS CON USUARIOS ===")
-                for tabla in tablas_usuario:
-                    print(f"\n--- Estructura de {tabla} ---")
-                    cursor.execute(f"DESCRIBE {tabla}")
-                    estructura = cursor.fetchall()
-                    for campo in estructura:
-                        print(f"  - {campo['Field']}: {campo['Type']}")
+            else:
+                print("No se encontraron usuarios en la tabla recurso_operativo")
+                
+    except Error as e:
+        print(f"Error conectando a MySQL: {e}")
         
-        cursor.close()
-        connection.close()
-        
-    except Exception as e:
-        print(f"❌ Error al verificar usuarios: {e}")
-        import traceback
-        traceback.print_exc()
-
-def crear_usuario_admin_temporal():
-    """Crear un usuario administrativo temporal para pruebas"""
-    
-    print("\n=== CREACIÓN DE USUARIO ADMINISTRATIVO TEMPORAL ===")
-    
-    try:
-        import bcrypt
-        
-        # Configuración de la base de datos
-        db_config = {
-            'host': 'localhost',
-            'user': 'root',
-            'password': '732137A031E4b@',
-            'database': 'capired'
-        }
-        
-        connection = mysql.connector.connect(**db_config)
-        cursor = connection.cursor()
-        
-        # Verificar si ya existe el usuario test_admin
-        cursor.execute("SELECT COUNT(*) FROM usuarios WHERE username = 'test_admin'")
-        existe = cursor.fetchone()[0]
-        
-        if existe > 0:
-            print("✅ Usuario 'test_admin' ya existe")
-        else:
-            # Crear hash de la contraseña
-            password = "admin123"
-            password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-            
-            # Insertar usuario temporal
-            cursor.execute("""
-                INSERT INTO usuarios (username, password, rol, activo, fecha_creacion)
-                VALUES (%s, %s, %s, %s, NOW())
-            """, ('test_admin', password_hash.decode('utf-8'), 'administrativo', 1))
-            
-            connection.commit()
-            print("✅ Usuario 'test_admin' creado exitosamente")
-            print("   Username: test_admin")
-            print("   Password: admin123")
-            print("   Rol: administrativo")
-        
-        cursor.close()
-        connection.close()
-        
-    except Exception as e:
-        print(f"❌ Error al crear usuario: {e}")
-        import traceback
-        traceback.print_exc()
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+            print("\nConexión a MySQL cerrada")
 
 if __name__ == "__main__":
     verificar_usuarios()
-    crear_usuario_admin_temporal()

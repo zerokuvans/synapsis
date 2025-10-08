@@ -1816,18 +1816,31 @@ function mostrarTablaOperacionRecurso(data) {
     if (tablaOperacionCard) tablaOperacionCard.style.display = 'block';
 }
 
+function obtenerFechaBogotaISO() {
+    // Obtener fecha en formato YYYY-MM-DD usando zona horaria de Bogotá
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Bogota',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+    const parts = formatter.formatToParts(new Date());
+    const y = parts.find(p => p.type === 'year').value;
+    const m = parts.find(p => p.type === 'month').value;
+    const d = parts.find(p => p.type === 'day').value;
+    return `${y}-${m}-${d}`;
+}
+
 function inicializarResumen() {
-    // Establecer solo la fecha actual para el resumen diario
-    const hoy = new Date().toISOString().split('T')[0];
-    
-    // Establecer la fecha actual para mostrar solo el día de hoy
+    // Establecer fecha actual según zona horaria de Bogotá
+    const hoy = obtenerFechaBogotaISO();
     document.getElementById('fechaInicioResumen').value = hoy;
-    
+
     // Configurar event listeners para los filtros
     document.getElementById('supervisorResumen').addEventListener('change', cargarResumenAgrupadoDebounced);
     document.getElementById('fechaInicioResumen').addEventListener('change', cargarResumenAgrupadoDebounced);
     document.getElementById('btnActualizarResumen').addEventListener('click', cargarResumenAgrupado);
-    
+
     // Cargar supervisores y resumen inicial
     cargarSupervisoresResumen();
     cargarResumenAgrupado();
