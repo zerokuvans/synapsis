@@ -189,9 +189,18 @@
 
     <!-- Tabla de asignaciones -->
     <div class="card mb-4">
-        <div class="card-header">
-            <i class="fas fa-tools me-1"></i>
-            Asignaciones de Material Ferretero
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <div>
+                <i class="fas fa-tools me-1"></i>
+                Asignaciones de Material Ferretero
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <label for="filtroFecha" class="form-label mb-0">Fecha:</label>
+                <input type="date" id="filtroFecha" class="form-control form-control-sm" style="width: 180px;">
+                <button id="btnBuscarFecha" type="button" class="btn btn-sm btn-primary">
+                    <i class="fas fa-search me-1"></i>Buscar
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -416,6 +425,44 @@ function limpiarElementosResiduales() {
         console.log("Overlay de carga eliminado");
     }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Inicializar filtro de fecha y gestionar búsqueda
+    (function initFiltroFecha() {
+        const inputFecha = document.getElementById('filtroFecha');
+        const btnBuscar = document.getElementById('btnBuscarFecha');
+        if (!inputFecha || !btnBuscar) return;
+
+        // Si el backend pasó fecha_seleccionada, usarla; si no, hoy por defecto
+        const fechaServidor = '{{ fecha_seleccionada if fecha_seleccionada else "" }}';
+        if (fechaServidor) {
+            inputFecha.value = fechaServidor;
+        } else {
+            const hoy = new Date();
+            const yyyy = hoy.getFullYear();
+            const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+            const dd = String(hoy.getDate()).padStart(2, '0');
+            inputFecha.value = `${yyyy}-${mm}-${dd}`;
+        }
+
+        // Al buscar, recargar la página con el parámetro ?fecha=YYYY-MM-DD
+        btnBuscar.addEventListener('click', () => {
+            const fecha = inputFecha.value;
+            if (!fecha) return;
+            const url = new URL(window.location.href);
+            url.searchParams.set('fecha', fecha);
+            window.location.href = url.toString();
+        });
+
+        // Enter en el input también dispara búsqueda
+        inputFecha.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                btnBuscar.click();
+            }
+        });
+    })();
+});
 
 // Función auxiliar para resetear el formulario y las variables
 function resetearFormularioAsignacion() {
