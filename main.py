@@ -8523,42 +8523,73 @@ def guardar_asistencias_operativo():
         for i, asistencia in enumerate(asistencias):
             print(f"DEBUG - Insertando técnico {i+1}: {asistencia}")
             try:
-                # Obtener presupuesto_diario y presupuesto_eventos desde presupuesto_carpeta según el nombre de carpeta
-                carpeta_nombre = asistencia.get('carpeta', '')
+                # Obtener presupuesto_diario y presupuesto_eventos desde presupuesto_carpeta
+                # Buscar usando AMBOS criterios: carpeta Y cargo del técnico desde recurso_operativo
+                cedula_tecnico = asistencia.get('cedula', '')
                 valor_presupuesto = 0
                 valor_eventos = 0
-                if carpeta_nombre:
+                presupuesto_encontrado = False
+                
+                if cedula_tecnico:
                     try:
+                        # 1. Obtener carpeta y cargo del técnico desde recurso_operativo
                         cursor.execute("""
-                            SELECT presupuesto_diario, presupuesto_eventos 
-                            FROM presupuesto_carpeta 
-                            WHERE presupuesto_carpeta = %s 
+                            SELECT carpeta, cargo 
+                            FROM recurso_operativo 
+                            WHERE recurso_operativo_cedula = %s 
                             LIMIT 1
-                        """, (carpeta_nombre,))
-                        row = cursor.fetchone()
-                        if row:
-                            # presupuesto_diario -> valor
-                            if 'presupuesto_diario' in row and row['presupuesto_diario'] is not None:
-                                try:
-                                    valor_presupuesto = int(float(row['presupuesto_diario']))
-                                except Exception:
-                                    valor_presupuesto = 0
+                        """, (cedula_tecnico,))
+                        tecnico_row = cursor.fetchone()
+                        
+                        if tecnico_row and tecnico_row['carpeta'] and tecnico_row['cargo']:
+                            carpeta_tecnico = tecnico_row['carpeta']
+                            cargo_tecnico = tecnico_row['cargo']
+                            print(f"DEBUG - Técnico {cedula_tecnico}: carpeta='{carpeta_tecnico}', cargo='{cargo_tecnico}'")
+                            
+                            # 2. Buscar en presupuesto_carpeta usando AMBOS criterios
+                            cursor.execute("""
+                                SELECT presupuesto_diario, presupuesto_eventos 
+                                FROM presupuesto_carpeta 
+                                WHERE presupuesto_carpeta = %s AND presupuesto_cargo = %s 
+                                LIMIT 1
+                            """, (carpeta_tecnico, cargo_tecnico))
+                            presupuesto_row = cursor.fetchone()
+                            
+                            if presupuesto_row:
+                                # presupuesto_diario -> valor
+                                if 'presupuesto_diario' in presupuesto_row and presupuesto_row['presupuesto_diario'] is not None:
+                                    try:
+                                        valor_presupuesto = int(float(presupuesto_row['presupuesto_diario']))
+                                        if valor_presupuesto > 0:
+                                            presupuesto_encontrado = True
+                                    except Exception:
+                                        valor_presupuesto = 0
+                                
+                                # presupuesto_eventos -> eventos
+                                if 'presupuesto_eventos' in presupuesto_row and presupuesto_row['presupuesto_eventos'] is not None:
+                                    try:
+                                        valor_eventos = int(float(presupuesto_row['presupuesto_eventos']))
+                                        if valor_eventos > 0:
+                                            presupuesto_encontrado = True
+                                    except Exception:
+                                        valor_eventos = 0
+                                
+                                if presupuesto_encontrado:
+                                    print(f"DEBUG - Presupuesto encontrado para carpeta='{carpeta_tecnico}' Y cargo='{cargo_tecnico}': valor={valor_presupuesto}, eventos={valor_eventos}")
+                                else:
+                                    print(f"DEBUG - Presupuesto encontrado para carpeta='{carpeta_tecnico}' Y cargo='{cargo_tecnico}' pero con valores en 0")
                             else:
-                                print(f"DEBUG - No se encontró presupuesto_diario para carpeta '{carpeta_nombre}'")
-                            # presupuesto_eventos -> eventos
-                            if 'presupuesto_eventos' in row and row['presupuesto_eventos'] is not None:
-                                try:
-                                    valor_eventos = int(float(row['presupuesto_eventos']))
-                                except Exception:
-                                    valor_eventos = 0
-                            else:
-                                print(f"DEBUG - No se encontró presupuesto_eventos para carpeta '{carpeta_nombre}'")
+                                print(f"DEBUG - No se encontró presupuesto para carpeta='{carpeta_tecnico}' Y cargo='{cargo_tecnico}'")
                         else:
-                            print(f"DEBUG - No se encontró presupuesto para carpeta '{carpeta_nombre}'")
-                    except Exception as e_pres:
-                        print(f"DEBUG - Error obteniendo presupuestos para carpeta '{carpeta_nombre}': {str(e_pres)}")
-                        valor_presupuesto = 0
-                        valor_eventos = 0
+                            print(f"DEBUG - No se encontró carpeta o cargo para técnico con cédula '{cedula_tecnico}' en recurso_operativo")
+                    except Exception as e_presupuesto:
+                        print(f"DEBUG - Error obteniendo presupuesto para técnico '{cedula_tecnico}': {str(e_presupuesto)}")
+                else:
+                    print(f"DEBUG - No se proporcionó cédula del técnico")
+                
+                # Log final del resultado
+                if not presupuesto_encontrado:
+                    print(f"DEBUG - No se encontró presupuesto válido para técnico '{cedula_tecnico}'. Usando valores por defecto: valor=0, eventos=0")
 
                 cursor.execute("""
                     INSERT INTO asistencia (cedula, tecnico, carpeta_dia, carpeta, super, fecha_asistencia, id_codigo_consumidor, valor, eventos)
@@ -8966,6 +8997,7 @@ def api_operativo_inicio_asistencia():
         cursor = connection.cursor(dictionary=True)
 
         # Consulta principal uniendo tipificación para obtener nombre del evento
+        # CORREGIDA: Usando subconsulta para eliminar duplicados y tomar solo el registro más reciente por técnico
         consulta = """
             SELECT 
                 a.cedula,
@@ -8973,10 +9005,9 @@ def api_operativo_inicio_asistencia():
                 a.carpeta,
                 a.super,
                 a.carpeta_dia,
-                COALESCE(t.nombre_tipificacion, '') AS carpeta_dia_nombre,
+                COALESCE(t.nombre_tipificacion, a.carpeta_dia) AS carpeta_dia_nombre,
                 a.eventos AS eventos,
-                pc.presupuesto_eventos AS ok_eventos,
-                pc.presupuesto_diario,
+                COALESCE(pc.presupuesto_diario, 0) AS presupuesto_diario,
                 a.valor,
                 a.estado,
                 a.novedad
@@ -8984,18 +9015,26 @@ def api_operativo_inicio_asistencia():
             LEFT JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
             LEFT JOIN presupuesto_carpeta pc ON t.nombre_tipificacion = pc.presupuesto_carpeta
             WHERE a.super = %s AND DATE(a.fecha_asistencia) = %s
+            AND a.id_asistencia = (
+                SELECT MAX(a2.id_asistencia)
+                FROM asistencia a2
+                WHERE a2.cedula = a.cedula 
+                AND a2.super = %s 
+                AND DATE(a2.fecha_asistencia) = %s
+            )
             ORDER BY a.tecnico
         """
-        cursor.execute(consulta, (supervisor_actual, fecha_consulta))
+        cursor.execute(consulta, (supervisor_actual, fecha_consulta, supervisor_actual, fecha_consulta))
         registros = cursor.fetchall()
 
         # Estadísticas para tarjetas
-        # 1) Total técnicos activos del supervisor
+        # 1) Total técnicos: calcular basándose en los técnicos únicos que realmente aparecen en asistencia
+        # Esto es más preciso que usar recurso_operativo ya que puede haber transferencias temporales
         cursor.execute("""
-            SELECT COUNT(*) AS total
-            FROM recurso_operativo
-            WHERE super = %s AND estado = 'Activo'
-        """, (supervisor_actual,))
+            SELECT COUNT(DISTINCT cedula) AS total
+            FROM asistencia
+            WHERE super = %s AND DATE(fecha_asistencia) = %s
+        """, (supervisor_actual, fecha_consulta))
         total_tecnicos = cursor.fetchone().get('total', 0) or 0
 
         # 2) Sin asistencia: contar solo las siguientes tipificaciones del día
@@ -9018,11 +9057,18 @@ def api_operativo_inicio_asistencia():
         ]
         placeholders = ','.join(['%s'] * len(categorias_sin))
         query_detalle = f"""
-            SELECT t.nombre_tipificacion AS tipo, COUNT(DISTINCT a.id_codigo_consumidor) AS cantidad
+            SELECT t.nombre_tipificacion AS tipo, COUNT(DISTINCT a.cedula) AS cantidad
             FROM asistencia a
             LEFT JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
             WHERE a.super = %s AND DATE(a.fecha_asistencia) = %s
               AND t.nombre_tipificacion IN ({placeholders})
+              AND a.id_asistencia = (
+                  SELECT MAX(a2.id_asistencia)
+                  FROM asistencia a2
+                  WHERE a2.cedula = a.cedula 
+                  AND a2.super = a.super 
+                  AND DATE(a2.fecha_asistencia) = DATE(a.fecha_asistencia)
+              )
             GROUP BY t.nombre_tipificacion
         """
         params_detalle = [supervisor_actual, fecha_consulta] + categorias_sin
@@ -9035,10 +9081,21 @@ def api_operativo_inicio_asistencia():
         # 3) Con asistencia = total técnicos - sin asistencia (no negativo)
         con_asistencia = max(total_tecnicos - sin_asistencia, 0)
 
-        # 4) Ok's Día: contar cantidad del campo 'eventos' de asistencia
+        # 4) Ok's Día y Presupuesto Día: calcular solo sobre registros únicos (sin duplicados)
+        # Deduplicar registros por cédula para que coincida con lo que se muestra en la tabla
+        registros_unicos = {}
+        for r in registros:
+            cedula = r.get('cedula')
+            if cedula not in registros_unicos:
+                registros_unicos[cedula] = r
+        
+        # Calcular totales solo sobre registros únicos
         oks_dia = 0
         presupuesto_dia = 0.0
-        for r in registros:
+        cumple_count = 0
+        no_cumple_count = 0
+        
+        for r in registros_unicos.values():
             try:
                 oks_dia += int(r.get('eventos') or r.get('tipificacion') or 0)
             except Exception:
@@ -9047,7 +9104,73 @@ def api_operativo_inicio_asistencia():
                 presupuesto_dia += float(r.get('valor') or 0)
             except Exception:
                 pass
+            
+            # Contar estados de cumplimiento
+            estado = (r.get('estado') or '').lower().strip()
+            if estado == 'cumple':
+                cumple_count += 1
+            elif estado in ['nocumple', 'no cumple', 'no aplica', 'novedad']:
+                no_cumple_count += 1
+        
         presupuesto_mes = presupuesto_dia * 26
+
+        # Calcular cumplimiento (porcentaje y fracción)
+        total_cumplimiento = cumple_count + no_cumple_count
+        cumplimiento_porcentaje = 0
+        cumplimiento_fraccion = f"0/{total_cumplimiento}"
+        
+        if total_cumplimiento > 0:
+            cumplimiento_porcentaje = round((cumple_count / total_cumplimiento) * 100, 1)
+            cumplimiento_fraccion = f"{cumple_count}/{total_cumplimiento}"
+
+        # Calcular cumplimiento mensual (acumulado del mes)
+        # Obtener el primer y último día del mes
+        primer_dia_mes = fecha_consulta.replace(day=1)
+        if fecha_consulta.month == 12:
+            ultimo_dia_mes = fecha_consulta.replace(year=fecha_consulta.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            ultimo_dia_mes = fecha_consulta.replace(month=fecha_consulta.month + 1, day=1) - timedelta(days=1)
+
+        # Consulta para obtener todos los registros del mes
+        consulta_mes = """
+            SELECT 
+                a.cedula,
+                a.estado,
+                DATE(a.fecha_asistencia) as fecha_dia
+            FROM asistencia a
+            WHERE a.super = %s 
+            AND DATE(a.fecha_asistencia) BETWEEN %s AND %s
+            AND a.id_asistencia = (
+                SELECT MAX(a2.id_asistencia)
+                FROM asistencia a2
+                WHERE a2.cedula = a.cedula 
+                AND a2.super = %s 
+                AND DATE(a2.fecha_asistencia) = DATE(a.fecha_asistencia)
+            )
+            ORDER BY a.fecha_asistencia, a.tecnico
+        """
+        cursor.execute(consulta_mes, (supervisor_actual, primer_dia_mes, ultimo_dia_mes, supervisor_actual))
+        registros_mes = cursor.fetchall()
+
+        # Contar cumplimiento mensual
+        cumple_mes_count = 0
+        no_cumple_mes_count = 0
+        
+        for r in registros_mes:
+            estado = (r.get('estado') or '').lower().strip()
+            if estado == 'cumple':
+                cumple_mes_count += 1
+            elif estado in ['nocumple', 'no cumple', 'no aplica', 'novedad']:
+                no_cumple_mes_count += 1
+
+        # Calcular cumplimiento mensual (porcentaje y fracción)
+        total_cumplimiento_mes = cumple_mes_count + no_cumple_mes_count
+        cumplimiento_mes_porcentaje = 0
+        cumplimiento_mes_fraccion = f"0/{total_cumplimiento_mes}"
+        
+        if total_cumplimiento_mes > 0:
+            cumplimiento_mes_porcentaje = round((cumple_mes_count / total_cumplimiento_mes) * 100, 1)
+            cumplimiento_mes_fraccion = f"{cumple_mes_count}/{total_cumplimiento_mes}"
 
         stats = {
             'total_tecnicos': total_tecnicos,
@@ -9057,13 +9180,26 @@ def api_operativo_inicio_asistencia():
             'sin_asistencia_detalle': detalle_list,
             'oks_dia': oks_dia,
             'presupuesto_dia': presupuesto_dia,
-            'presupuesto_mes': presupuesto_mes
+            'presupuesto_mes': presupuesto_mes,
+            'cumple': cumple_count,
+            'no_cumple': no_cumple_count,
+            'cumplimiento_porcentaje': cumplimiento_porcentaje,
+            'cumplimiento_fraccion': cumplimiento_fraccion,
+            'cumplimiento_total': total_cumplimiento,
+            'cumple_mes': cumple_mes_count,
+            'no_cumple_mes': no_cumple_mes_count,
+            'cumplimiento_mes_porcentaje': cumplimiento_mes_porcentaje,
+            'cumplimiento_mes_fraccion': cumplimiento_mes_fraccion,
+            'cumplimiento_mes_total': total_cumplimiento_mes
         }
 
+        # Devolver solo los registros únicos para que coincida con los cálculos
+        registros_finales = list(registros_unicos.values())
+        
         return jsonify({
             'success': True,
-            'registros': registros,
-            'total': len(registros),
+            'registros': registros_finales,
+            'total': len(registros_finales),
             'fecha': fecha_consulta.strftime('%Y-%m-%d'),
             'supervisor': supervisor_actual,
             'stats': stats

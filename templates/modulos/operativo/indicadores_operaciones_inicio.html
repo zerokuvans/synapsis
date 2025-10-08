@@ -137,6 +137,72 @@
         </div>
     </div>
 
+    <!-- Tarjetas de cumplimiento -->
+    <div class="row mb-3">
+        <div class="col-md-3 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h6 class="text-muted mb-1">Cumple</h6>
+                            <h3 id="cumpleVal" class="mb-0">0</h3>
+                        </div>
+                        <div class="icon-container bg-success bg-opacity-10 p-3 rounded">
+                            <i class="fas fa-thumbs-up text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h6 class="text-muted mb-1">No Cumple</h6>
+                            <h3 id="noCumpleVal" class="mb-0">0</h3>
+                        </div>
+                        <div class="icon-container bg-danger bg-opacity-10 p-3 rounded">
+                            <i class="fas fa-thumbs-down text-danger"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h6 class="text-muted mb-1">Cumplimiento</h6>
+                            <h3 id="cumplimientoVal" class="mb-0">0%</h3>
+                            <small id="cumplimientoFraccion" class="text-muted">0/0</small>
+                        </div>
+                        <div id="cumplimientoIcon" class="icon-container bg-info bg-opacity-10 p-3 rounded">
+                            <i class="fas fa-chart-pie text-info"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h6 class="text-muted mb-1">Cumplimiento Mes</h6>
+                            <h3 id="cumplimientoMesVal" class="mb-0">0%</h3>
+                            <small id="cumplimientoMesFraccion" class="text-muted">0/0</small>
+                        </div>
+                        <div id="cumplimientoMesIcon" class="icon-container bg-primary bg-opacity-10 p-3 rounded">
+                            <i class="fas fa-calendar-alt text-primary"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Tabla de asistencia -->
     <div class="card">
         <div class="card-header bg-warning bg-opacity-10">
@@ -177,6 +243,11 @@
     const tbody = document.querySelector('#tablaAsistencia tbody');
     const mensajeSinRegistros = document.getElementById('mensajeSinRegistros');
 
+    // Variables para debugging y control de ejecución
+    let ejecutandoCargarAsistencia = false;
+    let contadorEjecuciones = 0;
+    let eventListenersRegistrados = false;
+
     // Inicializa fecha con hoy (Bogotá)
     const hoy = new Date();
     const tzOffset = hoy.getTimezoneOffset() * 60000;
@@ -184,15 +255,44 @@
     inputFecha.value = localISODate;
 
     async function cargarAsistencia() {
+        // Prevenir ejecuciones múltiples simultáneas
+        if (ejecutandoCargarAsistencia) {
+            console.warn('⚠️ DEBUG: cargarAsistencia ya está ejecutándose, saltando');
+            return;
+        }
+
+        ejecutandoCargarAsistencia = true;
+        contadorEjecuciones++;
+        console.log(`🚀 DEBUG: cargarAsistencia iniciada (ejecución #${contadorEjecuciones})`);
+
         const fecha = inputFecha.value;
-        const url = `/api/operativo/inicio-operacion/asistencia?fecha=${encodeURIComponent(fecha)}`;
+        // Agregar timestamp para evitar cache
+        const timestamp = new Date().getTime();
+        const url = `/api/operativo/inicio-operacion/asistencia?fecha=${encodeURIComponent(fecha)}&_t=${timestamp}`;
+        console.log(`🌐 DEBUG: Llamando API: ${url}`);
+        
         try {
             const resp = await fetch(url, { credentials: 'include' });
+            console.log('📡 DEBUG: Respuesta recibida:', {
+                status: resp.status,
+                ok: resp.ok,
+                headers: Object.fromEntries(resp.headers.entries())
+            });
+            
             const data = await resp.json();
+            console.log('📦 DEBUG: Datos parseados:', {
+                success: data.success,
+                registros_count: data.registros ? data.registros.length : 0,
+                stats: data.stats
+            });
+            
             renderTarjetas(data?.stats);
             renderTabla(data);
         } catch (err) {
-            console.error('Error cargando asistencia:', err);
+            console.error('❌ DEBUG: Error  asistencia:', err);
+        } finally {
+            ejecutandoCargarAsistencia = false;
+            console.log(`✅ DEBUG: cargarAsistencia finalizada (ejecución #${contadorEjecuciones})`);
         }
     }
 
@@ -205,6 +305,15 @@
         const oksDiaEl = document.getElementById('oksDiaVal');
         const presupuestoDiaEl = document.getElementById('presupuestoDiaVal');
         const presupuestoMesEl = document.getElementById('presupuestoMesVal');
+        // Tarjetas de cumplimiento
+        const cumpleEl = document.getElementById('cumpleVal');
+        const noCumpleEl = document.getElementById('noCumpleVal');
+        const cumplimientoEl = document.getElementById('cumplimientoVal');
+        const cumplimientoFraccionEl = document.getElementById('cumplimientoFraccion');
+        const cumplimientoIconEl = document.getElementById('cumplimientoIcon');
+        const cumplimientoMesEl = document.getElementById('cumplimientoMesVal');
+        const cumplimientoMesFraccionEl = document.getElementById('cumplimientoMesFraccion');
+        const cumplimientoMesIconEl = document.getElementById('cumplimientoMesIcon');
 
         if (!stats) {
             totalEl.textContent = '0';
@@ -214,6 +323,12 @@
             if (oksDiaEl) oksDiaEl.textContent = '0';
             if (presupuestoDiaEl) presupuestoDiaEl.textContent = '$0';
             if (presupuestoMesEl) presupuestoMesEl.textContent = '$0';
+            if (cumpleEl) cumpleEl.textContent = '0';
+            if (noCumpleEl) noCumpleEl.textContent = '0';
+            if (cumplimientoEl) cumplimientoEl.textContent = '0%';
+            if (cumplimientoFraccionEl) cumplimientoFraccionEl.textContent = '0/0';
+            if (cumplimientoMesEl) cumplimientoMesEl.textContent = '0%';
+            if (cumplimientoMesFraccionEl) cumplimientoMesFraccionEl.textContent = '0/0';
             return;
         }
         totalEl.textContent = Number(stats.total_tecnicos || 0).toLocaleString('es-CO');
@@ -237,19 +352,150 @@
         if (oksDiaEl) oksDiaEl.textContent = oksDia.toLocaleString('es-CO');
         if (presupuestoDiaEl) presupuestoDiaEl.textContent = `$${presupuestoDia.toLocaleString('es-CO')}`;
         if (presupuestoMesEl) presupuestoMesEl.textContent = `$${presupuestoMes.toLocaleString('es-CO')}`;
+
+        // Render tarjetas de cumplimiento
+        const cumple = Number(stats.cumple || 0);
+        const noCumple = Number(stats.no_cumple || 0);
+        if (cumpleEl) cumpleEl.textContent = cumple.toLocaleString('es-CO');
+        if (noCumpleEl) noCumpleEl.textContent = noCumple.toLocaleString('es-CO');
+
+        // Render tarjeta de cumplimiento (porcentaje)
+        const cumplimientoPorcentaje = Number(stats.cumplimiento_porcentaje || 0);
+        const cumplimientoFraccion = stats.cumplimiento_fraccion || '0/0';
+        
+        if (cumplimientoEl) cumplimientoEl.textContent = `${cumplimientoPorcentaje}%`;
+        if (cumplimientoFraccionEl) cumplimientoFraccionEl.textContent = cumplimientoFraccion;
+        
+        // Cambiar colores según el nivel de cumplimiento
+        if (cumplimientoIconEl) {
+            const iconContainer = cumplimientoIconEl;
+            const icon = iconContainer.querySelector('i');
+            
+            // Remover clases anteriores
+            iconContainer.className = 'icon-container p-3 rounded';
+            icon.className = 'fas fa-chart-pie';
+            
+            if (cumplimientoPorcentaje >= 80) {
+                // Verde para buen cumplimiento (80% o más)
+                iconContainer.classList.add('bg-success', 'bg-opacity-10');
+                icon.classList.add('text-success');
+            } else if (cumplimientoPorcentaje >= 60) {
+                // Amarillo para cumplimiento medio (60-79%)
+                iconContainer.classList.add('bg-warning', 'bg-opacity-10');
+                icon.classList.add('text-warning');
+            } else {
+                // Rojo para cumplimiento bajo (menos de 60%)
+                iconContainer.classList.add('bg-danger', 'bg-opacity-10');
+                icon.classList.add('text-danger');
+            }
+        }
+
+        // Render tarjeta de cumplimiento mensual
+        const cumplimientoMesPorcentaje = Number(stats.cumplimiento_mes_porcentaje || 0);
+        const cumplimientoMesFraccion = stats.cumplimiento_mes_fraccion || '0/0';
+        
+        if (cumplimientoMesEl) cumplimientoMesEl.textContent = `${cumplimientoMesPorcentaje}%`;
+        if (cumplimientoMesFraccionEl) cumplimientoMesFraccionEl.textContent = cumplimientoMesFraccion;
+        
+        // Cambiar colores según el nivel de cumplimiento mensual
+        if (cumplimientoMesIconEl) {
+            const iconContainer = cumplimientoMesIconEl;
+            const icon = iconContainer.querySelector('i');
+            
+            // Remover clases anteriores
+            iconContainer.className = 'icon-container p-3 rounded';
+            icon.className = 'fas fa-calendar-alt';
+            
+            if (cumplimientoMesPorcentaje >= 80) {
+                // Verde para buen cumplimiento (80% o más)
+                iconContainer.classList.add('bg-success', 'bg-opacity-10');
+                icon.classList.add('text-success');
+            } else if (cumplimientoMesPorcentaje >= 60) {
+                // Amarillo para cumplimiento medio (60-79%)
+                iconContainer.classList.add('bg-warning', 'bg-opacity-10');
+                icon.classList.add('text-warning');
+            } else {
+                // Rojo para cumplimiento bajo (menos de 60%)
+                iconContainer.classList.add('bg-danger', 'bg-opacity-10');
+                icon.classList.add('text-danger');
+            }
+        }
     }
 
     function renderTabla(data) {
+        console.log('🔍 DEBUG: renderTabla llamada', {
+            data: data,
+            registros_length: (data && data.registros) ? data.registros.length : 0,
+            tbody_children_before: tbody.children.length
+        });
+        
+        // Limpiar tabla de forma más agresiva
+        console.log('🧹 DEBUG: Limpiando tabla - antes:', tbody.children.length);
+        
+        // Método 1: innerHTML
         tbody.innerHTML = '';
-        const registros = (data && data.success) ? (data.registros || []) : [];
+        
+        // Método 2: removeChild para asegurar limpieza completa
+        while (tbody.firstChild) {
+            tbody.removeChild(tbody.firstChild);
+        }
+        
+        // Método 3: Forzar re-render
+        tbody.style.display = 'none';
+        tbody.offsetHeight; // Trigger reflow
+        tbody.style.display = '';
+        
+        console.log('🧹 DEBUG: Tabla limpiada - después:', tbody.children.length);
+        
+        let registros = (data && data.success) ? (data.registros || []) : [];
+        console.log('📊 DEBUG: Registros recibidos:', registros.length);
+        
+        // DEDUPLICACIÓN: Eliminar duplicados por cédula como medida de seguridad
+        const registrosUnicos = [];
+        const cedulasVistas = new Set();
+        
+        registros.forEach(registro => {
+            if (!cedulasVistas.has(registro.cedula)) {
+                cedulasVistas.add(registro.cedula);
+                registrosUnicos.push(registro);
+            } else {
+                console.warn('⚠️ DEBUG: Duplicado eliminado:', registro.cedula, registro.tecnico);
+            }
+        });
+        
+        registros = registrosUnicos;
+        console.log('📊 DEBUG: Registros después de deduplicación:', registros.length);
+        
         if (!registros.length) {
             mensajeSinRegistros.style.display = 'block';
+            console.log('⚠️ DEBUG: No hay registros, mostrando mensaje');
             return;
         }
         mensajeSinRegistros.style.display = 'none';
 
-        registros.forEach(r => {
+        // Verificar duplicados en los datos recibidos
+        const cedulas = registros.map(r => r.cedula);
+        const cedulasUnicas = [...new Set(cedulas)];
+        if (cedulas.length !== cedulasUnicas.length) {
+            console.error('🔴 DEBUG: DUPLICADOS DETECTADOS EN DATOS DEL BACKEND!', {
+                total_registros: cedulas.length,
+                cedulas_unicas: cedulasUnicas.length,
+                duplicados: cedulas.filter((cedula, index) => cedulas.indexOf(cedula) !== index)
+            });
+        } else {
+            console.log('✅ DEBUG: No hay duplicados en los datos del backend');
+        }
+
+        registros.forEach((r, index) => {
+            console.log(`📝 DEBUG: Procesando registro ${index + 1}:`, {
+                cedula: r.cedula,
+                tecnico: r.tecnico
+            });
+            
             const tr = document.createElement('tr');
+            // Agregar ID único para tracking
+            tr.setAttribute('data-cedula', r.cedula);
+            tr.setAttribute('data-index', index);
             tr.innerHTML = `
                 <td>${safe(r.cedula)}</td>
                 <td>${safe(r.tecnico)}</td>
@@ -263,6 +509,28 @@
             `;
             tbody.appendChild(tr);
         });
+        
+        // Verificación final después de poblar la tabla
+        console.log('🔍 DEBUG: Verificación final de la tabla:', {
+            registros_procesados: registros.length,
+            filas_en_tabla: tbody.children.length,
+            cedulas_en_tabla: Array.from(tbody.children).map(row => row.getAttribute('data-cedula'))
+        });
+        
+        // Verificar duplicados en la tabla final
+        const cedulasEnTabla = Array.from(tbody.children).map(row => row.getAttribute('data-cedula'));
+        const cedulasUnicasEnTabla = [...new Set(cedulasEnTabla)];
+        if (cedulasEnTabla.length !== cedulasUnicasEnTabla.length) {
+            console.error('🔴 DEBUG: DUPLICADOS DETECTADOS EN LA TABLA FINAL!', {
+                total_filas: cedulasEnTabla.length,
+                cedulas_unicas: cedulasUnicasEnTabla.length,
+                duplicados: cedulasEnTabla.filter((cedula, index) => cedulasEnTabla.indexOf(cedula) !== index)
+            });
+        } else {
+            console.log('✅ DEBUG: No hay duplicados en la tabla final');
+        }
+        
+        console.log('✅ DEBUG: Tabla renderizada, tbody.children.length:', tbody.children.length);
     }
 
     function safe(val) {
@@ -275,12 +543,35 @@
         try { return Number(n).toLocaleString('es-CO'); } catch { return String(n); }
     }
 
-    // Eventos
-    btnBuscar.addEventListener('click', cargarAsistencia);
-    inputFecha.addEventListener('change', cargarAsistencia);
+    // Función para registrar event listeners una sola vez
+    function registrarEventListeners() {
+        if (eventListenersRegistrados) {
+            console.warn('⚠️ Event listeners ya están registrados, evitando duplicados');
+            return;
+        }
 
-    // Cargar inicial
-    document.addEventListener('DOMContentLoaded', cargarAsistencia);
+        console.log('🎯 Registrando event listeners');
+        btnBuscar.addEventListener('click', cargarAsistencia);
+        inputFecha.addEventListener('change', cargarAsistencia);
+        eventListenersRegistrados = true;
+        console.log('✅ Event listeners registrados correctamente');
+    }
+
+    // Función de inicialización
+    function inicializar() {
+        console.log('🚀 Inicializando página de asistencia');
+        registrarEventListeners();
+        cargarAsistencia();
+    }
+
+    // Cargar inicial - verificar si DOM ya está listo
+    if (document.readyState === 'loading') {
+        console.log('⏳ DOM aún cargando, esperando DOMContentLoaded');
+        document.addEventListener('DOMContentLoaded', inicializar);
+    } else {
+        console.log('✅ DOM ya está listo, inicializando inmediatamente');
+        inicializar();
+    }
 })();
 </script>
 {% endblock %}
