@@ -8520,32 +8520,46 @@ def guardar_asistencias_operativo():
         for i, asistencia in enumerate(asistencias):
             print(f"DEBUG - Insertando técnico {i+1}: {asistencia}")
             try:
-                # Obtener presupuesto_diario desde presupuesto_carpeta según el nombre de carpeta
+                # Obtener presupuesto_diario y presupuesto_eventos desde presupuesto_carpeta según el nombre de carpeta
                 carpeta_nombre = asistencia.get('carpeta', '')
                 valor_presupuesto = 0
+                valor_eventos = 0
                 if carpeta_nombre:
                     try:
                         cursor.execute("""
-                            SELECT presupuesto_diario 
+                            SELECT presupuesto_diario, presupuesto_eventos 
                             FROM presupuesto_carpeta 
                             WHERE presupuesto_carpeta = %s 
                             LIMIT 1
                         """, (carpeta_nombre,))
                         row = cursor.fetchone()
-                        if row and 'presupuesto_diario' in row and row['presupuesto_diario'] is not None:
-                            try:
-                                valor_presupuesto = int(float(row['presupuesto_diario']))
-                            except Exception:
-                                valor_presupuesto = 0
+                        if row:
+                            # presupuesto_diario -> valor
+                            if 'presupuesto_diario' in row and row['presupuesto_diario'] is not None:
+                                try:
+                                    valor_presupuesto = int(float(row['presupuesto_diario']))
+                                except Exception:
+                                    valor_presupuesto = 0
+                            else:
+                                print(f"DEBUG - No se encontró presupuesto_diario para carpeta '{carpeta_nombre}'")
+                            # presupuesto_eventos -> eventos
+                            if 'presupuesto_eventos' in row and row['presupuesto_eventos'] is not None:
+                                try:
+                                    valor_eventos = int(float(row['presupuesto_eventos']))
+                                except Exception:
+                                    valor_eventos = 0
+                            else:
+                                print(f"DEBUG - No se encontró presupuesto_eventos para carpeta '{carpeta_nombre}'")
                         else:
-                            print(f"DEBUG - No se encontró presupuesto_diario para carpeta '{carpeta_nombre}'")
+                            print(f"DEBUG - No se encontró presupuesto para carpeta '{carpeta_nombre}'")
                     except Exception as e_pres:
-                        print(f"DEBUG - Error obteniendo presupuesto_diario para carpeta '{carpeta_nombre}': {str(e_pres)}")
+                        print(f"DEBUG - Error obteniendo presupuestos para carpeta '{carpeta_nombre}': {str(e_pres)}")
                         valor_presupuesto = 0
+                        valor_eventos = 0
 
                 cursor.execute("""
-                    INSERT INTO asistencia (cedula, tecnico, carpeta_dia, carpeta, super, fecha_asistencia, id_codigo_consumidor, valor)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO asistencia (cedula, tecnico, carpeta_dia, carpeta, super, fecha_asistencia, id_codigo_consumidor, valor, eventos)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     asistencia.get('cedula', ''),
                     asistencia.get('tecnico', ''),
@@ -8554,7 +8568,8 @@ def guardar_asistencias_operativo():
                     asistencia.get('super', nombre_usuario_actual),
                     asistencia.get('fecha_asistencia', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
                     asistencia.get('id_codigo_consumidor', 0),
-                    valor_presupuesto
+                    valor_presupuesto,
+                    valor_eventos
                 ))
                 registros_insertados += 1
                 print(f"DEBUG - Técnico {i+1} insertado exitosamente")
@@ -8618,6 +8633,195 @@ def detalle_preoperacionales_tecnicos():
         print(f"Error en detalle_preoperacionales_tecnicos: {str(e)}")
         flash('Error al cargar la página', 'error')
         return redirect(url_for('dashboard_operativo'))
+
+# NUEVO: Reportes Indicadores (Operativo)
+@app.route('/operativo/indicadores')
+@login_required(role='operativo')
+def indicadores_operativo():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'error')
+            return redirect(url_for('dashboard_operativo'))
+        
+        cursor = connection.cursor(dictionary=True)
+        nombre_usuario_actual = session.get('user_name', '')
+        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+        
+        # Verificar asistencia por cédula/ID de usuario para evitar dependencia del nombre
+        id_codigo = session.get('id_codigo_consumidor', 0)
+        cedula_usuario = session.get('user_cedula', '')
+        cursor.execute("""
+            SELECT COUNT(*) as tiene_asistencia
+            FROM asistencia 
+            WHERE DATE(fecha_asistencia) = %s
+              AND (id_codigo_consumidor = %s OR cedula = %s)
+        """, (fecha_hoy, id_codigo, cedula_usuario))
+        resultado = cursor.fetchone()
+        tiene_asistencia = resultado['tiene_asistencia'] > 0 if resultado else False
+
+        # Fallback: comparación normalizada sin acentos y sin sensibilidad a mayúsculas
+        if not tiene_asistencia:
+            cursor.execute("""
+                SELECT super
+                FROM asistencia
+                WHERE DATE(fecha_asistencia) = %s
+            """, (fecha_hoy,))
+            filas = cursor.fetchall()
+            import unicodedata
+            def _norm(s):
+                return ''.join(c for c in unicodedata.normalize('NFD', s or '') if unicodedata.category(c) != 'Mn').lower().strip()
+            tiene_asistencia = any(_norm(f['super']) == _norm(nombre_usuario_actual) for f in filas)
+        
+        cursor.close()
+        connection.close()
+        
+        return render_template('modulos/operativo/indicadores.html',
+                               user_name=session.get('user_name', ''),
+                               user_role=session.get('user_role', ''),
+                               tiene_asistencia=tiene_asistencia)
+    except Exception as e:
+        print(f"Error en indicadores_operativo: {str(e)}")
+        flash('Error al cargar la página de indicadores', 'error')
+        return redirect(url_for('dashboard_operativo'))
+
+# NUEVO: Submódulos de Indicadores (Próximamente)
+@app.route('/operativo/indicadores/logistica')
+@app.route('/operativo/indicadores/sst')
+@app.route('/operativo/indicadores/calidad')
+@login_required(role='operativo')
+def indicadores_proximamente():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'error')
+            return redirect(url_for('dashboard_operativo'))
+        
+        cursor = connection.cursor(dictionary=True)
+        nombre_usuario_actual = session.get('user_name', '')
+        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+        
+        cursor.execute("""
+            SELECT COUNT(*) as tiene_asistencia
+            FROM asistencia 
+            WHERE super = %s AND DATE(fecha_asistencia) = %s
+        """, (nombre_usuario_actual, fecha_hoy))
+        resultado = cursor.fetchone()
+        tiene_asistencia = resultado['tiene_asistencia'] > 0 if resultado else False
+        
+        # Determinar submódulo desde la ruta
+        modulo = request.path.split('/')[-1]
+        if modulo not in ['logistica', 'sst', 'calidad']:
+            modulo = 'logistica'
+        
+        cursor.close()
+        connection.close()
+        
+        return render_template('modulos/operativo/indicadores_proximamente.html',
+                               modulo=modulo,
+                               user_name=session.get('user_name', ''),
+                               user_role=session.get('user_role', ''),
+                               tiene_asistencia=tiene_asistencia)
+    except Exception as e:
+        print(f"Error en indicadores_proximamente: {str(e)}")
+        flash('Error al cargar el submódulo de indicadores', 'error')
+        return redirect(url_for('indicadores_operativo'))
+
+# NUEVO: Indicadores de Operaciones (vista con opciones)
+@app.route('/operativo/indicadores/operaciones')
+@login_required(role='operativo')
+def indicadores_operaciones():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'error')
+            return redirect(url_for('dashboard_operativo'))
+        cursor = connection.cursor(dictionary=True)
+        nombre_usuario_actual = session.get('user_name', '')
+        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+        # Verificar asistencia por cédula/ID de usuario
+        id_codigo = session.get('id_codigo_consumidor', 0)
+        cedula_usuario = session.get('user_cedula', '')
+        cursor.execute("""
+            SELECT COUNT(*) as tiene_asistencia
+            FROM asistencia 
+            WHERE DATE(fecha_asistencia) = %s
+              AND (id_codigo_consumidor = %s OR cedula = %s)
+        """, (fecha_hoy, id_codigo, cedula_usuario))
+        resultado = cursor.fetchone()
+        tiene_asistencia = resultado['tiene_asistencia'] > 0 if resultado else False
+
+        # Fallback: comparación normalizada sin acentos y sin sensibilidad a mayúsculas
+        if not tiene_asistencia:
+            cursor.execute("""
+                SELECT super
+                FROM asistencia
+                WHERE DATE(fecha_asistencia) = %s
+            """, (fecha_hoy,))
+            filas = cursor.fetchall()
+            import unicodedata
+            def _norm(s):
+                return ''.join(c for c in unicodedata.normalize('NFD', s or '') if unicodedata.category(c) != 'Mn').lower().strip()
+            tiene_asistencia = any(_norm(f['super']) == _norm(nombre_usuario_actual) for f in filas)
+
+        cursor.close()
+        connection.close()
+        return render_template('modulos/operativo/indicadores_operaciones.html',
+                               user_name=session.get('user_name', ''),
+                               user_role=session.get('user_role', ''),
+                               tiene_asistencia=tiene_asistencia)
+    except Exception as e:
+        print(f"Error en indicadores_operaciones: {str(e)}")
+        flash('Error al cargar Indicadores de Operaciones', 'error')
+        return redirect(url_for('indicadores_operativo'))
+
+# NUEVO: Indicador de Inicio de Operacion (activo)
+@app.route('/operativo/indicadores/operaciones/inicio-operacion')
+@login_required(role='operativo')
+def indicadores_operaciones_inicio():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'error')
+            return redirect(url_for('dashboard_operativo'))
+        cursor = connection.cursor(dictionary=True)
+        nombre_usuario_actual = session.get('user_name', '')
+        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+        # Verificar asistencia por cédula/ID de usuario
+        id_codigo = session.get('id_codigo_consumidor', 0)
+        cedula_usuario = session.get('user_cedula', '')
+        cursor.execute("""
+            SELECT COUNT(*) as tiene_asistencia
+            FROM asistencia 
+            WHERE DATE(fecha_asistencia) = %s
+              AND (id_codigo_consumidor = %s OR cedula = %s)
+        """, (fecha_hoy, id_codigo, cedula_usuario))
+        resultado = cursor.fetchone()
+        tiene_asistencia = resultado['tiene_asistencia'] > 0 if resultado else False
+
+        # Fallback: comparación normalizada sin acentos y sin sensibilidad a mayúsculas
+        if not tiene_asistencia:
+            cursor.execute("""
+                SELECT super
+                FROM asistencia
+                WHERE DATE(fecha_asistencia) = %s
+            """, (fecha_hoy,))
+            filas = cursor.fetchall()
+            import unicodedata
+            def _norm(s):
+                return ''.join(c for c in unicodedata.normalize('NFD', s or '') if unicodedata.category(c) != 'Mn').lower().strip()
+            tiene_asistencia = any(_norm(f['super']) == _norm(nombre_usuario_actual) for f in filas)
+
+        cursor.close()
+        connection.close()
+        return render_template('modulos/operativo/indicadores_operaciones_inicio.html',
+                               user_name=session.get('user_name', ''),
+                               user_role=session.get('user_role', ''),
+                               tiene_asistencia=tiene_asistencia)
+    except Exception as e:
+        print(f"Error en indicadores_operaciones_inicio: {str(e)}")
+        flash('Error al cargar Indicador de Inicio de Operación', 'error')
+        return redirect(url_for('indicadores_operaciones'))
 
 # API para obtener datos de preoperacionales por técnicos
 @app.route('/api/operativo/preoperacionales_tecnicos', methods=['GET'])
@@ -8717,6 +8921,152 @@ def api_preoperacionales_tecnicos():
     except Exception as e:
         logging.error(f"Error en obtener_datos_grafica_operacion_recurso: {str(e)}")
         logging.error(f"Parámetros recibidos: fecha_inicio={request.args.get('fecha_inicio')}, fecha_fin={request.args.get('fecha_fin')}, supervisor={request.args.get('supervisor')}, agrupacion={request.args.get('agrupacion')}")
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+    finally:
+        try:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+        except:
+            pass
+        try:
+            if 'connection' in locals() and connection and connection.is_connected():
+                connection.close()
+        except:
+            pass
+
+# NUEVO: API Operativo - Asistencia por fecha para Inicio de Operación
+@app.route('/api/operativo/inicio-operacion/asistencia', methods=['GET'])
+@login_required(role='operativo')
+def api_operativo_inicio_asistencia():
+    """Lista registros de asistencia del día filtrados por el supervisor logueado.
+    Campos: Cédula, Técnico, Carpeta, Super, Carpeta_Día, Tipificacion, Valor, Estado, Novedad.
+    """
+    try:
+        # Obtener fecha; por defecto hoy (zona Bogotá)
+        fecha_param = request.args.get('fecha')
+        if fecha_param:
+            try:
+                fecha_consulta = datetime.strptime(fecha_param, '%Y-%m-%d').date()
+            except ValueError:
+                return jsonify({'success': False, 'message': 'Formato de fecha inválido. Use YYYY-MM-DD'}), 400
+        else:
+            fecha_consulta = get_bogota_datetime().date()
+
+        # Supervisor actual desde sesión
+        supervisor_actual = session.get('user_name', '')
+        if not supervisor_actual:
+            return jsonify({'success': False, 'message': 'No se encontró supervisor en sesión'}), 400
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+
+        # Consulta principal uniendo tipificación para obtener nombre del evento
+        consulta = """
+            SELECT 
+                a.cedula,
+                a.tecnico,
+                a.carpeta,
+                a.super,
+                a.carpeta_dia,
+                COALESCE(t.nombre_tipificacion, '') AS carpeta_dia_nombre,
+                a.eventos AS eventos,
+                pc.presupuesto_eventos AS ok_eventos,
+                pc.presupuesto_diario,
+                a.valor,
+                a.estado,
+                a.novedad
+            FROM asistencia a
+            LEFT JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            LEFT JOIN presupuesto_carpeta pc ON t.nombre_tipificacion = pc.presupuesto_carpeta
+            WHERE a.super = %s AND DATE(a.fecha_asistencia) = %s
+            ORDER BY a.tecnico
+        """
+        cursor.execute(consulta, (supervisor_actual, fecha_consulta))
+        registros = cursor.fetchall()
+
+        # Estadísticas para tarjetas
+        # 1) Total técnicos activos del supervisor
+        cursor.execute("""
+            SELECT COUNT(*) AS total
+            FROM recurso_operativo
+            WHERE super = %s AND estado = 'Activo'
+        """, (supervisor_actual,))
+        total_tecnicos = cursor.fetchone().get('total', 0) or 0
+
+        # 2) Sin asistencia: contar solo las siguientes tipificaciones del día
+        categorias_sin = [
+            'AUSENCIA INJUSTIFICADA',
+            'AUSENCIA INJUS AUXILIAR',
+            'INCAPACIDAD ARL',
+            'DOMINICAL O FESTIVO',
+            'DOMINCAL O FESTIVO',
+            'LICENCIA MATERNIDAD O PATERNIDAD',
+            'LICENCIA LUTO',
+            'SUSPENSION',
+            'PERMISO',
+            'VACACIONES',
+            'DIA FAMILIA',
+            'Restriccion medica',
+            'RESTRICCION MEDICA',
+            'RENUNCIA',
+            'INCAPACIDAD MEDICA'
+        ]
+        placeholders = ','.join(['%s'] * len(categorias_sin))
+        query_detalle = f"""
+            SELECT t.nombre_tipificacion AS tipo, COUNT(DISTINCT a.id_codigo_consumidor) AS cantidad
+            FROM asistencia a
+            LEFT JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE a.super = %s AND DATE(a.fecha_asistencia) = %s
+              AND t.nombre_tipificacion IN ({placeholders})
+            GROUP BY t.nombre_tipificacion
+        """
+        params_detalle = [supervisor_actual, fecha_consulta] + categorias_sin
+        cursor.execute(query_detalle, tuple(params_detalle))
+        detalle_rows = cursor.fetchall() or []
+        detalle_map = {row['tipo']: row['cantidad'] for row in detalle_rows}
+        detalle_list = [{'nombre': k, 'cantidad': v} for k, v in detalle_map.items()]
+        sin_asistencia = sum(detalle_map.values())
+
+        # 3) Con asistencia = total técnicos - sin asistencia (no negativo)
+        con_asistencia = max(total_tecnicos - sin_asistencia, 0)
+
+        # 4) Ok's Día: contar cantidad del campo 'eventos' de asistencia
+        oks_dia = 0
+        presupuesto_dia = 0.0
+        for r in registros:
+            try:
+                oks_dia += int(r.get('eventos') or r.get('tipificacion') or 0)
+            except Exception:
+                pass
+            try:
+                presupuesto_dia += float(r.get('valor') or 0)
+            except Exception:
+                pass
+        presupuesto_mes = presupuesto_dia * 26
+
+        stats = {
+            'total_tecnicos': total_tecnicos,
+            'sin_asistencia': sin_asistencia,
+            'con_asistencia': con_asistencia,
+            'detalle': detalle_map,
+            'sin_asistencia_detalle': detalle_list,
+            'oks_dia': oks_dia,
+            'presupuesto_dia': presupuesto_dia,
+            'presupuesto_mes': presupuesto_mes
+        }
+
+        return jsonify({
+            'success': True,
+            'registros': registros,
+            'total': len(registros),
+            'fecha': fecha_consulta.strftime('%Y-%m-%d'),
+            'supervisor': supervisor_actual,
+            'stats': stats
+        })
+    except Exception as e:
+        logging.error(f"Error en api_operativo_inicio_asistencia: {str(e)}")
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
     finally:
         try:

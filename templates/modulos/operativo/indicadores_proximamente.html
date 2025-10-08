@@ -1,0 +1,31 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/operativo"><i class="fas fa-tools me-1"></i>Panel Operativo</a></li>
+            <li class="breadcrumb-item"><a href="/operativo/indicadores"><i class="fas fa-chart-line me-1"></i>Indicadores</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ modulo|capitalize }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark d-flex align-items-center">
+                    <i class="fas fa-hourglass-half me-2"></i>
+                    <h5 class="mb-0">{{ modulo|capitalize }} - Próximamente</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info d-flex align-items-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Estamos trabajando en los indicadores de {{ modulo|capitalize }}. Muy pronto podrás consultar métricas y reportes detallados.
+                    </div>
+                    <div class="text-center py-4">
+                        <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                        <p class="text-muted mb-3">Este módulo aún no está disponible.</p>
+                        <a href="/operativo/indicadores" class="btn btn-warning">
+                            <i class="fas fa-arrow-left me-2"></i>Volver a Indicadores
+                        </a>
+                    </div>
+                </div>

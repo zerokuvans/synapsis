@@ -1,0 +1,149 @@
+{% extends 'header.html' %}
+{% block content %}
+<style>
+    .btn.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    .btn.disabled:hover {
+        opacity: 0.6;
+    }
+    .card-indicador {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .card-indicador:hover:not(.disabled) {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .card-indicador.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    .icon-container {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+    }
+    .breadcrumb {
+        background-color: transparent;
+        padding: 0;
+    }
+    .breadcrumb-item + .breadcrumb-item::before {
+        content: ">";
+        color: #6c757d;
+    }
+    .coming-soon {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #ffc107;
+        color: #000;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: bold;
+    }
+</style>
+
+<div class="container mt-4">
+    <!-- Breadcrumb 
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/operativo" class="text-decoration-none"><i class="fas fa-tools me-1"></i>Panel Operativo</a></li>
+            <li class="breadcrumb-item"><a href="/operativo/indicadores" class="text-decoration-none"><i class="fas fa-chart-line me-1"></i>Indicadores</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Operaciones</li>
+        </ol>
+    </nav>
+    -->
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h3 class="mb-0"><i class="fas fa-cogs me-2"></i>Indicadores de Operaciones</h3>
+                </div>
+                <div class="card-body">
+                    {% if not tiene_asistencia %}
+                        <div class="alert alert-warning d-flex align-items-center" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <div>Recuerde registrar asistencia para acceder a los indicadores de operaciones.</div>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Consulta los indicadores operacionales disponibles.
+                        </div>
+                    {% endif %}
+                    <a href="/operativo/indicadores" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>Volver a Indicadores</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Indicadores de Operaciones Grid -->
+    <div class="row">
+        <!-- Inicio de Operacion (Activo) -->
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card card-indicador h-100">
+                <div class="card-body text-center p-4">
+                    <div class="icon-container bg-warning bg-opacity-10">
+                        <i class="fas fa-play fa-2x text-warning"></i>
+                    </div>
+                    <h4 class="card-title text-warning mb-3">Inicio de Operación</h4>
+                    <p class="card-text text-muted mb-4">Análisis del inicio y puesta en marcha de operaciones.</p>
+                    {% if tiene_asistencia %}
+                        <a href="/operativo/indicadores/operaciones/inicio-operacion" class="btn btn-warning btn-lg">
+                            <i class="fas fa-chart-line me-2"></i>Ver Indicador
+                        </a>
+                    {% else %}
+                        <button class="btn btn-secondary btn-lg disabled" disabled title="Debe registrar asistencia primero">
+                            <i class="fas fa-chart-line me-2"></i>Ver Indicador
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Auditorias Workforce (Próximamente) -->
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card card-indicador h-100 disabled position-relative">
+                <div class="coming-soon">Próximamente</div>
+                <div class="card-body text-center p-4">
+                    <div class="icon-container bg-primary bg-opacity-10">
+                        <i class="fas fa-clipboard-check fa-2x text-primary"></i>
+                    </div>
+                    <h4 class="card-title text-primary mb-3">Auditorías Workforce</h4>
+                    <p class="card-text text-muted mb-4">Seguimiento de auditorías realizadas en plataforma Workforce.</p>
+                    <a href="/operativo/indicadores/operaciones/auditorias-workforce" class="btn btn-primary btn-lg disabled" onclick="return false;">
+                        <i class="fas fa-chart-bar me-2"></i>Ver Indicador
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auditorias Drive Interventoria (Próximamente) -->
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card card-indicador h-100 disabled position-relative">
+                <div class="coming-soon">Próximamente</div>
+                <div class="card-body text-center p-4">
+                    <div class="icon-container bg-info bg-opacity-10">
+                        <i class="fas fa-folder-open fa-2x text-info"></i>
+                    </div>
+                    <h4 class="card-title text-info mb-3">Auditorías Drive Interventoria</h4>
+                    <p class="card-text text-muted mb-4">Control de auditorías registradas en Drive de Interventoria.</p>
+                    <a href="/operativo/indicadores/operaciones/auditorias-drive-interventoria" class="btn btn-info btn-lg disabled" onclick="return false;">
+                        <i class="fas fa-chart-bar me-2"></i>Ver Indicador
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
