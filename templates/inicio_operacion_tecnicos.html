@@ -118,6 +118,70 @@
         .fila-guardada td {
             border-color: #d4edda !important;
         }
+        
+        /* Estilos para campos desactivados por falta de presupuesto */
+        .sin-presupuesto-disabled {
+            background-color: #f1f3f4 !important;
+            color: #5f6368 !important;
+            border-color: #dadce0 !important;
+            cursor: not-allowed !important;
+            opacity: 0.7;
+            position: relative;
+        }
+        
+        .sin-presupuesto-disabled:focus {
+            box-shadow: none !important;
+            border-color: #dadce0 !important;
+        }
+        
+        .sin-presupuesto-disabled:hover {
+            background-color: #f1f3f4 !important;
+            border-color: #dadce0 !important;
+        }
+        
+        /* Estilo para botones desactivados por falta de presupuesto */
+        .btn-sin-presupuesto-disabled {
+            background-color: #f1f3f4 !important;
+            border-color: #dadce0 !important;
+            color: #5f6368 !important;
+            cursor: not-allowed !important;
+            opacity: 0.7;
+        }
+        
+        .btn-sin-presupuesto-disabled:hover {
+            background-color: #f1f3f4 !important;
+            border-color: #dadce0 !important;
+            color: #5f6368 !important;
+            transform: none !important;
+        }
+        
+        /* Tooltip para explicar por qué está desactivado */
+        .sin-presupuesto-tooltip {
+            position: relative;
+        }
+        
+        .sin-presupuesto-tooltip::after {
+            content: "Campo desactivado: Técnico sin presupuesto asignado";
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        
+        .sin-presupuesto-tooltip:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
     </style>
     <!-- SheetJS library for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -593,6 +657,17 @@
                 const novedad = tecnico.asistencia_hoy.novedad || '';
                 const novedadDisabled = (estado !== 'NOVEDAD' && estado !== 'NO APLICA' && estado !== 'NO CUMPLE') ? 'disabled' : '';
                 
+                // Verificar si el técnico tiene presupuesto asignado
+                const tienePresupuesto = tecnico.asistencia_hoy.presupuesto_eventos && 
+                                       tecnico.asistencia_hoy.presupuesto_eventos !== null && 
+                                       tecnico.asistencia_hoy.presupuesto_eventos !== '';
+                
+                // Clases y atributos para campos desactivados por falta de presupuesto
+                const sinPresupuestoClass = !tienePresupuesto ? 'sin-presupuesto-disabled sin-presupuesto-tooltip' : '';
+                const sinPresupuestoDisabled = !tienePresupuesto ? 'disabled' : '';
+                const sinPresupuestoBtnClass = !tienePresupuesto ? 'btn-sin-presupuesto-disabled' : 'btn-success';
+                const sinPresupuestoTitle = !tienePresupuesto ? 'title="Campo desactivado: Técnico sin presupuesto asignado"' : '';
+                
                 const row = `
                     <tr data-cedula="${tecnico.cedula}">
                         <td>${tecnico.cedula}</td>
@@ -608,7 +683,7 @@
                         <td>
                             ${tecnico.asistencia_hoy.presupuesto_eventos ? 
                                 `<span class="badge bg-success">${tecnico.asistencia_hoy.presupuesto_eventos}</span>` 
-                                : '<span class="text-muted">-</span>'}
+                                : '<span class="text-muted badge bg-warning">Sin Presupuesto</span>'}
                         </td>
                         <td>
                             ${tecnico.asistencia_hoy.presupuesto_diario ? 
@@ -616,16 +691,20 @@
                                 : '<span class="text-muted">-</span>'}
                         </td>
                         <td>
-                            <input type="time" class="form-control form-control-sm hora-inicio" 
+                            <input type="time" class="form-control form-control-sm hora-inicio ${sinPresupuestoClass}" 
                                    value="${horaInicio}" 
                                    data-cedula="${tecnico.cedula}"
                                    onchange="validarCamposCompletos('${tecnico.cedula}')"
+                                   ${sinPresupuestoDisabled}
+                                   ${sinPresupuestoTitle}
                                    style="width: 120px;">
                         </td>
                         <td>
-                            <select class="form-select form-select-sm estado-select" 
+                            <select class="form-select form-select-sm estado-select ${sinPresupuestoClass}" 
                                     data-cedula="${tecnico.cedula}"
                                     onchange="manejarCambioEstado('${tecnico.cedula}', this.value)"
+                                    ${sinPresupuestoDisabled}
+                                    ${sinPresupuestoTitle}
                                     style="width: 140px;">
                                 <option value="">Seleccionar</option>
                                 <option value="CUMPLE" ${estado === 'CUMPLE' ? 'selected' : ''}>CUMPLE</option>
@@ -635,18 +714,21 @@
                             </select>
                         </td>
                         <td>
-                            <input type="text" class="form-control form-control-sm novedad-input" 
+                            <input type="text" class="form-control form-control-sm novedad-input ${sinPresupuestoClass}" 
                                    value="${novedad}" 
                                    data-cedula="${tecnico.cedula}"
                                    placeholder="Descripción de novedad"
                                    onchange="validarCamposCompletos('${tecnico.cedula}')"
-                                   ${novedadDisabled}
+                                   ${!tienePresupuesto ? 'disabled' : novedadDisabled}
+                                   ${sinPresupuestoTitle}
                                    style="width: 200px;">
                         </td>
                         <td>
-                            <button type="button" class="btn btn-success btn-sm guardar-cambios-btn" 
+                            <button type="button" class="btn btn-sm guardar-cambios-btn ${sinPresupuestoBtnClass}" 
                                     data-cedula="${tecnico.cedula}"
                                     onclick="guardarCambiosTecnico('${tecnico.cedula}')"
+                                    ${sinPresupuestoDisabled}
+                                    ${sinPresupuestoTitle}
                                     disabled
                                     style="width: 120px;">
                                 <i class="fas fa-save"></i> Guardar
