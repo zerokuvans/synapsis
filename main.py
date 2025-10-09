@@ -8983,12 +8983,14 @@ def guardar_asistencias_operativo():
         for i, asistencia in enumerate(asistencias):
             print(f"DEBUG - Insertando técnico {i+1}: {asistencia}")
             try:
-                # Obtener presupuesto_diario y presupuesto_eventos desde presupuesto_carpeta
-                # Buscar usando AMBOS criterios: carpeta Y cargo del técnico desde recurso_operativo
+                # VALIDACIÓN DUAL: Verificar AMBAS condiciones (carpeta Y cargo)
+                # Solo si AMBAS validaciones pasan, aplicar valores de presupuesto
                 cedula_tecnico = asistencia.get('cedula', '')
                 valor_presupuesto = 0
                 valor_eventos = 0
                 presupuesto_encontrado = False
+                carpeta_valida = False
+                cargo_valido = False
                 
                 if cedula_tecnico:
                     try:
@@ -9006,22 +9008,24 @@ def guardar_asistencias_operativo():
                             cargo_tecnico = tecnico_row['cargo']
                             print(f"DEBUG - Técnico {cedula_tecnico}: carpeta='{carpeta_tecnico}', cargo='{cargo_tecnico}'")
                             
-                            # 2. Buscar en presupuesto_carpeta usando la carpeta del técnico
+                            # VALIDACIÓN DUAL: Verificar carpeta Y cargo en presupuesto_carpeta
                             cursor.execute("""
                                 SELECT presupuesto_diario, presupuesto_eventos 
                                 FROM presupuesto_carpeta 
-                                WHERE presupuesto_carpeta = %s 
+                                WHERE presupuesto_carpeta = %s AND presupuesto_cargo = %s
                                 LIMIT 1
-                            """, (carpeta_tecnico,))
+                            """, (carpeta_tecnico, cargo_tecnico))
                             presupuesto_row = cursor.fetchone()
                             
                             if presupuesto_row:
+                                print(f"DEBUG - ✅ COMBINACIÓN VÁLIDA: carpeta='{carpeta_tecnico}' + cargo='{cargo_tecnico}' encontrada en presupuesto_carpeta")
+                                
+                                # Aplicar valores de presupuesto_carpeta
                                 # presupuesto_diario -> valor
                                 if 'presupuesto_diario' in presupuesto_row and presupuesto_row['presupuesto_diario'] is not None:
                                     try:
                                         valor_presupuesto = int(float(presupuesto_row['presupuesto_diario']))
-                                        if valor_presupuesto > 0:
-                                            presupuesto_encontrado = True
+                                        presupuesto_encontrado = True
                                     except Exception:
                                         valor_presupuesto = 0
                                 
@@ -9029,17 +9033,17 @@ def guardar_asistencias_operativo():
                                 if 'presupuesto_eventos' in presupuesto_row and presupuesto_row['presupuesto_eventos'] is not None:
                                     try:
                                         valor_eventos = int(float(presupuesto_row['presupuesto_eventos']))
-                                        if valor_eventos > 0:
-                                            presupuesto_encontrado = True
+                                        presupuesto_encontrado = True
                                     except Exception:
                                         valor_eventos = 0
                                 
-                                if presupuesto_encontrado:
-                                    print(f"DEBUG - Presupuesto encontrado para carpeta='{carpeta_tecnico}': valor={valor_presupuesto}, eventos={valor_eventos}")
-                                else:
-                                    print(f"DEBUG - Presupuesto encontrado para carpeta='{carpeta_tecnico}' pero con valores en 0")
+                                print(f"DEBUG - Valores aplicados: valor={valor_presupuesto}, eventos={valor_eventos}")
                             else:
-                                print(f"DEBUG - No se encontró presupuesto para carpeta='{carpeta_tecnico}'")
+                                print(f"DEBUG - ❌ COMBINACIÓN INVÁLIDA: carpeta='{carpeta_tecnico}' + cargo='{cargo_tecnico}' NO encontrada en presupuesto_carpeta")
+                                print(f"DEBUG - Aplicando valores en 0")
+                                valor_presupuesto = 0
+                                valor_eventos = 0
+                                presupuesto_encontrado = False
                         else:
                             print(f"DEBUG - No se encontró carpeta o cargo para técnico con cédula '{cedula_tecnico}' en recurso_operativo")
                     except Exception as e_presupuesto:
