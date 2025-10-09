@@ -182,6 +182,95 @@
             opacity: 1;
             visibility: visible;
         }
+        
+        /* Estilos para campos bloqueados por tiempo (después de 10:00 AM) */
+        .tiempo-bloqueado {
+            background-color: #fff3cd !important;
+            color: #856404 !important;
+            border-color: #ffeaa7 !important;
+            cursor: not-allowed !important;
+            opacity: 0.9;
+            position: relative;
+        }
+        
+        .tiempo-bloqueado:focus {
+            box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25) !important;
+            border-color: #ffeaa7 !important;
+        }
+        
+        .tiempo-bloqueado:hover {
+            background-color: #fff3cd !important;
+            border-color: #ffeaa7 !important;
+        }
+        
+        /* Estilo para botones bloqueados por tiempo */
+        .btn-tiempo-bloqueado {
+            background-color: #fff3cd !important;
+            border-color: #ffeaa7 !important;
+            color: #856404 !important;
+            cursor: not-allowed !important;
+            opacity: 0.9;
+        }
+        
+        .btn-tiempo-bloqueado:hover {
+            background-color: #fff3cd !important;
+            border-color: #ffeaa7 !important;
+            color: #856404 !important;
+            transform: none !important;
+        }
+        
+        /* Indicador de hora y estado de bloqueo */
+        .reloj-colombia {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+            color: #2d3436;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border: 2px solid #fdcb6e;
+        }
+        
+        .reloj-colombia.bloqueado {
+            background: linear-gradient(135deg, #fab1a0 0%, #e17055 100%);
+            color: white;
+            border-color: #e17055;
+        }
+        
+        .estado-bloqueo {
+            font-size: 0.875rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .estado-bloqueo.activo {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .estado-bloqueo.bloqueado {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        /* Mensaje de bloqueo por tiempo */
+        .mensaje-tiempo-bloqueado {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            border: 2px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            color: #856404;
+        }
+        
+        .mensaje-tiempo-bloqueado .icono-reloj {
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
+            color: #f39c12;
+        }
     </style>
     <!-- SheetJS library for Excel export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -198,6 +287,39 @@
                         <small class="d-block mt-1 opacity-75">Gestión y seguimiento de técnicos asignados</small>
                     </div>
                     <div class="card-body">
+                        <!-- Indicador de Hora Colombia y Estado de Bloqueo -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        <div class="reloj-colombia" id="reloj-colombia">
+                                            <i class="fas fa-clock me-2"></i>
+                                            <span id="hora-colombia">--:--:--</span>
+                                        </div>
+                                        <div class="estado-bloqueo activo" id="estado-bloqueo">
+                                            <i class="fas fa-unlock me-1"></i>
+                                            <span id="texto-estado">Campos Activos</span>
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Los campos se bloquean automáticamente a las 10:00 AM (Hora Colombia)
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Mensaje de bloqueo por tiempo (oculto por defecto) -->
+                        <div class="mensaje-tiempo-bloqueado" id="mensaje-tiempo-bloqueado" style="display: none;">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-clock icono-reloj"></i>
+                                <div>
+                                    <strong>Campos Bloqueados por Horario</strong>
+                                    <p class="mb-0">Los campos de entrada están bloqueados porque ya pasaron las 10:00 AM hora de Colombia. Los datos no pueden ser modificados después de esta hora.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="container-fluid">
         <!-- Estadísticas Resumen -->
         <div class="row mb-4">
@@ -339,6 +461,214 @@
         let tecnicosData = [];
         let cargandoDatos = false; // Flag para prevenir múltiples llamadas
         let timeoutId = null; // Para debounce
+        let timerHoraColombia = null; // Timer para actualizar hora
+        let camposBloqueadosPorTiempo = false; // Estado de bloqueo por tiempo
+
+        // ===== FUNCIONES PARA MANEJO DE HORA COLOMBIA Y BLOQUEO AUTOMÁTICO =====
+        
+        // Función para obtener la hora actual de Colombia (UTC-5)
+        function obtenerHoraColombia() {
+            const ahora = new Date();
+            // Colombia está en UTC-5 (sin cambio de horario de verano)
+            const utc = ahora.getTime() + (ahora.getTimezoneOffset() * 60000);
+            const horaColombia = new Date(utc + (-5 * 3600000));
+            return horaColombia;
+        }
+        
+        // Función para formatear la hora en formato HH:MM:SS
+        function formatearHora(fecha) {
+            return fecha.toLocaleTimeString('es-CO', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+        
+        // Función para verificar si ya pasaron las 10:00 AM
+         function esDespuesDeLas10AM() {
+             const horaColombia = obtenerHoraColombia();
+             const hora = horaColombia.getHours();
+             const minutos = horaColombia.getMinutes();
+             
+             // Retorna true si son las 10:00 AM o después
+             return hora >= 10;
+         }
+         
+         // Función de prueba para simular bloqueo (solo para testing)
+         function simularBloqueo() {
+             console.log('Simulando bloqueo automático...');
+             activarBloqueoAutomatico();
+             actualizarIndicadoresVisuales(true);
+         }
+         
+         // Función de prueba para desactivar bloqueo (solo para testing)
+         function desactivarSimulacion() {
+             console.log('Desactivando simulación de bloqueo...');
+             desactivarBloqueoAutomatico();
+             actualizarIndicadoresVisuales(false);
+         }
+        
+        // Función para actualizar el reloj y verificar bloqueo
+        function actualizarRelojYVerificarBloqueo() {
+            const horaColombia = obtenerHoraColombia();
+            const horaFormateada = formatearHora(horaColombia);
+            
+            // Actualizar el reloj en la interfaz
+            const elementoHora = document.getElementById('hora-colombia');
+            if (elementoHora) {
+                elementoHora.textContent = horaFormateada;
+            }
+            
+            // Verificar si necesitamos bloquear los campos
+            const debeBloquear = esDespuesDeLas10AM();
+            
+            if (debeBloquear && !camposBloqueadosPorTiempo) {
+                // Activar bloqueo por primera vez
+                activarBloqueoAutomatico();
+            } else if (!debeBloquear && camposBloqueadosPorTiempo) {
+                // Desactivar bloqueo (en caso de que sea antes de las 10 AM)
+                desactivarBloqueoAutomatico();
+            }
+            
+            // Actualizar indicadores visuales
+            actualizarIndicadoresVisuales(debeBloquear);
+        }
+        
+        // Función para activar el bloqueo automático de todos los campos
+        function activarBloqueoAutomatico() {
+            camposBloqueadosPorTiempo = true;
+            
+            // Bloquear todos los campos de entrada
+            const camposHoraInicio = document.querySelectorAll('.hora-inicio');
+            const camposEstado = document.querySelectorAll('.estado-select');
+            const camposNovedad = document.querySelectorAll('.novedad-input');
+            const botonesGuardar = document.querySelectorAll('.guardar-cambios-btn');
+            
+            // Aplicar bloqueo a campos de hora inicio
+            camposHoraInicio.forEach(campo => {
+                if (!campo.disabled) { // Solo bloquear si no está ya deshabilitado por otras razones
+                    campo.disabled = true;
+                    campo.classList.add('tiempo-bloqueado');
+                    campo.title = 'Campo bloqueado: Ya pasaron las 10:00 AM hora de Colombia';
+                }
+            });
+            
+            // Aplicar bloqueo a campos de estado
+            camposEstado.forEach(campo => {
+                if (!campo.disabled) {
+                    campo.disabled = true;
+                    campo.classList.add('tiempo-bloqueado');
+                    campo.title = 'Campo bloqueado: Ya pasaron las 10:00 AM hora de Colombia';
+                }
+            });
+            
+            // Aplicar bloqueo a campos de novedad
+            camposNovedad.forEach(campo => {
+                if (!campo.disabled) {
+                    campo.disabled = true;
+                    campo.classList.add('tiempo-bloqueado');
+                    campo.title = 'Campo bloqueado: Ya pasaron las 10:00 AM hora de Colombia';
+                }
+            });
+            
+            // Aplicar bloqueo a botones de guardar
+            botonesGuardar.forEach(boton => {
+                if (!boton.disabled) {
+                    boton.disabled = true;
+                    boton.classList.add('btn-tiempo-bloqueado');
+                    boton.innerHTML = '<i class="fas fa-clock"></i> Bloqueado por Horario';
+                    boton.title = 'Botón bloqueado: Ya pasaron las 10:00 AM hora de Colombia';
+                }
+            });
+            
+            console.log('Campos bloqueados automáticamente por horario (después de 10:00 AM)');
+        }
+        
+        // Función para desactivar el bloqueo automático
+        function desactivarBloqueoAutomatico() {
+            camposBloqueadosPorTiempo = false;
+            
+            // Desbloquear campos que fueron bloqueados solo por tiempo
+            const camposBloqueados = document.querySelectorAll('.tiempo-bloqueado');
+            const botonesBloqueados = document.querySelectorAll('.btn-tiempo-bloqueado');
+            
+            camposBloqueados.forEach(campo => {
+                // Solo desbloquear si no tiene otras clases de bloqueo
+                if (!campo.classList.contains('campo-bloqueado') && 
+                    !campo.classList.contains('sin-presupuesto-disabled')) {
+                    campo.disabled = false;
+                    campo.classList.remove('tiempo-bloqueado');
+                    campo.title = '';
+                }
+            });
+            
+            botonesBloqueados.forEach(boton => {
+                // Solo desbloquear si no tiene otras clases de bloqueo
+                if (!boton.classList.contains('boton-bloqueado') && 
+                    !boton.classList.contains('btn-sin-presupuesto-disabled')) {
+                    boton.disabled = false;
+                    boton.classList.remove('btn-tiempo-bloqueado');
+                    boton.innerHTML = '<i class="fas fa-save"></i> Guardar';
+                    boton.title = '';
+                }
+            });
+            
+            console.log('Bloqueo automático por horario desactivado');
+        }
+        
+        // Función para actualizar los indicadores visuales
+        function actualizarIndicadoresVisuales(bloqueado) {
+            const relojElement = document.getElementById('reloj-colombia');
+            const estadoElement = document.getElementById('estado-bloqueo');
+            const textoEstadoElement = document.getElementById('texto-estado');
+            const mensajeBloqueadoElement = document.getElementById('mensaje-tiempo-bloqueado');
+            
+            if (bloqueado) {
+                // Estado bloqueado
+                if (relojElement) {
+                    relojElement.classList.add('bloqueado');
+                }
+                if (estadoElement) {
+                    estadoElement.classList.remove('activo');
+                    estadoElement.classList.add('bloqueado');
+                    estadoElement.innerHTML = '<i class="fas fa-lock me-1"></i><span>Campos Bloqueados</span>';
+                }
+                if (mensajeBloqueadoElement) {
+                    mensajeBloqueadoElement.style.display = 'block';
+                }
+            } else {
+                // Estado activo
+                if (relojElement) {
+                    relojElement.classList.remove('bloqueado');
+                }
+                if (estadoElement) {
+                    estadoElement.classList.remove('bloqueado');
+                    estadoElement.classList.add('activo');
+                    estadoElement.innerHTML = '<i class="fas fa-unlock me-1"></i><span>Campos Activos</span>';
+                }
+                if (mensajeBloqueadoElement) {
+                    mensajeBloqueadoElement.style.display = 'none';
+                }
+            }
+        }
+        
+        // Función para inicializar el sistema de hora y bloqueo
+        function inicializarSistemaHorario() {
+            // Actualizar inmediatamente
+            actualizarRelojYVerificarBloqueo();
+            
+            // Configurar timer para actualizar cada 30 segundos
+            if (timerHoraColombia) {
+                clearInterval(timerHoraColombia);
+            }
+            
+            timerHoraColombia = setInterval(actualizarRelojYVerificarBloqueo, 30000); // 30 segundos
+            
+            console.log('Sistema de horario Colombia inicializado');
+        }
+        
+        // ===== FIN FUNCIONES DE HORA COLOMBIA Y BLOQUEO AUTOMÁTICO =====
 
         // Función para inicializar dropdowns de Bootstrap
         function inicializarDropdowns() {
@@ -363,6 +693,9 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Inicializar dropdowns con delay para asegurar que Bootstrap esté cargado
             setTimeout(inicializarDropdowns, 100);
+            
+            // Inicializar sistema de horario Colombia y bloqueo automático
+            inicializarSistemaHorario();
             
             // Establecer fecha actual por defecto
             const hoy = new Date();
@@ -746,6 +1079,13 @@
                     verificarYBloquearSiCompleto(tecnico.cedula);
                 }, 100);
             });
+
+            // Aplicar bloqueo automático por tiempo si es necesario
+            setTimeout(() => {
+                if (camposBloqueadosPorTiempo) {
+                    activarBloqueoAutomatico();
+                }
+            }, 150);
 
             actualizarContadorResultados(tecnicosOrdenados.length);
         }
