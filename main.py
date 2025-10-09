@@ -180,7 +180,8 @@ ROLES = {
     '3': 'operativo',
     '4': 'contabilidad',
     '5': 'logistica',
-    '6': 'analista'
+    '6': 'analista',
+    '7': 'lider'
 }
 
 # Decorador para requerir rol específico
@@ -890,6 +891,465 @@ def operativo_dashboard():
     except mysql.connector.Error as e:
         flash(f'Error al verificar asistencia: {str(e)}', 'danger')
         return render_template('modulos/operativo/dashboard.html', tiene_asistencia=False)
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/lider')
+@login_required(role=['administrativo', 'lider'])
+def lider_dashboard():
+    """
+    Dashboard principal del módulo de Líder
+    """
+    try:
+        return render_template('modulos/lider/dashboard.html')
+    except Exception as e:
+        flash(f'Error al cargar el panel de líder: {str(e)}', 'danger')
+        return redirect(url_for('index'))
+
+@app.route('/lider/turnos-analistas')
+@login_required(role=['administrativo', 'lider'])
+def lider_turnos_analistas():
+    """
+    Página principal del submódulo Turnos Analistas
+    """
+    try:
+        return render_template('modulos/lider/turnos-analistas.html')
+    except Exception as e:
+        flash(f'Error al cargar turnos de analistas: {str(e)}', 'danger')
+        return redirect(url_for('lider_dashboard'))
+
+@app.route('/api/analistas', methods=['GET'])
+@login_required_api(role=['administrativo', 'lider'])
+def api_get_analistas():
+    """
+    API para obtener lista de analistas activos
+    """
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener analistas activos
+        cursor.execute("""
+            SELECT 
+                id_codigo_consumidor,
+                recurso_operativo_cedula,
+                nombre,
+                cargo,
+                estado
+            FROM recurso_operativo 
+            WHERE (cargo = 'ANALISTA' OR cargo = 'ANALISTA LOGISTICA') 
+            AND estado = 'Activo'
+            ORDER BY nombre
+        """)
+        
+        analistas = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'analistas': analistas
+        })
+        
+    except mysql.connector.Error as e:
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/turnos', methods=['GET'])
+@login_required_api(role=['administrativo', 'lider'])
+def api_get_turnos():
+    """
+    API para obtener lista de turnos disponibles
+    """
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener turnos disponibles
+        cursor.execute("""
+            SELECT 
+                turnos_horario,
+                turnos_nombre,
+                turnos_horas_laboradas,
+                turnos_breack,
+                turnos_almuerzo
+            FROM turnos
+            ORDER BY turnos_horario
+        """)
+        
+        turnos_data = []
+        for row in cursor.fetchall():
+            turnos_data.append({
+                'horario': row['turnos_horario'],
+                'nombre': row['turnos_nombre'],
+                'horas_laboradas': row['turnos_horas_laboradas'],
+                'break': row['turnos_breack'],
+                'almuerzo': row['turnos_almuerzo']
+            })
+        
+        return jsonify({
+            'success': True,
+            'turnos': turnos_data
+        })
+        
+    except mysql.connector.Error as e:
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asignar-turno', methods=['POST'])
+@login_required_api(role=['administrativo', 'lider'])
+def api_asignar_turno():
+    """
+    API para asignar turno a un analista
+    """
+    connection = None
+    cursor = None
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No se recibieron datos'}), 400
+            
+        # Validar campos requeridos
+        required_fields = ['analista', 'fecha', 'turno']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({'error': f'Campo requerido: {field}'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Verificar si ya existe una asignación para esa fecha y analista
+        cursor.execute("""
+            SELECT id_analistas_turnos FROM analistas_turnos_base 
+            WHERE analistas_turnos_fecha = %s AND analistas_turnos_analista = %s
+        """, (data['fecha'], data['analista']))
+        
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Actualizar asignación existente
+            cursor.execute("""
+                UPDATE analistas_turnos_base 
+                SET analistas_turnos_turno = %s,
+                    analistas_turnos_almuerzo = %s,
+                    analistas_turnos_break = %s,
+                    analistas_turnos_horas_trabajadas = %s
+                WHERE id_analistas_turnos = %s
+            """, (
+                data['turno'],
+                data.get('almuerzo'),
+                data.get('break'),
+                data.get('horas_trabajadas'),
+                existing['id_analistas_turnos']
+            ))
+        else:
+            # Crear nueva asignación
+            cursor.execute("""
+                INSERT INTO analistas_turnos_base (
+                    analistas_turnos_fecha,
+                    analistas_turnos_analista,
+                    analistas_turnos_turno,
+                    analistas_turnos_almuerzo,
+                    analistas_turnos_break,
+                    analistas_turnos_horas_trabajadas
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+            """, (
+                data['fecha'],
+                data['analista'],
+                data['turno'],
+                data.get('almuerzo'),
+                data.get('break'),
+                data.get('horas_trabajadas')
+            ))
+        
+        connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Turno asignado correctamente'
+        })
+        
+    except mysql.connector.Error as e:
+        if connection:
+            connection.rollback()
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asignar-turnos-semana', methods=['POST'])
+@login_required_api(role=['administrativo', 'lider'])
+def api_asignar_turnos_semana():
+    """
+    API para asignar turnos de una semana completa a un analista
+    """
+    connection = None
+    cursor = None
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No se recibieron datos'}), 400
+            
+        # Validar campos requeridos
+        required_fields = ['analista_id', 'turnos']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({'error': f'Campo requerido: {field}'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener información de los turnos disponibles
+        cursor.execute("SELECT turnos_horario, turnos_nombre, turnos_horas_laboradas, turnos_breack, turnos_almuerzo FROM turnos")
+        turnos_info = {}
+        for turno in cursor.fetchall():
+            turnos_info[turno['turnos_horario']] = {
+                'nombre': turno['turnos_nombre'],
+                'horas_laboradas': turno['turnos_horas_laboradas'],
+                'break': turno['turnos_breack'],
+                'almuerzo': turno['turnos_almuerzo']
+            }
+        
+        turnos_asignados = 0
+        turnos_actualizados = 0
+        errores = []
+        
+        # Procesar cada día y sus turnos
+        for fecha, turnos_dia in data['turnos'].items():
+            if not turnos_dia or not isinstance(turnos_dia, list) or len(turnos_dia) == 0:
+                continue
+                
+            # Para cada día, asignar todos los turnos seleccionados
+            # Como solo puede haber un turno por día, tomamos el primero
+            turno_id = turnos_dia[0]
+            
+            if not turno_id or turno_id not in turnos_info:
+                errores.append(f"Turno inválido para la fecha {fecha}")
+                continue
+            
+            turno_info = turnos_info[turno_id]
+            
+            # Verificar si ya existe una asignación para esa fecha y analista
+            cursor.execute("""
+                SELECT id_analistas_turnos FROM analistas_turnos_base 
+                WHERE analistas_turnos_fecha = %s AND analistas_turnos_analista = %s
+            """, (fecha, data['analista_id']))
+            
+            existing = cursor.fetchone()
+            
+            try:
+                if existing:
+                    # Actualizar asignación existente
+                    cursor.execute("""
+                        UPDATE analistas_turnos_base 
+                        SET analistas_turnos_turno = %s,
+                            analistas_turnos_almuerzo = %s,
+                            analistas_turnos_break = %s,
+                            analistas_turnos_horas_trabajadas = %s
+                        WHERE id_analistas_turnos = %s
+                    """, (
+                        turno_id,
+                        turno_info['almuerzo'],
+                        turno_info['break'],
+                        turno_info['horas_laboradas'],
+                        existing['id_analistas_turnos']
+                    ))
+                    turnos_actualizados += 1
+                else:
+                    # Crear nueva asignación
+                    cursor.execute("""
+                        INSERT INTO analistas_turnos_base (
+                            analistas_turnos_fecha,
+                            analistas_turnos_analista,
+                            analistas_turnos_turno,
+                            analistas_turnos_almuerzo,
+                            analistas_turnos_break,
+                            analistas_turnos_horas_trabajadas
+                        ) VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (
+                        fecha,
+                        data['analista_id'],
+                        turno_id,
+                        turno_info['almuerzo'],
+                        turno_info['break'],
+                        turno_info['horas_laboradas']
+                    ))
+                    turnos_asignados += 1
+            except Exception as e:
+                errores.append(f"Error al procesar fecha {fecha}: {str(e)}")
+        
+        connection.commit()
+        
+        mensaje = ''
+        if turnos_asignados > 0:
+            mensaje += f"{turnos_asignados} turno(s) asignado(s). "
+        if turnos_actualizados > 0:
+            mensaje += f"{turnos_actualizados} turno(s) actualizado(s). "
+        if errores:
+            mensaje += f"Errores: {', '.join(errores)}"
+        
+        return jsonify({
+            'success': True,
+            'message': mensaje or 'Operación completada exitosamente',
+            'asignados': turnos_asignados,
+            'actualizados': turnos_actualizados,
+            'errores': errores
+        })
+        
+    except mysql.connector.Error as e:
+        if connection:
+            connection.rollback()
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/turnos-semana', methods=['GET'])
+@login_required_api(role=['administrativo', 'lider'])
+def api_get_turnos_semana():
+    """
+    API para obtener turnos de una semana específica
+    """
+    connection = None
+    cursor = None
+    try:
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        
+        if not fecha_inicio or not fecha_fin:
+            return jsonify({'error': 'Se requieren fecha_inicio y fecha_fin'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener asignaciones de la semana
+        cursor.execute("""
+            SELECT 
+                analistas_turnos_fecha,
+                analistas_turnos_analista,
+                analistas_turnos_turno,
+                analistas_turnos_almuerzo,
+                analistas_turnos_break,
+                analistas_turnos_horas_trabajadas
+            FROM analistas_turnos_base 
+            WHERE analistas_turnos_fecha BETWEEN %s AND %s
+            ORDER BY analistas_turnos_fecha, analistas_turnos_analista
+        """, (fecha_inicio, fecha_fin))
+        
+        turnos_semana = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'turnos': turnos_semana
+        })
+        
+    except mysql.connector.Error as e:
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/detalles-dia', methods=['GET'])
+@login_required_api(role=['administrativo', 'lider'])
+def api_get_detalles_dia():
+    """
+    API para obtener detalles de turnos de un día específico
+    """
+    connection = None
+    cursor = None
+    try:
+        fecha = request.args.get('fecha')
+        
+        if not fecha:
+            return jsonify({'error': 'Se requiere el parámetro fecha'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener detalles del día con información completa del turno
+        cursor.execute("""
+            SELECT 
+                atb.analistas_turnos_analista,
+                atb.analistas_turnos_turno,
+                atb.analistas_turnos_almuerzo,
+                atb.analistas_turnos_break,
+                atb.analistas_turnos_horas_trabajadas,
+                t.turnos_nombre,
+                t.turnos_horario,
+                t.turnos_horas_laboradas,
+                t.turnos_breack as turno_break,
+                t.turnos_almuerzo as turno_almuerzo
+            FROM analistas_turnos_base atb
+            LEFT JOIN turnos t ON atb.analistas_turnos_turno = t.turnos_horario
+            WHERE atb.analistas_turnos_fecha = %s
+            ORDER BY atb.analistas_turnos_analista
+        """, (fecha,))
+        
+        detalles = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'detalles': detalles,
+            'fecha': fecha
+        })
+        
+    except mysql.connector.Error as e:
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
     finally:
         if cursor:
             cursor.close()
@@ -8546,13 +9006,13 @@ def guardar_asistencias_operativo():
                             cargo_tecnico = tecnico_row['cargo']
                             print(f"DEBUG - Técnico {cedula_tecnico}: carpeta='{carpeta_tecnico}', cargo='{cargo_tecnico}'")
                             
-                            # 2. Buscar en presupuesto_carpeta usando AMBOS criterios
+                            # 2. Buscar en presupuesto_carpeta usando la carpeta del técnico
                             cursor.execute("""
                                 SELECT presupuesto_diario, presupuesto_eventos 
                                 FROM presupuesto_carpeta 
-                                WHERE presupuesto_carpeta = %s AND presupuesto_cargo = %s 
+                                WHERE presupuesto_carpeta = %s 
                                 LIMIT 1
-                            """, (carpeta_tecnico, cargo_tecnico))
+                            """, (carpeta_tecnico,))
                             presupuesto_row = cursor.fetchone()
                             
                             if presupuesto_row:
@@ -8575,11 +9035,11 @@ def guardar_asistencias_operativo():
                                         valor_eventos = 0
                                 
                                 if presupuesto_encontrado:
-                                    print(f"DEBUG - Presupuesto encontrado para carpeta='{carpeta_tecnico}' Y cargo='{cargo_tecnico}': valor={valor_presupuesto}, eventos={valor_eventos}")
+                                    print(f"DEBUG - Presupuesto encontrado para carpeta='{carpeta_tecnico}': valor={valor_presupuesto}, eventos={valor_eventos}")
                                 else:
-                                    print(f"DEBUG - Presupuesto encontrado para carpeta='{carpeta_tecnico}' Y cargo='{cargo_tecnico}' pero con valores en 0")
+                                    print(f"DEBUG - Presupuesto encontrado para carpeta='{carpeta_tecnico}' pero con valores en 0")
                             else:
-                                print(f"DEBUG - No se encontró presupuesto para carpeta='{carpeta_tecnico}' Y cargo='{cargo_tecnico}'")
+                                print(f"DEBUG - No se encontró presupuesto para carpeta='{carpeta_tecnico}'")
                         else:
                             print(f"DEBUG - No se encontró carpeta o cargo para técnico con cédula '{cedula_tecnico}' en recurso_operativo")
                     except Exception as e_presupuesto:

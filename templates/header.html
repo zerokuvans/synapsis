@@ -93,6 +93,14 @@
                     </li>
                     {% endif %}
 
+                    {% if session.get('user_role') in ['administrativo', 'lider'] %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="/lider">
+                            <i class="fas fa-user-tie me-1"></i>Líder
+                        </a>
+                    </li>
+                    {% endif %}
+
                     {% if session.get('user_role') in ['administrativo', 'tecnicos'] %}
                     <li class="nav-item">
                         <a class="nav-link" href="/tecnicos">
