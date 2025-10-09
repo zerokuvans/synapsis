@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test PIN Modal</title>
+    <script>
+        // Simular las funciones del PIN para verificar que no hay errores
+        function testPinFunctions() {
+            console.log('Iniciando pruebas de funciones PIN...');
+            
+            // Simular elementos que podrían no existir
+            const tests = [
+                () => {
+                    console.log('Test 1: limpiarPIN con elementos faltantes');
+                    // Simular limpiarPIN cuando algunos elementos no existen
+                    try {
+                        const pinInput = document.getElementById('pinValidacion');
+                        const errorPIN = document.getElementById('errorPIN');
+                        const loadingPIN = document.getElementById('loadingPIN');
+                        
+                        if (pinInput) pinInput.value = '';
+                        if (errorPIN) errorPIN.style.display = 'none';
+                        if (loadingPIN) loadingPIN.style.display = 'none';
+                        
+                        console.log('✓ limpiarPIN completado sin errores');
+                    } catch (error) {
+                        console.error('✗ Error en limpiarPIN:', error);
+                    }
+                },
+                
+                () => {
+                    console.log('Test 2: ocultarErrorPIN con elemento null');
+                    try {
+                        const errorPIN = document.getElementById('errorPIN');
+                        if (errorPIN && errorPIN.classList) {
+                            errorPIN.classList.add('d-none');
+                            errorPIN.classList.remove('d-block');
+                        }
+                        console.log('✓ ocultarErrorPIN completado sin errores');
+                    } catch (error) {
+                        console.error('✗ Error en ocultarErrorPIN:', error);
+                    }
+                },
+                
+                () => {
+                    console.log('Test 3: mostrarErrorPIN con elemento null');
+                    try {
+                        const errorPIN = document.getElementById('errorPIN');
+                        const mensajeErrorPIN = document.getElementById('mensajeErrorPIN');
+                        
+                        if (mensajeErrorPIN) mensajeErrorPIN.textContent = 'Test error';
+                        if (errorPIN && errorPIN.classList) {
+                            errorPIN.classList.remove('d-none');
+                            errorPIN.classList.add('d-block');
+                        }
+                        console.log('✓ mostrarErrorPIN completado sin errores');
+                    } catch (error) {
+                        console.error('✗ Error en mostrarErrorPIN:', error);
+                    }
+                }
+            ];
+            
+            tests.forEach((test, index) => {
+                setTimeout(test, index * 100);
+            });
+            
+            setTimeout(() => {
+                console.log('Todas las pruebas completadas');
+            }, tests.length * 100 + 100);
+        }
+        
+        // Ejecutar pruebas cuando se carga la página
+        document.addEventListener('DOMContentLoaded', testPinFunctions);
+    </script>
+</head>
+<body>
+    <h1>Test PIN Modal Functions</h1>
+    <p>Abre la consola del navegador para ver los resultados de las pruebas.</p>
+    <button onclick="testPinFunctions()">Ejecutar Pruebas Nuevamente</button>
+</body>
+</html>

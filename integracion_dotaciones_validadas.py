@@ -195,11 +195,11 @@ class DotacionesIntegradas:
             insert_query = """
                 INSERT INTO cambios_dotacion (
                     cedula_tecnico, nombre_tecnico, fecha_cambio, motivo_cambio,
-                    pantalon, camisetagris, guerrera, camisetapolo, botas,
+                    pantalon, camisetagris, guerrera, camisetapolo, chaqueta, botas,
                     guantes_nitrilo, guantes_carnaza, gafas, gorra, casco,
                     observaciones, referencia_operacion, validado
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
             """
             
@@ -207,9 +207,9 @@ class DotacionesIntegradas:
                 cedula_tecnico, nombre_tecnico, fecha_cambio, motivo_cambio,
                 items.get('pantalon', 0), items.get('camisetagris', 0),
                 items.get('guerrera', 0), items.get('camisetapolo', 0),
-                items.get('botas', 0), items.get('guantes_nitrilo', 0),
-                items.get('guantes_carnaza', 0), items.get('gafas', 0),
-                items.get('gorra', 0), items.get('casco', 0),
+                items.get('chaqueta', 0), items.get('botas', 0), 
+                items.get('guantes_nitrilo', 0), items.get('guantes_carnaza', 0), 
+                items.get('gafas', 0), items.get('gorra', 0), items.get('casco', 0),
                 observaciones, referencia_operacion, True
             )
             

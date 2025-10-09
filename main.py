@@ -1268,25 +1268,96 @@ def api_get_turnos_semana():
             
         cursor = connection.cursor(dictionary=True)
         
-        # Obtener asignaciones de la semana
+        # Obtener asignaciones de la semana con nombre de analista
         cursor.execute("""
             SELECT 
-                analistas_turnos_fecha,
-                analistas_turnos_analista,
-                analistas_turnos_turno,
-                analistas_turnos_almuerzo,
-                analistas_turnos_break,
-                analistas_turnos_horas_trabajadas
-            FROM analistas_turnos_base 
-            WHERE analistas_turnos_fecha BETWEEN %s AND %s
-            ORDER BY analistas_turnos_fecha, analistas_turnos_analista
+                atb.analistas_turnos_fecha,
+                COALESCE(ro.nombre, atb.analistas_turnos_analista) as analistas_turnos_analista,
+                atb.analistas_turnos_turno,
+                atb.analistas_turnos_almuerzo,
+                atb.analistas_turnos_break,
+                atb.analistas_turnos_horas_trabajadas
+            FROM analistas_turnos_base atb
+            LEFT JOIN recurso_operativo ro ON atb.analistas_turnos_analista = ro.id_codigo_consumidor
+            WHERE atb.analistas_turnos_fecha BETWEEN %s AND %s
+            ORDER BY atb.analistas_turnos_fecha, ro.nombre
         """, (fecha_inicio, fecha_fin))
         
         turnos_semana = cursor.fetchall()
         
+        # Convertir fechas a strings para asegurar compatibilidad con el frontend
+        for turno in turnos_semana:
+            if 'analistas_turnos_fecha' in turno and turno['analistas_turnos_fecha']:
+                turno['analistas_turnos_fecha'] = turno['analistas_turnos_fecha'].strftime('%Y-%m-%d')
+        
         return jsonify({
             'success': True,
             'turnos': turnos_semana
+        })
+        
+    except mysql.connector.Error as e:
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/resumen-semanal', methods=['GET'])
+@login_required_api(role=['administrativo', 'lider'])
+def api_get_resumen_semanal():
+    """
+    API para obtener resumen semanal de horas trabajadas por analista
+    """
+    connection = None
+    cursor = None
+    try:
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        
+        if not fecha_inicio or not fecha_fin:
+            return jsonify({'error': 'Se requieren fecha_inicio y fecha_fin'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Consulta para obtener resumen semanal con datos reales de la tabla
+        # Solo cuenta horas de almuerzo en días que realmente trabajaron (horas > 0)
+        cursor.execute("""
+            SELECT 
+                ro.nombre as nombre_analista,
+                SUM(atb.analistas_turnos_horas_trabajadas) as horas_semanales,
+                COUNT(DISTINCT CASE WHEN atb.analistas_turnos_horas_trabajadas > 0 THEN atb.analistas_turnos_fecha END) as dias_trabajados,
+                COUNT(DISTINCT CASE WHEN atb.analistas_turnos_horas_trabajadas > 0 THEN atb.analistas_turnos_fecha END) as horas_almuerzo_total,
+                (SUM(atb.analistas_turnos_horas_trabajadas) - COUNT(DISTINCT CASE WHEN atb.analistas_turnos_horas_trabajadas > 0 THEN atb.analistas_turnos_fecha END)) as total_horas_netas
+            FROM analistas_turnos_base atb
+            INNER JOIN recurso_operativo ro ON atb.analistas_turnos_analista = ro.id_codigo_consumidor
+            WHERE atb.analistas_turnos_fecha BETWEEN %s AND %s
+            GROUP BY atb.analistas_turnos_analista, ro.nombre
+            ORDER BY ro.nombre
+        """, (fecha_inicio, fecha_fin))
+        
+        resumen_semanal = cursor.fetchall()
+        
+        # Asegurar que los valores numéricos sean correctos
+        for analista in resumen_semanal:
+            analista['horas_semanales'] = float(analista['horas_semanales']) if analista['horas_semanales'] else 0
+            analista['dias_trabajados'] = int(analista['dias_trabajados']) if analista['dias_trabajados'] else 0
+            analista['horas_almuerzo_total'] = int(analista['horas_almuerzo_total']) if analista['horas_almuerzo_total'] else 0
+            analista['total_horas_netas'] = float(analista['total_horas_netas']) if analista['total_horas_netas'] else 0
+            
+            # Asegurar que el total no sea negativo
+            if analista['total_horas_netas'] < 0:
+                analista['total_horas_netas'] = 0
+        
+        return jsonify({
+            'success': True,
+            'resumen': resumen_semanal
         })
         
     except mysql.connector.Error as e:
@@ -1319,23 +1390,22 @@ def api_get_detalles_dia():
             
         cursor = connection.cursor(dictionary=True)
         
-        # Obtener detalles del día con información completa del turno
+        # Obtener detalles del día con información completa del turno y nombre de la analista
         cursor.execute("""
             SELECT 
                 atb.analistas_turnos_analista,
+                ro.nombre as nombre_analista,
                 atb.analistas_turnos_turno,
                 atb.analistas_turnos_almuerzo,
                 atb.analistas_turnos_break,
                 atb.analistas_turnos_horas_trabajadas,
                 t.turnos_nombre,
-                t.turnos_horario,
-                t.turnos_horas_laboradas,
-                t.turnos_breack as turno_break,
-                t.turnos_almuerzo as turno_almuerzo
+                t.turnos_horas_laboradas
             FROM analistas_turnos_base atb
+            INNER JOIN recurso_operativo ro ON atb.analistas_turnos_analista = ro.id_codigo_consumidor
             LEFT JOIN turnos t ON atb.analistas_turnos_turno = t.turnos_horario
             WHERE atb.analistas_turnos_fecha = %s
-            ORDER BY atb.analistas_turnos_analista
+            ORDER BY ro.nombre
         """, (fecha,))
         
         detalles = cursor.fetchall()
@@ -13666,6 +13736,11 @@ def registrar_cambio_dotacion():
                 'cantidad': convertir_cantidad(request.form.get('botas')),
                 'talla': convertir_talla(request.form.get('botas_talla')),
                 'valorado': request.form.get('botas_valorado') == 'on'
+            },
+            'chaqueta': {
+                'cantidad': convertir_cantidad(request.form.get('chaqueta')),
+                'talla': convertir_talla(request.form.get('chaqueta_talla')),
+                'valorado': request.form.get('chaqueta_valorado') == 'on'
             }
         }
         
@@ -13712,6 +13787,7 @@ def registrar_cambio_dotacion():
                             WHEN %s = 'gorra' AND estado_gorra = %s THEN gorra
                             WHEN %s = 'casco' AND estado_casco = %s THEN casco
                             WHEN %s = 'botas' AND estado_botas = %s THEN botas
+                            WHEN %s = 'chaqueta' AND estado_chaqueta = %s THEN chaqueta
                             ELSE 0
                         END
                     ), 0) as total_salidas
@@ -13719,7 +13795,7 @@ def registrar_cambio_dotacion():
                 """, (elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock, 
                       elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock,
                       elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock,
-                      elemento, tipo_stock))
+                      elemento, tipo_stock, elemento, tipo_stock))
                 
                 salidas_result = cursor.fetchone()
                 stock_salidas = salidas_result['total_salidas'] if salidas_result else 0
@@ -13748,9 +13824,9 @@ def registrar_cambio_dotacion():
                 camisetagris, camiseta_gris_talla, estado_camiseta_gris, guerrera, guerrera_talla, estado_guerrera,
                 camisetapolo, camiseta_polo_talla, estado_camiseta_polo, guantes_nitrilo, estado_guantes_nitrilo,
                 guantes_carnaza, estado_guantes_carnaza, gafas, estado_gafas, gorra, estado_gorra,
-                casco, estado_casco, botas, botas_talla, estado_botas, observaciones
+                casco, estado_casco, botas, botas_talla, estado_botas, chaqueta, chaqueta_talla, estado_chaqueta, observaciones
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
         """
         
@@ -13776,6 +13852,8 @@ def registrar_cambio_dotacion():
             'VALORADO' if elementos_dotacion['casco']['valorado'] else 'NO VALORADO',
             elementos_dotacion['botas']['cantidad'], elementos_dotacion['botas']['talla'],
             'VALORADO' if elementos_dotacion['botas']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['chaqueta']['cantidad'], elementos_dotacion['chaqueta']['talla'],
+            'VALORADO' if elementos_dotacion['chaqueta']['valorado'] else 'NO VALORADO',
             observaciones
         ))
         
@@ -13844,6 +13922,9 @@ def api_cambios_dotacion_historial():
                 cd.camisetapolo,
                 cd.camiseta_polo_talla,
                 cd.estado_camiseta_polo,
+                cd.chaqueta,
+                cd.chaqueta_talla,
+                cd.estado_chaqueta,
                 cd.guantes_nitrilo,
                 cd.estado_guantes_nitrilo,
                 cd.guantes_carnaza,
@@ -13879,6 +13960,7 @@ def api_cambios_dotacion_historial():
                 ('camisetagris', cambio['camisetagris'], cambio['camiseta_gris_talla'], cambio['estado_camiseta_gris']),
                 ('guerrera', cambio['guerrera'], cambio['guerrera_talla'], cambio['estado_guerrera']),
                 ('camisetapolo', cambio['camisetapolo'], cambio['camiseta_polo_talla'], cambio['estado_camiseta_polo']),
+                ('chaqueta', cambio['chaqueta'], cambio['chaqueta_talla'], cambio['estado_chaqueta']),
                 ('guantes_nitrilo', cambio['guantes_nitrilo'], None, cambio['estado_guantes_nitrilo']),
                 ('guantes_carnaza', cambio['guantes_carnaza'], None, cambio['estado_guantes_carnaza']),
                 ('gafas', cambio['gafas'], None, cambio['estado_gafas']),
@@ -13893,6 +13975,7 @@ def api_cambios_dotacion_historial():
                 'camisetagris': 'Camiseta Gris',
                 'guerrera': 'Guerrera',
                 'camisetapolo': 'Camiseta Polo',
+                'chaqueta': 'Chaqueta',
                 'guantes_nitrilo': 'Guantes Nitrilo',
                 'guantes_carnaza': 'Guantes Carnaza',
                 'gafas': 'Gafas',
@@ -13972,6 +14055,626 @@ def api_cambios_dotacion_historial():
         return jsonify({
             'success': False,
             'error': f'Error al cargar el historial: {str(e)}'
+        }), 500
+
+@app.route('/api/validar_pin', methods=['POST'])
+@login_required()
+def api_validar_pin():
+    """API para validar el PIN del usuario logueado - Optimizado para respuesta rápida"""
+    connection = None
+    cursor = None
+    
+    try:
+        # Validación rápida de datos de entrada
+        data = request.get_json()
+        if not data or 'pin' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'PIN no proporcionado'
+            }), 400
+        
+        pin_ingresado = data['pin'].strip()
+        usuario_id = session.get('user_id')
+        
+        if not usuario_id:
+            return jsonify({
+                'success': False,
+                'error': 'Usuario no autenticado'
+            }), 401
+        
+        # Validación básica del PIN ingresado
+        if not pin_ingresado or len(pin_ingresado) < 4:
+            return jsonify({
+                'success': False,
+                'error': 'PIN debe tener al menos 4 dígitos'
+            }), 400
+        
+        # Conectar a la base de datos con timeout optimizado
+        connection = mysql.connector.connect(
+            **db_config,
+            connection_timeout=5,  # Timeout de conexión de 5 segundos
+            autocommit=True
+        )
+        cursor = connection.cursor()
+        
+        # Consulta optimizada - usar la columna correcta id_codigo_consumidor
+        query = """
+            SELECT pin 
+            FROM recurso_operativo 
+            WHERE id_codigo_consumidor = %s
+            LIMIT 1
+        """
+        
+        # Ejecutar consulta con timeout
+        cursor.execute(query, (usuario_id,))
+        result = cursor.fetchone()
+        
+        # Verificar si el usuario existe
+        if not result:
+            return jsonify({
+                'success': False,
+                'error': 'Usuario no encontrado en recursos operativos'
+            }), 404
+        
+        pin_usuario = result[0]
+        
+        # Verificación rápida si el usuario tiene PIN asignado
+        if pin_usuario is None or pin_usuario == 0:
+            return jsonify({
+                'success': False,
+                'error': 'No tiene PIN asignado. Contacte al administrador para configurar su PIN de seguridad.'
+            }), 403
+        
+        # Validar el PIN (conversión a string para comparación)
+        if str(pin_ingresado) == str(pin_usuario):
+            return jsonify({
+                'success': True,
+                'message': 'PIN validado correctamente'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'PIN incorrecto'
+            }), 401
+            
+    except mysql.connector.Error as err:
+        print(f"Error de base de datos al validar PIN: {err}")
+        return jsonify({
+            'success': False,
+            'error': 'Error de conexión con la base de datos'
+        }), 500
+    except Exception as e:
+        print(f"Error al validar PIN: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Error interno del servidor'
+        }), 500
+    finally:
+        # Cerrar conexiones de forma segura
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/cambios_dotacion/<int:cambio_id>', methods=['PUT'])
+@login_required()
+@role_required('logistica')
+def api_actualizar_cambio_dotacion(cambio_id):
+    """API para actualizar un cambio de dotación existente"""
+    try:
+        # Obtener datos del formulario
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No se recibieron datos para actualizar'
+            }), 400
+        
+        # Conectar a la base de datos capired
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor()
+        
+        # Verificar que el registro existe
+        cursor.execute("SELECT id_cambio FROM cambios_dotacion WHERE id_cambio = %s", (cambio_id,))
+        if not cursor.fetchone():
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'error': 'El registro no existe'
+            }), 404
+        
+        # Preparar los datos para actualizar
+        fecha_cambio = data.get('fecha_cambio')
+        observaciones = data.get('observaciones', '')
+        
+        # Elementos de dotación con sus cantidades, tallas y estados
+        elementos = {
+            'pantalon': {
+                'cantidad': int(data.get('pantalon', 0)) if data.get('pantalon') else 0,
+                'talla': data.get('pantalon_talla', ''),
+                'estado': 'VALORADO' if data.get('estado_pantalon') else 'NO VALORADO'
+            },
+            'camisetagris': {
+                'cantidad': int(data.get('camisetagris', 0)) if data.get('camisetagris') else 0,
+                'talla': data.get('camiseta_gris_talla', ''),
+                'estado': 'VALORADO' if data.get('estado_camiseta_gris') else 'NO VALORADO'
+            },
+            'guerrera': {
+                'cantidad': int(data.get('guerrera', 0)) if data.get('guerrera') else 0,
+                'talla': data.get('guerrera_talla', ''),
+                'estado': 'VALORADO' if data.get('estado_guerrera') else 'NO VALORADO'
+            },
+            'camisetapolo': {
+                'cantidad': int(data.get('camisetapolo', 0)) if data.get('camisetapolo') else 0,
+                'talla': data.get('camiseta_polo_talla', ''),
+                'estado': 'VALORADO' if data.get('estado_camiseta_polo') else 'NO VALORADO'
+            },
+            'botas': {
+                'cantidad': int(data.get('botas', 0)) if data.get('botas') else 0,
+                'talla': data.get('botas_talla', ''),
+                'estado': 'VALORADO' if data.get('estado_botas') else 'NO VALORADO'
+            },
+            'guantes_nitrilo': {
+                'cantidad': int(data.get('guantes_nitrilo', 0)) if data.get('guantes_nitrilo') else 0,
+                'talla': '',
+                'estado': 'VALORADO' if data.get('estado_guantes_nitrilo') else 'NO VALORADO'
+            },
+            'guantes_carnaza': {
+                'cantidad': int(data.get('guantes_carnaza', 0)) if data.get('guantes_carnaza') else 0,
+                'talla': '',
+                'estado': 'VALORADO' if data.get('estado_guantes_carnaza') else 'NO VALORADO'
+            },
+            'gafas': {
+                'cantidad': int(data.get('gafas', 0)) if data.get('gafas') else 0,
+                'talla': '',
+                'estado': 'VALORADO' if data.get('estado_gafas') else 'NO VALORADO'
+            },
+            'gorra': {
+                'cantidad': int(data.get('gorra', 0)) if data.get('gorra') else 0,
+                'talla': '',
+                'estado': 'VALORADO' if data.get('estado_gorra') else 'NO VALORADO'
+            },
+            'casco': {
+                'cantidad': int(data.get('casco', 0)) if data.get('casco') else 0,
+                'talla': '',
+                'estado': 'VALORADO' if data.get('estado_casco') else 'NO VALORADO'
+            },
+            'chaqueta': {
+                'cantidad': int(data.get('chaqueta', 0)) if data.get('chaqueta') else 0,
+                'talla': data.get('chaqueta_talla', ''),
+                'estado': 'VALORADO' if data.get('estado_chaqueta') else 'NO VALORADO'
+            }
+        }
+        
+        # Construir la consulta de actualización
+        update_query = """
+            UPDATE cambios_dotacion SET
+                fecha_cambio = %s,
+                pantalon = %s,
+                pantalon_talla = %s,
+                estado_pantalon = %s,
+                camisetagris = %s,
+                camiseta_gris_talla = %s,
+                estado_camiseta_gris = %s,
+                guerrera = %s,
+                guerrera_talla = %s,
+                estado_guerrera = %s,
+                camisetapolo = %s,
+                camiseta_polo_talla = %s,
+                estado_camiseta_polo = %s,
+                botas = %s,
+                botas_talla = %s,
+                estado_botas = %s,
+                guantes_nitrilo = %s,
+                estado_guantes_nitrilo = %s,
+                guantes_carnaza = %s,
+                estado_guantes_carnaza = %s,
+                gafas = %s,
+                estado_gafas = %s,
+                gorra = %s,
+                estado_gorra = %s,
+                casco = %s,
+                estado_casco = %s,
+                chaqueta = %s,
+                chaqueta_talla = %s,
+                estado_chaqueta = %s,
+                observaciones = %s
+            WHERE id_cambio = %s
+        """
+        
+        # Preparar los valores para la consulta
+        valores = [
+            fecha_cambio,
+            elementos['pantalon']['cantidad'],
+            elementos['pantalon']['talla'] if elementos['pantalon']['talla'] else None,
+            elementos['pantalon']['estado'],
+            elementos['camisetagris']['cantidad'],
+            elementos['camisetagris']['talla'] if elementos['camisetagris']['talla'] else None,
+            elementos['camisetagris']['estado'],
+            elementos['guerrera']['cantidad'],
+            elementos['guerrera']['talla'] if elementos['guerrera']['talla'] else None,
+            elementos['guerrera']['estado'],
+            elementos['camisetapolo']['cantidad'],
+            elementos['camisetapolo']['talla'] if elementos['camisetapolo']['talla'] else None,
+            elementos['camisetapolo']['estado'],
+            elementos['botas']['cantidad'],
+            elementos['botas']['talla'] if elementos['botas']['talla'] else None,
+            elementos['botas']['estado'],
+            elementos['guantes_nitrilo']['cantidad'],
+            elementos['guantes_nitrilo']['estado'],
+            elementos['guantes_carnaza']['cantidad'],
+            elementos['guantes_carnaza']['estado'],
+            elementos['gafas']['cantidad'],
+            elementos['gafas']['estado'],
+            elementos['gorra']['cantidad'],
+            elementos['gorra']['estado'],
+            elementos['casco']['cantidad'],
+            elementos['casco']['estado'],
+            elementos['chaqueta']['cantidad'],
+            elementos['chaqueta']['talla'] if elementos['chaqueta']['talla'] else None,
+            elementos['chaqueta']['estado'],
+            observaciones,
+            cambio_id
+        ]
+        
+        # Ejecutar la actualización
+        print(f"Ejecutando actualización para cambio_id: {cambio_id}")
+        print(f"Consulta SQL: {update_query}")
+        print(f"Valores: {valores}")
+        
+        cursor.execute(update_query, valores)
+        connection.commit()
+        
+        # Verificar que se actualizó al menos un registro
+        if cursor.rowcount == 0:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'success': False,
+                'error': 'No se pudo actualizar el registro. Verifique que el ID sea válido.'
+            }), 400
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Cambio de dotación actualizado exitosamente'
+        })
+        
+    except mysql.connector.Error as db_error:
+        print(f"Error de base de datos al actualizar cambio de dotación: {str(db_error)}")
+        if 'connection' in locals():
+            connection.close()
+        return jsonify({
+            'success': False,
+            'error': f'Error de base de datos: {str(db_error)}'
+        }), 500
+    except Exception as e:
+        print(f"Error general al actualizar cambio de dotación: {str(e)}")
+        if 'connection' in locals():
+            connection.close()
+        return jsonify({
+            'success': False,
+            'error': f'Error al actualizar el registro: {str(e)}'
+        }), 500
+
+@app.route('/api/indicadores_cambios_dotacion', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def api_indicadores_cambios_dotacion():
+    """API para obtener datos de indicadores de cambios de dotación para gráficas"""
+    try:
+        # Conectar a la base de datos capired
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener parámetros de filtros
+        estado_valorado = request.args.get('estado_valorado', 'todos')  # 'valorado', 'no_valorado', 'todos'
+        mes = request.args.get('mes', '')  # 1-12 o vacío para todos
+        elemento = request.args.get('elemento', 'todos')  # nombre del elemento o 'todos'
+        anio = request.args.get('anio', str(datetime.now().year))  # año actual por defecto
+        
+        # Construir la consulta base
+        base_query = """
+            SELECT 
+                MONTH(cd.fecha_cambio) as mes,
+                YEAR(cd.fecha_cambio) as anio,
+                'pantalon' as elemento_tipo,
+                'Pantalón' as elemento_nombre,
+                SUM(cd.pantalon) as cantidad_total,
+                SUM(CASE WHEN cd.estado_pantalon = 'VALORADO' THEN cd.pantalon ELSE 0 END) as cantidad_valorado,
+                SUM(CASE WHEN cd.estado_pantalon != 'VALORADO' OR cd.estado_pantalon IS NULL THEN cd.pantalon ELSE 0 END) as cantidad_no_valorado
+            FROM cambios_dotacion cd
+            WHERE cd.pantalon > 0 AND YEAR(cd.fecha_cambio) = %s
+            GROUP BY MONTH(cd.fecha_cambio), YEAR(cd.fecha_cambio)
+            
+            UNION ALL
+            
+            SELECT 
+                MONTH(cd.fecha_cambio) as mes,
+                YEAR(cd.fecha_cambio) as anio,
+                'camisetagris' as elemento_tipo,
+                'Camiseta Gris' as elemento_nombre,
+                SUM(cd.camisetagris) as cantidad_total,
+                SUM(CASE WHEN cd.estado_camiseta_gris = 'VALORADO' THEN cd.camisetagris ELSE 0 END) as cantidad_valorado,
+                SUM(CASE WHEN cd.estado_camiseta_gris != 'VALORADO' OR cd.estado_camiseta_gris IS NULL THEN cd.camisetagris ELSE 0 END) as cantidad_no_valorado
+            FROM cambios_dotacion cd
+            WHERE cd.camisetagris > 0 AND YEAR(cd.fecha_cambio) = %s
+            GROUP BY MONTH(cd.fecha_cambio), YEAR(cd.fecha_cambio)
+            
+            UNION ALL
+            
+            SELECT 
+                MONTH(cd.fecha_cambio) as mes,
+                YEAR(cd.fecha_cambio) as anio,
+                'guerrera' as elemento_tipo,
+                'Guerrera' as elemento_nombre,
+                SUM(cd.guerrera) as cantidad_total,
+                SUM(CASE WHEN cd.estado_guerrera = 'VALORADO' THEN cd.guerrera ELSE 0 END) as cantidad_valorado,
+                SUM(CASE WHEN cd.estado_guerrera != 'VALORADO' OR cd.estado_guerrera IS NULL THEN cd.guerrera ELSE 0 END) as cantidad_no_valorado
+            FROM cambios_dotacion cd
+            WHERE cd.guerrera > 0 AND YEAR(cd.fecha_cambio) = %s
+            GROUP BY MONTH(cd.fecha_cambio), YEAR(cd.fecha_cambio)
+            
+            UNION ALL
+            
+            SELECT 
+                MONTH(cd.fecha_cambio) as mes,
+                YEAR(cd.fecha_cambio) as anio,
+                'camisetapolo' as elemento_tipo,
+                'Camiseta Polo' as elemento_nombre,
+                SUM(cd.camisetapolo) as cantidad_total,
+                SUM(CASE WHEN cd.estado_camiseta_polo = 'VALORADO' THEN cd.camisetapolo ELSE 0 END) as cantidad_valorado,
+                SUM(CASE WHEN cd.estado_camiseta_polo != 'VALORADO' OR cd.estado_camiseta_polo IS NULL THEN cd.camisetapolo ELSE 0 END) as cantidad_no_valorado
+            FROM cambios_dotacion cd
+            WHERE cd.camisetapolo > 0 AND YEAR(cd.fecha_cambio) = %s
+            GROUP BY MONTH(cd.fecha_cambio), YEAR(cd.fecha_cambio)
+            
+            UNION ALL
+            
+            SELECT 
+                MONTH(cd.fecha_cambio) as mes,
+                YEAR(cd.fecha_cambio) as anio,
+                'guantes_nitrilo' as elemento_tipo,
+                'Guantes Nitrilo' as elemento_nombre,
+                SUM(cd.guantes_nitrilo) as cantidad_total,
+                SUM(CASE WHEN cd.estado_guantes_nitrilo = 'VALORADO' THEN cd.guantes_nitrilo ELSE 0 END) as cantidad_valorado,
+                SUM(CASE WHEN cd.estado_guantes_nitrilo != 'VALORADO' OR cd.estado_guantes_nitrilo IS NULL THEN cd.guantes_nitrilo ELSE 0 END) as cantidad_no_valorado
+            FROM cambios_dotacion cd
+            WHERE cd.guantes_nitrilo > 0 AND YEAR(cd.fecha_cambio) = %s
+            GROUP BY MONTH(cd.fecha_cambio), YEAR(cd.fecha_cambio)
+            
+            UNION ALL
+            
+            SELECT 
+                MONTH(cd.fecha_cambio) as mes,
+                YEAR(cd.fecha_cambio) as anio,
+                'guantes_carnaza' as elemento_tipo,
+                'Guantes Carnaza' as elemento_nombre,
+                SUM(cd.guantes_carnaza) as cantidad_total,
+                SUM(CASE WHEN cd.estado_guantes_carnaza = 'VALORADO' THEN cd.guantes_carnaza ELSE 0 END) as cantidad_valorado,
+                SUM(CASE WHEN cd.estado_guantes_carnaza != 'VALORADO' OR cd.estado_guantes_carnaza IS NULL THEN cd.guantes_carnaza ELSE 0 END) as cantidad_no_valorado
+            FROM cambios_dotacion cd
+            WHERE cd.guantes_carnaza > 0 AND YEAR(cd.fecha_cambio) = %s
+            GROUP BY MONTH(cd.fecha_cambio), YEAR(cd.fecha_cambio)
+            
+            UNION ALL
+            
+            SELECT 
+                MONTH(cd.fecha_cambio) as mes,
+                YEAR(cd.fecha_cambio) as anio,
+                'gafas' as elemento_tipo,
+                'Gafas' as elemento_nombre,
+                SUM(cd.gafas) as cantidad_total,
+                SUM(CASE WHEN cd.estado_gafas = 'VALORADO' THEN cd.gafas ELSE 0 END) as cantidad_valorado,
+                SUM(CASE WHEN cd.estado_gafas != 'VALORADO' OR cd.estado_gafas IS NULL THEN cd.gafas ELSE 0 END) as cantidad_no_valorado
+            FROM cambios_dotacion cd
+            WHERE cd.gafas > 0 AND YEAR(cd.fecha_cambio) = %s
+            GROUP BY MONTH(cd.fecha_cambio), YEAR(cd.fecha_cambio)
+            
+            UNION ALL
+            
+            SELECT 
+                MONTH(cd.fecha_cambio) as mes,
+                YEAR(cd.fecha_cambio) as anio,
+                'gorra' as elemento_tipo,
+                'Gorra' as elemento_nombre,
+                SUM(cd.gorra) as cantidad_total,
+                SUM(CASE WHEN cd.estado_gorra = 'VALORADO' THEN cd.gorra ELSE 0 END) as cantidad_valorado,
+                SUM(CASE WHEN cd.estado_gorra != 'VALORADO' OR cd.estado_gorra IS NULL THEN cd.gorra ELSE 0 END) as cantidad_no_valorado
+            FROM cambios_dotacion cd
+            WHERE cd.gorra > 0 AND YEAR(cd.fecha_cambio) = %s
+            GROUP BY MONTH(cd.fecha_cambio), YEAR(cd.fecha_cambio)
+            
+            UNION ALL
+            
+            SELECT 
+                MONTH(cd.fecha_cambio) as mes,
+                YEAR(cd.fecha_cambio) as anio,
+                'casco' as elemento_tipo,
+                'Casco' as elemento_nombre,
+                SUM(cd.casco) as cantidad_total,
+                SUM(CASE WHEN cd.estado_casco = 'VALORADO' THEN cd.casco ELSE 0 END) as cantidad_valorado,
+                SUM(CASE WHEN cd.estado_casco != 'VALORADO' OR cd.estado_casco IS NULL THEN cd.casco ELSE 0 END) as cantidad_no_valorado
+            FROM cambios_dotacion cd
+            WHERE cd.casco > 0 AND YEAR(cd.fecha_cambio) = %s
+            GROUP BY MONTH(cd.fecha_cambio), YEAR(cd.fecha_cambio)
+            
+            UNION ALL
+            
+            SELECT 
+                MONTH(cd.fecha_cambio) as mes,
+                YEAR(cd.fecha_cambio) as anio,
+                'botas' as elemento_tipo,
+                'Botas' as elemento_nombre,
+                SUM(cd.botas) as cantidad_total,
+                SUM(CASE WHEN cd.estado_botas = 'VALORADO' THEN cd.botas ELSE 0 END) as cantidad_valorado,
+                SUM(CASE WHEN cd.estado_botas != 'VALORADO' OR cd.estado_botas IS NULL THEN cd.botas ELSE 0 END) as cantidad_no_valorado
+            FROM cambios_dotacion cd
+            WHERE cd.botas > 0 AND YEAR(cd.fecha_cambio) = %s
+            GROUP BY MONTH(cd.fecha_cambio), YEAR(cd.fecha_cambio)
+            
+            ORDER BY mes, elemento_nombre
+        """
+        
+        # Ejecutar consulta con parámetros (año repetido para cada UNION)
+        params = [anio] * 10  # 10 elementos diferentes
+        cursor.execute(base_query, params)
+        resultados = cursor.fetchall()
+        
+        # Procesar y filtrar resultados según los parámetros
+        if mes and mes != '':
+            # Filtro por mes específico - comportamiento actual
+            datos_filtrados = []
+            for row in resultados:
+                # Aplicar filtro de mes si se especifica
+                if str(row['mes']) != str(mes):
+                    continue
+                    
+                # Aplicar filtro de elemento si se especifica
+                if elemento != 'todos' and row['elemento_tipo'] != elemento:
+                    continue
+                    
+                # Aplicar filtro de estado valorado
+                if estado_valorado == 'valorado':
+                    cantidad_mostrar = row['cantidad_valorado']
+                elif estado_valorado == 'no_valorado':
+                    cantidad_mostrar = row['cantidad_no_valorado']
+                else:  # 'todos'
+                    cantidad_mostrar = row['cantidad_total']
+                
+                # Solo incluir si hay cantidad para mostrar
+                if cantidad_mostrar > 0:
+                    datos_filtrados.append({
+                        'mes': row['mes'],
+                        'anio': row['anio'],
+                        'elemento_tipo': row['elemento_tipo'],
+                        'elemento_nombre': row['elemento_nombre'],
+                        'cantidad': cantidad_mostrar,
+                        'cantidad_total': row['cantidad_total'],
+                        'cantidad_valorado': row['cantidad_valorado'],
+                        'cantidad_no_valorado': row['cantidad_no_valorado']
+                    })
+        else:
+            # Todos los meses - agregar datos por elemento
+            elementos_agregados = {}
+            
+            for row in resultados:
+                # Aplicar filtro de elemento si se especifica
+                if elemento != 'todos' and row['elemento_tipo'] != elemento:
+                    continue
+                
+                elemento_key = row['elemento_tipo']
+                
+                # Aplicar filtro de estado valorado
+                if estado_valorado == 'valorado':
+                    cantidad_mostrar = row['cantidad_valorado']
+                elif estado_valorado == 'no_valorado':
+                    cantidad_mostrar = row['cantidad_no_valorado']
+                else:  # 'todos'
+                    cantidad_mostrar = row['cantidad_total']
+                
+                # Agregar al elemento existente o crear nuevo
+                if elemento_key in elementos_agregados:
+                    elementos_agregados[elemento_key]['cantidad'] += cantidad_mostrar
+                    elementos_agregados[elemento_key]['cantidad_total'] += row['cantidad_total']
+                    elementos_agregados[elemento_key]['cantidad_valorado'] += row['cantidad_valorado']
+                    elementos_agregados[elemento_key]['cantidad_no_valorado'] += row['cantidad_no_valorado']
+                else:
+                    elementos_agregados[elemento_key] = {
+                        'mes': None,  # No hay mes específico para datos agregados
+                        'anio': row['anio'],
+                        'elemento_tipo': row['elemento_tipo'],
+                        'elemento_nombre': row['elemento_nombre'],
+                        'cantidad': cantidad_mostrar,
+                        'cantidad_total': row['cantidad_total'],
+                        'cantidad_valorado': row['cantidad_valorado'],
+                        'cantidad_no_valorado': row['cantidad_no_valorado']
+                    }
+            
+            # Convertir a lista y filtrar elementos con cantidad > 0
+            datos_filtrados = []
+            for elemento_data in elementos_agregados.values():
+                if elemento_data['cantidad'] > 0:
+                    datos_filtrados.append(elemento_data)
+        
+        # Obtener años disponibles para el filtro
+        cursor.execute("""
+            SELECT DISTINCT YEAR(fecha_cambio) as anio 
+            FROM cambios_dotacion 
+            WHERE fecha_cambio IS NOT NULL 
+            ORDER BY anio DESC
+        """)
+        anios_disponibles = [row['anio'] for row in cursor.fetchall()]
+        
+        # Obtener elementos disponibles para el filtro
+        elementos_disponibles = [
+            {'tipo': 'pantalon', 'nombre': 'Pantalón'},
+            {'tipo': 'camisetagris', 'nombre': 'Camiseta Gris'},
+            {'tipo': 'guerrera', 'nombre': 'Guerrera'},
+            {'tipo': 'camisetapolo', 'nombre': 'Camiseta Polo'},
+            {'tipo': 'guantes_nitrilo', 'nombre': 'Guantes Nitrilo'},
+            {'tipo': 'guantes_carnaza', 'nombre': 'Guantes Carnaza'},
+            {'tipo': 'gafas', 'nombre': 'Gafas'},
+            {'tipo': 'gorra', 'nombre': 'Gorra'},
+            {'tipo': 'casco', 'nombre': 'Casco'},
+            {'tipo': 'botas', 'nombre': 'Botas'}
+        ]
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'data': datos_filtrados,
+            'filtros': {
+                'anios_disponibles': anios_disponibles,
+                'elementos_disponibles': elementos_disponibles,
+                'meses': [
+                    {'numero': 1, 'nombre': 'Enero'},
+                    {'numero': 2, 'nombre': 'Febrero'},
+                    {'numero': 3, 'nombre': 'Marzo'},
+                    {'numero': 4, 'nombre': 'Abril'},
+                    {'numero': 5, 'nombre': 'Mayo'},
+                    {'numero': 6, 'nombre': 'Junio'},
+                    {'numero': 7, 'nombre': 'Julio'},
+                    {'numero': 8, 'nombre': 'Agosto'},
+                    {'numero': 9, 'nombre': 'Septiembre'},
+                    {'numero': 10, 'nombre': 'Octubre'},
+                    {'numero': 11, 'nombre': 'Noviembre'},
+                    {'numero': 12, 'nombre': 'Diciembre'}
+                ]
+            },
+            'filtros_aplicados': {
+                'estado_valorado': estado_valorado,
+                'mes': mes,
+                'elemento': elemento,
+                'anio': anio
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error al obtener indicadores de cambios de dotación: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Error al cargar los indicadores: {str(e)}'
         }), 500
 
 @app.route('/logistica/registrar_devolucion_dotacion', methods=['POST'])
