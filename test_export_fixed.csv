@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+        .login-card {
+            border-radius: 1rem;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .logo-container {
+            margin-bottom: 1.5rem;
+        }
+        .form-control:focus {
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+            border-color: #86b7fe;
+        }
+        #errorMessage {
+            display: none;
+            transition: all 0.3s ease;
+        }
+        .btn-login {
+            padding: 0.75rem;
+            font-weight: 500;
+        }
+        .connection-status {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            opacity: 0.8;
+            transition: all 0.5s ease;
+        }
+        .connection-status.online {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .connection-status.offline {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="login-container container py-5">
+        <div class="row d-flex justify-content-center align-items-center w-100">
+            <div class="col-12 col-md-8 col-lg-6 col-xl-5">
+                <div class="card login-card">
+                    <div class="card-body p-5 text-center">
+                        <div class="logo-container">
+                            <img src="/static/image/synapsis logo.png" alt="Synapsis Logo" style="width: 140px; height: 170px;">
+                        </div>
+                        <h3 class="mb-4">Iniciar Sesión</h3>
+                        
+                        <form id="loginForm" method="POST" action="/">
+                            <div class="form-floating mb-3">
+                                <input type="text" id="username" name="username" class="form-control" placeholder="Cédula" required/>
+                                <label for="username">Cédula / Usuario</label>
+                            </div>
+                            
+                            <div class="form-floating mb-4">
+                                <input type="password" id="password" name="password" class="form-control" placeholder="Contraseña" required/>
+                                <label for="password">Contraseña</label>
+                            </div>
+                            
+                            <div id="errorMessage" class="alert alert-danger mb-4"></div>
+                            
+                            
+                                
+                                    
+                                        <div class="alert alert-warning mb-4">
+                                            Please log in to access this page.
+                                        </div>
+                                    
+                                
+                            
+                            
+                            <button class="btn btn-primary btn-login w-100 mb-3" type="submit" id="loginButton">
+                                <span id="buttonText">Iniciar Sesión</span>
+                                <span id="loadingSpinner" class="spinner-border spinner-border-sm ms-2" role="status" style="display: none;"></span>
+                            </button>
+                            
+                            <div class="mt-4 text-muted">
+                                <small>Si tienes problemas para iniciar sesión, contacta al administrador del sistema.</small>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="connectionStatus" class="connection-status online">
+        Conectado al servidor
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Comprobar la conexión de red
+        function updateConnectionStatus() {
+            const statusElement = document.getElementById('connectionStatus');
+            if (navigator.onLine) {
+                statusElement.className = 'connection-status online';
+                statusElement.textContent = 'Conectado al servidor';
+            } else {
+                statusElement.className = 'connection-status offline';
+                statusElement.textContent = 'Sin conexión a internet';
+            }
+        }
+        
+        // Comprobar conexión al cargar la página
+        updateConnectionStatus();
+        
+        // Actualizar el estado cuando cambie la conectividad
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+        
+        // Manejar el envío del formulario
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Resetear mensajes de error
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.style.display = 'none';
+            
+            // Mostrar indicador de carga
+            const loginButton = document.getElementById('loginButton');
+            const buttonText = document.getElementById('buttonText');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            
+            loginButton.disabled = true;
+            buttonText.textContent = 'Iniciando sesión...';
+            loadingSpinner.style.display = 'inline-block';
+            
+            // Verificar conexión a internet
+            if (!navigator.onLine) {
+                errorDiv.textContent = 'No hay conexión a internet. Por favor, verifica tu conexión e intenta nuevamente.';
+                errorDiv.style.display = 'block';
+                
+                loginButton.disabled = false;
+                buttonText.textContent = 'Iniciar Sesión';
+                loadingSpinner.style.display = 'none';
+                return;
+            }
+            
+            const formData = new FormData(this);
+            
+            // Tiempo máximo de espera para la solicitud (10 segundos)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            
+            fetch('/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                signal: controller.signal
+            })
+            .then(response => {
+                clearTimeout(timeoutId);
+                
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Usuario o contraseña inválidos');
+                    } else if (response.status === 500) {
+                        throw new Error('Error en el servidor. Por favor contacte al administrador.');
+                    } else {
+                        throw new Error('Error en la solicitud: ' + response.status);
+                    }
+                }
+                
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    // Redirigir al dashboard
+                    window.location.href = data.redirect_url || '/dashboard';
+                } else {
+                    // Mostrar mensaje de error
+                    errorDiv.textContent = data.message || 'Error al iniciar sesión';
+                    errorDiv.style.display = 'block';
+                    
+                    // Restaurar el botón
+                    loginButton.disabled = false;
+                    buttonText.textContent = 'Iniciar Sesión';
+                    loadingSpinner.style.display = 'none';
+                    
+                    // Enfocar el campo de usuario
+                    document.getElementById('username').focus();
+                }
+            })
+            .catch(error => {
+                clearTimeout(timeoutId);
+                console.error('Error:', error);
+                
+                // Determinar el mensaje de error más específico
+                let errorMessage = 'Error al intentar iniciar sesión. Por favor, intente nuevamente.';
+                
+                if (error.name === 'AbortError') {
+                    errorMessage = 'La solicitud tardó demasiado tiempo. Verifique su conexión a Internet e inténtelo de nuevo.';
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+                
+                errorDiv.textContent = errorMessage;
+                errorDiv.style.display = 'block';
+                
+                // Restaurar el botón
+                loginButton.disabled = false;
+                buttonText.textContent = 'Iniciar Sesión';
+                loadingSpinner.style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>
