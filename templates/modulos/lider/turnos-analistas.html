@@ -107,6 +107,89 @@
             margin-top: 5px;
         }
         
+        /* Nuevos estilos para tarjetas mejoradas */
+        .day-content {
+            padding: 5px 0;
+        }
+        
+        .analyst-name {
+            font-size: 0.95em;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .analyst-name i {
+            color: #667eea;
+        }
+        
+        .shift-name {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .analyst-badge {
+            display: block;
+            padding: 8px 12px;
+            margin: 4px 0;
+            border-radius: 8px;
+            font-size: 0.85em;
+            border-left: 4px solid;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+        }
+        
+        .analyst-badge:hover {
+            transform: translateX(2px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+        }
+        
+        .analyst-color-1 { 
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); 
+            border-left-color: #1976d2; 
+        }
+        .analyst-color-2 { 
+            background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); 
+            border-left-color: #7b1fa2; 
+        }
+        .analyst-color-3 { 
+            background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%); 
+            border-left-color: #388e3c; 
+        }
+        .analyst-color-4 { 
+            background: linear-gradient(135deg, #fff3e0 0%, #ffcc02 100%); 
+            border-left-color: #f57c00; 
+        }
+        .analyst-color-5 { 
+            background: linear-gradient(135deg, #fce4ec 0%, #f8bbd9 100%); 
+            border-left-color: #c2185b; 
+        }
+        .analyst-color-6 { 
+            background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); 
+            border-left-color: #00796b; 
+        }
+        
+        /* Estilos para el modal mejorado */
+        .analyst-avatar {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .table-hover tbody tr:hover {
+            background-color: rgba(102, 126, 234, 0.1);
+        }
+        
+        .table-primary th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+        
         .detail-row {
             border-bottom: 1px solid #e9ecef;
             padding: 10px 0;
@@ -114,6 +197,100 @@
         
         .detail-row:last-child {
             border-bottom: none;
+        }
+        
+        /* Estilos para calendario mensual */
+        .month-calendar {
+            width: 100%;
+        }
+        
+        .month-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .calendar-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            background-color: #dee2e6;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            background-color: #f8f9fa;
+        }
+        
+        .weekday {
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            color: #495057;
+            background-color: #e9ecef;
+        }
+        
+        .calendar-days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+        }
+        
+        .calendar-day {
+            background-color: white;
+            min-height: 80px;
+            padding: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .calendar-day:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .calendar-day.empty {
+            background-color: #f8f9fa;
+            cursor: default;
+        }
+        
+        .calendar-day.today {
+            background-color: #e3f2fd;
+            border: 2px solid #2196f3;
+        }
+        
+        .day-number {
+            font-weight: bold;
+            margin-bottom: 4px;
+            color: #495057;
+        }
+        
+        .day-turnos {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        
+        .mini-analyst-badge {
+            font-size: 0.7em;
+            padding: 2px 6px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .more-turnos {
+            font-size: 0.7em;
+            color: #6c757d;
+            text-align: center;
+            font-style: italic;
         }
     </style>
 <div class="container-fluid mt-4">
@@ -137,21 +314,32 @@
             </div>
         </div>
 
-        <!-- Navegación de semana -->
+        <!-- Navegación de período -->
         <div class="week-navigation">
-            <button class="btn btn-outline-primary" id="prevWeek">
-                <i class="fas fa-chevron-left me-2"></i>Semana Anterior
+            <button class="btn btn-outline-primary" id="prevPeriod">
+                <i class="fas fa-chevron-left me-2"></i><span id="prevText">Semana Anterior</span>
             </button>
-            <h4 id="weekRange" class="mb-0">Cargando...</h4>
-            <button class="btn btn-outline-primary" id="nextWeek">
-                Semana Siguiente<i class="fas fa-chevron-right ms-2"></i>
+            <h4 id="periodRange" class="mb-0">Cargando...</h4>
+            <button class="btn btn-outline-primary" id="nextPeriod">
+                <span id="nextText">Semana Siguiente</span><i class="fas fa-chevron-right ms-2"></i>
             </button>
         </div>
 
         <!-- Calendario semanal -->
         <div class="calendar-container">
-            <div class="calendar-header">
-                <h5 class="mb-0"><i class="fas fa-calendar-week me-2"></i>Vista Semanal</h5>
+            <div class="calendar-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0" id="calendarTitle"><i class="fas fa-calendar-week me-2"></i>Vista Semanal</h5>
+                <div class="btn-group" role="group" aria-label="Tipo de vista">
+                    <input type="radio" class="btn-check" name="viewType" id="weekView" autocomplete="off" checked>
+                    <label class="btn btn-outline-primary" for="weekView">
+                        <i class="fas fa-calendar-week me-1"></i>Semana
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="viewType" id="monthView" autocomplete="off">
+                    <label class="btn btn-outline-primary" for="monthView">
+                        <i class="fas fa-calendar-alt me-1"></i>Mes
+                    </label>
+                </div>
             </div>
             
             <div class="loading-spinner" id="loadingSpinner">
@@ -163,6 +351,38 @@
             
             <div class="row" id="weekCalendar">
                 <!-- Los días se cargarán dinámicamente aquí -->
+            </div>
+            
+            <div id="monthCalendar" style="display: none;">
+                <!-- El calendario mensual se cargará dinámicamente aquí -->
+            </div>
+        </div>
+
+        <!-- Cuadro Resumen de Horas por Analista -->
+        <div class="calendar-container" id="weekSummaryContainer" style="display: none;">
+            <div class="calendar-header">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Resumen Semanal de Horas</h5>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th scope="col"><i class="fas fa-user me-2"></i>Nombre Analista</th>
+                            <th scope="col"><i class="fas fa-clock me-2"></i>Horas Semanales</th>
+                            <th scope="col"><i class="fas fa-utensils me-2"></i>Horas de Almuerzo</th>
+                            <th scope="col"><i class="fas fa-calculator me-2"></i>Total Horas</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summaryTableBody">
+                        <!-- Las filas se cargarán dinámicamente aquí -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div id="noDataMessage" class="text-center py-4" style="display: none;">
+                <i class="fas fa-info-circle text-muted me-2"></i>
+                <span class="text-muted">Sin datos para mostrar en esta semana</span>
             </div>
         </div>
     </div>
@@ -283,19 +503,17 @@
 
         // Configurar event listeners
         function setupEventListeners() {
-            const prevBtn = document.getElementById('prevWeek');
+            const prevBtn = document.getElementById('prevPeriod');
             if (prevBtn) {
                 prevBtn.addEventListener('click', () => {
-                    currentWeekStart.setDate(currentWeekStart.getDate() - 7);
-                    loadWeekData();
+                    navigatePrevious();
                 });
             }
 
-            const nextBtn = document.getElementById('nextWeek');
+            const nextBtn = document.getElementById('nextPeriod');
             if (nextBtn) {
                 nextBtn.addEventListener('click', () => {
-                    currentWeekStart.setDate(currentWeekStart.getDate() + 7);
-                    loadWeekData();
+                    navigateNext();
                 });
             }
 
@@ -368,6 +586,26 @@
                     actualizarBotonGuardar();
                 }
             });
+
+            // Event listeners para cambio de vista
+            const weekViewBtn = document.getElementById('weekView');
+            const monthViewBtn = document.getElementById('monthView');
+            
+            if (weekViewBtn) {
+                weekViewBtn.addEventListener('change', function() {
+                    if (this.checked) {
+                        switchToWeekView();
+                    }
+                });
+            }
+            
+            if (monthViewBtn) {
+                monthViewBtn.addEventListener('change', function() {
+                    if (this.checked) {
+                        switchToMonthView();
+                    }
+                });
+            }
         }
 
         // Inicializar semana actual
@@ -377,6 +615,13 @@
             const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
             currentWeekStart = new Date(today);
             currentWeekStart.setDate(today.getDate() + mondayOffset);
+            
+            // Mostrar cuadro resumen en vista semanal inicial
+            const weekSummaryContainer = document.getElementById('weekSummaryContainer');
+            if (weekSummaryContainer) {
+                weekSummaryContainer.style.display = 'block';
+            }
+            
             loadWeekData();
         }
 
@@ -394,8 +639,11 @@
             fetch(`/api/turnos-semana?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('loadWeekData - Respuesta del endpoint:', data);
                     if (data.success) {
+                        console.log('loadWeekData - Turnos recibidos:', data.turnos);
                         renderWeekCalendar(data.turnos);
+                        renderWeekSummary();
                     } else {
                         showError('Error al cargar los turnos: ' + data.error);
                     }
@@ -494,6 +742,7 @@
 
         // Renderizar calendario semanal
         function renderWeekCalendar(turnosData) {
+            console.log('renderWeekCalendar - turnosData recibida:', turnosData);
             const calendar = document.getElementById('weekCalendar');
             if (!calendar) return;
             calendar.innerHTML = '';
@@ -507,22 +756,36 @@
                 
                 const dayTurnos = (Array.isArray(turnosData) ? turnosData : []).filter(turno => {
                     const raw = turno.analistas_turnos_fecha;
-                    if (!raw) return false;
+                    console.log(`Filtrado - Turno raw fecha:`, raw, `tipo:`, typeof raw);
+                    
+                    if (!raw) {
+                        console.log(`Filtrado - Sin fecha, descartando turno`);
+                        return false;
+                    }
+                    
                     let fechaStr = '';
                     if (typeof raw === 'string') {
                         // Acepta 'YYYY-MM-DD' o 'YYYY-MM-DDTHH:mm:ss'
                         fechaStr = raw.slice(0, 10);
+                    } else if (raw instanceof Date) {
+                        // Si es un objeto Date
+                        fechaStr = formatDate(raw);
                     } else {
-                        // Si llega como objeto/fecha
+                        // Si llega como objeto/fecha o timestamp
                         try {
                             fechaStr = new Date(raw).toISOString().slice(0, 10);
                         } catch (e) {
+                            console.log(`Filtrado - Error procesando fecha:`, e);
                             return false;
                         }
                     }
-                    return fechaStr === dayDateStr;
+                    
+                    const match = fechaStr === dayDateStr;
+                    console.log(`Filtrado - Comparando ${fechaStr} === ${dayDateStr}: ${match}`);
+                    return match;
                 });
                 
+                console.log(`Día ${days[i]} (${dayDateStr}):`, dayTurnos);
                 const dayCard = createDayCard(days[i], dayDate, dayTurnos);
                 calendar.appendChild(dayCard);
             }
@@ -530,8 +793,15 @@
 
         // Crear tarjeta de día
         function createDayCard(dayName, date, turnos) {
+            console.log(`createDayCard - ${dayName}:`, {
+                dayName,
+                date: formatDate(date),
+                turnos,
+                turnosLength: turnos.length
+            });
+            
             const col = document.createElement('div');
-            col.className = 'col-md-12 col-lg-6 col-xl-4 mb-3';
+            col.className = 'col mb-3';
             
             const card = document.createElement('div');
             card.className = 'day-card';
@@ -542,16 +812,27 @@
             header.innerHTML = `${dayName}<br><small>${formatDateDisplay(date)}</small>`;
             
             const content = document.createElement('div');
+            content.className = 'day-content';
             
             if (turnos.length === 0) {
-                content.innerHTML = '<div class="empty-day">Sin turnos asignados</div>';
+                console.log(`createDayCard - ${dayName}: Sin turnos, mostrando mensaje vacío`);
+                content.innerHTML = '<div class="empty-day"><i class="fas fa-calendar-times me-2"></i>Sin turnos asignados</div>';
             } else {
-                turnos.forEach(turno => {
+                console.log(`createDayCard - ${dayName}: Procesando ${turnos.length} turnos`);
+                turnos.forEach((turno, index) => {
+                    console.log(`createDayCard - ${dayName} - Turno ${index + 1}:`, turno);
+                    console.log(`createDayCard - ${dayName} - Analista:`, turno.analistas_turnos_analista);
+                    console.log(`createDayCard - ${dayName} - Turno:`, turno.analistas_turnos_turno);
+                    
                     const analystBadge = document.createElement('div');
                     analystBadge.className = `analyst-badge ${getAnalystColor(turno.analistas_turnos_analista)}`;
                     analystBadge.innerHTML = `
-                        <strong>${turno.analistas_turnos_analista}</strong>
-                        <div class="shift-info">${turno.analistas_turnos_turno}</div>
+                        <div class="analyst-name">
+                            <strong>${turno.analistas_turnos_analista}</strong>
+                        </div>
+                        <div class="shift-info">
+                            <span class="shift-name">${turno.analistas_turnos_turno}</span>
+                        </div>
                     `;
                     content.appendChild(analystBadge);
                 });
@@ -571,6 +852,211 @@
                 colorIndex++;
             }
             return analystColors[analista];
+        }
+
+        // Renderizar calendario mensual
+        function renderMonthCalendar(turnosData) {
+            const calendar = document.getElementById('monthCalendar');
+            if (!calendar) return;
+            
+            const year = currentMonthDate.getFullYear();
+            const month = currentMonthDate.getMonth();
+            
+            // Primer día del mes
+            const firstDay = new Date(year, month, 1);
+            // Último día del mes
+            const lastDay = new Date(year, month + 1, 0);
+            // Primer día de la semana (lunes = 1, domingo = 0)
+            const startDay = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+            
+            const monthNames = [
+                'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+            ];
+            
+            let html = `
+                <div class="month-calendar">
+                    <div class="month-header">
+                        <h6 class="mb-3">${monthNames[month]} ${year}</h6>
+                    </div>
+                    <div class="calendar-grid">
+                        <div class="calendar-weekdays">
+                            <div class="weekday">Lun</div>
+                            <div class="weekday">Mar</div>
+                            <div class="weekday">Mié</div>
+                            <div class="weekday">Jue</div>
+                            <div class="weekday">Vie</div>
+                            <div class="weekday">Sáb</div>
+                            <div class="weekday">Dom</div>
+                        </div>
+                        <div class="calendar-days">
+            `;
+            
+            // Días vacíos al inicio
+            for (let i = 0; i < startDay; i++) {
+                html += '<div class="calendar-day empty"></div>';
+            }
+            
+            // Días del mes
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const dayDate = new Date(year, month, day);
+                const dateStr = formatDate(dayDate);
+                const dayTurnos = turnosData.filter(turno => turno.fecha === dateStr);
+                const isToday = dayDate.toDateString() === new Date().toDateString();
+                
+                html += `
+                    <div class="calendar-day ${isToday ? 'today' : ''}" onclick="showDayDetails('${dateStr}')">
+                        <div class="day-number">${day}</div>
+                        <div class="day-turnos">
+                `;
+                
+                if (dayTurnos.length > 0) {
+                    dayTurnos.slice(0, 2).forEach(turno => {
+                        html += `<div class="mini-analyst-badge ${getAnalystColor(turno.analistas_turnos_analista)}">${turno.analistas_turnos_analista.split(' ')[0]}</div>`;
+                    });
+                    if (dayTurnos.length > 2) {
+                        html += `<div class="more-turnos">+${dayTurnos.length - 2}</div>`;
+                    }
+                }
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            calendar.innerHTML = html;
+        }
+
+        // Cambiar a vista semanal
+        function switchToWeekView() {
+            const weekCalendar = document.getElementById('weekCalendar');
+            const monthCalendar = document.getElementById('monthCalendar');
+            const weekSummaryContainer = document.getElementById('weekSummaryContainer');
+            const calendarTitle = document.getElementById('calendarTitle');
+            
+            if (weekCalendar) weekCalendar.style.display = 'flex';
+            if (monthCalendar) monthCalendar.style.display = 'none';
+            if (weekSummaryContainer) weekSummaryContainer.style.display = 'block';
+            if (calendarTitle) {
+                calendarTitle.innerHTML = '<i class="fas fa-calendar-week me-2"></i>Vista Semanal';
+            }
+            
+            // Actualizar navegación para vista semanal
+            updateWeekNavigation();
+            
+            // Recargar datos de la semana
+            loadWeekData();
+        }
+
+        // Cambiar a vista mensual
+        function switchToMonthView() {
+            const weekCalendar = document.getElementById('weekCalendar');
+            const monthCalendar = document.getElementById('monthCalendar');
+            const weekSummaryContainer = document.getElementById('weekSummaryContainer');
+            const calendarTitle = document.getElementById('calendarTitle');
+            
+            if (weekCalendar) weekCalendar.style.display = 'none';
+            if (monthCalendar) monthCalendar.style.display = 'block';
+            if (weekSummaryContainer) weekSummaryContainer.style.display = 'none';
+            if (calendarTitle) {
+                calendarTitle.innerHTML = '<i class="fas fa-calendar-alt me-2"></i>Vista Mensual';
+            }
+            
+            // Actualizar navegación para vista mensual
+            updateMonthNavigation();
+            
+            // Cargar datos del mes
+            loadMonthData();
+        }
+
+        // Cargar datos del mes
+        function loadMonthData() {
+            const year = currentMonthDate.getFullYear();
+            const month = currentMonthDate.getMonth() + 1;
+            
+            fetch(`/api/turnos-mes?year=${year}&month=${month}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderMonthCalendar(data.turnos);
+                    } else {
+                        console.error('Error al cargar turnos del mes:', data.message);
+                        // Si no hay endpoint específico, usar los datos actuales
+                        renderMonthCalendar(turnos);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Fallback: usar datos actuales
+                    renderMonthCalendar(turnos);
+                });
+        }
+
+        // Variables para navegación mensual
+        let currentMonthDate = new Date();
+
+        // Navegación anterior
+        function navigatePrevious() {
+            const weekViewBtn = document.getElementById('weekView');
+            if (weekViewBtn && weekViewBtn.checked) {
+                // Vista semanal
+                currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+                loadWeekData();
+            } else {
+                // Vista mensual
+                currentMonthDate.setMonth(currentMonthDate.getMonth() - 1);
+                updateMonthNavigation();
+                loadMonthData();
+            }
+        }
+
+        // Navegación siguiente
+        function navigateNext() {
+            const weekViewBtn = document.getElementById('weekView');
+            if (weekViewBtn && weekViewBtn.checked) {
+                // Vista semanal
+                currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+                loadWeekData();
+            } else {
+                // Vista mensual
+                currentMonthDate.setMonth(currentMonthDate.getMonth() + 1);
+                updateMonthNavigation();
+                loadMonthData();
+            }
+        }
+
+        // Actualizar navegación mensual
+        function updateMonthNavigation() {
+            const prevText = document.getElementById('prevText');
+            const nextText = document.getElementById('nextText');
+            const periodRange = document.getElementById('periodRange');
+            
+            const monthNames = [
+                'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+            ];
+            
+            if (prevText) prevText.textContent = 'Mes Anterior';
+            if (nextText) nextText.textContent = 'Mes Siguiente';
+            if (periodRange) {
+                periodRange.textContent = `${monthNames[currentMonthDate.getMonth()]} ${currentMonthDate.getFullYear()}`;
+            }
+        }
+
+        // Actualizar navegación semanal
+        function updateWeekNavigation() {
+            const prevText = document.getElementById('prevText');
+            const nextText = document.getElementById('nextText');
+            
+            if (prevText) prevText.textContent = 'Semana Anterior';
+            if (nextText) nextText.textContent = 'Semana Siguiente';
         }
 
         // Mostrar detalles del día
@@ -601,35 +1087,80 @@
             modalTitle.innerHTML = `<i class="fas fa-calendar-day me-2"></i>Detalles del ${formatDateDisplay(date)}`;
             
             if (detalles.length === 0) {
-                content.innerHTML = '<div class="text-center text-muted">No hay turnos asignados para este día</div>';
+                content.innerHTML = `
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-calendar-times fa-3x mb-3"></i>
+                        <h5>No hay turnos asignados para este día</h5>
+                        <p>Puede asignar turnos usando el botón "Nuevo Turno"</p>
+                    </div>
+                `;
                 return;
             }
             
-            let html = '<div class="table-responsive"><table class="table table-striped">';
-            html += '<thead><tr><th>Analista</th><th>Turno</th><th>Horario</th><th>Almuerzo</th><th>Break</th><th>Horas</th></tr></thead><tbody>';
+            let html = `
+                <div class="mb-3">
+                    <h6 class="text-primary"><i class="fas fa-users me-2"></i>Analistas asignadas (${detalles.length})</h6>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-primary">
+                            <tr>
+                                <th><i class="fas fa-user me-1"></i>Analista</th>
+                                <th><i class="fas fa-briefcase me-1"></i>Turno</th>
+                                <th><i class="fas fa-utensils me-1"></i>Almuerzo</th>
+                                <th><i class="fas fa-coffee me-1"></i>Break</th>
+                                <th><i class="fas fa-hourglass-half me-1"></i>Horas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
             
-            detalles.forEach(detalle => {
-                const inicio = detalle.analistas_turnos_inicio || detalle.turno_default_inicio;
-                const fin = detalle.analistas_turnos_fin || detalle.turno_default_fin;
-                const almuerzoInicio = detalle.analistas_turnos_almuerzo_inicio || detalle.turno_default_almuerzo_inicio;
-                const almuerzoFin = detalle.analistas_turnos_almuerzo_fin || detalle.turno_default_almuerzo_fin;
-                const breakInicio = detalle.analistas_turnos_break_inicio || detalle.turno_default_break_inicio;
-                const breakFin = detalle.analistas_turnos_break_fin || detalle.turno_default_break_fin;
-                const horas = detalle.analistas_turnos_horas_trabajadas || detalle.turno_default_horas;
+            detalles.forEach((detalle, index) => {
+                const almuerzo = detalle.analistas_turnos_almuerzo || 'N/A';
+                const breakTime = detalle.analistas_turnos_break || 'N/A';
+                const horas = detalle.analistas_turnos_horas_trabajadas || 'N/A';
+                const nombreAnalista = detalle.nombre_analista || detalle.analistas_turnos_analista || 'N/A';
+                
+                const rowClass = index % 2 === 0 ? '' : 'table-light';
                 
                 html += `
-                    <tr>
-                        <td><strong>${detalle.analistas_turnos_analista}</strong></td>
-                        <td>${detalle.analistas_turnos_turno}</td>
-                        <td>${inicio} - ${fin}</td>
-                        <td>${almuerzoInicio} - ${almuerzoFin}</td>
-                        <td>${breakInicio} - ${breakFin}</td>
-                        <td>${horas}h</td>
+                    <tr class="${rowClass}">
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="analyst-avatar me-2">
+                                    <i class="fas fa-user-circle fa-lg text-primary"></i>
+                                </div>
+                                <div>
+                                    <strong class="text-dark">${nombreAnalista}</strong>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-info text-dark">${detalle.analistas_turnos_turno}</span>
+                        </td>
+                        <td>
+                            <span class="text-warning">${almuerzo}</span>
+                        </td>
+                        <td>
+                            <span class="text-info">${breakTime}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">${horas}h</span>
+                        </td>
                     </tr>
                 `;
             });
             
-            html += '</tbody></table></div>';
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+                <div class="mt-3 text-muted small">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Haga clic en cualquier fila para ver más detalles de la analista
+                </div>
+            `;
+            
             content.innerHTML = html;
         }
 
@@ -707,7 +1238,10 @@
             const startStr = formatDateDisplay(currentWeekStart);
             const endStr = formatDateDisplay(weekEnd);
             
-            document.getElementById('weekRange').textContent = `${startStr} - ${endStr}`;
+            const periodRange = document.getElementById('periodRange');
+            if (periodRange) {
+                periodRange.textContent = `${startStr} - ${endStr}`;
+            }
         }
 
         function showLoading(show) {
@@ -731,6 +1265,127 @@
 
         function showSuccess(message) {
             alert('Éxito: ' + message);
+        }
+
+        // Funciones para el cuadro resumen de horas
+        function renderWeekSummary() {
+            console.log('renderWeekSummary - Cargando resumen semanal desde API');
+            
+            const summaryContainer = document.getElementById('weekSummaryContainer');
+            const summaryTableBody = document.getElementById('summaryTableBody');
+            const noDataMessage = document.getElementById('noDataMessage');
+            
+            if (!summaryContainer || !summaryTableBody || !noDataMessage) {
+                console.error('Elementos del cuadro resumen no encontrados');
+                return;
+            }
+            
+            // Obtener fechas de la semana actual
+            const fechaInicio = formatDate(currentWeekStart);
+            const fechaFin = formatDate(new Date(currentWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000));
+            
+            console.log(`Consultando resumen para semana: ${fechaInicio} a ${fechaFin}`);
+            
+            // Llamar al nuevo endpoint
+            fetch(`/api/resumen-semanal?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Respuesta del endpoint resumen-semanal:', data);
+                    
+                    if (data.success && data.resumen) {
+                        // Limpiar tabla
+                        summaryTableBody.innerHTML = '';
+                        
+                        if (data.resumen.length === 0) {
+                            // Mostrar mensaje de sin datos
+                            summaryTableBody.style.display = 'none';
+                            noDataMessage.style.display = 'block';
+                        } else {
+                            // Mostrar tabla con datos
+                            summaryTableBody.style.display = '';
+                            noDataMessage.style.display = 'none';
+                            
+                            // Renderizar filas
+                            data.resumen.forEach(analista => {
+                                const row = createSummaryRow(analista);
+                                summaryTableBody.appendChild(row);
+                            });
+                        }
+                    } else {
+                        console.error('Error en respuesta del resumen:', data.error);
+                        showError('Error al cargar el resumen semanal: ' + (data.error || 'Error desconocido'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al cargar resumen semanal:', error);
+                    showError('Error de conexión al cargar el resumen semanal');
+                });
+        }
+
+        function calculateAnalystStats(turnosData) {
+            console.log('calculateAnalystStats - Procesando turnos:', turnosData);
+            
+            if (!Array.isArray(turnosData) || turnosData.length === 0) {
+                return [];
+            }
+            
+            // Agrupar turnos por analista
+            const analystMap = new Map();
+            
+            turnosData.forEach(turno => {
+                const analystName = turno.recurso_operativo_nombre || 'Sin nombre';
+                const horasTrabajadas = parseFloat(turno.turnos_horas_trabajadas) || 0;
+                
+                console.log(`Procesando turno - Analista: ${analystName}, Horas: ${horasTrabajadas}`);
+                
+                if (!analystMap.has(analystName)) {
+                    analystMap.set(analystName, {
+                        nombre: analystName,
+                        horasSemanales: 0,
+                        diasTrabajados: 0
+                    });
+                }
+                
+                const analystData = analystMap.get(analystName);
+                analystData.horasSemanales += horasTrabajadas;
+                analystData.diasTrabajados += 1;
+            });
+            
+            // Convertir a array y calcular horas de almuerzo y total
+            const stats = Array.from(analystMap.values()).map(analyst => {
+                const horasAlmuerzo = analyst.diasTrabajados; // 1 hora por día trabajado
+                const totalHoras = analyst.horasSemanales - horasAlmuerzo;
+                
+                return {
+                    nombre: analyst.nombre,
+                    horasSemanales: analyst.horasSemanales,
+                    horasAlmuerzo: horasAlmuerzo,
+                    totalHoras: Math.max(0, totalHoras) // No permitir valores negativos
+                };
+            });
+            
+            console.log('calculateAnalystStats - Estadísticas calculadas:', stats);
+            return stats;
+        }
+
+        function createSummaryRow(analista) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>
+                    <i class="fas fa-user-circle me-2 text-primary"></i>
+                    <strong>${analista.nombre_analista}</strong>
+                </td>
+                <td>
+                    <span class="badge bg-primary">${analista.horas_semanales.toFixed(1)} hrs</span>
+                </td>
+                <td>
+                    <span class="badge bg-warning">${analista.horas_almuerzo_total} hrs</span>
+                </td>
+                <td>
+                    <span class="badge bg-success">${analista.total_horas_netas.toFixed(1)} hrs</span>
+                </td>
+            `;
+            return row;
         }
 
         // Inicialización del modal de nuevo turno semanal

@@ -917,6 +917,284 @@
         border-color: #ffc107 !important;
         box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25) !important;
     }
+    
+    /* Estilos para funcionalidad colapsable */
+    .collapsible-title {
+        cursor: pointer;
+        transition: all 0.3s ease;
+        user-select: none;
+        text-decoration: none !important;
+    }
+    
+    .collapsible-title:hover {
+        color: #ffffff !important;
+        transform: translateX(2px);
+        text-decoration: none !important;
+    }
+    
+    .chevron-icon {
+        transition: transform 0.3s ease;
+        font-size: 0.9em;
+        display: inline-block;
+    }
+    
+    .collapsible-title[aria-expanded="false"] .chevron-icon {
+        transform: rotate(0deg);
+    }
+    
+    .collapse {
+        transition: height 0.35s ease;
+    }
+    
+    .collapsible-title:hover .chevron-icon {
+        color: #ffffff !important;
+    }
+    
+    /* Asegurar que el título sea clickeable en toda su área */
+    .card-header .collapsible-title {
+        display: block;
+        width: 100%;
+        color: white !important;
+    }
+    
+    /* Estilos para limitar el ancho del formulario y centrarlo */
+    .form-container {
+        max-width: 830px;
+        margin: 0 auto;
+    }
+    
+    /* Responsive para pantallas pequeñas */
+    @media (max-width: 768px) {
+        .form-container {
+            max-width: 100%;
+            margin: 0;
+        }
+    }
+    
+    /* Estilos para tabla responsive del historial */
+    .desktop-table-container {
+        display: block;
+    }
+    
+    .mobile-cards-container {
+        display: none;
+    }
+    
+    /* Estilos para la tabla de desktop */
+    .desktop-table {
+        width: 100%;
+        margin-bottom: 1rem;
+        color: #212529;
+        border-collapse: collapse;
+    }
+    
+    .desktop-table th,
+    .desktop-table td {
+        padding: 0.75rem;
+        vertical-align: top;
+        border-top: 1px solid #dee2e6;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .desktop-table thead th {
+        vertical-align: bottom;
+        border-bottom: 2px solid #dee2e6;
+        background-color: #343a40;
+        color: white;
+        font-weight: 600;
+    }
+    
+    .desktop-table tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.075);
+    }
+    
+    .desktop-table .clickable-row {
+        cursor: pointer;
+        transition: background-color 0.15s ease-in-out;
+    }
+    
+    /* Estilos para columnas específicas */
+    .col-tecnico {
+        width: 20%;
+        min-width: 180px;
+    }
+    
+    .col-fecha-cambio {
+        width: 12%;
+        min-width: 120px;
+    }
+    
+    .col-elementos {
+        width: 35%;
+        min-width: 250px;
+    }
+    
+    .col-observaciones {
+        width: 20%;
+        min-width: 150px;
+    }
+    
+    .col-fecha-registro {
+        width: 13%;
+        min-width: 130px;
+    }
+    
+    /* Media queries para responsive */
+    @media (max-width: 992px) {
+        .desktop-table-container {
+            display: none;
+        }
+        
+        .mobile-cards-container {
+            display: block;
+        }
+    }
+    
+    /* Estilos para la gráfica de indicadores */
+    .chart-container {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+    
+    .chart-container canvas {
+        max-height: 400px !important;
+    }
+    
+    /* Estilos para los filtros de la gráfica */
+    .filtros-grafica .form-label {
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 5px;
+    }
+    
+    .filtros-grafica .form-select {
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    
+    .filtros-grafica .form-select:focus {
+        border-color: #3583E8;
+        box-shadow: 0 0 0 0.2rem rgba(53, 131, 232, 0.25);
+    }
+    
+    /* Botones de la gráfica */
+    .btn-group .btn-outline-info {
+        border-color: #3583E8;
+        color: #3583E8;
+    }
+    
+    .btn-group .btn-outline-info:hover,
+    .btn-group .btn-outline-info.active,
+    .btn-group .btn-check:checked + .btn-outline-info {
+        background-color: #3583E8;
+        border-color: #3583E8;
+        color: white;
+    }
+    
+    /* Responsive para la gráfica */
+    @media (max-width: 768px) {
+        .chart-container {
+            padding: 10px;
+            height: 300px !important;
+        }
+        
+        .chart-container canvas {
+            max-height: 280px !important;
+        }
+        
+        .filtros-grafica .row > div {
+            margin-bottom: 15px;
+        }
+        
+        .btn-group {
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+        .btn-group .btn {
+            flex: 1;
+        }
+        
+        .d-flex.justify-content-between {
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .d-flex.justify-content-between > div {
+            width: 100%;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .chart-container {
+            height: 250px !important;
+            padding: 8px;
+        }
+        
+        .chart-container canvas {
+            max-height: 230px !important;
+        }
+        
+        .filtros-grafica .col-md-3 {
+            margin-bottom: 20px;
+        }
+        
+        .btn-group .btn {
+            font-size: 0.875rem;
+            padding: 0.375rem 0.5rem;
+        }
+    }
+    
+    /* Animaciones para la gráfica */
+    .chart-container {
+        animation: fadeInUp 0.6s ease-out;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Estilos para el alert de información */
+    #infoGrafica {
+        border-radius: 8px;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    #infoGrafica.alert-info {
+        background: linear-gradient(135deg, #e3f2fd 0%, #e1f5fe 100%);
+        color: #0277bd;
+        border-left: 4px solid #03a9f4;
+    }
+    
+    #infoGrafica.alert-success {
+        background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%);
+        color: #2e7d32;
+        border-left: 4px solid #4caf50;
+    }
+    
+    #infoGrafica.alert-warning {
+        background: linear-gradient(135deg, #fff8e1 0%, #fffde7 100%);
+        color: #f57c00;
+        border-left: 4px solid #ff9800;
+    }
+    
+    #infoGrafica.alert-danger {
+        background: linear-gradient(135deg, #ffebee 0%, #fce4ec 100%);
+        color: #c62828;
+        border-left: 4px solid #f44336;
+    }
 </style>
 {% endblock %}
 
@@ -924,11 +1202,13 @@
 <div class="container-fluid mt-4">
     <div class="row">
         <div class="col-12">
-            <div class="card">
+            <div class="form-container">
+                <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0" >
+                    <h4 class="mb-0 collapsible-title" aria-expanded="false" aria-controls="registroFormCollapse">
                         <i class="fas fa-exchange-alt me-2"></i>
                         Registro de Cambios de Dotación
+                        <i class="fas fa-chevron-right chevron-icon ms-2"></i>
                     </h4>
                     <!--
                     <button type="button" class="btn btn-light" data-bs-toggle="modal" data-bs-target="#modalCambiosDotacion">
@@ -937,17 +1217,18 @@
                     </button>
                     -->
                 </div>
-                <div class="card-body">
-                    {% with messages = get_flashed_messages(with_categories=true) %}
-                        {% if messages %}
-                            {% for category, message in messages %}
-                                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
-                                    {{ message }}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                                </div>
-                            {% endfor %}
-                        {% endif %}
-                    {% endwith %}
+                <div class="collapse" id="registroFormCollapse">
+                    <div class="card-body">
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
 
                     <form method="POST" action="{{ url_for('registrar_cambio_dotacion') }}" id="formCambiosDotacion">
                         <!-- Información General -->
@@ -1050,9 +1331,9 @@
                                 <div class="col-md-3">
                                     <label for="estado_pantalon" class="form-label">Estado Pantalón</label>
                                     <div class="form-check form-switch mt-2">
-                                        <input class="form-check-input" type="checkbox" id="estado_pantalon" name="pantalon_valorado">
-                                        <label class="form-check-label text-muted" for="estado_pantalon" id="label_estado_pantalon">
-                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        <input class="form-check-input" type="checkbox" id="estado_pantalon" name="pantalon_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_pantalon" id="label_estado_pantalon">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
                                         </label>
                                     </div>
                                 </div>
@@ -1081,9 +1362,9 @@
                                 <div class="col-md-3">
                                     <label for="estado_camiseta_gris" class="form-label">Estado Camiseta Gris</label>
                                     <div class="form-check form-switch mt-2">
-                                        <input class="form-check-input" type="checkbox" id="estado_camiseta_gris" name="camisetagris_valorado">
-                                        <label class="form-check-label text-muted" for="estado_camiseta_gris" id="label_estado_camiseta_gris">
-                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        <input class="form-check-input" type="checkbox" id="estado_camiseta_gris" name="camisetagris_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_camiseta_gris" id="label_estado_camiseta_gris">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
                                         </label>
                                     </div>
                                 </div>
@@ -1112,9 +1393,9 @@
                                 <div class="col-md-3">
                                     <label for="estado_guerrera" class="form-label">Estado Guerrera</label>
                                     <div class="form-check form-switch mt-2">
-                                        <input class="form-check-input" type="checkbox" id="estado_guerrera" name="guerrera_valorado">
-                                        <label class="form-check-label text-muted" for="estado_guerrera" id="label_estado_guerrera">
-                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        <input class="form-check-input" type="checkbox" id="estado_guerrera" name="guerrera_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_guerrera" id="label_estado_guerrera">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
                                         </label>
                                     </div>
                                 </div>
@@ -1143,9 +1424,40 @@
                                 <div class="col-md-3">
                                     <label for="estado_camiseta_polo" class="form-label">Estado Camiseta Polo</label>
                                     <div class="form-check form-switch mt-2">
-                                        <input class="form-check-input" type="checkbox" id="estado_camiseta_polo" name="camisetapolo_valorado">
-                                        <label class="form-check-label text-muted" for="estado_camiseta_polo" id="label_estado_camiseta_polo">
-                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        <input class="form-check-input" type="checkbox" id="estado_camiseta_polo" name="camisetapolo_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_camiseta_polo" id="label_estado_camiseta_polo">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Chaqueta -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="chaqueta" class="form-label">Chaqueta</label>
+                                    <input type="number" class="form-control cantidad-input" id="chaqueta" name="chaqueta" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('chaqueta')">
+                                    <small class="text-muted" id="stock_chaqueta">Stock: Cargando...</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="chaqueta_talla" class="form-label">Talla Chaqueta</label>
+                                    <select class="form-select talla-input" id="chaqueta_talla" name="chaqueta_talla">
+                                        <option value="">Seleccionar...</option>
+                                        <option value="XS">XS</option>
+                                        <option value="S">S</option>
+                                        <option value="M">M</option>
+                                        <option value="L">L</option>
+                                        <option value="XL">XL</option>
+                                        <option value="XXL">XXL</option>
+                                        <option value="XXXL">XXXL</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="estado_chaqueta" class="form-label">Estado Chaqueta</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_chaqueta" name="chaqueta_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_chaqueta" id="label_estado_chaqueta">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
                                         </label>
                                     </div>
                                 </div>
@@ -1169,9 +1481,9 @@
                                 <div class="col-md-3">
                                     <label for="estado_guantes_nitrilo" class="form-label">Estado Guantes Nitrilo</label>
                                     <div class="form-check form-switch mt-2">
-                                        <input class="form-check-input" type="checkbox" id="estado_guantes_nitrilo" name="guantesnitrilo_valorado">
-                                        <label class="form-check-label text-muted" for="estado_guantes_nitrilo" id="label_estado_guantes_nitrilo">
-                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        <input class="form-check-input" type="checkbox" id="estado_guantes_nitrilo" name="guantesnitrilo_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_guantes_nitrilo" id="label_estado_guantes_nitrilo">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
                                         </label>
                                     </div>
                                 </div>
@@ -1187,9 +1499,9 @@
                                 <div class="col-md-3">
                                     <label for="estado_guantes_carnaza" class="form-label">Estado Guantes Carnaza</label>
                                     <div class="form-check form-switch mt-2">
-                                        <input class="form-check-input" type="checkbox" id="estado_guantes_carnaza" name="guantescarnaza_valorado">
-                                        <label class="form-check-label text-muted" for="estado_guantes_carnaza" id="label_estado_guantes_carnaza">
-                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        <input class="form-check-input" type="checkbox" id="estado_guantes_carnaza" name="guantescarnaza_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_guantes_carnaza" id="label_estado_guantes_carnaza">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
                                         </label>
                                     </div>
                                 </div>
@@ -1205,9 +1517,9 @@
                                 <div class="col-md-3">
                                     <label for="estado_gafas" class="form-label">Estado Gafas</label>
                                     <div class="form-check form-switch mt-2">
-                                        <input class="form-check-input" type="checkbox" id="estado_gafas" name="gafas_valorado">
-                                        <label class="form-check-label text-muted" for="estado_gafas" id="label_estado_gafas">
-                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        <input class="form-check-input" type="checkbox" id="estado_gafas" name="gafas_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_gafas" id="label_estado_gafas">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
                                         </label>
                                     </div>
                                 </div>
@@ -1223,9 +1535,9 @@
                                 <div class="col-md-3">
                                     <label for="estado_gorra" class="form-label">Estado Gorra</label>
                                     <div class="form-check form-switch mt-2">
-                                        <input class="form-check-input" type="checkbox" id="estado_gorra" name="gorra_valorado">
-                                        <label class="form-check-label text-muted" for="estado_gorra" id="label_estado_gorra">
-                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        <input class="form-check-input" type="checkbox" id="estado_gorra" name="gorra_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_gorra" id="label_estado_gorra">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
                                         </label>
                                     </div>
                                 </div>
@@ -1241,9 +1553,9 @@
                                 <div class="col-md-3">
                                     <label for="estado_casco" class="form-label">Estado Casco</label>
                                     <div class="form-check form-switch mt-2">
-                                        <input class="form-check-input" type="checkbox" id="estado_casco" name="casco_valorado">
-                                        <label class="form-check-label text-muted" for="estado_casco" id="label_estado_casco">
-                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        <input class="form-check-input" type="checkbox" id="estado_casco" name="casco_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_casco" id="label_estado_casco">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
                                         </label>
                                     </div>
                                 </div>
@@ -1267,9 +1579,9 @@
                                 <div class="col-md-3">
                                     <label for="estado_botas" class="form-label">Estado Botas</label>
                                     <div class="form-check form-switch mt-2">
-                                        <input class="form-check-input" type="checkbox" id="estado_botas" name="botas_valorado">
-                                        <label class="form-check-label text-muted" for="estado_botas" id="label_estado_botas">
-                                            <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                        <input class="form-check-input" type="checkbox" id="estado_botas" name="botas_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_botas" id="label_estado_botas">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
                                         </label>
                                     </div>
                                 </div>
@@ -1312,6 +1624,131 @@
                             </div>
                         </div>
                     </form>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gráfica de Indicadores de Cambios -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Indicadores de Cambios de Dotación
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Filtros -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <label for="filtroValorado" class="form-label">
+                                <i class="fas fa-filter me-2"></i>Estado
+                            </label>
+                            <select class="form-select" id="filtroValorado">
+                                <option value="">Todos los estados</option>
+                                <option value="valorado">Valorado</option>
+                                <option value="no_valorado">No Valorado</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filtroMes" class="form-label">
+                                <i class="fas fa-calendar me-2"></i>Mes
+                            </label>
+                            <select class="form-select" id="filtroMes">
+                                <option value="">Todos los meses</option>
+                                <option value="1">Enero</option>
+                                <option value="2">Febrero</option>
+                                <option value="3">Marzo</option>
+                                <option value="4">Abril</option>
+                                <option value="5">Mayo</option>
+                                <option value="6">Junio</option>
+                                <option value="7">Julio</option>
+                                <option value="8">Agosto</option>
+                                <option value="9">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filtroElemento" class="form-label">
+                                <i class="fas fa-box me-2"></i>Elemento
+                            </label>
+                            <select class="form-select" id="filtroElemento">
+                                <option value="">Todos los elementos</option>
+                                <optgroup label="Dotación de Vestimenta">
+                                    <option value="pantalon">Pantalón</option>
+                                    <option value="camisetagris">Camiseta Gris</option>
+                                    <option value="guerrera">Guerrera</option>
+                                    <option value="camisetapolo">Camiseta Polo</option>
+                                    <option value="chaqueta">Chaqueta</option>
+                                </optgroup>
+                                <optgroup label="EPPs">
+                                    <option value="guantes_nitrilo">Guantes Nitrilo</option>
+                                    <option value="guantes_carnaza">Guantes Carnaza</option>
+                                    <option value="gafas">Gafas</option>
+                                    <option value="gorra">Gorra</option>
+                                    <option value="casco">Casco</option>
+                                    <option value="botas">Botas</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filtroAno" class="form-label">
+                                <i class="fas fa-calendar-alt me-2"></i>Año
+                            </label>
+                            <select class="form-select" id="filtroAno">
+                                <option value="">Año actual</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Botones de acción -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <button type="button" class="btn btn-primary" id="btnActualizarGrafica">
+                                        <i class="fas fa-sync-alt me-2"></i>
+                                        Actualizar Gráfica
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" id="btnLimpiarFiltros">
+                                        <i class="fas fa-eraser me-2"></i>
+                                        Limpiar Filtros
+                                    </button>
+                                </div>
+                                <div class="btn-group" role="group">
+                                    <input type="radio" class="btn-check" name="tipoGrafica" id="graficaBarras" value="bar" checked>
+                                    <label class="btn btn-outline-info" for="graficaBarras">
+                                        <i class="fas fa-chart-bar me-1"></i>Barras
+                                    </label>
+                                    <input type="radio" class="btn-check" name="tipoGrafica" id="graficaLineas" value="line">
+                                    <label class="btn btn-outline-info" for="graficaLineas">
+                                        <i class="fas fa-chart-line me-1"></i>Líneas
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Contenedor de la gráfica -->
+                    <div class="chart-container" style="position: relative; height: 400px;">
+                        <canvas id="chartIndicadores"></canvas>
+                    </div>
+                    
+                    <!-- Información adicional -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="alert alert-info" id="infoGrafica">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <span id="textoInfoGrafica">Selecciona los filtros y haz clic en "Actualizar Gráfica" para visualizar los datos.</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1328,29 +1765,48 @@
                     </h4>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table id="tablaHistorialCambios" class="table table-striped table-hover clickable-table">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>Técnico
-                                        <small class="d-block text-light opacity-75 mt-1">
-                                            <i class="fas fa-info-circle me-1"></i>
-                                            Haz clic para ver detalles
-                                        </small>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="text-center">
-                                        <div class="spinner-border text-primary" role="status">
-                                            <span class="visually-hidden">Cargando...</span>
-                                        </div>
-                                        <p class="mt-2 mb-0">Cargando historial de cambios...</p>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <!-- Vista de tabla para desktop -->
+                    <div class="desktop-table-container">
+                        <div class="table-responsive">
+                            <table id="tablaHistorialCambiosDesktop" class="desktop-table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th class="col-tecnico">
+                                            <i class="fas fa-user me-2"></i>Técnico
+                                            <small class="d-block text-light opacity-75 mt-1">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                Haz clic para ver detalles
+                                            </small>
+                                        </th>
+                                        <th class="col-fecha-cambio">
+                                            <i class="fas fa-calendar-alt me-2"></i>Fecha de Cambio
+                                        </th>
+                                        <th class="col-elementos">
+                                            <i class="fas fa-box me-2"></i>Elementos Modificados
+                                        </th>
+                                        <th class="col-observaciones">
+                                            <i class="fas fa-comment me-2"></i>Observaciones
+                                        </th>
+                                        <th class="col-fecha-registro">
+                                            <i class="fas fa-clock me-2"></i>Fecha de Registro
+                                        </th>
+                                        <th class="col-acciones">
+                                            <i class="fas fa-cogs me-2"></i>Acciones
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="6" class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Cargando...</span>
+                                            </div>
+                                            <p class="mt-2 mb-0">Cargando historial de cambios...</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                     
                     <!-- Contenedor de tarjetas para móviles -->
@@ -1481,9 +1937,9 @@
                             <div class="col-md-3">
                                 <label for="estado_pantalon_modal" class="form-label">Estado Pantalón</label>
                                 <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" id="estado_pantalon_modal" name="pantalon_valorado">
-                                    <label class="form-check-label text-muted" for="estado_pantalon_modal" id="label_estado_pantalon_modal">
-                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    <input class="form-check-input" type="checkbox" id="estado_pantalon_modal" name="pantalon_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_pantalon_modal" id="label_estado_pantalon_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
                                     </label>
                                 </div>
                             </div>
@@ -1511,9 +1967,9 @@
                             <div class="col-md-3">
                                 <label for="estado_camiseta_gris_modal" class="form-label">Estado Camiseta Gris</label>
                                 <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" id="estado_camiseta_gris_modal" name="camisetagris_valorado">
-                                    <label class="form-check-label text-muted" for="estado_camiseta_gris_modal" id="label_estado_camiseta_gris_modal">
-                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    <input class="form-check-input" type="checkbox" id="estado_camiseta_gris_modal" name="camisetagris_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_camiseta_gris_modal" id="label_estado_camiseta_gris_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
                                     </label>
                                 </div>
                             </div>
@@ -1541,9 +1997,9 @@
                             <div class="col-md-3">
                                 <label for="estado_guerrera_modal" class="form-label">Estado Guerrera</label>
                                 <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" id="estado_guerrera_modal" name="guerrera_valorado">
-                                    <label class="form-check-label text-muted" for="estado_guerrera_modal" id="label_estado_guerrera_modal">
-                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    <input class="form-check-input" type="checkbox" id="estado_guerrera_modal" name="guerrera_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_guerrera_modal" id="label_estado_guerrera_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
                                     </label>
                                 </div>
                             </div>
@@ -1571,9 +2027,40 @@
                             <div class="col-md-3">
                                 <label for="estado_camiseta_polo_modal" class="form-label">Estado Camiseta Polo</label>
                                 <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" id="estado_camiseta_polo_modal" name="camisetapolo_valorado">
-                                    <label class="form-check-label text-muted" for="estado_camiseta_polo_modal" id="label_estado_camiseta_polo_modal">
-                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    <input class="form-check-input" type="checkbox" id="estado_camiseta_polo_modal" name="camisetapolo_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_camiseta_polo_modal" id="label_estado_camiseta_polo_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Chaqueta -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-3">
+                                <label for="chaqueta_modal" class="form-label">Chaqueta</label>
+                                <input type="number" class="form-control cantidad-input" id="chaqueta_modal" name="chaqueta" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('chaqueta')">
+                                <small class="text-muted" id="stock_chaqueta_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="chaqueta_talla_modal" class="form-label">Talla Chaqueta</label>
+                                <select class="form-select talla-input" id="chaqueta_talla_modal" name="chaqueta_talla">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="XS">XS</option>
+                                    <option value="S">S</option>
+                                    <option value="M">M</option>
+                                    <option value="L">L</option>
+                                    <option value="XL">XL</option>
+                                    <option value="XXL">XXL</option>
+                                    <option value="XXXL">XXXL</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="estado_chaqueta_modal" class="form-label">Estado Chaqueta</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_chaqueta_modal" name="chaqueta_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_chaqueta_modal" id="label_estado_chaqueta_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
                                     </label>
                                 </div>
                             </div>
@@ -1597,9 +2084,9 @@
                             <div class="col-md-4">
                                 <label for="estado_guantes_nitrilo_modal" class="form-label">Estado Guantes Nitrilo</label>
                                 <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" id="estado_guantes_nitrilo_modal" name="guantes_nitrilo_valorado">
-                                    <label class="form-check-label text-muted" for="estado_guantes_nitrilo_modal" id="label_estado_guantes_nitrilo_modal">
-                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    <input class="form-check-input" type="checkbox" id="estado_guantes_nitrilo_modal" name="guantes_nitrilo_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_guantes_nitrilo_modal" id="label_estado_guantes_nitrilo_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
                                     </label>
                                 </div>
                             </div>
@@ -1615,9 +2102,9 @@
                             <div class="col-md-4">
                                 <label for="estado_guantes_carnaza_modal" class="form-label">Estado Guantes Carnaza</label>
                                 <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" id="estado_guantes_carnaza_modal" name="guantes_carnaza_valorado">
-                                    <label class="form-check-label text-muted" for="estado_guantes_carnaza_modal" id="label_estado_guantes_carnaza_modal">
-                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    <input class="form-check-input" type="checkbox" id="estado_guantes_carnaza_modal" name="guantes_carnaza_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_guantes_carnaza_modal" id="label_estado_guantes_carnaza_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
                                     </label>
                                 </div>
                             </div>
@@ -1633,9 +2120,9 @@
                             <div class="col-md-4">
                                 <label for="estado_gafas_modal" class="form-label">Estado Gafas</label>
                                 <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" id="estado_gafas_modal" name="gafas_valorado">
-                                    <label class="form-check-label text-muted" for="estado_gafas_modal" id="label_estado_gafas_modal">
-                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    <input class="form-check-input" type="checkbox" id="estado_gafas_modal" name="gafas_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_gafas_modal" id="label_estado_gafas_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
                                     </label>
                                 </div>
                             </div>
@@ -1651,9 +2138,9 @@
                             <div class="col-md-4">
                                 <label for="estado_gorra_modal" class="form-label">Estado Gorra</label>
                                 <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" id="estado_gorra_modal" name="gorra_valorado">
-                                    <label class="form-check-label text-muted" for="estado_gorra_modal" id="label_estado_gorra_modal">
-                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    <input class="form-check-input" type="checkbox" id="estado_gorra_modal" name="gorra_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_gorra_modal" id="label_estado_gorra_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
                                     </label>
                                 </div>
                             </div>
@@ -1669,9 +2156,9 @@
                             <div class="col-md-4">
                                 <label for="estado_casco_modal" class="form-label">Estado Casco</label>
                                 <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" id="estado_casco_modal" name="casco_valorado">
-                                    <label class="form-check-label text-muted" for="estado_casco_modal" id="label_estado_casco_modal">
-                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    <input class="form-check-input" type="checkbox" id="estado_casco_modal" name="casco_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_casco_modal" id="label_estado_casco_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
                                     </label>
                                 </div>
                             </div>
@@ -1704,9 +2191,9 @@
                             <div class="col-md-3">
                                 <label for="estado_botas_modal" class="form-label">Estado Botas</label>
                                 <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" id="estado_botas_modal" name="botas_valorado">
-                                    <label class="form-check-label text-muted" for="estado_botas_modal" id="label_estado_botas_modal">
-                                        <i class="fas fa-times-circle me-1"></i>NO VALORADO
+                                    <input class="form-check-input" type="checkbox" id="estado_botas_modal" name="botas_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_botas_modal" id="label_estado_botas_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
                                     </label>
                                 </div>
                             </div>
@@ -1842,9 +2329,497 @@
     </div>
 </div>
 
+<!-- Modal de Edición de Cambio de Dotación -->
+<div class="modal fade" id="modalEditarCambio" tabindex="-1" aria-labelledby="modalEditarCambioLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEditarCambioLabel">
+                    <i class="fas fa-edit me-2"></i>
+                    Editar Cambio de Dotación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formEditarCambio">
+                    <input type="hidden" id="edit_cambio_id" name="cambio_id">
+                    
+                    <!-- Información General -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Información General
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="edit_tecnico_nombre" class="form-label">
+                                    Técnico <span class="required">*</span>
+                                </label>
+                                <input type="text" class="form-control" id="edit_tecnico_nombre" readonly>
+                                <input type="hidden" id="edit_tecnico_cedula" name="tecnico_cedula">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="edit_fecha_cambio" class="form-label">
+                                    Fecha de Cambio <span class="required">*</span>
+                                </label>
+                                <input type="date" class="form-control" id="edit_fecha_cambio" name="fecha_cambio" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Elementos de Dotación -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-tshirt me-2"></i>
+                            Elementos de Dotación
+                        </h5>
+                        
+                        <!-- Dotación de Vestimenta -->
+                        <div class="subsection">
+                            <h6 class="subsection-title">
+                                <i class="fas fa-tshirt me-2"></i>
+                                Dotación de Vestimenta
+                            </h6>
+                            <div class="row">
+                                <!-- Pantalón -->
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="elemento-dotacion">
+                                        <label class="form-label">Pantalón</label>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <input type="number" class="form-control" id="edit_pantalon" name="pantalon" min="0" placeholder="Cantidad">
+                                            </div>
+                                            <div class="col-6">
+                                                <select class="form-select" id="edit_pantalon_talla" name="pantalon_talla">
+                                                    <option value="">Talla</option>
+                                                    <option value="28">28</option>
+                                                    <option value="30">30</option>
+                                                    <option value="32">32</option>
+                                                    <option value="34">34</option>
+                                                    <option value="36">36</option>
+                                                    <option value="38">38</option>
+                                                    <option value="40">40</option>
+                                                    <option value="42">42</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="edit_estado_pantalon" name="estado_pantalon">
+                                                <label class="form-check-label" for="edit_estado_pantalon">
+                                                    Valorado
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Camiseta Gris -->
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="elemento-dotacion">
+                                        <label class="form-label">Camiseta Gris</label>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <input type="number" class="form-control" id="edit_camisetagris" name="camisetagris" min="0" placeholder="Cantidad">
+                                            </div>
+                                            <div class="col-6">
+                                                <select class="form-select" id="edit_camiseta_gris_talla" name="camiseta_gris_talla">
+                                                    <option value="">Talla</option>
+                                                    <option value="S">S</option>
+                                                    <option value="M">M</option>
+                                                    <option value="L">L</option>
+                                                    <option value="XL">XL</option>
+                                                    <option value="XXL">XXL</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="edit_estado_camiseta_gris" name="estado_camiseta_gris">
+                                                <label class="form-check-label" for="edit_estado_camiseta_gris">
+                                                    Valorado
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Guerrera -->
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="elemento-dotacion">
+                                        <label class="form-label">Guerrera</label>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <input type="number" class="form-control" id="edit_guerrera" name="guerrera" min="0" placeholder="Cantidad">
+                                            </div>
+                                            <div class="col-6">
+                                                <select class="form-select" id="edit_guerrera_talla" name="guerrera_talla">
+                                                    <option value="">Talla</option>
+                                                    <option value="S">S</option>
+                                                    <option value="M">M</option>
+                                                    <option value="L">L</option>
+                                                    <option value="XL">XL</option>
+                                                    <option value="XXL">XXL</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="edit_estado_guerrera" name="estado_guerrera">
+                                                <label class="form-check-label" for="edit_estado_guerrera">
+                                                    Valorado
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Camiseta Polo -->
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="elemento-dotacion">
+                                        <label class="form-label">Camiseta Polo</label>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <input type="number" class="form-control" id="edit_camisetapolo" name="camisetapolo" min="0" placeholder="Cantidad">
+                                            </div>
+                                            <div class="col-6">
+                                                <select class="form-select" id="edit_camiseta_polo_talla" name="camiseta_polo_talla">
+                                                    <option value="">Talla</option>
+                                                    <option value="S">S</option>
+                                                    <option value="M">M</option>
+                                                    <option value="L">L</option>
+                                                    <option value="XL">XL</option>
+                                                    <option value="XXL">XXL</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="edit_estado_camiseta_polo" name="estado_camiseta_polo">
+                                                <label class="form-check-label" for="edit_estado_camiseta_polo">
+                                                    Valorado
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Chaqueta -->
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="elemento-dotacion">
+                                        <label class="form-label">Chaqueta</label>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <input type="number" class="form-control" id="edit_chaqueta" name="chaqueta" min="0" placeholder="Cantidad">
+                                            </div>
+                                            <div class="col-6">
+                                                <select class="form-select" id="edit_chaqueta_talla" name="chaqueta_talla">
+                                                    <option value="">Talla</option>
+                                                    <option value="XS">XS</option>
+                                                    <option value="S">S</option>
+                                                    <option value="M">M</option>
+                                                    <option value="L">L</option>
+                                                    <option value="XL">XL</option>
+                                                    <option value="XXL">XXL</option>
+                                                    <option value="XXXL">XXXL</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="edit_estado_chaqueta" name="estado_chaqueta">
+                                                <label class="form-check-label" for="edit_estado_chaqueta">
+                                                    Valorado
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Botas -->
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="elemento-dotacion">
+                                        <label class="form-label">Botas</label>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <input type="number" class="form-control" id="edit_botas" name="botas" min="0" placeholder="Cantidad">
+                                            </div>
+                                            <div class="col-6">
+                                                <select class="form-select" id="edit_botas_talla" name="botas_talla">
+                                                    <option value="">Talla</option>
+                                                    <option value="36">36</option>
+                                                    <option value="37">37</option>
+                                                    <option value="38">38</option>
+                                                    <option value="39">39</option>
+                                                    <option value="40">40</option>
+                                                    <option value="41">41</option>
+                                                    <option value="42">42</option>
+                                                    <option value="43">43</option>
+                                                    <option value="44">44</option>
+                                                    <option value="45">45</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="edit_estado_botas" name="estado_botas">
+                                                <label class="form-check-label" for="edit_estado_botas">
+                                                    Valorado
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- EPPs -->
+                        <div class="subsection">
+                            <h6 class="subsection-title">
+                                <i class="fas fa-hard-hat me-2"></i>
+                                Elementos de Protección Personal (EPPs)
+                            </h6>
+                            <div class="row">
+                                <!-- Guantes Nitrilo -->
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="elemento-dotacion">
+                                        <label class="form-label">Guantes Nitrilo</label>
+                                        <div class="row">
+                                            <div class="col-12">
+                                                <input type="number" class="form-control" id="edit_guantes_nitrilo" name="guantes_nitrilo" min="0" placeholder="Cantidad">
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="edit_estado_guantes_nitrilo" name="estado_guantes_nitrilo">
+                                                <label class="form-check-label" for="edit_estado_guantes_nitrilo">
+                                                    Valorado
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Guantes Carnaza -->
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="elemento-dotacion">
+                                        <label class="form-label">Guantes Carnaza</label>
+                                        <div class="row">
+                                            <div class="col-12">
+                                                <input type="number" class="form-control" id="edit_guantes_carnaza" name="guantes_carnaza" min="0" placeholder="Cantidad">
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="edit_estado_guantes_carnaza" name="estado_guantes_carnaza">
+                                                <label class="form-check-label" for="edit_estado_guantes_carnaza">
+                                                    Valorado
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Gafas -->
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="elemento-dotacion">
+                                        <label class="form-label">Gafas</label>
+                                        <div class="row">
+                                            <div class="col-12">
+                                                <input type="number" class="form-control" id="edit_gafas" name="gafas" min="0" placeholder="Cantidad">
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="edit_estado_gafas" name="estado_gafas">
+                                                <label class="form-check-label" for="edit_estado_gafas">
+                                                    Valorado
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Gorra -->
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="elemento-dotacion">
+                                        <label class="form-label">Gorra</label>
+                                        <div class="row">
+                                            <div class="col-12">
+                                                <input type="number" class="form-control" id="edit_gorra" name="gorra" min="0" placeholder="Cantidad">
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="edit_estado_gorra" name="estado_gorra">
+                                                <label class="form-check-label" for="edit_estado_gorra">
+                                                    Valorado
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Casco -->
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="elemento-dotacion">
+                                        <label class="form-label">Casco</label>
+                                        <div class="row">
+                                            <div class="col-12">
+                                                <input type="number" class="form-control" id="edit_casco" name="casco" min="0" placeholder="Cantidad">
+                                            </div>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="edit_estado_casco" name="estado_casco">
+                                                <label class="form-check-label" for="edit_estado_casco">
+                                                    Valorado
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Observaciones -->
+                    <div class="form-section">
+                        <h5 class="section-title">
+                            <i class="fas fa-comment me-2"></i>
+                            Observaciones
+                        </h5>
+                        <div class="row">
+                            <div class="col-12">
+                                <label for="edit_observaciones" class="form-label">Observaciones</label>
+                                <textarea class="form-control" id="edit_observaciones" name="observaciones" rows="3" placeholder="Ingrese observaciones adicionales (opcional)"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="guardarCambiosEdicion()">
+                    <i class="fas fa-save me-2"></i>
+                    Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Validación de PIN -->
+<div class="modal fade" id="modalValidacionPIN" tabindex="-1" aria-labelledby="modalValidacionPINLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="modalValidacionPINLabel">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    Validación de Seguridad
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-3">
+                    <i id="iconoPrincipalPIN" class="fas fa-lock text-warning" style="font-size: 3rem;"></i>
+                </div>
+                <p id="mensajePrincipalPIN" class="mb-3">
+                    <strong>Por seguridad, confirme su PIN para realizar la actualización de la dotación</strong>
+                </p>
+                <div class="mb-3">
+                    <label for="pinValidacion" class="form-label">Ingrese su PIN:</label>
+                    <input type="password" class="form-control text-center" id="pinValidacion" 
+                           placeholder="••••" maxlength="4" style="font-size: 1.5rem; letter-spacing: 0.5rem;">
+                </div>
+                <div id="errorPIN" class="alert alert-danger d-none" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <span id="mensajeErrorPIN"></span>
+                </div>
+                <div id="loadingPIN" class="d-none">
+                    <div class="spinner-border spinner-border-sm text-warning me-2" role="status">
+                        <span class="visually-hidden">Validando...</span>
+                    </div>
+                    Validando PIN...
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="limpiarPIN()">
+                    <i class="fas fa-times me-2"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-warning" onclick="validarPIN()" id="btnConfirmarPIN">
+                    <i class="fas fa-check me-2"></i>
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Cache busting - Forzar recarga del JavaScript
 console.log('🔄 Cambios Dotación JS cargado - Versión:', new Date().getTime());
+
+// Variable global para almacenar los datos de cambios
+let cambiosData = [];
+
+// Funcionalidad para el colapso del formulario de registro
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Inicializando funcionalidad de colapso...');
+    
+    const collapseElement = document.getElementById('registroFormCollapse');
+    const titleElement = document.querySelector('.collapsible-title');
+    
+    console.log('Elementos encontrados:', {
+        collapseElement: !!collapseElement,
+        titleElement: !!titleElement,
+        bootstrap: typeof bootstrap !== 'undefined'
+    });
+    
+    if (collapseElement && titleElement) {
+        // Verificar que Bootstrap esté disponible
+        if (typeof bootstrap !== 'undefined') {
+            console.log('Bootstrap detectado, inicializando colapso...');
+            
+            // Inicializar el componente de colapso de Bootstrap
+            const bsCollapse = new bootstrap.Collapse(collapseElement, {
+                toggle: false
+            });
+            
+            // Agregar evento de clic al título
+            titleElement.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Título clickeado, alternando colapso...');
+                bsCollapse.toggle();
+            });
+        }
+        
+        // Eventos de Bootstrap para manejar el colapso
+        collapseElement.addEventListener('show.bs.collapse', function () {
+            console.log('Mostrando formulario...');
+            titleElement.setAttribute('aria-expanded', 'true');
+            const chevron = titleElement.querySelector('.chevron-icon');
+            if (chevron) {
+                chevron.style.transform = 'rotate(90deg)';
+            }
+        });
+        
+        collapseElement.addEventListener('hide.bs.collapse', function () {
+            console.log('Ocultando formulario...');
+            titleElement.setAttribute('aria-expanded', 'false');
+            const chevron = titleElement.querySelector('.chevron-icon');
+            if (chevron) {
+                chevron.style.transform = 'rotate(0deg)';
+            }
+        });
+    } else {
+        console.error('No se encontraron los elementos necesarios para el colapso');
+    }
+});
 
 // Variables globales para el selector de técnicos
 let tecnicosData = [];
@@ -1907,7 +2882,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Verificar que al menos un elemento de dotación tenga cantidad
-        const campos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'];
+        const campos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'chaqueta', 'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'];
         let tieneElementos = false;
         
         campos.forEach(campo => {
@@ -2185,24 +3160,41 @@ function cargarHistorialCambios() {
 
 // Función para mostrar los datos del historial en la tabla
 function mostrarHistorialCambios(cambios) {
-    const tbody = document.querySelector('#tablaHistorialCambios tbody');
+    // Almacenar los datos globalmente para uso en edición
+    cambiosData = cambios;
+    
+    const tbodyDesktop = document.querySelector('#tablaHistorialCambiosDesktop tbody');
+    const mobileContainer = document.getElementById('mobileCardsContainer');
     
     if (cambios.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="6" class="text-center text-muted">
+        // Mostrar mensaje de no hay datos en ambas vistas
+        if (tbodyDesktop) {
+            tbodyDesktop.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-muted">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No hay cambios de dotación registrados
+                    </td>
+                </tr>
+            `;
+        }
+        
+        if (mobileContainer) {
+            mobileContainer.innerHTML = `
+                <div class="text-center p-4 text-muted">
                     <i class="fas fa-info-circle me-2"></i>
                     No hay cambios de dotación registrados
-                </td>
-            </tr>
-        `;
+                </div>
+            `;
+        }
         return;
     }
     
-    tbody.innerHTML = '';
+    // Limpiar contenedores
+    if (tbodyDesktop) {
+        tbodyDesktop.innerHTML = '';
+    }
     
-    // Limpiar contenedor móvil
-    const mobileContainer = document.getElementById('mobileCardsContainer');
     if (mobileContainer) {
         mobileContainer.innerHTML = '';
     }
@@ -2216,34 +3208,66 @@ function mostrarHistorialCambios(cambios) {
         const elementosHTML = formatearElementosConValoracion(cambio.elementos_modificados_detalle || cambio.elementos_modificados);
         
         // Crear fila para tabla desktop
-        const fila = document.createElement('tr');
-        fila.className = 'clickable-row';
-        fila.style.cursor = 'pointer';
-        fila.setAttribute('data-cambio-id', cambio.id);
-        fila.innerHTML = `
-            <td>
-                <div class="tecnico-info">
-                    <strong>${cambio.tecnico_nombre || 'Técnico no encontrado'}</strong>
-                    <br>
+        if (tbodyDesktop) {
+            const fila = document.createElement('tr');
+            fila.className = 'clickable-row';
+            fila.style.cursor = 'pointer';
+            fila.setAttribute('data-cambio-id', cambio.id);
+            fila.innerHTML = `
+                <td class="col-tecnico">
+                    <div class="tecnico-info">
+                        <strong>${cambio.tecnico_nombre || 'Técnico no encontrado'}</strong>
+                        <br>
+                        <small class="text-muted">
+                            <i class="fas fa-id-card me-1"></i>
+                            Cédula: ${cambio.tecnico_cedula || cambio.id_codigo_consumidor}
+                        </small>
+                    </div>
+                </td>
+                <td class="col-fecha-cambio">
+                    <strong>${fechaCambio}</strong>
+                </td>
+                <td class="col-elementos">
+                    <div class="elementos-modificados">
+                        ${elementosHTML}
+                    </div>
+                </td>
+                <td class="col-observaciones">
+                    <div class="observaciones-cell">
+                        ${observaciones}
+                    </div>
+                </td>
+                <td class="col-fecha-registro">
                     <small class="text-muted">
-                        <i class="fas fa-id-card me-1"></i>
-                        Cédula: ${cambio.tecnico_cedula || cambio.id_codigo_consumidor}
+                        ${fechaRegistro}
                     </small>
-                    <br>
-                    <small class="text-info">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Haz clic para ver detalles
-                    </small>
-                </div>
-            </td>
-        `;
-        
-        // Agregar evento click para abrir modal de detalles
-        fila.addEventListener('click', () => {
-            mostrarDetallesCambio(cambio);
-        });
-        
-        tbody.appendChild(fila);
+                </td>
+                <td class="col-acciones">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-primary" 
+                                onclick="editarCambio(${cambio.id}); event.stopPropagation();" 
+                                title="Editar cambio">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-info" 
+                                onclick="mostrarDetallesCambio(${JSON.stringify(cambio).replace(/"/g, '&quot;')}); event.stopPropagation();" 
+                                title="Ver detalles">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            // Agregar evento click para abrir modal de detalles (solo en el área de la fila, no en los botones)
+            fila.addEventListener('click', (e) => {
+                // Solo abrir detalles si no se hizo clic en un botón
+                if (!e.target.closest('.btn-group')) {
+                    mostrarDetallesCambio(cambio);
+                }
+            });
+            
+            tbodyDesktop.appendChild(fila);
+        }
         
         // Crear tarjeta para móvil
         if (mobileContainer) {
@@ -2253,10 +3277,26 @@ function mostrarHistorialCambios(cambios) {
             card.setAttribute('data-cambio-id', cambio.id);
             card.innerHTML = `
                 <div class="mobile-card-header">
-                    <span class="badge bg-primary">#${cambio.id}</span>
-                    <div class="mobile-card-date">
-                        <i class="fas fa-calendar-alt me-1"></i>
-                        ${fechaCambio}
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge bg-primary">#${cambio.id}</span>
+                            <div class="mobile-card-date">
+                                <i class="fas fa-calendar-alt me-1"></i>
+                                ${fechaCambio}
+                            </div>
+                        </div>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-primary" 
+                                    onclick="editarCambio(${cambio.id}); event.stopPropagation();" 
+                                    title="Editar cambio">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-info" 
+                                    onclick="mostrarDetallesCambio(${JSON.stringify(cambio).replace(/"/g, '&quot;')}); event.stopPropagation();" 
+                                    title="Ver detalles">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="mobile-card-body">
@@ -2306,9 +3346,12 @@ function mostrarHistorialCambios(cambios) {
                 </div>
             `;            
             
-            // Agregar evento click para abrir modal de detalles
-            card.addEventListener('click', () => {
-                mostrarDetallesCambio(cambio);
+            // Agregar evento click para abrir modal de detalles (solo en el área de la tarjeta, no en los botones)
+            card.addEventListener('click', (e) => {
+                // Solo abrir detalles si no se hizo clic en un botón
+                if (!e.target.closest('.btn-group')) {
+                    mostrarDetallesCambio(cambio);
+                }
             });
             
             mobileContainer.appendChild(card);
@@ -2403,7 +3446,8 @@ function mostrarDetallesCambio(cambio) {
 
 // Función para mostrar error en el historial
 function mostrarErrorHistorial(mensaje) {
-    const tbody = document.querySelector('#tablaHistorialCambios tbody');
+    const tbodyDesktop = document.querySelector('#tablaHistorialCambiosDesktop tbody');
+    const mobileContainer = document.getElementById('mobileCardsContainer');
     
     // Determinar qué botones mostrar según el tipo de error
     let botonesHTML = '';
@@ -2427,16 +3471,31 @@ function mostrarErrorHistorial(mensaje) {
         `;
     }
     
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="6" class="text-center text-danger">
+    // Mostrar error en vista desktop
+    if (tbodyDesktop) {
+        tbodyDesktop.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    ${mensaje}
+                    <br>
+                    ${botonesHTML}
+                </td>
+            </tr>
+        `;
+    }
+    
+    // Mostrar error en vista móvil
+    if (mobileContainer) {
+        mobileContainer.innerHTML = `
+            <div class="text-center p-4 text-danger">
                 <i class="fas fa-exclamation-triangle me-2"></i>
                 ${mensaje}
                 <br>
                 ${botonesHTML}
-            </td>
-        </tr>
-    `;
+            </div>
+        `;
+    }
 }
 
 // Función para formatear fecha y hora
@@ -2635,7 +3694,7 @@ function generarInfoTallas(elemento) {
     }
     
     // Elementos que manejan tallas
-    const elementosConTallas = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'botas', 'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco'];
+    const elementosConTallas = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'chaqueta', 'botas', 'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco'];
     
     if (!elementosConTallas.includes(elemento)) {
         return '';
@@ -2681,6 +3740,7 @@ function actualizarIndicadoresStock() {
         'camisetagris': 'Camiseta Gris',
         'guerrera': 'Guerrera',
         'camisetapolo': 'Camiseta Polo',
+        'chaqueta': 'Chaqueta',
         'guantes_nitrilo': 'Guantes Nitrilo',
         'guantes_carnaza': 'Guantes Carnaza',
         'gafas': 'Gafas',
@@ -2729,6 +3789,7 @@ function validarStockDisponible(elemento) {
         'camisetagris': 'Camiseta Gris',
         'guerrera': 'Guerrera',
         'camisetapolo': 'Camiseta Polo',
+        'chaqueta': 'Chaqueta',
         'guantes_nitrilo': 'Guantes Nitrilo',
         'guantes_carnaza': 'Guantes Carnaza',
         'gafas': 'Gafas',
@@ -2806,6 +3867,7 @@ function validarFormularioCompleto() {
         'camisetagris': 'Camiseta Gris',
         'guerrera': 'Guerrera',
         'camisetapolo': 'Camiseta Polo',
+        'chaqueta': 'Chaqueta',
         'guantes_nitrilo': 'Guantes Nitrilo',
         'guantes_carnaza': 'Guantes Carnaza',
         'gafas': 'Gafas',
@@ -3099,6 +4161,7 @@ function actualizarIndicadoresStockCambios() {
         'camisetagris': 'Camiseta Gris',
         'guerrera': 'Guerrera',
         'camisetapolo': 'Camiseta Polo',
+        'chaqueta': 'Chaqueta',
         'guantes_nitrilo': 'Guantes Nitrilo',
         'guantes_carnaza': 'Guantes Carnaza',
         'gafas': 'Gafas',
@@ -3139,6 +4202,7 @@ function validarStockDisponibleCambios(elemento) {
         'camisetagris': 'Camiseta Gris',
         'guerrera': 'Guerrera',
         'camisetapolo': 'Camiseta Polo',
+        'chaqueta': 'Chaqueta',
         'guantes_nitrilo': 'Guantes Nitrilo',
         'guantes_carnaza': 'Guantes Carnaza',
         'gafas': 'Gafas',
@@ -3194,6 +4258,7 @@ function validarFormularioCompletoCambios() {
         'camisetagris': 'Camiseta Gris',
         'guerrera': 'Guerrera',
         'camisetapolo': 'Camiseta Polo',
+        'chaqueta': 'Chaqueta',
         'guantes_nitrilo': 'Guantes Nitrilo',
         'guantes_carnaza': 'Guantes Carnaza',
         'gafas': 'Gafas',
@@ -3262,7 +4327,7 @@ function limpiarFormularioCambios() {
     
     // Limpiar todos los campos de elementos
     const elementos = [
-        'pantalon', 'camisetagris', 'guerrera', 'camisetapolo',
+        'pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'chaqueta',
         'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'
     ];
     
@@ -3340,6 +4405,7 @@ function registrarCambioDotacion() {
         'camisetagris': 'Camiseta Gris',
         'guerrera': 'Guerrera',
         'camisetapolo': 'Camiseta Polo',
+        'chaqueta': 'Chaqueta',
         'guantes_nitrilo': 'Guantes Nitrilo',
         'guantes_carnaza': 'Guantes Carnaza',
         'gafas': 'Gafas',
@@ -3428,7 +4494,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Event listeners para validación de stock en tiempo real del modal
     const elementosValidacion = [
-        'pantalon', 'camisetagris', 'guerrera', 'camisetapolo',
+        'pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'chaqueta',
         'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco'
     ];
     
@@ -3465,5 +4531,1091 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// ==================== GRÁFICA DE INDICADORES ====================
+
+// Variables globales para la gráfica
+let chartIndicadores = null;
+let datosGrafica = [];
+
+// Inicializar la gráfica al cargar la página
+document.addEventListener('DOMContentLoaded', function() {
+    inicializarGrafica();
+    cargarAnosDisponibles();
+    configurarAnoActual(); // Solo configurar año, no mes
+    
+    // Event listeners para los filtros
+    document.getElementById('btnActualizarGrafica').addEventListener('click', actualizarGrafica);
+    document.getElementById('btnLimpiarFiltros').addEventListener('click', limpiarFiltros);
+    
+    // Event listeners para cambio de tipo de gráfica
+    document.querySelectorAll('input[name="tipoGrafica"]').forEach(radio => {
+        radio.addEventListener('change', cambiarTipoGrafica);
+    });
+    
+    // Cargar datos iniciales agregados (todos los meses)
+    setTimeout(() => {
+        console.log('Cargando datos iniciales agregados...');
+        actualizarGrafica();
+    }, 500);
+});
+
+// Función para inicializar la gráfica
+function inicializarGrafica() {
+    const ctx = document.getElementById('chartIndicadores').getContext('2d');
+    
+    chartIndicadores = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Cantidad de Cambios',
+                data: [],
+                backgroundColor: 'rgba(53, 131, 232, 0.6)',
+                borderColor: 'rgba(53, 131, 232, 1)',
+                borderWidth: 2,
+                borderRadius: 4,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Indicadores de Cambios de Dotación',
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    },
+                    color: '#2c3e50'
+                },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        font: {
+                            size: 12
+                        },
+                        color: '#2c3e50'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white',
+                    borderColor: 'rgba(53, 131, 232, 1)',
+                    borderWidth: 1,
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y} cambios`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1,
+                        color: '#6c757d'
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Cantidad de Cambios',
+                        color: '#2c3e50',
+                        font: {
+                            size: 12,
+                            weight: 'bold'
+                        }
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#6c757d'
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Elementos',
+                        color: '#2c3e50',
+                        font: {
+                            size: 12,
+                            weight: 'bold'
+                        }
+                    }
+                }
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeInOutQuart'
+            }
+        }
+    });
+}
+
+// Función para cargar años disponibles
+function cargarAnosDisponibles() {
+    const selectAno = document.getElementById('filtroAno');
+    const anoActual = new Date().getFullYear();
+    
+    // Limpiar opciones existentes excepto la primera
+    selectAno.innerHTML = '<option value="">Año actual</option>';
+    
+    // Agregar años desde 2020 hasta el año actual + 1
+    for (let ano = 2020; ano <= anoActual + 1; ano++) {
+        const option = document.createElement('option');
+        option.value = ano;
+        option.textContent = ano;
+        if (ano === anoActual) {
+            option.selected = true;
+        }
+        selectAno.appendChild(option);
+    }
+}
+
+// Función para actualizar la gráfica
+function actualizarGrafica() {
+    const filtros = obtenerFiltros();
+    
+    // Mostrar spinner de carga
+    mostrarCargandoGrafica(true);
+    
+    // Construir URL con parámetros GET
+    const params = new URLSearchParams();
+    if (filtros.valorado) params.append('estado_valorado', filtros.valorado);
+    if (filtros.mes) params.append('mes', filtros.mes);
+    if (filtros.elemento && filtros.elemento !== 'todos') params.append('elemento', filtros.elemento);
+    if (filtros.ano) params.append('anio', filtros.ano);
+    
+    console.log('Enviando petición con filtros:', filtros);
+    
+    // Realizar petición AJAX para obtener datos
+    fetch(`/api/indicadores_cambios_dotacion?${params.toString()}`)
+    .then(response => {
+        console.log('Respuesta recibida:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Datos recibidos:', data);
+        if (data.success) {
+            datosGrafica = data.data; // Corregido: usar data.data en lugar de data.datos
+            actualizarDatosGrafica(data.data);
+            actualizarInfoGrafica(data.data);
+            
+            // Cargar elementos dinámicos si no están cargados
+            if (data.filtros && data.filtros.elementos_disponibles) {
+                cargarElementosDisponibles(data.filtros.elementos_disponibles);
+            }
+        } else {
+            console.error('Error al obtener datos:', data.error);
+            mostrarErrorGrafica(data.error || 'Error desconocido al cargar los datos');
+        }
+    })
+    .catch(error => {
+        console.error('Error de conexión:', error);
+        mostrarErrorGrafica('Error de conexión al obtener los datos');
+    })
+    .finally(() => {
+        mostrarCargandoGrafica(false);
+    });
+}
+
+// Función para obtener filtros seleccionados
+function obtenerFiltros() {
+    const elemento = document.getElementById('filtroElemento').value;
+    return {
+        valorado: document.getElementById('filtroValorado').value,
+        mes: document.getElementById('filtroMes').value,
+        elemento: elemento === '' ? 'todos' : elemento,
+        ano: document.getElementById('filtroAno').value || new Date().getFullYear()
+    };
+}
+
+// Función para actualizar los datos de la gráfica
+function actualizarDatosGrafica(datos) {
+    console.log('Actualizando gráfica con datos:', datos);
+    
+    if (!datos || datos.length === 0) {
+        console.log('No hay datos para mostrar en la gráfica');
+        chartIndicadores.data.labels = [];
+        chartIndicadores.data.datasets[0].data = [];
+        chartIndicadores.update('active');
+        return;
+    }
+    
+    const labels = datos.map(item => item.elemento_nombre || item.elemento);
+    const cantidades = datos.map(item => item.cantidad);
+    
+    console.log('Labels:', labels);
+    console.log('Cantidades:', cantidades);
+    
+    // Generar colores dinámicos
+    const colores = generarColoresDinamicos(datos.length);
+    
+    chartIndicadores.data.labels = labels;
+    chartIndicadores.data.datasets[0].data = cantidades;
+    chartIndicadores.data.datasets[0].backgroundColor = colores.background;
+    chartIndicadores.data.datasets[0].borderColor = colores.border;
+    
+    chartIndicadores.update('active');
+}
+
+// Función para generar colores dinámicos
+function generarColoresDinamicos(cantidad) {
+    const coloresBase = [
+        'rgba(53, 131, 232, 0.6)',   // Azul
+        'rgba(40, 167, 69, 0.6)',    // Verde
+        'rgba(255, 193, 7, 0.6)',    // Amarillo
+        'rgba(220, 53, 69, 0.6)',    // Rojo
+        'rgba(108, 117, 125, 0.6)',  // Gris
+        'rgba(23, 162, 184, 0.6)',   // Cyan
+        'rgba(138, 43, 226, 0.6)',   // Violeta
+        'rgba(255, 99, 132, 0.6)',   // Rosa
+        'rgba(54, 162, 235, 0.6)',   // Azul claro
+        'rgba(255, 159, 64, 0.6)'    // Naranja
+    ];
+    
+    const coloresBorde = [
+        'rgba(53, 131, 232, 1)',
+        'rgba(40, 167, 69, 1)',
+        'rgba(255, 193, 7, 1)',
+        'rgba(220, 53, 69, 1)',
+        'rgba(108, 117, 125, 1)',
+        'rgba(23, 162, 184, 1)',
+        'rgba(138, 43, 226, 1)',
+        'rgba(255, 99, 132, 1)',
+        'rgba(54, 162, 235, 1)',
+        'rgba(255, 159, 64, 1)'
+    ];
+    
+    const background = [];
+    const border = [];
+    
+    for (let i = 0; i < cantidad; i++) {
+        background.push(coloresBase[i % coloresBase.length]);
+        border.push(coloresBorde[i % coloresBorde.length]);
+    }
+    
+    return { background, border };
+}
+
+// Función para cambiar tipo de gráfica
+function cambiarTipoGrafica() {
+    const tipoSeleccionado = document.querySelector('input[name="tipoGrafica"]:checked').value;
+    
+    chartIndicadores.config.type = tipoSeleccionado;
+    
+    // Ajustar configuraciones específicas según el tipo
+    if (tipoSeleccionado === 'line') {
+        chartIndicadores.data.datasets[0].fill = false;
+        chartIndicadores.data.datasets[0].tension = 0.4;
+        chartIndicadores.data.datasets[0].pointBackgroundColor = 'rgba(53, 131, 232, 1)';
+        chartIndicadores.data.datasets[0].pointBorderColor = 'rgba(53, 131, 232, 1)';
+        chartIndicadores.data.datasets[0].pointRadius = 5;
+    } else {
+        chartIndicadores.data.datasets[0].fill = true;
+        delete chartIndicadores.data.datasets[0].tension;
+        delete chartIndicadores.data.datasets[0].pointBackgroundColor;
+        delete chartIndicadores.data.datasets[0].pointBorderColor;
+        delete chartIndicadores.data.datasets[0].pointRadius;
+    }
+    
+    chartIndicadores.update('active');
+}
+
+// Función para configurar el año actual por defecto
+function configurarAnoActual() {
+    const fechaActual = new Date();
+    const anoActual = fechaActual.getFullYear();
+    
+    // Configurar año actual
+    const filtroAno = document.getElementById('filtroAno');
+    if (filtroAno) {
+        filtroAno.value = anoActual;
+    }
+    
+    // Dejar mes vacío para mostrar "Todos los meses" por defecto
+    const filtroMes = document.getElementById('filtroMes');
+    if (filtroMes) {
+        filtroMes.value = '';
+    }
+    
+    console.log(`Configurado año actual: ${anoActual} (Todos los meses)`);
+}
+
+// Función para configurar el mes actual por defecto (mantener para compatibilidad)
+function configurarMesActual() {
+    const fechaActual = new Date();
+    const mesActual = fechaActual.getMonth() + 1; // getMonth() devuelve 0-11
+    const anoActual = fechaActual.getFullYear();
+    
+    // Configurar mes actual
+    const filtroMes = document.getElementById('filtroMes');
+    if (filtroMes) {
+        filtroMes.value = mesActual;
+    }
+    
+    // Configurar año actual
+    const filtroAno = document.getElementById('filtroAno');
+    if (filtroAno) {
+        filtroAno.value = anoActual;
+    }
+    
+    console.log(`Configurado mes actual: ${mesActual}/${anoActual}`);
+}
+
+// Función para cargar elementos disponibles dinámicamente
+function cargarElementosDisponibles(elementos) {
+    const filtroElemento = document.getElementById('filtroElemento');
+    if (!filtroElemento || !elementos) return;
+    
+    // Guardar el valor seleccionado actualmente
+    const valorSeleccionado = filtroElemento.value;
+    
+    // Limpiar opciones existentes
+    filtroElemento.innerHTML = '';
+    
+    // Agregar opción "Todos"
+    const optionTodos = document.createElement('option');
+    optionTodos.value = '';
+    optionTodos.textContent = 'Todos los elementos';
+    filtroElemento.appendChild(optionTodos);
+    
+    // Crear grupos de elementos
+    const grupoVestimenta = document.createElement('optgroup');
+    grupoVestimenta.label = 'Dotación de Vestimenta';
+    
+    const grupoEPPs = document.createElement('optgroup');
+    grupoEPPs.label = 'EPPs';
+    
+    // Clasificar elementos en grupos
+    elementos.forEach(elemento => {
+        const option = document.createElement('option');
+        option.value = elemento.tipo;
+        option.textContent = elemento.nombre;
+        
+        // Clasificar por tipo
+        if (['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'chaqueta'].includes(elemento.tipo)) {
+            grupoVestimenta.appendChild(option);
+        } else {
+            grupoEPPs.appendChild(option);
+        }
+    });
+    
+    // Agregar grupos solo si tienen elementos
+    if (grupoVestimenta.children.length > 0) {
+        filtroElemento.appendChild(grupoVestimenta);
+    }
+    if (grupoEPPs.children.length > 0) {
+        filtroElemento.appendChild(grupoEPPs);
+    }
+    
+    // Restaurar valor seleccionado si existe
+    if (valorSeleccionado) {
+        filtroElemento.value = valorSeleccionado;
+    }
+    
+    console.log('Elementos cargados dinámicamente:', elementos);
+}
+
+// Función para limpiar filtros
+function limpiarFiltros() {
+    document.getElementById('filtroValorado').value = '';
+    document.getElementById('filtroMes').value = '';  // Dejar vacío para "Todos los meses"
+    document.getElementById('filtroElemento').value = '';
+    document.getElementById('filtroAno').value = new Date().getFullYear();
+    
+    // Limpiar gráfica
+    chartIndicadores.data.labels = [];
+    chartIndicadores.data.datasets[0].data = [];
+    chartIndicadores.update();
+    
+    // Resetear información
+    document.getElementById('textoInfoGrafica').textContent = 'Haz clic en "Actualizar Gráfica" para visualizar todos los datos agregados del año.';
+    document.getElementById('infoGrafica').className = 'alert alert-info';
+    
+    // Actualizar automáticamente para mostrar datos agregados
+    setTimeout(() => {
+        actualizarGrafica();
+    }, 100);
+}
+
+// Función para mostrar estado de carga
+function mostrarCargandoGrafica(mostrar) {
+    const btnActualizar = document.getElementById('btnActualizarGrafica');
+    const icono = btnActualizar.querySelector('i');
+    
+    if (mostrar) {
+        btnActualizar.disabled = true;
+        icono.className = 'fas fa-spinner fa-spin me-2';
+        btnActualizar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Cargando...';
+    } else {
+        btnActualizar.disabled = false;
+        btnActualizar.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Actualizar Gráfica';
+    }
+}
+
+// Función para mostrar error en la gráfica
+function mostrarErrorGrafica(mensaje) {
+    const infoGrafica = document.getElementById('infoGrafica');
+    const textoInfo = document.getElementById('textoInfoGrafica');
+    
+    infoGrafica.className = 'alert alert-danger';
+    textoInfo.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>${mensaje}`;
+}
+
+// Función para actualizar información de la gráfica
+function actualizarInfoGrafica(datos) {
+    const infoGrafica = document.getElementById('infoGrafica');
+    const textoInfo = document.getElementById('textoInfoGrafica');
+    
+    if (datos && datos.length > 0) {
+        const totalCambios = datos.reduce((sum, item) => sum + item.cantidad, 0);
+        const elementoMasCambiado = datos.reduce((max, item) => 
+            item.cantidad > max.cantidad ? item : max, datos[0]);
+        
+        infoGrafica.className = 'alert alert-success';
+        textoInfo.innerHTML = `
+            <i class="fas fa-check-circle me-2"></i>
+            Se encontraron <strong>${totalCambios}</strong> cambios en total. 
+            Elemento más cambiado: <strong>${elementoMasCambiado.elemento_nombre}</strong> (${elementoMasCambiado.cantidad} cambios).
+        `;
+    } else {
+        infoGrafica.className = 'alert alert-warning';
+        textoInfo.innerHTML = '<i class="fas fa-info-circle me-2"></i>No se encontraron datos para los filtros seleccionados.';
+    }
+}
+
+// ===== FUNCIONES PARA EDICIÓN DE CAMBIOS =====
+
+// Función para abrir el modal de edición
+function editarCambio(cambioId) {
+    // Buscar el cambio en los datos cargados
+    const cambio = cambiosData.find(c => c.id === cambioId);
+    
+    if (!cambio) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'No se encontró el registro para editar'
+        });
+        return;
+    }
+    
+    // Llenar el formulario con los datos existentes
+    cargarDatosEnFormularioEdicion(cambio);
+    
+    // Mostrar el modal
+    const modal = new bootstrap.Modal(document.getElementById('modalEditarCambio'));
+    modal.show();
+}
+
+// Función para cargar datos en el formulario de edición
+function cargarDatosEnFormularioEdicion(cambio) {
+    // ID del cambio
+    document.getElementById('edit_cambio_id').value = cambio.id;
+    
+    // Información del técnico
+    document.getElementById('edit_tecnico_nombre').value = cambio.tecnico_nombre || 'Técnico no encontrado';
+    document.getElementById('edit_tecnico_cedula').value = cambio.tecnico_cedula || cambio.id_codigo_consumidor;
+    
+    // Fecha de cambio (convertir de ISO a formato date input)
+    if (cambio.fecha_cambio) {
+        const fecha = new Date(cambio.fecha_cambio);
+        const fechaFormateada = fecha.toISOString().split('T')[0];
+        document.getElementById('edit_fecha_cambio').value = fechaFormateada;
+    }
+    
+    // Observaciones
+    document.getElementById('edit_observaciones').value = cambio.observaciones || '';
+    
+    // Limpiar todos los campos de elementos primero
+    limpiarFormularioElementos();
+    
+    // Cargar elementos modificados desde el detalle
+    if (cambio.elementos_modificados_detalle && Array.isArray(cambio.elementos_modificados_detalle)) {
+        cambio.elementos_modificados_detalle.forEach(elemento => {
+            cargarElementoEnFormulario(elemento);
+        });
+    }
+}
+
+// Función para limpiar todos los campos de elementos
+function limpiarFormularioElementos() {
+    // Elementos de vestimenta
+    document.getElementById('edit_pantalon').value = '';
+    document.getElementById('edit_pantalon_talla').value = '';
+    document.getElementById('edit_estado_pantalon').checked = false;
+    
+    document.getElementById('edit_camisetagris').value = '';
+    document.getElementById('edit_camiseta_gris_talla').value = '';
+    document.getElementById('edit_estado_camiseta_gris').checked = false;
+    
+    document.getElementById('edit_guerrera').value = '';
+    document.getElementById('edit_guerrera_talla').value = '';
+    document.getElementById('edit_estado_guerrera').checked = false;
+    
+    document.getElementById('edit_camisetapolo').value = '';
+    document.getElementById('edit_camiseta_polo_talla').value = '';
+    document.getElementById('edit_estado_camiseta_polo').checked = false;
+    
+    document.getElementById('edit_chaqueta').value = '';
+    document.getElementById('edit_chaqueta_talla').value = '';
+    document.getElementById('edit_estado_chaqueta').checked = false;
+    
+    document.getElementById('edit_botas').value = '';
+    document.getElementById('edit_botas_talla').value = '';
+    document.getElementById('edit_estado_botas').checked = false;
+    
+    // EPPs
+    document.getElementById('edit_guantes_nitrilo').value = '';
+    document.getElementById('edit_estado_guantes_nitrilo').checked = false;
+    
+    document.getElementById('edit_guantes_carnaza').value = '';
+    document.getElementById('edit_estado_guantes_carnaza').checked = false;
+    
+    document.getElementById('edit_gafas').value = '';
+    document.getElementById('edit_estado_gafas').checked = false;
+    
+    document.getElementById('edit_gorra').value = '';
+    document.getElementById('edit_estado_gorra').checked = false;
+    
+    document.getElementById('edit_casco').value = '';
+    document.getElementById('edit_estado_casco').checked = false;
+}
+
+// Función para cargar un elemento específico en el formulario
+function cargarElementoEnFormulario(elemento) {
+    const descripcion = elemento.descripcion || elemento.elemento;
+    const cantidad = elemento.cantidad || 0;
+    const talla = elemento.talla || '';
+    const esValorado = elemento.es_valorado || false;
+    
+    // Mapear descripción a campos del formulario
+    const mapeoElementos = {
+        'Pantalón': {
+            cantidad: 'edit_pantalon',
+            talla: 'edit_pantalon_talla',
+            estado: 'edit_estado_pantalon'
+        },
+        'Camiseta Gris': {
+            cantidad: 'edit_camisetagris',
+            talla: 'edit_camiseta_gris_talla',
+            estado: 'edit_estado_camiseta_gris'
+        },
+        'Guerrera': {
+            cantidad: 'edit_guerrera',
+            talla: 'edit_guerrera_talla',
+            estado: 'edit_estado_guerrera'
+        },
+        'Camiseta Polo': {
+            cantidad: 'edit_camisetapolo',
+            talla: 'edit_camiseta_polo_talla',
+            estado: 'edit_estado_camiseta_polo'
+        },
+        'Chaqueta': {
+            cantidad: 'edit_chaqueta',
+            talla: 'edit_chaqueta_talla',
+            estado: 'edit_estado_chaqueta'
+        },
+        'Botas': {
+            cantidad: 'edit_botas',
+            talla: 'edit_botas_talla',
+            estado: 'edit_estado_botas'
+        },
+        'Guantes Nitrilo': {
+            cantidad: 'edit_guantes_nitrilo',
+            talla: null,
+            estado: 'edit_estado_guantes_nitrilo'
+        },
+        'Guantes Carnaza': {
+            cantidad: 'edit_guantes_carnaza',
+            talla: null,
+            estado: 'edit_estado_guantes_carnaza'
+        },
+        'Gafas': {
+            cantidad: 'edit_gafas',
+            talla: null,
+            estado: 'edit_estado_gafas'
+        },
+        'Gorra': {
+            cantidad: 'edit_gorra',
+            talla: null,
+            estado: 'edit_estado_gorra'
+        },
+        'Casco': {
+            cantidad: 'edit_casco',
+            talla: null,
+            estado: 'edit_estado_casco'
+        }
+    };
+    
+    const campos = mapeoElementos[descripcion];
+    if (campos) {
+        // Cantidad
+        if (campos.cantidad) {
+            document.getElementById(campos.cantidad).value = cantidad;
+        }
+        
+        // Talla (si aplica)
+        if (campos.talla && talla) {
+            document.getElementById(campos.talla).value = talla;
+        }
+        
+        // Estado valorado
+        if (campos.estado) {
+            document.getElementById(campos.estado).checked = esValorado;
+        }
+    }
+}
+
+// Variable global para almacenar los datos del cambio temporalmente
+let datosGuardadoTemporal = null;
+
+// Función para guardar los cambios (ahora requiere validación PIN)
+function guardarCambiosEdicion() {
+    const form = document.getElementById('formEditarCambio');
+    const formData = new FormData(form);
+    const cambioId = document.getElementById('edit_cambio_id').value;
+    
+    // Validar que hay al menos un elemento con cantidad
+    const tieneElementos = validarElementosEdicion(formData);
+    if (!tieneElementos) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Validación',
+            text: 'Debe especificar al menos un elemento con cantidad mayor a 0'
+        });
+        return;
+    }
+    
+    // Convertir FormData a objeto JSON
+    const data = {};
+    for (let [key, value] of formData.entries()) {
+        if (key.startsWith('estado_')) {
+            // Los checkboxes se envían como true/false
+            data[key] = value === 'on';
+        } else {
+            data[key] = value;
+        }
+    }
+    
+    // Agregar checkboxes no marcados como false
+    const checkboxes = [
+        'estado_pantalon', 'estado_camiseta_gris', 'estado_guerrera', 
+        'estado_camiseta_polo', 'estado_botas', 'estado_guantes_nitrilo',
+        'estado_guantes_carnaza', 'estado_gafas', 'estado_gorra', 'estado_casco',
+        'estado_chaqueta'
+    ];
+    
+    checkboxes.forEach(checkbox => {
+        if (!(checkbox in data)) {
+            data[checkbox] = false;
+        }
+    });
+    
+    // Guardar datos temporalmente y mostrar modal de PIN
+    datosGuardadoTemporal = {
+        data: data,
+        cambioId: cambioId
+    };
+    
+    // Mostrar modal de validación de PIN
+    const modalPIN = new bootstrap.Modal(document.getElementById('modalValidacionPIN'));
+    modalPIN.show();
+}
+
+// Función para procesar el guardado después de validar PIN
+function procesarGuardadoConPIN() {
+    if (!datosGuardadoTemporal) {
+        console.error('No hay datos temporales para guardar');
+        return;
+    }
+    
+    const { data, cambioId } = datosGuardadoTemporal;
+    
+    // Mostrar loading en el modal de edición
+    const btnGuardar = document.querySelector('#modalEditarCambio .btn-primary');
+    const textoOriginal = btnGuardar.innerHTML;
+    btnGuardar.disabled = true;
+    btnGuardar.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Guardando...';
+    
+    // Enviar datos al servidor
+    fetch(`/api/cambios_dotacion/${cambioId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            // Cerrar modales
+            const modalEditar = bootstrap.Modal.getInstance(document.getElementById('modalEditarCambio'));
+            const modalPIN = bootstrap.Modal.getInstance(document.getElementById('modalValidacionPIN'));
+            
+            if (modalPIN) modalPIN.hide();
+            if (modalEditar) modalEditar.hide();
+            
+            // Limpiar datos temporales
+            datosGuardadoTemporal = null;
+            
+            // Mostrar mensaje de éxito
+            Swal.fire({
+                icon: 'success',
+                title: 'Éxito',
+                text: 'El cambio de dotación ha sido actualizado correctamente',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            
+            // Recargar el historial
+            cargarHistorialCambios();
+        } else {
+            throw new Error(result.error || 'Error desconocido');
+        }
+    })
+    .catch(error => {
+        console.error('Error al guardar cambios:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: `Error al guardar los cambios: ${error.message}`
+        });
+    })
+    .finally(() => {
+        // Restaurar botón
+        btnGuardar.disabled = false;
+        btnGuardar.innerHTML = textoOriginal;
+    });
+}
+
+// Función para validar que hay elementos con cantidad
+function validarElementosEdicion(formData) {
+    const elementos = [
+        'pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'botas',
+        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'chaqueta'
+    ];
+    
+    for (let elemento of elementos) {
+        const cantidad = parseInt(formData.get(elemento)) || 0;
+        if (cantidad > 0) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+// Funciones para manejo del PIN de seguridad
+function validarPIN() {
+    const pin = document.getElementById('pinValidacion').value.trim();
+    
+    if (!pin) {
+        mostrarErrorPIN('Debe ingresar su PIN');
+        return;
+    }
+    
+    if (pin.length < 4) {
+        mostrarErrorPIN('El PIN debe tener al menos 4 dígitos');
+        return;
+    }
+    
+    // Mostrar loading
+    mostrarLoadingPIN(true);
+    ocultarErrorPIN();
+    
+    // Crear AbortController para timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort();
+        mostrarErrorPIN('Tiempo de espera agotado. Intente nuevamente.');
+        mostrarLoadingPIN(false);
+    }, 8000); // Timeout de 8 segundos
+    
+    // Validar PIN con el servidor
+    fetch('/api/validar_pin', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ pin: pin }),
+        signal: controller.signal
+    })
+    .then(response => {
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            // Manejar errores HTTP específicos
+            if (response.status === 401) {
+                throw new Error('PIN incorrecto');
+            } else if (response.status === 403) {
+                throw new Error('No tiene PIN asignado. Contacte al administrador.');
+            } else if (response.status === 404) {
+                throw new Error('Usuario no encontrado');
+            } else if (response.status >= 500) {
+                throw new Error('Error del servidor. Intente nuevamente.');
+            } else {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+        }
+        
+        return response.json();
+    })
+    .then(result => {
+        if (result.success) {
+            // PIN válido, proceder con el guardado
+            procesarGuardadoConPIN();
+        } else {
+            mostrarErrorPIN(result.error || 'PIN incorrecto');
+            limpiarSoloPIN();
+        }
+    })
+    .catch(error => {
+        clearTimeout(timeoutId);
+        
+        if (error.name === 'AbortError') {
+            // Error ya manejado por el timeout
+            return;
+        }
+        
+        console.error('Error al validar PIN:', error);
+        console.log('Mensaje de error completo:', error.message);
+        
+        // Mostrar mensaje específico según el tipo de error
+        if (error.message.includes('PIN incorrecto')) {
+            mostrarErrorPIN('PIN incorrecto. Verifique e intente nuevamente.');
+        } else if (error.message.includes('No tiene PIN asignado') || error.message.includes('PIN asignado')) {
+            mostrarErrorPIN('No tiene PIN asignado. Contacte al administrador para configurar su PIN de seguridad.');
+        } else if (error.message.includes('Usuario no encontrado')) {
+            mostrarErrorPIN('Usuario no encontrado. Contacte al administrador.');
+        } else if (error.message.includes('servidor')) {
+            mostrarErrorPIN('Error del servidor. Intente nuevamente en unos momentos.');
+        } else if (!navigator.onLine) {
+            mostrarErrorPIN('Sin conexión a internet. Verifique su conexión.');
+        } else {
+            mostrarErrorPIN('Error de conexión. Verifique su conexión e intente nuevamente.');
+        }
+        
+        // Solo limpiar el campo PIN, pero mantener el error visible
+        limpiarSoloPIN();
+    })
+    .finally(() => {
+        mostrarLoadingPIN(false);
+    });
+}
+
+function limpiarPIN() {
+    try {
+        const pinInput = document.getElementById('pinValidacion');
+        if (pinInput) {
+            pinInput.value = '';
+        }
+        // Restaurar el mensaje original del modal
+        restaurarMensajeOriginalPIN();
+        ocultarErrorPIN();
+        mostrarLoadingPIN(false);
+    } catch (error) {
+        console.error('Error en limpiarPIN:', error);
+    }
+}
+
+function limpiarSoloPIN() {
+    try {
+        const pinInput = document.getElementById('pinValidacion');
+        if (pinInput) {
+            pinInput.value = '';
+            // Enfocar el campo para que el usuario pueda intentar de nuevo
+            setTimeout(() => {
+                pinInput.focus();
+            }, 100);
+        }
+        mostrarLoadingPIN(false);
+    } catch (error) {
+        console.error('Error en limpiarSoloPIN:', error);
+    }
+}
+
+function mostrarErrorPIN(mensaje) {
+    try {
+        console.log('🔴 mostrarErrorPIN llamada con mensaje:', mensaje);
+        
+        // Cambiar el mensaje principal del modal a error
+        cambiarMensajePrincipalPIN(mensaje, 'error', 'danger');
+        
+        // Ocultar el área de error separada ya que usamos el mensaje principal
+        const errorDiv = document.getElementById('errorPIN');
+        if (errorDiv) {
+            errorDiv.classList.add('d-none');
+            errorDiv.classList.remove('d-block');
+            errorDiv.style.display = 'none';
+        }
+        
+        console.log('✅ Error PIN mostrado en mensaje principal del modal:', mensaje);
+        
+    } catch (error) {
+        console.error('💥 Error en mostrarErrorPIN:', error);
+    }
+}
+
+function ocultarErrorPIN() {
+    try {
+        console.log('🟡 ocultarErrorPIN llamada');
+        
+        const errorDiv = document.getElementById('errorPIN');
+        if (errorDiv) {
+            errorDiv.classList.add('d-none');
+            errorDiv.classList.remove('d-block');
+            errorDiv.style.display = 'none';
+            errorDiv.style.visibility = 'hidden';
+            errorDiv.style.opacity = '0';
+            
+            console.log('✅ Error PIN ocultado exitosamente');
+        } else {
+            console.warn('⚠️ Elemento errorPIN no encontrado para ocultar');
+        }
+    } catch (error) {
+        console.error('💥 Error en ocultarErrorPIN:', error);
+    }
+}
+
+// Función para cambiar el mensaje principal del modal dinámicamente
+function cambiarMensajePrincipalPIN(mensaje, tipoIcono = 'lock', colorIcono = 'warning') {
+    try {
+        console.log('🔄 Cambiando mensaje principal del modal PIN:', mensaje);
+        
+        const mensajePrincipal = document.getElementById('mensajePrincipalPIN');
+        const iconoPrincipal = document.getElementById('iconoPrincipalPIN');
+        
+        if (mensajePrincipal) {
+            mensajePrincipal.innerHTML = `<strong>${mensaje}</strong>`;
+            console.log('✅ Mensaje principal actualizado:', mensaje);
+        }
+        
+        if (iconoPrincipal) {
+            // Limpiar clases de ícono anteriores
+            iconoPrincipal.className = '';
+            
+            // Agregar nuevas clases según el tipo
+            let iconClass = '';
+            switch (tipoIcono) {
+                case 'error':
+                    iconClass = 'fas fa-exclamation-triangle';
+                    break;
+                case 'lock':
+                default:
+                    iconClass = 'fas fa-lock';
+                    break;
+            }
+            
+            iconoPrincipal.className = `${iconClass} text-${colorIcono}`;
+            iconoPrincipal.style.fontSize = '3rem';
+            
+            console.log('✅ Ícono principal actualizado:', iconClass, `text-${colorIcono}`);
+        }
+        
+    } catch (error) {
+        console.error('💥 Error en cambiarMensajePrincipalPIN:', error);
+    }
+}
+
+// Función para restaurar el mensaje original del modal
+function restaurarMensajeOriginalPIN() {
+    cambiarMensajePrincipalPIN(
+        'Por seguridad, confirme su PIN para realizar la actualización de la dotación',
+        'lock',
+        'warning'
+    );
+}
+
+function mostrarLoadingPIN(mostrar) {
+    try {
+        const loadingDiv = document.getElementById('loadingPIN');
+        const btnConfirmar = document.getElementById('btnConfirmarPIN');
+        
+        if (loadingDiv && btnConfirmar) {
+            if (mostrar) {
+                loadingDiv.classList.remove('d-none');
+                btnConfirmar.disabled = true;
+            } else {
+                loadingDiv.classList.add('d-none');
+                btnConfirmar.disabled = false;
+            }
+        } else {
+            console.warn('Elementos de loading PIN no encontrados:', { loadingDiv, btnConfirmar });
+        }
+    } catch (error) {
+        console.error('Error en mostrarLoadingPIN:', error);
+    }
+}
+
+// Event listener para Enter en el campo PIN
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        const pinInput = document.getElementById('pinValidacion');
+        const modalPIN = document.getElementById('modalValidacionPIN');
+        
+        if (pinInput) {
+            pinInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    const pinValue = pinInput.value.trim();
+                    if (pinValue) {
+                        validarPIN();
+                    } else {
+                        mostrarErrorPIN('Por favor, ingrese su PIN de seguridad.');
+                    }
+                }
+            });
+        } else {
+            console.warn('Campo pinValidacion no encontrado');
+        }
+        
+        if (modalPIN) {
+            // Limpiar PIN cuando se abre el modal
+            modalPIN.addEventListener('shown.bs.modal', function() {
+                try {
+                    limpiarPIN();
+                    if (pinInput) {
+                        pinInput.focus();
+                    }
+                } catch (error) {
+                    console.error('Error al mostrar modal PIN:', error);
+                }
+            });
+            
+            // Limpiar datos temporales si se cancela
+            modalPIN.addEventListener('hidden.bs.modal', function() {
+                try {
+                    if (datosGuardadoTemporal) {
+                        // Solo limpiar si no se completó el guardado
+                        setTimeout(() => {
+                            if (datosGuardadoTemporal) {
+                                datosGuardadoTemporal = null;
+                            }
+                        }, 100);
+                    }
+                } catch (error) {
+                    console.error('Error al ocultar modal PIN:', error);
+                }
+            });
+        } else {
+            console.warn('Modal modalValidacionPIN no encontrado');
+        }
+    } catch (error) {
+        console.error('Error al inicializar event listeners del PIN:', error);
+    }
+});
+
 </script>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 {% endblock %}
