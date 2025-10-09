@@ -14303,7 +14303,7 @@ def api_cambios_dotacion_exportar():
 @login_required()
 @role_required('logistica')
 def api_cambios_dotacion_exportar_csv():
-    """API para exportar cambios de dotación a CSV con columnas separadas"""
+    """API para exportar cambios de dotación a CSV con una fila por elemento modificado"""
     try:
         # Conectar a la base de datos capired
         import mysql.connector
@@ -14368,42 +14368,17 @@ def api_cambios_dotacion_exportar_csv():
         # Crear el archivo CSV en memoria
         output = io.StringIO()
         
-        # Definir las columnas del CSV con separación clara
+        # Definir las nuevas columnas del CSV - una fila por elemento
         fieldnames = [
-            'ID',
             'Tecnico',
             'Cedula',
             'Fecha_Cambio',
-            'Fecha_Registro',
-            'Pantalon_Cantidad',
-            'Pantalon_Talla',
-            'Pantalon_Estado',
-            'Camiseta_Gris_Cantidad',
-            'Camiseta_Gris_Talla',
-            'Camiseta_Gris_Estado',
-            'Guerrera_Cantidad',
-            'Guerrera_Talla',
-            'Guerrera_Estado',
-            'Camiseta_Polo_Cantidad',
-            'Camiseta_Polo_Talla',
-            'Camiseta_Polo_Estado',
-            'Chaqueta_Cantidad',
-            'Chaqueta_Talla',
-            'Chaqueta_Estado',
-            'Guantes_Nitrilo_Cantidad',
-            'Guantes_Nitrilo_Estado',
-            'Guantes_Carnaza_Cantidad',
-            'Guantes_Carnaza_Estado',
-            'Gafas_Cantidad',
-            'Gafas_Estado',
-            'Gorra_Cantidad',
-            'Gorra_Estado',
-            'Casco_Cantidad',
-            'Casco_Estado',
-            'Botas_Cantidad',
-            'Botas_Talla',
-            'Botas_Estado',
-            'Observaciones'
+            'Elemento_Modificado',
+            'Cantidad',
+            'Talla',
+            'Estado',
+            'Observaciones',
+            'Fecha_Registro'
         ]
         
         # Crear el writer CSV con delimitador de coma y quoting mínimo
@@ -14412,45 +14387,54 @@ def api_cambios_dotacion_exportar_csv():
         # Escribir encabezados
         writer.writeheader()
         
-        # Escribir datos
+        # Definir los elementos de dotación con sus campos correspondientes
+        elementos_dotacion = [
+            ('pantalon', 'pantalon', 'pantalon_talla', 'estado_pantalon'),
+            ('camiseta_gris', 'camisetagris', 'camiseta_gris_talla', 'estado_camiseta_gris'),
+            ('guerrera', 'guerrera', 'guerrera_talla', 'estado_guerrera'),
+            ('camiseta_polo', 'camisetapolo', 'camiseta_polo_talla', 'estado_camiseta_polo'),
+            ('chaqueta', 'chaqueta', 'chaqueta_talla', 'estado_chaqueta'),
+            ('guantes_nitrilo', 'guantes_nitrilo', None, 'estado_guantes_nitrilo'),
+            ('guantes_carnaza', 'guantes_carnaza', None, 'estado_guantes_carnaza'),
+            ('gafas', 'gafas', None, 'estado_gafas'),
+            ('gorra', 'gorra', None, 'estado_gorra'),
+            ('casco', 'casco', None, 'estado_casco'),
+            ('botas', 'botas', 'botas_talla', 'estado_botas')
+        ]
+        
+        # Escribir datos - una fila por elemento modificado
         for cambio in cambios:
-            row = {
-                'ID': str(cambio['id']).strip(),  # Convertir a string y eliminar espacios
-                'Tecnico': str(cambio['tecnico_nombre'] or 'No disponible').strip(),
-                'Cedula': str(cambio['tecnico_cedula'] or 'No disponible').strip(),
-                'Fecha_Cambio': cambio['fecha_cambio'].strftime('%Y-%m-%d') if cambio['fecha_cambio'] else '',
-                'Fecha_Registro': cambio['created_at'].strftime('%Y-%m-%d %H:%M:%S') if cambio['created_at'] else '',
-                'Pantalon_Cantidad': str(cambio['pantalon'] or 0).strip(),
-                'Pantalon_Talla': str(cambio['pantalon_talla'] or '').strip(),
-                'Pantalon_Estado': str(cambio['estado_pantalon'] or 'NO VALORADO').strip(),
-                'Camiseta_Gris_Cantidad': str(cambio['camisetagris'] or 0).strip(),
-                'Camiseta_Gris_Talla': str(cambio['camiseta_gris_talla'] or '').strip(),
-                'Camiseta_Gris_Estado': str(cambio['estado_camiseta_gris'] or 'NO VALORADO').strip(),
-                'Guerrera_Cantidad': str(cambio['guerrera'] or 0).strip(),
-                'Guerrera_Talla': str(cambio['guerrera_talla'] or '').strip(),
-                'Guerrera_Estado': str(cambio['estado_guerrera'] or 'NO VALORADO').strip(),
-                'Camiseta_Polo_Cantidad': str(cambio['camisetapolo'] or 0).strip(),
-                'Camiseta_Polo_Talla': str(cambio['camiseta_polo_talla'] or '').strip(),
-                'Camiseta_Polo_Estado': str(cambio['estado_camiseta_polo'] or 'NO VALORADO').strip(),
-                'Chaqueta_Cantidad': str(cambio['chaqueta'] or 0).strip(),
-                'Chaqueta_Talla': str(cambio['chaqueta_talla'] or '').strip(),
-                'Chaqueta_Estado': str(cambio['estado_chaqueta'] or 'NO VALORADO').strip(),
-                'Guantes_Nitrilo_Cantidad': str(cambio['guantes_nitrilo'] or 0).strip(),
-                'Guantes_Nitrilo_Estado': str(cambio['estado_guantes_nitrilo'] or 'NO VALORADO').strip(),
-                'Guantes_Carnaza_Cantidad': str(cambio['guantes_carnaza'] or 0).strip(),
-                'Guantes_Carnaza_Estado': str(cambio['estado_guantes_carnaza'] or 'NO VALORADO').strip(),
-                'Gafas_Cantidad': str(cambio['gafas'] or 0).strip(),
-                'Gafas_Estado': str(cambio['estado_gafas'] or 'NO VALORADO').strip(),
-                'Gorra_Cantidad': str(cambio['gorra'] or 0).strip(),
-                'Gorra_Estado': str(cambio['estado_gorra'] or 'NO VALORADO').strip(),
-                'Casco_Cantidad': str(cambio['casco'] or 0).strip(),
-                'Casco_Estado': str(cambio['estado_casco'] or 'NO VALORADO').strip(),
-                'Botas_Cantidad': str(cambio['botas'] or 0).strip(),
-                'Botas_Talla': str(cambio['botas_talla'] or '').strip(),
-                'Botas_Estado': str(cambio['estado_botas'] or 'NO VALORADO').strip(),
-                'Observaciones': str(cambio['observaciones'] or '').strip()
-            }
-            writer.writerow(row)
+            # Datos comunes del técnico y cambio
+            tecnico = str(cambio['tecnico_nombre'] or 'No disponible').strip()
+            cedula = str(cambio['tecnico_cedula'] or 'No disponible').strip()
+            fecha_cambio = cambio['fecha_cambio'].strftime('%d/%m/%Y') if cambio['fecha_cambio'] else ''
+            observaciones = str(cambio['observaciones'] or '').strip()
+            fecha_registro = cambio['created_at'].strftime('%d/%m/%Y %H:%M') if cambio['created_at'] else ''
+            
+            # Iterar por cada elemento de dotación
+            for elemento_nombre, campo_cantidad, campo_talla, campo_estado in elementos_dotacion:
+                cantidad = cambio.get(campo_cantidad, 0) or 0
+                
+                # Solo incluir elementos con cantidad > 0
+                if cantidad > 0:
+                    talla = ''
+                    if campo_talla and cambio.get(campo_talla):
+                        talla = str(cambio[campo_talla]).strip()
+                    
+                    estado = str(cambio.get(campo_estado, 'NO VALORADO') or 'NO VALORADO').strip()
+                    
+                    row = {
+                        'Tecnico': tecnico,
+                        'Cedula': cedula,
+                        'Fecha_Cambio': fecha_cambio,
+                        'Elemento_Modificado': elemento_nombre,
+                        'Cantidad': str(cantidad).strip(),
+                        'Talla': talla,
+                        'Estado': estado,
+                        'Observaciones': observaciones,
+                        'Fecha_Registro': fecha_registro
+                    }
+                    writer.writerow(row)
         
         cursor.close()
         connection.close()
@@ -14461,7 +14445,7 @@ def api_cambios_dotacion_exportar_csv():
         
         # Generar nombre del archivo con timestamp
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'cambios_dotacion_{timestamp}.csv'
+        filename = f'cambios_dotacion_detallado_{timestamp}.csv'
         
         # Crear la respuesta
         response = make_response(csv_bytes)
