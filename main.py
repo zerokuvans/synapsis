@@ -14057,6 +14057,426 @@ def api_cambios_dotacion_historial():
             'error': f'Error al cargar el historial: {str(e)}'
         }), 500
 
+@app.route('/api/cambios_dotacion/exportar', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def api_cambios_dotacion_exportar():
+    """API para exportar cambios de dotación a Excel con dos hojas"""
+    try:
+        # Conectar a la base de datos capired
+        import mysql.connector
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+        
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Consulta para obtener todos los cambios de dotación
+        query = """
+            SELECT 
+                cd.id_cambio as id,
+                cd.id_codigo_consumidor,
+                ro.nombre as tecnico_nombre,
+                ro.recurso_operativo_cedula as tecnico_cedula,
+                cd.fecha_cambio,
+                cd.pantalon,
+                cd.pantalon_talla,
+                cd.estado_pantalon,
+                cd.camisetagris,
+                cd.camiseta_gris_talla,
+                cd.estado_camiseta_gris,
+                cd.guerrera,
+                cd.guerrera_talla,
+                cd.estado_guerrera,
+                cd.camisetapolo,
+                cd.camiseta_polo_talla,
+                cd.estado_camiseta_polo,
+                cd.chaqueta,
+                cd.chaqueta_talla,
+                cd.estado_chaqueta,
+                cd.guantes_nitrilo,
+                cd.estado_guantes_nitrilo,
+                cd.guantes_carnaza,
+                cd.estado_guantes_carnaza,
+                cd.gafas,
+                cd.estado_gafas,
+                cd.gorra,
+                cd.estado_gorra,
+                cd.casco,
+                cd.estado_casco,
+                cd.botas,
+                cd.botas_talla,
+                cd.estado_botas,
+                cd.observaciones,
+                cd.fecha_registro as created_at
+            FROM cambios_dotacion cd
+            LEFT JOIN recurso_operativo ro ON cd.id_codigo_consumidor = ro.id_codigo_consumidor
+            ORDER BY cd.fecha_cambio DESC, cd.fecha_registro DESC
+        """
+        
+        cursor.execute(query)
+        cambios = cursor.fetchall()
+        
+        # Crear el libro de Excel
+        wb = Workbook()
+        
+        # Eliminar la hoja por defecto
+        wb.remove(wb.active)
+        
+        # Estilos para el Excel
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        
+        # HOJA 1: Resumen por Elementos
+        ws1 = wb.create_sheet("Resumen por Elementos")
+        
+        # Configurar encabezados de la Hoja 1
+        headers_resumen = ["Elemento", "Cantidad Total", "Cantidad Valorada", "Cantidad No Valorada"]
+        for col, header in enumerate(headers_resumen, 1):
+            cell = ws1.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = border
+        
+        # Mapeo de elementos para el resumen
+        elementos_resumen = {
+            'Pantalón': {'total': 0, 'valorado': 0, 'no_valorado': 0},
+            'Camiseta Gris': {'total': 0, 'valorado': 0, 'no_valorado': 0},
+            'Guerrera': {'total': 0, 'valorado': 0, 'no_valorado': 0},
+            'Camiseta Polo': {'total': 0, 'valorado': 0, 'no_valorado': 0},
+            'Chaqueta': {'total': 0, 'valorado': 0, 'no_valorado': 0},
+            'Guantes Nitrilo': {'total': 0, 'valorado': 0, 'no_valorado': 0},
+            'Guantes Carnaza': {'total': 0, 'valorado': 0, 'no_valorado': 0},
+            'Gafas': {'total': 0, 'valorado': 0, 'no_valorado': 0},
+            'Gorra': {'total': 0, 'valorado': 0, 'no_valorado': 0},
+            'Casco': {'total': 0, 'valorado': 0, 'no_valorado': 0},
+            'Botas': {'total': 0, 'valorado': 0, 'no_valorado': 0}
+        }
+        
+        # Procesar datos para el resumen
+        for cambio in cambios:
+            elementos_data = [
+                ('Pantalón', cambio['pantalon'], cambio['estado_pantalon']),
+                ('Camiseta Gris', cambio['camisetagris'], cambio['estado_camiseta_gris']),
+                ('Guerrera', cambio['guerrera'], cambio['estado_guerrera']),
+                ('Camiseta Polo', cambio['camisetapolo'], cambio['estado_camiseta_polo']),
+                ('Chaqueta', cambio['chaqueta'], cambio['estado_chaqueta']),
+                ('Guantes Nitrilo', cambio['guantes_nitrilo'], cambio['estado_guantes_nitrilo']),
+                ('Guantes Carnaza', cambio['guantes_carnaza'], cambio['estado_guantes_carnaza']),
+                ('Gafas', cambio['gafas'], cambio['estado_gafas']),
+                ('Gorra', cambio['gorra'], cambio['estado_gorra']),
+                ('Casco', cambio['casco'], cambio['estado_casco']),
+                ('Botas', cambio['botas'], cambio['estado_botas'])
+            ]
+            
+            for nombre_elemento, cantidad, estado in elementos_data:
+                if cantidad and cantidad > 0:
+                    elementos_resumen[nombre_elemento]['total'] += cantidad
+                    if estado == 'VALORADO':
+                        elementos_resumen[nombre_elemento]['valorado'] += cantidad
+                    else:
+                        elementos_resumen[nombre_elemento]['no_valorado'] += cantidad
+        
+        # Escribir datos del resumen
+        row = 2
+        for elemento, datos in elementos_resumen.items():
+            ws1.cell(row=row, column=1, value=elemento).border = border
+            ws1.cell(row=row, column=2, value=datos['total']).border = border
+            ws1.cell(row=row, column=3, value=datos['valorado']).border = border
+            ws1.cell(row=row, column=4, value=datos['no_valorado']).border = border
+            row += 1
+        
+        # Ajustar ancho de columnas de la Hoja 1
+        for col in range(1, 5):
+            ws1.column_dimensions[get_column_letter(col)].width = 20
+        
+        # HOJA 2: Historial Completo
+        ws2 = wb.create_sheet("Historial Completo")
+        
+        # Configurar encabezados de la Hoja 2
+        headers_historial = [
+            "ID", "Técnico", "Cédula", "Fecha Cambio", "Fecha Registro",
+            "Pantalón", "Talla Pantalón", "Estado Pantalón",
+            "Camiseta Gris", "Talla Camiseta Gris", "Estado Camiseta Gris",
+            "Guerrera", "Talla Guerrera", "Estado Guerrera",
+            "Camiseta Polo", "Talla Camiseta Polo", "Estado Camiseta Polo",
+            "Chaqueta", "Talla Chaqueta", "Estado Chaqueta",
+            "Guantes Nitrilo", "Estado Guantes Nitrilo",
+            "Guantes Carnaza", "Estado Guantes Carnaza",
+            "Gafas", "Estado Gafas",
+            "Gorra", "Estado Gorra",
+            "Casco", "Estado Casco",
+            "Botas", "Talla Botas", "Estado Botas",
+            "Observaciones"
+        ]
+        
+        for col, header in enumerate(headers_historial, 1):
+            cell = ws2.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+            cell.border = border
+        
+        # Escribir datos del historial
+        row = 2
+        for cambio in cambios:
+            ws2.cell(row=row, column=1, value=cambio['id']).border = border
+            ws2.cell(row=row, column=2, value=cambio['tecnico_nombre'] or 'No disponible').border = border
+            ws2.cell(row=row, column=3, value=cambio['tecnico_cedula'] or 'No disponible').border = border
+            ws2.cell(row=row, column=4, value=cambio['fecha_cambio'].strftime('%Y-%m-%d') if cambio['fecha_cambio'] else '').border = border
+            ws2.cell(row=row, column=5, value=cambio['created_at'].strftime('%Y-%m-%d %H:%M:%S') if cambio['created_at'] else '').border = border
+            
+            # Elementos de dotación
+            col = 6
+            elementos_data = [
+                (cambio['pantalon'], cambio['pantalon_talla'], cambio['estado_pantalon']),
+                (cambio['camisetagris'], cambio['camiseta_gris_talla'], cambio['estado_camiseta_gris']),
+                (cambio['guerrera'], cambio['guerrera_talla'], cambio['estado_guerrera']),
+                (cambio['camisetapolo'], cambio['camiseta_polo_talla'], cambio['estado_camiseta_polo']),
+                (cambio['chaqueta'], cambio['chaqueta_talla'], cambio['estado_chaqueta']),
+                (cambio['guantes_nitrilo'], None, cambio['estado_guantes_nitrilo']),
+                (cambio['guantes_carnaza'], None, cambio['estado_guantes_carnaza']),
+                (cambio['gafas'], None, cambio['estado_gafas']),
+                (cambio['gorra'], None, cambio['estado_gorra']),
+                (cambio['casco'], None, cambio['estado_casco']),
+                (cambio['botas'], cambio['botas_talla'], cambio['estado_botas'])
+            ]
+            
+            for cantidad, talla, estado in elementos_data:
+                ws2.cell(row=row, column=col, value=cantidad or 0).border = border
+                col += 1
+                if talla is not None:  # Solo para elementos con talla
+                    ws2.cell(row=row, column=col, value=talla or '').border = border
+                    col += 1
+                ws2.cell(row=row, column=col, value=estado or 'NO VALORADO').border = border
+                col += 1
+            
+            ws2.cell(row=row, column=col, value=cambio['observaciones'] or '').border = border
+            row += 1
+        
+        # Ajustar ancho de columnas de la Hoja 2
+        for col in range(1, len(headers_historial) + 1):
+            ws2.column_dimensions[get_column_letter(col)].width = 15
+        
+        cursor.close()
+        connection.close()
+        
+        # Crear el archivo en memoria
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        # Generar nombre del archivo con timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'cambios_dotacion_{timestamp}.xlsx'
+        
+        # Crear la respuesta
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        
+        return response
+        
+    except Exception as e:
+        print(f"Error al exportar cambios de dotación: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Error al exportar: {str(e)}'
+        }), 500
+
+@app.route('/api/cambios_dotacion/exportar_csv', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def api_cambios_dotacion_exportar_csv():
+    """API para exportar cambios de dotación a CSV con columnas separadas"""
+    try:
+        # Conectar a la base de datos capired
+        import mysql.connector
+        import csv
+        import io
+        
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Consulta para obtener todos los cambios de dotación
+        query = """
+            SELECT 
+                cd.id_cambio as id,
+                cd.id_codigo_consumidor,
+                ro.nombre as tecnico_nombre,
+                ro.recurso_operativo_cedula as tecnico_cedula,
+                cd.fecha_cambio,
+                cd.pantalon,
+                cd.pantalon_talla,
+                cd.estado_pantalon,
+                cd.camisetagris,
+                cd.camiseta_gris_talla,
+                cd.estado_camiseta_gris,
+                cd.guerrera,
+                cd.guerrera_talla,
+                cd.estado_guerrera,
+                cd.camisetapolo,
+                cd.camiseta_polo_talla,
+                cd.estado_camiseta_polo,
+                cd.chaqueta,
+                cd.chaqueta_talla,
+                cd.estado_chaqueta,
+                cd.guantes_nitrilo,
+                cd.estado_guantes_nitrilo,
+                cd.guantes_carnaza,
+                cd.estado_guantes_carnaza,
+                cd.gafas,
+                cd.estado_gafas,
+                cd.gorra,
+                cd.estado_gorra,
+                cd.casco,
+                cd.estado_casco,
+                cd.botas,
+                cd.botas_talla,
+                cd.estado_botas,
+                cd.observaciones,
+                cd.fecha_registro as created_at
+            FROM cambios_dotacion cd
+            LEFT JOIN recurso_operativo ro ON cd.id_codigo_consumidor = ro.id_codigo_consumidor
+            ORDER BY cd.fecha_cambio DESC, cd.fecha_registro DESC
+        """
+        
+        cursor.execute(query)
+        cambios = cursor.fetchall()
+        
+        # Crear el archivo CSV en memoria
+        output = io.StringIO()
+        
+        # Definir las columnas del CSV con separación clara
+        fieldnames = [
+            'ID',
+            'Tecnico',
+            'Cedula',
+            'Fecha_Cambio',
+            'Fecha_Registro',
+            'Pantalon_Cantidad',
+            'Pantalon_Talla',
+            'Pantalon_Estado',
+            'Camiseta_Gris_Cantidad',
+            'Camiseta_Gris_Talla',
+            'Camiseta_Gris_Estado',
+            'Guerrera_Cantidad',
+            'Guerrera_Talla',
+            'Guerrera_Estado',
+            'Camiseta_Polo_Cantidad',
+            'Camiseta_Polo_Talla',
+            'Camiseta_Polo_Estado',
+            'Chaqueta_Cantidad',
+            'Chaqueta_Talla',
+            'Chaqueta_Estado',
+            'Guantes_Nitrilo_Cantidad',
+            'Guantes_Nitrilo_Estado',
+            'Guantes_Carnaza_Cantidad',
+            'Guantes_Carnaza_Estado',
+            'Gafas_Cantidad',
+            'Gafas_Estado',
+            'Gorra_Cantidad',
+            'Gorra_Estado',
+            'Casco_Cantidad',
+            'Casco_Estado',
+            'Botas_Cantidad',
+            'Botas_Talla',
+            'Botas_Estado',
+            'Observaciones'
+        ]
+        
+        # Crear el writer CSV con delimitador de coma y quoting mínimo
+        writer = csv.DictWriter(output, fieldnames=fieldnames, delimiter=',', quoting=csv.QUOTE_MINIMAL)
+        
+        # Escribir encabezados
+        writer.writeheader()
+        
+        # Escribir datos
+        for cambio in cambios:
+            row = {
+                'ID': str(cambio['id']).strip(),  # Convertir a string y eliminar espacios
+                'Tecnico': str(cambio['tecnico_nombre'] or 'No disponible').strip(),
+                'Cedula': str(cambio['tecnico_cedula'] or 'No disponible').strip(),
+                'Fecha_Cambio': cambio['fecha_cambio'].strftime('%Y-%m-%d') if cambio['fecha_cambio'] else '',
+                'Fecha_Registro': cambio['created_at'].strftime('%Y-%m-%d %H:%M:%S') if cambio['created_at'] else '',
+                'Pantalon_Cantidad': str(cambio['pantalon'] or 0).strip(),
+                'Pantalon_Talla': str(cambio['pantalon_talla'] or '').strip(),
+                'Pantalon_Estado': str(cambio['estado_pantalon'] or 'NO VALORADO').strip(),
+                'Camiseta_Gris_Cantidad': str(cambio['camisetagris'] or 0).strip(),
+                'Camiseta_Gris_Talla': str(cambio['camiseta_gris_talla'] or '').strip(),
+                'Camiseta_Gris_Estado': str(cambio['estado_camiseta_gris'] or 'NO VALORADO').strip(),
+                'Guerrera_Cantidad': str(cambio['guerrera'] or 0).strip(),
+                'Guerrera_Talla': str(cambio['guerrera_talla'] or '').strip(),
+                'Guerrera_Estado': str(cambio['estado_guerrera'] or 'NO VALORADO').strip(),
+                'Camiseta_Polo_Cantidad': str(cambio['camisetapolo'] or 0).strip(),
+                'Camiseta_Polo_Talla': str(cambio['camiseta_polo_talla'] or '').strip(),
+                'Camiseta_Polo_Estado': str(cambio['estado_camiseta_polo'] or 'NO VALORADO').strip(),
+                'Chaqueta_Cantidad': str(cambio['chaqueta'] or 0).strip(),
+                'Chaqueta_Talla': str(cambio['chaqueta_talla'] or '').strip(),
+                'Chaqueta_Estado': str(cambio['estado_chaqueta'] or 'NO VALORADO').strip(),
+                'Guantes_Nitrilo_Cantidad': str(cambio['guantes_nitrilo'] or 0).strip(),
+                'Guantes_Nitrilo_Estado': str(cambio['estado_guantes_nitrilo'] or 'NO VALORADO').strip(),
+                'Guantes_Carnaza_Cantidad': str(cambio['guantes_carnaza'] or 0).strip(),
+                'Guantes_Carnaza_Estado': str(cambio['estado_guantes_carnaza'] or 'NO VALORADO').strip(),
+                'Gafas_Cantidad': str(cambio['gafas'] or 0).strip(),
+                'Gafas_Estado': str(cambio['estado_gafas'] or 'NO VALORADO').strip(),
+                'Gorra_Cantidad': str(cambio['gorra'] or 0).strip(),
+                'Gorra_Estado': str(cambio['estado_gorra'] or 'NO VALORADO').strip(),
+                'Casco_Cantidad': str(cambio['casco'] or 0).strip(),
+                'Casco_Estado': str(cambio['estado_casco'] or 'NO VALORADO').strip(),
+                'Botas_Cantidad': str(cambio['botas'] or 0).strip(),
+                'Botas_Talla': str(cambio['botas_talla'] or '').strip(),
+                'Botas_Estado': str(cambio['estado_botas'] or 'NO VALORADO').strip(),
+                'Observaciones': str(cambio['observaciones'] or '').strip()
+            }
+            writer.writerow(row)
+        
+        cursor.close()
+        connection.close()
+        
+        # Obtener el contenido CSV sin BOM para evitar problemas de formato
+        csv_content = output.getvalue()
+        csv_bytes = csv_content.encode('utf-8')
+        
+        # Generar nombre del archivo con timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'cambios_dotacion_{timestamp}.csv'
+        
+        # Crear la respuesta
+        response = make_response(csv_bytes)
+        response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        
+        return response
+        
+    except Exception as e:
+        print(f"Error al exportar cambios de dotación CSV: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Error al exportar CSV: {str(e)}'
+        }), 500
+
 @app.route('/api/validar_pin', methods=['POST'])
 @login_required()
 def api_validar_pin():
