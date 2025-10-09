@@ -1,0 +1,933 @@
+{% extends "header.html" %}
+{% block content %}
+<style>
+        .calendar-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .calendar-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px 10px 0 0;
+            margin: -20px -20px 20px -20px;
+        }
+        
+        .day-card {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            min-height: 120px;
+        }
+        
+        .day-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .day-header {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            color: #495057;
+        }
+        
+        .analyst-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+        
+        .analyst-color-1 { background-color: #e3f2fd; color: #1976d2; }
+        .analyst-color-2 { background-color: #f3e5f5; color: #7b1fa2; }
+        .analyst-color-3 { background-color: #e8f5e8; color: #388e3c; }
+        .analyst-color-4 { background-color: #fff3e0; color: #f57c00; }
+        .analyst-color-5 { background-color: #fce4ec; color: #c2185b; }
+        .analyst-color-6 { background-color: #e0f2f1; color: #00796b; }
+        
+        .week-navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .btn-primary-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .modal-header-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px 10px 0 0;
+        }
+        
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .empty-day {
+            color: #6c757d;
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .shift-info {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        
+        .detail-row {
+            border-bottom: 1px solid #e9ecef;
+            padding: 10px 0;
+        }
+        
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+    </style>
+<div class="container-fluid mt-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2><i class="fas fa-calendar-alt me-2"></i>Turnos Analistas</h2>
+                        <p class="text-muted">Gestión de turnos semanales para analistas</p>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-primary-custom me-2" data-bs-toggle="modal" data-bs-target="#nuevoTurnoModal">
+                            <i class="fas fa-calendar-week me-2"></i>Asignar Turnos Semana
+                        </button>
+                        <a href="/lider" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Volver
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navegación de semana -->
+        <div class="week-navigation">
+            <button class="btn btn-outline-primary" id="prevWeek">
+                <i class="fas fa-chevron-left me-2"></i>Semana Anterior
+            </button>
+            <h4 id="weekRange" class="mb-0">Cargando...</h4>
+            <button class="btn btn-outline-primary" id="nextWeek">
+                Semana Siguiente<i class="fas fa-chevron-right ms-2"></i>
+            </button>
+        </div>
+
+        <!-- Calendario semanal -->
+        <div class="calendar-container">
+            <div class="calendar-header">
+                <h5 class="mb-0"><i class="fas fa-calendar-week me-2"></i>Vista Semanal</h5>
+            </div>
+            
+            <div class="loading-spinner" id="loadingSpinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Cargando turnos...</p>
+            </div>
+            
+            <div class="row" id="weekCalendar">
+                <!-- Los días se cargarán dinámicamente aquí -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nuevo Turno -->
+    <div class="modal fade" id="nuevoTurnoModal" tabindex="-1" aria-labelledby="nuevoTurnoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header modal-header-custom">
+                    <h5 class="modal-title" id="nuevoTurnoModalLabel">
+                        <i class="fas fa-calendar-week me-2"></i>Asignar Turnos Semanales
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="nuevoTurnoForm">
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="selectAnalista" class="form-label">
+                                    <i class="fas fa-user me-2"></i>Seleccionar Analista
+                                </label>
+                                <select class="form-select" id="selectAnalista" required>
+                                    <option value="">Seleccionar analista...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <button type="button" class="btn btn-primary-custom" id="btnCargarTurnos" disabled>
+                                    <i class="fas fa-sync me-2"></i>Cargar Turnos Disponibles
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Selector de semana -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <label class="form-label">
+                                    <i class="fas fa-calendar me-2"></i>Semana de Asignación
+                                </label>
+                                <div class="d-flex align-items-center gap-3">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="btnSemanaAnterior">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <input type="week" class="form-control" id="semanaSeleccionada" required>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="btnSemanaSiguiente">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Días de la semana con turnos -->
+                        <div id="semanaTurnosContainer" style="display: none;">
+                            <h6 class="mb-3">
+                                <i class="fas fa-list me-2"></i>Seleccionar Turnos por Día
+                            </h6>
+                            <div class="row" id="diasSemanaContainer">
+                                <!-- Los días se cargarán dinámicamente aquí -->
+                            </div>
+                        </div>
+
+                        <div id="mensajeSeleccion" class="alert alert-info" style="display: none;">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Seleccione al menos un turno para continuar.
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnAsignarTurnosSemana" disabled>
+                        <i class="fas fa-save me-2"></i>Asignar Turnos Semana
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Detalles del Día -->
+    <div class="modal fade" id="detallesDiaModal" tabindex="-1" aria-labelledby="detallesDiaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header modal-header-custom">
+                    <h5 class="modal-title" id="detallesDiaModalLabel">
+                        <i class="fas fa-calendar-day me-2"></i>Detalles del Día
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="detallesDiaContent">
+                        <!-- El contenido se cargará dinámicamente -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+{% block extra_js %}
+<script>
+        // Variables globales
+        let currentWeekStart = new Date();
+        let analistas = [];
+        let turnos = [];
+        let analystColors = {};
+        let colorIndex = 0;
+
+        // Inicializar la aplicación
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeWeek();
+            loadAnalistas();
+            loadTurnos();
+            setupEventListeners();
+        });
+
+        // Configurar event listeners
+        function setupEventListeners() {
+            const prevBtn = document.getElementById('prevWeek');
+            if (prevBtn) {
+                prevBtn.addEventListener('click', () => {
+                    currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+                    loadWeekData();
+                });
+            }
+
+            const nextBtn = document.getElementById('nextWeek');
+            if (nextBtn) {
+                nextBtn.addEventListener('click', () => {
+                    currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+                    loadWeekData();
+                });
+            }
+
+            // Modal nuevo turno semanal
+            const selectAnalista = document.getElementById('selectAnalista');
+            if (selectAnalista) {
+                selectAnalista.addEventListener('change', () => {
+                    const btnCargar = document.getElementById('btnCargarTurnos');
+                    btnCargar.disabled = !selectAnalista.value;
+                });
+            }
+
+            const btnCargar = document.getElementById('btnCargarTurnos');
+            if (btnCargar) {
+                btnCargar.addEventListener('click', () => {
+                    if (typeof renderizarDiasSemana === 'function') {
+                        renderizarDiasSemana();
+                    } else {
+                        loadWeekData();
+                    }
+                });
+            }
+
+            const semanaInput = document.getElementById('semanaSeleccionada');
+            if (semanaInput) {
+                semanaInput.addEventListener('change', () => {
+                    const cont = document.getElementById('semanaTurnosContainer');
+                    if (cont && cont.style.display !== 'none' && typeof renderizarDiasSemana === 'function') {
+                        renderizarDiasSemana();
+                    }
+                });
+            }
+
+            const btnSemAnt = document.getElementById('btnSemanaAnterior');
+            if (btnSemAnt) {
+                btnSemAnt.addEventListener('click', () => {
+                    const semanaInput = document.getElementById('semanaSeleccionada');
+                    const [year, week] = semanaInput.value.split('-W').map(Number);
+                    const nuevaSemana = week === 1 ? `${year - 1}-W52` : `${year}-W${(week - 1).toString().padStart(2, '0')}`;
+                    semanaInput.value = nuevaSemana;
+                    const cont = document.getElementById('semanaTurnosContainer');
+                    if (cont && cont.style.display !== 'none' && typeof renderizarDiasSemana === 'function') {
+                        renderizarDiasSemana();
+                    }
+                });
+            }
+
+            const btnSemSig = document.getElementById('btnSemanaSiguiente');
+            if (btnSemSig) {
+                btnSemSig.addEventListener('click', () => {
+                    const semanaInput = document.getElementById('semanaSeleccionada');
+                    const [year, week] = semanaInput.value.split('-W').map(Number);
+                    const nuevaSemana = week === 52 ? `${year + 1}-W01` : `${year}-W${(week + 1).toString().padStart(2, '0')}`;
+                    semanaInput.value = nuevaSemana;
+                    const cont = document.getElementById('semanaTurnosContainer');
+                    if (cont && cont.style.display !== 'none' && typeof renderizarDiasSemana === 'function') {
+                        renderizarDiasSemana();
+                    }
+                });
+            }
+
+            const btnAsignarSemana = document.getElementById('btnAsignarTurnosSemana');
+            if (btnAsignarSemana && typeof guardarTurnosSemana === 'function') {
+                btnAsignarSemana.addEventListener('click', guardarTurnosSemana);
+            }
+
+            // Evento delegado para los checkboxes de turnos
+            document.addEventListener('change', function(e) {
+                if (e.target.classList.contains('turno-checkbox')) {
+                    actualizarBotonGuardar();
+                }
+            });
+        }
+
+        // Inicializar semana actual
+        function initializeWeek() {
+            const today = new Date();
+            const dayOfWeek = today.getDay();
+            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            currentWeekStart = new Date(today);
+            currentWeekStart.setDate(today.getDate() + mondayOffset);
+            loadWeekData();
+        }
+
+        // Cargar datos de la semana
+        function loadWeekData() {
+            showLoading(true);
+            updateWeekRange();
+            
+            const weekEnd = new Date(currentWeekStart);
+            weekEnd.setDate(currentWeekStart.getDate() + 6);
+            
+            const fechaInicio = formatDate(currentWeekStart);
+            const fechaFin = formatDate(weekEnd);
+            
+            fetch(`/api/turnos-semana?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderWeekCalendar(data.turnos);
+                    } else {
+                        showError('Error al cargar los turnos: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    showError('Error de conexión: ' + error.message);
+                })
+                .finally(() => {
+                    showLoading(false);
+                });
+        }
+
+        // Cargar lista de analistas
+        function loadAnalistas() {
+            fetch('/api/analistas')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        analistas = data.analistas;
+                        populateAnalistasSelect();
+                    } else {
+                        showError('Error al cargar analistas: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    showError('Error de conexión: ' + error.message);
+                });
+        }
+
+        // Cargar lista de turnos
+        function loadTurnos() {
+            fetch('/api/turnos')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        turnos = data.turnos;
+                        populateTurnosSelect();
+                    } else {
+                        showError('Error al cargar turnos: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    showError('Error de conexión: ' + error.message);
+                });
+        }
+
+        // Poblar select de analistas
+        function populateAnalistasSelect() {
+            const select = document.getElementById('selectAnalista');
+            if (!select) return;
+            select.innerHTML = '<option value="">Seleccionar analista...</option>';
+            
+            analistas.forEach(analista => {
+                const option = document.createElement('option');
+                option.value = analista.id_codigo_consumidor;
+                option.textContent = `${analista.nombre} (${analista.cargo})`;
+                select.appendChild(option);
+            });
+        }
+
+        // Poblar select de turnos
+        function populateTurnosSelect() {
+            const select = document.getElementById('selectTurno');
+            if (!select) return;
+            select.innerHTML = '<option value="">Seleccionar turno...</option>';
+            
+            turnos.forEach(turno => {
+                const option = document.createElement('option');
+                option.value = turno.turnos_horario;
+                option.textContent = `${turno.turnos_horario} (${turno.turnos_inicio} - ${turno.turnos_fin})`;
+                select.appendChild(option);
+            });
+        }
+
+        // Actualizar información del turno seleccionado
+        function updateTurnoInfo() {
+            const selectedTurno = document.getElementById('selectTurno')?.value;
+            const turnoInfo = document.getElementById('turnoInfo');
+            if (!turnoInfo) return;
+            
+            if (!selectedTurno) {
+                turnoInfo.innerHTML = 'Seleccione un turno para ver los detalles';
+                return;
+            }
+            
+            const turno = turnos.find(t => t.turnos_horario === selectedTurno);
+            if (turno) {
+                turnoInfo.innerHTML = `
+                    <strong>Horario:</strong> ${turno.turnos_inicio} - ${turno.turnos_fin}<br>
+                    <strong>Almuerzo:</strong> ${turno.turnos_almuerzo_inicio} - ${turno.turnos_almuerzo_fin}<br>
+                    <strong>Break:</strong> ${turno.turnos_break_inicio} - ${turno.turnos_break_fin}<br>
+                    <strong>Horas trabajadas:</strong> ${turno.turnos_horas_trabajadas}
+                `;
+            }
+        }
+
+        // Renderizar calendario semanal
+        function renderWeekCalendar(turnosData) {
+            const calendar = document.getElementById('weekCalendar');
+            if (!calendar) return;
+            calendar.innerHTML = '';
+            
+            const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+            
+            for (let i = 0; i < 7; i++) {
+                const dayDate = new Date(currentWeekStart);
+                dayDate.setDate(currentWeekStart.getDate() + i);
+                const dayDateStr = formatDate(dayDate);
+                
+                const dayTurnos = (Array.isArray(turnosData) ? turnosData : []).filter(turno => {
+                    const raw = turno.analistas_turnos_fecha;
+                    if (!raw) return false;
+                    let fechaStr = '';
+                    if (typeof raw === 'string') {
+                        // Acepta 'YYYY-MM-DD' o 'YYYY-MM-DDTHH:mm:ss'
+                        fechaStr = raw.slice(0, 10);
+                    } else {
+                        // Si llega como objeto/fecha
+                        try {
+                            fechaStr = new Date(raw).toISOString().slice(0, 10);
+                        } catch (e) {
+                            return false;
+                        }
+                    }
+                    return fechaStr === dayDateStr;
+                });
+                
+                const dayCard = createDayCard(days[i], dayDate, dayTurnos);
+                calendar.appendChild(dayCard);
+            }
+        }
+
+        // Crear tarjeta de día
+        function createDayCard(dayName, date, turnos) {
+            const col = document.createElement('div');
+            col.className = 'col-md-12 col-lg-6 col-xl-4 mb-3';
+            
+            const card = document.createElement('div');
+            card.className = 'day-card';
+            card.onclick = () => showDayDetails(date);
+            
+            const header = document.createElement('div');
+            header.className = 'day-header';
+            header.innerHTML = `${dayName}<br><small>${formatDateDisplay(date)}</small>`;
+            
+            const content = document.createElement('div');
+            
+            if (turnos.length === 0) {
+                content.innerHTML = '<div class="empty-day">Sin turnos asignados</div>';
+            } else {
+                turnos.forEach(turno => {
+                    const analystBadge = document.createElement('div');
+                    analystBadge.className = `analyst-badge ${getAnalystColor(turno.analistas_turnos_analista)}`;
+                    analystBadge.innerHTML = `
+                        <strong>${turno.analistas_turnos_analista}</strong>
+                        <div class="shift-info">${turno.analistas_turnos_turno}</div>
+                    `;
+                    content.appendChild(analystBadge);
+                });
+            }
+            
+            card.appendChild(header);
+            card.appendChild(content);
+            col.appendChild(card);
+            
+            return col;
+        }
+
+        // Obtener color para analista
+        function getAnalystColor(analista) {
+            if (!analystColors[analista]) {
+                analystColors[analista] = `analyst-color-${(colorIndex % 6) + 1}`;
+                colorIndex++;
+            }
+            return analystColors[analista];
+        }
+
+        // Mostrar detalles del día
+        function showDayDetails(date) {
+            const fecha = formatDate(date);
+            
+            fetch(`/api/detalles-dia?fecha=${fecha}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        renderDayDetails(data.detalles, date);
+                        const modal = new bootstrap.Modal(document.getElementById('detallesDiaModal'));
+                        modal.show();
+                    } else {
+                        showError('Error al cargar detalles: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    showError('Error de conexión: ' + error.message);
+                });
+        }
+
+        // Renderizar detalles del día
+        function renderDayDetails(detalles, date) {
+            const content = document.getElementById('detallesDiaContent');
+            const modalTitle = document.getElementById('detallesDiaModalLabel');
+            
+            modalTitle.innerHTML = `<i class="fas fa-calendar-day me-2"></i>Detalles del ${formatDateDisplay(date)}`;
+            
+            if (detalles.length === 0) {
+                content.innerHTML = '<div class="text-center text-muted">No hay turnos asignados para este día</div>';
+                return;
+            }
+            
+            let html = '<div class="table-responsive"><table class="table table-striped">';
+            html += '<thead><tr><th>Analista</th><th>Turno</th><th>Horario</th><th>Almuerzo</th><th>Break</th><th>Horas</th></tr></thead><tbody>';
+            
+            detalles.forEach(detalle => {
+                const inicio = detalle.analistas_turnos_inicio || detalle.turno_default_inicio;
+                const fin = detalle.analistas_turnos_fin || detalle.turno_default_fin;
+                const almuerzoInicio = detalle.analistas_turnos_almuerzo_inicio || detalle.turno_default_almuerzo_inicio;
+                const almuerzoFin = detalle.analistas_turnos_almuerzo_fin || detalle.turno_default_almuerzo_fin;
+                const breakInicio = detalle.analistas_turnos_break_inicio || detalle.turno_default_break_inicio;
+                const breakFin = detalle.analistas_turnos_break_fin || detalle.turno_default_break_fin;
+                const horas = detalle.analistas_turnos_horas_trabajadas || detalle.turno_default_horas;
+                
+                html += `
+                    <tr>
+                        <td><strong>${detalle.analistas_turnos_analista}</strong></td>
+                        <td>${detalle.analistas_turnos_turno}</td>
+                        <td>${inicio} - ${fin}</td>
+                        <td>${almuerzoInicio} - ${almuerzoFin}</td>
+                        <td>${breakInicio} - ${breakFin}</td>
+                        <td>${horas}h</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+            content.innerHTML = html;
+        }
+
+        // Asignar turno
+        function asignarTurno() {
+            const analista = document.getElementById('selectAnalista').value;
+            const fecha = document.getElementById('selectFecha').value;
+            const turno = document.getElementById('selectTurno').value;
+            
+            if (!analista || !fecha || !turno) {
+                showError('Por favor complete todos los campos requeridos');
+                return;
+            }
+            
+            const turnoData = turnos.find(t => t.turnos_horario === turno);
+            
+            const data = {
+                analista: analista,
+                fecha: fecha,
+                turno: turno,
+                inicio: turnoData.turnos_inicio,
+                fin: turnoData.turnos_fin,
+                almuerzo_inicio: turnoData.turnos_almuerzo_inicio,
+                almuerzo_fin: turnoData.turnos_almuerzo_fin,
+                break_inicio: turnoData.turnos_break_inicio,
+                break_fin: turnoData.turnos_break_fin,
+                horas_trabajadas: turnoData.turnos_horas_trabajadas
+            };
+            
+            fetch('/api/asignar-turno', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showSuccess('Turno asignado correctamente');
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('nuevoTurnoModal'));
+                    modal.hide();
+                    document.getElementById('nuevoTurnoForm').reset();
+                    document.getElementById('turnoInfo').innerHTML = 'Seleccione un turno para ver los detalles';
+                    loadWeekData();
+                } else {
+                    showError('Error al asignar turno: ' + data.error);
+                }
+            })
+            .catch(error => {
+                showError('Error de conexión: ' + error.message);
+            });
+        }
+
+        // Funciones de utilidad
+        function formatDate(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function formatDateDisplay(date) {
+            return date.toLocaleDateString('es-ES', { 
+                day: '2-digit', 
+                month: '2-digit', 
+                year: 'numeric' 
+            });
+        }
+
+        function updateWeekRange() {
+            const weekEnd = new Date(currentWeekStart);
+            weekEnd.setDate(currentWeekStart.getDate() + 6);
+            
+            const startStr = formatDateDisplay(currentWeekStart);
+            const endStr = formatDateDisplay(weekEnd);
+            
+            document.getElementById('weekRange').textContent = `${startStr} - ${endStr}`;
+        }
+
+        function showLoading(show) {
+            const spinner = document.getElementById('loadingSpinner');
+            const calendar = document.getElementById('weekCalendar');
+            if (!spinner || !calendar) {
+                return;
+            }
+            if (show) {
+                spinner.style.display = 'block';
+                calendar.style.display = 'none';
+            } else {
+                spinner.style.display = 'none';
+                calendar.style.display = 'flex';
+            }
+        }
+
+        function showError(message) {
+            alert('Error: ' + message);
+        }
+
+        function showSuccess(message) {
+            alert('Éxito: ' + message);
+        }
+
+        // Inicialización del modal de nuevo turno semanal
+        $('#nuevoTurnoModal').on('shown.bs.modal', function () {
+            cargarAnalistas();
+            cargarTurnos();
+            inicializarSemanaActual();
+            // Limpiar formulario
+            const cont = document.getElementById('semanaTurnosContainer');
+            if (cont) cont.style.display = 'none';
+            const btnGuardar = document.getElementById('btnAsignarTurnosSemana');
+            if (btnGuardar) btnGuardar.disabled = true;
+            const msgSel = document.getElementById('mensajeSeleccion');
+            if (msgSel) msgSel.style.display = 'none';
+            const diasCont = document.getElementById('diasSemanaContainer');
+            if (diasCont) diasCont.innerHTML = '';
+        });
+
+        // Función para mostrar mensajes (reutilizar o crear nueva)
+        function mostrarMensaje(mensaje, tipo) {
+            // Crear contenedor de mensajes si no existe
+            let mensajeContainer = document.getElementById('mensajeContainer');
+            if (!mensajeContainer) {
+                mensajeContainer = document.createElement('div');
+                mensajeContainer.id = 'mensajeContainer';
+                mensajeContainer.className = 'position-fixed top-0 end-0 p-3';
+                mensajeContainer.style.zIndex = '9999';
+                document.body.appendChild(mensajeContainer);
+            }
+
+            const alerta = document.createElement('div');
+            alerta.className = `alert alert-${tipo} alert-dismissible fade show`;
+            alerta.innerHTML = `
+                ${mensaje}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            mensajeContainer.appendChild(alerta);
+            
+            // Auto-cerrar después de 5 segundos
+            setTimeout(() => {
+                if (alerta.parentNode) {
+                    alerta.remove();
+                }
+            }, 5000);
+        }
+        // Utilidad: obtener inicio de semana desde input type=week
+        function getWeekStartFromInput() {
+            const semanaInput = document.getElementById('semanaSeleccionada');
+            const val = semanaInput && semanaInput.value ? semanaInput.value : '';
+            let baseDate = new Date(currentWeekStart);
+            if (val) {
+                const [yearStr, weekStr] = val.split('-W');
+                const year = parseInt(yearStr, 10);
+                const week = parseInt(weekStr, 10);
+                // Cálculo ISO week en horario local: lunes como inicio
+                const simple = new Date(year, 0, 1 + (week - 1) * 7);
+                const dow = simple.getDay(); // 0=Domingo, 1=Lunes, ...
+                const isoWeekStart = new Date(simple);
+                if (dow <= 4) {
+                    isoWeekStart.setDate(simple.getDate() - (dow === 0 ? 6 : dow - 1));
+                } else {
+                    isoWeekStart.setDate(simple.getDate() + (8 - dow));
+                }
+                baseDate = isoWeekStart;
+            }
+            // Devolver fecha en horario local (sin UTC)
+            return new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+        }
+
+        // Renderizar días y turnos en el modal semanal
+        function renderizarDiasSemana() {
+            const cont = document.getElementById('semanaTurnosContainer');
+            const diasCont = document.getElementById('diasSemanaContainer');
+            const analistaSelect = document.getElementById('selectAnalista');
+            if (!cont || !diasCont || !analistaSelect || !analistaSelect.value) {
+                return;
+            }
+            if (cont) cont.style.display = 'block';
+            if (diasCont) diasCont.innerHTML = '';
+
+            const weekStart = getWeekStartFromInput();
+            const daysNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+
+            for (let i = 0; i < 7; i++) {
+                const dayDate = new Date(weekStart);
+                dayDate.setDate(weekStart.getDate() + i);
+                const fechaStr = `${dayDate.getFullYear()}-${String(dayDate.getMonth()+1).padStart(2,'0')}-${String(dayDate.getDate()).padStart(2,'0')}`;
+
+                const col = document.createElement('div');
+                col.className = 'col-md-12 col-lg-6 col-xl-4 mb-3';
+                const card = document.createElement('div');
+                card.className = 'day-card';
+                const header = document.createElement('div');
+                header.className = 'day-header';
+                header.innerHTML = `${daysNames[i]}<br><small>${dayDate.toLocaleDateString('es-ES', {day: '2-digit', month: '2-digit', year: 'numeric'})}</small>`;
+                const content = document.createElement('div');
+
+                if (!Array.isArray(turnos) || turnos.length === 0) {
+                    content.innerHTML = '<div class="empty-day">No hay turnos disponibles</div>';
+                } else {
+                    // Un turno por día: usar radios
+                    turnos.forEach(t => {
+                        const wrap = document.createElement('div');
+                        wrap.className = 'form-check';
+                        const inputId = `turno_${fechaStr}_${t.turnos_id || (t.horario || t.turnos_horario).replace(/[^a-zA-Z0-9]/g,'')}`;
+                        const input = document.createElement('input');
+                        input.type = 'radio';
+                        input.className = 'form-check-input turno-checkbox';
+                        input.name = `turno_${fechaStr}`;
+                        input.id = inputId;
+                        input.value = t.horario || t.turnos_horario;
+                        input.dataset.fecha = fechaStr;
+                        const label = document.createElement('label');
+                        label.className = 'form-check-label';
+                        label.setAttribute('for', inputId);
+                        label.textContent = `${t.nombre || t.turnos_nombre} (${t.horario || t.turnos_horario})`;
+                        wrap.appendChild(input);
+                        wrap.appendChild(label);
+                        content.appendChild(wrap);
+                    });
+                }
+
+                card.appendChild(header);
+                card.appendChild(content);
+                col.appendChild(card);
+                diasCont.appendChild(col);
+            }
+            actualizarBotonGuardar();
+        }
+
+        // Habilitar/deshabilitar botón Guardar según selección
+        function actualizarBotonGuardar() {
+            const btn = document.getElementById('btnAsignarTurnosSemana');
+            if (!btn) return;
+            const anySelected = !!document.querySelector('.turno-checkbox:checked');
+            btn.disabled = !anySelected;
+            const msg = document.getElementById('mensajeSeleccion');
+            if (msg) {
+                msg.style.display = anySelected ? 'none' : 'block';
+            }
+        }
+
+        // Guardar turnos de la semana
+        function guardarTurnosSemana() {
+            const analistaId = document.getElementById('selectAnalista')?.value;
+            if (!analistaId) {
+                showError('Seleccione un analista');
+                return;
+            }
+            const seleccionados = document.querySelectorAll('.turno-checkbox:checked');
+            if (!seleccionados.length) {
+                showError('Seleccione al menos un turno');
+                return;
+            }
+
+            // Construir payload semanal para el backend
+            const turnosSemana = {};
+            seleccionados.forEach(input => {
+                const fecha = input.dataset.fecha; // YYYY-MM-DD
+                const horario = input.value;       // turno_horario
+                // Solo un turno por día (radios), asignar directamente
+                turnosSemana[fecha] = [horario];
+            });
+
+            const payload = {
+                analista_id: analistaId,
+                turnos: turnosSemana
+            };
+
+            fetch('/api/asignar-turnos-semana', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(resp => {
+                if (!resp || resp.success === false) {
+                    const msg = resp && (resp.error || resp.message);
+                    showError(msg || 'No se pudieron asignar los turnos');
+                    return;
+                }
+                showSuccess(resp.message || 'Turnos de la semana asignados correctamente');
+                const modalEl = document.getElementById('nuevoTurnoModal');
+                const modal = bootstrap.Modal.getInstance(modalEl);
+                modal.hide();
+                document.getElementById('nuevoTurnoForm').reset();
+                document.getElementById('semanaTurnosContainer').style.display = 'none';
+                document.getElementById('diasSemanaContainer').innerHTML = '';
+                loadWeekData();
+            })
+            .catch(err => showError('Error de conexión: ' + err.message));
+        }
+
+        // Wrappers para compatibilidad con nombres previos
+        function cargarAnalistas() { if (typeof loadAnalistas === 'function') loadAnalistas(); }
+        function cargarTurnos() { if (typeof loadTurnos === 'function') loadTurnos(); }
+        function inicializarSemanaActual() { if (typeof initializeWeek === 'function') initializeWeek(); }
+    </script>
+{% endblock %}
