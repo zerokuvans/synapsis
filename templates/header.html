@@ -178,6 +178,44 @@
                         </ul>
                     </li>
                     {% endif %}
+
+                    {% if session.get('user_role') in ['administrativo', 'mpa'] %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" id="mpaDropdown" role="button" 
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-car me-1"></i>MPA
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="mpaDropdown">
+                            <li><a class="dropdown-item" href="/mpa">
+                                <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                            </a></li>
+                            <li><a class="dropdown-item" href="/mpa/vehiculos">
+                                <i class="fas fa-car me-2"></i>Vehículos
+                            </a></li>
+                            <li><a class="dropdown-item" href="/mpa/vencimientos">
+                                <i class="fas fa-calendar-times me-2"></i>Vencimientos
+                            </a></li>
+                            <li><a class="dropdown-item" href="/mpa/soat">
+                                <i class="fas fa-file-contract me-2"></i>SOAT
+                            </a></li>
+                            <li><a class="dropdown-item" href="/mpa/tecnico-mecanica">
+                                <i class="fas fa-tools me-2"></i>Técnico Mecánica
+                            </a></li>
+                            <li><a class="dropdown-item" href="/mpa/licencias">
+                                <i class="fas fa-id-card me-2"></i>Licencias de Conducir
+                            </a></li>
+                            <li><a class="dropdown-item" href="/mpa/inspecciones">
+                                <i class="fas fa-search me-2"></i>Inspecciones Vehiculares
+                            </a></li>
+                            <li><a class="dropdown-item" href="/mpa/siniestros">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Siniestros
+                            </a></li>
+                            <li><a class="dropdown-item" href="/mpa/mantenimientos">
+                                <i class="fas fa-wrench me-2"></i>Mantenimientos
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
                 </ul>
                 <ul class="navbar-nav">
                     <li class="nav-item dropdown">

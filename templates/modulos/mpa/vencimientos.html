@@ -1,0 +1,523 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%) !important;">
+                    <h3 class="mb-0">
+                        <i class="fas fa-calendar-times me-2"></i>Control de Vencimientos - MPA
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Monitorea todos los vencimientos de documentos vehiculares: SOAT, Técnico Mecánica y Licencias de Conducir. Mantén al día la documentación de tu flota.
+                    </div>
+                    
+                    <!-- Filtros -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <label for="filtroTipo" class="form-label">Tipo de Documento</label>
+                            <select class="form-select" id="filtroTipo" onchange="aplicarFiltros()">
+                                <option value="">Todos los tipos</option>
+                                <option value="SOAT">SOAT</option>
+                                <option value="Técnico Mecánica">Técnico Mecánica</option>
+                                <option value="Licencia de Conducir">Licencia de Conducir</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filtroEstado" class="form-label">Estado</label>
+                            <select class="form-select" id="filtroEstado" onchange="aplicarFiltros()">
+                                <option value="">Todos los estados</option>
+                                <option value="Vencido">Vencido</option>
+                                <option value="Próximo a vencer">Próximo a vencer</option>
+                                <option value="Vigente">Vigente</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filtroTecnico" class="form-label">Técnico</label>
+                            <select class="form-select" id="filtroTecnico" onchange="aplicarFiltros()">
+                                <option value="">Todos los técnicos</option>
+                                <!-- Se cargarán dinámicamente -->
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="button" class="btn btn-outline-secondary w-100" onclick="limpiarFiltros()">
+                                <i class="fas fa-eraser me-2"></i>Limpiar Filtros
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Estadísticas rápidas -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="countVencidos" class="mb-1">0</h4>
+                                    <small>Vencidos</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="countProximosVencer" class="mb-1">0</h4>
+                                    <small>Próximos a vencer</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="countVigentes" class="mb-1">0</h4>
+                                    <small>Vigentes</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h4 id="countTotal" class="mb-1">0</h4>
+                                    <small>Total</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabla de Vencimientos -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="vencimientosTable">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>Placa</th>
+                                    <th>Fecha Vencimiento</th>
+                                    <th>Días Restantes</th>
+                                    <th>Estado</th>
+                                    <th>Técnico</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vencimientosTableBody">
+                                <!-- Los datos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Mensaje cuando no hay vencimientos -->
+                    <div id="noVencimientosMessage" class="text-center py-5" style="display: none;">
+                        <i class="fas fa-calendar-check fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No hay vencimientos registrados</h5>
+                        <p class="text-muted">Los vencimientos aparecerán aquí cuando se registren documentos en los módulos correspondientes.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para ver detalles del vencimiento -->
+<div class="modal fade" id="viewVencimientoModal" tabindex="-1" aria-labelledby="viewVencimientoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewVencimientoModalLabel">Detalles del Vencimiento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="viewVencimientoContent">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let vencimientosData = [];
+let vencimientosFiltrados = [];
+
+// Cargar datos al inicializar la página
+document.addEventListener('DOMContentLoaded', function() {
+    loadVencimientos();
+});
+
+// Cargar lista de vencimientos
+function loadVencimientos() {
+    fetch('/api/mpa/vencimientos')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                vencimientosData = data.data || [];
+                vencimientosFiltrados = [...vencimientosData];
+                renderVencimientos();
+                actualizarEstadisticas();
+                cargarTecnicosEnFiltro();
+            } else {
+                showAlert('Error al cargar datos de vencimientos: ' + (data.error || 'Error desconocido'), 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al cargar datos de vencimientos: ' + error.message, 'danger');
+        });
+}
+
+// Renderizar tabla de vencimientos
+function renderVencimientos() {
+    const tbody = document.getElementById('vencimientosTableBody');
+    const noDataMessage = document.getElementById('noVencimientosMessage');
+    
+    if (!tbody) return;
+    
+    if (vencimientosFiltrados.length === 0) {
+        tbody.innerHTML = '';
+        if (noDataMessage) noDataMessage.style.display = 'block';
+        return;
+    }
+    
+    if (noDataMessage) noDataMessage.style.display = 'none';
+    
+    tbody.innerHTML = vencimientosFiltrados.map(vencimiento => {
+        const estadoBadge = getEstadoBadge(vencimiento.estado);
+        const tipoBadge = getTipoBadge(vencimiento.tipo);
+        const placaDisplay = vencimiento.placa || '<span class="text-muted">N/A</span>';
+        
+        return `
+            <tr>
+                <td>${tipoBadge}</td>
+                <td>${placaDisplay}</td>
+                <td>${formatDate(vencimiento.fecha_vencimiento)}</td>
+                <td>
+                    <span class="badge ${getDiasRestantesBadge(vencimiento.dias_restantes)}">
+                        ${vencimiento.dias_restantes} días
+                    </span>
+                </td>
+                <td>${estadoBadge}</td>
+                <td>${vencimiento.tecnico_nombre}</td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                            onclick="viewVencimientoDetails('${vencimiento.tipo}', ${vencimiento.id})"
+                            title="Ver detalles">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Obtener badge de estado
+function getEstadoBadge(estado) {
+    const badges = {
+        'Vencido': 'bg-danger',
+        'Próximo a vencer': 'bg-warning text-dark',
+        'Vigente': 'bg-success'
+    };
+    
+    const badgeClass = badges[estado] || 'bg-secondary';
+    return `<span class="badge ${badgeClass}">${estado}</span>`;
+}
+
+// Obtener badge de tipo
+function getTipoBadge(tipo) {
+    const badges = {
+        'SOAT': 'bg-primary',
+        'Técnico Mecánica': 'bg-info text-dark',
+        'Licencia de Conducir': 'bg-warning text-dark'
+    };
+    
+    const badgeClass = badges[tipo] || 'bg-secondary';
+    return `<span class="badge ${badgeClass}">${tipo}</span>`;
+}
+
+// Obtener badge de días restantes
+function getDiasRestantesBadge(dias) {
+    if (dias < 0) return 'bg-danger';
+    if (dias <= 30) return 'bg-warning text-dark';
+    return 'bg-success';
+}
+
+// Formatear fecha
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    
+    try {
+        const date = new Date(dateString + 'T00:00:00');
+        return date.toLocaleDateString('es-CO', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+    } catch (error) {
+        return dateString;
+    }
+}
+
+// Aplicar filtros
+function aplicarFiltros() {
+    const filtroTipo = document.getElementById('filtroTipo')?.value || '';
+    const filtroEstado = document.getElementById('filtroEstado')?.value || '';
+    const filtroTecnico = document.getElementById('filtroTecnico')?.value || '';
+    
+    vencimientosFiltrados = vencimientosData.filter(vencimiento => {
+        const cumpleTipo = !filtroTipo || vencimiento.tipo === filtroTipo;
+        const cumpleEstado = !filtroEstado || vencimiento.estado === filtroEstado;
+        const cumpleTecnico = !filtroTecnico || vencimiento.tecnico_nombre.toLowerCase().includes(filtroTecnico.toLowerCase());
+        
+        return cumpleTipo && cumpleEstado && cumpleTecnico;
+    });
+    
+    renderVencimientos();
+    actualizarEstadisticas();
+}
+
+// Limpiar filtros
+function limpiarFiltros() {
+    document.getElementById('filtroTipo').value = '';
+    document.getElementById('filtroEstado').value = '';
+    document.getElementById('filtroTecnico').value = '';
+    
+    vencimientosFiltrados = [...vencimientosData];
+    renderVencimientos();
+    actualizarEstadisticas();
+}
+
+// Actualizar estadísticas
+function actualizarEstadisticas() {
+    const stats = vencimientosFiltrados.reduce((acc, vencimiento) => {
+        acc.total++;
+        switch (vencimiento.estado) {
+            case 'Vencido':
+                acc.vencidos++;
+                break;
+            case 'Próximo a vencer':
+                acc.proximosVencer++;
+                break;
+            case 'Vigente':
+                acc.vigentes++;
+                break;
+        }
+        return acc;
+    }, { total: 0, vencidos: 0, proximosVencer: 0, vigentes: 0 });
+    
+    document.getElementById('countTotal').textContent = stats.total;
+    document.getElementById('countVencidos').textContent = stats.vencidos;
+    document.getElementById('countProximosVencer').textContent = stats.proximosVencer;
+    document.getElementById('countVigentes').textContent = stats.vigentes;
+}
+
+// Cargar técnicos en filtro
+function cargarTecnicosEnFiltro() {
+    const tecnicos = [...new Set(vencimientosData.map(v => v.tecnico_nombre))].sort();
+    const filtroTecnico = document.getElementById('filtroTecnico');
+    
+    if (filtroTecnico) {
+        // Mantener la opción "Todos los técnicos"
+        const opcionTodos = filtroTecnico.querySelector('option[value=""]');
+        filtroTecnico.innerHTML = '';
+        filtroTecnico.appendChild(opcionTodos);
+        
+        tecnicos.forEach(tecnico => {
+            if (tecnico && tecnico !== 'Sin asignar') {
+                const option = document.createElement('option');
+                option.value = tecnico;
+                option.textContent = tecnico;
+                filtroTecnico.appendChild(option);
+            }
+        });
+    }
+}
+
+// Ver detalles del vencimiento
+function viewVencimientoDetails(tipo, id) {
+    const tipoParam = tipo.toLowerCase().replace(' ', '_').replace('é', 'e').replace('í', 'i');
+    
+    fetch(`/api/mpa/vencimiento/${tipoParam}/${id}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                mostrarDetallesVencimiento(data.data, data.tipo);
+            } else {
+                showAlert('Error al cargar detalles: ' + (data.error || 'Error desconocido'), 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al cargar detalles: ' + error.message, 'danger');
+        });
+}
+
+// Mostrar detalles en modal
+function mostrarDetallesVencimiento(data, tipo) {
+    const modalTitle = document.getElementById('viewVencimientoModalLabel');
+    const modalContent = document.getElementById('viewVencimientoContent');
+    
+    if (modalTitle) {
+        modalTitle.textContent = `Detalles de ${tipo}`;
+    }
+    
+    if (modalContent) {
+        modalContent.innerHTML = generarContenidoDetalle(data, tipo);
+    }
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('viewVencimientoModal'));
+    modal.show();
+}
+
+// Generar contenido del detalle
+function generarContenidoDetalle(data, tipo) {
+    let contenido = `
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Tipo de Documento:</strong><br>
+                <span class="badge ${getTipoBadge(tipo).match(/bg-\w+/)[0]} mb-2">${tipo}</span>
+            </div>
+            <div class="col-md-6">
+                <strong>Estado:</strong><br>
+                ${getEstadoBadge(data.estado_calculado)}
+            </div>
+        </div>
+        <hr>
+    `;
+    
+    // Campos específicos según el tipo
+    if (tipo === 'SOAT') {
+        contenido += `
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <strong>Placa:</strong><br>
+                    ${data.placa || 'N/A'}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <strong>Número de Póliza:</strong><br>
+                    ${data.numero_poliza || 'N/A'}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <strong>Aseguradora:</strong><br>
+                    ${data.aseguradora || 'N/A'}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <strong>Valor Prima:</strong><br>
+                    ${data.valor_prima ? '$' + Number(data.valor_prima).toLocaleString('es-CO') : 'N/A'}
+                </div>
+            </div>
+        `;
+    } else if (tipo === 'Técnico Mecánica') {
+        contenido += `
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <strong>Placa:</strong><br>
+                    ${data.placa || 'N/A'}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <strong>Número de Certificado:</strong><br>
+                    ${data.numero_certificado || 'N/A'}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <strong>Centro de Diagnóstico:</strong><br>
+                    ${data.centro_diagnostico || 'N/A'}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <strong>Costo:</strong><br>
+                    ${data.costo ? '$' + Number(data.costo).toLocaleString('es-CO') : 'N/A'}
+                </div>
+            </div>
+        `;
+    } else if (tipo === 'Licencia de Conducir') {
+        contenido += `
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <strong>Técnico:</strong><br>
+                    ${data.tecnico_nombre || 'N/A'}
+                </div>
+                <div class="col-md-6 mb-3">
+                    <strong>Cédula:</strong><br>
+                    ${data.tecnico_cedula || 'N/A'}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Fechas comunes
+    contenido += `
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <strong>Fecha de Inicio:</strong><br>
+                ${formatDate(data.fecha_inicio || data.fecha_inicial) || 'N/A'}
+            </div>
+            <div class="col-md-6 mb-3">
+                <strong>Fecha de Vencimiento:</strong><br>
+                ${formatDate(data.fecha_vencimiento) || 'N/A'}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <strong>Días Restantes:</strong><br>
+                <span class="badge ${getDiasRestantesBadge(data.dias_restantes)}">${data.dias_restantes || 0} días</span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <strong>Técnico Asignado:</strong><br>
+                ${data.tecnico_nombre || 'Sin asignar'}
+            </div>
+        </div>
+    `;
+    
+    // Observaciones si existen
+    if (data.observaciones || data.observacion) {
+        contenido += `
+            <div class="row">
+                <div class="col-12 mb-3">
+                    <strong>Observaciones:</strong><br>
+                    <div class="border p-2 bg-light rounded">
+                        ${data.observaciones || data.observacion || 'Sin observaciones'}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    return contenido;
+}
+
+// Función para mostrar alertas
+function showAlert(message, type = 'info') {
+    // Crear elemento de alerta
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Agregar al body
+    document.body.appendChild(alertDiv);
+    
+    // Auto-remover después de 5 segundos
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+
+{% endblock %}

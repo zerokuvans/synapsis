@@ -1,81 +1,107 @@
-import mysql.connector
-from mysql.connector import Error
-import bcrypt
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Script para verificar credenciales de usuarios en la base de datos
+"""
 
-def verificar_credenciales():
+import mysql.connector
+import os
+from dotenv import load_dotenv
+
+# Cargar variables de entorno
+load_dotenv()
+
+def get_db_connection():
+    """Obtener conexión a la base de datos"""
     try:
-        # Configuración de conexión a MySQL
         connection = mysql.connector.connect(
-            host='localhost',
-            database='capired',
-            user='root',
-            password='732137A031E4b@'
+            host=os.getenv('MYSQL_HOST', 'localhost'),
+            port=int(os.getenv('MYSQL_PORT', 3306)),
+            user=os.getenv('MYSQL_USER', 'root'),
+            password=os.getenv('MYSQL_PASSWORD', ''),
+            database=os.getenv('MYSQL_DB', 'capired'),
+            charset='utf8mb4',
+            collation='utf8mb4_unicode_ci'
         )
+        return connection
+    except mysql.connector.Error as e:
+        print(f"Error conectando a la base de datos: {e}")
+        return None
+
+def verificar_estructura_tabla():
+    """Verificar estructura de la tabla recurso_operativo"""
+    print("🔍 VERIFICANDO ESTRUCTURA DE LA TABLA")
+    print("="*60)
+    
+    connection = None
+    cursor = None
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            print("❌ Error de conexión")
+            return
         
-        if connection.is_connected():
-            cursor = connection.cursor()
+        cursor = connection.cursor()
+        
+        # Obtener estructura de la tabla
+        cursor.execute("DESCRIBE recurso_operativo")
+        
+        columnas = cursor.fetchall()
+        
+        print("✅ Columnas de la tabla recurso_operativo:")
+        print()
+        
+        for columna in columnas:
+            print(f"   {columna[0]} | {columna[1]} | {columna[2]} | {columna[3]} | {columna[4]} | {columna[5]}")
+        
+        print()
+        print("🔑 BUSCANDO COLUMNAS RELACIONADAS CON PASSWORD:")
+        
+        columnas_password = [col[0] for col in columnas if 'password' in col[0].lower() or 'pass' in col[0].lower() or 'clave' in col[0].lower()]
+        
+        if columnas_password:
+            print(f"   Encontradas: {', '.join(columnas_password)}")
             
-            print("=== Verificación de Credenciales de Usuarios Logística ===")
-            print()
+            # Obtener algunos usuarios con esas columnas
+            cursor = connection.cursor(dictionary=True)
             
-            # Consultar usuarios con rol logística (ID 5)
-            query = """
-            SELECT 
-                id_codigo_consumidor,
-                nombre,
-                recurso_operativo_cedula,
-                recurso_operativo_password,
-                estado
-            FROM recurso_operativo 
-            WHERE id_roles = 5 AND estado = 'Activo'
-            ORDER BY id_codigo_consumidor
+            columnas_str = ', '.join(columnas_password)
+            query = f"""
+                SELECT 
+                    id_codigo_consumidor,
+                    recurso_operativo_cedula,
+                    nombre,
+                    {columnas_str}
+                FROM recurso_operativo 
+                LIMIT 5
             """
             
             cursor.execute(query)
             usuarios = cursor.fetchall()
             
-            if usuarios:
-                print(f"Usuarios activos con rol logística encontrados: {len(usuarios)}")
+            print(f"\n📋 PRIMEROS 5 USUARIOS:")
+            for usuario in usuarios:
+                print(f"   ID: {usuario['id_codigo_consumidor']} | Cédula: {usuario['recurso_operativo_cedula']}")
+                for col in columnas_password:
+                    print(f"      {col}: {usuario.get(col, 'N/A')}")
                 print()
-                
-                for usuario in usuarios:
-                    id_codigo, nombre, cedula, password_hash, estado = usuario
-                    print(f"ID: {id_codigo}")
-                    print(f"Nombre: {nombre}")
-                    print(f"Cédula: {cedula}")
-                    print(f"Estado: {estado}")
-                    print(f"Password Hash: {password_hash[:50] if password_hash else 'N/A'}...")
-                    print("-" * 50)
-                    
-                    # Intentar verificar si la contraseña es simple
-                    if password_hash:
-                        # Probar contraseñas comunes
-                        contraseñas_test = ['123456', 'admin', 'password', cedula, nombre.lower()]
-                        for pwd in contraseñas_test:
-                            try:
-                                if bcrypt.checkpw(pwd.encode('utf-8'), password_hash.encode('utf-8')):
-                                    print(f"✓ Contraseña encontrada para {nombre}: {pwd}")
-                                    break
-                            except:
-                                # Si no es bcrypt, podría ser texto plano
-                                if password_hash == pwd:
-                                    print(f"✓ Contraseña en texto plano para {nombre}: {pwd}")
-                                    break
-                        else:
-                            print(f"✗ No se pudo determinar la contraseña para {nombre}")
-                    print()
-                    
-            else:
-                print("No se encontraron usuarios activos con rol logística")
-                
-    except Error as e:
-        print(f"Error conectando a MySQL: {e}")
+        else:
+            print("   No se encontraron columnas relacionadas con password")
+            
+            # Mostrar todas las columnas para identificar la correcta
+            print(f"\n📋 TODAS LAS COLUMNAS DISPONIBLES:")
+            for columna in columnas:
+                print(f"   - {columna[0]}")
         
+    except mysql.connector.Error as e:
+        print(f"❌ Error: {e}")
+    
     finally:
-        if connection.is_connected():
+        if cursor:
             cursor.close()
+        if connection and connection.is_connected():
             connection.close()
-            print("Conexión a MySQL cerrada")
 
 if __name__ == "__main__":
-    verificar_credenciales()
+    verificar_estructura_tabla()

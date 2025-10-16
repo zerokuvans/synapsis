@@ -1,0 +1,215 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;">
+                    <h3 class="mb-0">
+                        <i class="fas fa-car me-2"></i>Módulo de Parque Automotor (MPA)
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-road me-2"></i>
+                        Bienvenido al Módulo de Parque Automotor. Gestiona vehículos, documentación, mantenimientos, inspecciones y siniestros de la flota vehicular.
+                    </div>
+                    
+                    <!-- Estadísticas principales -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="total-vehiculos">0</h4>
+                                            <p class="mb-0">Vehículos</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-car fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="total-vencimientos">0</h4>
+                                            <p class="mb-0">Vencimientos</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-calendar-times fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="total-mantenimientos">0</h4>
+                                            <p class="mb-0">Mantenimientos</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-tools fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="total-siniestros">0</h4>
+                                            <p class="mb-0">Siniestros</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Módulos principales -->
+                    <div class="row mt-4">
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-car fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Vehículos</h5>
+                                    <p class="card-text">Gestiona el inventario completo de vehículos de la flota.</p>
+                                    <a href="/mpa/vehiculos" class="btn btn-primary">
+                                        <i class="fas fa-list me-2"></i>Ver Vehículos
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-calendar-times fa-3x text-warning mb-3"></i>
+                                    <h5 class="card-title">Vencimientos</h5>
+                                    <p class="card-text">Control de fechas de vencimiento de documentos vehiculares.</p>
+                                    <a href="/mpa/vencimientos" class="btn btn-warning">
+                                        <i class="fas fa-clock me-2"></i>Ver Vencimientos
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-shield-alt fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">SOAT</h5>
+                                    <p class="card-text">Gestiona seguros obligatorios de accidentes de tránsito.</p>
+                                    <a href="/mpa/soat" class="btn btn-success">
+                                        <i class="fas fa-file-contract me-2"></i>Ver SOAT
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-cogs fa-3x text-info mb-3"></i>
+                                    <h5 class="card-title">Técnico Mecánica</h5>
+                                    <p class="card-text">Control de revisiones técnico mecánicas vehiculares.</p>
+                                    <a href="/mpa/tecnico-mecanica" class="btn btn-info">
+                                        <i class="fas fa-wrench me-2"></i>Ver Técnico Mecánica
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Segunda fila de módulos -->
+                    <div class="row mt-2">
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-id-card fa-3x text-secondary mb-3"></i>
+                                    <h5 class="card-title">Licencias de Conducir</h5>
+                                    <p class="card-text">Gestiona licencias de conducir de los conductores.</p>
+                                    <a href="/mpa/licencias" class="btn btn-secondary">
+                                        <i class="fas fa-user-check me-2"></i>Ver Licencias
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-search fa-3x text-dark mb-3"></i>
+                                    <h5 class="card-title">Inspecciones Vehiculares</h5>
+                                    <p class="card-text">Registro y seguimiento de inspecciones vehiculares.</p>
+                                    <a href="/mpa/inspecciones" class="btn btn-dark">
+                                        <i class="fas fa-clipboard-check me-2"></i>Ver Inspecciones
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                                    <h5 class="card-title">Siniestros</h5>
+                                    <p class="card-text">Gestiona accidentes y siniestros vehiculares.</p>
+                                    <a href="/mpa/siniestros" class="btn btn-danger">
+                                        <i class="fas fa-car-crash me-2"></i>Ver Siniestros
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-tools fa-3x text-success mb-3"></i>
+                                    <h5 class="card-title">Mantenimientos</h5>
+                                    <p class="card-text">Control de mantenimientos preventivos y correctivos.</p>
+                                    <a href="/mpa/mantenimientos" class="btn btn-success">
+                                        <i class="fas fa-calendar-check me-2"></i>Ver Mantenimientos
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Cargar estadísticas del dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/mpa/dashboard-stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('total-vehiculos').textContent = data.data.vehiculos || 0;
+                document.getElementById('total-vencimientos').textContent = data.data.vencimientos || 0;
+                document.getElementById('total-mantenimientos').textContent = data.data.mantenimientos || 0;
+                document.getElementById('total-siniestros').textContent = data.data.siniestros || 0;
+            }
+        })
+        .catch(error => {
+            console.error('Error al cargar estadísticas MPA:', error);
+        });
+});
+</script>
+{% endblock %}
