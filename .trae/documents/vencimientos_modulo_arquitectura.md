@@ -36,14 +36,19 @@ graph TD
 ```
 
 ## 2. Descripción de Tecnología
-- Frontend: HTML5 + Bootstrap 5 + JavaScript ES6 + jQuery
-- Backend: Flask (Python) integrado en app.py existente
-- Base de Datos: MySQL (tablas MPA existentes)
-- Integración: APIs RESTful para consolidación de datos
+
+* Frontend: HTML5 + Bootstrap 5 + JavaScript ES6 + jQuery
+
+* Backend: Flask (Python) integrado en app.py existente
+
+* Base de Datos: MySQL (tablas MPA existentes)
+
+* Integración: APIs RESTful para consolidación de datos
 
 ## 3. Definiciones de Rutas
-| Ruta | Propósito |
-|------|-----------|
+
+| Ruta              | Propósito                                                |
+| ----------------- | -------------------------------------------------------- |
 | /mpa/vencimientos | Página principal del módulo de vencimientos consolidados |
 
 ## 4. Definiciones de API
@@ -51,25 +56,29 @@ graph TD
 ### 4.1 API Principal
 
 **Obtener vencimientos consolidados**
+
 ```
 GET /api/mpa/vencimientos
 ```
 
 Request:
-| Nombre Parámetro | Tipo Parámetro | Es Requerido | Descripción |
-|------------------|----------------|--------------|-------------|
-| tipo_documento | string | false | Filtro por tipo: 'soat', 'tecnico_mecanica', 'licencia_conducir' |
-| estado | string | false | Filtro por estado: 'vigente', 'proximo_vencer', 'vencido' |
-| tecnico_id | integer | false | Filtro por ID del técnico asignado |
+
+| Nombre Parámetro | Tipo Parámetro | Es Requerido | Descripción                                                        |
+| ---------------- | -------------- | ------------ | ------------------------------------------------------------------ |
+| tipo\_documento  | string         | false        | Filtro por tipo: 'soat', 'tecnico\_mecanica', 'licencia\_conducir' |
+| estado           | string         | false        | Filtro por estado: 'vigente', 'proximo\_vencer', 'vencido'         |
+| tecnico\_id      | integer        | false        | Filtro por ID del técnico asignado                                 |
 
 Response:
-| Nombre Parámetro | Tipo Parámetro | Descripción |
-|------------------|----------------|-------------|
-| success | boolean | Estado de la respuesta |
-| data | array | Lista de vencimientos consolidados |
-| total | integer | Total de registros |
+
+| Nombre Parámetro | Tipo Parámetro | Descripción                        |
+| ---------------- | -------------- | ---------------------------------- |
+| success          | boolean        | Estado de la respuesta             |
+| data             | array          | Lista de vencimientos consolidados |
+| total            | integer        | Total de registros                 |
 
 Ejemplo Response:
+
 ```json
 {
   "success": true,
@@ -94,21 +103,24 @@ Ejemplo Response:
 ```
 
 **Obtener detalle específico de vencimiento**
+
 ```
 GET /api/mpa/vencimiento-detalle
 ```
 
 Request:
-| Nombre Parámetro | Tipo Parámetro | Es Requerido | Descripción |
-|------------------|----------------|--------------|-------------|
-| tipo | string | true | Tipo de documento: 'soat', 'tecnico_mecanica', 'licencia_conducir' |
-| id | integer | true | ID del registro específico |
+
+| Nombre Parámetro | Tipo Parámetro | Es Requerido | Descripción                                                          |
+| ---------------- | -------------- | ------------ | -------------------------------------------------------------------- |
+| tipo             | string         | true         | Tipo de documento: 'soat', 'tecnico\_mecanica', 'licencia\_conducir' |
+| id               | integer        | true         | ID del registro específico                                           |
 
 Response:
-| Nombre Parámetro | Tipo Parámetro | Descripción |
-|------------------|----------------|-------------|
-| success | boolean | Estado de la respuesta |
-| data | object | Detalles completos del documento |
+
+| Nombre Parámetro | Tipo Parámetro | Descripción                      |
+| ---------------- | -------------- | -------------------------------- |
+| success          | boolean        | Estado de la respuesta           |
+| data             | object         | Detalles completos del documento |
 
 ## 5. Diagrama de Arquitectura del Servidor
 
@@ -141,6 +153,7 @@ graph TD
 ## 6. Modelo de Datos
 
 ### 6.1 Definición del Modelo de Datos
+
 ```mermaid
 erDiagram
   MPA_SOAT ||--o{ RECURSO_OPERATIVO : "tecnico_asignado"
@@ -186,6 +199,7 @@ erDiagram
 ### 6.2 Lenguaje de Definición de Datos
 
 **Consulta SQL para vencimientos consolidados**
+
 ```sql
 -- Vista consolidada de vencimientos
 CREATE VIEW vista_vencimientos_consolidados AS
@@ -262,3 +276,4 @@ CREATE INDEX idx_mpa_soat_fecha_vencimiento ON mpa_soat(fecha_vencimiento);
 CREATE INDEX idx_mpa_tecnico_mecanica_fecha_vencimiento ON mpa_tecnico_mecanica(fecha_vencimiento);
 CREATE INDEX idx_mpa_licencia_conducir_fecha_vencimiento ON mpa_licencia_conducir(fecha_vencimiento);
 ```
+

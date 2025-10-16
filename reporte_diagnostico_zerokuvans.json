@@ -1,0 +1,21 @@
+{
+  "fecha": "2025-10-16T11:04:03.738593",
+  "repositorio": "C:\\Users\\vnaranjos\\OneDrive\\DESARROLLOS PROPIOS\\synapsis",
+  "problemas": [
+    "Encontrados archivos sensibles que podrían estar expuestos:",
+    "Encontrados 17 archivos con marcadores de conflicto:",
+    "Error en simulación de push: remote: Permission to zerokuvans/synapsis.git denied to holmanpineda.\nfatal: unable to access 'https://github.com/zerokuvans/synapsis.git/': The requested URL returned error: 403"
+  ],
+  "advertencias": [
+    "Hay commits locales que no han sido enviados al repositorio remoto",
+    "Faltan 1 patrones recomendados en .gitignore:",
+    "Hay 1 archivos nuevos sin agregar:"
+  ],
+  "recomendaciones": [
+    "Ejecutar: git push origin main",
+    "Agregar estos archivos al .gitignore y removerlos del repositorio",
+    "Revisar cambios y hacer commit antes de sincronizar",
+    "Resolver manualmente los conflictos en estos archivos",
+    "Verificar permisos de escritura en el repositorio"
+  ]
+}
