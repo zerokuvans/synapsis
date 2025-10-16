@@ -1,0 +1,661 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;">
+                    <h3 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>Gestión de Técnico Mecánica - MPA
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Gestiona todas las revisiones técnico mecánicas de los vehículos de la flota. Aquí puedes ver, crear, actualizar y eliminar registros de técnico mecánica.
+                    </div>
+                    
+                    <!-- Botón para crear nueva técnico mecánica -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="mb-0">Lista de Técnico Mecánica</h4>
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#tecnicoMecanicaModal" onclick="openCreateModal()">
+                            <i class="fas fa-plus me-2"></i>Crear Técnico Mecánica
+                        </button>
+                    </div>
+                    
+                    <!-- Tabla de Técnico Mecánica -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="tecnicoMecanicaTable">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Placa</th>
+                                    <th>Fecha Inicial</th>
+                                    <th>Fecha Vencimiento</th>
+                                    <th>Días Restantes</th>
+                                    <th>Estado</th>
+                                    <th>Técnico</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tecnicoMecanicaTableBody">
+                                <!-- Los datos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Mensaje cuando no hay técnico mecánica -->
+                    <div id="noTecnicoMecanicaMessage" class="text-center py-5" style="display: none;">
+                        <i class="fas fa-tools fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No hay técnico mecánica registradas</h5>
+                        <p class="text-muted">Haz clic en "Crear Técnico Mecánica" para agregar el primer registro.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para crear/editar Técnico Mecánica -->
+<div class="modal fade" id="tecnicoMecanicaModal" tabindex="-1" aria-labelledby="tecnicoMecanicaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tecnicoMecanicaModalLabel">Crear Técnico Mecánica</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="tecnicoMecanicaForm">
+                    <input type="hidden" id="tecnicoMecanicaId" name="tecnicoMecanicaId">
+                    
+                    <div class="row">
+                        <!-- Información del Vehículo -->
+                        <div class="col-md-6 mb-3">
+                            <label for="placa" class="form-label">Placa del Vehículo <span class="text-danger">*</span></label>
+                            <select class="form-select" id="placa" name="placa" required onchange="onPlacaChange()">
+                                <option value="">Seleccionar placa</option>
+                                <!-- Las placas se cargarán dinámicamente -->
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="tecnicoAsignado" class="form-label">Técnico Asignado</label>
+                            <input type="text" class="form-control" id="tecnicoAsignado" name="tecnicoAsignado" readonly>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="tipoVehiculo" class="form-label">Tipo de Vehículo</label>
+                            <input type="text" class="form-control" id="tipoVehiculo" name="tipoVehiculo" readonly>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="fechaInicial" class="form-label">Fecha Inicial <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="fechaInicial" name="fechaInicial" required onchange="calculateDaysRemaining()">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="fechaVencimiento" class="form-label">Fecha de Vencimiento <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="fechaVencimiento" name="fechaVencimiento" required onchange="calculateDaysRemaining()">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="observaciones" class="form-label">Observaciones</label>
+                            <textarea class="form-control" id="observaciones" name="observaciones" rows="3" placeholder="Observaciones adicionales..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Información de días restantes -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <div id="diasRestantesInfo" class="alert" style="display: none;">
+                                <i class="fas fa-calendar-alt me-2"></i>
+                                <span id="diasRestantesText"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Información automática -->
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Nota:</strong> El técnico se asignará automáticamente según el vehículo seleccionado. La fecha de registro se guardará automáticamente.
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="saveTecnicoMecanica()">
+                    <i class="fas fa-save me-2"></i>Guardar Técnico Mecánica
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para ver detalles del Técnico Mecánica -->
+<div class="modal fade" id="viewTecnicoMecanicaModal" tabindex="-1" aria-labelledby="viewTecnicoMecanicaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewTecnicoMecanicaModalLabel">Detalles del Técnico Mecánica</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="viewTecnicoMecanicaContent">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentTecnicoMecanicaId = null;
+let vehiclePlates = [];
+
+// Cargar datos al inicializar la página
+document.addEventListener('DOMContentLoaded', function() {
+    loadTecnicoMecanicas();
+    loadVehiclePlates();
+    
+    // Limpiar estado cuando se cierra el modal de Técnico Mecánica
+    const tecnicoMecanicaModal = document.getElementById('tecnicoMecanicaModal');
+    if (tecnicoMecanicaModal) {
+        tecnicoMecanicaModal.addEventListener('hidden.bs.modal', function() {
+            currentTecnicoMecanicaId = null;
+            
+            // Validar elementos antes de manipularlos
+            const form = document.getElementById('tecnicoMecanicaForm');
+            const tecnicoMecanicaId = document.getElementById('tecnicoMecanicaId');
+            const diasRestantesInfo = document.getElementById('diasRestantesInfo');
+            
+            if (form) form.reset();
+            if (tecnicoMecanicaId) tecnicoMecanicaId.value = '';
+            if (diasRestantesInfo) diasRestantesInfo.style.display = 'none';
+        });
+    }
+});
+
+// Cargar lista de Técnico Mecánica
+function loadTecnicoMecanicas() {
+    fetch('/api/mpa/tecnico_mecanica')
+        .then(response => {
+            if (response.status === 401) {
+                showAlert('Sesión expirada. Por favor, inicia sesión nuevamente.', 'warning');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+                return;
+            }
+            if (response.status === 403) {
+                showAlert('No tienes permisos para acceder a esta información.', 'danger');
+                return;
+            }
+            if (response.status === 302 || response.redirected) {
+                showAlert('Sesión expirada. Redirigiendo al login...', 'warning');
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+                return;
+            }
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data && data.success) {
+                displayTecnicoMecanicas(data.data);
+            } else if (data) {
+                showAlert('Error al cargar Técnico Mecánica: ' + (data.message || data.error || 'Error desconocido'), 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                showAlert('Error de conexión. Verifica tu conexión a internet.', 'danger');
+            } else {
+                showAlert('Error al cargar datos del Técnico Mecánica: ' + error.message, 'danger');
+            }
+        });
+}
+
+// Mostrar Técnico Mecánica en la tabla
+function displayTecnicoMecanicas(tecnicoMecanicas) {
+    const tbody = document.getElementById('tecnicoMecanicaTableBody');
+    const noTecnicoMecanicaMessage = document.getElementById('noTecnicoMecanicaMessage');
+    const table = document.getElementById('tecnicoMecanicaTable');
+    
+    if (tecnicoMecanicas.length === 0) {
+        table.style.display = 'none';
+        noTecnicoMecanicaMessage.style.display = 'block';
+        return;
+    }
+    
+    table.style.display = 'table';
+    noTecnicoMecanicaMessage.style.display = 'none';
+    
+    tbody.innerHTML = tecnicoMecanicas.map(tecnicoMecanica => {
+        const estadoBadge = getEstadoBadge(tecnicoMecanica.estado, tecnicoMecanica.dias_vencimiento);
+        const diasText = getDiasRestantesText(tecnicoMecanica.dias_vencimiento);
+        
+        return `
+        <tr class="${getRowClass(tecnicoMecanica.estado, tecnicoMecanica.dias_vencimiento)}">
+            <td><strong>${tecnicoMecanica.placa}</strong></td>
+            <td>${formatDate(tecnicoMecanica.fecha_inicio)}</td>
+            <td>${formatDate(tecnicoMecanica.fecha_vencimiento)}</td>
+            <td>${diasText}</td>
+            <td>${estadoBadge}</td>
+            <td>${tecnicoMecanica.tecnico_nombre || 'Sin asignar'}</td>
+            <td>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm btn-info" onclick="viewTecnicoMecanica(${tecnicoMecanica.id_mpa_tecnico_mecanica})" title="Ver detalles">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-warning" onclick="editTecnicoMecanica(${tecnicoMecanica.id_mpa_tecnico_mecanica})" title="Editar">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="deleteTecnicoMecanica(${tecnicoMecanica.id_mpa_tecnico_mecanica}, '${tecnicoMecanica.placa}')" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+        `;
+    }).join('');
+}
+
+// Obtener badge de estado
+function getEstadoBadge(estado, diasRestantes) {
+    // Si diasRestantes es undefined, null o no es un número, usar el estado original si existe
+    if (diasRestantes === undefined || diasRestantes === null || isNaN(diasRestantes)) {
+        switch(estado) {
+            case 'vencido':
+                return '<span class="badge bg-danger">Vencido</span>';
+            case 'proximo_vencer':
+                return '<span class="badge bg-warning text-dark">Próximo a vencer</span>';
+            case 'vigente':
+                return '<span class="badge bg-success">Vigente</span>';
+            default:
+                return '<span class="badge bg-secondary">Calculando...</span>';
+        }
+    }
+    
+    // Calcular estado basado en días restantes
+    if (diasRestantes < 0) {
+        return '<span class="badge bg-danger">Vencido</span>';
+    } else if (diasRestantes <= 30) {
+        return '<span class="badge bg-warning text-dark">Próximo a vencer</span>';
+    } else {
+        return '<span class="badge bg-success">Vigente</span>';
+    }
+}
+
+// Obtener clase de fila según estado
+function getRowClass(estado, diasRestantes) {
+    // Si diasRestantes es válido, usar esa lógica
+    if (diasRestantes !== undefined && diasRestantes !== null && !isNaN(diasRestantes)) {
+        if (diasRestantes < 0) {
+            return 'table-danger';
+        } else if (diasRestantes <= 30) {
+            return 'table-warning';
+        } else {
+            return '';
+        }
+    }
+    
+    // Fallback al estado original
+    switch(estado) {
+        case 'vencido':
+            return 'table-danger';
+        case 'proximo_vencer':
+            return 'table-warning';
+        default:
+            return '';
+    }
+}
+
+// Obtener texto de días restantes
+function getDiasRestantesText(diasRestantes) {
+    // Verificar si el valor es undefined, null o no es un número
+    if (diasRestantes === undefined || diasRestantes === null || isNaN(diasRestantes)) {
+        return '<span class="text-muted">Calculando...</span>';
+    }
+    
+    if (diasRestantes < 0) {
+        return `<span class="text-danger fw-bold">${Math.abs(diasRestantes)} días vencido</span>`;
+    } else if (diasRestantes === 0) {
+        return '<span class="text-warning fw-bold">Vence hoy</span>';
+    } else {
+        return `<span class="text-success">${diasRestantes} días</span>`;
+    }
+}
+
+// Cargar lista de placas de vehículos
+function loadVehiclePlates() {
+    fetch('/api/mpa/vehiculos/placas')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                vehiclePlates = data.data;
+                const select = document.getElementById('placa');
+                select.innerHTML = '<option value="">Seleccionar placa</option>' +
+                    vehiclePlates.map(vehicle => `<option value="${vehicle.placa}" data-tecnico="${vehicle.tecnico_nombre || 'Sin asignar'}" data-tipo="${vehicle.tipo_vehiculo}">${vehicle.placa}</option>`).join('');
+            } else {
+                showAlert('Error al cargar placas: ' + (data.message || 'Error desconocido'), 'warning');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al cargar placas: ' + error.message, 'warning');
+        });
+}
+
+// Evento cuando cambia la placa seleccionada
+function onPlacaChange() {
+    const placaSelect = document.getElementById('placa');
+    const selectedOption = placaSelect.options[placaSelect.selectedIndex];
+    
+    if (selectedOption.value) {
+        const tecnico = selectedOption.getAttribute('data-tecnico');
+        const tipoVehiculo = selectedOption.getAttribute('data-tipo');
+        
+        document.getElementById('tecnicoAsignado').value = tecnico;
+        document.getElementById('tipoVehiculo').value = tipoVehiculo;
+    } else {
+        document.getElementById('tecnicoAsignado').value = '';
+        document.getElementById('tipoVehiculo').value = '';
+    }
+}
+
+// Calcular días restantes
+function calculateDaysRemaining() {
+    const fechaInicialElement = document.getElementById('fechaInicial');
+    const fechaVencimientoElement = document.getElementById('fechaVencimiento');
+    const infoDiv = document.getElementById('diasRestantesInfo');
+    const textSpan = document.getElementById('diasRestantesText');
+    
+    // Validar que todos los elementos existan
+    if (!fechaInicialElement || !fechaVencimientoElement || !infoDiv || !textSpan) {
+        console.warn('Elementos requeridos para calculateDaysRemaining no encontrados');
+        return;
+    }
+    
+    const fechaInicial = fechaInicialElement.value;
+    const fechaVencimiento = fechaVencimientoElement.value;
+    
+    if (fechaInicial && fechaVencimiento) {
+        const inicial = new Date(fechaInicial);
+        const vencimiento = new Date(fechaVencimiento);
+        const hoy = new Date();
+        
+        // Validar que la fecha de vencimiento sea posterior a la inicial
+        if (vencimiento <= inicial) {
+            infoDiv.className = 'alert alert-danger';
+            textSpan.textContent = 'La fecha de vencimiento debe ser posterior a la fecha inicial';
+            infoDiv.style.display = 'block';
+            return;
+        }
+        
+        // Calcular días restantes
+        const diffTime = vencimiento.getTime() - hoy.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays < 0) {
+            infoDiv.className = 'alert alert-danger';
+            textSpan.textContent = `Técnico Mecánica vencida hace ${Math.abs(diffDays)} días`;
+        } else if (diffDays <= 30) {
+            infoDiv.className = 'alert alert-warning';
+            textSpan.textContent = `Técnico Mecánica próxima a vencer en ${diffDays} días`;
+        } else {
+            infoDiv.className = 'alert alert-success';
+            textSpan.textContent = `Técnico Mecánica vigente por ${diffDays} días más`;
+        }
+        
+        infoDiv.style.display = 'block';
+    } else {
+        infoDiv.style.display = 'none';
+    }
+}
+
+// Abrir modal para crear Técnico Mecánica
+function openCreateModal() {
+    currentTecnicoMecanicaId = null;
+    
+    // Validar elementos antes de manipularlos
+    const modalLabel = document.getElementById('tecnicoMecanicaModalLabel');
+    const form = document.getElementById('tecnicoMecanicaForm');
+    const tecnicoMecanicaId = document.getElementById('tecnicoMecanicaId');
+    const tecnicoAsignado = document.getElementById('tecnicoAsignado');
+    const tipoVehiculo = document.getElementById('tipoVehiculo');
+    const diasRestantesInfo = document.getElementById('diasRestantesInfo');
+    
+    if (modalLabel) modalLabel.textContent = 'Crear Técnico Mecánica';
+    if (form) form.reset();
+    if (tecnicoMecanicaId) tecnicoMecanicaId.value = '';
+    
+    // Limpiar campos auto-poblados
+    if (tecnicoAsignado) tecnicoAsignado.value = '';
+    if (tipoVehiculo) tipoVehiculo.value = '';
+    if (diasRestantesInfo) diasRestantesInfo.style.display = 'none';
+}
+
+// Ver detalles del Técnico Mecánica
+function viewTecnicoMecanica(tecnicoMecanicaId) {
+    fetch(`/api/mpa/tecnico_mecanica/${tecnicoMecanicaId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const tecnicoMecanica = data.data;
+                const estadoBadge = getEstadoBadge(tecnicoMecanica.estado, tecnicoMecanica.dias_vencimiento);
+                const diasText = getDiasRestantesText(tecnicoMecanica.dias_vencimiento);
+                
+                const content = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Información del Vehículo</h6>
+                            <p><strong>Placa:</strong> ${tecnicoMecanica.placa}</p>
+                            <p><strong>Tipo de Vehículo:</strong> ${tecnicoMecanica.tipo_vehiculo || 'No especificado'}</p>
+                            <p><strong>Técnico Asignado:</strong> ${tecnicoMecanica.tecnico_nombre || 'Sin asignar'}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Información del Técnico Mecánica</h6>
+                            <p><strong>Fecha Inicial:</strong> ${formatDate(tecnicoMecanica.fecha_inicio)}</p>
+                            <p><strong>Fecha de Vencimiento:</strong> ${formatDate(tecnicoMecanica.fecha_vencimiento)}</p>
+                            <p><strong>Fecha de Creación:</strong> ${formatDate(tecnicoMecanica.fecha_creacion)}</p>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Estado del Técnico Mecánica</h6>
+                            <p><strong>Estado:</strong> ${estadoBadge}</p>
+                            <p><strong>Días restantes:</strong> ${diasText}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Información Adicional</h6>
+                            <p><strong>Observaciones:</strong> ${tecnicoMecanica.observaciones || 'Sin observaciones'}</p>
+                            <p><strong>Última Actualización:</strong> ${formatDate(tecnicoMecanica.fecha_actualizacion)}</p>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('viewTecnicoMecanicaContent').innerHTML = content;
+                new bootstrap.Modal(document.getElementById('viewTecnicoMecanicaModal')).show();
+            } else {
+                showAlert('Error al cargar detalles del Técnico Mecánica: ' + data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al cargar detalles del Técnico Mecánica', 'danger');
+        });
+}
+
+// Editar Técnico Mecánica
+function editTecnicoMecanica(tecnicoMecanicaId) {
+    fetch(`/api/mpa/tecnico_mecanica/${tecnicoMecanicaId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const tecnicoMecanica = data.data;
+                currentTecnicoMecanicaId = tecnicoMecanicaId;
+                
+                // Validar elementos antes de manipularlos
+                const modalLabel = document.getElementById('tecnicoMecanicaModalLabel');
+                const tecnicoMecanicaIdField = document.getElementById('tecnicoMecanicaId');
+                const placa = document.getElementById('placa');
+                const tecnicoAsignado = document.getElementById('tecnicoAsignado');
+                const tipoVehiculo = document.getElementById('tipoVehiculo');
+                const fechaInicial = document.getElementById('fechaInicial');
+                const fechaVencimiento = document.getElementById('fechaVencimiento');
+                const observaciones = document.getElementById('observaciones');
+                const tecnicoMecanicaModal = document.getElementById('tecnicoMecanicaModal');
+                
+                if (modalLabel) modalLabel.textContent = 'Editar Técnico Mecánica';
+                if (tecnicoMecanicaIdField) tecnicoMecanicaIdField.value = tecnicoMecanicaId;
+                if (placa) placa.value = tecnicoMecanica.placa;
+                if (tecnicoAsignado) tecnicoAsignado.value = tecnicoMecanica.tecnico_nombre || 'Sin asignar';
+                if (tipoVehiculo) tipoVehiculo.value = tecnicoMecanica.tipo_vehiculo || '';
+                if (fechaInicial) fechaInicial.value = tecnicoMecanica.fecha_inicio;
+                if (fechaVencimiento) fechaVencimiento.value = tecnicoMecanica.fecha_vencimiento;
+                if (observaciones) observaciones.value = tecnicoMecanica.observaciones || '';
+                
+                // Calcular días restantes
+                calculateDaysRemaining();
+                
+                if (tecnicoMecanicaModal) {
+                    new bootstrap.Modal(tecnicoMecanicaModal).show();
+                }
+            } else {
+                showAlert('Error al cargar datos del Técnico Mecánica: ' + data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al cargar datos del Técnico Mecánica', 'danger');
+        });
+}
+
+// Guardar Técnico Mecánica (crear o actualizar)
+async function saveTecnicoMecanica() {
+    const form = document.getElementById('tecnicoMecanicaForm');
+    
+    // Validar campos requeridos
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    // Validar fechas
+    const fechaInicial = new Date(document.getElementById('fechaInicial').value);
+    const fechaVencimiento = new Date(document.getElementById('fechaVencimiento').value);
+    
+    if (fechaVencimiento <= fechaInicial) {
+        showAlert('La fecha de vencimiento debe ser posterior a la fecha inicial', 'danger');
+        return;
+    }
+    
+    try {
+        // Preparar datos del Técnico Mecánica
+        const tecnicoMecanicaData = {
+            placa: document.getElementById('placa').value,
+            fecha_inicio: document.getElementById('fechaInicial').value,
+            fecha_vencimiento: document.getElementById('fechaVencimiento').value,
+            tecnico_asignado: document.getElementById('tecnicoAsignado').value,
+            observaciones: document.getElementById('observaciones').value
+        };
+        
+        const url = currentTecnicoMecanicaId ? `/api/mpa/tecnico_mecanica/${currentTecnicoMecanicaId}` : '/api/mpa/tecnico_mecanica';
+        const method = currentTecnicoMecanicaId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(tecnicoMecanicaData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert(currentTecnicoMecanicaId ? 'Técnico Mecánica actualizada exitosamente' : 'Técnico Mecánica creada exitosamente', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('tecnicoMecanicaModal')).hide();
+            loadTecnicoMecanicas();
+        } else {
+            showAlert('Error: ' + (data.message || 'Error desconocido'), 'danger');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showAlert('Error al guardar el Técnico Mecánica', 'danger');
+    }
+}
+
+// Eliminar Técnico Mecánica
+function deleteTecnicoMecanica(tecnicoMecanicaId, placa) {
+    if (confirm(`¿Está seguro de que desea eliminar el Técnico Mecánica del vehículo ${placa}?`)) {
+        fetch(`/api/mpa/tecnico_mecanica/${tecnicoMecanicaId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('Técnico Mecánica eliminada exitosamente', 'success');
+                loadTecnicoMecanicas();
+            } else {
+                showAlert('Error al eliminar Técnico Mecánica: ' + data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al eliminar Técnico Mecánica', 'danger');
+        });
+    }
+}
+
+// Formatear fecha
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-CO', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+}
+
+// Mostrar alertas
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    const container = document.querySelector('.container');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

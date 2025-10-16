@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import mysql.connector
@@ -169,6 +169,15 @@ def login():
 
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Error interno: {str(e)}'}), 500
+
+@app.route('/logout')
+@login_required
+def logout():
+    """Cerrar sesión del usuario"""
+    logout_user()
+    session.clear()
+    flash('Has cerrado sesión exitosamente.', 'success')
+    return redirect(url_for('login'))
 
 @app.route('/check_submission', methods=['GET'])
 def check_submission():
@@ -1637,8 +1646,2258 @@ def obtener_resumen_agrupado_asistencia():
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8080)
+# ==================== RUTAS DEL MÓDULO MPA ====================
+
+@app.route('/mpa')
+@login_required
+def mpa_dashboard():
+    """Dashboard principal del módulo MPA (Módulo de Parque Automotor)"""
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('modulos/mpa/dashboard.html')
+
+@app.route('/api/mpa/dashboard-stats')
+@login_required
+def mpa_dashboard_stats():
+    """API para obtener estadísticas del dashboard MPA"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        stats = {}
+        
+        # Estadísticas de Vehículos (por ahora retornamos 0 hasta crear las tablas)
+        stats['total_vehiculos'] = 0
+        stats['vehiculos_activos'] = 0
+        
+        # Estadísticas de Vencimientos
+        stats['total_vencimientos'] = 0
+        stats['vencimientos_proximos'] = 0
+        
+        # Estadísticas de Mantenimientos
+        stats['total_mantenimientos'] = 0
+        stats['mantenimientos_mes'] = 0
+        
+        # Estadísticas de Siniestros
+        stats['total_siniestros'] = 0
+        stats['siniestros_mes'] = 0
+        
+        return jsonify(stats)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# Rutas para los módulos individuales del MPA
+@app.route('/mpa/vehiculos')
+@login_required
+def mpa_vehiculos():
+    """Módulo de gestión de vehículos"""
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    
+    return render_template('modulos/mpa/vehicles.html')
+
+# API para obtener lista de vehículos
+@app.route('/api/mpa/vehiculos', methods=['GET'])
+@login_required
+def api_get_vehiculos():
+    """API para obtener la lista de vehículos"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Consulta para obtener vehículos con información del técnico asignado
+        query = """
+        SELECT 
+            v.id_mpa_vehiculos,
+            v.cedula_propietario,
+            v.nombre_propietario,
+            v.placa,
+            v.tipo_vehiculo,
+            v.vin,
+            v.numero_de_motor,
+            v.fecha_de_matricula,
+            v.estado,
+            v.marca,
+            v.linea,
+            v.modelo,
+            v.color,
+            v.kilometraje_actual,
+            v.fecha_creacion,
+            v.tecnico_asignado,
+            v.observaciones,
+            ro.nombre as tecnico_nombre
+        FROM mpa_vehiculos v
+        LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+        ORDER BY v.fecha_creacion DESC
+        """
+        
+        cursor.execute(query)
+        vehiculos = cursor.fetchall()
+        
+        # Formatear fechas para el frontend
+        for vehiculo in vehiculos:
+            if vehiculo['fecha_de_matricula']:
+                vehiculo['fecha_de_matricula'] = vehiculo['fecha_de_matricula'].strftime('%Y-%m-%d')
+            if vehiculo['fecha_creacion']:
+                vehiculo['fecha_creacion'] = vehiculo['fecha_creacion'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        return jsonify({
+            'success': True,
+            'data': vehiculos
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para crear un nuevo vehículo
+@app.route('/api/mpa/vehiculos', methods=['POST'])
+@login_required
+def api_create_vehiculo():
+    """API para crear un nuevo vehículo"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        data = request.get_json()
+        
+        # Validar campos requeridos
+        required_fields = ['cedula_propietario', 'nombre_propietario', 'placa', 'tipo_vehiculo']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({'success': False, 'error': f'El campo {field} es requerido'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar si ya existe un vehículo con la misma placa
+        cursor.execute("SELECT id_mpa_vehiculos FROM mpa_vehiculos WHERE placa = %s", (data['placa'],))
+        if cursor.fetchone():
+            return jsonify({'success': False, 'error': 'Ya existe un vehículo con esta placa'}), 400
+        
+        # Obtener fecha actual en zona horaria de Bogotá
+        from pytz import timezone
+        bogota_tz = timezone('America/Bogota')
+        fecha_creacion = datetime.now(bogota_tz).strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Insertar nuevo vehículo
+        insert_query = """
+        INSERT INTO mpa_vehiculos (
+            cedula_propietario, nombre_propietario, placa, tipo_vehiculo, vin,
+            numero_de_motor, fecha_de_matricula, estado, marca, linea, modelo,
+            color, kilometraje_actual, fecha_creacion, tecnico_asignado, observaciones
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        values = (
+            data.get('cedula_propietario'),
+            data.get('nombre_propietario'),
+            data.get('placa'),
+            data.get('tipo_vehiculo'),
+            data.get('vin'),
+            data.get('numero_de_motor'),
+            data.get('fecha_de_matricula'),
+            data.get('estado', 'Activo'),
+            data.get('marca'),
+            data.get('linea'),
+            data.get('modelo'),
+            data.get('color'),
+            data.get('kilometraje_actual'),
+            fecha_creacion,
+            data.get('tecnico_asignado'),
+            data.get('observaciones')
+        )
+        
+        cursor.execute(insert_query, values)
+        connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Vehículo creado exitosamente',
+            'id': cursor.lastrowid
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para obtener un vehículo específico
+@app.route('/api/mpa/vehiculos/<int:vehiculo_id>', methods=['GET'])
+@login_required
+def api_get_vehiculo(vehiculo_id):
+    """API para obtener un vehículo específico"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        query = """
+        SELECT 
+            v.*,
+            ro.nombre as tecnico_nombre
+        FROM mpa_vehiculos v
+        LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+        WHERE v.id_mpa_vehiculos = %s
+        """
+        
+        cursor.execute(query, (vehiculo_id,))
+        vehiculo = cursor.fetchone()
+        
+        if not vehiculo:
+            return jsonify({'success': False, 'error': 'Vehículo no encontrado'}), 404
+        
+        # Formatear fechas
+        if vehiculo['fecha_de_matricula']:
+            vehiculo['fecha_de_matricula'] = vehiculo['fecha_de_matricula'].strftime('%Y-%m-%d')
+        if vehiculo['fecha_creacion']:
+            vehiculo['fecha_creacion'] = vehiculo['fecha_creacion'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        return jsonify({
+            'success': True,
+            'data': vehiculo
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para actualizar un vehículo
+@app.route('/api/mpa/vehiculos/<int:vehiculo_id>', methods=['PUT'])
+@login_required
+def api_update_vehiculo(vehiculo_id):
+    """API para actualizar un vehículo"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        data = request.get_json()
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar si el vehículo existe
+        cursor.execute("SELECT id_mpa_vehiculos FROM mpa_vehiculos WHERE id_mpa_vehiculos = %s", (vehiculo_id,))
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'error': 'Vehículo no encontrado'}), 404
+        
+        # Verificar si la placa ya existe en otro vehículo
+        if data.get('placa'):
+            cursor.execute(
+                "SELECT id_mpa_vehiculos FROM mpa_vehiculos WHERE placa = %s AND id_mpa_vehiculos != %s", 
+                (data['placa'], vehiculo_id)
+            )
+            if cursor.fetchone():
+                return jsonify({'success': False, 'error': 'Ya existe otro vehículo con esta placa'}), 400
+        
+        # Construir query de actualización dinámicamente
+        update_fields = []
+        values = []
+        
+        allowed_fields = [
+            'cedula_propietario', 'nombre_propietario', 'placa', 'tipo_vehiculo', 'vin',
+            'numero_de_motor', 'fecha_de_matricula', 'estado', 'marca', 'linea', 'modelo',
+            'color', 'kilometraje_actual', 'tecnico_asignado', 'observaciones'
+        ]
+        
+        for field in allowed_fields:
+            if field in data:
+                update_fields.append(f"{field} = %s")
+                values.append(data[field])
+        
+        if not update_fields:
+            return jsonify({'success': False, 'error': 'No hay campos para actualizar'}), 400
+        
+        values.append(vehiculo_id)
+        update_query = f"UPDATE mpa_vehiculos SET {', '.join(update_fields)} WHERE id_mpa_vehiculos = %s"
+        
+        cursor.execute(update_query, values)
+        connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Vehículo actualizado exitosamente'
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para eliminar un vehículo
+@app.route('/api/mpa/vehiculos/<int:vehiculo_id>', methods=['DELETE'])
+@login_required
+def api_delete_vehiculo(vehiculo_id):
+    """API para eliminar un vehículo"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar si el vehículo existe
+        cursor.execute("SELECT id_mpa_vehiculos FROM mpa_vehiculos WHERE id_mpa_vehiculos = %s", (vehiculo_id,))
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'error': 'Vehículo no encontrado'}), 404
+        
+        # Eliminar vehículo
+        cursor.execute("DELETE FROM mpa_vehiculos WHERE id_mpa_vehiculos = %s", (vehiculo_id,))
+        connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Vehículo eliminado exitosamente'
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para obtener lista de técnicos
+@app.route('/api/mpa/tecnicos', methods=['GET'])
+@login_required
+def api_get_tecnicos():
+    """API para obtener la lista de técnicos disponibles"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener técnicos activos
+        query = """
+        SELECT 
+            id_codigo_consumidor,
+            recurso_operativo_cedula as cedula,
+            nombre,
+            cargo
+        FROM recurso_operativo 
+        WHERE estado = 'Activo'
+        ORDER BY nombre
+        """
+        
+        cursor.execute(query)
+        tecnicos = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'data': tecnicos
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/mpa/vencimientos')
+def mpa_vencimientos():
+    """Módulo de gestión de vencimientos consolidados"""
+    # Temporalmente sin autenticación para pruebas
+    # if not current_user.has_role('administrativo'):
+    #     flash('No tienes permisos para acceder a este módulo.', 'error')
+    #     return redirect(url_for('mpa_dashboard'))
+    
+    return render_template('modulos/mpa/vencimientos.html')
+
+@app.route('/mpa/soat')
+@login_required
+def mpa_soat():
+    """Módulo de gestión de SOAT"""
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    
+    return render_template('modulos/mpa/soat.html')
+
+@app.route('/mpa/tecnico-mecanica')
+@login_required
+def mpa_tecnico_mecanica():
+    """Módulo de gestión de revisión técnico mecánica"""
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    
+    return render_template('modulos/mpa/tecnico_mecanica.html')
+
+@app.route('/mpa/licencias-conducir')
+@login_required
+def mpa_licencias_conducir():
+    """Módulo de gestión de licencias de conducir"""
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    
+    return render_template('modulos/mpa/licencias_conducir.html')
+
+@app.route('/mpa/licencias')
+@login_required
+def mpa_licencias():
+    """Módulo de gestión de licencias de conducir (redirige a la nueva ruta)"""
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    
+    return redirect(url_for('mpa_licencias_conducir'))
+
+@app.route('/mpa/inspecciones')
+@login_required
+def mpa_inspecciones():
+    """Módulo de gestión de inspecciones vehiculares"""
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    
+    # TODO: Implementar página de inspecciones
+    flash('Módulo en desarrollo', 'info')
+    return redirect(url_for('mpa_dashboard'))
+
+@app.route('/mpa/siniestros')
+@login_required
+def mpa_siniestros():
+    """Módulo de gestión de siniestros"""
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    
+    # TODO: Implementar página de siniestros
+    flash('Módulo en desarrollo', 'info')
+    return redirect(url_for('mpa_dashboard'))
+
+# ==================== MANTENIMIENTOS APIs ====================
+
+# API para obtener lista de mantenimientos
+@app.route('/api/mpa/mantenimientos', methods=['GET'])
+@login_required
+def api_get_mantenimientos():
+    """API para obtener la lista de mantenimientos"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener mantenimientos con información del vehículo
+        query = """
+        SELECT 
+            m.id_mpa_mantenimientos,
+            m.placa,
+            m.fecha_mantenimiento,
+            m.kilometraje,
+            m.observacion,
+            m.soporte_foto_geo as foto_taller,
+            m.soporte_foto_factura as foto_factura,
+            m.tipo_vehiculo,
+            m.tecnico as tecnico_nombre,
+            m.tipo_mantenimiento
+        FROM mpa_mantenimientos m
+        ORDER BY m.fecha_mantenimiento DESC
+        """
+        
+        cursor.execute(query)
+        mantenimientos = cursor.fetchall()
+        
+        # Formatear fechas para el frontend
+        for mantenimiento in mantenimientos:
+            if mantenimiento['fecha_mantenimiento']:
+                mantenimiento['fecha_mantenimiento'] = mantenimiento['fecha_mantenimiento'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        return jsonify({
+            'success': True,
+            'data': mantenimientos
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para obtener un mantenimiento específico
+@app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['GET'])
+@login_required
+def api_get_mantenimiento(mantenimiento_id):
+    """API para obtener detalles de un mantenimiento específico"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        query = """
+        SELECT 
+            m.id_mpa_mantenimientos,
+            m.placa,
+            m.fecha_mantenimiento,
+            m.kilometraje,
+            m.observacion,
+            m.soporte_foto_geo as foto_taller,
+            m.soporte_foto_factura as foto_factura,
+            m.tipo_vehiculo,
+            m.tecnico as tecnico_nombre,
+            m.tipo_mantenimiento
+        FROM mpa_mantenimientos m
+        WHERE m.id_mpa_mantenimientos = %s
+        """
+        
+        cursor.execute(query, (mantenimiento_id,))
+        mantenimiento = cursor.fetchone()
+        
+        if not mantenimiento:
+            return jsonify({'success': False, 'error': 'Mantenimiento no encontrado'}), 404
+        
+        # Formatear fecha
+        if mantenimiento['fecha_mantenimiento']:
+            mantenimiento['fecha_mantenimiento'] = mantenimiento['fecha_mantenimiento'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        return jsonify({
+            'success': True,
+            'data': mantenimiento
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para crear un nuevo mantenimiento
+@app.route('/api/mpa/mantenimientos', methods=['POST'])
+@login_required
+def api_create_mantenimiento():
+    """API para crear un nuevo mantenimiento"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        data = request.get_json()
+        
+        # Validar campos requeridos
+        required_fields = ['placa', 'kilometraje', 'tipo_mantenimiento', 'observacion']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({'success': False, 'message': f'Campo requerido: {field}'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar que la placa existe y obtener tipo de vehículo
+        cursor.execute("SELECT tipo_vehiculo FROM mpa_vehiculos WHERE placa = %s", (data['placa'],))
+        vehiculo = cursor.fetchone()
+        if not vehiculo:
+            return jsonify({'success': False, 'message': 'Placa no encontrada'}), 404
+        
+        tipo_vehiculo = vehiculo[0]
+        
+        # Obtener fecha actual en zona horaria de Bogotá
+        from datetime import datetime
+        import pytz
+        bogota_tz = pytz.timezone('America/Bogota')
+        fecha_mantenimiento = datetime.now(bogota_tz).replace(tzinfo=None)
+        
+        # Insertar nuevo mantenimiento
+        insert_query = """
+        INSERT INTO mpa_mantenimientos 
+        (placa, fecha_mantenimiento, kilometraje, tipo_vehiculo, tipo_mantenimiento, observacion, soporte_foto_geo, soporte_foto_factura, tecnico)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        cursor.execute(insert_query, (
+            data['placa'],
+            fecha_mantenimiento,
+            data['kilometraje'],
+            tipo_vehiculo,
+            data['tipo_mantenimiento'],
+            data['observacion'],
+            data.get('foto_taller', ''),
+            data.get('foto_factura', ''),
+            data.get('tecnico', '')
+        ))
+        
+        connection.commit()
+        mantenimiento_id = cursor.lastrowid
+        
+        return jsonify({
+            'success': True,
+            'message': 'Mantenimiento creado exitosamente',
+            'id': mantenimiento_id
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para actualizar un mantenimiento
+@app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['PUT'])
+@login_required
+def api_update_mantenimiento(mantenimiento_id):
+    """API para actualizar un mantenimiento"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        data = request.get_json()
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar que el mantenimiento existe
+        cursor.execute("SELECT id_mpa_mantenimientos FROM mpa_mantenimientos WHERE id_mpa_mantenimientos = %s", (mantenimiento_id,))
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'error': 'Mantenimiento no encontrado'}), 404
+        
+        # Construir query de actualización dinámicamente
+        update_fields = []
+        values = []
+        
+        if 'placa' in data:
+            # Verificar que la placa existe
+            cursor.execute("SELECT placa FROM mpa_vehiculos WHERE placa = %s", (data['placa'],))
+            if not cursor.fetchone():
+                return jsonify({'success': False, 'error': 'Placa no encontrada'}), 404
+            update_fields.append("placa = %s")
+            values.append(data['placa'])
+        
+        if 'kilometraje' in data:
+            update_fields.append("kilometraje = %s")
+            values.append(data['kilometraje'])
+        
+        if 'tipo_mantenimiento' in data:
+            update_fields.append("tipo_mantenimiento = %s")
+            values.append(data['tipo_mantenimiento'])
+        
+        if 'tecnico' in data:
+            update_fields.append("tecnico = %s")
+            values.append(data['tecnico'])
+        
+        if 'observacion' in data:
+            update_fields.append("observacion = %s")
+            values.append(data['observacion'])
+        
+        if 'foto_taller' in data:
+            update_fields.append("soporte_foto_geo = %s")
+            values.append(data['foto_taller'])
+        
+        if 'foto_factura' in data:
+            update_fields.append("soporte_foto_factura = %s")
+            values.append(data['foto_factura'])
+        
+        if not update_fields:
+            return jsonify({'success': False, 'error': 'No hay campos para actualizar'}), 400
+        
+        values.append(mantenimiento_id)
+        update_query = f"UPDATE mpa_mantenimientos SET {', '.join(update_fields)} WHERE id_mpa_mantenimientos = %s"
+        
+        cursor.execute(update_query, values)
+        connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Mantenimiento actualizado exitosamente'
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para eliminar un mantenimiento
+@app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['DELETE'])
+@login_required
+def api_delete_mantenimiento(mantenimiento_id):
+    """API para eliminar un mantenimiento"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar si el mantenimiento existe
+        cursor.execute("SELECT id_mpa_mantenimientos FROM mpa_mantenimientos WHERE id_mpa_mantenimientos = %s", (mantenimiento_id,))
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'error': 'Mantenimiento no encontrado'}), 404
+        
+        # Eliminar mantenimiento
+        cursor.execute("DELETE FROM mpa_mantenimientos WHERE id_mpa_mantenimientos = %s", (mantenimiento_id,))
+        connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Mantenimiento eliminado exitosamente'
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para obtener placas de vehículos
+@app.route('/api/mpa/vehiculos/placas', methods=['GET'])
+@login_required
+def api_get_placas():
+    """API para obtener lista de placas de vehículos"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        query = """
+        SELECT 
+            v.placa,
+            v.tipo_vehiculo,
+            v.tecnico_asignado,
+            COALESCE(ro.nombre, CAST(v.tecnico_asignado AS CHAR)) as tecnico_nombre
+        FROM mpa_vehiculos v
+        LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+        WHERE v.estado = 'Activo'
+        ORDER BY v.placa
+        """
+        
+        cursor.execute(query)
+        placas = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'data': placas
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para obtener categorías de mantenimiento por tipo de vehículo
+@app.route('/api/mpa/categorias-mantenimiento/<tipo_vehiculo>', methods=['GET'])
+@login_required
+def api_get_categorias_mantenimiento(tipo_vehiculo):
+    """API para obtener categorías de mantenimiento por tipo de vehículo"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        query = """
+        SELECT 
+            id_mpa_categoria_mantenimiento,
+            categoria,
+            tipo_mantenimiento,
+            tipo_vehiculo
+        FROM mpa_categoria_mantenimiento
+        WHERE tipo_vehiculo = %s
+        ORDER BY categoria, tipo_mantenimiento
+        """
+        
+        cursor.execute(query, (tipo_vehiculo,))
+        categorias = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'data': categorias
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para subir imágenes de mantenimiento
+@app.route('/api/mpa/mantenimientos/upload-image', methods=['POST'])
+@login_required
+def api_upload_mantenimiento_image():
+    """API para subir imágenes de mantenimiento"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'error': 'No se encontró archivo de imagen'}), 400
+        
+        file = request.files['image']
+        image_type = request.form.get('type', 'taller')  # 'taller' o 'factura'
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No se seleccionó archivo'}), 400
+        
+        # Validar tipo de archivo
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+        if not ('.' in file.filename and file.filename.rsplit('.', 1)[1].lower() in allowed_extensions):
+            return jsonify({'success': False, 'error': 'Tipo de archivo no permitido'}), 400
+        
+        # Crear directorio si no existe
+        import os
+        upload_dir = os.path.join('static', 'uploads', 'mantenimientos')
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Generar nombre único para el archivo
+        import uuid
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_filename = f"{timestamp}_{uuid.uuid4().hex[:8]}_{image_type}_{file.filename}"
+        file_path = os.path.join(upload_dir, unique_filename)
+        
+        # Guardar archivo
+        file.save(file_path)
+        
+        # Retornar ruta relativa para almacenar en BD
+        relative_path = f"uploads/mantenimientos/{unique_filename}"
+        
+        return jsonify({
+            'success': True,
+            'message': 'Imagen subida exitosamente',
+            'file_path': relative_path
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ===== APIS DE SOAT =====
+
+# API para obtener todos los SOATs
+@app.route('/api/mpa/soat', methods=['GET'])
+@login_required
+def api_get_soat():
+    """API para obtener lista de SOATs"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener fecha actual de Bogotá
+        fecha_bogota = get_bogota_datetime().date()
+        
+        query = """
+        SELECT 
+            s.id_mpa_soat,
+            s.placa,
+            s.numero_poliza,
+            s.aseguradora,
+            s.fecha_inicio,
+            s.fecha_vencimiento,
+            s.valor_prima,
+            s.tecnico_asignado,
+            s.estado,
+            s.observaciones,
+            s.fecha_creacion,
+            s.fecha_actualizacion,
+            v.tipo_vehiculo,
+            COALESCE(ro.nombre, CAST(s.tecnico_asignado AS CHAR)) as tecnico_nombre,
+            DATEDIFF(s.fecha_vencimiento, %s) as dias_vencimiento
+        FROM mpa_soat s
+        LEFT JOIN mpa_vehiculos v ON s.placa = v.placa
+        LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor
+        ORDER BY s.fecha_vencimiento ASC
+        """
+        
+        cursor.execute(query, (fecha_bogota,))
+        soats = cursor.fetchall()
+        
+        # Convertir fechas a string para JSON
+        for soat in soats:
+            if soat['fecha_inicio']:
+                soat['fecha_inicio'] = soat['fecha_inicio'].strftime('%Y-%m-%d')
+            if soat['fecha_vencimiento']:
+                soat['fecha_vencimiento'] = soat['fecha_vencimiento'].strftime('%Y-%m-%d')
+            if soat['fecha_creacion']:
+                soat['fecha_creacion'] = soat['fecha_creacion'].strftime('%Y-%m-%d %H:%M:%S')
+            if soat['fecha_actualizacion']:
+                soat['fecha_actualizacion'] = soat['fecha_actualizacion'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        return jsonify({
+            'success': True,
+            'data': soats
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para obtener un SOAT específico
+@app.route('/api/mpa/soat/<int:soat_id>', methods=['GET'])
+@login_required
+def api_get_soat_by_id(soat_id):
+    """API para obtener un SOAT específico por ID"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener fecha actual de Bogotá
+        fecha_bogota = get_bogota_datetime().date()
+        
+        query = """
+        SELECT 
+            s.id_mpa_soat,
+            s.placa,
+            s.numero_poliza,
+            s.aseguradora,
+            s.fecha_inicio,
+            s.fecha_vencimiento,
+            s.valor_prima,
+            s.tecnico_asignado,
+            s.estado,
+            s.observaciones,
+            s.fecha_creacion,
+            s.fecha_actualizacion,
+            v.tipo_vehiculo,
+            COALESCE(ro.nombre, CAST(s.tecnico_asignado AS CHAR)) as tecnico_nombre,
+            DATEDIFF(s.fecha_vencimiento, %s) as dias_vencimiento
+        FROM mpa_soat s
+        LEFT JOIN mpa_vehiculos v ON s.placa = v.placa
+        LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor
+        WHERE s.id_mpa_soat = %s
+        """
+        
+        cursor.execute(query, (fecha_bogota, soat_id))
+        soat = cursor.fetchone()
+        
+        if not soat:
+            return jsonify({'success': False, 'error': 'SOAT no encontrado'}), 404
+        
+        # Convertir fechas a string para JSON
+        if soat['fecha_inicio']:
+            soat['fecha_inicio'] = soat['fecha_inicio'].strftime('%Y-%m-%d')
+        if soat['fecha_vencimiento']:
+            soat['fecha_vencimiento'] = soat['fecha_vencimiento'].strftime('%Y-%m-%d')
+        if soat['fecha_creacion']:
+            soat['fecha_creacion'] = soat['fecha_creacion'].strftime('%Y-%m-%d %H:%M:%S')
+        if soat['fecha_actualizacion']:
+            soat['fecha_actualizacion'] = soat['fecha_actualizacion'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        return jsonify({
+            'success': True,
+            'data': soat
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para crear un nuevo SOAT
+@app.route('/api/mpa/soat', methods=['POST'])
+@login_required
+def api_create_soat():
+    """API para crear un nuevo SOAT"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        data = request.get_json()
+        
+        # Validar campos requeridos
+        required_fields = ['placa', 'numero_poliza', 'aseguradora', 'fecha_inicio', 'fecha_vencimiento', 'valor_prima']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({'success': False, 'error': f'Campo requerido: {field}'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar que la placa existe en vehículos
+        cursor.execute("SELECT placa, tecnico_asignado FROM mpa_vehiculos WHERE placa = %s AND estado = 'Activo'", (data['placa'],))
+        vehiculo = cursor.fetchone()
+        
+        if not vehiculo:
+            return jsonify({'success': False, 'error': 'Vehículo no encontrado o inactivo'}), 400
+        
+        # Usar el técnico asignado del vehículo si no se especifica
+        tecnico_asignado = data.get('tecnico_asignado', vehiculo[1])
+        
+        # Verificar si ya existe un SOAT activo para esta placa
+        cursor.execute("""
+            SELECT id_mpa_soat FROM mpa_soat 
+            WHERE placa = %s AND estado = 'Activo'
+        """, (data['placa'],))
+        
+        if cursor.fetchone():
+            return jsonify({'success': False, 'error': 'Ya existe un SOAT activo para esta placa'}), 400
+        
+        # Insertar nuevo SOAT
+        query = """
+        INSERT INTO mpa_soat (
+            placa, numero_poliza, aseguradora, fecha_inicio, fecha_vencimiento,
+            valor_prima, tecnico_asignado, estado, observaciones, fecha_creacion
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+        """
+        
+        values = (
+            data['placa'],
+            data['numero_poliza'],
+            data['aseguradora'],
+            data['fecha_inicio'],
+            data['fecha_vencimiento'],
+            data['valor_prima'],
+            tecnico_asignado,
+            data.get('estado', 'Activo'),
+            data.get('observaciones', '')
+        )
+        
+        cursor.execute(query, values)
+        connection.commit()
+        
+        soat_id = cursor.lastrowid
+        
+        return jsonify({
+            'success': True,
+            'message': 'SOAT creado exitosamente',
+            'data': {'id_mpa_soat': soat_id}
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para actualizar un SOAT
+@app.route('/api/mpa/soat/<int:soat_id>', methods=['PUT'])
+@login_required
+def api_update_soat(soat_id):
+    """API para actualizar un SOAT existente"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        data = request.get_json()
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar que el SOAT existe
+        cursor.execute("SELECT id_mpa_soat FROM mpa_soat WHERE id_mpa_soat = %s", (soat_id,))
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'error': 'SOAT no encontrado'}), 404
+        
+        # Construir query de actualización dinámicamente
+        update_fields = []
+        values = []
+        
+        allowed_fields = ['numero_poliza', 'aseguradora', 'fecha_inicio', 'fecha_vencimiento', 
+                         'valor_prima', 'tecnico_asignado', 'estado', 'observaciones']
+        
+        for field in allowed_fields:
+            if field in data:
+                update_fields.append(f"{field} = %s")
+                values.append(data[field])
+        
+        if not update_fields:
+            return jsonify({'success': False, 'error': 'No hay campos para actualizar'}), 400
+        
+        # Agregar fecha de actualización
+        update_fields.append("fecha_actualizacion = NOW()")
+        values.append(soat_id)
+        
+        query = f"UPDATE mpa_soat SET {', '.join(update_fields)} WHERE id_mpa_soat = %s"
+        
+        cursor.execute(query, values)
+        connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'SOAT actualizado exitosamente'
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para eliminar un SOAT
+@app.route('/api/mpa/soat/<int:soat_id>', methods=['DELETE'])
+@login_required
+def api_delete_soat(soat_id):
+    """API para eliminar un SOAT"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar si el SOAT existe
+        cursor.execute("SELECT id_mpa_soat FROM mpa_soat WHERE id_mpa_soat = %s", (soat_id,))
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'error': 'SOAT no encontrado'}), 404
+        
+        # Eliminar SOAT
+        cursor.execute("DELETE FROM mpa_soat WHERE id_mpa_soat = %s", (soat_id,))
+        connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'SOAT eliminado exitosamente'
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# ===== APIs VENCIMIENTOS =====
+
+# API consolidada para obtener todos los vencimientos
+@app.route('/api/mpa/vencimientos', methods=['GET'])
+def api_vencimientos_consolidados():
+    """API consolidada para obtener vencimientos de SOAT, Técnico Mecánica y Licencias de Conducir"""
+    # Temporalmente sin autenticación para pruebas
+    # if not current_user.has_role('administrativo'):
+    #     return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        vencimientos_consolidados = []
+        
+        # 1. Obtener vencimientos de SOAT
+        query_soat = """
+        SELECT 
+            s.id_mpa_soat as id,
+            s.placa,
+            s.fecha_vencimiento,
+            s.tecnico_asignado,
+            ro.nombre as tecnico_nombre,
+            'SOAT' as tipo,
+            s.estado
+        FROM mpa_soat s
+        LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor
+        WHERE s.fecha_vencimiento IS NOT NULL
+        ORDER BY s.fecha_vencimiento ASC
+        """
+        
+        cursor.execute(query_soat)
+        soats = cursor.fetchall()
+        
+        for soat in soats:
+            vencimientos_consolidados.append({
+                'id': soat['id'],
+                'tipo': 'SOAT',
+                'placa': soat['placa'],
+                'fecha_vencimiento': soat['fecha_vencimiento'].strftime('%Y-%m-%d') if soat['fecha_vencimiento'] else None,
+                'tecnico_nombre': soat['tecnico_nombre'] or 'Sin asignar',
+                'estado_original': soat['estado']
+            })
+        
+        # 2. Obtener vencimientos de Técnico Mecánica
+        query_tm = """
+        SELECT 
+            tm.id_mpa_tecnico_mecanica as id,
+            tm.placa,
+            tm.fecha_vencimiento,
+            tm.tecnico_asignado,
+            ro.nombre as tecnico_nombre,
+            'Técnico Mecánica' as tipo,
+            tm.estado
+        FROM mpa_tecnico_mecanica tm
+        LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor
+        WHERE tm.fecha_vencimiento IS NOT NULL
+        ORDER BY tm.fecha_vencimiento ASC
+        """
+        
+        cursor.execute(query_tm)
+        tecnicos = cursor.fetchall()
+        
+        for tm in tecnicos:
+            vencimientos_consolidados.append({
+                'id': tm['id'],
+                'tipo': 'Técnico Mecánica',
+                'placa': tm['placa'],
+                'fecha_vencimiento': tm['fecha_vencimiento'].strftime('%Y-%m-%d') if tm['fecha_vencimiento'] else None,
+                'tecnico_nombre': tm['tecnico_nombre'] or 'Sin asignar',
+                'estado_original': tm['estado']
+            })
+        
+        # 3. Obtener vencimientos de Licencias de Conducir
+        query_lc = """
+        SELECT 
+            lc.id_mpa_licencia_conducir as id,
+            lc.fecha_vencimiento,
+            lc.tecnico,
+            ro.nombre as tecnico_nombre,
+            'Licencia de Conducir' as tipo
+        FROM mpa_licencia_conducir lc
+        LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor
+        WHERE lc.fecha_vencimiento IS NOT NULL
+        ORDER BY lc.fecha_vencimiento ASC
+        """
+        
+        cursor.execute(query_lc)
+        licencias = cursor.fetchall()
+        
+        for lc in licencias:
+            vencimientos_consolidados.append({
+                'id': lc['id'],
+                'tipo': 'Licencia de Conducir',
+                'placa': None,  # Las licencias no tienen placa
+                'fecha_vencimiento': lc['fecha_vencimiento'].strftime('%Y-%m-%d') if lc['fecha_vencimiento'] else None,
+                'tecnico_nombre': lc['tecnico_nombre'] or 'Sin asignar',
+                'estado_original': None  # Las licencias no tienen campo estado
+            })
+        
+        # 4. Calcular días restantes y estado para todos los vencimientos
+        from datetime import datetime
+        import pytz
+        
+        colombia_tz = pytz.timezone('America/Bogota')
+        fecha_actual = datetime.now(colombia_tz).date()
+        
+        for vencimiento in vencimientos_consolidados:
+            if vencimiento['fecha_vencimiento']:
+                fecha_venc = datetime.strptime(vencimiento['fecha_vencimiento'], '%Y-%m-%d').date()
+                dias_restantes = (fecha_venc - fecha_actual).days
+                
+                vencimiento['dias_restantes'] = dias_restantes
+                
+                # Determinar estado basado en días restantes
+                if dias_restantes < 0:
+                    vencimiento['estado'] = 'Vencido'
+                elif dias_restantes <= 30:
+                    vencimiento['estado'] = 'Próximo a vencer'
+                else:
+                    vencimiento['estado'] = 'Vigente'
+            else:
+                vencimiento['dias_restantes'] = None
+                vencimiento['estado'] = 'Sin fecha'
+        
+        # 5. Ordenar por fecha de vencimiento (más próximos primero)
+        vencimientos_consolidados.sort(key=lambda x: (
+            x['fecha_vencimiento'] if x['fecha_vencimiento'] else '9999-12-31'
+        ))
+        
+        return jsonify({
+            'success': True,
+            'data': vencimientos_consolidados,
+            'total': len(vencimientos_consolidados)
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para obtener detalles de un vencimiento específico
+@app.route('/api/mpa/vencimiento/<string:tipo>/<int:documento_id>', methods=['GET'])
+def api_get_vencimiento_detalle(tipo, documento_id):
+    """API para obtener detalles de un vencimiento específico"""
+    # Temporalmente sin autenticación para pruebas
+    # if not current_user.has_role('administrativo'):
+    #     return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Determinar la tabla y consulta según el tipo
+        if tipo.lower() == 'soat':
+            query = """
+            SELECT 
+                s.*,
+                ro.nombre as tecnico_nombre,
+                ro.recurso_operativo_cedula as tecnico_cedula
+            FROM mpa_soat s
+            LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor
+            WHERE s.id_mpa_soat = %s
+            """
+        elif tipo.lower() == 'tecnico_mecanica':
+            query = """
+            SELECT 
+                tm.*,
+                ro.nombre as tecnico_nombre,
+                ro.recurso_operativo_cedula as tecnico_cedula
+            FROM mpa_tecnico_mecanica tm
+            LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor
+            WHERE tm.id_mpa_tecnico_mecanica = %s
+            """
+        elif tipo.lower() == 'licencia_conducir':
+            query = """
+            SELECT 
+                lc.*,
+                ro.nombre as tecnico_nombre,
+                ro.recurso_operativo_cedula as tecnico_cedula
+            FROM mpa_licencia_conducir lc
+            LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor
+            WHERE lc.id_mpa_licencia_conducir = %s
+            """
+        else:
+            return jsonify({'success': False, 'error': 'Tipo de documento no válido'}), 400
+        
+        cursor.execute(query, (documento_id,))
+        documento = cursor.fetchone()
+        
+        if not documento:
+            return jsonify({'success': False, 'error': 'Documento no encontrado'}), 404
+        
+        # Formatear fechas y calcular días restantes
+        from datetime import datetime
+        import pytz
+        
+        colombia_tz = pytz.timezone('America/Bogota')
+        fecha_actual = datetime.now(colombia_tz).date()
+        
+        # Formatear fechas
+        for key, value in documento.items():
+            if isinstance(value, datetime):
+                documento[key] = value.strftime('%Y-%m-%d %H:%M:%S')
+            elif hasattr(value, 'strftime'):  # Para objetos date
+                documento[key] = value.strftime('%Y-%m-%d')
+        
+        # Calcular días restantes si hay fecha de vencimiento
+        if documento.get('fecha_vencimiento'):
+            try:
+                fecha_venc = datetime.strptime(documento['fecha_vencimiento'], '%Y-%m-%d').date()
+                dias_restantes = (fecha_venc - fecha_actual).days
+                documento['dias_restantes'] = dias_restantes
+                
+                # Determinar estado
+                if dias_restantes < 0:
+                    documento['estado_calculado'] = 'Vencido'
+                elif dias_restantes <= 30:
+                    documento['estado_calculado'] = 'Próximo a vencer'
+                else:
+                    documento['estado_calculado'] = 'Vigente'
+            except:
+                documento['dias_restantes'] = None
+                documento['estado_calculado'] = 'Sin fecha'
+        
+        return jsonify({
+            'success': True,
+            'data': documento,
+            'tipo': tipo
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API de prueba con ruta diferente
+@app.route('/api/mpa/test-vencimientos', methods=['GET'])
+def api_test_vencimientos():
+    """API de prueba para vencimientos"""
+    return jsonify({
+        'success': True,
+        'data': [],
+        'message': 'API de prueba funcionando correctamente'
+    })
+
+# ===== APIs TÉCNICO MECÁNICA =====
+
+# API para listar todas las técnico mecánicas
+@app.route('/api/mpa/tecnico_mecanica', methods=['GET'])
+@login_required
+def api_list_tecnico_mecanica():
+    """API para obtener todas las técnico mecánicas"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        query = """
+        SELECT 
+            tm.id_mpa_tecnico_mecanica,
+            tm.placa,
+            tm.fecha_inicio,
+            tm.fecha_vencimiento,
+            tm.tecnico_asignado,
+            tm.estado,
+            tm.observaciones,
+            tm.fecha_creacion,
+            tm.fecha_actualizacion,
+            tm.tipo_vehiculo,
+            v.tipo_vehiculo as vehiculo_tipo,
+            v.tecnico_asignado as vehiculo_tecnico,
+            ro.nombre as tecnico_nombre
+        FROM mpa_tecnico_mecanica tm
+        LEFT JOIN mpa_vehiculos v ON tm.placa = v.placa
+        LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor
+        ORDER BY tm.fecha_creacion DESC
+        """
+        
+        cursor.execute(query)
+        tecnico_mecanicas = cursor.fetchall()
+        
+        # Formatear fechas y calcular días restantes
+        for tm in tecnico_mecanicas:
+            if tm['fecha_inicio']:
+                tm['fecha_inicio'] = tm['fecha_inicio'].strftime('%Y-%m-%d')
+            if tm['fecha_vencimiento']:
+                tm['fecha_vencimiento'] = tm['fecha_vencimiento'].strftime('%Y-%m-%d')
+                
+                # Calcular días restantes usando timezone de Colombia
+                from datetime import datetime
+                import pytz
+                
+                colombia_tz = pytz.timezone('America/Bogota')
+                fecha_actual = datetime.now(colombia_tz).date()
+                fecha_vencimiento = tm['fecha_vencimiento']
+                
+                if isinstance(fecha_vencimiento, str):
+                    fecha_vencimiento = datetime.strptime(fecha_vencimiento, '%Y-%m-%d').date()
+                
+                dias_restantes = (fecha_vencimiento - fecha_actual).days
+                tm['dias_vencimiento'] = dias_restantes
+                
+                # Determinar estado automático basado en días restantes
+                if dias_restantes < 0:
+                    tm['estado_calculado'] = 'Vencido'
+                elif dias_restantes <= 30:
+                    tm['estado_calculado'] = 'Próximo a vencer'
+                else:
+                    tm['estado_calculado'] = 'Vigente'
+            else:
+                tm['dias_vencimiento'] = None
+                tm['estado_calculado'] = 'Sin fecha'
+            
+            if tm['fecha_creacion']:
+                tm['fecha_creacion'] = tm['fecha_creacion'].strftime('%Y-%m-%d %H:%M:%S')
+            if tm['fecha_actualizacion']:
+                tm['fecha_actualizacion'] = tm['fecha_actualizacion'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        return jsonify({
+            'success': True,
+            'data': tecnico_mecanicas
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para obtener una técnico mecánica específica
+@app.route('/api/mpa/tecnico_mecanica/<int:tm_id>', methods=['GET'])
+@login_required
+def api_get_tecnico_mecanica(tm_id):
+    """API para obtener una técnico mecánica específica"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        query = """
+        SELECT 
+            tm.id_mpa_tecnico_mecanica,
+            tm.placa,
+            tm.fecha_inicio,
+            tm.fecha_vencimiento,
+            tm.tecnico_asignado,
+            tm.estado,
+            tm.observaciones,
+            tm.fecha_creacion,
+            tm.fecha_actualizacion,
+            tm.tipo_vehiculo,
+            v.tipo_vehiculo as vehiculo_tipo,
+            v.tecnico_asignado as vehiculo_tecnico,
+            ro.nombre as tecnico_nombre
+        FROM mpa_tecnico_mecanica tm
+        LEFT JOIN mpa_vehiculos v ON tm.placa = v.placa
+        LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor
+        WHERE tm.id_mpa_tecnico_mecanica = %s
+        """
+        
+        cursor.execute(query, (tm_id,))
+        tm = cursor.fetchone()
+        
+        if not tm:
+            return jsonify({'success': False, 'error': 'Técnico mecánica no encontrada'}), 404
+        
+        # Formatear fechas y calcular días restantes
+        if tm['fecha_inicio']:
+            tm['fecha_inicio'] = tm['fecha_inicio'].strftime('%Y-%m-%d')
+        if tm['fecha_vencimiento']:
+            tm['fecha_vencimiento'] = tm['fecha_vencimiento'].strftime('%Y-%m-%d')
+            
+            # Calcular días restantes
+            from datetime import datetime
+            import pytz
+            
+            colombia_tz = pytz.timezone('America/Bogota')
+            fecha_actual = datetime.now(colombia_tz).date()
+            fecha_vencimiento = tm['fecha_vencimiento']
+            
+            if isinstance(fecha_vencimiento, str):
+                fecha_vencimiento = datetime.strptime(fecha_vencimiento, '%Y-%m-%d').date()
+            
+            dias_restantes = (fecha_vencimiento - fecha_actual).days
+            tm['dias_vencimiento'] = dias_restantes
+            
+            # Determinar estado automático
+            if dias_restantes < 0:
+                tm['estado_calculado'] = 'Vencido'
+            elif dias_restantes <= 30:
+                tm['estado_calculado'] = 'Próximo a vencer'
+            else:
+                tm['estado_calculado'] = 'Vigente'
+        else:
+            tm['dias_vencimiento'] = None
+            tm['estado_calculado'] = 'Sin fecha'
+        
+        if tm['fecha_creacion']:
+            tm['fecha_creacion'] = tm['fecha_creacion'].strftime('%Y-%m-%d %H:%M:%S')
+        if tm['fecha_actualizacion']:
+            tm['fecha_actualizacion'] = tm['fecha_actualizacion'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        return jsonify({
+            'success': True,
+            'data': tm
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para crear una nueva técnico mecánica
+@app.route('/api/mpa/tecnico_mecanica', methods=['POST'])
+@login_required
+def api_create_tecnico_mecanica():
+    """API para crear una nueva técnico mecánica"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        data = request.get_json()
+        
+        # Validar campos requeridos
+        required_fields = ['placa', 'fecha_inicio', 'fecha_vencimiento']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({'success': False, 'error': f'Campo requerido: {field}'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar que la placa existe en vehículos
+        cursor.execute("SELECT placa, tecnico_asignado, tipo_vehiculo FROM mpa_vehiculos WHERE placa = %s AND estado = 'Activo'", (data['placa'],))
+        vehiculo = cursor.fetchone()
+        
+        if not vehiculo:
+            return jsonify({'success': False, 'error': 'Vehículo no encontrado o inactivo'}), 400
+        
+        # Auto-asignar técnico y tipo de vehículo del vehículo
+        tecnico_asignado = data.get('tecnico_asignado', vehiculo[1])
+        tipo_vehiculo = data.get('tipo_vehiculo', vehiculo[2])
+        
+        # Verificar si ya existe una técnico mecánica activa para esta placa
+        cursor.execute("""
+            SELECT id_mpa_tecnico_mecanica FROM mpa_tecnico_mecanica 
+            WHERE placa = %s AND estado = 'Activo'
+        """, (data['placa'],))
+        
+        if cursor.fetchone():
+            return jsonify({'success': False, 'error': 'Ya existe una técnico mecánica activa para esta placa'}), 400
+        
+        # Validar fechas
+        from datetime import datetime
+        try:
+            fecha_inicio = datetime.strptime(data['fecha_inicio'], '%Y-%m-%d').date()
+            fecha_vencimiento = datetime.strptime(data['fecha_vencimiento'], '%Y-%m-%d').date()
+            
+            if fecha_vencimiento <= fecha_inicio:
+                return jsonify({'success': False, 'error': 'La fecha de vencimiento debe ser posterior a la fecha de inicio'}), 400
+                
+        except ValueError:
+            return jsonify({'success': False, 'error': 'Formato de fecha inválido. Use YYYY-MM-DD'}), 400
+        
+        # Insertar nueva técnico mecánica
+        query = """
+        INSERT INTO mpa_tecnico_mecanica (
+            placa, fecha_inicio, fecha_vencimiento, tecnico_asignado, 
+            tipo_vehiculo, estado, observaciones, fecha_creacion
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+        """
+        
+        values = (
+            data['placa'],
+            data['fecha_inicio'],
+            data['fecha_vencimiento'],
+            tecnico_asignado,
+            tipo_vehiculo,
+            data.get('estado', 'Activo'),
+            data.get('observaciones', '')
+        )
+        
+        cursor.execute(query, values)
+        connection.commit()
+        
+        tm_id = cursor.lastrowid
+        
+        return jsonify({
+            'success': True,
+            'message': 'Técnico mecánica creada exitosamente',
+            'data': {'id_mpa_tecnico_mecanica': tm_id}
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para actualizar una técnico mecánica
+@app.route('/api/mpa/tecnico_mecanica/<int:tm_id>', methods=['PUT'])
+@login_required
+def api_update_tecnico_mecanica(tm_id):
+    """API para actualizar una técnico mecánica existente"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        data = request.get_json()
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar que la técnico mecánica existe
+        cursor.execute("SELECT id_mpa_tecnico_mecanica FROM mpa_tecnico_mecanica WHERE id_mpa_tecnico_mecanica = %s", (tm_id,))
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'error': 'Técnico mecánica no encontrada'}), 404
+        
+        # Validar fechas si se proporcionan
+        if 'fecha_inicio' in data and 'fecha_vencimiento' in data:
+            try:
+                from datetime import datetime
+                fecha_inicio = datetime.strptime(data['fecha_inicio'], '%Y-%m-%d').date()
+                fecha_vencimiento = datetime.strptime(data['fecha_vencimiento'], '%Y-%m-%d').date()
+                
+                if fecha_vencimiento <= fecha_inicio:
+                    return jsonify({'success': False, 'error': 'La fecha de vencimiento debe ser posterior a la fecha de inicio'}), 400
+                    
+            except ValueError:
+                return jsonify({'success': False, 'error': 'Formato de fecha inválido. Use YYYY-MM-DD'}), 400
+        
+        # Construir query de actualización dinámicamente
+        update_fields = []
+        values = []
+        
+        allowed_fields = ['fecha_inicio', 'fecha_vencimiento', 'tecnico_asignado', 
+                         'tipo_vehiculo', 'estado', 'observaciones']
+        
+        for field in allowed_fields:
+            if field in data:
+                update_fields.append(f"{field} = %s")
+                values.append(data[field])
+        
+        if not update_fields:
+            return jsonify({'success': False, 'error': 'No hay campos para actualizar'}), 400
+        
+        # Agregar fecha de actualización
+        update_fields.append("fecha_actualizacion = NOW()")
+        values.append(tm_id)
+        
+        query = f"UPDATE mpa_tecnico_mecanica SET {', '.join(update_fields)} WHERE id_mpa_tecnico_mecanica = %s"
+        
+        cursor.execute(query, values)
+        connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Técnico mecánica actualizada exitosamente'
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para eliminar una técnico mecánica
+@app.route('/api/mpa/tecnico_mecanica/<int:tm_id>', methods=['DELETE'])
+@login_required
+def api_delete_tecnico_mecanica(tm_id):
+    """API para eliminar una técnico mecánica"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar si la técnico mecánica existe
+        cursor.execute("SELECT id_mpa_tecnico_mecanica FROM mpa_tecnico_mecanica WHERE id_mpa_tecnico_mecanica = %s", (tm_id,))
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'error': 'Técnico mecánica no encontrada'}), 404
+        
+        # Eliminar técnico mecánica
+        cursor.execute("DELETE FROM mpa_tecnico_mecanica WHERE id_mpa_tecnico_mecanica = %s", (tm_id,))
+        connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Técnico mecánica eliminada exitosamente'
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# ===== APIs LICENCIAS DE CONDUCIR =====
+
+# API para listar todas las licencias de conducir
+@app.route('/api/mpa/licencias-conducir', methods=['GET'])
+@login_required
+def api_list_licencias_conducir():
+    """API para obtener todas las licencias de conducir"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener fecha actual de Bogotá
+        fecha_bogota = get_bogota_datetime().date()
+        
+        query = """
+        SELECT 
+            lc.id_mpa_licencia_conducir as id,
+            lc.tecnico as tecnico_id,
+            lc.fecha_inicio as fecha_inicial,
+            lc.fecha_vencimiento,
+            lc.observacion as observaciones,
+            lc.fecha_creacion as created_at,
+            lc.fecha_actualizacion as updated_at,
+            COALESCE(ro.nombre, lc.tecnico) as tecnico_nombre,
+            DATEDIFF(lc.fecha_vencimiento, %s) as dias_vencimiento
+        FROM mpa_licencia_conducir lc
+        LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor
+        ORDER BY lc.fecha_vencimiento ASC
+        """
+        
+        cursor.execute(query, (fecha_bogota,))
+        licencias = cursor.fetchall()
+        
+        # Formatear fechas y calcular estado
+        for licencia in licencias:
+            if licencia['fecha_inicial']:
+                licencia['fecha_inicial'] = licencia['fecha_inicial'].strftime('%Y-%m-%d')
+            if licencia['fecha_vencimiento']:
+                licencia['fecha_vencimiento'] = licencia['fecha_vencimiento'].strftime('%Y-%m-%d')
+            if licencia['created_at']:
+                licencia['created_at'] = licencia['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+            if licencia['updated_at']:
+                licencia['updated_at'] = licencia['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Calcular estado automático basado en días restantes
+            dias_restantes = licencia['dias_vencimiento']
+            if dias_restantes < 0:
+                licencia['estado_calculado'] = 'Vencido'
+            elif dias_restantes <= 30:
+                licencia['estado_calculado'] = 'Próximo a vencer'
+            else:
+                licencia['estado_calculado'] = 'Vigente'
+        
+        return jsonify({
+            'success': True,
+            'data': licencias
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para obtener una licencia de conducir específica
+@app.route('/api/mpa/licencias-conducir/<int:licencia_id>', methods=['GET'])
+@login_required
+def api_get_licencia_conducir(licencia_id):
+    """API para obtener una licencia de conducir específica"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener fecha actual de Bogotá
+        fecha_bogota = get_bogota_datetime().date()
+        
+        query = """
+        SELECT 
+            lc.id_mpa_licencia_conducir as id,
+            lc.tecnico as tecnico_id,
+            lc.fecha_inicio as fecha_inicial,
+            lc.fecha_vencimiento,
+            lc.observacion as observaciones,
+            lc.fecha_creacion as created_at,
+            lc.fecha_actualizacion as updated_at,
+            COALESCE(ro.nombre, lc.tecnico) as tecnico_nombre,
+            DATEDIFF(lc.fecha_vencimiento, %s) as dias_vencimiento
+        FROM mpa_licencia_conducir lc
+        LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor
+        WHERE lc.id_mpa_licencia_conducir = %s
+        """
+        
+        cursor.execute(query, (fecha_bogota, licencia_id))
+        licencia = cursor.fetchone()
+        
+        if not licencia:
+            return jsonify({'success': False, 'error': 'Licencia de conducir no encontrada'}), 404
+        
+        # Formatear fechas y calcular estado
+        if licencia['fecha_inicial']:
+            licencia['fecha_inicial'] = licencia['fecha_inicial'].strftime('%Y-%m-%d')
+        if licencia['fecha_vencimiento']:
+            licencia['fecha_vencimiento'] = licencia['fecha_vencimiento'].strftime('%Y-%m-%d')
+        if licencia['created_at']:
+            licencia['created_at'] = licencia['created_at'].strftime('%Y-%m-%d %H:%M:%S')
+        if licencia['updated_at']:
+            licencia['updated_at'] = licencia['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Calcular estado automático basado en días restantes
+        dias_restantes = licencia['dias_vencimiento']
+        if dias_restantes < 0:
+            licencia['estado_calculado'] = 'Vencido'
+        elif dias_restantes <= 30:
+            licencia['estado_calculado'] = 'Próximo a vencer'
+        else:
+            licencia['estado_calculado'] = 'Vigente'
+        
+        return jsonify({
+            'success': True,
+            'data': licencia
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para crear una nueva licencia de conducir
+@app.route('/api/mpa/licencias-conducir', methods=['POST'])
+@login_required
+def api_create_licencia_conducir():
+    """API para crear una nueva licencia de conducir"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        data = request.get_json()
+        
+        # Validar campos requeridos
+        required_fields = ['tecnico_id', 'fecha_inicial', 'fecha_vencimiento']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                return jsonify({'success': False, 'error': f'Campo requerido: {field}'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar que el técnico existe en recurso_operativo
+        cursor.execute("SELECT id_codigo_consumidor, nombre FROM recurso_operativo WHERE id_codigo_consumidor = %s AND estado = 'Activo'", (data['tecnico_id'],))
+        tecnico = cursor.fetchone()
+        
+        if not tecnico:
+            return jsonify({'success': False, 'error': 'Técnico no encontrado o inactivo'}), 400
+        
+        # Verificar si ya existe una licencia activa para este técnico
+        cursor.execute("""
+            SELECT id_mpa_licencia_conducir FROM mpa_licencia_conducir 
+            WHERE tecnico = %s AND fecha_vencimiento > CURDATE()
+        """, (data['tecnico_id'],))
+        
+        if cursor.fetchone():
+            return jsonify({'success': False, 'error': 'Ya existe una licencia vigente para este técnico'}), 400
+        
+        # Validar fechas
+        from datetime import datetime
+        try:
+            fecha_inicial = datetime.strptime(data['fecha_inicial'], '%Y-%m-%d').date()
+            fecha_vencimiento = datetime.strptime(data['fecha_vencimiento'], '%Y-%m-%d').date()
+            
+            if fecha_vencimiento <= fecha_inicial:
+                return jsonify({'success': False, 'error': 'La fecha de vencimiento debe ser posterior a la fecha inicial'}), 400
+                
+        except ValueError:
+            return jsonify({'success': False, 'error': 'Formato de fecha inválido. Use YYYY-MM-DD'}), 400
+        
+        # Insertar nueva licencia de conducir
+        query = """
+        INSERT INTO mpa_licencia_conducir (
+            tecnico, fecha_inicio, fecha_vencimiento, observacion, fecha_creacion
+        ) VALUES (%s, %s, %s, %s, NOW())
+        """
+        
+        values = (
+            data['tecnico_id'],
+            data['fecha_inicial'],
+            data['fecha_vencimiento'],
+            data.get('observaciones', '')
+        )
+        
+        cursor.execute(query, values)
+        connection.commit()
+        
+        licencia_id = cursor.lastrowid
+        
+        return jsonify({
+            'success': True,
+            'message': 'Licencia de conducir creada exitosamente',
+            'data': {'id': licencia_id}
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para actualizar una licencia de conducir
+@app.route('/api/mpa/licencias-conducir/<int:licencia_id>', methods=['PUT'])
+@login_required
+def api_update_licencia_conducir(licencia_id):
+    """API para actualizar una licencia de conducir existente"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        data = request.get_json()
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar que la licencia existe
+        cursor.execute("SELECT id_mpa_licencia_conducir FROM mpa_licencia_conducir WHERE id_mpa_licencia_conducir = %s", (licencia_id,))
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'error': 'Licencia de conducir no encontrada'}), 404
+        
+        # Validar fechas si se proporcionan
+        if 'fecha_inicial' in data and 'fecha_vencimiento' in data:
+            try:
+                from datetime import datetime
+                fecha_inicial = datetime.strptime(data['fecha_inicial'], '%Y-%m-%d').date()
+                fecha_vencimiento = datetime.strptime(data['fecha_vencimiento'], '%Y-%m-%d').date()
+                
+                if fecha_vencimiento <= fecha_inicial:
+                    return jsonify({'success': False, 'error': 'La fecha de vencimiento debe ser posterior a la fecha inicial'}), 400
+                    
+            except ValueError:
+                return jsonify({'success': False, 'error': 'Formato de fecha inválido. Use YYYY-MM-DD'}), 400
+        
+        # Construir query de actualización dinámicamente
+        update_fields = []
+        values = []
+        
+        allowed_fields = {
+            'tecnico_id': 'tecnico',
+            'fecha_inicial': 'fecha_inicio', 
+            'fecha_vencimiento': 'fecha_vencimiento',
+            'observaciones': 'observacion'
+        }
+        
+        for field, db_field in allowed_fields.items():
+            if field in data:
+                update_fields.append(f"{db_field} = %s")
+                values.append(data[field])
+        
+        if not update_fields:
+            return jsonify({'success': False, 'error': 'No hay campos para actualizar'}), 400
+        
+        # Agregar fecha de actualización
+        update_fields.append("fecha_actualizacion = NOW()")
+        values.append(licencia_id)
+        
+        query = f"UPDATE mpa_licencia_conducir SET {', '.join(update_fields)} WHERE id_mpa_licencia_conducir = %s"
+        
+        cursor.execute(query, values)
+        connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Licencia de conducir actualizada exitosamente'
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para eliminar una licencia de conducir
+@app.route('/api/mpa/licencias-conducir/<int:licencia_id>', methods=['DELETE'])
+@login_required
+def api_delete_licencia_conducir(licencia_id):
+    """API para eliminar una licencia de conducir"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Verificar si la licencia existe
+        cursor.execute("SELECT id_mpa_licencia_conducir FROM mpa_licencia_conducir WHERE id_mpa_licencia_conducir = %s", (licencia_id,))
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'error': 'Licencia de conducir no encontrada'}), 404
+        
+        # Eliminar licencia de conducir
+        cursor.execute("DELETE FROM mpa_licencia_conducir WHERE id_mpa_licencia_conducir = %s", (licencia_id,))
+        connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Licencia de conducir eliminada exitosamente'
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/mpa/mantenimientos')
+@login_required
+def mpa_mantenimientos():
+    """Módulo de gestión de mantenimientos"""
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    
+    return render_template('modulos/mpa/maintenance.html')
+
+
 
 class Asignacion(db.Model):
     id_asignacion = db.Column(db.Integer, primary_key=True)
@@ -1647,3 +3906,6 @@ class Asignacion(db.Model):
     cargo = db.Column(db.String(100))
     asignacion_firma = db.Column(db.Text)
     id_asignador = db.Column(db.Integer)
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=8080)

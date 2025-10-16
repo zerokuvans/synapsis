@@ -317,6 +317,18 @@
                             <div class="form-text">Analista asignado al técnico (solo para técnicos).</div>
                         </div>
                     </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="edit_fecha_ingreso" class="form-label">Fecha de Ingreso</label>
+                            <input type="date" class="form-control" id="edit_fecha_ingreso" name="fecha_ingreso">
+                            <div class="form-text">Fecha en que el empleado ingresó a la empresa.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="edit_fecha_retiro" class="form-label">Fecha de Retiro</label>
+                            <input type="date" class="form-control" id="edit_fecha_retiro" name="fecha_retiro">
+                            <div class="form-text">Fecha en que el empleado se retiró (opcional).</div>
+                        </div>
+                    </div>
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle me-2"></i> Los campos marcados con * son obligatorios.
                     </div>
@@ -431,6 +443,18 @@
                                 <option value="">Seleccione un super</option>
                                 <!-- Las opciones se cargarán dinámicamente -->
                             </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="nuevo_fecha_ingreso" class="form-label">Fecha de Ingreso</label>
+                            <input type="date" class="form-control" id="nuevo_fecha_ingreso" name="fecha_ingreso">
+                            <div class="form-text">Fecha en que el empleado ingresó a la empresa.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="nuevo_fecha_retiro" class="form-label">Fecha de Retiro</label>
+                            <input type="date" class="form-control" id="nuevo_fecha_retiro" name="fecha_retiro">
+                            <div class="form-text">Fecha en que el empleado se retiró (opcional).</div>
                         </div>
                     </div>
                     <div class="alert alert-info">
@@ -1215,6 +1239,78 @@
                 establecerValorDropdown('edit_ciudad', data.ciudad);
                 establecerValorDropdown('edit_super', data.super);
                 establecerValorDropdown('edit_analista', data.analista);
+                
+                // Establecer los valores de las fechas con validación mejorada
+                console.log('🗓️ Procesando fechas del usuario:', {
+                    fecha_ingreso: data.fecha_ingreso,
+                    fecha_retiro: data.fecha_retiro,
+                    tipo_fecha_ingreso: typeof data.fecha_ingreso,
+                    tipo_fecha_retiro: typeof data.fecha_retiro
+                });
+                
+                // Buscar campos de fecha con múltiples intentos
+                let fechaIngresoField = document.getElementById('edit_fecha_ingreso');
+                let fechaRetiroField = document.getElementById('edit_fecha_retiro');
+                
+                // Si no se encuentran, esperar un poco y volver a intentar
+                if (!fechaIngresoField || !fechaRetiroField) {
+                    console.warn('⚠️ Campos de fecha no encontrados inmediatamente, reintentando...');
+                    setTimeout(() => {
+                        fechaIngresoField = document.getElementById('edit_fecha_ingreso');
+                        fechaRetiroField = document.getElementById('edit_fecha_retiro');
+                        
+                        console.log('🔍 Segundo intento - Campos encontrados:', {
+                            fechaIngresoField: !!fechaIngresoField,
+                            fechaRetiroField: !!fechaRetiroField
+                        });
+                        
+                        asignarFechas();
+                    }, 100);
+                } else {
+                    asignarFechas();
+                }
+                
+                function asignarFechas() {
+                    // Procesar fecha de ingreso
+                    if (fechaIngresoField) {
+                        let fechaIngreso = '';
+                        if (data.fecha_ingreso) {
+                            // Asegurar formato YYYY-MM-DD para input type="date"
+                            if (typeof data.fecha_ingreso === 'string') {
+                                fechaIngreso = data.fecha_ingreso.split(' ')[0]; // Tomar solo la parte de fecha
+                            } else {
+                                fechaIngreso = data.fecha_ingreso;
+                            }
+                        }
+                        fechaIngresoField.value = fechaIngreso;
+                        console.log('✅ Fecha ingreso asignada:', fechaIngreso, '-> Campo value:', fechaIngresoField.value);
+                        
+                        // Forzar actualización visual
+                        fechaIngresoField.dispatchEvent(new Event('change'));
+                    } else {
+                        console.error('❌ Campo edit_fecha_ingreso no encontrado después de reintentos');
+                    }
+                    
+                    // Procesar fecha de retiro
+                    if (fechaRetiroField) {
+                        let fechaRetiro = '';
+                        if (data.fecha_retiro) {
+                            // Asegurar formato YYYY-MM-DD para input type="date"
+                            if (typeof data.fecha_retiro === 'string') {
+                                fechaRetiro = data.fecha_retiro.split(' ')[0]; // Tomar solo la parte de fecha
+                            } else {
+                                fechaRetiro = data.fecha_retiro;
+                            }
+                        }
+                        fechaRetiroField.value = fechaRetiro;
+                        console.log('✅ Fecha retiro asignada:', fechaRetiro, '-> Campo value:', fechaRetiroField.value);
+                        
+                        // Forzar actualización visual
+                        fechaRetiroField.dispatchEvent(new Event('change'));
+                    } else {
+                        console.error('❌ Campo edit_fecha_retiro no encontrado después de reintentos');
+                    }
+                }
                 
                 // Limpiar el campo de contraseña ya que no se muestra por seguridad
                 document.getElementById('edit_password').value = '';

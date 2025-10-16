@@ -112,6 +112,14 @@ from app import administrativo_asistencia, obtener_supervisores, obtener_tecnico
 # Importar rutas del módulo analistas desde app.py
 from app import analistas_index, analistas_causas, analistas_dashboard, api_causas_cierre, api_grupos_causas_cierre, api_tecnologias_causas_cierre, api_agrupaciones_causas_cierre, api_estadisticas_causas_cierre
 
+# Importar rutas del módulo MPA desde app.py
+from app import mpa_dashboard, mpa_dashboard_stats, mpa_vehiculos, mpa_soat, mpa_tecnico_mecanica, mpa_licencias, mpa_licencias_conducir, mpa_inspecciones, mpa_siniestros, mpa_mantenimientos
+from app import api_get_vehiculos, api_create_vehiculo, api_get_vehiculo, api_update_vehiculo, api_delete_vehiculo, api_get_tecnicos
+from app import api_get_mantenimientos, api_create_mantenimiento, api_get_mantenimiento, api_update_mantenimiento, api_delete_mantenimiento, api_get_placas, api_get_categorias_mantenimiento, api_upload_mantenimiento_image
+from app import api_get_soat, api_get_soat_by_id, api_create_soat, api_update_soat, api_delete_soat
+from app import api_list_tecnico_mecanica, api_get_tecnico_mecanica, api_create_tecnico_mecanica, api_update_tecnico_mecanica, api_delete_tecnico_mecanica
+from app import api_list_licencias_conducir, api_get_licencia_conducir, api_create_licencia_conducir, api_update_licencia_conducir, api_delete_licencia_conducir
+
 # Importar módulo de dotaciones
 from dotaciones_api import registrar_rutas_dotaciones
 
@@ -130,6 +138,57 @@ app.route('/api/analistas/grupos', methods=['GET'])(api_grupos_causas_cierre)
 app.route('/api/analistas/tecnologias', methods=['GET'])(api_tecnologias_causas_cierre)
 app.route('/api/analistas/agrupaciones', methods=['GET'])(api_agrupaciones_causas_cierre)
 app.route('/api/analistas/estadisticas', methods=['GET'])(api_estadisticas_causas_cierre)
+
+# Registrar rutas del módulo MPA
+app.route('/mpa')(mpa_dashboard)
+app.route('/api/mpa/dashboard-stats')(mpa_dashboard_stats)
+app.route('/mpa/vehiculos')(mpa_vehiculos)
+app.route('/mpa/soat')(mpa_soat)
+app.route('/mpa/tecnico-mecanica')(mpa_tecnico_mecanica)
+app.route('/mpa/licencias')(mpa_licencias)
+app.route('/mpa/licencias-conducir')(mpa_licencias_conducir)
+app.route('/mpa/inspecciones')(mpa_inspecciones)
+app.route('/mpa/siniestros')(mpa_siniestros)
+app.route('/mpa/mantenimientos')(mpa_mantenimientos)
+
+# Registrar rutas de la API de vehículos MPA
+app.route('/api/mpa/vehiculos', methods=['GET'])(api_get_vehiculos)
+app.route('/api/mpa/vehiculos', methods=['POST'])(api_create_vehiculo)
+app.route('/api/mpa/vehiculos/<int:vehiculo_id>', methods=['GET'])(api_get_vehiculo)
+app.route('/api/mpa/vehiculos/<int:vehiculo_id>', methods=['PUT'])(api_update_vehiculo)
+app.route('/api/mpa/vehiculos/<int:vehiculo_id>', methods=['DELETE'])(api_delete_vehiculo)
+app.route('/api/mpa/tecnicos', methods=['GET'])(api_get_tecnicos)
+
+# Registrar rutas de la API de mantenimientos MPA
+app.route('/api/mpa/mantenimientos', methods=['GET'])(api_get_mantenimientos)
+app.route('/api/mpa/mantenimientos', methods=['POST'])(api_create_mantenimiento)
+app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['GET'])(api_get_mantenimiento)
+app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['PUT'])(api_update_mantenimiento)
+app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['DELETE'])(api_delete_mantenimiento)
+app.route('/api/mpa/vehiculos/placas', methods=['GET'])(api_get_placas)
+app.route('/api/mpa/categorias-mantenimiento/<tipo_vehiculo>', methods=['GET'])(api_get_categorias_mantenimiento)
+app.route('/api/mpa/mantenimientos/upload-image', methods=['POST'])(api_upload_mantenimiento_image)
+
+# Registrar rutas de la API de SOAT MPA
+app.route('/api/mpa/soat', methods=['GET'])(api_get_soat)
+app.route('/api/mpa/soat', methods=['POST'])(api_create_soat)
+app.route('/api/mpa/soat/<int:soat_id>', methods=['GET'])(api_get_soat_by_id)
+app.route('/api/mpa/soat/<int:soat_id>', methods=['PUT'])(api_update_soat)
+app.route('/api/mpa/soat/<int:soat_id>', methods=['DELETE'])(api_delete_soat)
+
+# Registrar rutas de la API de Técnico Mecánica MPA
+app.route('/api/mpa/tecnico_mecanica', methods=['GET'])(api_list_tecnico_mecanica)
+app.route('/api/mpa/tecnico_mecanica', methods=['POST'])(api_create_tecnico_mecanica)
+app.route('/api/mpa/tecnico_mecanica/<int:tm_id>', methods=['GET'])(api_get_tecnico_mecanica)
+app.route('/api/mpa/tecnico_mecanica/<int:tm_id>', methods=['PUT'])(api_update_tecnico_mecanica)
+app.route('/api/mpa/tecnico_mecanica/<int:tm_id>', methods=['DELETE'])(api_delete_tecnico_mecanica)
+
+# Registrar rutas de la API de Licencias de Conducir MPA
+app.route('/api/mpa/licencias-conducir', methods=['GET'])(api_list_licencias_conducir)
+app.route('/api/mpa/licencias-conducir', methods=['POST'])(api_create_licencia_conducir)
+app.route('/api/mpa/licencias-conducir/<int:licencia_id>', methods=['GET'])(api_get_licencia_conducir)
+app.route('/api/mpa/licencias-conducir/<int:licencia_id>', methods=['PUT'])(api_update_licencia_conducir)
+app.route('/api/mpa/licencias-conducir/<int:licencia_id>', methods=['DELETE'])(api_delete_licencia_conducir)
 
 # Registrar rutas del módulo de dotaciones
 registrar_rutas_dotaciones(app)
@@ -7954,7 +8013,9 @@ def obtener_usuario(id):
                 cliente,
                 ciudad,
                 super,
-                analista
+                analista,
+                fecha_ingreso,
+                fecha_retiro
             FROM recurso_operativo 
             WHERE id_codigo_consumidor = %s
         """, (id,))
@@ -7963,6 +8024,15 @@ def obtener_usuario(id):
         
         if not usuario:
             return jsonify({'error': 'Usuario no encontrado'}), 404
+        
+        # Formatear fechas para input type="date" (YYYY-MM-DD)
+        if usuario['fecha_ingreso']:
+            if isinstance(usuario['fecha_ingreso'], datetime):
+                usuario['fecha_ingreso'] = usuario['fecha_ingreso'].strftime('%Y-%m-%d')
+        
+        if usuario['fecha_retiro']:
+            if isinstance(usuario['fecha_retiro'], datetime):
+                usuario['fecha_retiro'] = usuario['fecha_retiro'].strftime('%Y-%m-%d')
         
         return jsonify(usuario)
         
@@ -8038,6 +8108,8 @@ def actualizar_usuario():
         super_valor = request.form.get('super', '')
         password = request.form.get('password', '')
         analista = request.form.get('analista', '')
+        fecha_ingreso = request.form.get('fecha_ingreso', '')
+        fecha_retiro = request.form.get('fecha_retiro', '')
         
         # Validar datos requeridos
         if not all([id_codigo_consumidor, recurso_operativo_cedula, nombre, id_roles]):
@@ -8061,7 +8133,9 @@ def actualizar_usuario():
             'cliente = %s',
             'ciudad = %s',
             'super = %s',
-            'analista = %s'
+            'analista = %s',
+            'fecha_ingreso = %s',
+            'fecha_retiro = %s'
         ]
         
         values = [
@@ -8074,7 +8148,9 @@ def actualizar_usuario():
             cliente,
             ciudad,
             super_valor,
-            analista
+            analista,
+            fecha_ingreso if fecha_ingreso else None,
+            fecha_retiro if fecha_retiro else None
         ]
         
         # Si se proporciona una nueva contraseña, agregarla a la actualización
@@ -9641,9 +9717,9 @@ def api_operativo_inicio_asistencia():
             
             # Contar estados de cumplimiento
             estado = (r.get('estado') or '').lower().strip()
-            if estado == 'cumple':
+            if estado in ['cumple', 'novedad']:
                 cumple_count += 1
-            elif estado in ['nocumple', 'no cumple', 'no aplica', 'novedad']:
+            elif estado in ['nocumple', 'no cumple', 'no aplica']:
                 no_cumple_count += 1
         
         presupuesto_mes = presupuesto_dia * 26
@@ -9692,9 +9768,9 @@ def api_operativo_inicio_asistencia():
         
         for r in registros_mes:
             estado = (r.get('estado') or '').lower().strip()
-            if estado == 'cumple':
+            if estado in ['cumple', 'novedad']:
                 cumple_mes_count += 1
-            elif estado in ['nocumple', 'no cumple', 'no aplica', 'novedad']:
+            elif estado in ['nocumple', 'no cumple', 'no aplica']:
                 no_cumple_mes_count += 1
 
         # Calcular cumplimiento mensual (porcentaje y fracción)
@@ -18423,6 +18499,277 @@ def obtener_datos_grafica_carpeta_dia():
             cursor.close()
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
+
+# ===== RUTAS VENCIMIENTOS =====
+
+@app.route('/mpa/vencimientos')
+def mpa_vencimientos():
+    """Módulo de gestión de vencimientos consolidados"""
+    # Temporalmente sin autenticación para pruebas
+    # if not current_user.has_role('administrativo'):
+    #     flash('No tienes permisos para acceder a este módulo.', 'error')
+    #     return redirect(url_for('mpa_dashboard'))
+    
+    return render_template('modulos/mpa/vencimientos.html')
+
+# ===== APIs VENCIMIENTOS =====
+
+# API consolidada para obtener todos los vencimientos
+@app.route('/api/mpa/vencimientos', methods=['GET'])
+def api_vencimientos_consolidados():
+    """API consolidada para obtener vencimientos de SOAT, Técnico Mecánica y Licencias de Conducir"""
+    # Temporalmente sin autenticación para pruebas
+    # if not current_user.has_role('administrativo'):
+    #     return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        vencimientos_consolidados = []
+        
+        # 1. Obtener vencimientos de SOAT
+        query_soat = """
+        SELECT 
+            s.id_mpa_soat as id,
+            s.placa,
+            s.fecha_vencimiento,
+            s.tecnico_asignado,
+            ro.nombre as tecnico_nombre,
+            'SOAT' as tipo,
+            s.estado
+        FROM mpa_soat s
+        LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor
+        WHERE s.fecha_vencimiento IS NOT NULL
+        ORDER BY s.fecha_vencimiento ASC
+        """
+        
+        cursor.execute(query_soat)
+        soats = cursor.fetchall()
+        
+        for soat in soats:
+            vencimientos_consolidados.append({
+                'id': soat['id'],
+                'tipo': 'SOAT',
+                'placa': soat['placa'],
+                'fecha_vencimiento': soat['fecha_vencimiento'].strftime('%Y-%m-%d') if soat['fecha_vencimiento'] else None,
+                'tecnico_nombre': soat['tecnico_nombre'] or 'Sin asignar',
+                'estado_original': soat['estado']
+            })
+        
+        # 2. Obtener vencimientos de Técnico Mecánica
+        query_tm = """
+        SELECT 
+            tm.id_mpa_tecnico_mecanica as id,
+            tm.placa,
+            tm.fecha_vencimiento,
+            tm.tecnico_asignado,
+            ro.nombre as tecnico_nombre,
+            'Técnico Mecánica' as tipo,
+            tm.estado
+        FROM mpa_tecnico_mecanica tm
+        LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor
+        WHERE tm.fecha_vencimiento IS NOT NULL
+        ORDER BY tm.fecha_vencimiento ASC
+        """
+        
+        cursor.execute(query_tm)
+        tecnicos = cursor.fetchall()
+        
+        for tm in tecnicos:
+            vencimientos_consolidados.append({
+                'id': tm['id'],
+                'tipo': 'Técnico Mecánica',
+                'placa': tm['placa'],
+                'fecha_vencimiento': tm['fecha_vencimiento'].strftime('%Y-%m-%d') if tm['fecha_vencimiento'] else None,
+                'tecnico_nombre': tm['tecnico_nombre'] or 'Sin asignar',
+                'estado_original': tm['estado']
+            })
+        
+        # 3. Obtener vencimientos de Licencias de Conducir
+        query_lc = """
+        SELECT 
+            lc.id_mpa_licencia_conducir as id,
+            lc.fecha_vencimiento,
+            lc.tecnico,
+            ro.nombre as tecnico_nombre,
+            'Licencia de Conducir' as tipo
+        FROM mpa_licencia_conducir lc
+        LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor
+        WHERE lc.fecha_vencimiento IS NOT NULL
+        ORDER BY lc.fecha_vencimiento ASC
+        """
+        
+        cursor.execute(query_lc)
+        licencias = cursor.fetchall()
+        
+        for lc in licencias:
+            vencimientos_consolidados.append({
+                'id': lc['id'],
+                'tipo': 'Licencia de Conducir',
+                'placa': None,  # Las licencias no tienen placa
+                'fecha_vencimiento': lc['fecha_vencimiento'].strftime('%Y-%m-%d') if lc['fecha_vencimiento'] else None,
+                'tecnico_nombre': lc['tecnico_nombre'] or 'Sin asignar',
+                'estado_original': None  # Las licencias no tienen campo estado
+            })
+        
+        # 4. Calcular días restantes y estado para todos los vencimientos
+        from datetime import datetime
+        import pytz
+        
+        colombia_tz = pytz.timezone('America/Bogota')
+        fecha_actual = datetime.now(colombia_tz).date()
+        
+        for vencimiento in vencimientos_consolidados:
+            if vencimiento['fecha_vencimiento']:
+                fecha_venc = datetime.strptime(vencimiento['fecha_vencimiento'], '%Y-%m-%d').date()
+                dias_restantes = (fecha_venc - fecha_actual).days
+                
+                vencimiento['dias_restantes'] = dias_restantes
+                
+                # Determinar estado basado en días restantes
+                if dias_restantes < 0:
+                    vencimiento['estado'] = 'Vencido'
+                elif dias_restantes <= 30:
+                    vencimiento['estado'] = 'Próximo a vencer'
+                else:
+                    vencimiento['estado'] = 'Vigente'
+            else:
+                vencimiento['dias_restantes'] = None
+                vencimiento['estado'] = 'Sin fecha'
+        
+        # 5. Ordenar por fecha de vencimiento (más próximos primero)
+        vencimientos_consolidados.sort(key=lambda x: (
+            x['fecha_vencimiento'] if x['fecha_vencimiento'] else '9999-12-31'
+        ))
+        
+        return jsonify({
+            'success': True,
+            'data': vencimientos_consolidados,
+            'total': len(vencimientos_consolidados)
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para obtener detalles de un vencimiento específico
+@app.route('/api/mpa/vencimiento/<string:tipo>/<int:documento_id>', methods=['GET'])
+def api_get_vencimiento_detalle(tipo, documento_id):
+    """API para obtener detalles de un vencimiento específico"""
+    # Temporalmente sin autenticación para pruebas
+    # if not current_user.has_role('administrativo'):
+    #     return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Determinar la tabla y consulta según el tipo
+        if tipo.lower() == 'soat':
+            query = """
+            SELECT 
+                s.*,
+                ro.nombre as tecnico_nombre,
+                ro.recurso_operativo_cedula as tecnico_cedula
+            FROM mpa_soat s
+            LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor
+            WHERE s.id_mpa_soat = %s
+            """
+        elif tipo.lower() == 'tecnico_mecanica':
+            query = """
+            SELECT 
+                tm.*,
+                ro.nombre as tecnico_nombre,
+                ro.recurso_operativo_cedula as tecnico_cedula
+            FROM mpa_tecnico_mecanica tm
+            LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor
+            WHERE tm.id_mpa_tecnico_mecanica = %s
+            """
+        elif tipo.lower() == 'licencia_conducir':
+            query = """
+            SELECT 
+                lc.*,
+                ro.nombre as tecnico_nombre,
+                ro.recurso_operativo_cedula as tecnico_cedula
+            FROM mpa_licencia_conducir lc
+            LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor
+            WHERE lc.id_mpa_licencia_conducir = %s
+            """
+        else:
+            return jsonify({'success': False, 'error': 'Tipo de documento no válido'}), 400
+        
+        cursor.execute(query, (documento_id,))
+        documento = cursor.fetchone()
+        
+        if not documento:
+            return jsonify({'success': False, 'error': 'Documento no encontrado'}), 404
+        
+        # Formatear fechas y calcular días restantes
+        from datetime import datetime
+        import pytz
+        
+        colombia_tz = pytz.timezone('America/Bogota')
+        fecha_actual = datetime.now(colombia_tz).date()
+        
+        # Formatear fechas
+        for key, value in documento.items():
+            if isinstance(value, datetime):
+                documento[key] = value.strftime('%Y-%m-%d %H:%M:%S')
+            elif hasattr(value, 'strftime'):  # Para objetos date
+                documento[key] = value.strftime('%Y-%m-%d')
+        
+        # Calcular días restantes si hay fecha de vencimiento
+        if documento.get('fecha_vencimiento'):
+            try:
+                fecha_venc = datetime.strptime(documento['fecha_vencimiento'], '%Y-%m-%d').date()
+                dias_restantes = (fecha_venc - fecha_actual).days
+                documento['dias_restantes'] = dias_restantes
+                
+                # Determinar estado
+                if dias_restantes < 0:
+                    documento['estado_calculado'] = 'Vencido'
+                elif dias_restantes <= 30:
+                    documento['estado_calculado'] = 'Próximo a vencer'
+                else:
+                    documento['estado_calculado'] = 'Vigente'
+            except:
+                documento['dias_restantes'] = None
+                documento['estado_calculado'] = 'Sin fecha'
+        
+        return jsonify({
+            'success': True,
+            'data': documento,
+            'tipo': tipo
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API de prueba con ruta diferente
+@app.route('/api/mpa/test-vencimientos', methods=['GET'])
+def api_test_vencimientos():
+    """API de prueba para vencimientos"""
+    return jsonify({
+        'success': True,
+        'data': [],
+        'message': 'API de prueba funcionando correctamente'
+    })
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=8080)

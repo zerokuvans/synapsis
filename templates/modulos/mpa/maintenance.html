@@ -1,0 +1,613 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;">
+                    <h3 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>Gestión de Mantenimientos - MPA
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Gestiona todos los mantenimientos realizados a los vehículos de la flota. Aquí puedes ver, crear, actualizar y eliminar registros de mantenimiento.
+                    </div>
+                    
+                    <!-- Botón para crear nuevo mantenimiento -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="mb-0">Lista de Mantenimientos</h4>
+                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#maintenanceModal" onclick="openCreateModal()">
+                            <i class="fas fa-plus me-2"></i>Crear Mantenimiento
+                        </button>
+                    </div>
+                    
+                    <!-- Tabla de mantenimientos -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="maintenanceTable">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Placa</th>
+                                    <th>Técnico</th>
+                                    <th>Fecha Mantenimiento</th>
+                                    <th>Tipo</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="maintenanceTableBody">
+                                <!-- Los datos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Mensaje cuando no hay mantenimientos -->
+                    <div id="noMaintenanceMessage" class="text-center py-5" style="display: none;">
+                        <i class="fas fa-tools fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No hay mantenimientos registrados</h5>
+                        <p class="text-muted">Haz clic en "Crear Mantenimiento" para agregar el primer registro.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para crear/editar mantenimiento -->
+<div class="modal fade" id="maintenanceModal" tabindex="-1" aria-labelledby="maintenanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="maintenanceModalLabel">Crear Mantenimiento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="maintenanceForm">
+                    <input type="hidden" id="maintenanceId" name="maintenanceId">
+                    
+                    <div class="row">
+                        <!-- Información del Vehículo -->
+                        <div class="col-md-6 mb-3">
+                            <label for="placa" class="form-label">Placa del Vehículo <span class="text-danger">*</span></label>
+                            <select class="form-select" id="placa" name="placa" required onchange="onPlacaChange()">
+                                <option value="">Seleccionar placa</option>
+                                <!-- Las placas se cargarán dinámicamente -->
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="tecnicoAsignado" class="form-label">Técnico Asignado</label>
+                            <input type="text" class="form-control" id="tecnicoAsignado" name="tecnicoAsignado" readonly>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="tipoVehiculo" class="form-label">Tipo de Vehículo</label>
+                            <input type="text" class="form-control" id="tipoVehiculo" name="tipoVehiculo" readonly>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="kilometraje" class="form-label">Kilometraje Actual <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="kilometraje" name="kilometraje" required min="0">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="categoriaMantenimiento" class="form-label">Tipo de Mantenimiento <span class="text-danger">*</span></label>
+                            <select class="form-select" id="categoriaMantenimiento" name="categoriaMantenimiento" required>
+                                <option value="">Seleccionar tipo de mantenimiento</option>
+                                <!-- Las categorías se cargarán dinámicamente según el tipo de vehículo -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="observaciones" class="form-label">Observaciones del Mantenimiento <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="observaciones" name="observaciones" rows="4" required placeholder="Describe detalladamente el mantenimiento realizado..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Sección de imágenes -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="fotoTaller" class="form-label">Foto del Taller (Georeferenciada)</label>
+                            <input type="file" class="form-control" id="fotoTaller" name="fotoTaller" accept="image/*" onchange="previewImage(this, 'previewTaller')">
+                            <div class="mt-2">
+                                <img id="previewTaller" src="" alt="Vista previa" style="max-width: 100%; max-height: 200px; display: none;" class="img-thumbnail">
+                            </div>
+                            <small class="form-text text-muted">Sube una foto del taller donde se realizó el mantenimiento</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="fotoFactura" class="form-label">Foto de la Factura</label>
+                            <input type="file" class="form-control" id="fotoFactura" name="fotoFactura" accept="image/*" onchange="previewImage(this, 'previewFactura')">
+                            <div class="mt-2">
+                                <img id="previewFactura" src="" alt="Vista previa" style="max-width: 100%; max-height: 200px; display: none;" class="img-thumbnail">
+                            </div>
+                            <small class="form-text text-muted">Sube una foto de la factura del mantenimiento</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Información automática -->
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Nota:</strong> La fecha y hora del mantenimiento se registrará automáticamente al momento de guardar (Zona horaria: Bogotá, Colombia).
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="saveMaintenance()">
+                    <i class="fas fa-save me-2"></i>Guardar Mantenimiento
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para ver detalles del mantenimiento -->
+<div class="modal fade" id="viewMaintenanceModal" tabindex="-1" aria-labelledby="viewMaintenanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewMaintenanceModalLabel">Detalles del Mantenimiento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="viewMaintenanceContent">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentMaintenanceId = null;
+let vehiclePlates = [];
+let maintenanceCategories = [];
+
+// Cargar datos al inicializar la página
+document.addEventListener('DOMContentLoaded', function() {
+    loadMaintenances();
+    loadVehiclePlates();
+});
+
+// Cargar lista de mantenimientos
+function loadMaintenances() {
+    fetch('/api/mpa/mantenimientos')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                displayMaintenances(data.data);
+            } else {
+                showAlert('Error al cargar mantenimientos: ' + (data.message || 'Error desconocido'), 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al cargar mantenimientos: ' + error.message, 'danger');
+        });
+}
+
+// Mostrar mantenimientos en la tabla
+function displayMaintenances(maintenances) {
+    const tbody = document.getElementById('maintenanceTableBody');
+    const noMaintenanceMessage = document.getElementById('noMaintenanceMessage');
+    const table = document.getElementById('maintenanceTable');
+    
+    if (maintenances.length === 0) {
+        table.style.display = 'none';
+        noMaintenanceMessage.style.display = 'block';
+        return;
+    }
+    
+    table.style.display = 'table';
+    noMaintenanceMessage.style.display = 'none';
+    
+    tbody.innerHTML = maintenances.map(maintenance => `
+        <tr>
+            <td><strong>${maintenance.placa}</strong></td>
+            <td>${maintenance.tecnico_nombre || 'Sin asignar'}</td>
+            <td>${formatDateTime(maintenance.fecha_mantenimiento)}</td>
+            <td>
+                <span class="badge bg-primary">${maintenance.tipo_mantenimiento || 'Sin especificar'}</span><br>
+                <small class="text-muted">Mantenimiento</small>
+            </td>
+            <td>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm btn-info" onclick="viewMaintenance(${maintenance.id_mpa_mantenimientos})" title="Ver detalles">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-warning" onclick="editMaintenance(${maintenance.id_mpa_mantenimientos})" title="Editar">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="deleteMaintenance(${maintenance.id_mpa_mantenimientos}, '${maintenance.placa}')" title="Eliminar">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Cargar lista de placas de vehículos
+function loadVehiclePlates() {
+    fetch('/api/mpa/vehiculos/placas')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                vehiclePlates = data.data;
+                const select = document.getElementById('placa');
+                select.innerHTML = '<option value="">Seleccionar placa</option>' +
+                    vehiclePlates.map(vehicle => `<option value="${vehicle.placa}" data-tecnico="${vehicle.tecnico_nombre || 'Sin asignar'}" data-tipo="${vehicle.tipo_vehiculo}">${vehicle.placa}</option>`).join('');
+            } else {
+                showAlert('Error al cargar placas: ' + (data.message || 'Error desconocido'), 'warning');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al cargar placas: ' + error.message, 'warning');
+        });
+}
+
+// Cargar categorías de mantenimiento por tipo de vehículo
+function loadMaintenanceCategories(tipoVehiculo) {
+    if (!tipoVehiculo) {
+        document.getElementById('categoriaMantenimiento').innerHTML = '<option value="">Seleccionar tipo de mantenimiento</option>';
+        return;
+    }
+    
+    fetch(`/api/mpa/categorias-mantenimiento/${tipoVehiculo}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                maintenanceCategories = data.data;
+                const select = document.getElementById('categoriaMantenimiento');
+                select.innerHTML = '<option value="">Seleccionar tipo de mantenimiento</option>' +
+                    maintenanceCategories.map(cat => `<option value="${cat.id_categoria_mantenimiento}">${cat.categoria} - ${cat.tipo_mantenimiento}</option>`).join('');
+            } else {
+                showAlert('Error al cargar categorías: ' + (data.message || 'Error desconocido'), 'warning');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al cargar categorías: ' + error.message, 'warning');
+        });
+}
+
+// Evento cuando cambia la placa seleccionada
+function onPlacaChange() {
+    const placaSelect = document.getElementById('placa');
+    const selectedOption = placaSelect.options[placaSelect.selectedIndex];
+    
+    if (selectedOption.value) {
+        const tecnico = selectedOption.getAttribute('data-tecnico');
+        const tipoVehiculo = selectedOption.getAttribute('data-tipo');
+        
+        document.getElementById('tecnicoAsignado').value = tecnico;
+        document.getElementById('tipoVehiculo').value = tipoVehiculo;
+        
+        // Cargar categorías de mantenimiento para este tipo de vehículo
+        loadMaintenanceCategories(tipoVehiculo);
+    } else {
+        document.getElementById('tecnicoAsignado').value = '';
+        document.getElementById('tipoVehiculo').value = '';
+        document.getElementById('categoriaMantenimiento').innerHTML = '<option value="">Seleccionar tipo de mantenimiento</option>';
+    }
+}
+
+// Abrir modal para crear mantenimiento
+function openCreateModal() {
+    currentMaintenanceId = null;
+    document.getElementById('maintenanceModalLabel').textContent = 'Crear Mantenimiento';
+    document.getElementById('maintenanceForm').reset();
+    document.getElementById('maintenanceId').value = '';
+    
+    // Limpiar previsualizaciones de imágenes
+    document.getElementById('previewTaller').style.display = 'none';
+    document.getElementById('previewFactura').style.display = 'none';
+    
+    // Limpiar campos auto-poblados
+    document.getElementById('tecnicoAsignado').value = '';
+    document.getElementById('tipoVehiculo').value = '';
+    document.getElementById('categoriaMantenimiento').innerHTML = '<option value="">Seleccionar tipo de mantenimiento</option>';
+}
+
+// Previsualizar imagen
+function previewImage(input, previewId) {
+    const preview = document.getElementById(previewId);
+    
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        preview.style.display = 'none';
+    }
+}
+
+// Ver detalles del mantenimiento
+function viewMaintenance(maintenanceId) {
+    fetch(`/api/mpa/mantenimientos/${maintenanceId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const maintenance = data.data;
+                const content = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-success">Información del Vehículo</h6>
+                            <p><strong>Placa:</strong> ${maintenance.placa}</p>
+                            <p><strong>Tipo de Vehículo:</strong> ${maintenance.tipo_vehiculo}</p>
+                            <p><strong>Técnico Asignado:</strong> ${maintenance.tecnico_nombre || 'Sin asignar'}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-success">Información del Mantenimiento</h6>
+                            <p><strong>Fecha:</strong> ${formatDateTime(maintenance.fecha_mantenimiento)}</p>
+                            <p><strong>Kilometraje:</strong> ${maintenance.kilometraje} km</p>
+                            <p><strong>Tipo de Mantenimiento:</strong> <span class="badge bg-primary">${maintenance.tipo_mantenimiento || 'Sin especificar'}</span></p>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <h6 class="text-success">Observaciones</h6>
+                            <p class="border p-3 bg-light">${maintenance.observacion || 'Sin observaciones'}</p>
+                        </div>
+                    </div>
+                    ${maintenance.foto_taller || maintenance.foto_factura ? `
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <h6 class="text-success">Imágenes</h6>
+                            <div class="row">
+                                ${maintenance.foto_taller ? `
+                                <div class="col-md-6">
+                                    <p><strong>Foto del Taller:</strong></p>
+                                    <img src="/static/${maintenance.foto_taller}" alt="Foto del taller" class="img-fluid img-thumbnail" style="max-height: 300px;">
+                                </div>
+                                ` : ''}
+                                ${maintenance.foto_factura ? `
+                                <div class="col-md-6">
+                                    <p><strong>Foto de la Factura:</strong></p>
+                                    <img src="/static/${maintenance.foto_factura}" alt="Foto de la factura" class="img-fluid img-thumbnail" style="max-height: 300px;">
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                `;
+                document.getElementById('viewMaintenanceContent').innerHTML = content;
+                new bootstrap.Modal(document.getElementById('viewMaintenanceModal')).show();
+            } else {
+                showAlert('Error al cargar detalles del mantenimiento: ' + data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al cargar detalles del mantenimiento', 'danger');
+        });
+}
+
+// Editar mantenimiento
+function editMaintenance(maintenanceId) {
+    fetch(`/api/mpa/mantenimientos/${maintenanceId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const maintenance = data.data;
+                currentMaintenanceId = maintenanceId;
+                
+                document.getElementById('maintenanceModalLabel').textContent = 'Editar Mantenimiento';
+                document.getElementById('maintenanceId').value = maintenanceId;
+                document.getElementById('placa').value = maintenance.placa;
+                document.getElementById('tecnicoAsignado').value = maintenance.tecnico_nombre || 'Sin asignar';
+                document.getElementById('tipoVehiculo').value = maintenance.tipo_vehiculo;
+                document.getElementById('kilometraje').value = maintenance.kilometraje;
+                document.getElementById('observaciones').value = maintenance.observacion || '';
+                
+                // Cargar categorías y seleccionar la actual
+                loadMaintenanceCategories(maintenance.tipo_vehiculo);
+                setTimeout(() => {
+                    document.getElementById('categoriaMantenimiento').value = maintenance.id_categoria_mantenimiento;
+                }, 500);
+                
+                // Mostrar imágenes existentes si las hay
+                if (maintenance.foto_taller) {
+                    const previewTaller = document.getElementById('previewTaller');
+                    previewTaller.src = `/static/${maintenance.foto_taller}`;
+                    previewTaller.style.display = 'block';
+                }
+                
+                if (maintenance.foto_factura) {
+                    const previewFactura = document.getElementById('previewFactura');
+                    previewFactura.src = `/static/${maintenance.foto_factura}`;
+                    previewFactura.style.display = 'block';
+                }
+                
+                new bootstrap.Modal(document.getElementById('maintenanceModal')).show();
+            } else {
+                showAlert('Error al cargar datos del mantenimiento: ' + data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al cargar datos del mantenimiento', 'danger');
+        });
+}
+
+// Guardar mantenimiento (crear o actualizar)
+async function saveMaintenance() {
+    const form = document.getElementById('maintenanceForm');
+    
+    // Validar campos requeridos
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    try {
+        // Subir imágenes primero si existen
+        let fotoTallerPath = '';
+        let fotoFacturaPath = '';
+        
+        const fotoTallerFile = document.getElementById('fotoTaller').files[0];
+        const fotoFacturaFile = document.getElementById('fotoFactura').files[0];
+        
+        if (fotoTallerFile) {
+            fotoTallerPath = await uploadImage(fotoTallerFile, 'taller');
+        }
+        
+        if (fotoFacturaFile) {
+            fotoFacturaPath = await uploadImage(fotoFacturaFile, 'factura');
+        }
+        
+        // Obtener el texto seleccionado de la categoría de mantenimiento
+        const categoriaSelect = document.getElementById('categoriaMantenimiento');
+        const tipoMantenimiento = categoriaSelect.options[categoriaSelect.selectedIndex].text;
+        
+        // Preparar datos del mantenimiento
+        const maintenanceData = {
+            placa: document.getElementById('placa').value,
+            kilometraje: document.getElementById('kilometraje').value,
+            tipo_mantenimiento: tipoMantenimiento,
+            observacion: document.getElementById('observaciones').value,
+            foto_taller: fotoTallerPath,
+            foto_factura: fotoFacturaPath,
+            tecnico: document.getElementById('tecnicoAsignado').value
+        };
+        
+        const url = currentMaintenanceId ? `/api/mpa/mantenimientos/${currentMaintenanceId}` : '/api/mpa/mantenimientos';
+        const method = currentMaintenanceId ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(maintenanceData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert(currentMaintenanceId ? 'Mantenimiento actualizado exitosamente' : 'Mantenimiento creado exitosamente', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('maintenanceModal')).hide();
+            loadMaintenances();
+        } else {
+            showAlert('Error: ' + (data.message || 'Error desconocido'), 'danger');
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showAlert('Error al guardar el mantenimiento', 'danger');
+    }
+}
+
+// Subir imagen
+async function uploadImage(file, type) {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('type', type);
+    
+    const response = await fetch('/api/mpa/mantenimientos/upload-image', {
+        method: 'POST',
+        body: formData
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+        return data.file_path;
+    } else {
+        throw new Error('Error al subir imagen: ' + data.error);
+    }
+}
+
+// Eliminar mantenimiento
+function deleteMaintenance(maintenanceId, placa) {
+    if (confirm(`¿Está seguro de que desea eliminar el mantenimiento del vehículo ${placa}?`)) {
+        fetch(`/api/mpa/mantenimientos/${maintenanceId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('Mantenimiento eliminado exitosamente', 'success');
+                loadMaintenances();
+            } else {
+                showAlert('Error al eliminar mantenimiento: ' + data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al eliminar mantenimiento', 'danger');
+        });
+    }
+}
+
+// Formatear fecha y hora
+function formatDateTime(dateTimeString) {
+    if (!dateTimeString) return 'N/A';
+    
+    const date = new Date(dateTimeString);
+    return date.toLocaleString('es-CO', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'America/Bogota'
+    });
+}
+
+// Mostrar alertas
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    const container = document.querySelector('.container');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}
