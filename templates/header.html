@@ -93,7 +93,7 @@
                     </li>
                     {% endif %}
 
-                    {% if session.get('user_role') in ['administrativo', 'lider'] %}
+                    {% if session.get('user_role') in ['administrativo', 'lider'] or session.get('user_cedula') == '52912112' %}
                     <li class="nav-item">
                         <a class="nav-link" href="/lider">
                             <i class="fas fa-user-tie me-1"></i>Líder

@@ -1,0 +1,250 @@
+{% extends "header.html" %}
+{% block content %}
+<style>
+    .indicator-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        height: 100%;
+    }
+    
+    .indicator-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .indicator-card .card-body {
+        padding: 2rem;
+        text-align: center;
+        position: relative;
+    }
+    
+    .indicator-icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        opacity: 0.8;
+    }
+    
+    .indicator-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #333;
+    }
+    
+    .indicator-description {
+        font-size: 0.95rem;
+        color: #666;
+        margin-bottom: 2rem;
+        line-height: 1.5;
+    }
+    
+    .coming-soon-badge {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: #ffc107;
+        color: #333;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .logistica-card {
+        border-left: 5px solid #2196f3;
+    }
+    
+    .sst-card {
+        border-left: 5px solid #4caf50;
+    }
+    
+    .calidad-card {
+        border-left: 5px solid #00bcd4;
+    }
+    
+    .operaciones-card {
+        border-left: 5px solid #ff9800;
+    }
+    
+    .help-section {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 2rem;
+        margin-top: 3rem;
+        border-left: 5px solid #6c757d;
+    }
+    
+    .help-icon {
+        color: #6c757d;
+        margin-right: 10px;
+    }
+    
+    @media (max-width: 768px) {
+        .indicator-card .card-body {
+            padding: 1.5rem;
+        }
+        
+        .indicator-icon {
+            font-size: 3rem;
+        }
+        
+        .indicator-title {
+            font-size: 1.2rem;
+        }
+        
+        .indicator-description {
+            font-size: 0.9rem;
+        }
+    }
+</style>
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h3 class="mb-0">
+                        <i class="fas fa-chart-line me-2"></i>📊 Indicadores de Gestión
+                    </h3>
+                </div>
+            </div>
+            
+            <!-- Indicadores Grid -->
+            <div class="row">
+                <!-- Indicadores de Logística -->
+                <div class="col-lg-6 col-md-6 mb-4">
+                    <div class="card indicator-card logistica-card">
+                        <div class="coming-soon-badge">Próximamente</div>
+                        <div class="card-body">
+                            <div class="indicator-icon text-primary">
+                                <i class="fas fa-truck"></i>
+                            </div>
+                            <h5 class="indicator-title">Indicadores de Logística</h5>
+                            <p class="indicator-description">
+                                Métricas de gestión logística, tiempos de entrega, eficiencia de rutas y control de inventarios.
+                            </p>
+                            <button class="btn btn-primary" onclick="mostrarProximamente('Logística')">
+                                <i class="fas fa-chart-bar me-2"></i>Ver Indicadores
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Indicadores de SST -->
+                <div class="col-lg-6 col-md-6 mb-4">
+                    <div class="card indicator-card sst-card">
+                        <div class="coming-soon-badge">Próximamente</div>
+                        <div class="card-body">
+                            <div class="indicator-icon text-success">
+                                <i class="fas fa-hard-hat"></i>
+                            </div>
+                            <h5 class="indicator-title">Indicadores de SST</h5>
+                            <p class="indicator-description">
+                                Seguridad y Salud en el Trabajo, índices de accidentalidad, capacitaciones y cumplimiento normativo.
+                            </p>
+                            <button class="btn btn-success" onclick="mostrarProximamente('SST')">
+                                <i class="fas fa-shield-alt me-2"></i>Ver Indicadores
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Indicadores de Calidad -->
+                <div class="col-lg-6 col-md-6 mb-4">
+                    <div class="card indicator-card calidad-card">
+                        <div class="coming-soon-badge">Próximamente</div>
+                        <div class="card-body">
+                            <div class="indicator-icon text-info">
+                                <i class="fas fa-award"></i>
+                            </div>
+                            <h5 class="indicator-title">Indicadores de Calidad</h5>
+                            <p class="indicator-description">
+                                Control de calidad, satisfacción del cliente, procesos de mejora continua y estándares de servicio.
+                            </p>
+                            <button class="btn btn-info text-white" onclick="mostrarProximamente('Calidad')">
+                                <i class="fas fa-star me-2"></i>Ver Indicadores
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Indicadores de Operaciones -->
+                <div class="col-lg-6 col-md-6 mb-4">
+                    <div class="card indicator-card operaciones-card">
+                        <div class="card-body">
+                            <div class="indicator-icon text-warning">
+                                <i class="fas fa-cogs"></i>
+                            </div>
+                            <h5 class="indicator-title">Indicadores de Operaciones</h5>
+                            <p class="indicator-description">
+                                Métricas operacionales, productividad, eficiencia de procesos y cumplimiento de objetivos.
+                            </p>
+                            <a href="/lider/indicadores/operaciones" class="btn btn-warning">
+                                <i class="fas fa-chart-line me-2"></i>Ver Indicadores
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sección de Ayuda -->
+            <div class="help-section">
+                <h6>
+                    <i class="fas fa-question-circle help-icon"></i>
+                    ¿Necesitas ayuda?
+                </h6>
+                <p class="mb-0">
+                    Los indicadores te permiten monitorear el desempeño y tomar decisiones basadas en datos. 
+                    Cada módulo contiene métricas específicas para su área de gestión.
+                </p>
+            </div>
+            
+            <!-- Botón de regreso -->
+            <div class="text-center mt-4">
+                <a href="/lider" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Regresar al Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function mostrarProximamente(tipo) {
+    // Mostrar mensaje de próximamente
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: 'Próximamente',
+            text: `Los indicadores de ${tipo} estarán disponibles en una próxima actualización.`,
+            icon: 'info',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#ffc107'
+        });
+    } else {
+        alert(`Los indicadores de ${tipo} estarán disponibles próximamente.`);
+    }
+}
+
+// Agregar efectos de hover adicionales
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.indicator-card');
+    
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+});
+</script>
+
+{% endblock %}
