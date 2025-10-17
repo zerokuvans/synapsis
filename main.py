@@ -1274,6 +1274,7 @@ def api_inicio_operacion_datos():
                 a.estado,
                 a.novedad,
                 a.fecha_asistencia,
+                a.hora_inicio,
                 ro.analista
             FROM asistencia a
             LEFT JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
@@ -1296,6 +1297,26 @@ def api_inicio_operacion_datos():
             print(f"DEBUG - Primer registro: {asistencia_data[0]}")
         else:
             print("DEBUG - No se obtuvieron registros")
+        
+        # Convertir hora_inicio de timedelta a string para serialización JSON
+        for registro in asistencia_data:
+            if registro.get('hora_inicio') is not None:
+                hora_inicio = registro['hora_inicio']
+                if hasattr(hora_inicio, 'total_seconds'):  # Es un timedelta
+                    # Convertir timedelta a horas y minutos
+                    total_seconds = int(hora_inicio.total_seconds())
+                    hours = total_seconds // 3600
+                    minutes = (total_seconds % 3600) // 60
+                    registro['hora_inicio'] = f"{hours:02d}:{minutes:02d}"
+                elif isinstance(hora_inicio, str):
+                    # Ya es string, mantenerlo como está
+                    pass
+                else:
+                    # Otro tipo, convertir a string vacío
+                    registro['hora_inicio'] = ""
+            else:
+                # Es None, convertir a string vacío
+                registro['hora_inicio'] = ""
         
         # Inicializar contadores
         tecnicos_con_asistencia = 0

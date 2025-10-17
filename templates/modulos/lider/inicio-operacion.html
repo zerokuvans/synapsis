@@ -382,7 +382,7 @@
                 <!-- Fila 5: Cumplimiento -->
                 <div class="row mb-4">
                     <div class="col-12 mb-3">
-                        <h5 class="text-cumplimiento"><i class="fas fa-chart-pie me-2"></i>Cumplimiento</h5>
+                        <h5 class="text-cumplimiento"><i class="fas fa-chart-pie me-2"></i>Cumplimiento Inicio de Operacion</h5>
                     </div>
                     <div class="col-lg-3 col-md-6 mb-3">
                         <div class="card metric-card card-cumplimiento">
@@ -454,6 +454,7 @@
                                     <th>Valor</th>
                                     <th>Estado</th>
                                     <th>Novedad</th>
+                                    <th>Hora Inicio</th>
                                 </tr>
                             </thead>
                             <tbody id="tablaAsistenciaBody">
@@ -620,6 +621,7 @@ function actualizarTabla(asistenciaData) {
             <td>${formatearMoneda(registro.valor || 0)}</td>
             <td><span class="badge bg-${getEstadoColor(registro.estado)}">${registro.estado || ''}</span></td>
             <td>${registro.novedad || ''}</td>
+            <td>${formatearHora(registro.hora_inicio)}</td>
         `;
         tbody.appendChild(row);
     });
@@ -632,6 +634,31 @@ function formatearMoneda(valor) {
         currency: 'COP',
         minimumFractionDigits: 0
     }).format(valor);
+}
+
+function formatearHora(hora) {
+    if (!hora) return '';
+    
+    // Si la hora viene como string en formato HH:MM:SS, extraer solo HH:MM
+    if (typeof hora === 'string') {
+        const partes = hora.split(':');
+        if (partes.length >= 2) {
+            return `${partes[0]}:${partes[1]}`;
+        }
+        return hora;
+    }
+    
+    // Si viene como objeto Date o timestamp, formatear
+    try {
+        const fecha = new Date(hora);
+        return fecha.toLocaleTimeString('es-CO', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false 
+        });
+    } catch (e) {
+        return hora.toString();
+    }
 }
 
 function getEstadoColor(estado) {
