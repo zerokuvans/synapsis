@@ -75,6 +75,19 @@
                         <div class="col-md-3 mb-4">
                             <div class="card h-100">
                                 <div class="card-body text-center">
+                                    <i class="fas fa-clock fa-3x text-danger mb-3"></i>
+                                    <h5 class="card-title">Hora Preoperacional</h5>
+                                    <p class="card-text">Configurar hora límite para inspecciones preoperacionales.</p>
+                                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalHoraPreoperacional">
+                                        <i class="fas fa-clock me-2"></i>Configurar Hora
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
                                     <i class="fas fa-boxes fa-3x text-primary mb-3"></i>
                                     <h5 class="card-title">Suministros</h5>
                                     <p class="card-text">Administrar suministros y materiales.</p>
@@ -379,5 +392,160 @@ function abrirModalNuevoUsuario() {
     // Mostrar modal
     new bootstrap.Modal(document.getElementById('userModal')).show();
 }
+</script>
+
+<!-- Modal para configuración de hora preoperacional -->
+<div class="modal fade" id="modalHoraPreoperacional" tabindex="-1" aria-labelledby="modalHoraPreoperacionalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalHoraPreoperacionalLabel">
+                    <i class="fas fa-clock me-2"></i>Configurar Hora Límite Preoperacional
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Configure la hora límite hasta la cual los técnicos pueden registrar inspecciones preoperacionales.
+                </div>
+                
+                <form id="formHoraPreoperacional">
+                    <div class="mb-3">
+                        <label for="horaLimite" class="form-label">
+                            <i class="fas fa-clock me-2"></i>Hora Límite (formato 24 horas)
+                        </label>
+                        <input type="time" class="form-control" id="horaLimite" name="horaLimite" required>
+                        <div class="form-text">
+                            Los técnicos podrán registrar inspecciones hasta esta hora (hora de Bogotá).
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-info-circle me-2"></i>Configuración Actual
+                                </h6>
+                                <p class="card-text mb-0">
+                                    Hora límite actual: <span id="horaActual" class="fw-bold text-primary">Cargando...</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="btnGuardarHora">
+                    <i class="fas fa-save me-2"></i>Guardar Configuración
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// JavaScript para gestión de hora preoperacional
+document.addEventListener('DOMContentLoaded', function() {
+    const modalHoraPreoperacional = document.getElementById('modalHoraPreoperacional');
+    const formHoraPreoperacional = document.getElementById('formHoraPreoperacional');
+    const horaLimiteInput = document.getElementById('horaLimite');
+    const horaActualSpan = document.getElementById('horaActual');
+    const btnGuardarHora = document.getElementById('btnGuardarHora');
+    
+    // Cargar hora actual cuando se abre el modal
+    modalHoraPreoperacional.addEventListener('show.bs.modal', function() {
+        cargarHoraActual();
+    });
+    
+    // Función para cargar la hora actual
+    async function cargarHoraActual() {
+        try {
+            const response = await fetch('/api/configuracion/hora-preoperacional');
+            const data = await response.json();
+            
+            if (data.success && data.data) {
+                const horaActual = data.data.hora_limite_formatted;
+                horaActualSpan.textContent = horaActual;
+                horaLimiteInput.value = horaActual;
+            } else {
+                horaActualSpan.textContent = 'Error al cargar';
+                console.error('Error al obtener hora actual:', data.error);
+            }
+        } catch (error) {
+            horaActualSpan.textContent = 'Error al cargar';
+            console.error('Error al cargar hora actual:', error);
+        }
+    }
+    
+    // Guardar nueva configuración
+    btnGuardarHora.addEventListener('click', async function() {
+        const nuevaHora = horaLimiteInput.value;
+        
+        if (!nuevaHora) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campo requerido',
+                text: 'Por favor, seleccione una hora límite.'
+            });
+            return;
+        }
+        
+        // Deshabilitar botón mientras se procesa
+        btnGuardarHora.disabled = true;
+        btnGuardarHora.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Guardando...';
+        
+        try {
+            const response = await fetch('/api/configuracion/hora-preoperacional', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    hora_limite: nuevaHora
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Configuración actualizada',
+                    text: `La hora límite se ha actualizado a ${nuevaHora}`,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+                
+                // Cerrar modal
+                bootstrap.Modal.getInstance(modalHoraPreoperacional).hide();
+                
+                // Actualizar la hora mostrada
+                horaActualSpan.textContent = nuevaHora;
+                
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error al actualizar',
+                    text: data.error || 'No se pudo actualizar la configuración'
+                });
+            }
+        } catch (error) {
+            console.error('Error al actualizar hora:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error de conexión',
+                text: 'No se pudo conectar con el servidor'
+            });
+        } finally {
+            // Rehabilitar botón
+            btnGuardarHora.disabled = false;
+            btnGuardarHora.innerHTML = '<i class="fas fa-save me-2"></i>Guardar Configuración';
+        }
+    });
+});
 </script>
 {% endblock %}
