@@ -1,0 +1,229 @@
+{% extends "header.html" %}
+{% block content %}
+<style>
+    .indicator-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        height: 100%;
+    }
+    
+    .indicator-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .indicator-card .card-body {
+        padding: 2rem;
+        text-align: center;
+        position: relative;
+    }
+    
+    .indicator-icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        opacity: 0.8;
+    }
+    
+    .indicator-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #333;
+    }
+    
+    .indicator-description {
+        font-size: 0.95rem;
+        color: #666;
+        margin-bottom: 2rem;
+        line-height: 1.5;
+    }
+    
+    .coming-soon-badge {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: #ffc107;
+        color: #333;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        z-index: 10;
+    }
+    
+    .help-section {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-top: 2rem;
+        border-left: 4px solid #007bff;
+    }
+    
+    .help-icon {
+        color: #007bff;
+        margin-right: 0.5rem;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .indicator-card .card-body {
+            padding: 1.5rem;
+        }
+        
+        .indicator-icon {
+            font-size: 3rem;
+        }
+        
+        .indicator-title {
+            font-size: 1.2rem;
+        }
+        
+        .indicator-description {
+            font-size: 0.9rem;
+        }
+    }
+</style>
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h3 class="mb-0">
+                        <i class="fas fa-cogs me-2"></i>🔧 Indicadores de Operaciones
+                    </h3>
+                </div>
+                <div class="card-body bg-light">
+                    <div class="alert alert-info mb-0" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Consulta los indicadores operacionales disponibles.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botón de regreso -->
+            <div class="mb-4">
+                <a href="/lider/indicadores" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Volver a Indicadores
+                </a>
+            </div>
+            
+            <!-- Indicadores Grid -->
+            <div class="row">
+                <!-- Inicio de Operación -->
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card indicator-card">
+                        <div class="card-body">
+                            <div class="indicator-icon text-success">
+                                <i class="fas fa-play"></i>
+                            </div>
+                            <h5 class="indicator-title">Inicio de Operación</h5>
+                            <p class="indicator-description">
+                                Análisis del inicio y puesta en marcha de operaciones.
+                            </p>
+                            <a href="/lider/indicadores/operaciones/inicio" class="btn btn-success">
+                                <i class="fas fa-chart-bar me-2"></i>Ver Indicador
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Auditorías Workforce -->
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card indicator-card">
+                        <div class="coming-soon-badge">Próximamente</div>
+                        <div class="card-body">
+                            <div class="indicator-icon text-info">
+                                <i class="fas fa-users-cog"></i>
+                            </div>
+                            <h5 class="indicator-title">Auditorías Workforce</h5>
+                            <p class="indicator-description">
+                                Seguimiento de auditorías realizadas en plataforma Workforce.
+                            </p>
+                            <button class="btn btn-info text-white" onclick="mostrarProximamente('Auditorías Workforce')">
+                                <i class="fas fa-users me-2"></i>Ver Indicador
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Auditorías Drive Interventoría -->
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card indicator-card">
+                        <div class="coming-soon-badge">Próximamente</div>
+                        <div class="card-body">
+                            <div class="indicator-icon text-primary">
+                                <i class="fas fa-folder-open"></i>
+                            </div>
+                            <h5 class="indicator-title">Auditorías Drive Interventoría</h5>
+                            <p class="indicator-description">
+                                Control de auditorías registradas en Drive de Interventoría.
+                            </p>
+                            <button class="btn btn-primary" onclick="mostrarProximamente('Auditorías Drive Interventoría')">
+                                <i class="fas fa-folder me-2"></i>Ver Indicador
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sección de Ayuda -->
+            <div class="help-section">
+                <h6>
+                    <i class="fas fa-question-circle help-icon"></i>
+                    ¿Necesitas ayuda?
+                </h6>
+                <p class="mb-0">
+                    Los indicadores de operaciones te permiten monitorear el desempeño operacional, 
+                    auditorías y procesos de control de calidad en tiempo real.
+                </p>
+            </div>
+            
+            <!-- Botón de regreso al dashboard -->
+            <div class="text-center mt-4">
+                <a href="/lider" class="btn btn-secondary">
+                    <i class="fas fa-home me-2"></i>Regresar al Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function mostrarProximamente(tipo) {
+    // Mostrar mensaje de próximamente
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: 'Próximamente',
+            text: `El indicador de ${tipo} estará disponible en una próxima actualización.`,
+            icon: 'info',
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#ffc107'
+        });
+    } else {
+        alert(`El indicador de ${tipo} estará disponible próximamente.`);
+    }
+}
+
+// Agregar efectos de hover adicionales
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.indicator-card');
+    
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    });
+});
+</script>
+
+{% endblock %}

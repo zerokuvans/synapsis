@@ -1,0 +1,686 @@
+{% extends "header.html" %}
+{% block content %}
+<style>
+    .metric-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        height: 100%;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .metric-card .card-body {
+        padding: 1.5rem;
+        text-align: center;
+        position: relative;
+    }
+    
+    .metric-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        opacity: 0.8;
+    }
+    
+    .metric-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .metric-subtitle {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 0;
+    }
+    
+    .filters-section {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        border-left: 4px solid #007bff;
+    }
+    
+    .table-container {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    .table-header {
+        background: #007bff;
+        color: white;
+        padding: 1rem;
+        margin: 0;
+    }
+    
+    .loading-spinner {
+        display: none;
+        text-align: center;
+        padding: 2rem;
+    }
+    
+    .error-message {
+        display: none;
+        background: #f8d7da;
+        color: #721c24;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+    }
+    
+    /* Colores para diferentes tipos de tarjetas */
+    .card-tecnicos { border-left: 4px solid #28a745; }
+    .card-apoyo { border-left: 4px solid #17a2b8; }
+    .card-auxiliares { border-left: 4px solid #ffc107; }
+    .card-metricas { border-left: 4px solid #6f42c1; }
+    .card-cumplimiento { border-left: 4px solid #fd7e14; }
+    
+    .text-tecnicos { color: #28a745; }
+    .text-apoyo { color: #17a2b8; }
+    .text-auxiliares { color: #ffc107; }
+    .text-metricas { color: #6f42c1; }
+    .text-cumplimiento { color: #fd7e14; }
+    
+    /* Contenedor principal centrado */
+    .main-container {
+        max-width: 1900px;
+        margin: 0 auto;
+        padding: 0 15px;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .metric-card .card-body {
+            padding: 1rem;
+        }
+        
+        .metric-icon {
+            font-size: 2rem;
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+        }
+        
+        .main-container {
+            padding: 0 10px;
+        }
+    }
+    
+    @media (max-width: 1920px) {
+        .main-container {
+            max-width: 1900px;
+        }
+    }
+</style>
+
+<div class="container-fluid mt-4" style="max-width: 1900px; margin: 0 auto;">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-play me-2"></i>Inicio de Operación
+                    </h3>
+                </div>
+                <div class="card-body bg-light">
+                    <div class="alert alert-info mb-0" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Dashboard de indicadores operacionales basados en datos de asistencia.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botón de regreso -->
+            <div class="mb-4">
+                <a href="/lider/indicadores/operaciones" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Volver a Indicadores de Operaciones
+                </a>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="filters-section">
+                <h6>
+                    <i class="fas fa-filter me-2"></i>Filtros
+                </h6>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="filtroFecha" class="form-label">Fecha</label>
+                        <input type="date" class="form-control" id="filtroFecha">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="filtroSupervisores" class="form-label">Supervisor</label>
+                        <select class="form-select" id="filtroSupervisores">
+                            <option value="">Todos los supervisores</option>
+                            <!-- Se cargan dinámicamente -->
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="filtroAnalistas" class="form-label">Analista</label>
+                        <select class="form-select" id="filtroAnalistas">
+                            <option value="">Todos los analistas</option>
+                            <!-- Se cargan dinámicamente -->
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <button type="button" class="btn btn-primary me-2" onclick="aplicarFiltros()">
+                            <i class="fas fa-search me-2"></i>Aplicar Filtros
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="limpiarFiltros()">
+                            <i class="fas fa-times me-2"></i>Limpiar
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loading y Error -->
+            <div class="loading-spinner" id="loadingSpinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Cargando datos...</p>
+            </div>
+            
+            <div class="error-message" id="errorMessage">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <span id="errorText"></span>
+            </div>
+            
+            <!-- Métricas Grid -->
+            <div id="metricsContainer">
+                <!-- Fila 1: Técnicos -->
+                <div class="row mb-4">
+                    <div class="col-12 mb-3">
+                        <h5 class="text-tecnicos"><i class="fas fa-users me-2"></i>Técnicos</h5>
+                    </div>
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card metric-card card-tecnicos">
+                            <div class="card-body">
+                                <div class="metric-icon text-tecnicos">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <h6 class="metric-title">Total Técnicos</h6>
+                                <div class="metric-value text-tecnicos" id="totalTecnicos">0</div>
+                                <p class="metric-subtitle">Personal técnico total</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card metric-card card-tecnicos">
+                            <div class="card-body">
+                                <div class="metric-icon text-success">
+                                    <i class="fas fa-user-check"></i>
+                                </div>
+                                <h6 class="metric-title">Con Asistencia</h6>
+                                <div class="metric-value text-success" id="tecnicosConAsistencia">0</div>
+                                <p class="metric-subtitle">Técnicos presentes</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card metric-card card-tecnicos">
+                            <div class="card-body">
+                                <div class="metric-icon text-danger">
+                                    <i class="fas fa-user-times"></i>
+                                </div>
+                                <h6 class="metric-title">Sin Asistencia</h6>
+                                <div class="metric-value text-danger" id="tecnicosSinAsistencia">0</div>
+                                <p class="metric-subtitle">Técnicos ausentes</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Fila 2: Apoyo Camionetas -->
+                <div class="row mb-4">
+                    <div class="col-12 mb-3">
+                        <h5 class="text-apoyo"><i class="fas fa-truck me-2"></i>Apoyo Camionetas</h5>
+                    </div>
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card metric-card card-apoyo">
+                            <div class="card-body">
+                                <div class="metric-icon text-apoyo">
+                                    <i class="fas fa-truck"></i>
+                                </div>
+                                <h6 class="metric-title">Total Apoyo</h6>
+                                <div class="metric-value text-apoyo" id="totalApoyo">0</div>
+                                <p class="metric-subtitle">Personal de apoyo total</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card metric-card card-apoyo">
+                            <div class="card-body">
+                                <div class="metric-icon text-success">
+                                    <i class="fas fa-truck-loading"></i>
+                                </div>
+                                <h6 class="metric-title">Con Asistencia</h6>
+                                <div class="metric-value text-success" id="apoyoConAsistencia">0</div>
+                                <p class="metric-subtitle">Apoyo presente</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card metric-card card-apoyo">
+                            <div class="card-body">
+                                <div class="metric-icon text-danger">
+                                    <i class="fas fa-truck-monster"></i>
+                                </div>
+                                <h6 class="metric-title">Sin Asistencia</h6>
+                                <div class="metric-value text-danger" id="apoyoSinAsistencia">0</div>
+                                <p class="metric-subtitle">Apoyo ausente</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Fila 3: Auxiliares -->
+                <div class="row mb-4">
+                    <div class="col-12 mb-3">
+                        <h5 class="text-auxiliares"><i class="fas fa-hands-helping me-2"></i>Auxiliares</h5>
+                    </div>
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card metric-card card-auxiliares">
+                            <div class="card-body">
+                                <div class="metric-icon text-auxiliares">
+                                    <i class="fas fa-hands-helping"></i>
+                                </div>
+                                <h6 class="metric-title">Total Auxiliares</h6>
+                                <div class="metric-value text-auxiliares" id="totalAuxiliares">0</div>
+                                <p class="metric-subtitle">Personal auxiliar total</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card metric-card card-auxiliares">
+                            <div class="card-body">
+                                <div class="metric-icon text-success">
+                                    <i class="fas fa-user-plus"></i>
+                                </div>
+                                <h6 class="metric-title">Con Asistencia</h6>
+                                <div class="metric-value text-success" id="auxiliaresConAsistencia">0</div>
+                                <p class="metric-subtitle">Auxiliares presentes</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card metric-card card-auxiliares">
+                            <div class="card-body">
+                                <div class="metric-icon text-danger">
+                                    <i class="fas fa-user-minus"></i>
+                                </div>
+                                <h6 class="metric-title">Sin Asistencia</h6>
+                                <div class="metric-value text-danger" id="auxiliaresSinAsistencia">0</div>
+                                <p class="metric-subtitle">Auxiliares ausentes</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Fila 4: Métricas -->
+                <div class="row mb-4">
+                    <div class="col-12 mb-3">
+                        <h5 class="text-metricas"><i class="fas fa-chart-line me-2"></i>Métricas del Día</h5>
+                    </div>
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card metric-card card-metricas">
+                            <div class="card-body">
+                                <div class="metric-icon text-metricas">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                                <h6 class="metric-title">OK's Día</h6>
+                                <div class="metric-value text-metricas" id="oksDia">0</div>
+                                <p class="metric-subtitle">Eventos completados</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card metric-card card-metricas">
+                            <div class="card-body">
+                                <div class="metric-icon text-success">
+                                    <i class="fas fa-dollar-sign"></i>
+                                </div>
+                                <h6 class="metric-title">Presupuesto Día</h6>
+                                <div class="metric-value text-success" id="presupuestoDia">$0</div>
+                                <p class="metric-subtitle">Valor del día</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card metric-card card-metricas">
+                            <div class="card-body">
+                                <div class="metric-icon text-info">
+                                    <i class="fas fa-calendar-alt"></i>
+                                </div>
+                                <h6 class="metric-title">Presupuesto Mes</h6>
+                                <div class="metric-value text-info" id="presupuestoMes">$0</div>
+                                <p class="metric-subtitle">Valor mensual (26 días)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Fila 5: Cumplimiento -->
+                <div class="row mb-4">
+                    <div class="col-12 mb-3">
+                        <h5 class="text-cumplimiento"><i class="fas fa-chart-pie me-2"></i>Cumplimiento</h5>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card metric-card card-cumplimiento">
+                            <div class="card-body">
+                                <div class="metric-icon text-success">
+                                    <i class="fas fa-thumbs-up"></i>
+                                </div>
+                                <h6 class="metric-title">Cumple</h6>
+                                <div class="metric-value text-success" id="cumple">0</div>
+                                <p class="metric-subtitle">Cumple + Novedad</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card metric-card card-cumplimiento">
+                            <div class="card-body">
+                                <div class="metric-icon text-danger">
+                                    <i class="fas fa-thumbs-down"></i>
+                                </div>
+                                <h6 class="metric-title">No Cumple</h6>
+                                <div class="metric-value text-danger" id="noCumple">0</div>
+                                <p class="metric-subtitle">No cumple + No aplica</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card metric-card card-cumplimiento">
+                            <div class="card-body">
+                                <div class="metric-icon text-cumplimiento">
+                                    <i class="fas fa-percentage"></i>
+                                </div>
+                                <h6 class="metric-title">Cumplimiento Día</h6>
+                                <div class="metric-value text-cumplimiento" id="cumplimientoDia">0%</div>
+                                <p class="metric-subtitle">Porcentaje diario</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card metric-card card-cumplimiento">
+                            <div class="card-body">
+                                <div class="metric-icon text-warning">
+                                    <i class="fas fa-calendar-check"></i>
+                                </div>
+                                <h6 class="metric-title">Cumplimiento Mes</h6>
+                                <div class="metric-value text-warning" id="cumplimientoMes">0%</div>
+                                <p class="metric-subtitle">Porcentaje mensual</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tabla de Asistencia -->
+            <div class="table-container mt-4">
+                <h5 class="table-header">
+                    <i class="fas fa-table me-2"></i>Asistencia del Día
+                </h5>
+                <div class="p-3">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="tablaAsistencia">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Cédula</th>
+                                    <th>Técnico</th>
+                                    <th>Carpeta</th>
+                                    <th>Super</th>
+                                    <th>Carpeta Día</th>
+                                    <th>OK's</th>
+                                    <th>Valor</th>
+                                    <th>Estado</th>
+                                    <th>Novedad</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaAsistenciaBody">
+                                <!-- Se carga dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botón de regreso al dashboard -->
+            <div class="text-center mt-4">
+                <a href="/lider" class="btn btn-secondary">
+                    <i class="fas fa-home me-2"></i>Regresar al Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Variables globales
+let supervisoresData = [];
+let analistasData = [];
+
+// Inicializar página
+document.addEventListener('DOMContentLoaded', function() {
+    // Establecer fecha actual por defecto
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('filtroFecha').value = today;
+    
+    // Cargar datos iniciales
+    cargarSupervisores();
+    cargarAnalistas();
+    cargarDatos();
+});
+
+// Cargar supervisores
+async function cargarSupervisores() {
+    try {
+        const response = await fetch('/api/lider/inicio-operacion/supervisores');
+        const data = await response.json();
+        
+        if (data.success) {
+            supervisoresData = data.supervisores;
+            const select = document.getElementById('filtroSupervisores');
+            // Mantener la opción "Todos los supervisores"
+            select.innerHTML = '<option value="">Todos los supervisores</option>';
+            
+            data.supervisores.forEach(supervisor => {
+                const option = document.createElement('option');
+                option.value = supervisor;
+                option.textContent = supervisor;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error cargando supervisores:', error);
+    }
+}
+
+// Cargar analistas
+async function cargarAnalistas() {
+    try {
+        const response = await fetch('/api/lider/inicio-operacion/analistas');
+        const data = await response.json();
+        
+        if (data.success) {
+            analistasData = data.analistas;
+            const select = document.getElementById('filtroAnalistas');
+            // Mantener la opción "Todos los analistas"
+            select.innerHTML = '<option value="">Todos los analistas</option>';
+            
+            data.analistas.forEach(analista => {
+                const option = document.createElement('option');
+                option.value = analista;
+                option.textContent = analista;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error cargando analistas:', error);
+    }
+}
+
+// Cargar datos del dashboard
+async function cargarDatos() {
+    mostrarLoading(true);
+    ocultarError();
+    
+    try {
+        const params = new URLSearchParams();
+        
+        // Agregar filtros
+        const fecha = document.getElementById('filtroFecha').value;
+        if (fecha) params.append('fecha', fecha);
+        
+        const supervisor = document.getElementById('filtroSupervisores').value;
+        if (supervisor) params.append('supervisores[]', supervisor);
+        
+        const analista = document.getElementById('filtroAnalistas').value;
+        if (analista) params.append('analistas[]', analista);
+        
+        const response = await fetch(`/api/lider/inicio-operacion/datos?${params}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            actualizarMetricas(result.data);
+            actualizarTabla(result.data.tabla_asistencia);
+        } else {
+            mostrarError(result.error || 'Error cargando datos');
+        }
+    } catch (error) {
+        console.error('Error cargando datos:', error);
+        mostrarError('Error de conexión al cargar datos');
+    } finally {
+        mostrarLoading(false);
+    }
+}
+
+// Actualizar métricas en las tarjetas
+function actualizarMetricas(data) {
+    // Técnicos
+    document.getElementById('totalTecnicos').textContent = data.tecnicos.total;
+    document.getElementById('tecnicosConAsistencia').textContent = data.tecnicos.con_asistencia;
+    document.getElementById('tecnicosSinAsistencia').textContent = data.tecnicos.sin_asistencia;
+    
+    // Apoyo Camionetas
+    document.getElementById('totalApoyo').textContent = data.apoyo_camionetas.total;
+    document.getElementById('apoyoConAsistencia').textContent = data.apoyo_camionetas.con_asistencia;
+    document.getElementById('apoyoSinAsistencia').textContent = data.apoyo_camionetas.sin_asistencia;
+    
+    // Auxiliares
+    document.getElementById('totalAuxiliares').textContent = data.auxiliares.total;
+    document.getElementById('auxiliaresConAsistencia').textContent = data.auxiliares.con_asistencia;
+    document.getElementById('auxiliaresSinAsistencia').textContent = data.auxiliares.sin_asistencia;
+    
+    // Métricas
+    document.getElementById('oksDia').textContent = data.metricas.oks_dia;
+    document.getElementById('presupuestoDia').textContent = formatearMoneda(data.metricas.presupuesto_dia);
+    document.getElementById('presupuestoMes').textContent = formatearMoneda(data.metricas.presupuesto_mes);
+    
+    // Cumplimiento
+    document.getElementById('cumple').textContent = data.cumplimiento.cumple;
+    document.getElementById('noCumple').textContent = data.cumplimiento.no_cumple;
+    document.getElementById('cumplimientoDia').textContent = data.cumplimiento.cumplimiento_dia + '%';
+    document.getElementById('cumplimientoMes').textContent = data.cumplimiento.cumplimiento_mes + '%';
+}
+
+// Actualizar tabla de asistencia
+function actualizarTabla(asistenciaData) {
+    const tbody = document.getElementById('tablaAsistenciaBody');
+    tbody.innerHTML = '';
+    
+    asistenciaData.forEach(registro => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${registro.cedula || ''}</td>
+            <td>${registro.tecnico || ''}</td>
+            <td>${registro.carpeta || ''}</td>
+            <td>${registro.super || ''}</td>
+            <td>${registro.nombre_tipificacion || ''}</td>
+            <td>${registro.eventos || 0}</td>
+            <td>${formatearMoneda(registro.valor || 0)}</td>
+            <td><span class="badge bg-${getEstadoColor(registro.estado)}">${registro.estado || ''}</span></td>
+            <td>${registro.novedad || ''}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Funciones de utilidad
+function formatearMoneda(valor) {
+    return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        minimumFractionDigits: 0
+    }).format(valor);
+}
+
+function getEstadoColor(estado) {
+    const estadoLower = (estado || '').toLowerCase();
+    switch (estadoLower) {
+        case 'cumple': return 'success';
+        case 'novedad': return 'warning';
+        case 'no cumple': return 'danger';
+        case 'no aplica': return 'secondary';
+        default: return 'light';
+    }
+}
+
+function mostrarLoading(show) {
+    const spinner = document.getElementById('loadingSpinner');
+    const container = document.getElementById('metricsContainer');
+    
+    if (show) {
+        spinner.style.display = 'block';
+        container.style.opacity = '0.5';
+    } else {
+        spinner.style.display = 'none';
+        container.style.opacity = '1';
+    }
+}
+
+function mostrarError(mensaje) {
+    const errorDiv = document.getElementById('errorMessage');
+    const errorText = document.getElementById('errorText');
+    
+    errorText.textContent = mensaje;
+    errorDiv.style.display = 'block';
+}
+
+function ocultarError() {
+    document.getElementById('errorMessage').style.display = 'none';
+}
+
+// Funciones de filtros
+function aplicarFiltros() {
+    cargarDatos();
+}
+
+function limpiarFiltros() {
+    document.getElementById('filtroFecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('filtroSupervisores').selectedIndex = 0; // Seleccionar "Todos los supervisores"
+    document.getElementById('filtroAnalistas').selectedIndex = 0; // Seleccionar "Todos los analistas"
+    cargarDatos();
+}
+</script>
+
+{% endblock %}

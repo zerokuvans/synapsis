@@ -312,6 +312,58 @@ def login_required_api(role=None):
         return decorated_function
     return api_decorator
 
+def login_required_lider():
+    """Decorador específico para el módulo de Líder: administradores, líderes y Sandra Cecilia (52912112)"""
+    def lider_decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                flash('Please log in to access this page.', 'warning')
+                return redirect(url_for('login'))
+            
+            user_role = session.get('user_role')
+            user_cedula = session.get('user_cedula', '')
+            
+            # Verificar permisos específicos para el módulo de Líder
+            # 1. Administradores tienen acceso completo
+            # 2. Usuarios con rol 'lider' tienen acceso
+            # 3. Sandra Cecilia Cortes Cuervo (cédula: 52912112) tiene acceso especial
+            if (user_role == 'administrativo' or 
+                user_role == 'lider' or 
+                user_cedula == '52912112'):
+                return f(*args, **kwargs)
+            else:
+                flash("No tienes permisos para acceder al módulo de Líder.", 'danger')
+                return redirect(url_for('login'))
+        
+        return decorated_function
+    return lider_decorator
+
+def login_required_lider_api():
+    """Decorador específico para APIs del módulo de Líder: administradores, líderes y Sandra Cecilia (52912112)"""
+    def lider_api_decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                return jsonify({'error': 'Autenticación requerida', 'code': 'AUTH_REQUIRED'}), 401
+            
+            user_role = session.get('user_role')
+            user_cedula = session.get('user_cedula', '')
+            
+            # Verificar permisos específicos para APIs del módulo de Líder
+            # 1. Administradores tienen acceso completo
+            # 2. Usuarios con rol 'lider' tienen acceso
+            # 3. Sandra Cecilia Cortes Cuervo (cédula: 52912112) tiene acceso especial
+            if (user_role == 'administrativo' or 
+                user_role == 'lider' or 
+                user_cedula == '52912112'):
+                return f(*args, **kwargs)
+            else:
+                return jsonify({'error': 'Permisos insuficientes para el módulo de Líder', 'code': 'INSUFFICIENT_PERMISSIONS'}), 403
+        
+        return decorated_function
+    return lider_api_decorator
+
 @app.route('/register', methods=['GET', 'POST'])
 @login_required(role='administrativo')  # Solo los administrativos pueden registrar usuarios
 def register():
@@ -957,7 +1009,7 @@ def operativo_dashboard():
             connection.close()
 
 @app.route('/lider')
-@login_required(role=['administrativo', 'lider'])
+@login_required_lider()
 def lider_dashboard():
     """
     Dashboard principal del módulo de Líder
@@ -969,7 +1021,7 @@ def lider_dashboard():
         return redirect(url_for('index'))
 
 @app.route('/lider/turnos-analistas')
-@login_required(role=['administrativo', 'lider'])
+@login_required_lider()
 def lider_turnos_analistas():
     """
     Página principal del submódulo Turnos Analistas
@@ -980,8 +1032,550 @@ def lider_turnos_analistas():
         flash(f'Error al cargar turnos de analistas: {str(e)}', 'danger')
         return redirect(url_for('lider_dashboard'))
 
+@app.route('/lider/indicadores')
+@login_required_lider()
+def lider_indicadores():
+    """
+    Página principal del submódulo Ver Indicadores
+    """
+    try:
+        return render_template('modulos/lider/indicadores.html')
+    except Exception as e:
+        flash(f'Error al cargar indicadores: {str(e)}', 'danger')
+        return redirect(url_for('lider_dashboard'))
+
+@app.route('/lider/indicadores/operaciones')
+@login_required_lider()
+def lider_indicadores_operaciones():
+    """
+    Página del submódulo Indicadores de Operaciones
+    """
+    try:
+        return render_template('modulos/lider/indicadores-operaciones.html')
+    except Exception as e:
+        flash(f'Error al cargar indicadores de operaciones: {str(e)}', 'danger')
+        return redirect(url_for('lider_indicadores'))
+
+@app.route('/lider/indicadores/operaciones/inicio')
+@login_required_lider()
+def lider_inicio_operacion():
+    """
+    Página del submódulo Inicio de Operación
+    """
+    try:
+        return render_template('modulos/lider/inicio-operacion.html')
+    except Exception as e:
+        flash(f'Error al cargar inicio de operación: {str(e)}', 'danger')
+        return redirect(url_for('lider_indicadores_operaciones'))
+
+# APIs para Inicio de Operación
+@app.route('/api/lider/inicio-operacion/supervisores', methods=['GET'])
+@login_required_lider_api()
+def api_inicio_operacion_supervisores():
+    """
+    API para obtener lista de supervisores desde tabla asistencia
+    """
+    connection = None
+    cursor = None
+    try:
+        # Conectar a la base de datos capired
+        connection = mysql.connector.connect(
+            host='localhost',
+            port=3306,
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener supervisores únicos de ambas tablas (asistencia y recurso_operativo)
+        # Limpiar datos para evitar duplicados por espacios o caracteres especiales
+        cursor.execute("""
+            SELECT DISTINCT TRIM(REPLACE(REPLACE(supervisor, '\n', ''), '\r', '')) as supervisor
+            FROM (
+                SELECT DISTINCT super as supervisor 
+                FROM asistencia 
+                WHERE super IS NOT NULL AND super != ''
+                UNION
+                SELECT DISTINCT super as supervisor 
+                FROM recurso_operativo 
+                WHERE super IS NOT NULL AND super != ''
+            ) AS combined_supervisors
+            WHERE TRIM(REPLACE(REPLACE(supervisor, '\n', ''), '\r', '')) != ''
+            ORDER BY supervisor
+        """)
+        
+        supervisores = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'supervisores': [s['supervisor'] for s in supervisores]
+        })
+        
+    except mysql.connector.Error as e:
+        print(f"ERROR DB - Supervisores: {str(e)}")
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        print(f"ERROR - Supervisores: {str(e)}")
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/lider/inicio-operacion/analistas', methods=['GET'])
+@login_required_lider_api()
+def api_inicio_operacion_analistas():
+    """
+    API para obtener lista de analistas desde tabla recurso_operativo
+    """
+    connection = None
+    cursor = None
+    try:
+        # Conectar a la base de datos capired
+        connection = mysql.connector.connect(
+            host='localhost',
+            port=3306,
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener analistas únicos de la tabla recurso_operativo
+        # Limpiar datos para evitar duplicados por espacios o caracteres especiales
+        cursor.execute("""
+            SELECT DISTINCT TRIM(REPLACE(REPLACE(analista, '\n', ''), '\r', '')) as analista
+            FROM recurso_operativo 
+            WHERE analista IS NOT NULL AND analista != ''
+            AND TRIM(REPLACE(REPLACE(analista, '\n', ''), '\r', '')) != ''
+            ORDER BY analista
+        """)
+        
+        analistas = cursor.fetchall()
+        
+        return jsonify({
+            'success': True,
+            'analistas': [a['analista'] for a in analistas]
+        })
+        
+    except mysql.connector.Error as e:
+        print(f"ERROR DB - Analistas: {str(e)}")
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        print(f"ERROR - Analistas: {str(e)}")
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/lider/inicio-operacion/datos', methods=['GET'])
+@login_required_lider_api()
+def api_inicio_operacion_datos():
+    """
+    API para obtener datos del dashboard de inicio de operación
+    """
+    connection = None
+    cursor = None
+    try:
+        # Obtener parámetros de filtro
+        fecha = request.args.get('fecha')
+        supervisores = request.args.getlist('supervisores[]')
+        analistas = request.args.getlist('analistas[]')
+        
+        # Debug: Imprimir parámetros recibidos
+        print(f"DEBUG - Parámetros recibidos:")
+        print(f"  - fecha: {fecha}")
+        print(f"  - supervisores: {supervisores}")
+        print(f"  - analistas: {analistas}")
+        
+        # Conectar a la base de datos capired
+        connection = mysql.connector.connect(
+            host='localhost',
+            port=3306,
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Construir condiciones WHERE
+        where_conditions = []
+        params = []
+        
+        if fecha:
+            where_conditions.append("DATE(fecha_asistencia) = %s")
+            params.append(fecha)
+        
+        if supervisores:
+            placeholders = ','.join(['%s'] * len(supervisores))
+            where_conditions.append(f"a.super IN ({placeholders})")
+            params.extend(supervisores)
+        
+        if analistas:
+            # Filtrar por analistas usando JOIN con recurso_operativo
+            placeholders = ','.join(['%s'] * len(analistas))
+            where_conditions.append(f"ro.analista IN ({placeholders})")
+            params.extend(analistas)
+        
+        where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+        
+        # Definir nombres de tipificación para técnicos (según especificaciones exactas del usuario)
+        tipificaciones_tecnicos = [
+            'POSTVENTA',
+            'POSTVENTA FTTH',
+            'FTTH INSTALACIONES',
+            'MANTENIMIENTO FTTH',
+            'INSTALACIONES DOBLES',
+            'ARREGLOS HFC',
+            'BROWNFIELD',
+            'INSTALACIONES DOBLES BACK'
+        ]
+        
+        # Definir nombres de tipificación para auxiliares (CON ASISTENCIA)
+        tipificaciones_auxiliares = [
+            'AUXILIAR DE MOTO',
+            'AUXILIAR CAMIONETA'
+        ]
+        
+        # Mantener las carpetas originales para validación de asignación
+        carpetas_tecnicos = [
+            'POSTVENTA',
+            'POSTVENTA FTTH',
+            'FTTH INSTALACIONES',
+            'MANTENIMIENTO FTTH',
+            'INSTALACIONES DOBLES',
+            'ARREGLOS HFC',
+            'BROWNFIELD',
+            'INSTALACIONES DOBLES BACK'
+        ]
+        
+        carpetas_auxiliares = [
+            'AUXILIAR'
+        ]
+        
+        # Query principal para obtener datos de asistencia con JOIN a tipificacion_asistencia y recurso_operativo
+        query = f"""
+            SELECT 
+                a.cedula,
+                a.tecnico,
+                a.carpeta,
+                a.super,
+                a.carpeta_dia,
+                t.nombre_tipificacion,
+                a.eventos,
+                a.valor,
+                a.estado,
+                a.novedad,
+                a.fecha_asistencia,
+                ro.analista
+            FROM asistencia a
+            LEFT JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            LEFT JOIN recurso_operativo ro ON a.cedula = ro.recurso_operativo_cedula
+            WHERE {where_clause}
+        """
+        
+        # Debug: Imprimir consulta y parámetros
+        print(f"DEBUG - Consulta SQL:")
+        print(f"  Query: {query}")
+        print(f"  Params: {params}")
+        print(f"  Where clause: {where_clause}")
+        
+        cursor.execute(query, params)
+        asistencia_data = cursor.fetchall()
+        
+        # Debug: Imprimir cantidad de registros obtenidos
+        print(f"DEBUG - Registros obtenidos: {len(asistencia_data)}")
+        if len(asistencia_data) > 0:
+            print(f"DEBUG - Primer registro: {asistencia_data[0]}")
+        else:
+            print("DEBUG - No se obtuvieron registros")
+        
+        # Inicializar contadores
+        tecnicos_con_asistencia = 0
+        tecnicos_sin_asistencia = 0
+        apoyo_con_asistencia = 0
+        apoyo_sin_asistencia = 0
+        auxiliares_con_asistencia = 0
+        auxiliares_sin_asistencia = 0
+        
+        oks_dia = 0
+        presupuesto_dia = 0
+        cumple = 0
+        no_cumple = 0
+        
+        # Procesar cada registro
+        for registro in asistencia_data:
+            carpeta_dia = registro.get('carpeta_dia', '')
+            nombre_tipificacion = registro.get('nombre_tipificacion', '')
+            carpeta = registro.get('carpeta', '')
+            eventos = registro.get('eventos', 0) or 0
+            valor = registro.get('valor', 0) or 0
+            estado = registro.get('estado', '').lower() if registro.get('estado') else ''
+            
+            # Contar OK's y presupuesto
+            oks_dia += eventos
+            presupuesto_dia += valor
+            
+            # Contar cumplimiento
+            if estado in ['cumple', 'novedad']:
+                cumple += 1
+            elif estado in ['no cumple', 'no aplica']:
+                no_cumple += 1
+            
+            # Lógica de asistencia CORREGIDA basada en nombre_tipificacion:
+            # La asistencia se determina por el nombre_tipificacion obtenido del JOIN
+            # La ausencia es cuando alguien asignado a un rol (carpeta) no tiene el nombre_tipificacion correspondiente
+            
+            # TÉCNICOS CON ASISTENCIA: carpeta en lista técnicos Y nombre_tipificacion en lista técnicos
+            if carpeta and carpeta.strip() and carpeta in carpetas_tecnicos:
+                if nombre_tipificacion and nombre_tipificacion.strip() and nombre_tipificacion in tipificaciones_tecnicos:
+                    tecnicos_con_asistencia += 1
+            
+            # APOYO CAMIONETAS CON ASISTENCIA: carpeta = 'APOYO CAMIONETAS' Y nombre_tipificacion = 'APOYO CAMIONETAS'
+            elif carpeta and carpeta.strip() and carpeta == 'APOYO CAMIONETAS':
+                if nombre_tipificacion and nombre_tipificacion.strip() and nombre_tipificacion == 'APOYO CAMIONETAS':
+                    apoyo_con_asistencia += 1
+            
+            # AUXILIARES CON ASISTENCIA: carpeta = 'AUXILIAR' Y nombre_tipificacion específico
+            if carpeta and carpeta.strip() and carpeta == 'AUXILIAR':
+                if nombre_tipificacion and nombre_tipificacion.strip() and nombre_tipificacion in tipificaciones_auxiliares:
+                    auxiliares_con_asistencia += 1
+            
+            # SIN ASISTENCIA: Personas asignadas a roles pero sin nombre_tipificacion correspondiente
+            if carpeta and carpeta.strip():
+                if carpeta in carpetas_tecnicos:
+                    # Si está asignado como técnico pero no tiene nombre_tipificacion de técnico
+                    if not (nombre_tipificacion and nombre_tipificacion.strip() and nombre_tipificacion in tipificaciones_tecnicos):
+                        tecnicos_sin_asistencia += 1
+                elif carpeta == 'APOYO CAMIONETAS':
+                    # Si está asignado como apoyo pero no tiene nombre_tipificacion de apoyo
+                    if not (nombre_tipificacion and nombre_tipificacion.strip() and nombre_tipificacion == 'APOYO CAMIONETAS'):
+                        apoyo_sin_asistencia += 1
+                elif carpeta in carpetas_auxiliares:
+                    # Si está asignado como auxiliar pero no tiene nombre_tipificacion de auxiliar
+                    if not (nombre_tipificacion and nombre_tipificacion.strip() and nombre_tipificacion in tipificaciones_auxiliares):
+                        auxiliares_sin_asistencia += 1
+        
+        # Calcular totales
+        total_tecnicos = tecnicos_con_asistencia + tecnicos_sin_asistencia
+        total_apoyo_camionetas = apoyo_con_asistencia + apoyo_sin_asistencia
+        total_auxiliares = auxiliares_con_asistencia + auxiliares_sin_asistencia
+        
+        # Calcular porcentajes de cumplimiento diario
+        total_evaluados = cumple + no_cumple
+        cumplimiento_porcentaje = (cumple / total_evaluados * 100) if total_evaluados > 0 else 0
+        
+        # Presupuesto mes - obtener del primer día del mes con datos
+        presupuesto_mes = 0
+        if fecha:
+            # Extraer año y mes de la fecha seleccionada
+            from datetime import datetime
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
+            anio = fecha_obj.year
+            mes = fecha_obj.month
+            
+            # Consulta para obtener el presupuesto del primer día del mes que tenga datos
+            query_presupuesto_mes = f"""
+                SELECT SUM(a.valor) as presupuesto_primer_dia
+                FROM asistencia a
+                LEFT JOIN recurso_operativo ro ON a.cedula = ro.recurso_operativo_cedula
+                WHERE YEAR(a.fecha_asistencia) = %s 
+                AND MONTH(a.fecha_asistencia) = %s
+                AND a.valor IS NOT NULL
+                AND a.valor > 0
+                {' AND ro.analista IN (' + ','.join(['%s'] * len(analistas)) + ')' if analistas else ''}
+                {' AND a.super IN (' + ','.join(['%s'] * len(supervisores)) + ')' if supervisores else ''}
+                AND DATE(a.fecha_asistencia) = (
+                    SELECT MIN(DATE(a2.fecha_asistencia))
+                    FROM asistencia a2
+                    LEFT JOIN recurso_operativo ro2 ON a2.cedula = ro2.recurso_operativo_cedula
+                    WHERE YEAR(a2.fecha_asistencia) = %s 
+                    AND MONTH(a2.fecha_asistencia) = %s
+                    AND a2.valor IS NOT NULL
+                    AND a2.valor > 0
+                    {' AND ro2.analista IN (' + ','.join(['%s'] * len(analistas)) + ')' if analistas else ''}
+                    {' AND a2.super IN (' + ','.join(['%s'] * len(supervisores)) + ')' if supervisores else ''}
+                )
+            """
+            
+            # Preparar parámetros para la consulta
+            params_presupuesto = [anio, mes]
+            if analistas:
+                params_presupuesto.extend(analistas)
+            if supervisores:
+                params_presupuesto.extend(supervisores)
+            params_presupuesto.extend([anio, mes])  # Para la subconsulta
+            if analistas:
+                params_presupuesto.extend(analistas)
+            if supervisores:
+                params_presupuesto.extend(supervisores)
+            
+            cursor.execute(query_presupuesto_mes, params_presupuesto)
+            resultado_presupuesto = cursor.fetchone()
+            
+            if resultado_presupuesto and resultado_presupuesto['presupuesto_primer_dia']:
+                presupuesto_mes = float(resultado_presupuesto['presupuesto_primer_dia']) * 26
+            else:
+                # Si no hay datos del mes, usar el presupuesto del día actual * 26
+                presupuesto_mes = presupuesto_dia * 26
+        else:
+            # Si no hay fecha específica, usar el presupuesto del día actual * 26
+            presupuesto_mes = presupuesto_dia * 26
+        
+        # Calcular cumplimiento mensual acumulado
+        cumplimiento_mes_porcentaje = 0
+        cumple_mes = 0
+        novedad_mes = 0
+        no_cumple_mes = 0
+        no_aplica_mes = 0
+        
+        if fecha:
+            # Extraer año y mes de la fecha seleccionada
+            from datetime import datetime
+            fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
+            anio = fecha_obj.year
+            mes = fecha_obj.month
+            
+            # Consulta para obtener datos acumulados del mes completo
+            query_mes = f"""
+                SELECT 
+                    a.estado
+                FROM asistencia a
+                LEFT JOIN recurso_operativo ro ON a.cedula = ro.recurso_operativo_cedula
+                WHERE YEAR(a.fecha_asistencia) = %s 
+                AND MONTH(a.fecha_asistencia) = %s
+                AND a.estado IS NOT NULL 
+                AND a.estado != ''
+            """
+            
+            params_mes = [anio, mes]
+            
+            # Aplicar filtros de supervisores si existen
+            if supervisores:
+                placeholders = ','.join(['%s'] * len(supervisores))
+                query_mes += f" AND a.super IN ({placeholders})"
+                params_mes.extend(supervisores)
+            
+            # Aplicar filtros de analistas si existen
+            if analistas:
+                placeholders = ','.join(['%s'] * len(analistas))
+                query_mes += f" AND ro.analista IN ({placeholders})"
+                params_mes.extend(analistas)
+            
+            cursor.execute(query_mes, params_mes)
+            registros_mes = cursor.fetchall()
+            
+            # Contar estados del mes completo
+            for registro in registros_mes:
+                estado = registro.get('estado', '').lower() if registro.get('estado') else ''
+                if estado == 'cumple':
+                    cumple_mes += 1
+                elif estado == 'novedad':
+                    novedad_mes += 1
+                elif estado == 'no cumple':
+                    no_cumple_mes += 1
+                elif estado == 'no aplica':
+                    no_aplica_mes += 1
+            
+            # Calcular cumplimiento mensual con la nueva fórmula
+            # (Cumple_mes + Novedad_mes) / (Cumple_mes + Novedad_mes + No_Cumple_mes + No_Aplica_mes) × 100
+            total_mes = cumple_mes + novedad_mes + no_cumple_mes + no_aplica_mes
+            if total_mes > 0:
+                cumplimiento_mes_porcentaje = ((cumple_mes + novedad_mes) / total_mes) * 100
+            
+            print(f"DEBUG - Cumplimiento mensual para {mes}/{anio}:")
+            print(f"  - Cumple: {cumple_mes}")
+            print(f"  - Novedad: {novedad_mes}")
+            print(f"  - No Cumple: {no_cumple_mes}")
+            print(f"  - No Aplica: {no_aplica_mes}")
+            print(f"  - Total evaluados: {total_mes}")
+            print(f"  - Porcentaje mensual: {cumplimiento_mes_porcentaje:.1f}%")
+        
+        # Log para depuración
+        print(f"DEBUG - Inicio Operación: Registros procesados: {len(asistencia_data)}")
+        print(f"DEBUG - Técnicos: Total={total_tecnicos} (Con asistencia={tecnicos_con_asistencia}, Sin asistencia={tecnicos_sin_asistencia})")
+        print(f"DEBUG - Apoyo: Total={total_apoyo_camionetas} (Con asistencia={apoyo_con_asistencia}, Sin asistencia={apoyo_sin_asistencia})")
+        print(f"DEBUG - Auxiliares: Total={total_auxiliares} (Con asistencia={auxiliares_con_asistencia}, Sin asistencia={auxiliares_sin_asistencia})")
+        print(f"DEBUG - Métricas: OKs={oks_dia}, Presupuesto día=${presupuesto_dia:,}, Presupuesto mes=${presupuesto_mes:,}")
+        print(f"DEBUG - Cumplimiento: {cumple} cumple, {no_cumple} no cumple ({cumplimiento_porcentaje:.1f}%)")
+        print(f"DEBUG - Lógica asistencia FINAL basada en nombre_tipificacion:")
+        print(f"  - TÉCNICOS con asistencia: nombre_tipificacion en {tipificaciones_tecnicos}")
+        print(f"  - TÉCNICOS sin asistencia: carpeta en técnicos PERO nombre_tipificacion NO en técnicos")
+        print(f"  - APOYO con asistencia: nombre_tipificacion = 'APOYO CAMIONETAS'")
+        print(f"  - APOYO sin asistencia: carpeta = 'APOYO CAMIONETAS' PERO nombre_tipificacion ≠ 'APOYO CAMIONETAS'")
+        print(f"  - AUXILIARES con asistencia: nombre_tipificacion en {tipificaciones_auxiliares}")
+        print(f"  - AUXILIARES sin asistencia: carpeta en auxiliares PERO nombre_tipificacion NO en auxiliares")
+        print(f"DEBUG - JOIN con tipificacion_asistencia: carpeta_dia -> codigo_tipificacion -> nombre_tipificacion")
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'tecnicos': {
+                    'total': total_tecnicos,
+                    'con_asistencia': tecnicos_con_asistencia,
+                    'sin_asistencia': tecnicos_sin_asistencia
+                },
+                'apoyo_camionetas': {
+                    'total': total_apoyo_camionetas,
+                    'con_asistencia': apoyo_con_asistencia,
+                    'sin_asistencia': apoyo_sin_asistencia
+                },
+                'auxiliares': {
+                    'total': total_auxiliares,
+                    'con_asistencia': auxiliares_con_asistencia,
+                    'sin_asistencia': auxiliares_sin_asistencia
+                },
+                'metricas': {
+                    'oks_dia': oks_dia,
+                    'presupuesto_dia': presupuesto_dia,
+                    'presupuesto_mes': presupuesto_mes
+                },
+                'cumplimiento': {
+                    'cumple': cumple,
+                    'no_cumple': no_cumple,
+                    'cumplimiento_dia': round(cumplimiento_porcentaje, 1),
+                    'cumplimiento_mes': round(cumplimiento_mes_porcentaje, 1),
+                    'cumple_mes': cumple_mes,
+                    'novedad_mes': novedad_mes,
+                    'no_cumple_mes': no_cumple_mes,
+                    'no_aplica_mes': no_aplica_mes,
+                    'total_mes': cumple_mes + novedad_mes + no_cumple_mes + no_aplica_mes
+                },
+                'tabla_asistencia': asistencia_data,
+                'debug_info': {
+                    'total_registros': len(asistencia_data),
+                    'filtros_aplicados': {
+                        'fecha': fecha,
+                        'supervisores': supervisores,
+                        'analistas': analistas
+                    }
+                }
+            }
+        })
+        
+    except mysql.connector.Error as e:
+        print(f"ERROR DB - Inicio Operación Datos: {str(e)}")
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        print(f"ERROR - Inicio Operación Datos: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
 @app.route('/api/analistas', methods=['GET'])
-@login_required_api(role=['administrativo', 'lider'])
+@login_required_lider_api()
 def api_get_analistas():
     """
     API para obtener lista de analistas activos
@@ -1027,7 +1621,7 @@ def api_get_analistas():
             connection.close()
 
 @app.route('/api/turnos', methods=['GET'])
-@login_required_api(role=['administrativo', 'lider'])
+@login_required_lider_api()
 def api_get_turnos():
     """
     API para obtener lista de turnos disponibles
@@ -1079,7 +1673,7 @@ def api_get_turnos():
             connection.close()
 
 @app.route('/api/asignar-turno', methods=['POST'])
-@login_required_api(role=['administrativo', 'lider'])
+@login_required_lider_api()
 def api_asignar_turno():
     """
     API para asignar turno a un analista
@@ -1170,7 +1764,7 @@ def api_asignar_turno():
             connection.close()
 
 @app.route('/api/asignar-turnos-semana', methods=['POST'])
-@login_required_api(role=['administrativo', 'lider'])
+@login_required_lider_api()
 def api_asignar_turnos_semana():
     """
     API para asignar turnos de una semana completa a un analista
@@ -1307,7 +1901,7 @@ def api_asignar_turnos_semana():
             connection.close()
 
 @app.route('/api/turnos-semana', methods=['GET'])
-@login_required_api(role=['administrativo', 'lider'])
+@login_required_lider_api()
 def api_get_turnos_semana():
     """
     API para obtener turnos de una semana específica
@@ -1365,7 +1959,7 @@ def api_get_turnos_semana():
             connection.close()
 
 @app.route('/api/resumen-semanal', methods=['GET'])
-@login_required_api(role=['administrativo', 'lider'])
+@login_required_lider_api()
 def api_get_resumen_semanal():
     """
     API para obtener resumen semanal de horas trabajadas por analista
@@ -1430,7 +2024,7 @@ def api_get_resumen_semanal():
             connection.close()
 
 @app.route('/api/detalles-dia', methods=['GET'])
-@login_required_api(role=['administrativo', 'lider'])
+@login_required_lider_api()
 def api_get_detalles_dia():
     """
     API para obtener detalles de turnos de un día específico
@@ -9722,7 +10316,33 @@ def api_operativo_inicio_asistencia():
             elif estado in ['nocumple', 'no cumple', 'no aplica']:
                 no_cumple_count += 1
         
-        presupuesto_mes = presupuesto_dia * 26
+        # Calcular presupuesto mensual basado en el primer día del mes con datos
+        # Obtener el primer día del mes
+        primer_dia_mes = fecha_consulta.replace(day=1)
+        
+        # Buscar el presupuesto del primer día del mes que tenga datos
+        consulta_presupuesto_mes = """
+            SELECT SUM(a.valor) as presupuesto_primer_dia
+            FROM asistencia a
+            WHERE a.super = %s 
+            AND DATE(a.fecha_asistencia) = (
+                SELECT MIN(DATE(a2.fecha_asistencia))
+                FROM asistencia a2
+                WHERE a2.super = %s 
+                AND DATE(a2.fecha_asistencia) >= %s
+                AND a2.valor > 0
+            )
+            AND a.valor > 0
+        """
+        cursor.execute(consulta_presupuesto_mes, (supervisor_actual, supervisor_actual, primer_dia_mes))
+        resultado_presupuesto = cursor.fetchone()
+        
+        if resultado_presupuesto and resultado_presupuesto['presupuesto_primer_dia']:
+            # Usar el presupuesto del primer día del mes con datos y multiplicar por 26
+            presupuesto_mes = float(resultado_presupuesto['presupuesto_primer_dia']) * 26
+        else:
+            # Fallback: usar presupuesto del día actual multiplicado por 26
+            presupuesto_mes = presupuesto_dia * 26
 
         # Calcular cumplimiento (porcentaje y fracción)
         total_cumplimiento = cumple_count + no_cumple_count
