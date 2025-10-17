@@ -17174,6 +17174,139 @@ def actualizar_permisos_rol(rol_id):
         }), 500
 
 # ============================================================================
+# APIs DE CONFIGURACIÓN DE HORA PREOPERACIONAL
+# ============================================================================
+
+@app.route('/api/configuracion/hora-preoperacional', methods=['GET'])
+def obtener_hora_preoperacional():
+    """
+    API para obtener la hora límite actual del preoperacional
+    """
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener la hora límite actual
+        cursor.execute("""
+            SELECT id_hora_preoperacional, hora_limite_preoperacional
+            FROM hora_preoperacional 
+            ORDER BY id_hora_preoperacional DESC 
+            LIMIT 1
+        """)
+        
+        resultado = cursor.fetchone()
+        
+        if resultado:
+            # Convertir time a string para JSON
+            hora_limite = str(resultado['hora_limite_preoperacional'])
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'id': resultado['id_hora_preoperacional'],
+                    'hora_limite': hora_limite,
+                    'hora_limite_formatted': hora_limite[:5]  # HH:MM format
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'No se encontró configuración de hora límite'
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al obtener hora límite: {str(e)}'
+        }), 500
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
+
+@app.route('/api/configuracion/hora-preoperacional', methods=['PUT'])
+@login_required()
+def actualizar_hora_preoperacional():
+    """
+    API para actualizar la hora límite del preoperacional (solo administradores)
+    """
+    try:
+        # Verificar que el usuario sea administrador
+        if session.get('user_role') != 'administrativo':
+            return jsonify({
+                'success': False,
+                'error': 'No tienes permisos para realizar esta acción'
+            }), 403
+        
+        data = request.get_json()
+        nueva_hora = data.get('hora_limite')
+        
+        if not nueva_hora:
+            return jsonify({
+                'success': False,
+                'error': 'La hora límite es obligatoria'
+            }), 400
+        
+        # Validar formato de hora (HH:MM)
+        import re
+        if not re.match(r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$', nueva_hora):
+            return jsonify({
+                'success': False,
+                'error': 'Formato de hora inválido. Use HH:MM'
+            }), 400
+        
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        
+        cursor = connection.cursor()
+        
+        # Actualizar la hora límite
+        cursor.execute("""
+            UPDATE hora_preoperacional 
+            SET hora_limite_preoperacional = %s
+            WHERE id_hora_preoperacional = 1
+        """, (nueva_hora + ':00',))  # Agregar segundos
+        
+        if cursor.rowcount > 0:
+            connection.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': f'Hora límite actualizada a {nueva_hora}',
+                'data': {
+                    'hora_limite': nueva_hora
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'No se pudo actualizar la hora límite'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al actualizar hora límite: {str(e)}'
+        }), 500
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
+
+
+# ============================================================================
 # APIs DEL SISTEMA DE GESTIÓN DE ESTADOS
 # ============================================================================
 
