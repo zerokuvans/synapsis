@@ -1096,6 +1096,25 @@ function mostrarTablaEdicion() {
 
 // Marcar registro como modificado
 function marcarModificado(index, campo, valor) {
+    // Validación especial para carpeta_dia: no permitir cambiar a "Seleccione..." si ya tiene un valor
+    if (campo === 'carpeta_dia') {
+        const valorOriginal = registrosEdicion[index][campo];
+        
+        // Si el registro ya tiene una carpeta_dia asignada y se intenta cambiar a vacío
+        if (valorOriginal && valorOriginal.trim() !== '' && (!valor || valor.trim() === '')) {
+            // Mostrar alerta de error
+            mostrarAlerta('No se puede cambiar la Carpeta Día a "Seleccione...". Debe seleccionar otra carpeta válida.', 'warning');
+            
+            // Restaurar el valor original en el select
+            const selectElement = document.querySelector(`#tablaEdicionAsistencias tbody tr:nth-child(${index + 1}) td:nth-child(3) select`);
+            if (selectElement) {
+                selectElement.value = valorOriginal;
+            }
+            
+            return; // No continuar con la modificación
+        }
+    }
+    
     registrosEdicion[index][campo] = valor;
     
     // Agregar a la lista de modificados si no está ya
