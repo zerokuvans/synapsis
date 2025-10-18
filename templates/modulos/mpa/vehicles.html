@@ -15,12 +15,18 @@
                         Gestiona el inventario completo de vehículos de la flota. Aquí puedes ver, crear, actualizar y eliminar vehículos.
                     </div>
                     
-                    <!-- Botón para crear nuevo vehículo -->
+                    <!-- Botón para crear nuevo vehículo y cargar Excel -->
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <h4 class="mb-0">Lista de Vehículos</h4>
-                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#vehicleModal" onclick="openCreateModal()">
-                            <i class="fas fa-plus me-2"></i>Crear Vehículo
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#vehicleModal" onclick="openCreateModal()">
+                                <i class="fas fa-plus me-2"></i>Crear Vehículo
+                            </button>
+                            <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+                            <button type="button" class="btn btn-success" onclick="document.getElementById('excelFileInput').click()">
+                                <i class="fas fa-file-upload me-2"></i>Cargar Excel
+                            </button>
+                        </div>
                     </div>
                     
                     <!-- Tabla de vehículos -->
@@ -196,6 +202,49 @@ document.addEventListener('DOMContentLoaded', function() {
     loadVehicles();
     loadTechnicians();
 });
+
+// Listener para cargar Excel
+document.addEventListener('DOMContentLoaded', function() {
+    const excelInput = document.getElementById('excelFileInput');
+    if (excelInput) {
+        excelInput.addEventListener('change', function(e) {
+            if (this.files && this.files[0]) {
+                uploadVehiclesExcel(this.files[0]);
+                // Reset input para permitir volver a seleccionar el mismo archivo
+                this.value = '';
+            }
+        });
+    }
+});
+
+// Subir y procesar Excel de vehículos
+function uploadVehiclesExcel(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    showAlert('Subiendo archivo, por favor espere...', 'info');
+
+    fetch('/api/mpa/vehiculos/import-excel', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const inserted = data.inserted || 0;
+            const updated = data.updated || 0;
+            const skipped = data.skipped || 0;
+            showAlert(`Importación completada: ${inserted} nuevos, ${updated} actualizados, ${skipped} omitidos`, 'success');
+            loadVehicles();
+        } else {
+            showAlert('Error en importación: ' + (data.error || data.message || 'Error desconocido'), 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('Error subiendo el archivo', 'danger');
+    });
+}
 
 // Cargar lista de vehículos
 function loadVehicles() {

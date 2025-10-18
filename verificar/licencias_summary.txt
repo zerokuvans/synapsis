@@ -1,0 +1,109 @@
+success=True inserted=0 updated=84 skipped=22
+Detalles de omitidos (máx 200):
+  fila=10 tecnico=21: fecha_vencimiento inválida o vacía
+  fila=17 tecnico=34: técnico no encontrado o inactivo
+  fila=31 tecnico=48: técnico no encontrado o inactivo
+  fila=32 tecnico=49: técnico no encontrado o inactivo
+  fila=34 tecnico=52: técnico no encontrado o inactivo
+  fila=37 tecnico=55: técnico no encontrado o inactivo
+  fila=38 tecnico=56: técnico no encontrado o inactivo
+  fila=42 tecnico=60: técnico no encontrado o inactivo
+  fila=44 tecnico=62: técnico no encontrado o inactivo
+  fila=47 tecnico=67: técnico no encontrado o inactivo
+  fila=55 tecnico=77: técnico no encontrado o inactivo
+  fila=63 tecnico=92: técnico no encontrado o inactivo
+  fila=64 tecnico=93: técnico no encontrado o inactivo
+  fila=70 tecnico=101: técnico no encontrado o inactivo
+  fila=79 tecnico=117: técnico no encontrado o inactivo
+  fila=80 tecnico=118: técnico no encontrado o inactivo
+  fila=83 tecnico=121: técnico no encontrado o inactivo
+  fila=90 tecnico=129: técnico no encontrado o inactivo
+  fila=92 tecnico=132: técnico no encontrado o inactivo
+  fila=93 tecnico=133: técnico no encontrado o inactivo
+  fila=94 tecnico=134: técnico no encontrado o inactivo
+  fila=95 tecnico=135: técnico no encontrado o inactivo
+Ajustes fecha_inicio (máx 200):
+  fila=1 tecnico=11: fecha_inicio vacía/0 -> NULL
+  fila=2 tecnico=13: fecha_inicio vacía/0 -> NULL
+  fila=3 tecnico=12: fecha_inicio vacía/0 -> NULL
+  fila=4 tecnico=15: fecha_inicio vacía/0 -> NULL
+  fila=5 tecnico=16: fecha_inicio vacía/0 -> NULL
+  fila=6 tecnico=17: fecha_inicio vacía/0 -> NULL
+  fila=7 tecnico=18: fecha_inicio vacía/0 -> NULL
+  fila=8 tecnico=19: fecha_inicio vacía/0 -> NULL
+  fila=9 tecnico=20: fecha_inicio vacía/0 -> NULL
+  fila=11 tecnico=22: fecha_inicio vacía/0 -> NULL
+  fila=12 tecnico=23: fecha_inicio vacía/0 -> NULL
+  fila=13 tecnico=24: fecha_inicio vacía/0 -> NULL
+  fila=14 tecnico=28: fecha_inicio vacía/0 -> NULL
+  fila=15 tecnico=29: fecha_inicio vacía/0 -> NULL
+  fila=16 tecnico=33: fecha_inicio vacía/0 -> NULL
+  fila=18 tecnico=35: fecha_inicio vacía/0 -> NULL
+  fila=19 tecnico=36: fecha_inicio vacía/0 -> NULL
+  fila=20 tecnico=37: fecha_inicio vacía/0 -> NULL
+  fila=21 tecnico=38: fecha_inicio vacía/0 -> NULL
+  fila=22 tecnico=39: fecha_inicio vacía/0 -> NULL
+  fila=23 tecnico=40: fecha_inicio vacía/0 -> NULL
+  fila=24 tecnico=41: fecha_inicio vacía/0 -> NULL
+  fila=25 tecnico=42: fecha_inicio vacía/0 -> NULL
+  fila=26 tecnico=43: fecha_inicio vacía/0 -> NULL
+  fila=27 tecnico=44: fecha_inicio vacía/0 -> NULL
+  fila=28 tecnico=45: fecha_inicio vacía/0 -> NULL
+  fila=29 tecnico=46: fecha_inicio vacía/0 -> NULL
+  fila=30 tecnico=47: fecha_inicio vacía/0 -> NULL
+  fila=33 tecnico=50: fecha_inicio vacía/0 -> NULL
+  fila=35 tecnico=53: fecha_inicio vacía/0 -> NULL
+  fila=36 tecnico=54: fecha_inicio vacía/0 -> NULL
+  fila=39 tecnico=57: fecha_inicio vacía/0 -> NULL
+  fila=40 tecnico=58: fecha_inicio vacía/0 -> NULL
+  fila=41 tecnico=59: fecha_inicio vacía/0 -> NULL
+  fila=43 tecnico=61: fecha_inicio vacía/0 -> NULL
+  fila=45 tecnico=64: fecha_inicio vacía/0 -> NULL
+  fila=46 tecnico=66: fecha_inicio vacía/0 -> NULL
+  fila=48 tecnico=69: fecha_inicio vacía/0 -> NULL
+  fila=49 tecnico=70: fecha_inicio vacía/0 -> NULL
+  fila=50 tecnico=71: fecha_inicio vacía/0 -> NULL
+  fila=51 tecnico=72: fecha_inicio vacía/0 -> NULL
+  fila=52 tecnico=73: fecha_inicio vacía/0 -> NULL
+  fila=53 tecnico=75: fecha_inicio vacía/0 -> NULL
+  fila=54 tecnico=76: fecha_inicio vacía/0 -> NULL
+  fila=56 tecnico=78: fecha_inicio vacía/0 -> NULL
+  fila=57 tecnico=80: fecha_inicio vacía/0 -> NULL
+  fila=58 tecnico=82: fecha_inicio vacía/0 -> NULL
+  fila=59 tecnico=84: fecha_inicio vacía/0 -> NULL
+  fila=60 tecnico=85: fecha_inicio vacía/0 -> NULL
+  fila=61 tecnico=86: fecha_inicio vacía/0 -> NULL
+  fila=62 tecnico=90: fecha_inicio vacía/0 -> NULL
+  fila=65 tecnico=94: fecha_inicio vacía/0 -> NULL
+  fila=66 tecnico=95: fecha_inicio vacía/0 -> NULL
+  fila=67 tecnico=96: fecha_inicio vacía/0 -> NULL
+  fila=68 tecnico=99: fecha_inicio vacía/0 -> NULL
+  fila=69 tecnico=100: fecha_inicio vacía/0 -> NULL
+  fila=71 tecnico=102: fecha_inicio vacía/0 -> NULL
+  fila=72 tecnico=104: fecha_inicio vacía/0 -> NULL
+  fila=73 tecnico=108: fecha_inicio vacía/0 -> NULL
+  fila=74 tecnico=109: fecha_inicio vacía/0 -> NULL
+  fila=75 tecnico=110: fecha_inicio vacía/0 -> NULL
+  fila=76 tecnico=113: fecha_inicio vacía/0 -> NULL
+  fila=77 tecnico=115: fecha_inicio vacía/0 -> NULL
+  fila=78 tecnico=116: fecha_inicio vacía/0 -> NULL
+  fila=81 tecnico=119: fecha_inicio vacía/0 -> NULL
+  fila=82 tecnico=120: fecha_inicio vacía/0 -> NULL
+  fila=84 tecnico=122: fecha_inicio vacía/0 -> NULL
+  fila=85 tecnico=123: fecha_inicio vacía/0 -> NULL
+  fila=86 tecnico=124: fecha_inicio vacía/0 -> NULL
+  fila=87 tecnico=126: fecha_inicio vacía/0 -> NULL
+  fila=88 tecnico=127: fecha_inicio vacía/0 -> NULL
+  fila=89 tecnico=128: fecha_inicio vacía/0 -> NULL
+  fila=91 tecnico=131: fecha_inicio vacía/0 -> NULL
+  fila=96 tecnico=136: fecha_inicio vacía/0 -> NULL
+  fila=97 tecnico=137: fecha_inicio vacía/0 -> NULL
+  fila=98 tecnico=138: fecha_inicio vacía/0 -> NULL
+  fila=99 tecnico=139: fecha_inicio vacía/0 -> NULL
+  fila=100 tecnico=140: fecha_inicio vacía/0 -> NULL
+  fila=101 tecnico=12346: fecha_inicio vacía/0 -> NULL
+  fila=102 tecnico=12347: fecha_inicio vacía/0 -> NULL
+  fila=103 tecnico=12350: fecha_inicio vacía/0 -> NULL
+  fila=104 tecnico=12355: fecha_inicio vacía/0 -> NULL
+  fila=105 tecnico=12358: fecha_inicio vacía/0 -> NULL
+  fila=106 tecnico=12359: fecha_inicio vacía/0 -> NULL
