@@ -160,6 +160,9 @@
                     </div>
                 </div>
                 
+                <!-- Contenedor para alertas de documentos -->
+                <div id="alertas_documentos" class="mb-3" style="display: none;"></div>
+                
                 <form id="preoperacionalForm" method="POST" action="/preoperacional">
                     <div class="card mb-3">
                         <div class="card-header fw-bold">Información del Centro de Trabajo</div>
@@ -167,15 +170,8 @@
                             
                             <div class="mb-3">
                                 <label for="ciudad" class="form-label fw-bold">Ciudad</label>
-                                <select class="form-select" id="ciudad" name="ciudad" required>
-                                    <option value="">Seleccione una ciudad</option>
-                                    <option value="Bogotá">Bogotá</option>
-                                    <option value="Medellín">Medellín</option>
-                                    <option value="Cali">Cali</option>
-                                    <option value="Barranquilla">Barranquilla</option>
-                                    <option value="Cartagena">Cartagena</option>
-                                    <!-- Add more cities as needed -->
-                                </select>
+                                <input type="text" class="form-control" id="ciudad" name="ciudad" placeholder="Ciudad asignada" readonly>
+                                <small class="form-text text-muted">Este campo se completa automáticamente con tu ciudad asignada</small>
                             </div>
                             <div class="mb-3">
                                 <label for="supervisor" class="form-label fw-bold">Supervisor</label>
@@ -202,12 +198,8 @@
                             </div>
                             <div class="mb-3">
                                 <label for="tipo_vehiculo" class="form-label fw-bold">Tipo de Vehículo</label>
-                                <select class="form-select" id="tipo_vehiculo" name="tipo_vehiculo" required>
-                                    <option value="">Seleccione un tipo</option>
-                                    <option value="Moto">Moto</option>
-                                    <option value="Camioneta">Camioneta</option>
-                                    <option value="Camión">Camión</option>
-                                </select>
+                                <input type="text" class="form-control" id="tipo_vehiculo" name="tipo_vehiculo" placeholder="Tipo de vehículo asignado" readonly>
+                                <small class="form-text text-muted">Este campo se completa automáticamente con el tipo de tu vehículo asignado</small>
                             </div>
                             <div class="mb-3">
                                 <label for="placa_vehiculo" class="form-label fw-bold">Placa del Vehículo</label>
@@ -219,40 +211,13 @@
                             </div>
                             <div class="mb-3">
                                 <label for="marca_vehiculo" class="form-label fw-bold">Marca del Vehículo</label>
-                                <select class="form-select" id="marca_vehiculo" name="marca_vehiculo" required>
-                                    <option value="">Seleccione una marca</option>
-                                    <option value="Honda">Honda</option>
-                                    <option value="Yamaha">Yamaha</option>
-                                    <option value="Suzuki">Suzuki</option>
-                                    <option value="Kawasaki">Kawasaki</option>
-                                    <option value="Ducati">Ducati</option>
-                                    <option value="AKT">AKT</option>
-                                    <option value="BAJAJ">BAJAJ</option>
-                                    <option value="HERO">HERO</option>
-                                    <option value="KYMCO">KYMCO</option>
-                                    <option value="TVS">TVS</option>
-                                    <option value="Fuso">Fuso</option>
-                                    <option value="Chevrolet">Chevrolet</option>
-                                    <option value="Ford">Ford</option>
-                                    <option value="Toyota">Toyota</option>
-
-
-                                    <!-- Add more brands as needed -->
-                                </select>
+                                <input type="text" class="form-control" id="marca_vehiculo" name="marca_vehiculo" readonly required>
                             </div>
    
                             <div class="mb-3">
                                 <label for="licencia_conduccion" class="form-label fw-bold">Licencia de Conducción</label>
-                                <select class="form-select" id="licencia_conduccion" name="licencia_conduccion" required>
-                                    <option value="">Seleccione una licencia</option>
-                                    <option value="A1">A1</option>
-                                    <option value="A2">A2</option>
-                                    <option value="B1">B1</option>
-                                    <option value="B2">B2</option>
-                                    <option value="C1">C1</option>
-                                    <option value="C2">C2</option>
-                                    <option value="C3">C3</option>
-                                </select>
+                                <input type="text" class="form-control" id="licencia_conduccion" name="licencia_conduccion" readonly placeholder="Se completará automáticamente" required>
+                                <small class="text-muted">Este campo se completa automáticamente con los datos de su licencia registrada</small>
                             </div>
                             <div class="mb-3">
                                 <label for="fecha_vencimiento_licencia" class="form-label fw-bold">Fecha de Vencimiento de la Licencia</label>
@@ -392,7 +357,9 @@
                             </div>
                             <div class="mb-3">
                                 <label for="kilometraje_actual" class="form-label fw-bold">Kilometraje Actual del Vehículo</label>
-                                <input type="text" class="form-control" id="kilometraje_actual" name="kilometraje_actual" required>
+                                <input type="number" class="form-control" id="kilometraje_actual" name="kilometraje_actual" required min="0">
+                                <div id="kilometraje_feedback" class="mt-2" style="display: none;"></div>
+                                <small class="form-text text-muted" id="ultimo_kilometraje_info" style="display: none;"></small>
                             </div>
                             <div class="mb-3">
                                 <label for="luces_altas_bajas" class="form-label fw-bold">Luces Altas y Bajas</label>
@@ -533,6 +500,14 @@
 // Variable global para almacenar la hora límite
 window.horaLimitePreoperacional = '10:00'; // Valor por defecto
 
+// Variables globales para el sistema preoperacional mejorado
+let datosVehiculo = null;
+let validacionKilometraje = {
+    valido: false,
+    ultimoKilometraje: 0,
+    mensaje: ''
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     const preoperacionalButton = document.getElementById('preoperacionalButton');
     const preoperacionalForm = document.getElementById('preoperacionalForm');
@@ -541,16 +516,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const tipoVehiculoSelect = document.getElementById('tipo_vehiculo');
     const seccionSeguridadMoto = document.getElementById('seccion_seguridad_moto');
     
-    // Controlar la visibilidad de la sección de seguridad para motos
-    if (tipoVehiculoSelect && seccionSeguridadMoto) {
-        // Ocultar al inicio hasta que se seleccione un tipo de vehículo
-        seccionSeguridadMoto.closest('.card').style.display = 'none';
-        
-        // Manejar cambios en el tipo de vehículo
-        tipoVehiculoSelect.addEventListener('change', function() {
-            const tipoSeleccionado = this.value;
-            
-            if (tipoSeleccionado === 'Moto') {
+    // Elementos del formulario preoperacional mejorado
+    const kilometrajeInput = document.getElementById('kilometraje_actual');
+    const kilometrajeFeedback = document.getElementById('kilometraje_feedback');
+    const ultimoKilometrajeInfo = document.getElementById('ultimo_kilometraje_info');
+    const alertasDocumentos = document.getElementById('alertas_documentos');
+    
+    // Función para controlar la visibilidad de la sección de seguridad para motos
+    function controlarSeccionMoto(tipoVehiculo) {
+        if (seccionSeguridadMoto) {
+            if (tipoVehiculo && (tipoVehiculo.toLowerCase().includes('moto') || tipoVehiculo.toLowerCase().includes('motocicleta'))) {
                 // Mostrar sección de seguridad para motos
                 seccionSeguridadMoto.closest('.card').style.display = 'block';
                 
@@ -575,7 +550,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 });
             }
-        });
+        }
+    }
+    
+    // Controlar la visibilidad de la sección de seguridad para motos
+    if (seccionSeguridadMoto) {
+        // Ocultar al inicio hasta que se carguen los datos del vehículo
+        seccionSeguridadMoto.closest('.card').style.display = 'none';
     }
     
     // Inicializar la hora límite desde la API
@@ -585,6 +566,44 @@ document.addEventListener('DOMContentLoaded', function() {
         // Actualizar cada segundo
         setInterval(actualizarRelojBogota, 1000);
     });
+    
+    // Cargar datos del vehículo al abrir el modal
+    if (preoperacionalModal) {
+        preoperacionalModal.addEventListener('shown.bs.modal', function() {
+            // Cargar datos del vehículo cuando se abre el modal
+            cargarDatosVehiculo();
+        });
+    }
+    
+    // Validación en tiempo real del kilometraje
+    if (kilometrajeInput) {
+        kilometrajeInput.addEventListener('input', function() {
+            const valor = this.value.trim();
+            
+            // Limpiar feedback anterior si el campo está vacío
+            if (!valor) {
+                if (kilometrajeFeedback) {
+                    kilometrajeFeedback.style.display = 'none';
+                }
+                if (kilometrajeInput) {
+                    kilometrajeInput.classList.remove('is-valid', 'is-invalid');
+                }
+                return;
+            }
+            
+            // Validar que sea un número válido
+            const kilometraje = parseInt(valor);
+            if (isNaN(kilometraje) || kilometraje < 0) {
+                mostrarFeedbackKilometraje(false, 'Ingrese un kilometraje válido (número positivo)');
+                return;
+            }
+            
+            // Validar contra el último kilometraje si tenemos los datos del vehículo
+            if (datosVehiculo && datosVehiculo.placa) {
+                validarKilometrajeEnTiempoReal(datosVehiculo.placa, kilometraje);
+            }
+        });
+    }
     
     // Función para obtener la fecha y hora de Bogotá de forma confiable
     function obtenerFechaHoraBogota() {
@@ -874,6 +893,249 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 });
         });
+    }
+    
+    // Función para cargar datos del vehículo desde la API
+    async function cargarDatosVehiculo() {
+        try {
+            const response = await fetch('/api/tecnicos/datos-preoperacional');
+            const data = await response.json();
+            
+            if (data.success) {
+                datosVehiculo = data.data;
+                
+                // Auto-completar campos del formulario
+                autoCompletarFormulario(datosVehiculo);
+                
+                // Mostrar alertas de documentos
+                mostrarAlertasDocumentos(data.alertas);
+                
+                // Mostrar información del último kilometraje
+                if (datosVehiculo.ultimo_kilometraje > 0) {
+                    mostrarInfoUltimoKilometraje(datosVehiculo.ultimo_kilometraje, datosVehiculo.fecha_ultimo_kilometraje);
+                }
+            } else {
+                console.error('Error al cargar datos del vehículo:', data.message);
+                mostrarAlerta('warning', 'No se pudieron cargar los datos del vehículo: ' + data.message);
+            }
+        } catch (error) {
+            console.error('Error al cargar datos del vehículo:', error);
+            mostrarAlerta('error', 'Error de conexión al cargar los datos del vehículo');
+        }
+    }
+    
+    // Función para auto-completar el formulario
+    function autoCompletarFormulario(datos) {
+        // Ciudad
+        if (datos.ciudad) {
+            const ciudadInput = document.getElementById('ciudad');
+            if (ciudadInput) {
+                ciudadInput.value = datos.ciudad;
+            }
+        }
+        
+        // Tipo de vehículo
+        if (datos.tipo_vehiculo) {
+            const tipoVehiculoInput = document.getElementById('tipo_vehiculo');
+            if (tipoVehiculoInput) {
+                tipoVehiculoInput.value = datos.tipo_vehiculo;
+                // Controlar la sección de seguridad para motos
+                controlarSeccionMoto(datos.tipo_vehiculo);
+            }
+        }
+        
+        // Placa del vehículo
+        if (datos.placa) {
+            const placaInput = document.getElementById('placa_vehiculo');
+            if (placaInput) {
+                placaInput.value = datos.placa;
+                placaInput.readOnly = true; // Hacer solo lectura
+            }
+        }
+        
+        // Modelo del vehículo
+        if (datos.modelo) {
+            const modeloInput = document.getElementById('modelo_vehiculo');
+            if (modeloInput) {
+                modeloInput.value = datos.modelo;
+                modeloInput.readOnly = true; // Hacer solo lectura
+            }
+        }
+        
+        // Marca del vehículo
+        if (datos.marca) {
+            const marcaInput = document.getElementById('marca_vehiculo');
+            if (marcaInput) {
+                marcaInput.value = datos.marca;
+                marcaInput.readOnly = true; // Hacer solo lectura
+            }
+        }
+        
+        // Licencia de conducción
+        if (datos.tipo_licencia) {
+            const licenciaInput = document.getElementById('licencia_conduccion');
+            if (licenciaInput) {
+                licenciaInput.value = datos.tipo_licencia;
+                // El campo ya es readonly por defecto
+            }
+        }
+        
+        // Fecha de vencimiento de licencia
+        if (datos.fecha_venc_licencia) {
+            const fechaLicenciaInput = document.getElementById('fecha_vencimiento_licencia');
+            if (fechaLicenciaInput) {
+                fechaLicenciaInput.value = datos.fecha_venc_licencia;
+                fechaLicenciaInput.readOnly = true; // Hacer solo lectura
+            }
+        }
+        
+        // Fecha de vencimiento SOAT
+        if (datos.fecha_venc_soat) {
+            const fechaSoatInput = document.getElementById('fecha_vencimiento_soat');
+            if (fechaSoatInput) {
+                fechaSoatInput.value = datos.fecha_venc_soat;
+                fechaSoatInput.readOnly = true; // Hacer solo lectura
+            }
+        }
+        
+        // Fecha de vencimiento técnico mecánica
+        if (datos.fecha_venc_tecnico_mecanica) {
+            const fechaTecnicoInput = document.getElementById('fecha_vencimiento_tecnomecanica');
+            if (fechaTecnicoInput) {
+                fechaTecnicoInput.value = datos.fecha_venc_tecnico_mecanica;
+                fechaTecnicoInput.readOnly = true; // Hacer solo lectura
+            }
+        }
+    }
+    
+    // Función para mostrar alertas de documentos
+    function mostrarAlertasDocumentos(alertas) {
+        if (!alertasDocumentos || !alertas || alertas.length === 0) {
+            return;
+        }
+        
+        let html = '';
+        let tieneErrores = false;
+        
+        alertas.forEach(alerta => {
+            const tipoClase = alerta.tipo === 'error' ? 'alert-danger' : 'alert-warning';
+            const icono = alerta.tipo === 'error' ? 'fas fa-exclamation-triangle' : 'fas fa-exclamation-circle';
+            
+            if (alerta.tipo === 'error') {
+                tieneErrores = true;
+            }
+            
+            html += `
+                <div class="alert ${tipoClase} mb-2">
+                    <i class="${icono} me-2"></i>
+                    ${alerta.mensaje}
+                </div>
+            `;
+        });
+        
+        alertasDocumentos.innerHTML = html;
+        alertasDocumentos.style.display = 'block';
+        
+        // Si hay errores (documentos vencidos), deshabilitar el formulario
+        if (tieneErrores) {
+            deshabilitarFormulario('No se puede registrar la inspección preoperacional con documentos vencidos');
+        }
+    }
+    
+    // Función para mostrar información del último kilometraje
+    function mostrarInfoUltimoKilometraje(ultimoKm, fechaUltimo) {
+        if (ultimoKilometrajeInfo) {
+            ultimoKilometrajeInfo.innerHTML = `Último kilometraje registrado: <strong>${ultimoKm} km</strong> ${fechaUltimo ? `(${fechaUltimo})` : ''}`;
+            ultimoKilometrajeInfo.style.display = 'block';
+        }
+    }
+    
+    // Función para validar kilometraje en tiempo real
+    async function validarKilometrajeEnTiempoReal(placa, kilometrajePropuesto) {
+        try {
+            const response = await fetch('/api/tecnicos/validar-kilometraje', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    placa: placa,
+                    kilometraje_propuesto: kilometrajePropuesto
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                validacionKilometraje = {
+                    valido: data.valido,
+                    ultimoKilometraje: data.ultimo_kilometraje,
+                    mensaje: data.mensaje
+                };
+                
+                mostrarFeedbackKilometraje(data.valido, data.mensaje);
+            } else {
+                console.error('Error en validación de kilometraje:', data.message);
+                mostrarFeedbackKilometraje(false, 'Error al validar kilometraje');
+            }
+        } catch (error) {
+            console.error('Error al validar kilometraje:', error);
+            mostrarFeedbackKilometraje(false, 'Error de conexión al validar kilometraje');
+        }
+    }
+    
+    // Función para mostrar feedback del kilometraje
+    function mostrarFeedbackKilometraje(valido, mensaje) {
+        if (!kilometrajeFeedback) return;
+        
+        const claseAlerta = valido ? 'alert-success' : 'alert-danger';
+        const icono = valido ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle';
+        
+        kilometrajeFeedback.innerHTML = `
+            <div class="alert ${claseAlerta} mb-0 py-2">
+                <i class="${icono} me-2"></i>
+                ${mensaje}
+            </div>
+        `;
+        kilometrajeFeedback.style.display = 'block';
+        
+        // Cambiar el color del borde del input
+        if (kilometrajeInput) {
+            kilometrajeInput.classList.remove('is-valid', 'is-invalid');
+            kilometrajeInput.classList.add(valido ? 'is-valid' : 'is-invalid');
+        }
+    }
+    
+    // Función para deshabilitar el formulario
+    function deshabilitarFormulario(mensaje) {
+        if (preoperacionalForm) {
+            const inputs = preoperacionalForm.querySelectorAll('input:not([readonly]), select:not([disabled]), textarea');
+            inputs.forEach(input => {
+                input.disabled = true;
+            });
+            
+            const submitButton = preoperacionalForm.querySelector('button[type="submit"]');
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = `<i class="fas fa-ban me-2"></i>${mensaje}`;
+            }
+        }
+    }
+    
+    // Función para mostrar alertas generales
+    function mostrarAlerta(tipo, mensaje) {
+        const tipoClase = tipo === 'error' ? 'alert-danger' : tipo === 'warning' ? 'alert-warning' : 'alert-info';
+        const icono = tipo === 'error' ? 'fas fa-exclamation-triangle' : 'fas fa-info-circle';
+        
+        if (alertasDocumentos) {
+            alertasDocumentos.innerHTML = `
+                <div class="alert ${tipoClase}">
+                    <i class="${icono} me-2"></i>
+                    ${mensaje}
+                </div>
+            `;
+            alertasDocumentos.style.display = 'block';
+        }
     }
 });
 </script>

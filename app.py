@@ -2012,6 +2012,649 @@ def api_delete_vehiculo(vehiculo_id):
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
+# API para importar vehículos desde Excel/CSV
+@app.route('/api/mpa/vehiculos/import-excel', methods=['POST'])
+@login_required
+def api_import_vehiculos_excel():
+    """Importa vehículos a la tabla mpa_vehiculos desde un archivo Excel o CSV"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': 'No se adjuntó archivo'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'Nombre de archivo vacío'}), 400
+        
+        # Intentar leer el archivo con pandas; si no está instalado, retornar error claro
+        try:
+            import pandas as pd
+            from io import BytesIO
+        except Exception:
+            return jsonify({'success': False, 'message': 'Dependencia faltante: pandas. Por favor instalar para lectura de Excel/CSV.'}), 500
+        
+        file_bytes = file.read()
+        buffer = BytesIO(file_bytes)
+        
+        # Detectar formato por extensión
+        ext = (file.filename.split('.')[-1] or '').lower()
+        df = None
+
+        def read_csv_auto(buf):
+            """Leer CSV detectando separador y codificación (maneja BOM y ';')."""
+            for enc in ['utf-8-sig', 'latin1', 'utf-8']:
+                buf.seek(0)
+                try:
+                    # Intento con autodetección de separador
+                    df_local = pd.read_csv(buf, sep=None, engine='python', encoding=enc)
+                    # Si vino todo en una sola columna con ';' en el encabezado, reintentar con ';'
+                    if df_local.shape[1] == 1 and ';' in str(df_local.columns[0]):
+                        buf.seek(0)
+                        df_local = pd.read_csv(buf, sep=';', encoding=enc)
+                    return df_local
+                except Exception:
+                    continue
+            raise ValueError('CSV no legible: encoding/sep')
+
+        try:
+            if ext in ['xlsx', 'xls']:
+                df = pd.read_excel(buffer)
+            else:
+                df = read_csv_auto(buffer)
+        except Exception as e:
+            return jsonify({'success': False, 'message': 'No se pudo leer el archivo. Verifique formato Excel/CSV.', 'error': str(e)}), 400
+        
+        # Normalizar encabezados y eliminar BOM
+        df.columns = [str(c).strip().lower().lstrip('\ufeff') for c in df.columns]
+        # Mapear posibles alias de columnas
+        alias = {
+            'numero_motor': 'numero_de_motor',
+            'fecha_matricula': 'fecha_de_matricula',
+            'tipo': 'tipo_vehiculo',
+            'tecnico': 'tecnico_asignado'
+        }
+        df.rename(columns=alias, inplace=True)
+        
+        # Columnas requeridas mínimas según creación de vehículo
+        required_cols = ['cedula_propietario', 'nombre_propietario', 'placa', 'tipo_vehiculo']
+        missing = [c for c in required_cols if c not in df.columns]
+        if missing:
+            return jsonify({'success': False, 'message': f'Columnas faltantes: {", ".join(missing)}'}), 400
+        
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = conn.cursor(dictionary=True)
+        
+        inserted = 0
+        updated = 0
+        skipped = 0
+        
+        for _, row in df.iterrows():
+            # Tomar valores con saneamiento básico
+            placa = (str(row.get('placa')) if row.get('placa') is not None else '').strip().upper()
+            if not placa:
+                skipped += 1
+                continue
+            
+            cedula_propietario = (str(row.get('cedula_propietario')) if row.get('cedula_propietario') is not None else '').strip()
+            nombre_propietario = (str(row.get('nombre_propietario')) if row.get('nombre_propietario') is not None else '').strip()
+            tipo_vehiculo = (str(row.get('tipo_vehiculo')) if row.get('tipo_vehiculo') is not None else '').strip()
+            vin = (str(row.get('vin')) if row.get('vin') is not None else '').strip() or None
+            numero_de_motor = (str(row.get('numero_de_motor')) if row.get('numero_de_motor') is not None else '').strip() or None
+            estado = (str(row.get('estado')) if row.get('estado') is not None else 'Activo').strip() or 'Activo'
+            marca = (str(row.get('marca')) if row.get('marca') is not None else '').strip() or None
+            linea = (str(row.get('linea')) if row.get('linea') is not None else '').strip() or None
+            color = (str(row.get('color')) if row.get('color') is not None else '').strip() or None
+            observaciones = (str(row.get('observaciones')) if row.get('observaciones') is not None else '').strip() or None
+            
+            # Numericos y fechas
+            try:
+                modelo = int(row.get('modelo')) if row.get('modelo') is not None and str(row.get('modelo')).strip() != '' else None
+            except Exception:
+                modelo = None
+            try:
+                kilometraje_actual = int(row.get('kilometraje_actual')) if row.get('kilometraje_actual') is not None else 0
+            except Exception:
+                kilometraje_actual = 0
+            
+            fecha_de_matricula = None
+            if row.get('fecha_de_matricula') is not None and str(row.get('fecha_de_matricula')).strip() != '':
+                try:
+                    fecha_de_matricula = pd.to_datetime(row.get('fecha_de_matricula')).date()
+                except Exception:
+                    fecha_de_matricula = None
+            
+            # Técnico asignado opcional
+            tecnico_asignado = None
+            if 'tecnico_asignado' in df.columns:
+                val = row.get('tecnico_asignado')
+                if val is not None and str(val).strip() != '':
+                    tecnico_asignado = str(val).strip()
+            
+            # Validación mínima
+            if not cedula_propietario or not nombre_propietario or not tipo_vehiculo:
+                skipped += 1
+                continue
+            
+            # ¿Existe por placa?
+            cursor.execute("SELECT id_mpa_vehiculos FROM mpa_vehiculos WHERE placa = %s", (placa,))
+            existing = cursor.fetchone()
+            
+            if existing:
+                # Actualización
+                cursor.execute(
+                    """
+                    UPDATE mpa_vehiculos
+                    SET cedula_propietario=%s, nombre_propietario=%s, tipo_vehiculo=%s, vin=%s,
+                        numero_de_motor=%s, fecha_de_matricula=%s, estado=%s, marca=%s, linea=%s,
+                        modelo=%s, color=%s, kilometraje_actual=%s, tecnico_asignado=%s, observaciones=%s
+                    WHERE id_mpa_vehiculos=%s
+                    """,
+                    (
+                        cedula_propietario, nombre_propietario, tipo_vehiculo, vin,
+                        numero_de_motor, fecha_de_matricula, estado, marca, linea,
+                        modelo, color, kilometraje_actual, tecnico_asignado, observaciones,
+                        existing['id_mpa_vehiculos']
+                    )
+                )
+                updated += 1
+            else:
+                # Inserción
+                cursor.execute(
+                    """
+                    INSERT INTO mpa_vehiculos (
+                        cedula_propietario, nombre_propietario, placa, tipo_vehiculo, vin,
+                        numero_de_motor, fecha_de_matricula, estado, marca, linea, modelo, color,
+                        kilometraje_actual, fecha_creacion, tecnico_asignado, observaciones
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        cedula_propietario, nombre_propietario, placa, tipo_vehiculo, vin,
+                        numero_de_motor, fecha_de_matricula, estado, marca, linea, modelo, color,
+                        kilometraje_actual, get_bogota_datetime().strftime('%Y-%m-%d %H:%M:%S'), tecnico_asignado, observaciones
+                    )
+                )
+                inserted += 1
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'inserted': inserted, 'updated': updated, 'skipped': skipped})
+    except Exception as e:
+        if 'conn' in locals() and conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        return jsonify({'success': False, 'message': 'Error procesando archivo', 'error': str(e)}), 500
+
+# API para importar Técnico Mecánica desde Excel/CSV
+@app.route('/api/mpa/tecnico_mecanica/import-excel', methods=['POST'])
+@login_required
+def api_import_tecnico_mecanica_excel():
+    """Importa registros a la tabla mpa_tecnico_mecanica desde un archivo Excel o CSV"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': 'No se adjuntó archivo'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'Nombre de archivo vacío'}), 400
+        
+        try:
+            import pandas as pd
+            from io import BytesIO
+        except Exception:
+            return jsonify({'success': False, 'message': 'Dependencia faltante: pandas. Por favor instalar para lectura de Excel/CSV.'}), 500
+        
+        def read_csv_auto(buf):
+            for enc in ['utf-8-sig', 'latin1', 'utf-8']:
+                buf.seek(0)
+                try:
+                    df_local = pd.read_csv(buf, sep=None, engine='python', encoding=enc)
+                    if df_local.shape[1] == 1 and ';' in str(df_local.columns[0]):
+                        buf.seek(0)
+                        df_local = pd.read_csv(buf, sep=';', encoding=enc)
+                    return df_local
+                except Exception:
+                    continue
+            raise ValueError('CSV no legible: encoding/sep')
+        
+        file_bytes = file.read()
+        buffer = BytesIO(file_bytes)
+        ext = (file.filename.split('.')[-1] or '').lower()
+        
+        try:
+            df = pd.read_excel(buffer) if ext in ['xlsx', 'xls'] else read_csv_auto(buffer)
+        except Exception as e:
+            return jsonify({'success': False, 'message': 'No se pudo leer el archivo. Verifique formato Excel/CSV.', 'error': str(e)}), 400
+        
+        df.columns = [str(c).strip().lower().lstrip('\ufeff') for c in df.columns]
+        alias = {
+            'fecha_inicial': 'fecha_inicio',
+            'tipo': 'tipo_vehiculo'
+        }
+        df.rename(columns=alias, inplace=True)
+        
+        required_cols = ['placa', 'fecha_inicio', 'fecha_vencimiento']
+        missing = [c for c in required_cols if c not in df.columns]
+        if missing:
+            return jsonify({'success': False, 'message': f'Columnas faltantes: {", ".join(missing)}'}), 400
+        
+        def parse_date(val):
+            try:
+                s = str(val).strip()
+                if s == '' or s.upper() in ['NA', 'N/A'] or s.startswith('0/01/1900'):
+                    return None
+                return pd.to_datetime(s, dayfirst=True, errors='coerce').date() if pd.to_datetime(s, dayfirst=True, errors='coerce') is not pd.NaT else None
+            except Exception:
+                return None
+        
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = conn.cursor(dictionary=True)
+        
+        inserted = 0
+        updated = 0
+        skipped = 0
+        
+        for _, row in df.iterrows():
+            placa = (str(row.get('placa')) if row.get('placa') is not None else '').strip().upper()
+            if not placa:
+                skipped += 1
+                continue
+            
+            fecha_inicio = parse_date(row.get('fecha_inicio'))
+            fecha_vencimiento = parse_date(row.get('fecha_vencimiento'))
+            tecnico_asignado = None
+            if 'tecnico_asignado' in df.columns:
+                val = row.get('tecnico_asignado')
+                if val is not None and str(val).strip() != '':
+                    tecnico_asignado = str(val).strip()
+            estado = (str(row.get('estado')) if row.get('estado') is not None else 'Activo').strip() or 'Activo'
+            tipo_vehiculo = None
+            if 'tipo_vehiculo' in df.columns:
+                tv = str(row.get('tipo_vehiculo')) if row.get('tipo_vehiculo') is not None else ''
+                tipo_vehiculo = tv.strip() or None
+            observaciones = (str(row.get('observaciones')) if row.get('observaciones') is not None else '').strip() or None
+            
+            # Completar técnico y tipo_vehiculo desde mpa_vehiculos si faltan
+            cursor.execute("SELECT tecnico_asignado, tipo_vehiculo FROM mpa_vehiculos WHERE placa = %s", (placa,))
+            veh = cursor.fetchone()
+            if veh:
+                if not tecnico_asignado:
+                    tecnico_asignado = veh.get('tecnico_asignado')
+                if not tipo_vehiculo:
+                    tipo_vehiculo = veh.get('tipo_vehiculo')
+            
+            # Buscar registro activo existente
+            cursor.execute("""
+                SELECT id_mpa_tecnico_mecanica FROM mpa_tecnico_mecanica
+                WHERE placa = %s AND estado = 'Activo'
+                ORDER BY fecha_vencimiento DESC LIMIT 1
+            """, (placa,))
+            existing = cursor.fetchone()
+            
+            if existing:
+                cursor.execute(
+                    """
+                    UPDATE mpa_tecnico_mecanica
+                    SET fecha_inicio=%s, fecha_vencimiento=%s, tecnico_asignado=%s,
+                        tipo_vehiculo=%s, estado=%s, observaciones=%s, fecha_actualizacion=NOW()
+                    WHERE id_mpa_tecnico_mecanica=%s
+                    """,
+                    (fecha_inicio, fecha_vencimiento, tecnico_asignado, tipo_vehiculo, estado, observaciones, existing['id_mpa_tecnico_mecanica'])
+                )
+                updated += 1
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO mpa_tecnico_mecanica (
+                        placa, fecha_inicio, fecha_vencimiento, tecnico_asignado,
+                        tipo_vehiculo, estado, observaciones, fecha_creacion
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                    """,
+                    (placa, fecha_inicio, fecha_vencimiento, tecnico_asignado, tipo_vehiculo, estado, observaciones)
+                )
+                inserted += 1
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True, 'inserted': inserted, 'updated': updated, 'skipped': skipped})
+    except Exception as e:
+        if 'conn' in locals() and conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        return jsonify({'success': False, 'message': 'Error procesando archivo', 'error': str(e)}), 500
+
+# API para importar SOAT desde Excel/CSV
+@app.route('/api/mpa/soat/import-excel', methods=['POST'])
+@login_required
+def api_import_soat_excel():
+    """Importa registros a la tabla mpa_soat desde un archivo Excel o CSV"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': 'No se adjuntó archivo'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'Nombre de archivo vacío'}), 400
+        
+        try:
+            import pandas as pd
+            from io import BytesIO
+        except Exception:
+            return jsonify({'success': False, 'message': 'Dependencia faltante: pandas. Por favor instalar para lectura de Excel/CSV.'}), 500
+        
+        def read_csv_auto(buf):
+            for enc in ['utf-8-sig', 'latin1', 'utf-8']:
+                buf.seek(0)
+                try:
+                    df_local = pd.read_csv(buf, sep=None, engine='python', encoding=enc)
+                    if df_local.shape[1] == 1 and ';' in str(df_local.columns[0]):
+                        buf.seek(0)
+                        df_local = pd.read_csv(buf, sep=';', encoding=enc)
+                    return df_local
+                except Exception:
+                    continue
+            raise ValueError('CSV no legible: encoding/sep')
+        
+        file_bytes = file.read()
+        buffer = BytesIO(file_bytes)
+        ext = (file.filename.split('.')[-1] or '').lower()
+        
+        try:
+            df = pd.read_excel(buffer) if ext in ['xlsx', 'xls'] else read_csv_auto(buffer)
+        except Exception as e:
+            return jsonify({'success': False, 'message': 'No se pudo leer el archivo. Verifique formato Excel/CSV.', 'error': str(e)}), 400
+        
+        df.columns = [str(c).strip().lower().lstrip('\ufeff') for c in df.columns]
+        
+        required_cols = ['placa', 'fecha_inicio', 'fecha_vencimiento']
+        missing = [c for c in required_cols if c not in df.columns]
+        if missing:
+            return jsonify({'success': False, 'message': f'Columnas faltantes: {", ".join(missing)}'}), 400
+        
+        def parse_date(val):
+            try:
+                s = str(val).strip()
+                if s == '' or s.upper() in ['NA', 'N/A'] or s.startswith('0/01/1900'):
+                    return None
+                return pd.to_datetime(s, dayfirst=True, errors='coerce').date() if pd.to_datetime(s, dayfirst=True, errors='coerce') is not pd.NaT else None
+            except Exception:
+                return None
+        
+        def parse_float(val):
+            try:
+                s = str(val).replace(',', '').strip()
+                return float(s) if s != '' else None
+            except Exception:
+                return None
+        
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = conn.cursor(dictionary=True)
+        
+        inserted = 0
+        updated = 0
+        skipped = 0
+        
+        for _, row in df.iterrows():
+            placa = (str(row.get('placa')) if row.get('placa') is not None else '').strip().upper()
+            if not placa:
+                skipped += 1
+                continue
+            
+            fecha_inicio = parse_date(row.get('fecha_inicio'))
+            fecha_vencimiento = parse_date(row.get('fecha_vencimiento'))
+            valor_prima = parse_float(row.get('valor_prima'))
+            tecnico_asignado = None
+            if 'tecnico_asignado' in df.columns:
+                val = row.get('tecnico_asignado')
+                if val is not None and str(val).strip() != '':
+                    tecnico_asignado = str(val).strip()
+            estado = (str(row.get('estado')) if row.get('estado') is not None else 'Activo').strip() or 'Activo'
+            numero_poliza = (str(row.get('numero_poliza')) if row.get('numero_poliza') is not None else '').strip() or None
+            aseguradora = (str(row.get('aseguradora')) if row.get('aseguradora') is not None else '').strip() or None
+            observaciones = (str(row.get('observaciones')) if row.get('observaciones') is not None else '').strip() or None
+            
+            # Completar técnico desde mpa_vehiculos si falta
+            cursor.execute("SELECT tecnico_asignado FROM mpa_vehiculos WHERE placa = %s", (placa,))
+            veh = cursor.fetchone()
+            if veh and not tecnico_asignado:
+                tecnico_asignado = veh.get('tecnico_asignado')
+            
+            # Buscar SOAT activo existente por placa
+            cursor.execute("""
+                SELECT id_mpa_soat FROM mpa_soat
+                WHERE placa = %s AND estado = 'Activo'
+                ORDER BY fecha_vencimiento DESC LIMIT 1
+            """, (placa,))
+            existing = cursor.fetchone()
+            
+            if existing:
+                cursor.execute(
+                    """
+                    UPDATE mpa_soat
+                    SET numero_poliza=%s, aseguradora=%s, fecha_inicio=%s, fecha_vencimiento=%s,
+                        valor_prima=%s, tecnico_asignado=%s, estado=%s, observaciones=%s, fecha_actualizacion=NOW()
+                    WHERE id_mpa_soat=%s
+                    """,
+                    (numero_poliza, aseguradora, fecha_inicio, fecha_vencimiento, valor_prima, tecnico_asignado, estado, observaciones, existing['id_mpa_soat'])
+                )
+                updated += 1
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO mpa_soat (
+                        placa, numero_poliza, aseguradora, fecha_inicio, fecha_vencimiento,
+                        valor_prima, tecnico_asignado, estado, observaciones, fecha_creacion
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                    """,
+                    (placa, numero_poliza, aseguradora, fecha_inicio, fecha_vencimiento, valor_prima, tecnico_asignado, estado, observaciones)
+                )
+                inserted += 1
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True, 'inserted': inserted, 'updated': updated, 'skipped': skipped})
+    except Exception as e:
+        if 'conn' in locals() and conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        return jsonify({'success': False, 'message': 'Error procesando archivo', 'error': str(e)}), 500
+
+# API para importar Licencias de Conducir desde Excel/CSV
+@app.route('/api/mpa/licencias-conducir/import-excel', methods=['POST'])
+@login_required
+def api_import_licencias_excel():
+    """Importa registros a la tabla mpa_licencia_conducir desde un archivo Excel o CSV"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': 'No se adjuntó archivo'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'Nombre de archivo vacío'}), 400
+        
+        try:
+            import pandas as pd
+            from io import BytesIO
+        except Exception:
+            return jsonify({'success': False, 'message': 'Dependencia faltante: pandas. Por favor instalar para lectura de Excel/CSV.'}), 500
+        
+        def read_csv_auto(buf):
+            for enc in ['utf-8-sig', 'latin1', 'utf-8']:
+                buf.seek(0)
+                try:
+                    df_local = pd.read_csv(buf, sep=None, engine='python', encoding=enc)
+                    if df_local.shape[1] == 1 and ';' in str(df_local.columns[0]):
+                        buf.seek(0)
+                        df_local = pd.read_csv(buf, sep=';', encoding=enc)
+                    return df_local
+                except Exception:
+                    continue
+            raise ValueError('CSV no legible: encoding/sep')
+        
+        file_bytes = file.read()
+        buffer = BytesIO(file_bytes)
+        ext = (file.filename.split('.')[-1] or '').lower()
+        
+        try:
+            df = pd.read_excel(buffer) if ext in ['xlsx', 'xls'] else read_csv_auto(buffer)
+        except Exception as e:
+            return jsonify({'success': False, 'message': 'No se pudo leer el archivo. Verifique formato Excel/CSV.', 'error': str(e)}), 400
+        
+        df.columns = [str(c).strip().lower().lstrip('\ufeff') for c in df.columns]
+        alias = {
+            'fecha_inicial': 'fecha_inicio',
+            'observaciones': 'observacion'
+        }
+        df.rename(columns=alias, inplace=True)
+        
+        required_cols = ['tecnico', 'tipo_licencia', 'fecha_inicio', 'fecha_vencimiento']
+        missing = [c for c in required_cols if c not in df.columns]
+        if missing:
+            return jsonify({'success': False, 'message': f'Columnas faltantes: {", ".join(missing)}'}), 400
+        
+        def parse_date(val):
+            try:
+                if val is None:
+                    return None
+                # Manejo de valores 0 o equivalentes
+                if isinstance(val, (int, float)):
+                    if val == 0:
+                        return None
+                s = str(val).strip()
+                if s == '' or s.upper() in ['NA', 'N/A', 'NULL', 'NONE']:
+                    return None
+                if s in ['0', '0000-00-00', '00/00/0000']:
+                    return None
+                if s.startswith('0/01/1900') or s.startswith('01/01/1900') or s.startswith('1900-01-01'):
+                    return None
+                dt = pd.to_datetime(s, dayfirst=True, errors='coerce')
+                return dt.date() if not pd.isna(dt) else None
+            except Exception:
+                return None
+        
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = conn.cursor(dictionary=True)
+        
+        inserted = 0
+        updated = 0
+        skipped = 0
+        skipped_details = []
+        ajustes_fecha_inicio = []
+        
+        # Procesar filas
+        for idx, row in df.iterrows():
+            row_num = int(idx) + 1
+            tecnico_id = (str(row.get('tecnico')) if row.get('tecnico') is not None else '').strip()
+            if not tecnico_id:
+                skipped += 1
+                skipped_details.append({'row': row_num, 'reason': 'tecnico vacío'})
+                continue
+            
+            tipo_licencia = (str(row.get('tipo_licencia')) if row.get('tipo_licencia') is not None else '').strip()
+            if not tipo_licencia:
+                skipped += 1
+                skipped_details.append({'row': row_num, 'tecnico': tecnico_id, 'reason': 'tipo_licencia vacío'})
+                continue
+            
+            fecha_inicio = parse_date(row.get('fecha_inicio'))
+            fecha_vencimiento = parse_date(row.get('fecha_vencimiento'))
+            if fecha_vencimiento is None:
+                skipped += 1
+                skipped_details.append({'row': row_num, 'tecnico': tecnico_id, 'reason': 'fecha_vencimiento inválida o vacía'})
+                continue
+            
+            estado = (str(row.get('estado')) if row.get('estado') is not None else 'Activo').strip()
+            if estado.upper() == 'ACTIVO':
+                estado = 'Activo'
+            observacion = (str(row.get('observacion')) if row.get('observacion') is not None else '').strip() or None
+            
+            # Validar técnico activo
+            cursor.execute("SELECT id_codigo_consumidor FROM recurso_operativo WHERE id_codigo_consumidor = %s AND estado = 'Activo'", (tecnico_id,))
+            if not cursor.fetchone():
+                skipped += 1
+                skipped_details.append({'row': row_num, 'tecnico': tecnico_id, 'reason': 'técnico no encontrado o inactivo'})
+                continue
+            
+            # Si fecha_inicio es inválida o vacía, permitir NULL y registrar ajuste
+            if fecha_inicio is None:
+                ajustes_fecha_inicio.append({'row': row_num, 'tecnico': tecnico_id, 'note': 'fecha_inicio vacía/0 -> NULL'})
+            
+            # Buscar licencia vigente existente para el técnico
+            cursor.execute(
+                """
+                SELECT id_mpa_licencia_conducir FROM mpa_licencia_conducir
+                WHERE tecnico = %s AND fecha_vencimiento > CURDATE()
+                ORDER BY fecha_vencimiento DESC LIMIT 1
+                """,
+                (tecnico_id,)
+            )
+            existing = cursor.fetchone()
+            
+            if existing:
+                cursor.execute(
+                    """
+                    UPDATE mpa_licencia_conducir
+                    SET tipo_licencia=%s, fecha_inicio=%s, fecha_vencimiento=%s,
+                        observacion=%s, fecha_actualizacion=NOW()
+                    WHERE id_mpa_licencia_conducir=%s
+                    """,
+                    (tipo_licencia, fecha_inicio, fecha_vencimiento, observacion, existing['id_mpa_licencia_conducir'])
+                )
+                updated += 1
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO mpa_licencia_conducir (
+                        tecnico, tipo_licencia, fecha_inicio, fecha_vencimiento, observacion, fecha_creacion
+                    ) VALUES (%s, %s, %s, %s, %s, NOW())
+                    """,
+                    (tecnico_id, tipo_licencia, fecha_inicio, fecha_vencimiento, observacion)
+                )
+                inserted += 1
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({
+            'success': True,
+            'inserted': inserted,
+            'updated': updated,
+            'skipped': skipped,
+            'skipped_details': skipped_details,
+            'ajustes_fecha_inicio': ajustes_fecha_inicio
+        })
+    except Exception as e:
+        if 'conn' in locals() and conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        return jsonify({'success': False, 'message': 'Error procesando archivo', 'error': str(e)}), 500
+
 # API para obtener lista de técnicos
 @app.route('/api/mpa/tecnicos', methods=['GET'])
 @login_required
@@ -2923,7 +3566,7 @@ def api_vencimientos_consolidados():
             s.estado
         FROM mpa_soat s
         LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor
-        WHERE s.fecha_vencimiento IS NOT NULL
+        WHERE s.fecha_vencimiento IS NOT NULL AND (ro.estado = 'Activo' OR s.tecnico_asignado IS NULL)
         ORDER BY s.fecha_vencimiento ASC
         """
         
@@ -2952,7 +3595,7 @@ def api_vencimientos_consolidados():
             tm.estado
         FROM mpa_tecnico_mecanica tm
         LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor
-        WHERE tm.fecha_vencimiento IS NOT NULL
+        WHERE tm.fecha_vencimiento IS NOT NULL AND (ro.estado = 'Activo' OR tm.tecnico_asignado IS NULL)
         ORDER BY tm.fecha_vencimiento ASC
         """
         
@@ -2979,7 +3622,7 @@ def api_vencimientos_consolidados():
             'Licencia de Conducir' as tipo
         FROM mpa_licencia_conducir lc
         LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor
-        WHERE lc.fecha_vencimiento IS NOT NULL
+        WHERE lc.fecha_vencimiento IS NOT NULL AND (ro.estado = 'Activo' OR lc.tecnico IS NULL)
         ORDER BY lc.fecha_vencimiento ASC
         """
         
@@ -3547,13 +4190,14 @@ def api_delete_tecnico_mecanica(tm_id):
 @login_required
 def api_list_licencias_conducir():
     """API para obtener todas las licencias de conducir"""
-    if not current_user.has_role('administrativo'):
-        return jsonify({'error': 'Sin permisos'}), 403
+    allowed_roles = ('administrativo', 'sstt', 'tecnicos')
+    if not any(current_user.has_role(r) for r in allowed_roles):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
     
     try:
         connection = get_db_connection()
         if connection is None:
-            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
             
         cursor = connection.cursor(dictionary=True)
         
@@ -3564,6 +4208,7 @@ def api_list_licencias_conducir():
         SELECT 
             lc.id_mpa_licencia_conducir as id,
             lc.tecnico as tecnico_id,
+            lc.tipo_licencia,
             lc.fecha_inicio as fecha_inicial,
             lc.fecha_vencimiento,
             lc.observacion as observaciones,
@@ -3581,17 +4226,42 @@ def api_list_licencias_conducir():
         
         # Formatear fechas y calcular estado
         for licencia in licencias:
-            if licencia['fecha_inicial']:
-                licencia['fecha_inicial'] = licencia['fecha_inicial'].strftime('%Y-%m-%d')
-            if licencia['fecha_vencimiento']:
-                licencia['fecha_vencimiento'] = licencia['fecha_vencimiento'].strftime('%Y-%m-%d')
-            if licencia['created_at']:
-                licencia['created_at'] = licencia['created_at'].strftime('%Y-%m-%d %H:%M:%S')
-            if licencia['updated_at']:
-                licencia['updated_at'] = licencia['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+            fi = licencia.get('fecha_inicial')
+            fv = licencia.get('fecha_vencimiento')
+            ca = licencia.get('created_at')
+            ua = licencia.get('updated_at')
+
+            # Formateo seguro de fechas si vienen como objetos de fecha
+            if isinstance(fi, (datetime, date)):
+                licencia['fecha_inicial'] = fi.strftime('%Y-%m-%d')
+            elif fi is None:
+                licencia['fecha_inicial'] = None
+
+            if isinstance(fv, (datetime, date)):
+                licencia['fecha_vencimiento'] = fv.strftime('%Y-%m-%d')
+            elif fv is None:
+                licencia['fecha_vencimiento'] = None
+
+            if isinstance(ca, (datetime, date)):
+                licencia['created_at'] = ca.strftime('%Y-%m-%d %H:%M:%S')
+            if isinstance(ua, (datetime, date)):
+                licencia['updated_at'] = ua.strftime('%Y-%m-%d %H:%M:%S')
             
-            # Calcular estado automático basado en días restantes
-            dias_restantes = licencia['dias_vencimiento']
+            # Calcular estado automático basado en días restantes, tolerando NULL
+            dias_restantes = licencia.get('dias_vencimiento')
+            if dias_restantes is None:
+                # Fallback: calcular desde fecha_vencimiento si está disponible
+                if fv:
+                    try:
+                        fv_dt = fv if isinstance(fv, (datetime, date)) else datetime.strptime(fv, '%Y-%m-%d').date()
+                        dias_restantes = (fv_dt - fecha_bogota).days
+                    except Exception:
+                        dias_restantes = 0
+                else:
+                    dias_restantes = 0
+
+            licencia['dias_vencimiento'] = dias_restantes
+
             if dias_restantes < 0:
                 licencia['estado_calculado'] = 'Vencido'
             elif dias_restantes <= 30:
@@ -3617,13 +4287,14 @@ def api_list_licencias_conducir():
 @login_required
 def api_get_licencia_conducir(licencia_id):
     """API para obtener una licencia de conducir específica"""
-    if not current_user.has_role('administrativo'):
-        return jsonify({'error': 'Sin permisos'}), 403
+    allowed_roles = ('administrativo', 'sstt', 'tecnicos')
+    if not any(current_user.has_role(r) for r in allowed_roles):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
     
     try:
         connection = get_db_connection()
         if connection is None:
-            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
             
         cursor = connection.cursor(dictionary=True)
         
@@ -3634,6 +4305,7 @@ def api_get_licencia_conducir(licencia_id):
         SELECT 
             lc.id_mpa_licencia_conducir as id,
             lc.tecnico as tecnico_id,
+            lc.tipo_licencia,
             lc.fecha_inicio as fecha_inicial,
             lc.fecha_vencimiento,
             lc.observacion as observaciones,
@@ -3653,24 +4325,47 @@ def api_get_licencia_conducir(licencia_id):
             return jsonify({'success': False, 'error': 'Licencia de conducir no encontrada'}), 404
         
         # Formatear fechas y calcular estado
-        if licencia['fecha_inicial']:
-            licencia['fecha_inicial'] = licencia['fecha_inicial'].strftime('%Y-%m-%d')
-        if licencia['fecha_vencimiento']:
-            licencia['fecha_vencimiento'] = licencia['fecha_vencimiento'].strftime('%Y-%m-%d')
-        if licencia['created_at']:
-            licencia['created_at'] = licencia['created_at'].strftime('%Y-%m-%d %H:%M:%S')
-        if licencia['updated_at']:
-            licencia['updated_at'] = licencia['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
-        
-        # Calcular estado automático basado en días restantes
-        dias_restantes = licencia['dias_vencimiento']
+        fi = licencia.get('fecha_inicial')
+        fv = licencia.get('fecha_vencimiento')
+        ca = licencia.get('created_at')
+        ua = licencia.get('updated_at')
+
+        if isinstance(fi, (datetime, date)):
+            licencia['fecha_inicial'] = fi.strftime('%Y-%m-%d')
+        elif fi is None:
+            licencia['fecha_inicial'] = None
+
+        if isinstance(fv, (datetime, date)):
+            licencia['fecha_vencimiento'] = fv.strftime('%Y-%m-%d')
+        elif fv is None:
+            licencia['fecha_vencimiento'] = None
+
+        if isinstance(ca, (datetime, date)):
+            licencia['created_at'] = ca.strftime('%Y-%m-%d %H:%M:%S')
+        if isinstance(ua, (datetime, date)):
+            licencia['updated_at'] = ua.strftime('%Y-%m-%d %H:%M:%S')
+
+        # Calcular estado automático basado en días restantes, tolerando NULL
+        dias_restantes = licencia.get('dias_vencimiento')
+        if dias_restantes is None:
+            if fv:
+                try:
+                    fv_dt = fv if isinstance(fv, (datetime, date)) else datetime.strptime(fv, '%Y-%m-%d').date()
+                    dias_restantes = (fv_dt - fecha_bogota).days
+                except Exception:
+                    dias_restantes = 0
+            else:
+                dias_restantes = 0
+
+        licencia['dias_vencimiento'] = dias_restantes
+
         if dias_restantes < 0:
             licencia['estado_calculado'] = 'Vencido'
         elif dias_restantes <= 30:
             licencia['estado_calculado'] = 'Próximo a vencer'
         else:
             licencia['estado_calculado'] = 'Vigente'
-        
+
         return jsonify({
             'success': True,
             'data': licencia
@@ -3696,7 +4391,7 @@ def api_create_licencia_conducir():
         data = request.get_json()
         
         # Validar campos requeridos
-        required_fields = ['tecnico_id', 'fecha_inicial', 'fecha_vencimiento']
+        required_fields = ['tecnico_id', 'tipo_licencia', 'fecha_inicial', 'fecha_vencimiento']
         for field in required_fields:
             if field not in data or not data[field]:
                 return jsonify({'success': False, 'error': f'Campo requerido: {field}'}), 400
@@ -3738,12 +4433,13 @@ def api_create_licencia_conducir():
         # Insertar nueva licencia de conducir
         query = """
         INSERT INTO mpa_licencia_conducir (
-            tecnico, fecha_inicio, fecha_vencimiento, observacion, fecha_creacion
-        ) VALUES (%s, %s, %s, %s, NOW())
+            tecnico, tipo_licencia, fecha_inicio, fecha_vencimiento, observacion, fecha_creacion
+        ) VALUES (%s, %s, %s, %s, %s, NOW())
         """
         
         values = (
             data['tecnico_id'],
+            data['tipo_licencia'],
             data['fecha_inicial'],
             data['fecha_vencimiento'],
             data.get('observaciones', '')
@@ -3811,6 +4507,7 @@ def api_update_licencia_conducir(licencia_id):
         
         allowed_fields = {
             'tecnico_id': 'tecnico',
+            'tipo_licencia': 'tipo_licencia',
             'fecha_inicial': 'fecha_inicio', 
             'fecha_vencimiento': 'fecha_vencimiento',
             'observaciones': 'observacion'

@@ -29,6 +29,7 @@
                             <thead class="table-dark">
                                 <tr>
                                     <th>Técnico</th>
+                                    <th>Tipo de Licencia</th>
                                     <th>Fecha Inicial</th>
                                     <th>Fecha Vencimiento</th>
                                     <th>Días Restantes</th>
@@ -73,6 +74,22 @@
                             <select class="form-select" id="tecnicoId" name="tecnicoId" required>
                                 <option value="">Seleccionar técnico</option>
                                 <!-- Los técnicos se cargarán dinámicamente -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <!-- Tipo de Licencia -->
+                        <div class="col-md-12 mb-3">
+                            <label for="tipoLicencia" class="form-label">Tipo de Licencia <span class="text-danger">*</span></label>
+                            <select class="form-select" id="tipoLicencia" name="tipoLicencia" required>
+                                <option value="">Seleccionar tipo de licencia</option>
+                                <option value="A2">A2 - Motocicletas hasta 125cc</option>
+                                <option value="B1">B1 - Automóviles hasta 3.5 toneladas</option>
+                                <option value="B2">B2 - Camionetas y buses hasta 5 toneladas</option>
+                                <option value="C1">C1 - Camiones hasta 7.5 toneladas</option>
+                                <option value="C2">C2 - Camiones hasta 32 toneladas</option>
+                                <option value="C3">C3 - Vehículos articulados</option>
                             </select>
                         </div>
                     </div>
@@ -220,6 +237,7 @@ function displayLicencias(licencias) {
         return `
             <tr>
                 <td>${licencia.tecnico_nombre || 'Sin asignar'}</td>
+                <td><span class="badge bg-primary">${licencia.tipo_licencia || 'N/A'}</span></td>
                 <td>${formatDate(licencia.fecha_inicial)}</td>
                 <td>${formatDate(licencia.fecha_vencimiento)}</td>
                 <td class="text-center">
@@ -437,6 +455,7 @@ function populateEditForm(licencia) {
     const fechaInicial = document.getElementById('fechaInicial');
     const fechaVencimiento = document.getElementById('fechaVencimiento');
     const observaciones = document.getElementById('observaciones');
+    const tipoLicencia = document.getElementById('tipoLicencia');
     
     if (modalTitle) modalTitle.textContent = 'Editar Licencia de Conducir';
     if (licenciaIdInput) licenciaIdInput.value = licencia.id || '';
@@ -447,6 +466,7 @@ function populateEditForm(licencia) {
     if (fechaInicial) fechaInicial.value = licencia.fecha_inicial || '';
     if (fechaVencimiento) fechaVencimiento.value = licencia.fecha_vencimiento || '';
     if (observaciones) observaciones.value = licencia.observaciones || '';
+    if (tipoLicencia) tipoLicencia.value = licencia.tipo_licencia || '';
     
     // Calcular días restantes
     calculateDaysRemaining();
@@ -464,6 +484,7 @@ function saveLicencia() {
     const formData = new FormData(form);
     const licenciaData = {
         tecnico_id: formData.get('tecnicoId'),
+        tipo_licencia: formData.get('tipoLicencia'),
         fecha_inicial: formData.get('fechaInicial'),
         fecha_vencimiento: formData.get('fechaVencimiento'),
         observaciones: formData.get('observaciones')
@@ -472,6 +493,11 @@ function saveLicencia() {
     // Validaciones
     if (!licenciaData.tecnico_id) {
         showAlert('Por favor selecciona un técnico', 'warning');
+        return;
+    }
+    
+    if (!licenciaData.tipo_licencia) {
+        showAlert('Por favor selecciona el tipo de licencia', 'warning');
         return;
     }
     

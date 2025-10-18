@@ -1,0 +1,540 @@
+{
+  "ajustes_fecha_inicio": [
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 1,
+      "tecnico": "11"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 2,
+      "tecnico": "13"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 3,
+      "tecnico": "12"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 4,
+      "tecnico": "15"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 5,
+      "tecnico": "16"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 6,
+      "tecnico": "17"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 7,
+      "tecnico": "18"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 8,
+      "tecnico": "19"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 9,
+      "tecnico": "20"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 11,
+      "tecnico": "22"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 12,
+      "tecnico": "23"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 13,
+      "tecnico": "24"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 14,
+      "tecnico": "28"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 15,
+      "tecnico": "29"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 16,
+      "tecnico": "33"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 18,
+      "tecnico": "35"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 19,
+      "tecnico": "36"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 20,
+      "tecnico": "37"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 21,
+      "tecnico": "38"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 22,
+      "tecnico": "39"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 23,
+      "tecnico": "40"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 24,
+      "tecnico": "41"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 25,
+      "tecnico": "42"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 26,
+      "tecnico": "43"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 27,
+      "tecnico": "44"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 28,
+      "tecnico": "45"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 29,
+      "tecnico": "46"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 30,
+      "tecnico": "47"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 33,
+      "tecnico": "50"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 35,
+      "tecnico": "53"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 36,
+      "tecnico": "54"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 39,
+      "tecnico": "57"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 40,
+      "tecnico": "58"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 41,
+      "tecnico": "59"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 43,
+      "tecnico": "61"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 45,
+      "tecnico": "64"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 46,
+      "tecnico": "66"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 48,
+      "tecnico": "69"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 49,
+      "tecnico": "70"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 50,
+      "tecnico": "71"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 51,
+      "tecnico": "72"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 52,
+      "tecnico": "73"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 53,
+      "tecnico": "75"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 54,
+      "tecnico": "76"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 56,
+      "tecnico": "78"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 57,
+      "tecnico": "80"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 58,
+      "tecnico": "82"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 59,
+      "tecnico": "84"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 60,
+      "tecnico": "85"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 61,
+      "tecnico": "86"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 62,
+      "tecnico": "90"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 65,
+      "tecnico": "94"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 66,
+      "tecnico": "95"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 67,
+      "tecnico": "96"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 68,
+      "tecnico": "99"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 69,
+      "tecnico": "100"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 71,
+      "tecnico": "102"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 72,
+      "tecnico": "104"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 73,
+      "tecnico": "108"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 74,
+      "tecnico": "109"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 75,
+      "tecnico": "110"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 76,
+      "tecnico": "113"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 77,
+      "tecnico": "115"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 78,
+      "tecnico": "116"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 81,
+      "tecnico": "119"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 82,
+      "tecnico": "120"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 84,
+      "tecnico": "122"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 85,
+      "tecnico": "123"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 86,
+      "tecnico": "124"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 87,
+      "tecnico": "126"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 88,
+      "tecnico": "127"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 89,
+      "tecnico": "128"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 91,
+      "tecnico": "131"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 96,
+      "tecnico": "136"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 97,
+      "tecnico": "137"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 98,
+      "tecnico": "138"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 99,
+      "tecnico": "139"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 100,
+      "tecnico": "140"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 101,
+      "tecnico": "12346"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 102,
+      "tecnico": "12347"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 103,
+      "tecnico": "12350"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 104,
+      "tecnico": "12355"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 105,
+      "tecnico": "12358"
+    },
+    {
+      "note": "fecha_inicio vacía/0 -> NULL",
+      "row": 106,
+      "tecnico": "12359"
+    }
+  ],
+  "inserted": 0,
+  "skipped": 22,
+  "skipped_details": [
+    {
+      "reason": "fecha_vencimiento inválida o vacía",
+      "row": 10,
+      "tecnico": "21"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 17,
+      "tecnico": "34"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 31,
+      "tecnico": "48"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 32,
+      "tecnico": "49"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 34,
+      "tecnico": "52"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 37,
+      "tecnico": "55"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 38,
+      "tecnico": "56"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 42,
+      "tecnico": "60"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 44,
+      "tecnico": "62"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 47,
+      "tecnico": "67"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 55,
+      "tecnico": "77"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 63,
+      "tecnico": "92"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 64,
+      "tecnico": "93"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 70,
+      "tecnico": "101"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 79,
+      "tecnico": "117"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 80,
+      "tecnico": "118"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 83,
+      "tecnico": "121"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 90,
+      "tecnico": "129"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 92,
+      "tecnico": "132"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 93,
+      "tecnico": "133"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 94,
+      "tecnico": "134"
+    },
+    {
+      "reason": "técnico no encontrado o inactivo",
+      "row": 95,
+      "tecnico": "135"
+    }
+  ],
+  "success": true,
+  "updated": 84
+}
