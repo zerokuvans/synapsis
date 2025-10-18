@@ -1180,6 +1180,16 @@ def validar_kilometraje():
                 'fecha_ultimo_registro': fecha_ultimo_registro.strftime('%d/%m/%Y') if fecha_ultimo_registro else '',
                 'mensaje': f'El kilometraje no puede ser menor al último registrado: {ultimo_kilometraje} km en fecha {fecha_ultimo_registro.strftime("%d/%m/%Y") if fecha_ultimo_registro else "N/A"}'
             })
+
+        # Nueva validación: límite máximo permitido
+        if kilometraje_propuesto > 1000000:
+            return jsonify({
+                'success': True,
+                'valido': False,
+                'ultimo_kilometraje': ultimo_kilometraje,
+                'fecha_ultimo_registro': fecha_ultimo_registro.strftime('%d/%m/%Y') if fecha_ultimo_registro else '',
+                'mensaje': f'El kilometraje no puede superar los 1,000,000 km. Último kilometraje registrado: {ultimo_kilometraje} km'
+            })
         
         return jsonify({
             'success': True,
@@ -3025,6 +3035,42 @@ def registrar_preoperacional():
                 'status': 'error', 
                 'message': 'El id_codigo_consumidor no existe en la tabla recurso_operativo.'
             }), 404
+
+        # Validación de kilometraje antes de insertar
+        placa_vehiculo = data.get('placa_vehiculo')
+        try:
+            kilometraje_propuesto = int(data.get('kilometraje_actual') or 0)
+        except Exception:
+            kilometraje_propuesto = 0
+
+        ultimo_kilometraje = 0
+        fecha_ultimo_registro = None
+        if placa_vehiculo:
+            cursor.execute("""
+                SELECT kilometraje_actual, fecha
+                FROM preoperacional
+                WHERE placa_vehiculo = %s
+                ORDER BY fecha DESC
+                LIMIT 1
+            """, (placa_vehiculo,))
+            ultimo_registro = cursor.fetchone()
+            if ultimo_registro:
+                ultimo_kilometraje = ultimo_registro.get('kilometraje_actual') or 0
+                fecha_ultimo_registro = ultimo_registro.get('fecha')
+
+        # Bloquear si supera 1,000,000 km
+        if kilometraje_propuesto > 1000000:
+            return jsonify({
+                'status': 'error',
+                'message': f'El kilometraje no puede superar los 1,000,000 km. Último kilometraje registrado: {ultimo_kilometraje} km'
+            }), 400
+
+        # Bloquear si es menor que el último registrado
+        if ultimo_kilometraje and kilometraje_propuesto < ultimo_kilometraje:
+            return jsonify({
+                'status': 'error',
+                'message': f'El kilometraje no puede ser menor al último registrado: {ultimo_kilometraje} km en fecha {fecha_ultimo_registro.strftime("%d/%m/%Y") if fecha_ultimo_registro else "N/A"}'
+            }), 400
 
         # Construir la consulta SQL dinámicamente
         columns = list(data.keys()) + ['id_codigo_consumidor']
