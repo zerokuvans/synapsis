@@ -42,6 +42,10 @@
                                 <!-- Se cargarán dinámicamente -->
                             </select>
                         </div>
+                        <div class="col-md-3">
+                            <label for="filtroPlaca" class="form-label">Placa</label>
+                            <input type="text" class="form-control" id="filtroPlaca" placeholder="Ej. FQQ61G" oninput="aplicarFiltros()">
+                        </div>
                         <div class="col-md-3 d-flex align-items-end">
                             <button type="button" class="btn btn-outline-secondary w-100" onclick="limpiarFiltros()">
                                 <i class="fas fa-eraser me-2"></i>Limpiar Filtros
@@ -266,13 +270,15 @@ function aplicarFiltros() {
     const filtroTipo = document.getElementById('filtroTipo')?.value || '';
     const filtroEstado = document.getElementById('filtroEstado')?.value || '';
     const filtroTecnico = document.getElementById('filtroTecnico')?.value || '';
+    const filtroPlaca = document.getElementById('filtroPlaca')?.value || '';
     
     vencimientosFiltrados = vencimientosData.filter(vencimiento => {
         const cumpleTipo = !filtroTipo || vencimiento.tipo === filtroTipo;
         const cumpleEstado = !filtroEstado || vencimiento.estado === filtroEstado;
-        const cumpleTecnico = !filtroTecnico || vencimiento.tecnico_nombre.toLowerCase().includes(filtroTecnico.toLowerCase());
+        const cumpleTecnico = !filtroTecnico || (vencimiento.tecnico_nombre || '').toLowerCase().includes(filtroTecnico.toLowerCase());
+        const cumplePlaca = !filtroPlaca || (vencimiento.placa || '').toLowerCase().includes(filtroPlaca.toLowerCase());
         
-        return cumpleTipo && cumpleEstado && cumpleTecnico;
+        return cumpleTipo && cumpleEstado && cumpleTecnico && cumplePlaca;
     });
     
     renderVencimientos();
@@ -284,6 +290,8 @@ function limpiarFiltros() {
     document.getElementById('filtroTipo').value = '';
     document.getElementById('filtroEstado').value = '';
     document.getElementById('filtroTecnico').value = '';
+    const placaInput = document.getElementById('filtroPlaca');
+    if (placaInput) placaInput.value = '';
     
     vencimientosFiltrados = [...vencimientosData];
     renderVencimientos();
@@ -338,7 +346,15 @@ function cargarTecnicosEnFiltro() {
 
 // Ver detalles del vencimiento
 function viewVencimientoDetails(tipo, id) {
-    const tipoParam = tipo.toLowerCase().replace(' ', '_').replace('é', 'e').replace('í', 'i');
+    const tipoMap = {
+        'SOAT': 'soat',
+        'Técnico Mecánica': 'tecnico_mecanica',
+        'Tecnico Mecanica': 'tecnico_mecanica',
+        'Licencia de Conducir': 'licencia_conducir'
+    };
+    const tipoParam = tipoMap[tipo] || tipo
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase().replace(/\s+/g, '_');
     
     fetch(`/api/mpa/vencimiento/${tipoParam}/${id}`)
         .then(response => {
