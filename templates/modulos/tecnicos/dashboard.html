@@ -847,7 +847,38 @@ document.addEventListener('DOMContentLoaded', function() {
                             confirmButtonText: 'Entendido'
                         });
                     } else {
-                        // Si no hay registro previo, enviar el formulario
+                        // Validación final de kilometraje antes de enviar
+                        const valorKm = (document.getElementById('kilometraje_actual')?.value || '').trim();
+                        const kmNumero = parseInt(valorKm);
+                        if (!valorKm || isNaN(kmNumero) || kmNumero < 0) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Kilometraje inválido',
+                                text: 'Ingrese un kilometraje válido (número positivo).',
+                                confirmButtonText: 'Entendido'
+                            });
+                            return;
+                        }
+                        if (kmNumero > 1000000) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Límite excedido',
+                                text: 'El kilometraje no puede superar los 1,000,000 km.',
+                                confirmButtonText: 'Entendido'
+                            });
+                            return;
+                        }
+                        if (validacionKilometraje && validacionKilometraje.valido === false) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Kilometraje no válido',
+                                text: validacionKilometraje.mensaje || 'El kilometraje propuesto no es válido.',
+                                confirmButtonText: 'Entendido'
+                            });
+                            return;
+                        }
+
+                        // Si no hay registro previo y kilometraje es válido, enviar el formulario
                         const formData = new FormData(preoperacionalForm);
                         formData.append('id_codigo_consumidor', '{{ session.user_id }}');
                         
