@@ -1,0 +1,24 @@
+Tabla: devolucion_detalles
+Generado: 2025-10-19T11:56:51.469471
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- devolucion_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- elemento (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- talla (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cantidad (int) NULLABLE=NO DEFAULT=1 KEY= EXTRA=
+- estado_elemento (enum) NULLABLE=NO DEFAULT=USADO_BUENO KEY= EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- created_at (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- updated_at (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+
+Muestra de datos (LIMIT 1):
+id: 1
+devolucion_id: 3
+elemento: CAMISA
+talla: XS
+cantidad: 1
+estado_elemento: USADO_BUENO
+observaciones: None
+created_at: 2025-09-10 15:35:37
+updated_at: 2025-09-10 15:35:37

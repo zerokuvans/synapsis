@@ -966,6 +966,572 @@ def tecnicos_asignaciones_ferretero():
         if connection and connection.is_connected():
             connection.close()
 
+@app.route('/tecnicos/ordenes_trabajo')
+@login_required(role='tecnicos')
+def tecnicos_ordenes_trabajo():
+    try:
+        return render_template('modulos/tecnicos/ordenes_trabajo.html')
+    except Exception as e:
+        flash(f'Error al cargar Órdenes de Trabajo: {str(e)}', 'danger')
+        return render_template('modulos/tecnicos/ordenes_trabajo.html')
+
+@app.route('/tecnicos/ordenes_trabajo_preview')
+@login_required(role='tecnicos')
+def tecnicos_ordenes_trabajo_preview():
+    try:
+        return render_template('modulos/tecnicos/ordenes_trabajo.html')
+    except Exception as e:
+        flash(f'Error al cargar Órdenes de Trabajo (preview): {str(e)}', 'danger')
+        return render_template('modulos/tecnicos/ordenes_trabajo.html')
+
+# ==================== APIs ÓRDENES DE TRABAJO - TÉCNICOS ====================
+
+# Listar órdenes del técnico logueado
+@app.route('/tecnicos/ordenes', methods=['GET'])
+@app.route('/api/tecnicos/ordenes', methods=['GET'])
+@login_required_api(role='tecnicos')
+def api_tecnicos_list_ordenes():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+
+        user_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Usuario no autenticado'}), 401
+
+        # Obtener órdenes desde tabla principal
+        cursor.execute(
+            """
+            SELECT 
+                ot,
+                MIN(cuenta) AS cuenta,
+                MIN(servicio) AS servicio,
+                MIN(tecnologia) AS tecnologia,
+                MIN(agrupacion) AS categoria,
+                SUM(COALESCE(valor, 0) * COALESCE(cantidad, 1)) AS total_valor,
+                MIN(fecha_creacion) AS fecha_creacion,
+                MAX(fecha_creacion) AS fecha_actualizacion
+            FROM gestion_ot_tecnicos
+            WHERE id_codigo_consumidor = %s
+            GROUP BY ot
+            ORDER BY fecha_actualizacion DESC
+            """,
+            (user_id,)
+        )
+        rows = cursor.fetchall()
+
+        # Obtener cantidad de códigos por OT desde historial
+        ots = [row['ot'] for row in rows if row.get('ot') is not None]
+        codigos_por_ot = {}
+        if ots:
+            format_strings = ','.join(['%s'] * len(ots))
+            cursor.execute(
+                f"""
+                SELECT ot, COUNT(*) as cantidad_codigos
+                FROM gestion_ot_tecnicos_historial
+                WHERE ot IN ({format_strings})
+                GROUP BY ot
+                """,
+                ots
+            )
+            codigos_por_ot = {row['ot']: row['cantidad_codigos'] for row in cursor.fetchall()}
+
+        ordenes = []
+        for r in rows:
+            ordenes.append({
+                'id': r.get('id'),
+                'ot': r.get('ot'),
+                'cuenta': r.get('cuenta'),
+                'servicio': r.get('servicio'),
+                'tecnologia': r.get('tecnologia'),
+                'categoria': r.get('categoria'),
+                'tecnico_nombre': r.get('tecnico_nombre'),
+                'total_valor': float(r.get('total_valor', 0)),
+                'cantidad_codigos': codigos_por_ot.get(r.get('ot'), 0),
+                'fecha_creacion': r.get('fecha_creacion').strftime('%Y-%m-%d %H:%M:%S') if r.get('fecha_creacion') else None,
+                'fecha_actualizacion': r.get('fecha_actualizacion').strftime('%Y-%m-%d %H:%M:%S') if r.get('fecha_actualizacion') else None
+            })
+
+        return jsonify({'success': True, 'ordenes': ordenes})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        try:
+            if cursor:
+                cursor.close()
+            if connection and connection.is_connected():
+                connection.close()
+        except:
+            pass
+
+# Ver detalle de una orden por OT desde tabla historial
+@app.route('/tecnicos/ordenes/detalle/<ot>', methods=['GET'])
+@app.route('/api/tecnicos/ordenes/detalle/<ot>', methods=['GET'])
+@login_required_api(role='tecnicos')
+def api_tecnicos_get_orden_detalle(ot):
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+
+        user_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Usuario no autenticado'}), 401
+
+        # Obtener información general de la OT desde tabla principal
+        cursor.execute(
+            """
+            SELECT 
+                MIN(id_gestion_ot_tecnicos) AS id,
+                ot,
+                MIN(cuenta) AS cuenta,
+                MIN(servicio) AS servicio,
+                MIN(tecnologia) AS tecnologia,
+                MIN(agrupacion) AS categoria,
+                SUM(COALESCE(valor, 0) * COALESCE(cantidad, 1)) AS total_valor,
+                MIN(fecha_creacion) AS fecha_creacion,
+                MAX(fecha_creacion) AS fecha_actualizacion
+            FROM gestion_ot_tecnicos
+            WHERE ot = %s AND id_codigo_consumidor = %s
+            GROUP BY ot
+            """,
+            (ot, user_id)
+        )
+        ot_info = cursor.fetchone()
+        if not ot_info:
+            return jsonify({'success': False, 'error': 'OT no encontrada'}), 404
+
+        # Obtener todos los códigos de la OT desde tabla historial
+        cursor.execute(
+            """
+            SELECT 
+                id_gestion_ot_tecnicos_historial AS id,
+                codigo,
+                nombre,
+                descripcion,
+                cantidad,
+                valor AS valor_unitario,
+                (COALESCE(valor, 0) * COALESCE(cantidad, 1)) AS valor_total,
+                fecha_creacion
+            FROM gestion_ot_tecnicos_historial
+            WHERE ot = %s AND id_codigo_consumidor = %s
+            ORDER BY fecha_creacion ASC
+            """,
+            (ot, user_id)
+        )
+        codigos = cursor.fetchall()
+
+        # Obtener nombre del técnico desde recurso_operativo
+        cursor.execute(
+            """
+            SELECT nombre FROM recurso_operativo 
+            WHERE id_codigo_consumidor = %s
+            """,
+            (user_id,)
+        )
+        tecnico_res = cursor.fetchone()
+        tecnico_nombre = (tecnico_res.get('nombre') if isinstance(tecnico_res, dict) else (tecnico_res[0] if tecnico_res else None)) or 'Técnico'
+
+        orden_detalle = {
+            'id': ot_info.get('id'),
+            'ot': ot_info['ot'],
+            'cuenta': ot_info['cuenta'],
+            'servicio': ot_info['servicio'],
+            'tecnologia': ot_info['tecnologia'],
+            'categoria': ot_info['categoria'],
+            'tecnico_nombre': tecnico_nombre,
+            'total_valor': float(ot_info['total_valor']),
+            'fecha_creacion': ot_info['fecha_creacion'].strftime('%Y-%m-%d %H:%M:%S') if ot_info['fecha_creacion'] else None,
+            'fecha_actualizacion': ot_info['fecha_actualizacion'].strftime('%Y-%m-%d %H:%M:%S') if ot_info['fecha_actualizacion'] else None,
+            'codigos': [{
+                'id': c['id'],
+                'codigo': c['codigo'],
+                'nombre': c['nombre'],
+                'descripcion': c['descripcion'] or '',
+                'cantidad': c['cantidad'],
+                'valor_unitario': float(c['valor_unitario']),
+                'valor_total': float(c['valor_total']),
+                'fecha_creacion': c['fecha_creacion'].strftime('%Y-%m-%d %H:%M:%S') if c['fecha_creacion'] else None
+            } for c in codigos]
+        }
+
+        return jsonify({'success': True, 'data': orden_detalle})
+    except Exception as e:
+        app.logger.error('[api_tecnicos_get_orden_detalle] error: %s', e, exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        try:
+            if cursor:
+                cursor.close()
+            if connection and connection.is_connected():
+                connection.close()
+        except:
+            pass
+
+# Crear nueva orden (guarda resumen en principal y detalles en historial)
+@app.route('/tecnicos/ordenes', methods=['POST'])
+@app.route('/api/tecnicos/ordenes', methods=['POST'])
+@login_required_api(role='tecnicos')
+def api_tecnicos_create_orden():
+    import traceback
+    try:
+        data = request.get_json() or {}
+        app.logger.info('[api_tecnicos_create_orden] payload recibido: %s', data)
+        required = ['ot', 'cuenta', 'servicio', 'tecnologia', 'codigos']
+        for field in required:
+            if field not in data or (field == 'codigos' and not isinstance(data['codigos'], list)):
+                app.logger.warning('[api_tecnicos_create_orden] faltante/invalid: %s', field)
+                return jsonify({'success': False, 'error': f'Campo requerido faltante o inválido: {field}'}), 400
+
+        # Validaciones de tipos básicos
+        try:
+            ot = int(str(data.get('ot', '')).strip())
+            cuenta = int(str(data.get('cuenta', '')).strip())
+            servicio = int(str(data.get('servicio', '')).strip())
+        except Exception:
+            app.logger.error('[api_tecnicos_create_orden] tipos inválidos para ot/cuenta/servicio', exc_info=True)
+            return jsonify({'success': False, 'error': 'OT/Cuenta/Servicio deben ser numéricos'}), 400
+
+        tecnologia = data.get('tecnologia')
+        if not tecnologia:
+            return jsonify({'success': False, 'error': 'Tecnología requerida'}), 400
+
+        connection = get_db_connection()
+        if connection is None:
+            app.logger.error('[api_tecnicos_create_orden] conexión DB es None')
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+
+        user_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        if not user_id:
+            app.logger.error('[api_tecnicos_create_orden] usuario no autenticado en sesión')
+            return jsonify({'success': False, 'error': 'Usuario no autenticado'}), 401
+
+        categoria = data.get('categoria') or None
+        observacion = data.get('observacion') or None
+        now = datetime.now()
+
+        # Validar unicidad de OT por usuario: si ya existe y pertenece a otro usuario, bloquear
+        try:
+            cursor.execute(
+                """
+                SELECT id_codigo_consumidor, nombre, fecha_creacion
+                FROM gestion_ot_tecnicos
+                WHERE ot = %s
+                ORDER BY fecha_creacion DESC
+                LIMIT 1
+                """,
+                (ot,)
+            )
+            ot_existente = cursor.fetchone()
+        except Exception:
+            app.logger.error('[api_tecnicos_create_orden] Error consultando existencia de OT', exc_info=True)
+            ot_existente = None
+
+        if ot_existente:
+            existing_user_id = ot_existente[0]
+            if int(existing_user_id) != int(user_id):
+                existing_user_name = None
+                try:
+                    existing_user_name = ot_existente[1]
+                except Exception:
+                    existing_user_name = None
+                app.logger.warning('[api_tecnicos_create_orden] OT %s ya creada por otro técnico (owner_id=%s)', ot, existing_user_id)
+                return jsonify({
+                    'success': False,
+                    'error': 'OT ya creada por otro técnico',
+                    'message': 'La OT ya se encuentra registrada por otro usuario.',
+                    'owner_id': int(existing_user_id),
+                    'owner_name': existing_user_name
+                }), 409
+            else:
+                app.logger.info('[api_tecnicos_create_orden] La OT %s ya pertenece al usuario actual (%s); se permiten agregar más códigos', ot, user_id)
+
+        # Obtener nombre del técnico
+        cursor.execute(
+            """
+            SELECT nombre FROM recurso_operativo 
+            WHERE id_codigo_consumidor = %s
+            """,
+            (user_id,)
+        )
+        tecnico_result = cursor.fetchone()
+        tecnico_nombre = tecnico_result[0] if tecnico_result else 'Técnico'
+
+        # Calcular total valor de todos los códigos
+        total_valor = 0
+        for item in data['codigos']:
+            cantidad = int(item.get('cantidad') or 1)
+            valor_unitario_raw = item.get('valor_unitario') or item.get('valor') or 0
+            try:
+                valor_unitario = int(float(valor_unitario_raw))
+            except Exception:
+                valor_unitario = 0
+            total_valor += (valor_unitario or 0) * (cantidad or 1)
+
+        # Insertar cada código como fila principal en gestion_ot_tecnicos (estructura real)
+        insert_sql_principal = (
+            """
+            INSERT INTO gestion_ot_tecnicos (
+                ot, cuenta, servicio, codigo, tecnologia, agrupacion,
+                nombre, observacion, fecha_creacion, id_codigo_consumidor,
+                cantidad, valor, descripcion
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+        )
+        # Insertar también en historial (usa `ot`, no `ot_id`)
+        insert_sql_historial = (
+            """
+            INSERT INTO gestion_ot_tecnicos_historial (
+                id_codigo_consumidor, ot, cuenta, servicio, codigo, tecnologia, agrupacion,
+                nombre, observacion, fecha_creacion, cantidad, valor, descripcion
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+        )
+        # Fallback con ID explícito si la columna no es AUTO_INCREMENT
+        insert_sql_historial_with_id = (
+            """
+            INSERT INTO gestion_ot_tecnicos_historial (
+                id_gestion_ot_tecnicos_historial, id_codigo_consumidor, ot, cuenta, servicio, codigo, tecnologia, agrupacion,
+                nombre, observacion, fecha_creacion, cantidad, valor, descripcion
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+        )
+        # Intentar asegurar que el ID del historial sea AUTO_INCREMENT
+        try:
+            cursor.execute("SHOW COLUMNS FROM gestion_ot_tecnicos_historial LIKE 'id_gestion_ot_tecnicos_historial'")
+            col = cursor.fetchone()
+            # col formato: Field, Type, Null, Key, Default, Extra
+            if col and len(col) >= 6 and (not col[5] or 'auto_increment' not in str(col[5]).lower()):
+                app.logger.warning('[api_tecnicos_create_orden] id_gestion_ot_tecnicos_historial no es AUTO_INCREMENT, intentando corregir esquema')
+                try:
+                    cursor.execute("""
+                        ALTER TABLE gestion_ot_tecnicos_historial 
+                        MODIFY id_gestion_ot_tecnicos_historial INT NOT NULL AUTO_INCREMENT
+                    """)
+                    app.logger.info('[api_tecnicos_create_orden] Esquema corregido: id_gestion_ot_tecnicos_historial ahora es AUTO_INCREMENT')
+                except Exception as alter_err:
+                    app.logger.error('[api_tecnicos_create_orden] No se pudo alterar la tabla historial: %s', str(alter_err))
+        except Exception:
+            app.logger.error('[api_tecnicos_create_orden] Falló verificación de esquema de historial', exc_info=True)
+
+        created_ids = []
+        for idx, item in enumerate(data['codigos']):
+            app.logger.info('[api_tecnicos_create_orden] procesando item %s: %s', idx, item)
+
+            # Normalización y truncado preventivo
+            codigo_raw = item.get('codigo') or ''
+            nombre_raw = item.get('nombre') or ''
+            descripcion_raw = item.get('descripcion') or ''
+
+            codigo = str(codigo_raw)[:50]
+            nombre = str(nombre_raw or codigo_raw)[:45]
+            descripcion = str(descripcion_raw or nombre_raw or codigo_raw)[:255]
+
+            cantidad = int(item.get('cantidad') or 1)
+            valor_unitario_raw = item.get('valor_unitario') or item.get('valor') or 0
+            try:
+                valor_unitario = int(float(valor_unitario_raw))
+            except Exception:
+                app.logger.warning('[api_tecnicos_create_orden] valor_unitario inválido: %s', valor_unitario_raw)
+                valor_unitario = 0
+
+            params_principal = (
+                ot, cuenta, servicio, codigo, tecnologia, categoria,
+                nombre, observacion, now, user_id,
+                cantidad, valor_unitario, descripcion
+            )
+            app.logger.info('[api_tecnicos_create_orden] INSERT principal: ot=%s, codigo=%s, nombre=%s, cantidad=%s, valor=%s',
+                            ot, codigo, nombre, cantidad, valor_unitario)
+            cursor.execute(insert_sql_principal, params_principal)
+            created_ids.append(cursor.lastrowid)
+
+            params_historial = (
+                user_id, ot, cuenta, servicio, codigo, tecnologia, categoria,
+                nombre, observacion, now, cantidad, valor_unitario, descripcion
+            )
+            app.logger.info('[api_tecnicos_create_orden] INSERT historial: ot=%s, codigo=%s, nombre=%s, cantidad=%s, valor=%s',
+                            ot, codigo, nombre, cantidad, valor_unitario)
+            try:
+                cursor.execute(insert_sql_historial, params_historial)
+            except Exception as hist_err:
+                err_msg = str(hist_err)
+                if "doesn't have a default value" in err_msg and 'id_gestion_ot_tecnicos_historial' in err_msg:
+                    app.logger.warning('[api_tecnicos_create_orden] Fallback: insertando historial con ID explícito por esquema sin default')
+                    # Calcular siguiente ID manualmente
+                    try:
+                        cursor.execute("SELECT COALESCE(MAX(id_gestion_ot_tecnicos_historial), 0) + 1 FROM gestion_ot_tecnicos_historial")
+                        next_id_row = cursor.fetchone()
+                        next_id = next_id_row[0] if next_id_row else 1
+                    except Exception:
+                        app.logger.error('[api_tecnicos_create_orden] Error obteniendo next_id para historial', exc_info=True)
+                        next_id = None
+                    if next_id is None:
+                        raise hist_err
+                    params_historial_with_id = (
+                        next_id, user_id, ot, cuenta, servicio, codigo, tecnologia, categoria,
+                        nombre, observacion, now, cantidad, valor_unitario, descripcion
+                    )
+                    cursor.execute(insert_sql_historial_with_id, params_historial_with_id)
+                else:
+                    raise
+
+        connection.commit()
+        app.logger.info('[api_tecnicos_create_orden] Filas insertadas en gestion_ot_tecnicos=%s y historial=%s, total_valor=%s', 
+                        len(created_ids), len(created_ids), total_valor)
+
+        return jsonify({'success': True, 'ids': created_ids, 'valor_total': total_valor})
+    except Exception as e:
+        app.logger.error('[api_tecnicos_create_orden] excepción: %s\n%s', str(e), traceback.format_exc())
+        if 'connection' in locals() and connection:
+            try:
+                connection.rollback()
+            except Exception:
+                app.logger.error('[api_tecnicos_create_orden] rollback falló', exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        try:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'connection' in locals() and connection and connection.is_connected():
+                connection.close()
+        except Exception:
+            app.logger.error('[api_tecnicos_create_orden] cierre de recursos falló', exc_info=True)
+            pass
+
+# Obtener lista de tecnologías disponibles
+@app.route('/tecnicos/tecnologias', methods=['GET'])
+@app.route('/api/tecnicos/tecnologias', methods=['GET'])
+@login_required_api(role='tecnicos')
+def api_tecnicos_list_tecnologias():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+
+        cursor.execute("""
+            SELECT DISTINCT tecnologia 
+            FROM base_codigos_facturacion 
+            WHERE tecnologia IS NOT NULL AND tecnologia <> ''
+            ORDER BY tecnologia
+        """)
+        rows = cursor.fetchall()
+        tecnologias = [r[0] for r in rows]
+        return jsonify({'success': True, 'tecnologias': tecnologias})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        try:
+            if cursor:
+                cursor.close()
+            if connection and connection.is_connected():
+                connection.close()
+        except:
+            pass
+
+# Obtener categorías por tecnología
+@app.route('/tecnicos/categorias/<string:tecnologia>', methods=['GET'])
+@app.route('/api/tecnicos/categorias/<string:tecnologia>', methods=['GET'])
+@login_required_api(role='tecnicos')
+def api_tecnicos_list_categorias(tecnologia):
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT DISTINCT categoria 
+            FROM base_codigos_facturacion 
+            WHERE tecnologia = %s AND categoria IS NOT NULL AND categoria <> ''
+            ORDER BY categoria
+            """,
+            (tecnologia,)
+        )
+        rows = cursor.fetchall()
+        categorias = [r[0] for r in rows]
+        return jsonify({'success': True, 'categorias': categorias})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        try:
+            if cursor:
+                cursor.close()
+            if connection and connection.is_connected():
+                connection.close()
+        except:
+            pass
+
+# Obtener códigos filtrados por tecnología y categoría
+@app.route('/tecnicos/codigos/tecnologia/<string:tecnologia>', methods=['GET'])
+@app.route('/tecnicos/codigos/tecnologia/<string:tecnologia>/categoria/<string:categoria>', methods=['GET'])
+@app.route('/api/tecnicos/codigos', methods=['GET'])
+@login_required_api(role='tecnicos')
+def api_tecnicos_list_codigos(tecnologia=None, categoria=None):
+    try:
+        # Permitir también /api/tecnicos/codigos?tecnologia=...&categoria=...
+        if request.path.startswith('/api/tecnicos/codigos'):
+            tecnologia = request.args.get('tecnologia', tecnologia)
+            categoria = request.args.get('categoria', categoria)
+
+        if not tecnologia:
+            return jsonify({'success': False, 'error': 'Parámetro tecnologia requerido'}), 400
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+
+        sql = (
+            """
+            SELECT 
+                id_base_codigos_facturacion,
+                tecnologia,
+                categoria,
+                codigo,
+                nombre,
+                descripcion,
+                valor
+            FROM base_codigos_facturacion
+            WHERE tecnologia = %s
+            """
+        )
+        params = [tecnologia]
+        if categoria:
+            sql += " AND categoria = %s"
+            params.append(categoria)
+        sql += " ORDER BY categoria, nombre"
+
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+        codigos = []
+        for r in rows:
+            codigos.append({
+                'id': r.get('id_base_codigos_facturacion'),
+                'tecnologia': r.get('tecnologia'),
+                'categoria': r.get('categoria'),
+                'codigo': r.get('codigo'),
+                'nombre': r.get('nombre'),
+                'descripcion': r.get('descripcion'),
+                'valor': r.get('valor')
+            })
+        return jsonify({'success': True, 'codigos': codigos})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        try:
+            if cursor:
+                cursor.close()
+            if connection and connection.is_connected():
+                connection.close()
+        except:
+            pass
+
 @app.route('/api/tecnicos/asignacion_ferretero/<int:id_ferretero>')
 @login_required(role='tecnicos')
 def obtener_detalle_asignacion_ferretero(id_ferretero):

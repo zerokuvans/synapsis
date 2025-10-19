@@ -1,0 +1,17 @@
+Tabla: devoluciones_dotacion
+Generado: 2025-10-19T11:56:51.478378
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- tecnico_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- cliente_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- fecha_devolucion (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY=MUL EXTRA=DEFAULT_GENERATED
+- motivo (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (enum) NULLABLE=YES DEFAULT=REGISTRADA KEY=MUL EXTRA=
+- created_at (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- updated_at (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+- created_by (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+(sin datos)

@@ -1,0 +1,24 @@
+Tabla: stock_ferretero
+Generado: 2025-10-19T11:56:51.753577
+
+Columnas:
+- id_stock (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- material_tipo (enum) NULLABLE=NO DEFAULT=None KEY=UNI EXTRA=
+- cantidad_disponible (int) NULLABLE=NO DEFAULT=0 KEY= EXTRA=
+- cantidad_minima (int) NULLABLE=NO DEFAULT=10 KEY= EXTRA=
+- cantidad_maxima (int) NULLABLE=NO DEFAULT=1000 KEY= EXTRA=
+- unidad_medida (varchar) NULLABLE=YES DEFAULT=unidades KEY= EXTRA=
+- descripcion (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_actualizacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+- fecha_creacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+id_stock: 1
+material_tipo: silicona
+cantidad_disponible: 0
+cantidad_minima: 100
+cantidad_maxima: 1000
+unidad_medida: unidades
+descripcion: Silicona para instalaciones
+fecha_actualizacion: 2025-08-28 07:28:05
+fecha_creacion: 2025-08-22 14:23:53

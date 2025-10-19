@@ -1,0 +1,16 @@
+Tabla: entradas_stock
+Generado: 2025-10-19T11:56:51.508849
+
+Columnas:
+- id_entrada (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- material (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- cantidad_ingresada (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- precio_unitario (decimal) NULLABLE=YES DEFAULT=0.00 KEY= EXTRA=
+- proveedor (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- numero_factura (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_entrada (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY=MUL EXTRA=DEFAULT_GENERATED
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- usuario_registro (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+(sin datos)

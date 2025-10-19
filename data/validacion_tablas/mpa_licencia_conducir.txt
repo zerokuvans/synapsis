@@ -1,0 +1,24 @@
+Tabla: mpa_licencia_conducir
+Generado: 2025-10-19T11:56:51.640470
+
+Columnas:
+- id_mpa_licencia_conducir (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- tecnico (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_inicio (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_vencimiento (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_creacion (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_actualizacion (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tipo_licencia (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_mpa_licencia_conducir: 1
+tecnico: 11
+fecha_inicio: None
+fecha_vencimiento: 2027-03-02 00:00:00
+estado: None
+observacion: None
+fecha_creacion: 2025-10-15 14:31:21
+fecha_actualizacion: 2025-10-17 20:51:57
+tipo_licencia: A2

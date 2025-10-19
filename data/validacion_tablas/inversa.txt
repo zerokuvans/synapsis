@@ -1,0 +1,20 @@
+Tabla: inversa
+Generado: 2025-10-19T11:56:51.590096
+
+Columnas:
+- id_inversa (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- serial (varchar) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- tecnico (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- id_codigo_consumidor (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- modelo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_registro (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- caja (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_inversa: 1
+serial: HP460924130038295
+tecnico: None
+id_codigo_consumidor: None
+modelo: FTTH
+fecha_registro: 2025-03-22 00:00:00
+caja: None

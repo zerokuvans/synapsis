@@ -1,0 +1,10 @@
+Tabla: roles
+Generado: 2025-10-19T11:56:51.713661
+
+Columnas:
+- id_roles (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- nombre_rol (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_roles: 1
+nombre_rol: administrativo

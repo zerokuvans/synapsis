@@ -1,0 +1,26 @@
+Tabla: sstt_incidentes
+Generado: 2025-10-19T11:56:51.741891
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- tipo (enum) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- fecha_ocurrencia (datetime) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- lugar (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- descripcion (text) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- persona_afectada (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cedula_afectado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- testigos (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- causas_inmediatas (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- causas_basicas (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- acciones_inmediatas (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- acciones_correctivas (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- responsable_investigacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (enum) NULLABLE=YES DEFAULT=reportado KEY= EXTRA=
+- gravedad (enum) NULLABLE=YES DEFAULT=leve KEY= EXTRA=
+- dias_incapacidad (int) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- costo_estimado (decimal) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- usuario_reporta (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- fecha_reporte (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+(sin datos)

@@ -1,0 +1,14 @@
+Tabla: historial_cambios_dotaciones
+Generado: 2025-10-19T11:56:51.555292
+
+Columnas:
+- id_historial (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- id_cambio_dotacion (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- estado_anterior (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_nuevo (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- usuario_cambio (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- fecha_cambio_estado (datetime) NULLABLE=NO DEFAULT=CURRENT_TIMESTAMP KEY=MUL EXTRA=DEFAULT_GENERATED
+- observaciones (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+(sin datos)

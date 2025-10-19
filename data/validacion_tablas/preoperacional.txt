@@ -1,0 +1,104 @@
+Tabla: preoperacional
+Generado: 2025-10-19T11:56:51.685035
+
+Columnas:
+- id_preoperacional (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- centro_de_trabajo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- ciudad (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- supervisor (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- vehiculo_asistio_operacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tipo_vehiculo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- placa_vehiculo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- modelo_vehiculo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- marca_vehiculo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- licencia_conduccion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_vencimiento_licencia (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_vencimiento_soat (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_vencimiento_tecnomecanica (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_espejos (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- bocina_pito (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- frenos (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- encendido (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_bateria (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_amortiguadores (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_llantas (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- kilometraje_actual (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- luces_altas_bajas (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- direccionales_delanteras_traseras (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- elementos_prevencion_seguridad_vial_casco (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- casco_certificado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- casco_identificado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_guantes (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_rodilleras (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- impermeable (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_fisico_vehiculo_espejos (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_fisico_vehiculo_bocina_pito (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_fisico_vehiculo_frenos (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_fisico_vehiculo_encendido (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_fisico_vehiculo_bateria (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_fisico_vehiculo_amortiguadores (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_fisico_vehiculo_llantas (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_fisico_vehiculo_luces_altas (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_fisico_vehiculo_luces_bajas (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_fisico_vehiculo_direccionales_delanteras (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_fisico_vehiculo_direccionales_traseras (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- elementos_prevencion_seguridad_vial_guantes (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- elementos_prevencion_seguridad_vial_rodilleras (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- elementos_prevencion_seguridad_vial_coderas (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- elementos_prevencion_seguridad_vial_impermeable (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- casco_identificado_placa (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- id_codigo_consumidor (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- fecha (datetime) NULLABLE=NO DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- preoperacionalcol (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_preoperacional: 18
+centro_de_trabajo: None
+ciudad: BOGOTA
+supervisor: SILVA CASTRO DANIEL ALBERTO
+vehiculo_asistio_operacion: Sí
+tipo_vehiculo: Moto
+placa_vehiculo: IVS28F
+modelo_vehiculo: 2020
+marca_vehiculo: BAJAJ
+licencia_conduccion: A2
+fecha_vencimiento_licencia: 2030-01-28
+fecha_vencimiento_soat: 2026-01-28
+fecha_vencimiento_tecnomecanica: 2026-01-28
+estado_espejos: bueno
+bocina_pito: bueno
+frenos: bueno
+encendido: bueno
+estado_bateria: bueno
+estado_amortiguadores: bueno
+estado_llantas: bueno
+kilometraje_actual: 64210
+luces_altas_bajas: bueno
+direccionales_delanteras_traseras: bueno
+elementos_prevencion_seguridad_vial_casco: bueno
+casco_certificado: Sí
+casco_identificado: 0
+estado_guantes: regular
+estado_rodilleras: regular
+impermeable: regular
+observaciones: Ok
+estado_fisico_vehiculo_espejos: 0
+estado_fisico_vehiculo_bocina_pito: 0
+estado_fisico_vehiculo_frenos: 0
+estado_fisico_vehiculo_encendido: 0
+estado_fisico_vehiculo_bateria: 0
+estado_fisico_vehiculo_amortiguadores: 0
+estado_fisico_vehiculo_llantas: 0
+estado_fisico_vehiculo_luces_altas: 0
+estado_fisico_vehiculo_luces_bajas: 0
+estado_fisico_vehiculo_direccionales_delanteras: 0
+estado_fisico_vehiculo_direccionales_traseras: 0
+elementos_prevencion_seguridad_vial_guantes: 0
+elementos_prevencion_seguridad_vial_rodilleras: 0
+elementos_prevencion_seguridad_vial_coderas: 0
+elementos_prevencion_seguridad_vial_impermeable: 0
+casco_identificado_placa: 0
+id_codigo_consumidor: 13
+fecha: 2025-03-05 11:06:21
+preoperacionalcol: None

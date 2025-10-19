@@ -1,0 +1,12 @@
+Tabla: activity_log
+Generado: 2025-10-19T11:56:51.387975
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- user_id (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- action (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- details (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- timestamp (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+(sin datos)

@@ -1,0 +1,18 @@
+Tabla: movimientos_equipos_dotaciones
+Generado: 2025-10-19T11:56:51.615234
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- equipo_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- tipo_movimiento (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- cantidad (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- stock_anterior (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- stock_nuevo (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- tecnico_id (varchar) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- asignacion_id (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- motivo (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- usuario (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_movimiento (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY=MUL EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+(sin datos)

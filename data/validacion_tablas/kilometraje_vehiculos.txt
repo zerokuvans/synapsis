@@ -1,0 +1,17 @@
+Tabla: kilometraje_vehiculos
+Generado: 2025-10-19T11:56:51.598368
+
+Columnas:
+- id_kilometraje (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- id_vehiculo (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- kilometraje_actual (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- kilometraje_anterior (int) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- diferencia_km (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=STORED GENERATED
+- fecha_registro (date) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- tipo_registro (enum) NULLABLE=YES DEFAULT=manual KEY= EXTRA=
+- usuario_registro (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_creacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+(sin datos)

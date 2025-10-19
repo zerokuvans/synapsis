@@ -1,0 +1,17 @@
+Tabla: auditoria_estados_devolucion
+Generado: 2025-10-19T11:56:51.424153
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- devolucion_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- estado_anterior (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_nuevo (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- usuario_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- fecha_cambio (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY=MUL EXTRA=DEFAULT_GENERATED
+- motivo_cambio (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- ip_address (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- user_agent (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+(sin datos)

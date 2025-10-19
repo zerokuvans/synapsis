@@ -1,0 +1,24 @@
+Tabla: stock_general
+Generado: 2025-10-19T11:56:51.757487
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- codigo_material (varchar) NULLABLE=NO DEFAULT=None KEY=UNI EXTRA=
+- descripcion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cantidad_disponible (int) NULLABLE=YES DEFAULT=0 KEY=MUL EXTRA=
+- cantidad_minima (int) NULLABLE=YES DEFAULT=5 KEY= EXTRA=
+- fecha_actualizacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+- activo (tinyint) NULLABLE=YES DEFAULT=1 KEY= EXTRA=
+- cantidad_entrada (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cantidad_actual (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id: 1
+codigo_material: cinta_aislante
+descripcion: Cinta Aislante
+cantidad_disponible: 86
+cantidad_minima: 50
+fecha_actualizacion: 2025-10-17 14:26:19
+activo: 1
+cantidad_entrada: None
+cantidad_actual: None

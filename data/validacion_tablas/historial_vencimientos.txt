@@ -1,0 +1,32 @@
+Tabla: historial_vencimientos
+Generado: 2025-10-19T11:56:51.567427
+
+Columnas:
+- id_historial (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- id_vehiculo (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- tipo_documento (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- fecha_vencimiento_anterior (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_vencimiento_nueva (date) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- fecha_renovacion (date) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- estado_documento (enum) NULLABLE=YES DEFAULT=vigente KEY=MUL EXTRA=
+- costo_renovacion (decimal) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- entidad_emisora (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- numero_documento (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- usuario_actualizacion (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- fecha_registro (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+id_historial: 9
+id_vehiculo: 6
+tipo_documento: soat
+fecha_vencimiento_anterior: None
+fecha_vencimiento_nueva: 2026-07-22
+fecha_renovacion: 2025-08-30
+estado_documento: vigente
+costo_renovacion: None
+entidad_emisora: None
+numero_documento: None
+observaciones: Registro inicial del vehículo: TON81E
+usuario_actualizacion: 1
+fecha_registro: 2025-08-30 16:24:40

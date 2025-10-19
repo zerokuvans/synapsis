@@ -1,0 +1,12 @@
+Tabla: reportes_favoritos
+Generado: 2025-10-19T11:56:51.703707
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- usuario_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- nombre_favorito (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- parametros_filtro (json) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- created_at (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY=MUL EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+(sin datos)

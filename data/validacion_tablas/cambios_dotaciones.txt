@@ -1,0 +1,36 @@
+Tabla: cambios_dotaciones
+Generado: 2025-10-19T11:56:51.447058
+
+Columnas:
+- id_cambio_dotacion (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- tipo_cambio (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- cliente (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- id_tecnico (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- id_dotacion_original (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_cambio (varchar) NULLABLE=NO DEFAULT=PENDIENTE KEY=MUL EXTRA=
+- fecha_cambio (datetime) NULLABLE=NO DEFAULT=CURRENT_TIMESTAMP KEY=MUL EXTRA=DEFAULT_GENERATED
+- fecha_aprobacion (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_aplicacion (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_rechazo (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_modificacion (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- motivo_cambio (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observaciones (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- usuario_cambio (varchar) NULLABLE=NO DEFAULT=Sistema KEY= EXTRA=
+- motivo_rechazo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_cambio_dotacion: 6
+tipo_cambio: ACTUALIZACION
+cliente: EMPRESA_DEMO_001
+id_tecnico: TEC001
+id_dotacion_original: 1
+estado_cambio: PENDIENTE
+fecha_cambio: 2025-09-05 10:01:27
+fecha_aprobacion: None
+fecha_aplicacion: None
+fecha_rechazo: None
+fecha_modificacion: None
+motivo_cambio: Cambio de talla por pérdida de peso
+observaciones: El empleado requiere talla M en lugar de L
+usuario_cambio: admin
+motivo_rechazo: None

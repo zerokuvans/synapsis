@@ -1,0 +1,15 @@
+Tabla: qry
+Generado: 2025-10-19T11:56:51.692028
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- serial (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- ot (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cuenta (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- codigo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- descripcion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+(sin datos)

@@ -1,0 +1,38 @@
+Tabla: vw_resumen_cambios_dotaciones
+Generado: 2025-10-19T11:56:51.811841
+
+Columnas:
+- id_cambio_dotacion (int) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- tipo_cambio (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cliente (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- id_tecnico (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tecnico_nombre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_cambio (varchar) NULLABLE=YES DEFAULT=PENDIENTE KEY= EXTRA=
+- fecha_cambio (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- fecha_aprobacion (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_aplicacion (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- motivo_cambio (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observaciones (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- usuario_cambio (varchar) NULLABLE=YES DEFAULT=Sistema KEY= EXTRA=
+- horas_hasta_aprobacion (bigint) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- horas_hasta_aplicacion (bigint) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- elementos_nuevos (bigint) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- elementos_anteriores (bigint) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_cambio_dotacion: 6
+tipo_cambio: ACTUALIZACION
+cliente: EMPRESA_DEMO_001
+id_tecnico: TEC001
+tecnico_nombre: TEC001
+estado_cambio: PENDIENTE
+fecha_cambio: 2025-09-05 10:01:27
+fecha_aprobacion: None
+fecha_aplicacion: None
+motivo_cambio: Cambio de talla por pérdida de peso
+observaciones: El empleado requiere talla M en lugar de L
+usuario_cambio: admin
+horas_hasta_aprobacion: None
+horas_hasta_aplicacion: None
+elementos_nuevos: 3
+elementos_anteriores: 3

@@ -1,0 +1,16 @@
+Tabla: presupuesto_carpeta
+Generado: 2025-10-19T11:56:51.688665
+
+Columnas:
+- idpresupuesto_carpeta (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- presupuesto_carpeta (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- presupuesto_eventos (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- presupuesto_diario (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- presupuesto_cargo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+idpresupuesto_carpeta: 1
+presupuesto_carpeta: POSTVENTA
+presupuesto_eventos: 6
+presupuesto_diario: 281813
+presupuesto_cargo: TECNICO

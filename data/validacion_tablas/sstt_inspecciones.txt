@@ -1,0 +1,19 @@
+Tabla: sstt_inspecciones
+Generado: 2025-10-19T11:56:51.746124
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- titulo (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- descripcion (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- area (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- responsable_inspeccion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_inspeccion (date) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- estado (enum) NULLABLE=YES DEFAULT=programada KEY= EXTRA=
+- prioridad (enum) NULLABLE=YES DEFAULT=media KEY= EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- usuario_creador (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- fecha_creacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- fecha_actualizacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+
+Muestra de datos (LIMIT 1):
+(sin datos)

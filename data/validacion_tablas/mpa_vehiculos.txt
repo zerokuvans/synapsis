@@ -1,0 +1,40 @@
+Tabla: mpa_vehiculos
+Generado: 2025-10-19T11:56:51.657629
+
+Columnas:
+- id_mpa_vehiculos (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- cedula_propietario (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- nombre_propietario (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- placa (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tipo_vehiculo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- vin (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- numero_de_motor (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_de_matricula (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- marca (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- linea (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observaciones (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- modelo (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- color (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- kilometraje_actual (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_creacion (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tecnico_asignado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_mpa_vehiculos: 1
+cedula_propietario: 1019112308
+nombre_propietario: ALARCON SALAS LUIS HERNANDO
+placa: TON81E
+tipo_vehiculo: Moto
+vin: 9FLA12DY7KAF09272
+numero_de_motor: DJYCJK07566
+fecha_de_matricula: 2021-12-02 00:00:00
+estado: Activo
+marca: BAJAJ
+linea: PULSAR 180 GT BSIV
+observaciones: None
+modelo: 2019
+color: NEGRO NEBULOSA
+kilometraje_actual: 0
+fecha_creacion: 2025-10-14 11:04:18
+tecnico_asignado: 11

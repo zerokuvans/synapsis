@@ -1,0 +1,21 @@
+Tabla: movimientos_inventario
+Generado: 2025-10-19T11:56:51.619520
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- tipo_movimiento (enum) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- id_item (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- tipo_item (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- cantidad (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- usuario_id (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- item_afectado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_movimiento (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- usuario (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- ubicacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- notas (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- referencia (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- equipo_seguridad (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+(sin datos)

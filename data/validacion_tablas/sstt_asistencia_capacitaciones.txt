@@ -1,0 +1,15 @@
+Tabla: sstt_asistencia_capacitaciones
+Generado: 2025-10-19T11:56:51.725027
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- capacitacion_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- usuario_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- asistio (tinyint) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- calificacion (decimal) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- certificado_emitido (tinyint) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_registro (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+(sin datos)

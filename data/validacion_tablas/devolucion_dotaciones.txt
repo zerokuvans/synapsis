@@ -1,0 +1,37 @@
+Tabla: devolucion_dotaciones
+Generado: 2025-10-19T11:56:51.474669
+
+Columnas:
+- id_dotacion (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- cliente (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- id_codigo_consumidor (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- pantalon (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- pantalon_talla (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_pantalon (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- camisetagris (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- camiseta_gris_talla (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_camisetagris (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- guerrera (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- guerrera_talla (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_guerrera (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- camisetapolo (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- camiseta_polo_talla (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_camisetapolo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- botas (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- botas_talla (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_botas (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- guantes_nitrilo (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_guantes_nitrilo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- guantes_carnaza (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_guantes_carnaza (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- gafas (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_gafas (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- gorra (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_gorra (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- casco (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_casco (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_registro (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_actualizacion (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+(sin datos)

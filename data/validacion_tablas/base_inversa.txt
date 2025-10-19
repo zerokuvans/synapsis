@@ -1,0 +1,15 @@
+Tabla: base_inversa
+Generado: 2025-10-19T11:56:51.437668
+
+Columnas:
+- idbase_inversa (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- ubicacion_inversa (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- codigo_inversa (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- elemento_inversa (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- familia_inversa (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- serial_inversa (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_inversa (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_inversa (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+(sin datos)

@@ -1,0 +1,19 @@
+Tabla: sstt_hallazgos
+Generado: 2025-10-19T11:56:51.737116
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- inspeccion_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- tipo_riesgo_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- descripcion (text) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- ubicacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- nivel_riesgo (enum) NULLABLE=YES DEFAULT=medio KEY= EXTRA=
+- accion_correctiva (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- responsable_accion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_limite (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (enum) NULLABLE=YES DEFAULT=abierto KEY= EXTRA=
+- evidencia_foto (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_creacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+(sin datos)

@@ -1,0 +1,14 @@
+Tabla: eventos_sistema
+Generado: 2025-10-19T11:56:51.532308
+
+Columnas:
+- id_evento (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- tipo (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- mensaje (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+id_evento: 1
+tipo: ASIGNACION_FERRETERO
+mensaje: Asignaci??n a ferretero: TEST002 - Silicona:2 Grapas N:3 Grapas B:1
+fecha: 2025-08-28 19:58:37

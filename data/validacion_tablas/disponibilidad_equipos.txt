@@ -1,0 +1,36 @@
+Tabla: disponibilidad_equipos
+Generado: 2025-10-19T11:56:51.490022
+
+Columnas:
+- id_disponibilidad_equipos (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- cedula (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- codigo_tercero (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- elemento (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- familia (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- serial (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_ultimo_movimiento (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- dias_ultimo (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tecnico (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- super (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_creacion (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cuenta (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- ot (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_disponibilidad_equipos: 1
+cedula: 1233904351
+codigo_tercero: 7021555
+elemento: ACCES POINT NM3098B MESH WF6 2X2 SDMC
+familia: ACCES_POINT_MESH
+serial: 24B0011609003487
+estado: DISPONIBLE
+fecha_ultimo_movimiento: 2025-10-03
+dias_ultimo: 15
+tecnico: SUESCA NEIRA MAURICIO ESTEBAN
+super: CACERES MARTINEZ CARLOS
+fecha_creacion: None
+cuenta: None
+ot: None
+observacion: None

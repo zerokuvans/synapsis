@@ -1,0 +1,42 @@
+Tabla: equipos_dotaciones
+Generado: 2025-10-19T11:56:51.522056
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- codigo (varchar) NULLABLE=NO DEFAULT=None KEY=UNI EXTRA=
+- nombre (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- descripcion (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- categoria_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- marca (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- modelo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- talla (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- color (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- material (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- stock_minimo (int) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- stock_actual (int) NULLABLE=YES DEFAULT=0 KEY=MUL EXTRA=
+- precio_unitario (decimal) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- proveedor (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- activo (tinyint) NULLABLE=YES DEFAULT=1 KEY= EXTRA=
+- fecha_creacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- fecha_actualizacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+
+Muestra de datos (LIMIT 1):
+id: 6
+codigo: CASCO-001
+nombre: Casco de Seguridad Tipo II
+descripcion: Casco de seguridad industrial tipo II con barbiquejo
+categoria_id: 1
+marca: None
+modelo: None
+talla: None
+color: None
+material: None
+stock_minimo: 10
+stock_actual: 25
+precio_unitario: 45000.00
+proveedor: None
+observaciones: None
+activo: 1
+fecha_creacion: 2025-09-03 08:19:40
+fecha_actualizacion: 2025-09-03 08:19:40

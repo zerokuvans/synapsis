@@ -1,0 +1,24 @@
+Tabla: base_causas_cierre
+Generado: 2025-10-19T11:56:51.427533
+
+Columnas:
+- idbase_causas_cierre (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- codigo_causas_cierre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tipo_causas_cierre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- nombre_causas_cierre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tecnologia_causas_cierre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- instrucciones_de_uso_causas_cierre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- agrupaciones_causas_cierre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- todos_los_grupos_causas_cierre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- facturable_causas_cierre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+idbase_causas_cierre: 1
+codigo_causas_cierre: VTP
+tipo_causas_cierre: C01PREMISAS CLIENTE→C34OTROS TRABAJOS→VTP
+nombre_causas_cierre: VISITA TECNICA PYMES
+tecnologia_causas_cierre: HFC
+instrucciones_de_uso_causas_cierre: Agendamiento de Verificación en Trabajos de Operaciones Pymes NO SE PUEDE COMPLETAR CON ESTA CAUSA NINGUNA VISITA SOBRE UN SUSCRIPTOR.
+agrupaciones_causas_cierre: PREMISAS CLIENTE
+todos_los_grupos_causas_cierre: OTROS TRABAJOS
+facturable_causas_cierre: SI ES FACTURABLE

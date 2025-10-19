@@ -1,0 +1,20 @@
+Tabla: base_codigos_facturacion
+Generado: 2025-10-19T11:56:51.434330
+
+Columnas:
+- id_base_codigos_facturacion (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- tecnologia (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- categoria (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- codigo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- nombre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- descripcion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- valor (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_base_codigos_facturacion: 1
+tecnologia: HFC
+categoria: Traslados PYMES
+codigo: NTROUTER
+nombre: Traslado Equipos Gestionables No Cableados
+descripcion: Cliente cambia de unidad. Routers, ATAs, Access Point.
+valor: 16545

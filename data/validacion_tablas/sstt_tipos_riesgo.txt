@@ -1,0 +1,18 @@
+Tabla: sstt_tipos_riesgo
+Generado: 2025-10-19T11:56:51.749688
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- nombre (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- descripcion (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- color (varchar) NULLABLE=YES DEFAULT=#FF0000 KEY= EXTRA=
+- activo (tinyint) NULLABLE=YES DEFAULT=1 KEY= EXTRA=
+- fecha_creacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+id: 1
+nombre: Riesgo Físico
+descripcion: Ruido, vibraciones, temperaturas extremas, radiaciones
+color: #FF6B6B
+activo: 1
+fecha_creacion: 2025-09-29 20:15:13

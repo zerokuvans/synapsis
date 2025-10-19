@@ -1,0 +1,24 @@
+Tabla: estadisticas_cambios_dotaciones
+Generado: 2025-10-19T11:56:51.525473
+
+Columnas:
+- id_estadistica (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- fecha_estadistica (date) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- cliente (varchar) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- tipo_cambio (varchar) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- estado_cambio (varchar) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- cantidad_cambios (int) NULLABLE=NO DEFAULT=0 KEY= EXTRA=
+- tiempo_promedio_aprobacion (decimal) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tiempo_promedio_aplicacion (decimal) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_actualizacion (datetime) NULLABLE=NO DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+id_estadistica: 1
+fecha_estadistica: 2025-09-10
+cliente: EMPRESA_DEMO_001
+tipo_cambio: ACTUALIZACION
+estado_cambio: PENDIENTE
+cantidad_cambios: 1
+tiempo_promedio_aprobacion: None
+tiempo_promedio_aplicacion: None
+fecha_actualizacion: 2025-09-10 10:01:27

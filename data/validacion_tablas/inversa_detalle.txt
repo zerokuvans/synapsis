@@ -1,0 +1,16 @@
+Tabla: inversa_detalle
+Generado: 2025-10-19T11:56:51.593826
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- id_inversa (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- serial (varchar) NULLABLE=NO DEFAULT=None KEY=UNI EXTRA=
+- caja (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_registro (datetime) NULLABLE=NO DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+id: 1
+id_inversa: 1
+serial: 2440011243016703
+caja: FTTH
+fecha_registro: 2025-03-22 12:35:26

@@ -1,0 +1,20 @@
+Tabla: permisos_transicion
+Generado: 2025-10-19T11:56:51.671219
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- rol_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- estado_origen (enum) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_destino (enum) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- permitido (tinyint) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- created_at (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- updated_at (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+
+Muestra de datos (LIMIT 1):
+id: 1
+rol_id: 1
+estado_origen: REGISTRADA
+estado_destino: EN_REVISION
+permitido: 1
+created_at: 2025-09-24 21:12:57
+updated_at: 2025-09-24 21:12:57

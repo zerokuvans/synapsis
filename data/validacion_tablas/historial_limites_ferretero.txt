@@ -1,0 +1,30 @@
+Tabla: historial_limites_ferretero
+Generado: 2025-10-19T11:56:51.558953
+
+Columnas:
+- id_historial (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- id_limite (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- area_trabajo (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- material_tipo (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- cantidad_limite_anterior (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cantidad_limite_nueva (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- periodo_dias_anterior (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- periodo_dias_nuevo (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- accion (enum) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- usuario (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- fecha_cambio (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY=MUL EXTRA=DEFAULT_GENERATED
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_historial: 1
+id_limite: 5
+area_trabajo: FTTH INSTALACIONES
+material_tipo: grapas_blancas
+cantidad_limite_anterior: 100
+cantidad_limite_nueva: 150
+periodo_dias_anterior: 7
+periodo_dias_nuevo: 7
+accion: modificacion
+usuario: sistema
+fecha_cambio: 2025-09-29 19:39:37
+observaciones: Límite actualizado de 100 a 150 unidades. Período de 7 a 7 días.

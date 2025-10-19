@@ -1,0 +1,18 @@
+Tabla: categorias_dotaciones
+Generado: 2025-10-19T11:56:51.454368
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- nombre (varchar) NULLABLE=NO DEFAULT=None KEY=UNI EXTRA=
+- descripcion (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- activo (tinyint) NULLABLE=YES DEFAULT=1 KEY= EXTRA=
+- fecha_creacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- fecha_actualizacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+
+Muestra de datos (LIMIT 1):
+id: 1
+nombre: EPP - Proteccion Cabeza
+descripcion: Equipos de protecci??n personal para la cabeza
+activo: 1
+fecha_creacion: 2025-09-03 08:19:40
+fecha_actualizacion: 2025-09-03 08:51:58

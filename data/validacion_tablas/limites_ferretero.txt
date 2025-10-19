@@ -1,0 +1,30 @@
+Tabla: limites_ferretero
+Generado: 2025-10-19T11:56:51.602992
+
+Columnas:
+- id_limite (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- area_trabajo (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- material_tipo (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- cantidad_limite (int) NULLABLE=NO DEFAULT=0 KEY= EXTRA=
+- periodo_dias (int) NULLABLE=NO DEFAULT=7 KEY= EXTRA=
+- unidad_medida (varchar) NULLABLE=YES DEFAULT=unidades KEY= EXTRA=
+- descripcion (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- activo (tinyint) NULLABLE=YES DEFAULT=1 KEY=MUL EXTRA=
+- fecha_creacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- fecha_actualizacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+- usuario_creacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- usuario_actualizacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_limite: 1
+area_trabajo: FTTH INSTALACIONES
+material_tipo: cinta_aislante
+cantidad_limite: 3
+periodo_dias: 15
+unidad_medida: días
+descripcion: Límite para técnicos de FTTH Instalaciones
+activo: 1
+fecha_creacion: 2025-09-29 19:27:40
+fecha_actualizacion: 2025-10-03 08:45:57
+usuario_creacion: sistema
+usuario_actualizacion: sistema

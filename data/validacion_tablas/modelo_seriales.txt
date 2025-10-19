@@ -1,0 +1,16 @@
+Tabla: modelo_seriales
+Generado: 2025-10-19T11:56:51.610492
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- comparacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- descripcion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- modelo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_creacion (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+id: 1
+comparacion: F4951
+descripcion: EMTA DUAL RTCD905_H6W4 D3 LIN2 LAN4 RDTC
+modelo: 4056297
+fecha_creacion: 2025-03-31 10:14:31

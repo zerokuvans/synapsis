@@ -1,0 +1,44 @@
+Tabla: epps
+Generado: 2025-10-19T11:56:51.517824
+
+Columnas:
+- id_epps (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=
+- id_codigo_consumidor (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_arnes (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_eslinga (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_mosqueton (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_pretales (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_tie_of_reata (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_linea_de_vida (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_arrestador (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_casco_tipo_ii (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_arana_casco (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_barbuquejo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_guantes_de_vaqueta (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_gafas (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_asignacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- serial_arnes (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- serial_eslinga (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- serial_tieof (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- serial_lineavida (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- serial_mosqueton (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- serial_pretales (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_fabricacion_arnes (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_fabricacion_eslinga (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_fabricacion_lineavida (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_fabricacion_tieof (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_fabricacion_pretales (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- marca_arnes (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- marca_eslinga (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- marca_lineavida (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- marca_tieof (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- marca_pretales (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- marca_mosqueton (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_certificacion_arnes (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_certificacion_eslinga (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_certificacion_tieof (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_certificacion_lineavida (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+(sin datos)
