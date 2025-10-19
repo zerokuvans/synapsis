@@ -124,6 +124,25 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-tools fa-3x text-info mb-3"></i>
+                                    <h5 class="card-title">Equipos Disponibles</h5>
+                                    <p class="card-text">Gestiona la disponibilidad de equipos y herramientas asignadas.</p>
+                                    {% if tiene_asistencia %}
+                                        <a href="/operativo/equipos_disponibles" class="btn btn-info">
+                                            <i class="fas fa-wrench me-2"></i>Gestionar Equipos
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-secondary disabled" disabled title="Debe registrar asistencia primero">
+                                            <i class="fas fa-wrench me-2"></i>Gestionar Equipos
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
