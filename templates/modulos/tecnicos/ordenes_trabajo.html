@@ -3,7 +3,9 @@
 {% block title %}Órdenes de Trabajo - Técnicos{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
+<div class="d-flex justify-content-center w-100">
+  <div class="w-100" style="max-width: 1800px;">
+    <div class="container-1800 mt-4">
     <!-- Encabezado -->
     <div class="row mb-4">
         <div class="col-12">
@@ -370,12 +372,38 @@
                 </button>
             </div>
         </div>
-    </div>
+</div>
+</div>
+</div>
 </div>
 {% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tecnicos_ordenes.css') }}">
+<style>
+  /* Wrapper centrado que limita a 1800px */
+  .d-flex.justify-content-center > div[style*="max-width: 1800px"] {
+    max-width: 1800px !important;
+    margin: 0 auto !important;
+    padding: 0 15px !important;
+    width: 100% !important;
+  }
+  /* Contenedor interno */
+  .container-1800 {
+    max-width: 1800px !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+  .container-1800 .row { margin-left: 0; margin-right: 0; }
+  .container-1800 .table-responsive { overflow-x: auto !important; }
+  /* Evitar que el body cree scroll horizontal innecesario */
+  body { overflow-x: hidden; }
+  /* Override para Bootstrap container-fluid si se combina accidentalmente */
+  .container-1800.container-fluid {
+    max-width: 1800px !important;
+    margin: 0 auto !important;
+  }
+</style>
 {% endblock %}
 
 {% block scripts %}
