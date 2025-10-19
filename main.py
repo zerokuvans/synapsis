@@ -10366,6 +10366,275 @@ def indicadores_operaciones_inicio():
         flash('Error al cargar Indicador de Inicio de Operación', 'error')
         return redirect(url_for('indicadores_operaciones'))
 
+# API para obtener información del usuario actual
+@app.route('/api/current_user', methods=['GET'])
+@login_required_api(role='operativo')
+def api_current_user():
+    try:
+        return jsonify({
+            'success': True,
+            'username': session.get('user_name', ''),
+            'nombre': session.get('user_name', ''),
+            'role': session.get('user_role', ''),
+            'id_codigo_consumidor': session.get('id_codigo_consumidor', 0),
+            'cedula': session.get('user_cedula', '')
+        })
+    except Exception as e:
+        print(f"Error en api_current_user: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error al obtener información del usuario'}), 500
+
+# NUEVO: Submódulo Equipos Disponibles
+@app.route('/operativo/equipos_disponibles')
+@login_required(role='operativo')
+def equipos_disponibles():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'error')
+            return redirect(url_for('dashboard_operativo'))
+        
+        cursor = connection.cursor(dictionary=True)
+        nombre_usuario_actual = session.get('user_name', '')
+        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+        
+        # Verificar asistencia por cédula/ID de usuario
+        id_codigo = session.get('id_codigo_consumidor', 0)
+        cedula_usuario = session.get('user_cedula', '')
+        cursor.execute("""
+            SELECT COUNT(*) as tiene_asistencia
+            FROM asistencia 
+            WHERE DATE(fecha_asistencia) = %s
+              AND (id_codigo_consumidor = %s OR cedula = %s)
+        """, (fecha_hoy, id_codigo, cedula_usuario))
+        resultado = cursor.fetchone()
+        tiene_asistencia = resultado['tiene_asistencia'] > 0 if resultado else False
+
+        # Fallback: comparación normalizada sin acentos y sin sensibilidad a mayúsculas
+        if not tiene_asistencia:
+            cursor.execute("""
+                SELECT super
+                FROM asistencia
+                WHERE DATE(fecha_asistencia) = %s
+            """, (fecha_hoy,))
+            filas = cursor.fetchall()
+            import unicodedata
+            def _norm(s):
+                return ''.join(c for c in unicodedata.normalize('NFD', s or '') if unicodedata.category(c) != 'Mn').lower().strip()
+            tiene_asistencia = any(_norm(f['super']) == _norm(nombre_usuario_actual) for f in filas)
+
+        cursor.close()
+        connection.close()
+        
+        return render_template('modulos/operativo/equipos_disponibles.html',
+                               user_name=session.get('user_name', ''),
+                               user_role=session.get('user_role', ''),
+                               tiene_asistencia=tiene_asistencia,
+                               api_equipos_url='/api/equipos_disponibles')
+    except Exception as e:
+        print(f"Error en equipos_disponibles: {str(e)}")
+        flash('Error al cargar la página de equipos disponibles', 'error')
+        return redirect(url_for('dashboard_operativo'))
+
+# API para obtener equipos disponibles filtrados por supervisor
+@app.route('/api/equipos_disponibles', methods=['GET'])
+@login_required_api(role='operativo')
+def api_equipos_disponibles():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        
+        cursor = connection.cursor(dictionary=True)
+        nombre_supervisor = session.get('user_name', '')
+        
+        # Intentar consulta con columnas completas; si faltan, hacer fallback
+        try:
+            cursor.execute("""
+                SELECT 
+                    cedula,
+                    codigo_tercero,
+                    elemento,
+                    familia,
+                    serial,
+                    estado,
+                    fecha_ultimo_movimiento,
+                    dias_ultimo,
+                    tecnico,
+                    super,
+                    cuenta,
+                    ot,
+                    observacion,
+                    fecha_creacion
+                FROM disponibilidad_equipos 
+                WHERE super = %s 
+                ORDER BY tecnico, familia, elemento
+            """, (nombre_supervisor,))
+        except mysql.connector.Error as err:
+            # Fallback si las columnas no existen en el entorno actual
+            if err.errno == 1054 or 'Unknown column' in str(err):
+                cursor.execute("""
+                    SELECT 
+                        id_disponibilidad_equipos AS id,
+                        cedula,
+                        codigo_tercero,
+                        elemento,
+                        familia,
+                        serial,
+                        estado,
+                        tecnico,
+                        super,
+                        cuenta,
+                        ot,
+                        observacion,
+                        fecha_creacion,
+                        DATEDIFF(NOW(), fecha_creacion) AS dias_ultimo
+                    FROM disponibilidad_equipos 
+                    WHERE super = %s 
+                    ORDER BY tecnico, familia, elemento
+                """, (nombre_supervisor,))
+            else:
+                raise
+        
+        equipos = cursor.fetchall()
+        
+        # Normalizar tipos para JSON (fechas y decimales)
+        def normalize(value):
+            if isinstance(value, datetime):
+                return value.strftime('%Y-%m-%d %H:%M:%S')
+            try:
+                from decimal import Decimal as _Decimal
+                if isinstance(value, _Decimal):
+                    return float(value)
+            except Exception:
+                pass
+            return value
+        
+        equipos_serializados = []
+        for row in equipos:
+            row_serializado = {}
+            for k, v in row.items():
+                row_serializado[k] = normalize(v)
+            equipos_serializados.append(row_serializado)
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'equipos': equipos_serializados,
+            'total': len(equipos_serializados)
+        })
+        
+    except Exception as e:
+        app.logger.exception("Error en api_equipos_disponibles")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# API para actualizar cuenta, OT y observación de un equipo
+@app.route('/api/actualizar_equipo', methods=['POST'])
+@login_required(role='operativo')
+def api_actualizar_equipo():
+    try:
+        data = request.get_json(force=True) or {}
+        serial = (data.get('serial') or '').strip()
+        cuenta_in = (data.get('cuenta') or '').strip()
+        ot_in = (data.get('ot') or '').strip()
+        observ_in = (data.get('observacion') or '').strip()
+
+        if not serial:
+            return jsonify({'success': False, 'message': 'Serial del equipo es requerido'}), 400
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        cursor = connection.cursor(dictionary=True)
+        nombre_supervisor = session.get('user_name', '')
+
+        print(f"[actualizar_equipo] payload serial={serial} cuenta='{cuenta_in}' ot='{ot_in}' observacion='{observ_in}'")
+
+        # Verificar pertenencia y obtener valores actuales
+        cursor.execute(
+            """
+            SELECT cuenta, ot, observacion
+            FROM disponibilidad_equipos
+            WHERE serial = %s AND super = %s
+            LIMIT 1
+            """,
+            (serial, nombre_supervisor)
+        )
+        current = cursor.fetchone()
+        if not current:
+            cursor.close()
+            connection.close()
+            return jsonify({'success': False, 'message': 'No tiene permisos para actualizar este equipo'}), 403
+
+        # Determinar qué campos se pueden actualizar (cuenta/OT solo si están vacíos; observación siempre editable)
+        def is_empty(v):
+            return v is None or (isinstance(v, str) and v.strip() == '')
+
+        update_fields = []
+        values = []
+        if cuenta_in and is_empty(current.get('cuenta')):
+            update_fields.append('cuenta = %s')
+            values.append(cuenta_in)
+        if ot_in and is_empty(current.get('ot')):
+            update_fields.append('ot = %s')
+            values.append(ot_in)
+        if observ_in:
+            update_fields.append('observacion = %s')
+            values.append(observ_in)
+
+        if not update_fields:
+            cursor.close()
+            connection.close()
+            return jsonify({'success': False, 'message': 'No hay campos disponibles para actualizar (ya bloqueados).'}), 409
+
+        update_sql = f"UPDATE disponibilidad_equipos SET {', '.join(update_fields)}, fecha_ultimo_movimiento = NOW() WHERE serial = %s AND super = %s"
+        values.extend([serial, nombre_supervisor])
+        print(f"[actualizar_equipo] SQL: {update_sql} | values={values}")
+        try:
+            cursor.execute(update_sql, tuple(values))
+            connection.commit()
+        except mysql.connector.Error as err:
+            # Fallback si columna fecha_ultimo_movimiento no existe
+            if getattr(err, 'errno', None) == 1054 or 'Unknown column' in str(err):
+                update_sql = f"UPDATE disponibilidad_equipos SET {', '.join(update_fields)} WHERE serial = %s AND super = %s"
+                print(f"[actualizar_equipo] Fallback SQL: {update_sql} | values={values}")
+                cursor.execute(update_sql, tuple(values))
+                connection.commit()
+            else:
+                raise
+
+        # Actualizar días desde último movimiento, si la columna existe
+        try:
+            cursor.execute(
+                """
+                UPDATE disponibilidad_equipos
+                SET dias_ultimo = DATEDIFF(NOW(), fecha_ultimo_movimiento)
+                WHERE serial = %s
+                """,
+                (serial,)
+            )
+            connection.commit()
+        except mysql.connector.Error as err:
+            # Ignorar si la columna no existe
+            if not (getattr(err, 'errno', None) == 1054 or 'Unknown column' in str(err)):
+                raise
+
+        cursor.close()
+        connection.close()
+
+        return jsonify({'success': True, 'message': 'Datos actualizados exitosamente'})
+
+    except Exception as e:
+        print(f"Error en api_actualizar_equipo: {str(e)}")
+        try:
+            if 'connection' in locals() and connection:
+                connection.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': 'Error al actualizar el equipo'}), 500
+
 # API para obtener datos de preoperacionales por técnicos
 @app.route('/api/operativo/preoperacionales_tecnicos', methods=['GET'])
 @login_required(role='operativo')
@@ -19843,6 +20112,25 @@ def api_test_vencimientos():
         'data': [],
         'message': 'API de prueba funcionando correctamente'
     })
+
+@app.route('/dev/login', methods=['POST'])
+def dev_login():
+    try:
+        # Solo disponible en modo debug
+        if not app.debug:
+            return jsonify({'message': 'No disponible en producción'}), 403
+        data = request.get_json(force=True) or {}
+        name = (data.get('user_name') or '').strip()
+        cedula = (data.get('user_cedula') or '').strip()
+        role = (data.get('user_role') or 'operativo').strip()
+        if not name:
+            return jsonify({'message': 'user_name requerido'}), 400
+        session['user_name'] = name
+        session['user_cedula'] = cedula
+        session['user_role'] = role
+        return jsonify({'success': True, 'message': 'Sesión de desarrollo creada', 'user_name': name, 'user_role': role})
+    except Exception as e:
+        return jsonify({'message': 'Error en dev login', 'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=8080)

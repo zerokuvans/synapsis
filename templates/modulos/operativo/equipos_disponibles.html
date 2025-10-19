@@ -1,0 +1,460 @@
+{% extends "header.html" %}
+{% block content %}
+<style>
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    .input-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+    .locked-input {
+        background-color: #f8d7da; /* tono rojizo claro */
+        color: #842029;
+    }
+</style>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>Equipos Disponibles
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Gestión de equipos disponibles para el supervisor: <strong id="supervisor-nombre"></strong>
+                    </div>
+                    <!-- Controles de filtros y acciones -->
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-0">Buscar</label>
+                            <input type="text" id="buscar-input" class="form-control input-sm" placeholder="Serial o elemento" />
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-0">Técnico</label>
+                            <select id="filtro-tecnico" class="form-select input-sm">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-0">Familia</label>
+                            <select id="filtro-familia" class="form-select input-sm">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-0">Elemento</label>
+                            <select id="filtro-elemento" class="form-select input-sm">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="col-auto mt-2">
+                            <button id="btn-exportar" class="btn btn-success btn-sm" type="button">
+                                <i class="fas fa-file-export me-1"></i> Exportar CSV
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabla de equipos -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="tabla-equipos">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th id="th-tecnico" data-sort-by="tecnico" role="button">Técnico</th>
+                                    <th id="th-familia" data-sort-by="familia" role="button">Familia</th>
+                                    <th id="th-elemento" data-sort-by="elemento" role="button">Elemento</th>
+                                    <th id="th-serial" data-sort-by="serial" role="button">Serial</th>
+                                    <th id="th-fecha" data-sort-by="fecha_ultimo_movimiento" role="button">Fecha Último Movimiento</th>
+                                    <th id="th-dias" data-sort-by="dias_ultimo" role="button">Días</th>
+                                    <th>Cuenta</th>
+                                    <th>OT</th>
+                                    <th>Observación</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="equipos-body">
+                                <!-- Los datos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Mensaje cuando no hay datos -->
+                    <div id="sin-datos" class="text-center py-4 d-none">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No hay equipos disponibles con los filtros actuales.</p>
+                    </div>
+
+                    <!-- Modal de confirmación -->
+                    <div class="modal fade" id="confirmModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Confirmar guardado</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p><strong>Serial:</strong> <span id="confirm-serial"></span></p>
+                                    <p><strong>Cuenta:</strong> <span id="confirm-cuenta"></span></p>
+                                    <p><strong>OT:</strong> <span id="confirm-ot"></span></p>
+                                    <p><strong>Observación:</strong> <span id="confirm-observacion"></span></p>
+                                    <p class="text-danger small">Nota: una vez guardado, estos campos quedarán bloqueados.</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="button" class="btn btn-primary" id="confirm-guardar">Guardar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let equiposData = [];
+let filtros = { tecnico: '', familia: '', elemento: '', q: '' };
+let sortState = { by: 'tecnico', dir: 'asc' };
+let filaActual = null;
+
+function inicializarControles() {
+    document.getElementById('supervisor-nombre').textContent = '{{ user_name }}';
+    const buscarInput = document.getElementById('buscar-input');
+    buscarInput.addEventListener('input', () => { filtros.q = buscarInput.value.toLowerCase(); mostrarEquipos(); });
+
+    const tecnicoSel = document.getElementById('filtro-tecnico');
+    const familiaSel = document.getElementById('filtro-familia');
+    const elementoSel = document.getElementById('filtro-elemento');
+    const btnExportar = document.getElementById('btn-exportar');
+
+    // Poblar selects únicos
+    const tecnicos = [...new Set(equiposData.map(e => e.tecnico).filter(Boolean))];
+    const familias = [...new Set(equiposData.map(e => e.familia).filter(Boolean))];
+    const elementos = [...new Set(equiposData.map(e => e.elemento).filter(Boolean))];
+
+    tecnicos.forEach(t => { const opt = document.createElement('option'); opt.value = t; opt.textContent = t; tecnicoSel.appendChild(opt); });
+    familias.forEach(f => { const opt = document.createElement('option'); opt.value = f; opt.textContent = f; familiaSel.appendChild(opt); });
+    elementos.forEach(el => { const opt = document.createElement('option'); opt.value = el; opt.textContent = el; elementoSel.appendChild(opt); });
+
+    tecnicoSel.addEventListener('change', () => { filtros.tecnico = tecnicoSel.value; mostrarEquipos(); });
+    familiaSel.addEventListener('change', () => { filtros.familia = familiaSel.value; mostrarEquipos(); });
+    elementoSel.addEventListener('change', () => { filtros.elemento = elementoSel.value; mostrarEquipos(); });
+    btnExportar.addEventListener('click', exportarCSV);
+
+    // Sort handlers
+    document.getElementById('th-tecnico').addEventListener('click', () => { toggleSort('tecnico'); });
+    document.getElementById('th-familia').addEventListener('click', () => { toggleSort('familia'); });
+    document.getElementById('th-elemento').addEventListener('click', () => { toggleSort('elemento'); });
+    document.getElementById('th-serial').addEventListener('click', () => { toggleSort('serial'); });
+    document.getElementById('th-fecha').addEventListener('click', () => { toggleSort('fecha_ultimo_movimiento'); });
+    document.getElementById('th-dias').addEventListener('click', () => { toggleSort('dias_ultimo'); });
+}
+
+function toggleSort(by) {
+    if (sortState.by === by) {
+        sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortState.by = by;
+        sortState.dir = 'asc';
+    }
+    mostrarEquipos();
+}
+
+async function cargarEquipos() {
+    try {
+        const response = await fetch('{{ api_equipos_url }}', { redirect: 'manual', credentials: 'include' });
+        // Detectar redirecciones (302) o respuestas HTML
+        const contentType = response.headers.get('Content-Type') || '';
+        if (response.status === 302 || contentType.includes('text/html')) {
+            mostrarError('Sesión requerida o error del servidor. Inicie sesión.');
+            document.getElementById('cargando').classList.add('d-none');
+            return;
+        }
+        if (!response.ok) {
+            // Intentar leer JSON de error si disponible
+            let errMsg = `HTTP ${response.status}`;
+            try {
+                const errData = await response.json();
+                errMsg = errData.message || errData.error || errMsg;
+            } catch (_) {}
+            mostrarError(errMsg);
+            document.getElementById('cargando').classList.add('d-none');
+            return;
+        }
+        const data = await response.json();
+        // Soportar formatos: arreglo directo, objeto {equipos}, u objeto {success, equipos}
+        if (Array.isArray(data)) {
+            equiposData = data;
+        } else if (data && Array.isArray(data.equipos)) {
+            equiposData = data.equipos;
+        } else if (data && data.success) {
+            equiposData = data.equipos || [];
+        } else {
+            mostrarError(data?.message || 'Error al cargar equipos');
+            equiposData = [];
+        }
+        inicializarControles();
+        mostrarEquipos();
+    } catch (error) {
+        console.error('Error al cargar equipos:', error);
+        mostrarError('Error al cargar equipos');
+        document.getElementById('cargando').classList.add('d-none');
+    }
+}
+
+function mostrarEquipos() {
+    const tbody = document.getElementById('equipos-body');
+    const sinDatos = document.getElementById('sin-datos');
+
+    // Filtrado
+    let lista = equiposData.filter(e => {
+        if (filtros.tecnico && e.tecnico !== filtros.tecnico) return false;
+        if (filtros.familia && e.familia !== filtros.familia) return false;
+        if (filtros.elemento && e.elemento !== filtros.elemento) return false;
+        if (filtros.q) {
+            const s = (e.serial || '').toLowerCase();
+            const el = (e.elemento || '').toLowerCase();
+            if (!s.includes(filtros.q) && !el.includes(filtros.q)) return false;
+        }
+        return true;
+    });
+
+    // Ordenamiento
+    lista.sort((a, b) => comparar(a, b, sortState.by, sortState.dir));
+
+    if (lista.length === 0) {
+        tbody.innerHTML = '';
+        sinDatos.classList.remove('d-none');
+        return;
+    }
+
+    sinDatos.classList.add('d-none');
+    tbody.innerHTML = '';
+
+    lista.forEach((equipo, index) => {
+        const fila = crearFilaEquipo(equipo, index);
+        tbody.appendChild(fila);
+    });
+}
+
+function comparar(a, b, by, dir) {
+    const getVal = (obj) => {
+        let v = obj[by];
+        if (by === 'fecha_ultimo_movimiento' && v) {
+            v = new Date(v).getTime();
+        }
+        return v ?? '';
+    };
+    const va = getVal(a);
+    const vb = getVal(b);
+    if (va < vb) return dir === 'asc' ? -1 : 1;
+    if (va > vb) return dir === 'asc' ? 1 : -1;
+    return 0;
+}
+
+// Escapar HTML para inputs
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// Crear fila de equipo
+function crearFilaEquipo(equipo, index) {
+    const tr = document.createElement('tr');
+    const diasTranscurridos = calcularDiasTranscurridos(equipo.fecha_ultimo_movimiento);
+    const cuentaLocked = !!(equipo.cuenta && String(equipo.cuenta).trim() !== '');
+    const otLocked = !!(equipo.ot && String(equipo.ot).trim() !== '');
+    const observLocked = false; // Observación siempre editable
+    const allLocked = cuentaLocked && otLocked && observLocked;
+    tr.innerHTML = `
+        <td>${equipo.tecnico || 'N/A'}</td>
+        <td>${equipo.familia || 'N/A'}</td>
+        <td>${equipo.elemento || 'N/A'}</td>
+        <td>${equipo.serial || 'N/A'}</td>
+        <td>${formatearFecha(equipo.fecha_ultimo_movimiento)}</td>
+        <td><span class="badge bg-${diasTranscurridos > 30 ? 'danger' : diasTranscurridos > 15 ? 'warning' : 'success'}">${diasTranscurridos}</span></td>
+        <td><input type="text" class="form-control input-sm ${cuentaLocked ? 'locked-input' : ''}" id="cuenta-${index}" value="${equipo.cuenta || ''}" placeholder="Ingrese cuenta" ${cuentaLocked ? 'disabled' : ''}></td>
+        <td><input type="text" class="form-control input-sm ${otLocked ? 'locked-input' : ''}" id="ot-${index}" value="${equipo.ot || ''}" placeholder="Ingrese OT" ${otLocked ? 'disabled' : ''}></td>
+        <td><input type="text" class="form-control input-sm ${observLocked ? 'locked-input' : ''}" id="observacion-${index}" value="${escapeHTML(equipo.observacion || '')}" placeholder="Observación" ${observLocked ? 'disabled' : ''}></td>
+        <td>
+            <button class="btn btn-${allLocked ? 'secondary' : 'primary'} btn-sm" ${allLocked ? 'disabled' : ''} onclick="prepararGuardado(${index})" title="Guardar cambios">
+                <i class="fas fa-save"></i>
+            </button>
+        </td>
+    `;
+    return tr;
+}
+
+// Calcular días transcurridos
+function calcularDiasTranscurridos(fechaUltimoMovimiento) {
+    if (!fechaUltimoMovimiento) return 0;
+    const fechaUltimo = new Date(fechaUltimoMovimiento);
+    const fechaActual = new Date();
+    const diferenciaTiempo = fechaActual - fechaUltimo;
+    const diferenciaDias = Math.floor(diferenciaTiempo / (1000 * 60 * 60 * 24));
+    return diferenciaDias;
+}
+
+// Formatear fecha
+function formatearFecha(fecha) {
+    if (!fecha) return 'N/A';
+    const fechaObj = new Date(fecha);
+    return fechaObj.toLocaleDateString('es-CO', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+}
+
+// Preparar guardado de cambios
+function prepararGuardado(index) {
+    const cuentaInput = document.getElementById(`cuenta-${index}`);
+    const otInput = document.getElementById(`ot-${index}`);
+    const obsInput = document.getElementById(`observacion-${index}`);
+    const cuenta = cuentaInput ? cuentaInput.value.trim() : '';
+    const ot = otInput ? otInput.value.trim() : '';
+    const observacion = obsInput ? obsInput.value.trim() : '';
+    const equipo = equiposData[index];
+    if (!cuenta && !ot && !observacion) {
+        mostrarAlerta('Debe ingresar al menos cuenta, OT u observación', 'warning');
+        return;
+    }
+    document.getElementById('confirm-serial').textContent = equipo.serial;
+    document.getElementById('confirm-cuenta').textContent = cuenta || 'Sin asignar';
+    document.getElementById('confirm-ot').textContent = ot || 'Sin asignar';
+    document.getElementById('confirm-observacion').textContent = observacion || 'Sin observación';
+    filaActual = { index, cuenta, ot, observacion, serial: equipo.serial };
+    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    modal.show();
+}
+
+// Confirmar y guardar cambios
+document.getElementById('confirm-guardar').addEventListener('click', async function() {
+    if (!filaActual) return;
+    try {
+        const response = await fetch('/api/actualizar_equipo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ serial: filaActual.serial, cuenta: filaActual.cuenta, ot: filaActual.ot, observacion: filaActual.observacion })
+        });
+        if (response.ok) {
+            const result = await response.json();
+            mostrarAlerta('Campos guardados y bloqueados individualmente.', 'success');
+            equiposData[filaActual.index].cuenta = filaActual.cuenta;
+            equiposData[filaActual.index].ot = filaActual.ot;
+            equiposData[filaActual.index].observacion = filaActual.observacion;
+            const cuentaInput = document.getElementById(`cuenta-${filaActual.index}`);
+            const otInput = document.getElementById(`ot-${filaActual.index}`);
+            const obsInput = document.getElementById(`observacion-${filaActual.index}`);
+            // Refrescar el campo Observación con el valor guardado
+            if (obsInput) { obsInput.value = filaActual.observacion; }
+            if (cuentaInput && cuentaInput.value.trim()) { cuentaInput.disabled = true; cuentaInput.classList.add('locked-input'); }
+            if (otInput && otInput.value.trim()) { otInput.disabled = true; otInput.classList.add('locked-input'); }
+            // Observación permanece editable
+            if (obsInput) { obsInput.disabled = false; obsInput.classList.remove('locked-input'); }
+            const rowBtn = cuentaInput ? cuentaInput.closest('tr').querySelector('button.btn') : null;
+            const allLocked = (cuentaInput ? cuentaInput.disabled : true) && (otInput ? otInput.disabled : true) && (obsInput ? obsInput.disabled : true);
+            if (rowBtn) { 
+                rowBtn.disabled = allLocked; 
+                rowBtn.classList.toggle('btn-primary', !allLocked);
+                rowBtn.classList.toggle('btn-secondary', allLocked);
+            }
+            const modal = bootstrap.Modal.getInstance(document.getElementById('confirmModal'));
+            modal.hide();
+            filaActual = null;
+            // Re-render para asegurar sincronización visual completa
+            mostrarEquipos();
+        } else {
+            let errorMsg = 'Error al guardar';
+            try {
+                const error = await response.json();
+                errorMsg = error.message || errorMsg;
+            } catch (_) {}
+            mostrarAlerta(errorMsg, 'danger');
+        }
+    } catch (error) {
+        console.error('Error al guardar:', error);
+        mostrarAlerta('Error al guardar los cambios', 'danger');
+    }
+});
+
+// Exportar CSV del estado actual (filtrado/ordenado)
+function exportarCSV() {
+    // Reconstruir la lista visible aplicando filtros y orden
+    let lista = equiposData.filter(e => {
+        if (filtros.tecnico && e.tecnico !== filtros.tecnico) return false;
+        if (filtros.familia && e.familia !== filtros.familia) return false;
+        if (filtros.elemento && e.elemento !== filtros.elemento) return false;
+        if (filtros.q) {
+            const s = (e.serial || '').toLowerCase();
+            const el = (e.elemento || '').toLowerCase();
+            if (!s.includes(filtros.q) && !el.includes(filtros.q)) return false;
+        }
+        return true;
+    });
+    lista.sort((a, b) => comparar(a, b, sortState.by, sortState.dir));
+    const headers = ['Tecnico','Familia','Elemento','Serial','FechaUltimoMovimiento','Dias','Cuenta','OT','Observacion'];
+    const rows = lista.map(e => [
+        e.tecnico || '', e.familia || '', e.elemento || '', e.serial || '',
+        formatearFecha(e.fecha_ultimo_movimiento), calcularDiasTranscurridos(e.fecha_ultimo_movimiento),
+        e.cuenta || '', e.ot || '', e.observacion || ''
+    ]);
+    const csv = [headers.join(',') , ...rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'equipos_disponibles.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// Mostrar alertas
+function mostrarAlerta(mensaje, tipo) {
+    const alerta = document.createElement('div');
+    alerta.className = `alert alert-${tipo} alert-dismissible fade show`;
+    alerta.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    const container = document.querySelector('.card-body');
+    container.insertBefore(alerta, container.firstChild);
+    setTimeout(() => { if (alerta.parentNode) { alerta.remove(); } }, 3000);
+}
+
+// Mostrar error
+function mostrarError(mensaje) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'alert alert-danger';
+    errorDiv.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        ${mensaje}
+    `;
+    const container = document.querySelector('.card-body');
+    container.insertBefore(errorDiv, container.firstChild);
+}
+
+// Cargar al iniciar
+cargarEquipos();
+</script>
+
+{% endblock %}
