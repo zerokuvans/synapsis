@@ -1,0 +1,14 @@
+Tabla: usuarios
+Generado: 2025-10-19T11:56:51.782628
+
+Columnas:
+- idusuarios (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- usuario_nombre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- usuario_cedula (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- usuario_contraseña (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+idusuarios: 1
+usuario_nombre: vnaranjos
+usuario_cedula: 80833959
+usuario_contraseña: 7885

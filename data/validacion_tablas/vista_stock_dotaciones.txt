@@ -1,0 +1,14 @@
+Tabla: vista_stock_dotaciones
+Generado: 2025-10-19T11:56:51.805459
+
+Columnas:
+- tipo_elemento (varchar) NULLABLE=NO DEFAULT= KEY= EXTRA=
+- cantidad_ingresada (decimal) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cantidad_entregada (decimal) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- saldo_disponible (decimal) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+tipo_elemento: pantalon
+cantidad_ingresada: 229
+cantidad_entregada: 151
+saldo_disponible: 78

@@ -1,0 +1,22 @@
+Tabla: reportes_configuracion
+Generado: 2025-10-19T11:56:51.700109
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- usuario_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- nombre_reporte (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- configuracion_filtros (json) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tipo_reporte (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- activo (tinyint) NULLABLE=YES DEFAULT=1 KEY=MUL EXTRA=
+- created_at (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- updated_at (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+
+Muestra de datos (LIMIT 1):
+id: 1
+usuario_id: 1
+nombre_reporte: Reporte Mensual Preoperacionales
+configuracion_filtros: {"periodo": "mensual", "incluir_graficos": true}
+tipo_reporte: preoperacional
+activo: 1
+created_at: 2025-08-29 18:30:46
+updated_at: 2025-08-29 18:30:46

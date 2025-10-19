@@ -1,0 +1,20 @@
+Tabla: logs_validacion_dotaciones
+Generado: 2025-10-19T11:56:51.606936
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- tipo_operacion (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- cedula_tecnico (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- items_json (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- hash_operacion (varchar) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- resultado_validacion (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_validacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+id: 1
+tipo_operacion: asignacion
+cedula_tecnico: 12345678
+items_json: {"pantalon": 2, "camisetagris": 1, "guerrera": 0, "camisetapolo": 0, "botas": 1, "guantes_nitrilo": 0, "guantes_carnaza": 0, "gafas": 0, "gorra": 0, "casco": 0}
+hash_operacion: db03007aa57220c02707c7e6b298962b
+resultado_validacion: (False, "Error validando duplicados: 1054 (42S22): Unknown column 'cedula_tecnico' in 'where clause'")
+fecha_validacion: 2025-09-25 08:22:33

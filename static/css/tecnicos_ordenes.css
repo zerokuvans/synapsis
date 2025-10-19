@@ -1,0 +1,212 @@
+/* Módulo Órdenes de Trabajo - Técnicos
+   Estilos consistentes con el tema: azul primario, verde éxito, rojo peligro */
+
+:root {
+  --color-primary: #0d6efd; /* Bootstrap primary */
+  --color-success: #198754; /* Bootstrap success */
+  --color-danger: #dc3545; /* Bootstrap danger */
+  --color-warning: #ffc107;
+  --color-info: #0dcaf0;
+  --color-light: #f8f9fa;
+  --color-dark: #212529;
+  --table-hover-bg: rgba(13, 110, 253, 0.06);
+  --card-shadow: 0 0.5rem 1rem rgba(0,0,0,.15);
+  --transition-fast: 150ms ease;
+  --transition-medium: 250ms ease;
+}
+
+/* Animaciones básicas */
+.fade-in {
+  animation: fadeIn var(--transition-medium);
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.smooth-transition {
+  transition: all var(--transition-medium);
+}
+
+/* Encabezado y acciones */
+#btnNuevaOT {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+}
+#btnNuevaOT:hover {
+  filter: brightness(1.05);
+}
+
+/* Contenedores y tarjetas */
+.card {
+  border-radius: .5rem;
+}
+.card-header {
+  background: var(--color-light);
+}
+.card-header .btn-group .btn {
+  border-radius: .375rem;
+}
+.card-header .btn-group .btn.active {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+/* Filtros */
+#btnAplicarFiltros, #btnLimpiarFiltros {
+  min-width: 160px;
+}
+#btnAplicarFiltros:hover {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+#btnLimpiarFiltros:hover {
+  background-color: var(--color-dark);
+  color: #fff;
+}
+
+/* Tabla de Órdenes */
+#vistaTabla {
+  width: 100%;
+}
+#tablaOrdenes th, #tablaOrdenes td {
+  vertical-align: middle;
+}
+#tablaOrdenes tbody tr {
+  transition: background-color var(--transition-fast);
+}
+#tablaOrdenes tbody tr:hover {
+  background-color: var(--table-hover-bg);
+}
+#tablaOrdenes .acciones .btn {
+  margin-right: .25rem;
+}
+
+/* Paginación */
+#paginacion .page-item .page-link {
+  border-radius: .375rem;
+  margin: 0 .125rem;
+}
+#paginacion .page-item.active .page-link {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* Vista de Tarjetas */
+#vistaTarjetas .ot-card {
+  box-shadow: var(--card-shadow);
+  border-radius: .5rem;
+  margin-bottom: 1rem;
+}
+#vistaTarjetas .ot-card .ot-header {
+  padding: .75rem 1rem;
+  border-bottom: 1px solid rgba(0,0,0,.075);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#vistaTarjetas .ot-card .ot-body {
+  padding: 1rem;
+}
+#vistaTarjetas .ot-card .ot-footer {
+  padding: .75rem 1rem;
+  border-top: 1px solid rgba(0,0,0,.075);
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+}
+
+/* Badges de estado */
+.badge-estado {
+  padding: .5rem .75rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.badge-pendiente {
+  background-color: var(--color-warning);
+  color: #212529;
+}
+.badge-en-proceso {
+  background-color: var(--color-info);
+  color: #212529;
+}
+.badge-completado {
+  background-color: var(--color-success);
+  color: #fff;
+}
+
+/* Modales con scroll */
+.modal .modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.modal .table-responsive {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Botones con iconos */
+.btn .fas, .btn .fa {
+  margin-right: .5rem;
+}
+.btn-primary:hover {
+  filter: brightness(1.05);
+}
+.btn-secondary:hover {
+  filter: brightness(1.05);
+}
+.btn-outline-primary:hover {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+/* Formularios con validación visual */
+.form-control.is-valid, .form-select.is-valid {
+  border-color: var(--color-success);
+}
+.form-control.is-invalid, .form-select.is-invalid {
+  border-color: var(--color-danger);
+}
+.form-control:focus, .form-select:focus {
+  box-shadow: 0 0 0 .2rem rgba(13,110,253,.25);
+}
+.invalid-feedback {
+  display: block;
+}
+
+/* Tabla de Códigos */
+#tablaCodigosDisponibles td input[type="number"],
+#tablaCodigosSeleccionados td input[type="number"] {
+  width: 90px;
+}
+#tablaCodigosDisponibles tbody tr.added,
+#tablaCodigosSeleccionados tbody tr.updated {
+  animation: fadeIn var(--transition-medium);
+}
+
+/* Total */
+#valorTotal {
+  min-width: 80px;
+  display: inline-block;
+}
+
+/* Utilidades */
+.hidden {
+  display: none !important;
+}
+.scroll-y {
+  overflow-y: auto !important;
+}
+
+/* Responsive ajustes */
+@media (max-width: 992px) {
+  #tablaOrdenes thead {
+    font-size: .9rem;
+  }
+  #tablaOrdenes tbody td {
+    font-size: .95rem;
+  }
+}
+@media (max-width: 768px) {
+  .card-header h5 {
+    font-size: 1rem;

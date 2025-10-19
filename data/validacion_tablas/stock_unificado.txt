@@ -1,0 +1,28 @@
+Tabla: stock_unificado
+Generado: 2025-10-19T11:56:51.761212
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- codigo_material (varchar) NULLABLE=NO DEFAULT=None KEY=UNI EXTRA=
+- descripcion (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- categoria (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- cantidad_disponible (int) NULLABLE=YES DEFAULT=0 KEY=MUL EXTRA=
+- cantidad_asignada (int) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- cantidad_reservada (int) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- cantidad_minima (int) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- unidad_medida (varchar) NULLABLE=YES DEFAULT=unidad KEY= EXTRA=
+- fecha_actualizacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+- activo (tinyint) NULLABLE=YES DEFAULT=1 KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id: 1
+codigo_material: PANTALON_DOTACION
+descripcion: Dotación - Pantalon
+categoria: dotacion
+cantidad_disponible: 3
+cantidad_asignada: 0
+cantidad_reservada: 0
+cantidad_minima: 0
+unidad_medida: unidad
+fecha_actualizacion: 2025-09-25 08:24:39
+activo: 1

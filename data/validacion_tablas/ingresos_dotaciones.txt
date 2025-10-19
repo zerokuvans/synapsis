@@ -1,0 +1,30 @@
+Tabla: ingresos_dotaciones
+Generado: 2025-10-19T11:56:51.579064
+
+Columnas:
+- id_ingreso (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- tipo_elemento (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- cantidad (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- proveedor (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_ingreso (date) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- usuario_registro (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- created_at (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- updated_at (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+- talla (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- numero_calzado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_ingreso: 20
+tipo_elemento: botas
+cantidad: 1
+proveedor: BOTAS AGROINDUSTRIAL SAS
+fecha_ingreso: 2025-09-22
+observaciones: None
+usuario_registro: 1032502478
+created_at: 2025-09-24 10:57:06
+updated_at: 2025-09-24 10:57:06
+talla: None
+numero_calzado: 38
+estado: VALORADO

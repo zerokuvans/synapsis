@@ -1,0 +1,11 @@
+Tabla: roles_permisos
+Generado: 2025-10-19T11:56:51.717159
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- rol_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- permiso_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- created_at (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+(sin datos)

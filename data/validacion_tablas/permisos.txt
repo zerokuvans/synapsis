@@ -1,0 +1,15 @@
+Tabla: permisos
+Generado: 2025-10-19T11:56:51.667637
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- nombre (varchar) NULLABLE=NO DEFAULT=None KEY=UNI EXTRA=
+- descripcion (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- modulo (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- accion (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- activo (tinyint) NULLABLE=YES DEFAULT=1 KEY= EXTRA=
+- created_at (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- updated_at (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+
+Muestra de datos (LIMIT 1):
+(sin datos)

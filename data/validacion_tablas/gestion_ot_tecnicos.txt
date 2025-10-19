@@ -1,0 +1,22 @@
+Tabla: gestion_ot_tecnicos
+Generado: 2025-10-19T11:56:51.544184
+
+Columnas:
+- id_gestion_ot_tecnicos (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- carpeta (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- ot (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cuenta (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- servicio (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- codigo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tecnologia (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- agrupacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- nombre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_creacion (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- id_codigo_consumidor (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cantidad (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- valor (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- descripcion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+(sin datos)

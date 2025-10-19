@@ -1,0 +1,20 @@
+Tabla: turnos
+Generado: 2025-10-19T11:56:51.778484
+
+Columnas:
+- id_turnos (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- turnos_nombre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- turnos_horario (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- turnos_horas_laboradas (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- turnos_breack (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- turnos_almuerzo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- turnos_tipo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_turnos: 1
+turnos_nombre: APERTURA
+turnos_horario: 7:00 AM - 4:00 PM
+turnos_horas_laboradas: 8
+turnos_breack: 9:00 AM - 9:15 AM
+turnos_almuerzo: 12:00 PM - 13:00 PM
+turnos_tipo: None

@@ -1,0 +1,61 @@
+Tabla: inventario_herramienta
+Generado: 2025-10-19T11:56:51.585947
+
+Columnas:
+- id_asignacion (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- asignacion_cedula (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_nombre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_fecha (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_cargo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_adaptador_mandril (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_alicate (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_barra_45cm (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_bisturi_metalico (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_broca_38 (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_broca_386_ran (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_broca_126_ran (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_broca_metalmadera_14 (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_broca_metalmadera_38 (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_broca_metalmadera_516 (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_caja_de_herramientas (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_cajon_rojo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_cinta_de_senal (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_cono_retractil (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_cortafrio (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_destor_de_estrella (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_destor_de_pala (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_destor_tester (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_espatula (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_exten_de_corr_10_mts (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_llave_locking_male (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_llave_reliance (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_llave_torque_rg_11 (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_llave_torque_rg_6 (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_llaves_mandril (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_mandril_para_taladro (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_martillo_de_una (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_multimetro (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_pelacable_rg_6y_rg_11 (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_pinza_de_punta (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_pistola_de_silicona (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_planillero (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_ponchadora_rg_6_y_rg_11 (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_ponchadora_rj_45_y_rj11 (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_probador_de_tonos (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_probador_de_tonos_utp (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_puntas_para_multimetro (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_sonda_metalica (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_tacos_de_madera (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_taladro_percutor (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_telefono_de_pruebas (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_power_miter (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_bfl_laser (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_cortadora (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_stripper_fibra (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_pelachaqueta (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- id_codigo_consumidor (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- id_asignador (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- asignacion_estado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+(sin datos)

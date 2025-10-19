@@ -1,0 +1,42 @@
+Tabla: recurso_operativo
+Generado: 2025-10-19T11:56:51.696366
+
+Columnas:
+- id_codigo_consumidor (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- recurso_operativo_cedula (varchar) NULLABLE=NO DEFAULT=None KEY=UNI EXTRA=
+- recurso_operativo_password (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- id_roles (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- estado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- nombre (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cargo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- intentos_fallidos (int) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- ultimo_intento (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_creacion (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- carpeta (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cliente (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- ciudad (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- super (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- analista (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- pin (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_retiro (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_ingreso (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_codigo_consumidor: 1
+recurso_operativo_cedula: 80833959
+recurso_operativo_password: $2b$12$VZl/i92hR9LcmklDUs8g.easIWahYJhHLPtIyHqzYV7aFrpH43KQ.
+id_roles: 1
+estado: Activo
+nombre: VICTOR ALFONSO NARANJO SIERRA
+cargo: DESARROLLADOR
+intentos_fallidos: 0
+ultimo_intento: None
+fecha_creacion: 2025-03-04 11:51:18
+carpeta: ADMINISTRATIVO
+cliente: DICO
+ciudad: BOGOTA
+super: MARIA ELENA REYES CEDEÑO
+analista: None
+pin: None
+fecha_retiro: None
+fecha_ingreso: None

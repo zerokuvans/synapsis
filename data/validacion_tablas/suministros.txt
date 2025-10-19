@@ -1,0 +1,32 @@
+Tabla: suministros
+Generado: 2025-10-19T11:56:51.766053
+
+Columnas:
+- id_suministros (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- suministros_codigo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- suministros_descripcion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- suministros_unidad_medida (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- suministros_familia (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- suministros_cliente (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- suministros_tipo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- suministros_estado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- suministros_requiere_serial (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- suministros_serial (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- suministros_costo_unitario (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- suministros_cantidad (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_registro (datetime) NULLABLE=NO DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+id_suministros: 1
+suministros_codigo: 32131
+suministros_descripcion: utp
+suministros_unidad_medida: mts
+suministros_familia: cables
+suministros_cliente: claro
+suministros_tipo: None
+suministros_estado: None
+suministros_requiere_serial: si
+suministros_serial: None
+suministros_costo_unitario: 12356
+suministros_cantidad: 10000
+fecha_registro: 2025-02-23 20:14:18

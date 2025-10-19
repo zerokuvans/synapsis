@@ -1,0 +1,28 @@
+Tabla: movimientos_stock_ferretero
+Generado: 2025-10-19T11:56:51.623775
+
+Columnas:
+- id_movimiento (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- material_tipo (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- tipo_movimiento (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- cantidad (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- cantidad_anterior (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- cantidad_nueva (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- referencia_id (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- referencia_tipo (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- usuario_movimiento (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- fecha_movimiento (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+id_movimiento: 1
+material_tipo: silicona
+tipo_movimiento: entrada
+cantidad: 1000
+cantidad_anterior: 0
+cantidad_nueva: 1000
+referencia_id: 1
+referencia_tipo: entrada_ferretero
+observaciones: Entrada de material - Factura: 0001
+usuario_movimiento: None
+fecha_movimiento: 2025-08-22 15:18:27

@@ -1,0 +1,14 @@
+Tabla: dotacion_elementos_config
+Generado: 2025-10-19T11:56:51.493525
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- elemento (varchar) NULLABLE=NO DEFAULT=None KEY=UNI EXTRA=
+- es_valorado (tinyint) NULLABLE=NO DEFAULT=0 KEY= EXTRA=
+- precio_unitario (decimal) NULLABLE=YES DEFAULT=0.00 KEY= EXTRA=
+- descripcion (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_creacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- fecha_actualizacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+
+Muestra de datos (LIMIT 1):
+(sin datos)

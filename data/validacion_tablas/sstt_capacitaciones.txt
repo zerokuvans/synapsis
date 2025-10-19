@@ -1,0 +1,22 @@
+Tabla: sstt_capacitaciones
+Generado: 2025-10-19T11:56:51.729008
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- titulo (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- descripcion (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tipo (enum) NULLABLE=YES DEFAULT=presencial KEY= EXTRA=
+- duracion_horas (decimal) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- instructor (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_programada (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_realizacion (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- lugar (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (enum) NULLABLE=YES DEFAULT=programada KEY= EXTRA=
+- capacidad_maxima (int) NULLABLE=YES DEFAULT=20 KEY= EXTRA=
+- material_apoyo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- certificacion_requerida (tinyint) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- usuario_creador (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- fecha_creacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+(sin datos)

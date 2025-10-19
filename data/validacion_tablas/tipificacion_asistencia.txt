@@ -1,0 +1,20 @@
+Tabla: tipificacion_asistencia
+Generado: 2025-10-19T11:56:51.769927
+
+Columnas:
+- idtipificacion_asistencia (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- codigo_tipificacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- nombre_tipificacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- valor (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- zona (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- grupo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+idtipificacion_asistencia: 1
+codigo_tipificacion: 0
+nombre_tipificacion: AUSENCIA INJUSTIFICADA
+estado: 1
+valor: 0
+zona: OP
+grupo: AUSENCIA INJUSTIFICADA

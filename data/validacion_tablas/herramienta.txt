@@ -1,0 +1,12 @@
+Tabla: herramienta
+Generado: 2025-10-19T11:56:51.552049
+
+Columnas:
+- idherramienta (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- herramienta_descripcion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- herramienta_valor (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- herramienta_fechacompra (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- herramienta_cantidad (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+(sin datos)

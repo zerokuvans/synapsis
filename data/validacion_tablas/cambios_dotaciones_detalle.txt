@@ -1,0 +1,18 @@
+Tabla: cambios_dotaciones_detalle
+Generado: 2025-10-19T11:56:51.450647
+
+Columnas:
+- id_detalle (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- id_cambio_dotacion (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- elemento (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- tipo_estado (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- talla (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_elemento (varchar) NULLABLE=NO DEFAULT=VALORADO KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_detalle: 31
+id_cambio_dotacion: 6
+elemento: pantalon
+tipo_estado: ANTERIOR
+talla: L
+estado_elemento: USADO

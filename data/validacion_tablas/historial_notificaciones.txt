@@ -1,0 +1,21 @@
+Tabla: historial_notificaciones
+Generado: 2025-10-19T11:56:51.563129
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- devolucion_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- tipo_notificacion (enum) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- destinatario (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- asunto (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- mensaje (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_envio (enum) NULLABLE=YES DEFAULT=PENDIENTE KEY=MUL EXTRA=
+- intentos_envio (int) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- fecha_programada (timestamp) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- fecha_enviado (timestamp) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- error_mensaje (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- configuracion_id (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- created_at (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- updated_at (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+
+Muestra de datos (LIMIT 1):
+(sin datos)

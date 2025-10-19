@@ -1,0 +1,10 @@
+Tabla: rol
+Generado: 2025-10-19T11:56:51.710181
+
+Columnas:
+- id_rol (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- rol_descripcion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_rol: 1
+rol_descripcion: administrativo

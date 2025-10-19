@@ -1,0 +1,30 @@
+Tabla: entradas_ferretero
+Generado: 2025-10-19T11:56:51.504938
+
+Columnas:
+- id_entrada (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- material_tipo (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- cantidad_entrada (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- precio_unitario (decimal) NULLABLE=YES DEFAULT=0.00 KEY= EXTRA=
+- precio_total (decimal) NULLABLE=YES DEFAULT=0.00 KEY= EXTRA=
+- proveedor (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- numero_factura (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_entrada (date) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- fecha_vencimiento (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- usuario_registro (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- fecha_registro (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+id_entrada: 1
+material_tipo: silicona
+cantidad_entrada: 6006
+precio_unitario: 0.00
+precio_total: 0.00
+proveedor: PANAMERICANA
+numero_factura: 0001
+fecha_entrada: 2025-08-22
+fecha_vencimiento: None
+observaciones: PRUEBA
+usuario_registro: None
+fecha_registro: 2025-08-22 15:18:27

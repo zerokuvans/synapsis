@@ -1,0 +1,28 @@
+Tabla: movimientos_stock_unificado
+Generado: 2025-10-19T11:56:51.633231
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- codigo_material (varchar) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- tipo_movimiento (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- cantidad (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- cantidad_anterior (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- cantidad_nueva (int) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- motivo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- referencia_operacion (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cedula_tecnico (varchar) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- fecha_movimiento (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- usuario_sistema (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id: 1
+codigo_material: PANTALON_DOTACION
+tipo_movimiento: asignacion
+cantidad: 2
+cantidad_anterior: 5
+cantidad_nueva: 3
+motivo: Asignación de dotación - pantalon
+referencia_operacion: TEST_ASIGNACION_001
+cedula_tecnico: 12345678
+fecha_movimiento: 2025-09-25 08:24:39
+usuario_sistema: sistema_dotaciones

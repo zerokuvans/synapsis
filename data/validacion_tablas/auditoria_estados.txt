@@ -1,0 +1,14 @@
+Tabla: auditoria_estados
+Generado: 2025-10-19T11:56:51.420985
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- devolucion_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- estado_anterior (enum) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- estado_nuevo (enum) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- usuario_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- motivo_cambio (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_cambio (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+(sin datos)

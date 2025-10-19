@@ -1,0 +1,19 @@
+Tabla: configuracion_notificaciones
+Generado: 2025-10-19T11:56:51.461266
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- tipo_notificacion (enum) NULLABLE=NO DEFAULT=EMAIL KEY= EXTRA=
+- evento_trigger (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- estado_origen (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_destino (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- activo (tinyint) NULLABLE=YES DEFAULT=1 KEY=MUL EXTRA=
+- destinatarios_roles (json) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- plantilla_email_id (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- plantilla_sms_id (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- delay_minutos (int) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- created_at (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- updated_at (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+
+Muestra de datos (LIMIT 1):
+(sin datos)

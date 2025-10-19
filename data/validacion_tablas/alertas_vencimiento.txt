@@ -1,0 +1,22 @@
+Tabla: alertas_vencimiento
+Generado: 2025-10-19T11:56:51.395368
+
+Columnas:
+- id_alerta (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- id_historial (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- tipo_alerta (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- fecha_alerta (date) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- notificado (tinyint) NULLABLE=YES DEFAULT=0 KEY=MUL EXTRA=
+- canal_notificacion (enum) NULLABLE=YES DEFAULT=sistema KEY= EXTRA=
+- fecha_notificacion (timestamp) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_creacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+id_alerta: 3
+id_historial: 25
+tipo_alerta: 15_dias
+fecha_alerta: 2025-09-01
+notificado: 0
+canal_notificacion: sistema
+fecha_notificacion: None
+fecha_creacion: 2025-09-01 03:00:00

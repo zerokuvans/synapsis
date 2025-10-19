@@ -1,0 +1,26 @@
+Tabla: ferretero
+Generado: 2025-10-19T11:56:51.536224
+
+Columnas:
+- id_ferretero (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- codigo_ferretero (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- id_codigo_consumidor (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- silicona (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- grapas_negras (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- grapas_blancas (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- amarres_negros (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- amarres_blancos (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- cinta_aislante (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_asignacion (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+id_ferretero: 1
+codigo_ferretero: None
+id_codigo_consumidor: 37
+silicona: 4
+grapas_negras: 0
+grapas_blancas: 0
+amarres_negros: 0
+amarres_blancos: 0
+cinta_aislante: 0
+fecha_asignacion: 2025-03-11 06:00:00

@@ -1,0 +1,30 @@
+Tabla: mpa_soat
+Generado: 2025-10-19T11:56:51.649208
+
+Columnas:
+- id_mpa_soat (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- placa (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_inicio (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_vencimiento (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- valor_prima (decimal) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- numero_poliza (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- aseguradora (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tecnico_asignado (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (enum) NULLABLE=YES DEFAULT=Activo KEY= EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_creacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- fecha_actualizacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+
+Muestra de datos (LIMIT 1):
+id_mpa_soat: 1
+placa: TON81E
+fecha_inicio: 2025-07-22
+fecha_vencimiento: 2026-07-22 00:00:00
+valor_prima: 350000.00
+numero_poliza: None
+aseguradora: None
+tecnico_asignado: 11
+estado: Activo
+observaciones: None
+fecha_creacion: 2025-10-15 11:33:07
+fecha_actualizacion: 2025-10-17 20:40:59

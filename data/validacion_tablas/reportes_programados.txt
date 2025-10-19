@@ -1,0 +1,17 @@
+Tabla: reportes_programados
+Generado: 2025-10-19T11:56:51.707160
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- configuracion_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- frecuencia (enum) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- hora_ejecucion (time) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- formato_salida (enum) NULLABLE=YES DEFAULT=pdf KEY= EXTRA=
+- destinatarios_email (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- activo (tinyint) NULLABLE=YES DEFAULT=1 KEY=MUL EXTRA=
+- proxima_ejecucion (timestamp) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- created_at (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- updated_at (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+
+Muestra de datos (LIMIT 1):
+(sin datos)

@@ -1,0 +1,21 @@
+Tabla: sstt_epp_control
+Generado: 2025-10-19T11:56:51.733135
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- usuario_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- tipo_epp (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- marca (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- modelo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_entrega (date) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- fecha_vencimiento (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (enum) NULLABLE=YES DEFAULT=nuevo KEY= EXTRA=
+- observaciones (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- entregado_por (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- recibido_conforme (tinyint) NULLABLE=YES DEFAULT=1 KEY= EXTRA=
+- fecha_devolucion (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- motivo_devolucion (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_registro (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+(sin datos)

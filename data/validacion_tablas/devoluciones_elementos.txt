@@ -1,0 +1,15 @@
+Tabla: devoluciones_elementos
+Generado: 2025-10-19T11:56:51.482561
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- devolucion_id (int) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- tipo_elemento (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- cantidad (int) NULLABLE=NO DEFAULT=1 KEY= EXTRA=
+- talla (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado_elemento (enum) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- observaciones_elemento (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- created_at (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+
+Muestra de datos (LIMIT 1):
+(sin datos)

@@ -1,0 +1,60 @@
+Tabla: parque_automotor
+Generado: 2025-10-19T11:56:51.663497
+
+Columnas:
+- id_parque_automotor (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- cedula_propietario (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- nombre_propietario (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- placa (varchar) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- tipo_vehiculo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- supervisor (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- soat_vencimiento (date) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- tecnomecanica_vencimiento (date) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- parque_automotorcol (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- licencia (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- vin (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- numero_de_motor (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_de_matricula (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- estado (varchar) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- marca (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- linea (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observaciones (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- comparendos (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- total_comparendos (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- id_codigo_consumidor (int) NULLABLE=YES DEFAULT=None KEY=MUL EXTRA=
+- fecha_asignacion (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- modelo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- color (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_actualizacion (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+- kilometraje_actual (int) NULLABLE=YES DEFAULT=0 KEY= EXTRA=
+- proximo_mantenimiento_km (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_ultimo_mantenimiento (date) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_parque_automotor: 6
+cedula_propietario: 1019112308
+nombre_propietario: ALARCON SALAS LUIS HERNANDO
+placa: TON81E
+tipo_vehiculo: Moto
+supervisor: CACERES MARTINEZ CARLOS
+soat_vencimiento: 2026-07-22
+tecnomecanica_vencimiento: 2026-08-03
+parque_automotorcol: None
+licencia: None
+vin: 9FLA12DY7KAF09272
+numero_de_motor: DJYCJK07566
+fecha_de_matricula: 2021-02-12
+estado: Activo
+marca: BAJAJ
+linea: PULSAR 180 GT BSIV
+observaciones: REPORTADO
+comparendos: COMPARENDO
+total_comparendos: 604857
+id_codigo_consumidor: 11
+fecha_asignacion: None
+modelo: 2019
+color: NEGRO NEBULOSA
+fecha_actualizacion: 2025-08-30 18:05:45
+kilometraje_actual: None
+proximo_mantenimiento_km: None
+fecha_ultimo_mantenimiento: None

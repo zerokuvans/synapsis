@@ -1,0 +1,26 @@
+Tabla: mpa_mantenimientos
+Generado: 2025-10-19T11:56:51.644030
+
+Columnas:
+- id_mpa_mantenimientos (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- placa (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tecnico (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_mantenimiento (datetime) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tipo_vehiculo (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- tipo_mantenimiento (varchar) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- kilometraje (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- soporte_foto_geo (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- soporte_foto_factura (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- observacion (text) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_mpa_mantenimientos: 2
+placa: IVS28F
+tecnico: ARNACHE ARIAS JUAN CARLOS
+fecha_mantenimiento: 2025-10-14 14:23:25
+tipo_vehiculo: Moto
+tipo_mantenimiento: Frenos - Funcionamiento general
+kilometraje: 64210
+soporte_foto_geo: uploads/mantenimientos/20251015_151439_98411599_taller_lascarro moto 2.jpeg
+soporte_foto_factura: uploads/mantenimientos/20251015_151440_6fbf0a13_factura_facrua.jpeg
+observacion: CAMBIO LIQUIDO FRENOS

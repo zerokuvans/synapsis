@@ -1,0 +1,20 @@
+Tabla: alertas_stock
+Generado: 2025-10-19T11:56:51.391382
+
+Columnas:
+- id_alerta (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- material (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- stock_actual (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- stock_minimo (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- diferencia (int) NULLABLE=YES DEFAULT=None KEY= EXTRA=
+- fecha_alerta (datetime) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- estado (enum) NULLABLE=YES DEFAULT=PENDIENTE KEY= EXTRA=
+
+Muestra de datos (LIMIT 1):
+id_alerta: 1
+material: grapas_negras
+stock_actual: -50
+stock_minimo: 500
+diferencia: None
+fecha_alerta: 2025-08-28 21:07:42
+estado: PENDIENTE

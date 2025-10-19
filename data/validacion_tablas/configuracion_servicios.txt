@@ -1,0 +1,14 @@
+Tabla: configuracion_servicios
+Generado: 2025-10-19T11:56:51.464878
+
+Columnas:
+- id (int) NULLABLE=NO DEFAULT=None KEY=PRI EXTRA=auto_increment
+- servicio (enum) NULLABLE=NO DEFAULT=None KEY=MUL EXTRA=
+- proveedor (varchar) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- configuracion (json) NULLABLE=NO DEFAULT=None KEY= EXTRA=
+- activo (tinyint) NULLABLE=YES DEFAULT=1 KEY= EXTRA=
+- created_at (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED
+- updated_at (timestamp) NULLABLE=YES DEFAULT=CURRENT_TIMESTAMP KEY= EXTRA=DEFAULT_GENERATED on update CURRENT_TIMESTAMP
+
+Muestra de datos (LIMIT 1):
+(sin datos)
