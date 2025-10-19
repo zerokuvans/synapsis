@@ -648,11 +648,213 @@ def main_analistas_dashboard():
     """Renderizar el dashboard del módulo analistas"""
     return render_template('modulos/analistas/dashboard.html')
 
+@app.route('/analistas/codigos')
+@login_required()
+def main_analistas_codigos():
+    """Renderizar la página de códigos de facturación"""
+    return render_template('modulos/analistas/codigos.html')
+
 @app.route('/analistas/inicio-operacion-tecnicos')
 @login_required()
 def main_inicio_operacion_tecnicos():
     """Renderizar la página de inicio de operación para técnicos"""
     return render_template('inicio_operacion_tecnicos.html')
+
+# ============================================================================
+# MÓDULO ANALISTAS - API ENDPOINTS Códigos de Facturación
+# ============================================================================
+
+@app.route('/api/analistas/codigos', methods=['GET'])
+@login_required()
+def api_codigos_facturacion():
+    """Lista de códigos de facturación con filtros opcionales"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+
+        texto_busqueda = request.args.get('busqueda', '').strip()
+        tecnologia = request.args.get('tecnologia', '').strip()
+        agrupacion = request.args.get('agrupacion', '').strip()
+        grupo = request.args.get('grupo', '').strip()
+
+        query = """
+            SELECT 
+                id_base_codigos_facturacion AS idbase_codigos_facturacion,
+                codigo AS codigo_codigos_facturacion,
+                descripcion AS nombre_codigos_facturacion,
+                tecnologia,
+                '' AS instrucciones_de_uso_codigos_facturacion,
+                categoria,
+                nombre,
+                0 AS facturable_codigos_facturacion
+            FROM base_codigos_facturacion
+            WHERE 1=1
+        """
+        params = []
+
+        if texto_busqueda:
+            query += """
+                AND (
+                    codigo LIKE %s OR 
+                    descripcion LIKE %s
+                )
+            """
+            busqueda_param = f"%{texto_busqueda}%"
+            params.extend([busqueda_param, busqueda_param])
+        if tecnologia:
+            query += " AND tecnologia = %s"
+            params.append(tecnologia)
+        if agrupacion:
+            query += " AND categoria = %s"
+            params.append(agrupacion)
+        if grupo:
+            query += " AND nombre = %s"
+            params.append(grupo)
+
+        query += " ORDER BY codigo ASC"
+        cursor.execute(query, params)
+        resultados = cursor.fetchall()
+        return jsonify(resultados)
+
+    except mysql.connector.Error as e:
+        logging.error(f"Error en API codigos: {str(e)}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    except Exception as e:
+        logging.error(f"Error inesperado en API codigos: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/analistas/codigos/grupos', methods=['GET'])
+@login_required()
+def api_grupos_codigos_facturacion():
+    """Lista única de grupos en códigos de facturación"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+
+        tecnologia = request.args.get('tecnologia', '').strip()
+        agrupacion = request.args.get('agrupacion', '').strip()
+
+        query = """
+            SELECT DISTINCT nombre
+            FROM base_codigos_facturacion
+            WHERE nombre IS NOT NULL 
+              AND nombre != ''
+        """
+        params = []
+        if tecnologia:
+            query += " AND tecnologia = %s"
+            params.append(tecnologia)
+        if agrupacion:
+            query += " AND categoria = %s"
+            params.append(agrupacion)
+        query += " ORDER BY nombre ASC"
+
+        cursor.execute(query, params) if params else cursor.execute(query)
+        resultados = cursor.fetchall()
+        grupos = [row[0] for row in resultados]
+        return jsonify(grupos)
+
+    except mysql.connector.Error as e:
+        logging.error(f"Error en API grupos codigos: {str(e)}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    except Exception as e:
+        logging.error(f"Error inesperado en API grupos codigos: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/analistas/codigos/tecnologias', methods=['GET'])
+@login_required()
+def api_tecnologias_codigos_facturacion():
+    """Lista única de tecnologías en códigos de facturación"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+
+        query = """
+            SELECT DISTINCT tecnologia
+            FROM base_codigos_facturacion
+            WHERE tecnologia IS NOT NULL 
+              AND tecnologia != ''
+            ORDER BY tecnologia ASC
+        """
+        cursor.execute(query)
+        resultados = cursor.fetchall()
+        tecnologias = [row[0] for row in resultados]
+        return jsonify(tecnologias)
+
+    except mysql.connector.Error as e:
+        logging.error(f"Error en API tecnologias codigos: {str(e)}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    except Exception as e:
+        logging.error(f"Error inesperado en API tecnologias codigos: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/analistas/codigos/agrupaciones', methods=['GET'])
+@login_required()
+def api_agrupaciones_codigos_facturacion():
+    """Lista única de agrupaciones en códigos de facturación, opcional por tecnología"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+
+        tecnologia = request.args.get('tecnologia', '').strip()
+        if tecnologia:
+            query = """
+                SELECT DISTINCT categoria
+                FROM base_codigos_facturacion
+                WHERE categoria IS NOT NULL 
+                  AND categoria != ''
+                  AND tecnologia = %s
+                ORDER BY categoria ASC
+            """
+            cursor.execute(query, (tecnologia,))
+        else:
+            query = """
+                SELECT DISTINCT categoria
+                FROM base_codigos_facturacion
+                WHERE categoria IS NOT NULL 
+                  AND categoria != ''
+                ORDER BY categoria ASC
+            """
+            cursor.execute(query)
+
+        resultados = cursor.fetchall()
+        agrupaciones = [row[0] for row in resultados]
+        return jsonify(agrupaciones)
+
+    except mysql.connector.Error as e:
+        logging.error(f"Error en API agrupaciones codigos: {str(e)}")
+        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+    except Exception as e:
+        logging.error(f"Error inesperado en API agrupaciones codigos: {str(e)}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
 
 @app.route('/tecnicos')
 @login_required(role='tecnicos')

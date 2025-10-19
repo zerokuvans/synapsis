@@ -1,0 +1,17 @@
+== Columnas de base_codigos_facturacion ==
+- id_base_codigos_facturacion | int | Null=NO | Key=PRI | Default=None | Extra=auto_increment
+- tecnologia | varchar(45) | Null=YES | Key= | Default=None | Extra=
+- categoria | varchar(45) | Null=YES | Key= | Default=None | Extra=
+- codigo | varchar(45) | Null=YES | Key= | Default=None | Extra=
+- nombre | varchar(64) | Null=YES | Key= | Default=None | Extra=
+- descripcion | varchar(200) | Null=YES | Key= | Default=None | Extra=
+- valor | int | Null=YES | Key= | Default=None | Extra=
+
+== Ejemplo de fila en base_codigos_facturacion ==
+id_base_codigos_facturacion: 1
+tecnologia: HFC
+categoria: Traslados PYMES
+codigo: NTROUTER
+nombre: Traslado Equipos Gestionables No Cableados
+descripcion: Cliente cambia de unidad. Routers, ATAs, Access Point.
+valor: 16545
