@@ -182,7 +182,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Cargar lista de Técnico Mecánica
 function loadTecnicoMecanicas() {
-    fetch('/api/mpa/tecnico_mecanica')
+    // Agregar timestamp para evitar caché del navegador
+    const timestamp = new Date().getTime();
+    fetch(`/api/mpa/tecnico_mecanica?_t=${timestamp}`, {
+        headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+    })
         .then(response => {
             if (response.status === 401) {
                 showAlert('Sesión expirada. Por favor, inicia sesión nuevamente.', 'warning');
@@ -349,7 +357,7 @@ function loadVehiclePlates() {
                 vehiclePlates = data.data;
                 const select = document.getElementById('placa');
                 select.innerHTML = '<option value="">Seleccionar placa</option>' +
-                    vehiclePlates.map(vehicle => `<option value="${vehicle.placa}" data-tecnico="${vehicle.tecnico_nombre || 'Sin asignar'}" data-tipo="${vehicle.tipo_vehiculo}">${vehicle.placa}</option>`).join('');
+                    vehiclePlates.map(vehicle => `<option value="${vehicle.placa}" data-tecnico="${vehicle.tecnico_asignado || ''}" data-tecnico-nombre="${vehicle.tecnico_nombre || 'Sin asignar'}" data-tipo="${vehicle.tipo_vehiculo}">${vehicle.placa}</option>`).join('');
             } else {
                 showAlert('Error al cargar placas: ' + (data.message || 'Error desconocido'), 'warning');
             }
@@ -366,13 +374,17 @@ function onPlacaChange() {
     const selectedOption = placaSelect.options[placaSelect.selectedIndex];
     
     if (selectedOption.value) {
-        const tecnico = selectedOption.getAttribute('data-tecnico');
+        const tecnicoId = selectedOption.getAttribute('data-tecnico');
+        const tecnicoNombre = selectedOption.getAttribute('data-tecnico-nombre');
         const tipoVehiculo = selectedOption.getAttribute('data-tipo');
         
-        document.getElementById('tecnicoAsignado').value = tecnico;
+        // Guardar el ID del técnico en un campo oculto y mostrar el nombre en el campo visible
+        document.getElementById('tecnicoAsignado').value = tecnicoNombre;
+        document.getElementById('tecnicoAsignado').setAttribute('data-tecnico-id', tecnicoId);
         document.getElementById('tipoVehiculo').value = tipoVehiculo;
     } else {
         document.getElementById('tecnicoAsignado').value = '';
+        document.getElementById('tecnicoAsignado').removeAttribute('data-tecnico-id');
         document.getElementById('tipoVehiculo').value = '';
     }
 }
@@ -444,14 +456,24 @@ function openCreateModal() {
     if (tecnicoMecanicaId) tecnicoMecanicaId.value = '';
     
     // Limpiar campos auto-poblados
-    if (tecnicoAsignado) tecnicoAsignado.value = '';
+    if (tecnicoAsignado) {
+        tecnicoAsignado.value = '';
+        tecnicoAsignado.removeAttribute('data-tecnico-id');
+    }
     if (tipoVehiculo) tipoVehiculo.value = '';
     if (diasRestantesInfo) diasRestantesInfo.style.display = 'none';
 }
 
 // Ver detalles del Técnico Mecánica
 function viewTecnicoMecanica(tecnicoMecanicaId) {
-    fetch(`/api/mpa/tecnico_mecanica/${tecnicoMecanicaId}`)
+    const timestamp = new Date().getTime();
+    fetch(`/api/mpa/tecnico_mecanica/${tecnicoMecanicaId}?_t=${timestamp}`, {
+        headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+    })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -501,7 +523,14 @@ function viewTecnicoMecanica(tecnicoMecanicaId) {
 
 // Editar Técnico Mecánica
 function editTecnicoMecanica(tecnicoMecanicaId) {
-    fetch(`/api/mpa/tecnico_mecanica/${tecnicoMecanicaId}`)
+    const timestamp = new Date().getTime();
+    fetch(`/api/mpa/tecnico_mecanica/${tecnicoMecanicaId}?_t=${timestamp}`, {
+        headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+    })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -522,7 +551,10 @@ function editTecnicoMecanica(tecnicoMecanicaId) {
                 if (modalLabel) modalLabel.textContent = 'Editar Técnico Mecánica';
                 if (tecnicoMecanicaIdField) tecnicoMecanicaIdField.value = tecnicoMecanicaId;
                 if (placa) placa.value = tecnicoMecanica.placa;
-                if (tecnicoAsignado) tecnicoAsignado.value = tecnicoMecanica.tecnico_nombre || 'Sin asignar';
+                if (tecnicoAsignado) {
+                    tecnicoAsignado.value = tecnicoMecanica.tecnico_nombre || 'Sin asignar';
+                    tecnicoAsignado.setAttribute('data-tecnico-id', tecnicoMecanica.tecnico_asignado || '');
+                }
                 if (tipoVehiculo) tipoVehiculo.value = tecnicoMecanica.tipo_vehiculo || '';
                 if (fechaInicial) fechaInicial.value = tecnicoMecanica.fecha_inicio;
                 if (fechaVencimiento) fechaVencimiento.value = tecnicoMecanica.fecha_vencimiento;
@@ -565,11 +597,14 @@ async function saveTecnicoMecanica() {
     
     try {
         // Preparar datos del Técnico Mecánica
+        const tecnicoAsignadoElement = document.getElementById('tecnicoAsignado');
+        const tecnicoId = tecnicoAsignadoElement.getAttribute('data-tecnico-id') || '';
+        
         const tecnicoMecanicaData = {
             placa: document.getElementById('placa').value,
             fecha_inicio: document.getElementById('fechaInicial').value,
             fecha_vencimiento: document.getElementById('fechaVencimiento').value,
-            tecnico_asignado: document.getElementById('tecnicoAsignado').value,
+            tecnico_asignado: tecnicoId,
             observaciones: document.getElementById('observaciones').value
         };
         
@@ -581,6 +616,7 @@ async function saveTecnicoMecanica() {
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'same-origin',
             body: JSON.stringify(tecnicoMecanicaData)
         });
         
@@ -608,7 +644,8 @@ async function saveTecnicoMecanica() {
 function deleteTecnicoMecanica(tecnicoMecanicaId, placa) {
     if (confirm(`¿Está seguro de que desea eliminar el Técnico Mecánica del vehículo ${placa}?`)) {
         fetch(`/api/mpa/tecnico_mecanica/${tecnicoMecanicaId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            credentials: 'same-origin'
         })
         .then(response => response.json())
         .then(data => {
@@ -657,5 +694,33 @@ function showAlert(message, type) {
         }
     }, 5000);
 }
+
+// Auto-refresh de datos cada 30 segundos para mantener información actualizada
+let autoRefreshInterval;
+
+function startAutoRefresh() {
+    // Limpiar intervalo anterior si existe
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    // Configurar nuevo intervalo de 30 segundos
+    autoRefreshInterval = setInterval(() => {
+        console.log('Auto-refresh: Actualizando datos de Técnico Mecánica...');
+        loadTecnicoMecanicas();
+    }, 30000); // 30 segundos
+}
+
+// Detener auto-refresh cuando se sale de la página
+window.addEventListener('beforeunload', function() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+});
+
+// Iniciar auto-refresh cuando se carga la página
+document.addEventListener('DOMContentLoaded', function() {
+    startAutoRefresh();
+});
 </script>
 {% endblock %}

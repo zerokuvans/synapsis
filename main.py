@@ -15578,6 +15578,326 @@ def obtener_supervisores_logistica():
         if connection and connection.is_connected():
             connection.close()
 
+# ===== ENDPOINTS PARA EQUIPOS DISPONIBLES - LOGÍSTICA =====
+
+# API para obtener TODOS los equipos disponibles (sin filtro por supervisor)
+@app.route('/api/logistica/equipos_disponibles', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def api_logistica_equipos_disponibles():
+    """Obtener todos los equipos disponibles para el módulo de logística"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener TODOS los equipos sin filtro por supervisor
+        try:
+            cursor.execute("""
+                SELECT 
+                    cedula,
+                    codigo_tercero,
+                    elemento,
+                    familia,
+                    serial,
+                    estado,
+                    fecha_ultimo_movimiento,
+                    dias_ultimo,
+                    tecnico,
+                    super,
+                    cuenta,
+                    ot,
+                    observacion,
+                    fecha_creacion
+                FROM disponibilidad_equipos 
+                ORDER BY tecnico, familia, elemento
+            """)
+        except mysql.connector.Error as err:
+            # Fallback si las columnas no existen en el entorno actual
+            if err.errno == 1054 or 'Unknown column' in str(err):
+                cursor.execute("""
+                    SELECT 
+                        id_disponibilidad_equipos AS id,
+                        cedula,
+                        codigo_tercero,
+                        elemento,
+                        familia,
+                        serial,
+                        estado,
+                        tecnico,
+                        super,
+                        cuenta,
+                        ot,
+                        observacion,
+                        fecha_creacion,
+                        DATEDIFF(NOW(), fecha_creacion) AS dias_ultimo
+                    FROM disponibilidad_equipos 
+                    ORDER BY tecnico, familia, elemento
+                """)
+            else:
+                raise
+        
+        equipos = cursor.fetchall()
+        
+        # Normalizar tipos para JSON (fechas y decimales)
+        def normalize(value):
+            if isinstance(value, datetime):
+                return value.strftime('%Y-%m-%d %H:%M:%S')
+            try:
+                from decimal import Decimal as _Decimal
+                if isinstance(value, _Decimal):
+                    return float(value)
+            except Exception:
+                pass
+            return value
+        
+        equipos_serializados = []
+        for row in equipos:
+            row_serializado = {}
+            for k, v in row.items():
+                row_serializado[k] = normalize(v)
+            equipos_serializados.append(row_serializado)
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'equipos': equipos_serializados,
+            'total': len(equipos_serializados)
+        })
+        
+    except Exception as e:
+        app.logger.exception("Error en api_logistica_equipos_disponibles")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# API para limpiar (TRUNCATE) la tabla de equipos disponibles
+@app.route('/api/logistica/limpiar_equipos', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def api_logistica_limpiar_equipos():
+    """Limpiar completamente la tabla de equipos disponibles"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        
+        cursor = connection.cursor()
+        
+        # Ejecutar TRUNCATE para limpiar completamente la tabla
+        cursor.execute("TRUNCATE TABLE disponibilidad_equipos")
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Tabla de equipos disponibles limpiada exitosamente'
+        })
+        
+    except Exception as e:
+        app.logger.exception("Error en api_logistica_limpiar_equipos")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# API para procesar archivo Excel y cargar equipos
+@app.route('/api/logistica/subir_excel_equipos', methods=['POST'])
+@login_required()
+@role_required('logistica')
+def api_logistica_subir_excel_equipos():
+    """Procesar archivo Excel y cargar equipos a la tabla disponibilidad_equipos"""
+    try:
+        # Verificar que se haya enviado un archivo
+        if 'excel_file' not in request.files:
+            return jsonify({'success': False, 'message': 'No se encontró archivo Excel'}), 400
+        
+        file = request.files['excel_file']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'No se seleccionó archivo'}), 400
+        
+        # Verificar extensión del archivo
+        if not file.filename.lower().endswith(('.xlsx', '.xls')):
+            return jsonify({'success': False, 'message': 'El archivo debe ser Excel (.xlsx o .xls)'}), 400
+        
+        # Procesar archivo Excel
+        import pandas as pd
+        from io import BytesIO
+        
+        # Leer archivo Excel
+        try:
+            df = pd.read_excel(BytesIO(file.read()))
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'Error al leer archivo Excel: {str(e)}'}), 400
+        
+        # Validar columnas requeridas
+        columnas_requeridas = ['cedula', 'codigo_tercero', 'elemento', 'familia', 'serial', 'estado', 'fecha_ultimo_movimiento', 'dias_ultimo', 'tecnico', 'super']
+        columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
+        
+        if columnas_faltantes:
+            return jsonify({
+                'success': False, 
+                'message': f'Faltan columnas requeridas: {", ".join(columnas_faltantes)}'
+            }), 400
+        
+        # Conectar a la base de datos
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        
+        cursor = connection.cursor()
+        registros_procesados = 0
+        
+        # Procesar cada fila del Excel
+        for index, row in df.iterrows():
+            try:
+                # Extraer datos de la fila
+                cedula = str(row.get('cedula', '')).strip()
+                codigo_tercero = str(row.get('codigo_tercero', '')).strip()
+                elemento = str(row.get('elemento', '')).strip()
+                familia = str(row.get('familia', '')).strip()
+                serial = str(row.get('serial', '')).strip()
+                estado = str(row.get('estado', '')).strip()
+                fecha_ultimo_movimiento = row.get('fecha_ultimo_movimiento')
+                dias_ultimo = int(row.get('dias_ultimo', 0)) if pd.notna(row.get('dias_ultimo')) else 0
+                tecnico = str(row.get('tecnico', '')).strip()
+                super_nombre = str(row.get('super', '')).strip()
+                
+                # Validar datos obligatorios
+                if not all([cedula, codigo_tercero, elemento, familia, serial, estado, tecnico, super_nombre]):
+                    continue  # Saltar filas con datos incompletos
+                
+                # Formatear fecha
+                if pd.notna(fecha_ultimo_movimiento):
+                    if isinstance(fecha_ultimo_movimiento, str):
+                        from datetime import datetime
+                        try:
+                            fecha_ultimo_movimiento = datetime.strptime(fecha_ultimo_movimiento, '%Y-%m-%d').date()
+                        except:
+                            fecha_ultimo_movimiento = None
+                    elif hasattr(fecha_ultimo_movimiento, 'date'):
+                        fecha_ultimo_movimiento = fecha_ultimo_movimiento.date()
+                else:
+                    fecha_ultimo_movimiento = None
+                
+                # Insertar en la base de datos
+                try:
+                    cursor.execute("""
+                        INSERT INTO disponibilidad_equipos 
+                        (cedula, codigo_tercero, elemento, familia, serial, estado, fecha_ultimo_movimiento, dias_ultimo, tecnico, super, fecha_creacion)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                    """, (cedula, codigo_tercero, elemento, familia, serial, estado, fecha_ultimo_movimiento, dias_ultimo, tecnico, super_nombre))
+                    registros_procesados += 1
+                except mysql.connector.Error as err:
+                    # Si hay error de columna, intentar con estructura básica
+                    if err.errno == 1054 or 'Unknown column' in str(err):
+                        cursor.execute("""
+                            INSERT INTO disponibilidad_equipos 
+                            (cedula, codigo_tercero, elemento, familia, serial, estado, dias_ultimo, tecnico, super, fecha_creacion)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                        """, (cedula, codigo_tercero, elemento, familia, serial, estado, dias_ultimo, tecnico, super_nombre))
+                        registros_procesados += 1
+                    else:
+                        print(f"Error al insertar fila {index}: {str(err)}")
+                        continue
+                        
+            except Exception as e:
+                print(f"Error procesando fila {index}: {str(e)}")
+                continue
+        
+        # Confirmar transacción
+        connection.commit()
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Archivo procesado exitosamente',
+            'registros_procesados': registros_procesados,
+            'total_filas': len(df)
+        })
+        
+    except Exception as e:
+        app.logger.exception("Error en api_logistica_subir_excel_equipos")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# API para descargar plantilla Excel de equipos disponibles
+@app.route('/api/logistica/plantilla_equipos_excel', methods=['GET'])
+@login_required()
+@role_required('logistica')
+def api_logistica_plantilla_equipos_excel():
+    """Generar y descargar plantilla Excel para equipos disponibles"""
+    try:
+        import pandas as pd
+        from io import BytesIO
+        from flask import send_file
+        
+        # Crear DataFrame con las columnas requeridas y una fila de ejemplo
+        data = {
+            'cedula': ['12345678'],
+            'codigo_tercero': ['987654'],
+            'elemento': ['Multímetro'],
+            'familia': ['Herramientas'],
+            'serial': ['ABC123456'],
+            'estado': ['Activo'],
+            'fecha_ultimo_movimiento': ['2024-01-15'],
+            'dias_ultimo': [30],
+            'tecnico': ['Juan Pérez'],
+            'super': ['Carlos López']
+        }
+        
+        df = pd.DataFrame(data)
+        
+        # Crear archivo Excel en memoria
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Equipos Disponibles', index=False)
+            
+            # Obtener el workbook y worksheet para formatear
+            workbook = writer.book
+            worksheet = writer.sheets['Equipos Disponibles']
+            
+            # Formatear encabezados
+            from openpyxl.styles import Font, PatternFill, Alignment
+            header_font = Font(bold=True, color='FFFFFF')
+            header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+            
+            for cell in worksheet[1]:
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal='center')
+            
+            # Ajustar ancho de columnas
+            column_widths = {
+                'A': 15,  # cedula
+                'B': 18,  # codigo_tercero
+                'C': 20,  # elemento
+                'D': 15,  # familia
+                'E': 15,  # serial
+                'F': 12,  # estado
+                'G': 22,  # fecha_ultimo_movimiento
+                'H': 15,  # dias_ultimo
+                'I': 20,  # tecnico
+                'J': 20   # super
+            }
+            
+            for column, width in column_widths.items():
+                worksheet.column_dimensions[column].width = width
+        
+        output.seek(0)
+        
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name='plantilla_equipos_disponibles.xlsx',
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+    except Exception as e:
+        app.logger.exception("Error en api_logistica_plantilla_equipos_excel")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 # Definir la clase User para Flask-Login
 class User(UserMixin):
     def __init__(self, id, nombre, role):
@@ -15683,6 +16003,19 @@ def devoluciones_dotacion():
     except Exception as e:
         print(f"Error en devoluciones_dotacion: {str(e)}")
         flash('Error al cargar el formulario de devoluciones', 'danger')
+        return redirect(url_for('logistica_dashboard'))
+
+@app.route('/logistica/equipos_disponibles')
+@login_required()
+@role_required('logistica')
+def logistica_equipos_disponibles():
+    """Mostrar página de gestión de equipos disponibles para logística"""
+    try:
+        return render_template('modulos/logistica/equipos_disponibles.html')
+        
+    except Exception as e:
+        print(f"Error en logistica_equipos_disponibles: {str(e)}")
+        flash('Error al cargar el módulo de equipos disponibles', 'danger')
         return redirect(url_for('logistica_dashboard'))
 
 @app.route('/logistica/registrar_cambio_dotacion', methods=['POST'])
@@ -20901,4 +21234,4 @@ def dev_login():
         return jsonify({'message': 'Error en dev login', 'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0',port=8080)
+    app.run(debug=True, host='0.0.0.0', port=8080, use_reloader=True, use_debugger=True)

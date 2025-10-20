@@ -1,0 +1,959 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%) !important;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">
+                            <i class="fas fa-shield-alt me-2"></i>Validaciones de Documentos Vehiculares
+                        </h3>
+                        <div>
+                            <button class="btn btn-light btn-sm me-2" onclick="exportarValidaciones()">
+                                <i class="fas fa-download me-1"></i>Exportar
+                            </button>
+                            <button class="btn btn-outline-light btn-sm" onclick="ejecutarValidacionMasiva()">
+                                <i class="fas fa-check-double me-1"></i>Validar Todos
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Resumen de validaciones -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="documentosValidos">0</h4>
+                                            <p class="mb-0">Válidos</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-check-circle fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="documentosInvalidos">0</h4>
+                                            <p class="mb-0">Inválidos</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-times-circle fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="documentosVencidos">0</h4>
+                                            <p class="mb-0">Vencidos</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="documentosPorVencer">0</h4>
+                                            <p class="mb-0">Por Vencer</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-clock fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Herramientas de validación -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-search me-2"></i>Validación Individual</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="formValidacionIndividual">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <label for="tipoDocumentoValidar" class="form-label">Tipo de Documento</label>
+                                                <select class="form-select" id="tipoDocumentoValidar" required>
+                                                    <option value="">Seleccionar tipo</option>
+                                                    <option value="soat">SOAT</option>
+                                                    <option value="tecnomecanica">Tecnomecánica</option>
+                                                    <option value="licencia">Licencia de Conducir</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="numeroDocumentoValidar" class="form-label">Número de Documento</label>
+                                                <input type="text" class="form-control" id="numeroDocumentoValidar" 
+                                                       placeholder="Ej: 123456789" required>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-3">
+                                            <div class="col-md-6">
+                                                <label for="placaValidar" class="form-label">Placa (Opcional)</label>
+                                                <input type="text" class="form-control" id="placaValidar" 
+                                                       placeholder="Ej: ABC123">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">&nbsp;</label>
+                                                <button type="submit" class="btn btn-primary w-100">
+                                                    <i class="fas fa-search me-1"></i>Validar Documento
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-upload me-2"></i>Validación por Lote</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="archivoLote" class="form-label">Archivo CSV/Excel</label>
+                                        <input type="file" class="form-control" id="archivoLote" 
+                                               accept=".csv,.xlsx,.xls">
+                                        <div class="form-text">
+                                            Formato: tipo_documento, numero_documento, placa (opcional)
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-success w-100" onclick="procesarArchivoLote()">
+                                        <i class="fas fa-upload me-1"></i>Procesar Archivo
+                                    </button>
+                                    <div class="mt-2">
+                                        <a href="#" class="btn btn-outline-secondary btn-sm w-100" onclick="descargarPlantilla()">
+                                            <i class="fas fa-download me-1"></i>Descargar Plantilla
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card bg-light">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-filter me-2"></i>Filtros de Búsqueda
+                                        <button class="btn btn-sm btn-outline-secondary float-end" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosCollapse">
+                                            <i class="fas fa-chevron-down"></i>
+                                        </button>
+                                    </h5>
+                                </div>
+                                <div class="collapse show" id="filtrosCollapse">
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-3">
+                                                <label for="filtroPlaca" class="form-label">Placa del Vehículo</label>
+                                                <input type="text" class="form-control" id="filtroPlaca" placeholder="Ej: ABC123">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="filtroTipoDocumento" class="form-label">Tipo de Documento</label>
+                                                <select class="form-select" id="filtroTipoDocumento">
+                                                    <option value="">Todos los tipos</option>
+                                                    <option value="soat">SOAT</option>
+                                                    <option value="tecnomecanica">Tecnomecánica</option>
+                                                    <option value="licencia">Licencia de Conducir</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="filtroEstadoValidacion" class="form-label">Estado de Validación</label>
+                                                <select class="form-select" id="filtroEstadoValidacion">
+                                                    <option value="">Todos los estados</option>
+                                                    <option value="valido">Válido</option>
+                                                    <option value="invalido">Inválido</option>
+                                                    <option value="vencido">Vencido</option>
+                                                    <option value="por_vencer">Por Vencer</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="filtroFechaValidacion" class="form-label">Fecha de Validación</label>
+                                                <input type="date" class="form-control" id="filtroFechaValidacion">
+                                            </div>
+                                        </div>
+                                        <div class="row mt-3">
+                                            <div class="col-md-12">
+                                                <div class="d-flex gap-2">
+                                                    <button class="btn btn-primary" onclick="aplicarFiltros()">
+                                                        <i class="fas fa-search me-1"></i>Buscar
+                                                    </button>
+                                                    <button class="btn btn-secondary" onclick="limpiarFiltros()">
+                                                        <i class="fas fa-eraser me-1"></i>Limpiar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loading indicator -->
+                    <div id="loadingIndicator" class="text-center py-4" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Procesando validaciones...</p>
+                    </div>
+
+                    <!-- Resultado de validación individual -->
+                    <div id="resultadoValidacionIndividual" class="alert" style="display: none;">
+                        <!-- El resultado se mostrará aquí -->
+                    </div>
+
+                    <!-- Tabla de validaciones -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list me-2"></i>Resultados de Validaciones
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover" id="tablaValidaciones">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Fecha Validación</th>
+                                            <th>Tipo Documento</th>
+                                            <th>Número</th>
+                                            <th>Placa</th>
+                                            <th>Estado</th>
+                                            <th>Fecha Vencimiento</th>
+                                            <th>Días Restantes</th>
+                                            <th>Observaciones</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaValidacionesBody">
+                                        <!-- Los datos se cargarán aquí dinámicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- Paginación -->
+                            <nav aria-label="Paginación de validaciones">
+                                <ul class="pagination justify-content-center" id="paginacion">
+                                    <!-- La paginación se generará dinámicamente -->
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para detalles de validación -->
+<div class="modal fade" id="modalDetallesValidacion" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-info-circle me-2"></i>Detalles de Validación
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalDetallesValidacionBody">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="btnRevalidar" onclick="revalidarDocumento()">
+                    <i class="fas fa-redo me-1"></i>Revalidar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para validación masiva -->
+<div class="modal fade" id="modalValidacionMasiva" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-double me-2"></i>Validación Masiva
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Esta acción validará todos los documentos vehiculares registrados en el sistema.
+                </div>
+                <div id="progresoValidacion" style="display: none;">
+                    <div class="progress mb-3">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%" id="barraProgresoValidacion"></div>
+                    </div>
+                    <div id="estadoValidacion" class="text-center">
+                        Iniciando validación...
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" id="btnConfirmarValidacion" onclick="confirmarValidacionMasiva()">
+                    <i class="fas fa-play me-1"></i>Iniciar Validación
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estilos CSS personalizados -->
+<style>
+.card-hover {
+    transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.status-badge {
+    font-size: 0.8em;
+    padding: 4px 8px;
+    border-radius: 12px;
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(255,193,7,.075);
+}
+
+.alert-validacion {
+    border-left: 4px solid;
+    padding-left: 20px;
+}
+
+.alert-validacion.valido {
+    border-left-color: #28a745;
+    background-color: rgba(40, 167, 69, 0.1);
+}
+
+.alert-validacion.invalido {
+    border-left-color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+.alert-validacion.vencido {
+    border-left-color: #fd7e14;
+    background-color: rgba(253, 126, 20, 0.1);
+}
+
+.alert-validacion.por_vencer {
+    border-left-color: #ffc107;
+    background-color: rgba(255, 193, 7, 0.1);
+}
+</style>
+
+<!-- JavaScript para funcionalidad -->
+<script>
+// Variables globales
+let validacionesData = [];
+let currentPage = 1;
+let itemsPerPage = 20;
+let filtrosActivos = {};
+let validacionEnProgreso = false;
+let currentValidacionId = null;
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar eventos
+    document.getElementById('formValidacionIndividual').addEventListener('submit', validarDocumentoIndividual);
+    
+    // Cargar datos iniciales
+    cargarValidaciones();
+});
+
+function validarDocumentoIndividual(event) {
+    event.preventDefault();
+    
+    if (validacionEnProgreso) {
+        mostrarError('Ya hay una validación en progreso');
+        return;
+    }
+    
+    const tipoDocumento = document.getElementById('tipoDocumentoValidar').value;
+    const numeroDocumento = document.getElementById('numeroDocumentoValidar').value;
+    const placa = document.getElementById('placaValidar').value;
+    
+    if (!tipoDocumento || !numeroDocumento) {
+        mostrarError('Tipo de documento y número son obligatorios');
+        return;
+    }
+    
+    validacionEnProgreso = true;
+    mostrarLoading(true);
+    
+    const data = {
+        tipo_documento: tipoDocumento,
+        numero_documento: numeroDocumento
+    };
+    
+    if (placa) {
+        data.placa = placa;
+    }
+    
+    fetch('/api/mpa/validaciones/unicidad', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        mostrarResultadoValidacionIndividual(data);
+        // Recargar la tabla
+        cargarValidaciones();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarError('Error de conexión al validar documento');
+    })
+    .finally(() => {
+        validacionEnProgreso = false;
+        mostrarLoading(false);
+    });
+}
+
+function mostrarResultadoValidacionIndividual(resultado) {
+    const container = document.getElementById('resultadoValidacionIndividual');
+    
+    let claseEstado = 'success';
+    let iconoEstado = 'check-circle';
+    let textoEstado = 'Válido';
+    
+    if (!resultado.success) {
+        claseEstado = 'danger';
+        iconoEstado = 'times-circle';
+        textoEstado = 'Error en validación';
+    } else if (resultado.data && resultado.data.estado) {
+        switch(resultado.data.estado.toLowerCase()) {
+            case 'invalido':
+                claseEstado = 'danger';
+                iconoEstado = 'times-circle';
+                textoEstado = 'Inválido';
+                break;
+            case 'vencido':
+                claseEstado = 'warning';
+                iconoEstado = 'exclamation-triangle';
+                textoEstado = 'Vencido';
+                break;
+            case 'por_vencer':
+                claseEstado = 'info';
+                iconoEstado = 'clock';
+                textoEstado = 'Por Vencer';
+                break;
+        }
+    }
+    
+    let html = `
+        <div class="d-flex align-items-center">
+            <i class="fas fa-${iconoEstado} fa-2x me-3 text-${claseEstado}"></i>
+            <div>
+                <h5 class="mb-1">Resultado de Validación: ${textoEstado}</h5>
+                <p class="mb-0">${resultado.message || resultado.error || 'Validación completada'}</p>
+            </div>
+        </div>
+    `;
+    
+    if (resultado.data) {
+        html += `
+            <hr>
+            <div class="row">
+                <div class="col-md-6">
+                    <strong>Documento:</strong> ${resultado.data.numero_documento || 'N/A'}<br>
+                    <strong>Tipo:</strong> ${resultado.data.tipo_documento || 'N/A'}<br>
+                    <strong>Placa:</strong> ${resultado.data.placa || 'N/A'}
+                </div>
+                <div class="col-md-6">
+                    <strong>Fecha Vencimiento:</strong> ${resultado.data.fecha_vencimiento || 'N/A'}<br>
+                    <strong>Días Restantes:</strong> ${resultado.data.dias_restantes || 'N/A'}<br>
+                    <strong>Estado:</strong> <span class="badge bg-${getEstadoBadgeColor(resultado.data.estado)}">${resultado.data.estado || 'N/A'}</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    container.className = `alert alert-${claseEstado} alert-validacion ${resultado.data?.estado || ''}`;
+    container.innerHTML = html;
+    container.style.display = 'block';
+    
+    // Ocultar después de 10 segundos
+    setTimeout(() => {
+        container.style.display = 'none';
+    }, 10000);
+}
+
+function aplicarFiltros() {
+    // Recopilar filtros
+    filtrosActivos = {
+        placa: document.getElementById('filtroPlaca').value,
+        tipo_documento: document.getElementById('filtroTipoDocumento').value,
+        estado_validacion: document.getElementById('filtroEstadoValidacion').value,
+        fecha_validacion: document.getElementById('filtroFechaValidacion').value
+    };
+    
+    // Resetear página
+    currentPage = 1;
+    
+    // Cargar datos con filtros
+    cargarValidaciones();
+}
+
+function limpiarFiltros() {
+    document.getElementById('filtroPlaca').value = '';
+    document.getElementById('filtroTipoDocumento').value = '';
+    document.getElementById('filtroEstadoValidacion').value = '';
+    document.getElementById('filtroFechaValidacion').value = '';
+    
+    filtrosActivos = {};
+    currentPage = 1;
+    cargarValidaciones();
+}
+
+function cargarValidaciones() {
+    mostrarLoading(true);
+    
+    // Construir parámetros de consulta
+    const params = new URLSearchParams();
+    
+    Object.keys(filtrosActivos).forEach(key => {
+        if (filtrosActivos[key]) {
+            params.append(key, filtrosActivos[key]);
+        }
+    });
+    
+    params.append('page', currentPage);
+    params.append('per_page', itemsPerPage);
+    
+    // Simular datos para demostración
+    setTimeout(() => {
+        const datosSimulados = {
+            success: true,
+            data: [
+                {
+                    id: 1,
+                    fecha_validacion: new Date().toISOString(),
+                    tipo_documento: 'soat',
+                    numero_documento: '123456789',
+                    placa: 'ABC123',
+                    estado: 'valido',
+                    fecha_vencimiento: '2024-12-31',
+                    dias_restantes: 45,
+                    observaciones: 'Documento válido y vigente'
+                },
+                {
+                    id: 2,
+                    fecha_validacion: new Date().toISOString(),
+                    tipo_documento: 'tecnomecanica',
+                    numero_documento: '987654321',
+                    placa: 'XYZ789',
+                    estado: 'por_vencer',
+                    fecha_vencimiento: '2024-02-15',
+                    dias_restantes: 15,
+                    observaciones: 'Documento próximo a vencer'
+                }
+            ],
+            estadisticas: {
+                validos: 150,
+                invalidos: 5,
+                vencidos: 12,
+                por_vencer: 23
+            }
+        };
+        
+        validacionesData = datosSimulados.data || [];
+        actualizarEstadisticas(datosSimulados.estadisticas || {});
+        renderizarTabla();
+        mostrarLoading(false);
+    }, 1000);
+}
+
+function actualizarEstadisticas(stats) {
+    document.getElementById('documentosValidos').textContent = stats.validos || 0;
+    document.getElementById('documentosInvalidos').textContent = stats.invalidos || 0;
+    document.getElementById('documentosVencidos').textContent = stats.vencidos || 0;
+    document.getElementById('documentosPorVencer').textContent = stats.por_vencer || 0;
+}
+
+function renderizarTabla() {
+    const tbody = document.getElementById('tablaValidacionesBody');
+    
+    if (!validacionesData || validacionesData.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center py-4">
+                    <i class="fas fa-shield-alt fa-2x text-muted mb-2"></i>
+                    <br>No hay validaciones registradas
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    validacionesData.forEach((item, index) => {
+        const fechaValidacion = new Date(item.fecha_validacion);
+        const fechaVencimiento = item.fecha_vencimiento ? new Date(item.fecha_vencimiento) : null;
+        
+        html += `
+            <tr class="fade-in" style="animation-delay: ${index * 0.05}s">
+                <td>
+                    <small>
+                        ${fechaValidacion.toLocaleDateString()}<br>
+                        ${fechaValidacion.toLocaleTimeString()}
+                    </small>
+                </td>
+                <td>
+                    <span class="badge bg-${getBadgeColorTipo(item.tipo_documento)}">
+                        <i class="fas fa-${getIconoTipoDocumento(item.tipo_documento)} me-1"></i>
+                        ${item.tipo_documento?.toUpperCase() || 'N/A'}
+                    </span>
+                </td>
+                <td><strong>${item.numero_documento || 'N/A'}</strong></td>
+                <td><strong>${item.placa || 'N/A'}</strong></td>
+                <td>
+                    <span class="badge bg-${getEstadoBadgeColor(item.estado)} status-badge">
+                        <i class="fas fa-${getEstadoIcon(item.estado)} me-1"></i>
+                        ${getEstadoTexto(item.estado)}
+                    </span>
+                </td>
+                <td>
+                    ${fechaVencimiento ? fechaVencimiento.toLocaleDateString() : 'N/A'}
+                </td>
+                <td>
+                    ${item.dias_restantes !== null ? 
+                        `<span class="badge bg-${getDiasRestantesBadgeColor(item.dias_restantes)}">${item.dias_restantes} días</span>` : 
+                        'N/A'
+                    }
+                </td>
+                <td>
+                    <small>${item.observaciones || 'Sin observaciones'}</small>
+                </td>
+                <td>
+                    <div class="btn-group-sm">
+                        <button class="btn btn-sm btn-outline-primary" onclick="verDetallesValidacion(${index})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning" onclick="revalidarDocumentoDirecto(${index})">
+                            <i class="fas fa-redo"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+}
+
+function verDetallesValidacion(index) {
+    const item = validacionesData[index];
+    if (!item) return;
+    
+    currentValidacionId = item.id;
+    
+    let html = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="fas fa-file-alt me-2"></i>Información del Documento</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Tipo:</strong></td><td>${item.tipo_documento?.toUpperCase() || 'N/A'}</td></tr>
+                    <tr><td><strong>Número:</strong></td><td>${item.numero_documento || 'N/A'}</td></tr>
+                    <tr><td><strong>Placa:</strong></td><td>${item.placa || 'N/A'}</td></tr>
+                    <tr><td><strong>Estado:</strong></td><td><span class="badge bg-${getEstadoBadgeColor(item.estado)}">${getEstadoTexto(item.estado)}</span></td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h6><i class="fas fa-calendar me-2"></i>Información de Fechas</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Fecha Validación:</strong></td><td>${new Date(item.fecha_validacion).toLocaleString()}</td></tr>
+                    <tr><td><strong>Fecha Vencimiento:</strong></td><td>${item.fecha_vencimiento ? new Date(item.fecha_vencimiento).toLocaleDateString() : 'N/A'}</td></tr>
+                    <tr><td><strong>Días Restantes:</strong></td><td>${item.dias_restantes !== null ? `${item.dias_restantes} días` : 'N/A'}</td></tr>
+                </table>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-12">
+                <h6><i class="fas fa-comment me-2"></i>Observaciones</h6>
+                <p>${item.observaciones || 'Sin observaciones adicionales'}</p>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('modalDetallesValidacionBody').innerHTML = html;
+    new bootstrap.Modal(document.getElementById('modalDetallesValidacion')).show();
+}
+
+function revalidarDocumento() {
+    if (!currentValidacionId) return;
+    
+    const item = validacionesData.find(v => v.id === currentValidacionId);
+    if (!item) return;
+    
+    revalidarDocumentoDirecto(validacionesData.indexOf(item));
+}
+
+function revalidarDocumentoDirecto(index) {
+    const item = validacionesData[index];
+    if (!item) return;
+    
+    if (validacionEnProgreso) {
+        mostrarError('Ya hay una validación en progreso');
+        return;
+    }
+    
+    validacionEnProgreso = true;
+    
+    const data = {
+        tipo_documento: item.tipo_documento,
+        numero_documento: item.numero_documento,
+        placa: item.placa
+    };
+    
+    fetch('/api/mpa/validaciones/unicidad', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarExito('Documento revalidado correctamente');
+            // Cerrar modal si está abierto
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalDetallesValidacion'));
+            if (modal) modal.hide();
+            
+            // Recargar datos
+            cargarValidaciones();
+        } else {
+            mostrarError('Error al revalidar documento: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarError('Error de conexión al revalidar documento');
+    })
+    .finally(() => {
+        validacionEnProgreso = false;
+    });
+}
+
+function ejecutarValidacionMasiva() {
+    new bootstrap.Modal(document.getElementById('modalValidacionMasiva')).show();
+}
+
+function confirmarValidacionMasiva() {
+    if (validacionEnProgreso) return;
+    
+    validacionEnProgreso = true;
+    
+    // Mostrar progreso
+    document.getElementById('progresoValidacion').style.display = 'block';
+    document.getElementById('btnConfirmarValidacion').disabled = true;
+    
+    // Simular progreso
+    let progreso = 0;
+    const intervalo = setInterval(() => {
+        progreso += Math.random() * 15;
+        if (progreso > 100) progreso = 100;
+        
+        document.getElementById('barraProgresoValidacion').style.width = progreso + '%';
+        document.getElementById('estadoValidacion').textContent = 
+            progreso < 100 ? `Validando documentos... ${Math.round(progreso)}%` : 'Validación completada';
+        
+        if (progreso >= 100) {
+            clearInterval(intervalo);
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('modalValidacionMasiva')).hide();
+                cargarValidaciones();
+                validacionEnProgreso = false;
+                document.getElementById('btnConfirmarValidacion').disabled = false;
+                document.getElementById('progresoValidacion').style.display = 'none';
+                document.getElementById('barraProgresoValidacion').style.width = '0%';
+                mostrarExito('Validación masiva completada');
+            }, 1000);
+        }
+    }, 500);
+}
+
+function procesarArchivoLote() {
+    const archivo = document.getElementById('archivoLote').files[0];
+    if (!archivo) {
+        mostrarError('Por favor selecciona un archivo');
+        return;
+    }
+    
+    if (validacionEnProgreso) {
+        mostrarError('Ya hay una validación en progreso');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('archivo', archivo);
+    
+    validacionEnProgreso = true;
+    mostrarLoading(true);
+    
+    fetch('/api/mpa/validaciones/lote', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarExito(`Archivo procesado: ${data.procesados} documentos validados`);
+            cargarValidaciones();
+        } else {
+            mostrarError('Error al procesar archivo: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarError('Error de conexión al procesar archivo');
+    })
+    .finally(() => {
+        validacionEnProgreso = false;
+        mostrarLoading(false);
+        document.getElementById('archivoLote').value = '';
+    });
+}
+
+function descargarPlantilla() {
+    const csvContent = "tipo_documento,numero_documento,placa\nsoat,123456789,ABC123\ntecnomecanica,987654321,XYZ789\nlicencia,456789123,DEF456";
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'plantilla_validaciones.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+
+// Funciones auxiliares
+function getIconoTipoDocumento(tipo) {
+    switch(tipo?.toLowerCase()) {
+        case 'soat': return 'shield-alt';
+        case 'tecnomecanica': return 'cogs';
+        case 'licencia': return 'id-card';
+        default: return 'file';
+    }
+}
+
+function getBadgeColorTipo(tipoDocumento) {
+    switch(tipoDocumento?.toLowerCase()) {
+        case 'soat': return 'success';
+        case 'tecnomecanica': return 'info';
+        case 'licencia': return 'secondary';
+        default: return 'dark';
+    }
+}
+
+function getEstadoBadgeColor(estado) {
+    switch(estado?.toLowerCase()) {
+        case 'valido': return 'success';
+        case 'invalido': return 'danger';
+        case 'vencido': return 'warning';
+        case 'por_vencer': return 'info';
+        default: return 'secondary';
+    }
+}
+
+function getEstadoIcon(estado) {
+    switch(estado?.toLowerCase()) {
+        case 'valido': return 'check-circle';
+        case 'invalido': return 'times-circle';
+        case 'vencido': return 'exclamation-triangle';
+        case 'por_vencer': return 'clock';
+        default: return 'question-circle';
+    }
+}
+
+function getEstadoTexto(estado) {
+    switch(estado?.toLowerCase()) {
+        case 'valido': return 'Válido';
+        case 'invalido': return 'Inválido';
+        case 'vencido': return 'Vencido';
+        case 'por_vencer': return 'Por Vencer';
+        default: return 'Desconocido';
+    }
+}
+
+function getDiasRestantesBadgeColor(dias) {
+    if (dias < 0) return 'danger';
+    if (dias <= 15) return 'warning';
+    if (dias <= 30) return 'info';
+    return 'success';
+}
+
+function mostrarLoading(mostrar) {
+    document.getElementById('loadingIndicator').style.display = mostrar ? 'block' : 'none';
+}
+
+function mostrarError(mensaje) {
+    alert('Error: ' + mensaje);
+}
+
+function mostrarExito(mensaje) {
+    alert('Éxito: ' + mensaje);
+}
+
+function exportarValidaciones() {
+    const params = new URLSearchParams();
+    Object.keys(filtrosActivos).forEach(key => {
+        if (filtrosActivos[key]) {
+            params.append(key, filtrosActivos[key]);
+        }
+    });
+    params.append('export', 'true');
+    
+    window.open(`/api/mpa/validaciones?${params.toString()}`, '_blank');
+}
+</script>
+{% endblock %}

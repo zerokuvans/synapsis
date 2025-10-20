@@ -1,0 +1,731 @@
+{% extends "header.html" %}
+{% block content %}
+<style>
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    .input-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+    .locked-input {
+        background-color: #f8d7da; /* tono rojizo claro */
+        color: #842029;
+    }
+    .admin-controls {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .upload-area {
+        border: 2px dashed #dee2e6;
+        border-radius: 0.375rem;
+        padding: 2rem;
+        text-align: center;
+        transition: border-color 0.15s ease-in-out;
+    }
+    .upload-area:hover {
+        border-color: #0d6efd;
+    }
+    .upload-area.dragover {
+        border-color: #0d6efd;
+        background-color: #f8f9fa;
+    }
+</style>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>Equipos Disponibles - Logística
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Gestión administrativa de todos los equipos disponibles - Usuario: <strong>{{ user_name }}</strong>
+                    </div>
+
+                    <!-- Controles administrativos -->
+                    <div class="admin-controls">
+                        <h5 class="mb-3"><i class="fas fa-cog me-2"></i>Controles Administrativos</h5>
+                        <div class="row g-2">
+                            <div class="col-auto">
+                                <button id="btn-limpiar-tabla" class="btn btn-danger btn-sm" type="button">
+                                    <i class="fas fa-trash me-1"></i> Limpiar Tabla
+                                </button>
+                            </div>
+                            <div class="col-auto">
+                                <button id="btn-subir-excel" class="btn btn-warning btn-sm" type="button">
+                                    <i class="fas fa-file-excel me-1"></i> Subir Excel
+                                </button>
+                            </div>
+                            <div class="col-auto">
+                                <button id="btn-recargar" class="btn btn-info btn-sm" type="button">
+                                    <i class="fas fa-sync-alt me-1"></i> Recargar Datos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Controles de filtros y acciones -->
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-0">Buscar</label>
+                            <input type="text" id="buscar-input" class="form-control input-sm" placeholder="Serial o elemento" />
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-0">Técnico</label>
+                            <select id="filtro-tecnico" class="form-select input-sm">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-0">Familia</label>
+                            <select id="filtro-familia" class="form-select input-sm">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label mb-0">Elemento</label>
+                            <select id="filtro-elemento" class="form-select input-sm">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="col-auto mt-2">
+                            <button id="btn-exportar" class="btn btn-success btn-sm" type="button">
+                                <i class="fas fa-file-export me-1"></i> Exportar CSV
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Estadísticas -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title text-primary" id="total-equipos">0</h5>
+                                    <p class="card-text small">Total Equipos</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title text-success" id="equipos-asignados">0</h5>
+                                    <p class="card-text small">Con Cuenta/OT</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title text-warning" id="equipos-pendientes">0</h5>
+                                    <p class="card-text small">Sin Asignar</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title text-info" id="tecnicos-activos">0</h5>
+                                    <p class="card-text small">Técnicos Activos</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabla de equipos -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="tabla-equipos">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th id="th-tecnico" data-sort-by="tecnico" role="button">Técnico</th>
+                                    <th id="th-familia" data-sort-by="familia" role="button">Familia</th>
+                                    <th id="th-elemento" data-sort-by="elemento" role="button">Elemento</th>
+                                    <th id="th-serial" data-sort-by="serial" role="button">Serial</th>
+                                    <th id="th-fecha" data-sort-by="fecha_ultimo_movimiento" role="button">Fecha Último Movimiento</th>
+                                    <th id="th-dias" data-sort-by="dias_ultimo" role="button">Días</th>
+                                    <th>Cuenta</th>
+                                    <th>OT</th>
+                                    <th>Observación</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="equipos-body">
+                                <!-- Los datos se cargarán dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Mensaje cuando no hay datos -->
+                    <div id="sin-datos" class="text-center py-4 d-none">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No hay equipos disponibles con los filtros actuales.</p>
+                    </div>
+
+                    <!-- Modal para limpiar tabla -->
+                    <div class="modal fade" id="limpiarTablaModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title">Confirmar Limpieza de Tabla</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="alert alert-warning">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        <strong>¡ATENCIÓN!</strong> Esta acción eliminará TODOS los registros de la tabla de equipos disponibles.
+                                    </div>
+                                    <p>¿Está seguro que desea continuar? Esta acción no se puede deshacer.</p>
+                                    <p class="text-muted small">Se recomienda hacer una copia de seguridad antes de proceder.</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="button" class="btn btn-danger" id="confirm-limpiar">Sí, Limpiar Tabla</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal para subir Excel -->
+                    <div class="modal fade" id="subirExcelModal" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header bg-warning text-dark">
+                                    <h5 class="modal-title">Subir Archivo Excel</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <!-- Instrucciones -->
+                                    <div class="alert alert-info">
+                                        <h6><i class="fas fa-info-circle me-2"></i>Formato de Archivo Excel</h6>
+                                        <p class="mb-2">El archivo debe contener las siguientes columnas en este orden:</p>
+                                        <ol class="mb-2">
+                                            <li><strong>cedula</strong> - Cédula del técnico</li>
+                                            <li><strong>codigo_tercero</strong> - Código del tercero</li>
+                                            <li><strong>elemento</strong> - Tipo de elemento</li>
+                                            <li><strong>familia</strong> - Familia del equipo</li>
+                                            <li><strong>serial</strong> - Número de serie (único)</li>
+                                            <li><strong>estado</strong> - Estado del equipo</li>
+                                            <li><strong>fecha_ultimo_movimiento</strong> - Fecha (YYYY-MM-DD)</li>
+                                            <li><strong>dias_ultimo</strong> - Días desde último movimiento</li>
+                                            <li><strong>tecnico</strong> - Nombre del técnico</li>
+                                            <li><strong>super</strong> - Nombre del supervisor</li>
+                                        </ol>
+                                        <p class="mb-0 small text-muted">
+                                            <strong>Nota:</strong> La primera fila debe contener los nombres de las columnas.
+                                        </p>
+                                        <div class="mt-3 text-center">
+                                            <a href="/api/logistica/plantilla_equipos_excel" class="btn btn-success btn-sm" target="_blank">
+                                                <i class="fas fa-download me-1"></i> Descargar Plantilla Excel
+                                            </a>
+                                        </div>
+                                    </div>
+
+                                    <!-- Área de carga -->
+                                    <div class="upload-area" id="upload-area">
+                                        <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                        <h5>Arrastra tu archivo Excel aquí</h5>
+                                        <p class="text-muted">o haz clic para seleccionar</p>
+                                        <input type="file" id="excel-file" accept=".xlsx,.xls" class="d-none">
+                                        <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('excel-file').click()">
+                                            Seleccionar Archivo
+                                        </button>
+                                    </div>
+
+                                    <!-- Información del archivo -->
+                                    <div id="file-info" class="mt-3 d-none">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6>Archivo seleccionado:</h6>
+                                                <p class="mb-1"><strong>Nombre:</strong> <span id="file-name"></span></p>
+                                                <p class="mb-1"><strong>Tamaño:</strong> <span id="file-size"></span></p>
+                                                <p class="mb-0"><strong>Tipo:</strong> <span id="file-type"></span></p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Progreso de carga -->
+                                    <div id="upload-progress" class="mt-3 d-none">
+                                        <div class="progress">
+                                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                        <p class="text-center mt-2 mb-0">Procesando archivo...</p>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="button" class="btn btn-warning" id="btn-procesar-excel" disabled>
+                                        <i class="fas fa-upload me-1"></i> Procesar Archivo
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let equiposData = [];
+let filtros = { tecnico: '', familia: '', elemento: '', q: '' };
+let sortState = { by: 'tecnico', dir: 'asc' };
+let selectedFile = null;
+
+function inicializarControles() {
+    const buscarInput = document.getElementById('buscar-input');
+    buscarInput.addEventListener('input', () => { filtros.q = buscarInput.value.toLowerCase(); mostrarEquipos(); });
+
+    const tecnicoSel = document.getElementById('filtro-tecnico');
+    const familiaSel = document.getElementById('filtro-familia');
+    const elementoSel = document.getElementById('filtro-elemento');
+    const btnExportar = document.getElementById('btn-exportar');
+    const btnLimpiar = document.getElementById('btn-limpiar-tabla');
+    const btnSubirExcel = document.getElementById('btn-subir-excel');
+    const btnRecargar = document.getElementById('btn-recargar');
+
+    // Poblar selects únicos
+    const tecnicos = [...new Set(equiposData.map(e => e.tecnico).filter(Boolean))];
+    const familias = [...new Set(equiposData.map(e => e.familia).filter(Boolean))];
+    const elementos = [...new Set(equiposData.map(e => e.elemento).filter(Boolean))];
+
+    // Limpiar selects
+    tecnicoSel.innerHTML = '<option value="">Todos</option>';
+    familiaSel.innerHTML = '<option value="">Todas</option>';
+    elementoSel.innerHTML = '<option value="">Todos</option>';
+
+    tecnicos.forEach(t => { const opt = document.createElement('option'); opt.value = t; opt.textContent = t; tecnicoSel.appendChild(opt); });
+    familias.forEach(f => { const opt = document.createElement('option'); opt.value = f; opt.textContent = f; familiaSel.appendChild(opt); });
+    elementos.forEach(el => { const opt = document.createElement('option'); opt.value = el; opt.textContent = el; elementoSel.appendChild(opt); });
+
+    tecnicoSel.addEventListener('change', () => { filtros.tecnico = tecnicoSel.value; mostrarEquipos(); });
+    familiaSel.addEventListener('change', () => { filtros.familia = familiaSel.value; mostrarEquipos(); });
+    elementoSel.addEventListener('change', () => { filtros.elemento = elementoSel.value; mostrarEquipos(); });
+    btnExportar.addEventListener('click', exportarCSV);
+    btnLimpiar.addEventListener('click', () => { const modal = new bootstrap.Modal(document.getElementById('limpiarTablaModal')); modal.show(); });
+    btnSubirExcel.addEventListener('click', () => { const modal = new bootstrap.Modal(document.getElementById('subirExcelModal')); modal.show(); });
+    btnRecargar.addEventListener('click', cargarEquipos);
+
+    // Sort handlers
+    document.getElementById('th-tecnico').addEventListener('click', () => { toggleSort('tecnico'); });
+    document.getElementById('th-familia').addEventListener('click', () => { toggleSort('familia'); });
+    document.getElementById('th-elemento').addEventListener('click', () => { toggleSort('elemento'); });
+    document.getElementById('th-serial').addEventListener('click', () => { toggleSort('serial'); });
+    document.getElementById('th-fecha').addEventListener('click', () => { toggleSort('fecha_ultimo_movimiento'); });
+    document.getElementById('th-dias').addEventListener('click', () => { toggleSort('dias_ultimo'); });
+
+    // Configurar upload de Excel
+    configurarUploadExcel();
+    
+    // Actualizar estadísticas
+    actualizarEstadisticas();
+}
+
+function configurarUploadExcel() {
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('excel-file');
+    const btnProcesar = document.getElementById('btn-procesar-excel');
+
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileSelect(files[0]);
+        }
+    });
+
+    uploadArea.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFileSelect(e.target.files[0]);
+        }
+    });
+
+    btnProcesar.addEventListener('click', procesarExcel);
+}
+
+function handleFileSelect(file) {
+    if (!file.name.match(/\.(xlsx|xls)$/)) {
+        mostrarAlerta('Por favor seleccione un archivo Excel válido (.xlsx o .xls)', 'danger');
+        return;
+    }
+
+    selectedFile = file;
+    
+    // Mostrar información del archivo
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-size').textContent = formatFileSize(file.size);
+    document.getElementById('file-type').textContent = file.type || 'application/excel';
+    document.getElementById('file-info').classList.remove('d-none');
+    document.getElementById('btn-procesar-excel').disabled = false;
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function toggleSort(by) {
+    if (sortState.by === by) {
+        sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortState.by = by;
+        sortState.dir = 'asc';
+    }
+    mostrarEquipos();
+}
+
+async function cargarEquipos() {
+    try {
+        const response = await fetch('/api/logistica/equipos_disponibles', { 
+            redirect: 'manual', 
+            credentials: 'include' 
+        });
+        
+        // Detectar redirecciones (302) o respuestas HTML
+        const contentType = response.headers.get('Content-Type') || '';
+        if (response.status === 302 || contentType.includes('text/html')) {
+            mostrarError('Sesión requerida o error del servidor. Inicie sesión.');
+            return;
+        }
+        
+        if (!response.ok) {
+            let errMsg = `HTTP ${response.status}`;
+            try {
+                const errData = await response.json();
+                errMsg = errData.message || errData.error || errMsg;
+            } catch (_) {}
+            mostrarError(errMsg);
+            return;
+        }
+        
+        const data = await response.json();
+        
+        // Soportar formatos: arreglo directo, objeto {equipos}, u objeto {success, equipos}
+        if (Array.isArray(data)) {
+            equiposData = data;
+        } else if (data && Array.isArray(data.equipos)) {
+            equiposData = data.equipos;
+        } else if (data && data.success) {
+            equiposData = data.equipos || [];
+        } else {
+            mostrarError(data?.message || 'Error al cargar equipos');
+            equiposData = [];
+        }
+        
+        inicializarControles();
+        mostrarEquipos();
+    } catch (error) {
+        console.error('Error al cargar equipos:', error);
+        mostrarError('Error al cargar equipos');
+    }
+}
+
+function mostrarEquipos() {
+    const tbody = document.getElementById('equipos-body');
+    const sinDatos = document.getElementById('sin-datos');
+
+    // Filtrado
+    let lista = equiposData.filter(e => {
+        if (filtros.tecnico && e.tecnico !== filtros.tecnico) return false;
+        if (filtros.familia && e.familia !== filtros.familia) return false;
+        if (filtros.elemento && e.elemento !== filtros.elemento) return false;
+        if (filtros.q) {
+            const s = (e.serial || '').toLowerCase();
+            const el = (e.elemento || '').toLowerCase();
+            if (!s.includes(filtros.q) && !el.includes(filtros.q)) return false;
+        }
+        return true;
+    });
+
+    // Ordenamiento
+    lista.sort((a, b) => comparar(a, b, sortState.by, sortState.dir));
+
+    if (lista.length === 0) {
+        tbody.innerHTML = '';
+        sinDatos.classList.remove('d-none');
+        return;
+    }
+
+    sinDatos.classList.add('d-none');
+    tbody.innerHTML = '';
+
+    lista.forEach((equipo, index) => {
+        const fila = crearFilaEquipo(equipo, index);
+        tbody.appendChild(fila);
+    });
+
+    actualizarEstadisticas();
+}
+
+function actualizarEstadisticas() {
+    const total = equiposData.length;
+    const asignados = equiposData.filter(e => (e.cuenta && typeof e.cuenta === 'string' && e.cuenta.trim()) || (e.ot && typeof e.ot === 'string' && e.ot.trim())).length;
+    const pendientes = total - asignados;
+    const tecnicos = [...new Set(equiposData.map(e => e.tecnico).filter(Boolean))].length;
+
+    document.getElementById('total-equipos').textContent = total;
+    document.getElementById('equipos-asignados').textContent = asignados;
+    document.getElementById('equipos-pendientes').textContent = pendientes;
+    document.getElementById('tecnicos-activos').textContent = tecnicos;
+}
+
+function comparar(a, b, by, dir) {
+    const getVal = (obj) => {
+        let v = obj[by];
+        if (by === 'fecha_ultimo_movimiento' && v) {
+            v = new Date(v).getTime();
+        }
+        return v ?? '';
+    };
+    const va = getVal(a);
+    const vb = getVal(b);
+    if (va < vb) return dir === 'asc' ? -1 : 1;
+    if (va > vb) return dir === 'asc' ? 1 : -1;
+    return 0;
+}
+
+// Escapar HTML para inputs
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+// Crear fila de equipo (solo lectura para logística)
+function crearFilaEquipo(equipo, index) {
+    const tr = document.createElement('tr');
+    const diasTranscurridos = calcularDiasTranscurridos(equipo.fecha_ultimo_movimiento);
+    const tieneAsignacion = (equipo.cuenta && typeof equipo.cuenta === 'string' && equipo.cuenta.trim()) || (equipo.ot && typeof equipo.ot === 'string' && equipo.ot.trim());
+    
+    tr.innerHTML = `
+        <td>${equipo.tecnico || 'N/A'}</td>
+        <td>${equipo.familia || 'N/A'}</td>
+        <td>${equipo.elemento || 'N/A'}</td>
+        <td>${equipo.serial || 'N/A'}</td>
+        <td>${formatearFecha(equipo.fecha_ultimo_movimiento)}</td>
+        <td><span class="badge bg-${diasTranscurridos > 30 ? 'danger' : diasTranscurridos > 15 ? 'warning' : 'success'}">${diasTranscurridos}</span></td>
+        <td>${equipo.cuenta || '-'}</td>
+        <td>${equipo.ot || '-'}</td>
+        <td>${escapeHTML(equipo.observacion || '-')}</td>
+        <td>
+            <span class="badge bg-${tieneAsignacion ? 'success' : 'warning'}">
+                ${tieneAsignacion ? 'Asignado' : 'Pendiente'}
+            </span>
+        </td>
+    `;
+    return tr;
+}
+
+// Calcular días transcurridos
+function calcularDiasTranscurridos(fechaUltimoMovimiento) {
+    if (!fechaUltimoMovimiento) return 0;
+    const fechaUltimo = new Date(fechaUltimoMovimiento);
+    const fechaActual = new Date();
+    const diferenciaTiempo = fechaActual - fechaUltimo;
+    const diferenciaDias = Math.floor(diferenciaTiempo / (1000 * 60 * 60 * 24));
+    return diferenciaDias;
+}
+
+// Formatear fecha
+function formatearFecha(fecha) {
+    if (!fecha) return 'N/A';
+    const fechaObj = new Date(fecha);
+    return fechaObj.toLocaleDateString('es-CO', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+}
+
+// Limpiar tabla
+document.getElementById('confirm-limpiar').addEventListener('click', async function() {
+    try {
+        const response = await fetch('/api/logistica/limpiar_equipos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            mostrarAlerta('Tabla limpiada exitosamente. Todos los registros han sido eliminados.', 'success');
+            equiposData = [];
+            mostrarEquipos();
+            const modal = bootstrap.Modal.getInstance(document.getElementById('limpiarTablaModal'));
+            modal.hide();
+        } else {
+            let errorMsg = 'Error al limpiar la tabla';
+            try {
+                const error = await response.json();
+                errorMsg = error.message || errorMsg;
+            } catch (_) {}
+            mostrarAlerta(errorMsg, 'danger');
+        }
+    } catch (error) {
+        console.error('Error al limpiar tabla:', error);
+        mostrarAlerta('Error al limpiar la tabla', 'danger');
+    }
+});
+
+// Procesar Excel
+async function procesarExcel() {
+    if (!selectedFile) {
+        mostrarAlerta('Por favor seleccione un archivo', 'warning');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('excel_file', selectedFile);
+
+    // Mostrar progreso
+    document.getElementById('upload-progress').classList.remove('d-none');
+    document.getElementById('btn-procesar-excel').disabled = true;
+
+    try {
+        const response = await fetch('/api/logistica/subir_excel_equipos', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            mostrarAlerta(`Archivo procesado exitosamente. ${result.registros_procesados || 0} registros agregados.`, 'success');
+            
+            // Recargar datos
+            await cargarEquipos();
+            
+            // Cerrar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('subirExcelModal'));
+            modal.hide();
+            
+            // Limpiar formulario
+            resetUploadForm();
+        } else {
+            let errorMsg = 'Error al procesar el archivo';
+            try {
+                const error = await response.json();
+                errorMsg = error.message || errorMsg;
+            } catch (_) {}
+            mostrarAlerta(errorMsg, 'danger');
+        }
+    } catch (error) {
+        console.error('Error al procesar Excel:', error);
+        mostrarAlerta('Error al procesar el archivo', 'danger');
+    } finally {
+        document.getElementById('upload-progress').classList.add('d-none');
+        document.getElementById('btn-procesar-excel').disabled = false;
+    }
+}
+
+function resetUploadForm() {
+    selectedFile = null;
+    document.getElementById('excel-file').value = '';
+    document.getElementById('file-info').classList.add('d-none');
+    document.getElementById('btn-procesar-excel').disabled = true;
+}
+
+// Exportar CSV del estado actual (filtrado/ordenado)
+function exportarCSV() {
+    // Reconstruir la lista visible aplicando filtros y orden
+    let lista = equiposData.filter(e => {
+        if (filtros.tecnico && e.tecnico !== filtros.tecnico) return false;
+        if (filtros.familia && e.familia !== filtros.familia) return false;
+        if (filtros.elemento && e.elemento !== filtros.elemento) return false;
+        if (filtros.q) {
+            const s = (e.serial || '').toLowerCase();
+            const el = (e.elemento || '').toLowerCase();
+            if (!s.includes(filtros.q) && !el.includes(filtros.q)) return false;
+        }
+        return true;
+    });
+    lista.sort((a, b) => comparar(a, b, sortState.by, sortState.dir));
+    
+    const headers = ['Tecnico','Familia','Elemento','Serial','FechaUltimoMovimiento','Dias','Cuenta','OT','Observacion','Estado'];
+    const rows = lista.map(e => {
+        const tieneAsignacion = (e.cuenta && typeof e.cuenta === 'string' && e.cuenta.trim()) || (e.ot && typeof e.ot === 'string' && e.ot.trim());
+        return [
+            e.tecnico || '', e.familia || '', e.elemento || '', e.serial || '',
+            formatearFecha(e.fecha_ultimo_movimiento), calcularDiasTranscurridos(e.fecha_ultimo_movimiento),
+            e.cuenta || '', e.ot || '', e.observacion || '',
+            tieneAsignacion ? 'Asignado' : 'Pendiente'
+        ];
+    });
+    
+    const csv = [headers.join(',') , ...rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(','))].join('\n');
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'equipos_disponibles_logistica.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// Mostrar alertas
+function mostrarAlerta(mensaje, tipo) {
+    const alerta = document.createElement('div');
+    alerta.className = `alert alert-${tipo} alert-dismissible fade show`;
+    alerta.innerHTML = `
+        ${mensaje}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    const container = document.querySelector('.card-body');
+    container.insertBefore(alerta, container.firstChild);
+    setTimeout(() => { if (alerta.parentNode) { alerta.remove(); } }, 5000);
+}
+
+// Mostrar error
+function mostrarError(mensaje) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'alert alert-danger';
+    errorDiv.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        ${mensaje}
+    `;
+    const container = document.querySelector('.card-body');
+    container.insertBefore(errorDiv, container.firstChild);
+}
+
+// Cargar al iniciar
+cargarEquipos();
+</script>
+
+{% endblock %}

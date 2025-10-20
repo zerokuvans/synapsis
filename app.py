@@ -96,11 +96,8 @@ def get_bogota_datetime():
 def login():
     try:
         if request.method == 'GET':
-            # Respuesta simple para GET; los clientes deben hacer POST para autenticar
-            return jsonify({
-                'status': 'ready',
-                'message': 'Use POST con username y password para iniciar sesión'
-            })
+            # Mostrar el formulario de login
+            return render_template('login.html')
 
         # Método POST: autenticar usuario
         username = request.form.get('username', '')
@@ -1924,7 +1921,7 @@ def api_get_vehiculo(vehiculo_id):
 @app.route('/api/mpa/vehiculos/<int:vehiculo_id>', methods=['PUT'])
 @login_required
 def api_update_vehiculo(vehiculo_id):
-    """API para actualizar un vehículo"""
+    """API para actualizar un vehículo con sincronización automática"""
     if not current_user.has_role('administrativo'):
         return jsonify({'error': 'Sin permisos'}), 403
     
@@ -1938,8 +1935,9 @@ def api_update_vehiculo(vehiculo_id):
         cursor = connection.cursor()
         
         # Verificar si el vehículo existe
-        cursor.execute("SELECT id_mpa_vehiculos FROM mpa_vehiculos WHERE id_mpa_vehiculos = %s", (vehiculo_id,))
-        if not cursor.fetchone():
+        cursor.execute("SELECT id_mpa_vehiculos, placa FROM mpa_vehiculos WHERE id_mpa_vehiculos = %s", (vehiculo_id,))
+        vehiculo_actual = cursor.fetchone()
+        if not vehiculo_actual:
             return jsonify({'success': False, 'error': 'Vehículo no encontrado'}), 404
         
         # Verificar si la placa ya existe en otro vehículo
@@ -1973,11 +1971,28 @@ def api_update_vehiculo(vehiculo_id):
         update_query = f"UPDATE mpa_vehiculos SET {', '.join(update_fields)} WHERE id_mpa_vehiculos = %s"
         
         cursor.execute(update_query, values)
+        
+        # Ejecutar sincronización automática usando el procedimiento almacenado
+        placa_a_sincronizar = data.get('placa', vehiculo_actual[1])  # Usar nueva placa o la actual
+        try:
+            cursor.callproc('sp_sincronizar_vehiculo_completo', [placa_a_sincronizar, current_user.id])
+            # Obtener los resultados del procedimiento
+            for result in cursor.stored_results():
+                sync_result = result.fetchone()
+                if sync_result:
+                    sync_message = sync_result[0] if sync_result[0] else "Sincronización completada"
+                else:
+                    sync_message = "Sincronización completada"
+        except Exception as sync_error:
+            # Si falla la sincronización, registrar el error pero no fallar la actualización
+            sync_message = f"Vehículo actualizado, pero falló la sincronización: {str(sync_error)}"
+        
         connection.commit()
         
         return jsonify({
             'success': True,
-            'message': 'Vehículo actualizado exitosamente'
+            'message': 'Vehículo actualizado exitosamente',
+            'sync_message': sync_message
         })
         
     except Exception as e:
@@ -2715,6 +2730,300 @@ def api_get_tecnicos():
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
+# ==================== NUEVAS APIs MPA MEJORAS ====================
+
+# API para sincronización manual de vehículo
+@app.route('/api/mpa/vehiculos/<int:vehiculo_id>/sync-auto', methods=['POST'])
+@login_required
+def api_sync_vehiculo_manual(vehiculo_id):
+    """API para sincronización manual de un vehículo específico"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Obtener la placa del vehículo
+        cursor.execute("SELECT placa FROM mpa_vehiculos WHERE id_mpa_vehiculos = %s", (vehiculo_id,))
+        vehiculo = cursor.fetchone()
+        if not vehiculo:
+            return jsonify({'success': False, 'error': 'Vehículo no encontrado'}), 404
+        
+        placa = vehiculo[0]
+        
+        # Ejecutar sincronización usando el procedimiento almacenado
+        cursor.callproc('sp_sincronizar_vehiculo_completo', [placa, current_user.id])
+        
+        # Obtener los resultados del procedimiento
+        sync_message = "Sincronización completada exitosamente"
+        for result in cursor.stored_results():
+            sync_result = result.fetchone()
+            if sync_result:
+                sync_message = sync_result[0] if sync_result[0] else sync_message
+        
+        connection.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': sync_message,
+            'vehiculo_id': vehiculo_id,
+            'placa': placa
+        })
+        
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            connection.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para validación de unicidad
+@app.route('/api/mpa/validaciones/unicidad', methods=['POST'])
+@login_required
+def api_validar_unicidad():
+    """API para validar unicidad de documentos SOAT y Tecnomecánica"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        data = request.get_json()
+        tipo_documento = data.get('tipo_documento')  # 'soat' o 'tecnomecanica'
+        placa = data.get('placa')
+        
+        if not tipo_documento or not placa:
+            return jsonify({'success': False, 'error': 'Tipo de documento y placa son requeridos'}), 400
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor()
+        
+        # Ejecutar validación usando el procedimiento almacenado
+        cursor.callproc('sp_validar_unicidad_documento', [tipo_documento, placa])
+        
+        # Obtener los resultados del procedimiento
+        validation_result = "Validación completada"
+        is_valid = True
+        for result in cursor.stored_results():
+            validation_data = result.fetchone()
+            if validation_data:
+                validation_result = validation_data[0] if validation_data[0] else validation_result
+                # Si el mensaje contiene "ERROR" o "Ya existe", marcar como inválido
+                if "ERROR" in validation_result or "Ya existe" in validation_result:
+                    is_valid = False
+        
+        return jsonify({
+            'success': True,
+            'is_valid': is_valid,
+            'message': validation_result,
+            'tipo_documento': tipo_documento,
+            'placa': placa
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para historial consolidado
+@app.route('/api/mpa/historial/consolidado', methods=['GET'])
+@login_required
+def api_historial_consolidado():
+    """API para obtener historial consolidado de vehículos, SOAT, Tecnomecánica y Licencias"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        placa = request.args.get('placa')
+        tecnico = request.args.get('tecnico')
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        tipo_cambio = request.args.get('tipo_cambio')  # 'vehiculo', 'soat', 'tecnomecanica', 'licencia'
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Usar la vista consolidada creada en el script SQL
+        query = "SELECT * FROM vista_historial_consolidado WHERE 1=1"
+        params = []
+        
+        if placa:
+            query += " AND placa = %s"
+            params.append(placa)
+        
+        if tecnico:
+            query += " AND tecnico = %s"
+            params.append(tecnico)
+        
+        if fecha_inicio:
+            query += " AND fecha_cambio >= %s"
+            params.append(fecha_inicio)
+        
+        if fecha_fin:
+            query += " AND fecha_cambio <= %s"
+            params.append(fecha_fin)
+        
+        if tipo_cambio:
+            query += " AND tipo_cambio = %s"
+            params.append(tipo_cambio)
+        
+        query += " ORDER BY fecha_cambio DESC LIMIT 1000"
+        
+        cursor.execute(query, params)
+        historial = cursor.fetchall()
+        
+        # Formatear fechas para el frontend
+        for registro in historial:
+            if registro['fecha_cambio']:
+                registro['fecha_cambio'] = registro['fecha_cambio'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        return jsonify({
+            'success': True,
+            'data': historial,
+            'total': len(historial),
+            'filtros_aplicados': {
+                'placa': placa,
+                'tecnico': tecnico,
+                'fecha_inicio': fecha_inicio,
+                'fecha_fin': fecha_fin,
+                'tipo_cambio': tipo_cambio
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para reportes de sincronización
+@app.route('/api/mpa/reportes/sincronizacion', methods=['GET'])
+@login_required
+def api_reportes_sincronizacion():
+    """API para obtener reportes de sincronización"""
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    
+    try:
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        usuario = request.args.get('usuario')
+        estado = request.args.get('estado')  # 'exitoso', 'error'
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Consultar logs de sincronización
+        query = """
+        SELECT 
+            id_log,
+            placa,
+            usuario_id,
+            fecha_sincronizacion,
+            tipo_operacion,
+            resultado,
+            detalles,
+            CASE 
+                WHEN resultado LIKE '%exitoso%' OR resultado LIKE '%completad%' THEN 'exitoso'
+                ELSE 'error'
+            END as estado_sync
+        FROM mpa_logs_sincronizacion 
+        WHERE 1=1
+        """
+        params = []
+        
+        if fecha_inicio:
+            query += " AND DATE(fecha_sincronizacion) >= %s"
+            params.append(fecha_inicio)
+        
+        if fecha_fin:
+            query += " AND DATE(fecha_sincronizacion) <= %s"
+            params.append(fecha_fin)
+        
+        if usuario:
+            query += " AND usuario_id = %s"
+            params.append(usuario)
+        
+        if estado:
+            if estado == 'exitoso':
+                query += " AND (resultado LIKE '%exitoso%' OR resultado LIKE '%completad%')"
+            elif estado == 'error':
+                query += " AND resultado NOT LIKE '%exitoso%' AND resultado NOT LIKE '%completad%'"
+        
+        query += " ORDER BY fecha_sincronizacion DESC LIMIT 1000"
+        
+        cursor.execute(query, params)
+        logs = cursor.fetchall()
+        
+        # Obtener estadísticas
+        stats_query = """
+        SELECT 
+            COUNT(*) as total_sincronizaciones,
+            SUM(CASE WHEN resultado LIKE '%exitoso%' OR resultado LIKE '%completad%' THEN 1 ELSE 0 END) as exitosas,
+            SUM(CASE WHEN resultado NOT LIKE '%exitoso%' AND resultado NOT LIKE '%completad%' THEN 1 ELSE 0 END) as con_errores,
+            COUNT(DISTINCT placa) as vehiculos_sincronizados,
+            COUNT(DISTINCT usuario_id) as usuarios_activos
+        FROM mpa_logs_sincronizacion
+        WHERE 1=1
+        """
+        
+        stats_params = []
+        if fecha_inicio:
+            stats_query += " AND DATE(fecha_sincronizacion) >= %s"
+            stats_params.append(fecha_inicio)
+        
+        if fecha_fin:
+            stats_query += " AND DATE(fecha_sincronizacion) <= %s"
+            stats_params.append(fecha_fin)
+        
+        cursor.execute(stats_query, stats_params)
+        estadisticas = cursor.fetchone()
+        
+        # Formatear fechas para el frontend
+        for log in logs:
+            if log['fecha_sincronizacion']:
+                log['fecha_sincronizacion'] = log['fecha_sincronizacion'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        return jsonify({
+            'success': True,
+            'data': logs,
+            'estadisticas': estadisticas,
+            'total': len(logs),
+            'filtros_aplicados': {
+                'fecha_inicio': fecha_inicio,
+                'fecha_fin': fecha_fin,
+                'usuario': usuario,
+                'estado': estado
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
 @app.route('/mpa/vencimientos')
 def mpa_vencimientos():
     """Módulo de gestión de vencimientos consolidados"""
@@ -2788,6 +3097,46 @@ def mpa_siniestros():
     # TODO: Implementar página de siniestros
     flash('Módulo en desarrollo', 'info')
     return redirect(url_for('mpa_dashboard'))
+
+@app.route('/mpa/historial')
+@login_required
+def mpa_historial():
+    """Módulo de historial consolidado"""
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    
+    return render_template('modulos/mpa/historial.html')
+
+@app.route('/mpa/reportes-sincronizacion')
+@login_required
+def mpa_reportes_sincronizacion():
+    """Módulo de reportes de sincronización"""
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    
+    return render_template('modulos/mpa/reportes_sincronizacion.html')
+
+@app.route('/mpa/validaciones')
+@login_required
+def mpa_validaciones():
+    """Módulo de validaciones de documentos"""
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    
+    return render_template('modulos/mpa/validaciones.html')
+
+@app.route('/mpa/configuracion')
+@login_required
+def mpa_configuracion():
+    """Módulo de configuración MPA"""
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    
+    return render_template('modulos/mpa/configuracion.html')
 
 # ==================== MANTENIMIENTOS APIs ====================
 
@@ -3402,14 +3751,19 @@ def api_create_soat():
         # Usar el técnico asignado del vehículo si no se especifica
         tecnico_asignado = data.get('tecnico_asignado', vehiculo[1])
         
-        # Verificar si ya existe un SOAT activo para esta placa
-        cursor.execute("""
-            SELECT id_mpa_soat FROM mpa_soat 
-            WHERE placa = %s AND estado = 'Activo'
-        """, (data['placa'],))
+        # Validar unicidad usando el procedimiento almacenado
+        cursor.callproc('sp_validar_unicidad_documento', ['soat', data['placa']])
         
-        if cursor.fetchone():
-            return jsonify({'success': False, 'error': 'Ya existe un SOAT activo para esta placa'}), 400
+        # Obtener resultado de la validación
+        validation_result = None
+        for result in cursor.stored_results():
+            validation_data = result.fetchone()
+            if validation_data:
+                validation_result = validation_data[0]
+        
+        # Si hay un error en la validación, retornar el mensaje
+        if validation_result and ("ERROR" in validation_result or "Ya existe" in validation_result):
+            return jsonify({'success': False, 'error': validation_result}), 400
         
         # Insertar nuevo SOAT
         query = """
@@ -3469,10 +3823,31 @@ def api_update_soat(soat_id):
             
         cursor = connection.cursor()
         
-        # Verificar que el SOAT existe
-        cursor.execute("SELECT id_mpa_soat FROM mpa_soat WHERE id_mpa_soat = %s", (soat_id,))
-        if not cursor.fetchone():
+        # Verificar que el SOAT existe y obtener la placa
+        cursor.execute("SELECT id_mpa_soat, placa FROM mpa_soat WHERE id_mpa_soat = %s", (soat_id,))
+        soat_info = cursor.fetchone()
+        if not soat_info:
             return jsonify({'success': False, 'error': 'SOAT no encontrado'}), 404
+        
+        placa = soat_info[1]
+        
+        # Si se está actualizando información crítica, validar unicidad
+        if 'numero_poliza' in data or 'placa' in data:
+            placa_validar = data.get('placa', placa)
+            cursor.callproc('sp_validar_unicidad_documento', ['soat', placa_validar])
+            
+            # Obtener resultado de la validación
+            validation_result = None
+            for result in cursor.stored_results():
+                validation_data = result.fetchone()
+                if validation_data:
+                    validation_result = validation_data[0]
+            
+            # Si hay un error en la validación y no es el mismo registro, retornar el mensaje
+            if validation_result and ("ERROR" in validation_result or "Ya existe" in validation_result):
+                # Verificar si el error es por el mismo registro que se está actualizando
+                if f"ID {soat_id}" not in validation_result:
+                    return jsonify({'success': False, 'error': validation_result}), 400
         
         # Construir query de actualización dinámicamente
         update_fields = []
@@ -4027,14 +4402,19 @@ def api_create_tecnico_mecanica():
         tecnico_asignado = data.get('tecnico_asignado', vehiculo[1])
         tipo_vehiculo = data.get('tipo_vehiculo', vehiculo[2])
         
-        # Verificar si ya existe una técnico mecánica activa para esta placa
-        cursor.execute("""
-            SELECT id_mpa_tecnico_mecanica FROM mpa_tecnico_mecanica 
-            WHERE placa = %s AND estado = 'Activo'
-        """, (data['placa'],))
+        # Validar unicidad usando el procedimiento almacenado
+        cursor.callproc('sp_validar_unicidad_documento', ['tecnomecanica', data['placa']])
         
-        if cursor.fetchone():
-            return jsonify({'success': False, 'error': 'Ya existe una técnico mecánica activa para esta placa'}), 400
+        # Obtener resultado de la validación
+        validation_result = None
+        for result in cursor.stored_results():
+            validation_data = result.fetchone()
+            if validation_data:
+                validation_result = validation_data[0]
+        
+        # Si hay un error en la validación, retornar el mensaje
+        if validation_result and ("ERROR" in validation_result or "Ya existe" in validation_result):
+            return jsonify({'success': False, 'error': validation_result}), 400
         
         # Validar fechas
         from datetime import datetime
@@ -4097,17 +4477,49 @@ def api_update_tecnico_mecanica(tm_id):
     
     try:
         data = request.get_json()
+        print(f"[DEBUG] Datos recibidos para actualizar TM {tm_id}: {data}")
         
         connection = get_db_connection()
         if connection is None:
+            print(f"[ERROR] No se pudo conectar a la base de datos")
             return jsonify({'error': 'Error de conexión a la base de datos'}), 500
             
         cursor = connection.cursor()
         
-        # Verificar que la técnico mecánica existe
-        cursor.execute("SELECT id_mpa_tecnico_mecanica FROM mpa_tecnico_mecanica WHERE id_mpa_tecnico_mecanica = %s", (tm_id,))
-        if not cursor.fetchone():
+        # Verificar que la técnico mecánica existe y obtener la placa
+        cursor.execute("SELECT id_mpa_tecnico_mecanica, placa FROM mpa_tecnico_mecanica WHERE id_mpa_tecnico_mecanica = %s", (tm_id,))
+        tm_info = cursor.fetchone()
+        if not tm_info:
+            print(f"[ERROR] Técnico mecánica con ID {tm_id} no encontrada")
             return jsonify({'success': False, 'error': 'Técnico mecánica no encontrada'}), 404
+        
+        placa = tm_info[1]
+        print(f"[DEBUG] Técnico mecánica encontrada: ID={tm_id}, Placa={placa}")
+        
+        # Si se está actualizando información crítica, validar unicidad
+        if 'placa' in data:
+            placa_validar = data.get('placa', placa)
+            print(f"[DEBUG] Validando unicidad para placa: {placa_validar}")
+            try:
+                cursor.callproc('sp_validar_unicidad_documento', ['tecnomecanica', placa_validar])
+                
+                # Obtener resultado de la validación
+                validation_result = None
+                for result in cursor.stored_results():
+                    validation_data = result.fetchone()
+                    if validation_data:
+                        validation_result = validation_data[0]
+                
+                print(f"[DEBUG] Resultado validación unicidad: {validation_result}")
+                
+                # Si hay un error en la validación y no es el mismo registro, retornar el mensaje
+                if validation_result and ("ERROR" in validation_result or "Ya existe" in validation_result):
+                    # Verificar si el error es por el mismo registro que se está actualizando
+                    if f"ID {tm_id}" not in validation_result:
+                        print(f"[ERROR] Error de validación de unicidad: {validation_result}")
+                        return jsonify({'success': False, 'error': validation_result}), 400
+            except Exception as validation_error:
+                print(f"[WARNING] Error en validación de unicidad (continuando): {validation_error}")
         
         # Validar fechas si se proporcionan
         if 'fecha_inicio' in data and 'fecha_vencimiento' in data:
@@ -4117,9 +4529,13 @@ def api_update_tecnico_mecanica(tm_id):
                 fecha_vencimiento = datetime.strptime(data['fecha_vencimiento'], '%Y-%m-%d').date()
                 
                 if fecha_vencimiento <= fecha_inicio:
+                    print(f"[ERROR] Fecha de vencimiento debe ser posterior a fecha de inicio")
                     return jsonify({'success': False, 'error': 'La fecha de vencimiento debe ser posterior a la fecha de inicio'}), 400
                     
-            except ValueError:
+                print(f"[DEBUG] Fechas validadas: inicio={fecha_inicio}, vencimiento={fecha_vencimiento}")
+                    
+            except ValueError as date_error:
+                print(f"[ERROR] Error en formato de fecha: {date_error}")
                 return jsonify({'success': False, 'error': 'Formato de fecha inválido. Use YYYY-MM-DD'}), 400
         
         # Construir query de actualización dinámicamente
@@ -4133,8 +4549,10 @@ def api_update_tecnico_mecanica(tm_id):
             if field in data:
                 update_fields.append(f"{field} = %s")
                 values.append(data[field])
+                print(f"[DEBUG] Campo a actualizar: {field} = {data[field]}")
         
         if not update_fields:
+            print(f"[ERROR] No hay campos para actualizar")
             return jsonify({'success': False, 'error': 'No hay campos para actualizar'}), 400
         
         # Agregar fecha de actualización
@@ -4142,9 +4560,14 @@ def api_update_tecnico_mecanica(tm_id):
         values.append(tm_id)
         
         query = f"UPDATE mpa_tecnico_mecanica SET {', '.join(update_fields)} WHERE id_mpa_tecnico_mecanica = %s"
+        print(f"[DEBUG] Query a ejecutar: {query}")
+        print(f"[DEBUG] Valores: {values}")
         
         cursor.execute(query, values)
+        affected_rows = cursor.rowcount
         connection.commit()
+        
+        print(f"[DEBUG] Actualización exitosa. Filas afectadas: {affected_rows}")
         
         return jsonify({
             'success': True,
@@ -4152,6 +4575,11 @@ def api_update_tecnico_mecanica(tm_id):
         })
         
     except Exception as e:
+        print(f"[ERROR] Error en api_update_tecnico_mecanica: {str(e)}")
+        print(f"[ERROR] Tipo de error: {type(e).__name__}")
+        import traceback
+        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        
         if 'connection' in locals() and connection:
             connection.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500

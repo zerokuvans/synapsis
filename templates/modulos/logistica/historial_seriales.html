@@ -1236,15 +1236,35 @@ function validarArchivoQry(file) {
 }
 
 function mostrarArchivoQrySeleccionado(file) {
-    // Mostrar nueva interfaz visual
-    document.getElementById('uploadAreaDefault').style.display = 'none';
-    document.getElementById('uploadAreaSelected').style.display = 'block';
-    document.getElementById('selectedFileName').textContent = file.name;
+    // Mostrar nueva interfaz visual con validaciones null-safe
+    const uploadAreaDefault = document.getElementById('uploadAreaDefault');
+    const uploadAreaSelected = document.getElementById('uploadAreaSelected');
+    const selectedFileName = document.getElementById('selectedFileName');
     
-    // Mantener funcionalidad existente
-    document.getElementById('nombreArchivoQry').textContent = file.name;
-    document.getElementById('archivoQrySeleccionado').style.display = 'block';
-    document.getElementById('btnIniciarCarga').disabled = false;
+    if (uploadAreaDefault) {
+        uploadAreaDefault.style.display = 'none';
+    }
+    if (uploadAreaSelected) {
+        uploadAreaSelected.style.display = 'block';
+    }
+    if (selectedFileName) {
+        selectedFileName.textContent = file.name;
+    }
+    
+    // Mantener funcionalidad existente con validaciones
+    const nombreArchivoQry = document.getElementById('nombreArchivoQry');
+    const archivoQrySeleccionado = document.getElementById('archivoQrySeleccionado');
+    const btnIniciarCarga = document.getElementById('btnIniciarCarga');
+    
+    if (nombreArchivoQry) {
+        nombreArchivoQry.textContent = file.name;
+    }
+    if (archivoQrySeleccionado) {
+        archivoQrySeleccionado.style.display = 'block';
+    }
+    if (btnIniciarCarga) {
+        btnIniciarCarga.disabled = false;
+    }
 }
 
 function iniciarCargaQry() {
@@ -1352,9 +1372,19 @@ function mostrarResultadosCarga(data, tipo) {
         if (intentos < maxIntentos) {
             setTimeout(() => esperarElementos(intentos + 1), 100);
         } else {
-            // Si se agotaron los intentos, solo registrar en consola
-            console.error('Error: No se pudieron encontrar los elementos del modal de resultados después de múltiples intentos');
-            // La carga funciona correctamente, no mostrar mensaje de error al usuario
+            // Si se agotaron los intentos, usar elementos alternativos o crear mensaje simple
+            console.warn('Elementos del modal de resultados no encontrados, usando método alternativo');
+            
+            // Intentar mostrar resultado en el área de progreso como fallback
+            const estadoCarga = document.getElementById('estadoCarga');
+            if (estadoCarga) {
+                const icono = tipo === 'success' ? 'check-circle' : 'exclamation-triangle';
+                const color = tipo === 'success' ? 'text-success' : 'text-danger';
+                estadoCarga.innerHTML = `<i class="fas fa-${icono} me-2 ${color}"></i>${data.message || 'Operación completada'}`;
+            } else {
+                // Último recurso: mostrar alerta simple
+                alert(data.message || 'Operación completada');
+            }
         }
     }
     

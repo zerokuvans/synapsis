@@ -1,0 +1,689 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración MPA{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2><i class="fas fa-cog"></i> Configuración MPA</h2>
+                    <p class="text-muted">Configuración del módulo de Mantenimiento Preventivo Automotriz</p>
+                </div>
+                <div>
+                    <button class="btn btn-success" onclick="guardarConfiguracion()">
+                        <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetearConfiguracion()">
+                        <i class="fas fa-undo"></i> Resetear
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs de configuración -->
+    <div class="row">
+        <div class="col-12">
+            <ul class="nav nav-tabs" id="configTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button" role="tab">
+                        <i class="fas fa-cog"></i> General
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="notificaciones-tab" data-bs-toggle="tab" data-bs-target="#notificaciones" type="button" role="tab">
+                        <i class="fas fa-bell"></i> Notificaciones
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="sincronizacion-tab" data-bs-toggle="tab" data-bs-target="#sincronizacion" type="button" role="tab">
+                        <i class="fas fa-sync"></i> Sincronización
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="validaciones-tab" data-bs-toggle="tab" data-bs-target="#validaciones" type="button" role="tab">
+                        <i class="fas fa-shield-alt"></i> Validaciones
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="backup-tab" data-bs-toggle="tab" data-bs-target="#backup" type="button" role="tab">
+                        <i class="fas fa-database"></i> Backup
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="configTabContent">
+                <!-- Tab General -->
+                <div class="tab-pane fade show active" id="general" role="tabpanel">
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5><i class="fas fa-cog"></i> Configuración General</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="empresaNombre" class="form-label">Nombre de la Empresa</label>
+                                        <input type="text" class="form-control" id="empresaNombre" value="Synapsis Corp">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="empresaNit" class="form-label">NIT</label>
+                                        <input type="text" class="form-control" id="empresaNit" value="900123456-7">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="empresaDireccion" class="form-label">Dirección</label>
+                                        <input type="text" class="form-control" id="empresaDireccion" value="Calle 123 #45-67">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="empresaTelefono" class="form-label">Teléfono</label>
+                                        <input type="text" class="form-control" id="empresaTelefono" value="+57 1 234 5678">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="empresaEmail" class="form-label">Email</label>
+                                        <input type="email" class="form-control" id="empresaEmail" value="info@synapsis.com">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="zonaHoraria" class="form-label">Zona Horaria</label>
+                                        <select class="form-select" id="zonaHoraria">
+                                            <option value="America/Bogota" selected>América/Bogotá (UTC-5)</option>
+                                            <option value="America/New_York">América/Nueva_York (UTC-5/-4)</option>
+                                            <option value="Europe/Madrid">Europa/Madrid (UTC+1/+2)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Notificaciones -->
+                <div class="tab-pane fade" id="notificaciones" role="tabpanel">
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5><i class="fas fa-bell"></i> Configuración de Notificaciones</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Vencimientos</h6>
+                                    <div class="mb-3">
+                                        <label for="diasAvisoSOAT" class="form-label">Días de aviso SOAT</label>
+                                        <input type="number" class="form-control" id="diasAvisoSOAT" value="30" min="1" max="365">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="diasAvisoTecnomecanica" class="form-label">Días de aviso Tecnomecánica</label>
+                                        <input type="number" class="form-control" id="diasAvisoTecnomecanica" value="30" min="1" max="365">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="diasAvisoLicencia" class="form-label">Días de aviso Licencia</label>
+                                        <input type="number" class="form-control" id="diasAvisoLicencia" value="60" min="1" max="365">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Métodos de Notificación</h6>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="notifEmail" checked>
+                                        <label class="form-check-label" for="notifEmail">
+                                            Email
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="notifSMS">
+                                        <label class="form-check-label" for="notifSMS">
+                                            SMS
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="notifWhatsApp">
+                                        <label class="form-check-label" for="notifWhatsApp">
+                                            WhatsApp
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="notifSistema" checked>
+                                        <label class="form-check-label" for="notifSistema">
+                                            Notificaciones del Sistema
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Sincronización -->
+                <div class="tab-pane fade" id="sincronizacion" role="tabpanel">
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5><i class="fas fa-sync"></i> Configuración de Sincronización</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="sincronizacionAuto" class="form-label">Sincronización Automática</label>
+                                        <select class="form-select" id="sincronizacionAuto">
+                                            <option value="disabled">Deshabilitada</option>
+                                            <option value="daily" selected>Diaria</option>
+                                            <option value="weekly">Semanal</option>
+                                            <option value="monthly">Mensual</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="horaSincronizacion" class="form-label">Hora de Sincronización</label>
+                                        <input type="time" class="form-control" id="horaSincronizacion" value="02:00">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="intentosMaximos" class="form-label">Intentos Máximos</label>
+                                        <input type="number" class="form-control" id="intentosMaximos" value="3" min="1" max="10">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="timeoutSincronizacion" class="form-label">Timeout (segundos)</label>
+                                        <input type="number" class="form-control" id="timeoutSincronizacion" value="30" min="5" max="300">
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="sincronizarSOAT" checked>
+                                        <label class="form-check-label" for="sincronizarSOAT">
+                                            Sincronizar SOAT
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="sincronizarTecnomecanica" checked>
+                                        <label class="form-check-label" for="sincronizarTecnomecanica">
+                                            Sincronizar Tecnomecánica
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="sincronizarLicencias" checked>
+                                        <label class="form-check-label" for="sincronizarLicencias">
+                                            Sincronizar Licencias
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Validaciones -->
+                <div class="tab-pane fade" id="validaciones" role="tabpanel">
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5><i class="fas fa-shield-alt"></i> Configuración de Validaciones</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Validaciones Automáticas</h6>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="validarUnicidad" checked>
+                                        <label class="form-check-label" for="validarUnicidad">
+                                            Validar Unicidad de Documentos
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="validarVigencia" checked>
+                                        <label class="form-check-label" for="validarVigencia">
+                                            Validar Vigencia de Documentos
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="validarFormato" checked>
+                                        <label class="form-check-label" for="validarFormato">
+                                            Validar Formato de Documentos
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Configuración de Formatos</h6>
+                                    <div class="mb-3">
+                                        <label for="formatoSOAT" class="form-label">Formato SOAT</label>
+                                        <input type="text" class="form-control" id="formatoSOAT" value="^\d{10}$" placeholder="Expresión regular">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="formatoTecnomecanica" class="form-label">Formato Tecnomecánica</label>
+                                        <input type="text" class="form-control" id="formatoTecnomecanica" value="^\d{8,12}$" placeholder="Expresión regular">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="formatoLicencia" class="form-label">Formato Licencia</label>
+                                        <input type="text" class="form-control" id="formatoLicencia" value="^\d{8,10}$" placeholder="Expresión regular">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Backup -->
+                <div class="tab-pane fade" id="backup" role="tabpanel">
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5><i class="fas fa-database"></i> Configuración de Backup</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="backupAuto" class="form-label">Backup Automático</label>
+                                        <select class="form-select" id="backupAuto">
+                                            <option value="disabled">Deshabilitado</option>
+                                            <option value="daily" selected>Diario</option>
+                                            <option value="weekly">Semanal</option>
+                                            <option value="monthly">Mensual</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="horaBackup" class="form-label">Hora de Backup</label>
+                                        <input type="time" class="form-control" id="horaBackup" value="01:00">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="retencionBackup" class="form-label">Días de Retención</label>
+                                        <input type="number" class="form-control" id="retencionBackup" value="30" min="1" max="365">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="rutaBackup" class="form-label">Ruta de Backup</label>
+                                        <input type="text" class="form-control" id="rutaBackup" value="./backups/" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <button class="btn btn-primary" onclick="ejecutarBackupManual()">
+                                            <i class="fas fa-download"></i> Backup Manual
+                                        </button>
+                                        <button class="btn btn-info ms-2" onclick="mostrarBackupsDisponibles()">
+                                            <i class="fas fa-list"></i> Ver Backups
+                                        </button>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="archivoRestore" class="form-label">Restaurar desde Backup</label>
+                                        <input type="file" class="form-control" id="archivoRestore" accept=".sql,.zip">
+                                        <button class="btn btn-warning mt-2" onclick="restaurarBackup()">
+                                            <i class="fas fa-upload"></i> Restaurar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estado del Sistema -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle"></i> Estado del Sistema</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h4 text-success">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                                <div>Base de Datos</div>
+                                <small class="text-success">Conectada</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h4 text-success">
+                                    <i class="fas fa-sync"></i>
+                                </div>
+                                <div>Sincronización</div>
+                                <small class="text-success">Activa</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h4 text-warning">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                                <div>Último Backup</div>
+                                <small class="text-warning">Hace 2 días</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <div class="h4 text-info">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <div>Última Sincronización</div>
+                                <small class="text-info">Hace 1 hora</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Backups Disponibles -->
+<div class="modal fade" id="modalBackups" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-database"></i> Backups Disponibles</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Archivo</th>
+                                <th>Fecha</th>
+                                <th>Tamaño</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaBackups">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.nav-tabs .nav-link {
+    color: #6c757d;
+}
+
+.nav-tabs .nav-link.active {
+    color: #0d6efd;
+    border-color: #0d6efd #0d6efd #fff;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.text-success { color: #198754 !important; }
+.text-warning { color: #ffc107 !important; }
+.text-info { color: #0dcaf0 !important; }
+</style>
+
+<script>
+let configuracionOriginal = {};
+
+document.addEventListener('DOMContentLoaded', function() {
+    cargarConfiguracion();
+});
+
+function cargarConfiguracion() {
+    fetch('/api/mpa/configuracion')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            configuracionOriginal = data.configuracion;
+            aplicarConfiguracion(data.configuracion);
+        } else {
+            console.error('Error al cargar configuración:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        // Cargar configuración por defecto
+        aplicarConfiguracion({});
+    });
+}
+
+function aplicarConfiguracion(config) {
+    // General
+    document.getElementById('empresaNombre').value = config.empresa_nombre || 'Synapsis Corp';
+    document.getElementById('empresaNit').value = config.empresa_nit || '900123456-7';
+    document.getElementById('empresaDireccion').value = config.empresa_direccion || 'Calle 123 #45-67';
+    document.getElementById('empresaTelefono').value = config.empresa_telefono || '+57 1 234 5678';
+    document.getElementById('empresaEmail').value = config.empresa_email || 'info@synapsis.com';
+    document.getElementById('zonaHoraria').value = config.zona_horaria || 'America/Bogota';
+    
+    // Notificaciones
+    document.getElementById('diasAvisoSOAT').value = config.dias_aviso_soat || 30;
+    document.getElementById('diasAvisoTecnomecanica').value = config.dias_aviso_tecnomecanica || 30;
+    document.getElementById('diasAvisoLicencia').value = config.dias_aviso_licencia || 60;
+    document.getElementById('notifEmail').checked = config.notif_email !== false;
+    document.getElementById('notifSMS').checked = config.notif_sms === true;
+    document.getElementById('notifWhatsApp').checked = config.notif_whatsapp === true;
+    document.getElementById('notifSistema').checked = config.notif_sistema !== false;
+    
+    // Sincronización
+    document.getElementById('sincronizacionAuto').value = config.sincronizacion_auto || 'daily';
+    document.getElementById('horaSincronizacion').value = config.hora_sincronizacion || '02:00';
+    document.getElementById('intentosMaximos').value = config.intentos_maximos || 3;
+    document.getElementById('timeoutSincronizacion').value = config.timeout_sincronizacion || 30;
+    document.getElementById('sincronizarSOAT').checked = config.sincronizar_soat !== false;
+    document.getElementById('sincronizarTecnomecanica').checked = config.sincronizar_tecnomecanica !== false;
+    document.getElementById('sincronizarLicencias').checked = config.sincronizar_licencias !== false;
+    
+    // Validaciones
+    document.getElementById('validarUnicidad').checked = config.validar_unicidad !== false;
+    document.getElementById('validarVigencia').checked = config.validar_vigencia !== false;
+    document.getElementById('validarFormato').checked = config.validar_formato !== false;
+    document.getElementById('formatoSOAT').value = config.formato_soat || '^\\d{10}$';
+    document.getElementById('formatoTecnomecanica').value = config.formato_tecnomecanica || '^\\d{8,12}$';
+    document.getElementById('formatoLicencia').value = config.formato_licencia || '^\\d{8,10}$';
+    
+    // Backup
+    document.getElementById('backupAuto').value = config.backup_auto || 'daily';
+    document.getElementById('horaBackup').value = config.hora_backup || '01:00';
+    document.getElementById('retencionBackup').value = config.retencion_backup || 30;
+    document.getElementById('rutaBackup').value = config.ruta_backup || './backups/';
+}
+
+function obtenerConfiguracionActual() {
+    return {
+        // General
+        empresa_nombre: document.getElementById('empresaNombre').value,
+        empresa_nit: document.getElementById('empresaNit').value,
+        empresa_direccion: document.getElementById('empresaDireccion').value,
+        empresa_telefono: document.getElementById('empresaTelefono').value,
+        empresa_email: document.getElementById('empresaEmail').value,
+        zona_horaria: document.getElementById('zonaHoraria').value,
+        
+        // Notificaciones
+        dias_aviso_soat: parseInt(document.getElementById('diasAvisoSOAT').value),
+        dias_aviso_tecnomecanica: parseInt(document.getElementById('diasAvisoTecnomecanica').value),
+        dias_aviso_licencia: parseInt(document.getElementById('diasAvisoLicencia').value),
+        notif_email: document.getElementById('notifEmail').checked,
+        notif_sms: document.getElementById('notifSMS').checked,
+        notif_whatsapp: document.getElementById('notifWhatsApp').checked,
+        notif_sistema: document.getElementById('notifSistema').checked,
+        
+        // Sincronización
+        sincronizacion_auto: document.getElementById('sincronizacionAuto').value,
+        hora_sincronizacion: document.getElementById('horaSincronizacion').value,
+        intentos_maximos: parseInt(document.getElementById('intentosMaximos').value),
+        timeout_sincronizacion: parseInt(document.getElementById('timeoutSincronizacion').value),
+        sincronizar_soat: document.getElementById('sincronizarSOAT').checked,
+        sincronizar_tecnomecanica: document.getElementById('sincronizarTecnomecanica').checked,
+        sincronizar_licencias: document.getElementById('sincronizarLicencias').checked,
+        
+        // Validaciones
+        validar_unicidad: document.getElementById('validarUnicidad').checked,
+        validar_vigencia: document.getElementById('validarVigencia').checked,
+        validar_formato: document.getElementById('validarFormato').checked,
+        formato_soat: document.getElementById('formatoSOAT').value,
+        formato_tecnomecanica: document.getElementById('formatoTecnomecanica').value,
+        formato_licencia: document.getElementById('formatoLicencia').value,
+        
+        // Backup
+        backup_auto: document.getElementById('backupAuto').value,
+        hora_backup: document.getElementById('horaBackup').value,
+        retencion_backup: parseInt(document.getElementById('retencionBackup').value),
+        ruta_backup: document.getElementById('rutaBackup').value
+    };
+}
+
+function guardarConfiguracion() {
+    const configuracion = obtenerConfiguracionActual();
+    
+    fetch('/api/mpa/configuracion', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(configuracion)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            configuracionOriginal = configuracion;
+            mostrarExito('Configuración guardada correctamente');
+        } else {
+            mostrarError('Error al guardar configuración: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarError('Error de conexión al guardar configuración');
+    });
+}
+
+function resetearConfiguracion() {
+    if (confirm('¿Está seguro de que desea resetear la configuración a los valores originales?')) {
+        aplicarConfiguracion(configuracionOriginal);
+        mostrarExito('Configuración reseteada');
+    }
+}
+
+function ejecutarBackupManual() {
+    if (confirm('¿Está seguro de que desea ejecutar un backup manual?')) {
+        fetch('/api/mpa/backup/manual', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarExito('Backup ejecutado correctamente: ' + data.archivo);
+            } else {
+                mostrarError('Error al ejecutar backup: ' + (data.error || 'Error desconocido'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarError('Error de conexión al ejecutar backup');
+        });
+    }
+}
+
+function mostrarBackupsDisponibles() {
+    fetch('/api/mpa/backup/listar')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const tbody = document.getElementById('tablaBackups');
+            tbody.innerHTML = '';
+            
+            data.backups.forEach(backup => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${backup.nombre}</td>
+                    <td>${backup.fecha}</td>
+                    <td>${backup.tamaño}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="descargarBackup('${backup.nombre}')">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="eliminarBackup('${backup.nombre}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+            });
+            
+            new bootstrap.Modal(document.getElementById('modalBackups')).show();
+        } else {
+            mostrarError('Error al cargar backups: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarError('Error de conexión al cargar backups');
+    });
+}
+
+function descargarBackup(nombre) {
+    window.open(`/api/mpa/backup/descargar/${nombre}`, '_blank');
+}
+
+function eliminarBackup(nombre) {
+    if (confirm(`¿Está seguro de que desea eliminar el backup "${nombre}"?`)) {
+        fetch(`/api/mpa/backup/eliminar/${nombre}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarExito('Backup eliminado correctamente');
+                mostrarBackupsDisponibles(); // Recargar lista
+            } else {
+                mostrarError('Error al eliminar backup: ' + (data.error || 'Error desconocido'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarError('Error de conexión al eliminar backup');
+        });
+    }
+}
+
+function restaurarBackup() {
+    const archivo = document.getElementById('archivoRestore').files[0];
+    if (!archivo) {
+        mostrarError('Por favor selecciona un archivo de backup');
+        return;
+    }
+    
+    if (confirm('¿Está seguro de que desea restaurar desde este backup? Esta acción sobrescribirá los datos actuales.')) {
+        const formData = new FormData();
+        formData.append('archivo', archivo);
+        
+        fetch('/api/mpa/backup/restaurar', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarExito('Backup restaurado correctamente');
+                document.getElementById('archivoRestore').value = '';
+            } else {
+                mostrarError('Error al restaurar backup: ' + (data.error || 'Error desconocido'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarError('Error de conexión al restaurar backup');
+        });
+    }
+}
+
+function mostrarError(mensaje) {
+    alert('Error: ' + mensaje);
+}
+
+function mostrarExito(mensaje) {
+    alert('Éxito: ' + mensaje);
+}
+</script>
+{% endblock %}

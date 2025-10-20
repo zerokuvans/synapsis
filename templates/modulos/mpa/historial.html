@@ -1,0 +1,911 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #6f42c1 0%, #5a2d91 100%) !important;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">
+                            <i class="fas fa-history me-2"></i>Historial Consolidado de Documentos Vehiculares
+                        </h3>
+                        <div>
+                            <button class="btn btn-light btn-sm me-2" onclick="exportarHistorial()">
+                                <i class="fas fa-download me-1"></i>Exportar
+                            </button>
+                            <button class="btn btn-outline-light btn-sm" onclick="actualizarHistorial()">
+                                <i class="fas fa-sync me-1"></i>Actualizar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filtros -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card bg-light">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-filter me-2"></i>Filtros de Búsqueda
+                                        <button class="btn btn-sm btn-outline-secondary float-end" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosCollapse">
+                                            <i class="fas fa-chevron-down"></i>
+                                        </button>
+                                    </h5>
+                                </div>
+                                <div class="collapse show" id="filtrosCollapse">
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-3">
+                                                <label for="filtroPlaca" class="form-label">Placa del Vehículo</label>
+                                                <input type="text" class="form-control" id="filtroPlaca" placeholder="Ej: ABC123">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="filtroTipoDocumento" class="form-label">Tipo de Documento</label>
+                                                <select class="form-select" id="filtroTipoDocumento">
+                                                    <option value="">Todos los tipos</option>
+                                                    <option value="soat">SOAT</option>
+                                                    <option value="tecnomecanica">Tecnomecánica</option>
+                                                    <option value="licencia">Licencia de Conducir</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label for="filtroFechaInicio" class="form-label">Fecha Inicio</label>
+                                                <input type="date" class="form-control" id="filtroFechaInicio">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label for="filtroFechaFin" class="form-label">Fecha Fin</label>
+                                                <input type="date" class="form-control" id="filtroFechaFin">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label for="filtroUsuario" class="form-label">Usuario</label>
+                                                <input type="text" class="form-control" id="filtroUsuario" placeholder="Usuario">
+                                            </div>
+                                        </div>
+                                        <div class="row mt-3">
+                                            <div class="col-md-3">
+                                                <label for="filtroTipoCambio" class="form-label">Tipo de Cambio</label>
+                                                <select class="form-select" id="filtroTipoCambio">
+                                                    <option value="">Todos los cambios</option>
+                                                    <option value="INSERT">Creación</option>
+                                                    <option value="UPDATE">Actualización</option>
+                                                    <option value="DELETE">Eliminación</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="filtroEstado" class="form-label">Estado</label>
+                                                <select class="form-select" id="filtroEstado">
+                                                    <option value="">Todos los estados</option>
+                                                    <option value="activo">Activo</option>
+                                                    <option value="vencido">Vencido</option>
+                                                    <option value="por_vencer">Por Vencer</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">&nbsp;</label>
+                                                <div class="d-flex gap-2">
+                                                    <button class="btn btn-primary" onclick="aplicarFiltros()">
+                                                        <i class="fas fa-search me-1"></i>Buscar
+                                                    </button>
+                                                    <button class="btn btn-secondary" onclick="limpiarFiltros()">
+                                                        <i class="fas fa-eraser me-1"></i>Limpiar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Estadísticas rápidas -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="totalRegistros">0</h4>
+                                            <p class="mb-0">Total Registros</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-list fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="totalCreaciones">0</h4>
+                                            <p class="mb-0">Creaciones</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-plus fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="totalActualizaciones">0</h4>
+                                            <p class="mb-0">Actualizaciones</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-edit fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="totalEliminaciones">0</h4>
+                                            <p class="mb-0">Eliminaciones</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-trash fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Selector de vista -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="btn-group" role="group">
+                                <input type="radio" class="btn-check" name="vistaOptions" id="vistaTimeline" checked>
+                                <label class="btn btn-outline-primary" for="vistaTimeline">
+                                    <i class="fas fa-timeline me-1"></i>Vista Timeline
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="vistaOptions" id="vistaTabla">
+                                <label class="btn btn-outline-primary" for="vistaTabla">
+                                    <i class="fas fa-table me-1"></i>Vista Tabla
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="vistaOptions" id="vistaGrafico">
+                                <label class="btn btn-outline-primary" for="vistaGrafico">
+                                    <i class="fas fa-chart-line me-1"></i>Vista Gráfico
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loading indicator -->
+                    <div id="loadingIndicator" class="text-center py-4" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Cargando historial...</p>
+                    </div>
+
+                    <!-- Vista Timeline -->
+                    <div id="vistaTimelineContent" class="vista-content">
+                        <div class="timeline-container">
+                            <div id="timelineContent">
+                                <!-- El contenido del timeline se cargará aquí dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vista Tabla -->
+                    <div id="vistaTablaContent" class="vista-content" style="display: none;">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover" id="tablaHistorial">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Fecha/Hora</th>
+                                        <th>Tipo</th>
+                                        <th>Placa</th>
+                                        <th>Documento</th>
+                                        <th>Cambio</th>
+                                        <th>Usuario</th>
+                                        <th>Detalles</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tablaHistorialBody">
+                                    <!-- Los datos se cargarán aquí dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Paginación -->
+                        <nav aria-label="Paginación del historial">
+                            <ul class="pagination justify-content-center" id="paginacion">
+                                <!-- La paginación se generará dinámicamente -->
+                            </ul>
+                        </nav>
+                    </div>
+
+                    <!-- Vista Gráfico -->
+                    <div id="vistaGraficoContent" class="vista-content" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5>Cambios por Tipo de Documento</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="graficoTipoDocumento"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5>Actividad por Fecha</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="graficoActividad"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-4">
+                            <div class="col-md-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5>Usuarios más Activos</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="graficoUsuarios"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para detalles del registro -->
+<div class="modal fade" id="modalDetalles" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-info-circle me-2"></i>Detalles del Cambio
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalDetallesBody">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estilos CSS personalizados -->
+<style>
+.timeline-container {
+    position: relative;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 30px;
+    padding-left: 60px;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: -30px;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.timeline-item:last-child::before {
+    bottom: 0;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: 10px;
+    top: 5px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 3px #dee2e6;
+}
+
+.timeline-marker.soat {
+    background-color: #28a745;
+}
+
+.timeline-marker.tecnomecanica {
+    background-color: #17a2b8;
+}
+
+.timeline-marker.licencia {
+    background-color: #6c757d;
+}
+
+.timeline-marker.insert {
+    background-color: #28a745;
+}
+
+.timeline-marker.update {
+    background-color: #ffc107;
+}
+
+.timeline-marker.delete {
+    background-color: #dc3545;
+}
+
+.timeline-content {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.timeline-content:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.timeline-title {
+    font-weight: bold;
+    color: #495057;
+    margin: 0;
+}
+
+.timeline-date {
+    font-size: 0.9em;
+    color: #6c757d;
+}
+
+.timeline-badge {
+    font-size: 0.8em;
+    padding: 4px 8px;
+    border-radius: 12px;
+}
+
+.vista-content {
+    min-height: 400px;
+}
+
+.btn-outline-purple {
+    color: #6f42c1;
+    border-color: #6f42c1;
+}
+
+.btn-outline-purple:hover {
+    background-color: #6f42c1;
+    border-color: #6f42c1;
+    color: white;
+}
+
+.card-hover {
+    transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+</style>
+
+<!-- JavaScript para funcionalidad -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Variables globales
+let historialData = [];
+let currentPage = 1;
+let itemsPerPage = 20;
+let filtrosActivos = {};
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar eventos de vista
+    document.querySelectorAll('input[name="vistaOptions"]').forEach(radio => {
+        radio.addEventListener('change', cambiarVista);
+    });
+    
+    // Configurar fechas por defecto (último mes)
+    const hoy = new Date();
+    const unMesAtras = new Date(hoy.getFullYear(), hoy.getMonth() - 1, hoy.getDate());
+    
+    document.getElementById('filtroFechaInicio').value = unMesAtras.toISOString().split('T')[0];
+    document.getElementById('filtroFechaFin').value = hoy.toISOString().split('T')[0];
+    
+    // Cargar datos iniciales
+    cargarHistorial();
+});
+
+function cambiarVista() {
+    const vistaSeleccionada = document.querySelector('input[name="vistaOptions"]:checked').id;
+    
+    // Ocultar todas las vistas
+    document.querySelectorAll('.vista-content').forEach(vista => {
+        vista.style.display = 'none';
+    });
+    
+    // Mostrar vista seleccionada
+    switch(vistaSeleccionada) {
+        case 'vistaTimeline':
+            document.getElementById('vistaTimelineContent').style.display = 'block';
+            renderizarTimeline();
+            break;
+        case 'vistaTabla':
+            document.getElementById('vistaTablaContent').style.display = 'block';
+            renderizarTabla();
+            break;
+        case 'vistaGrafico':
+            document.getElementById('vistaGraficoContent').style.display = 'block';
+            renderizarGraficos();
+            break;
+    }
+}
+
+function aplicarFiltros() {
+    // Recopilar filtros
+    filtrosActivos = {
+        placa: document.getElementById('filtroPlaca').value,
+        tipo_documento: document.getElementById('filtroTipoDocumento').value,
+        fecha_inicio: document.getElementById('filtroFechaInicio').value,
+        fecha_fin: document.getElementById('filtroFechaFin').value,
+        usuario: document.getElementById('filtroUsuario').value,
+        tipo_cambio: document.getElementById('filtroTipoCambio').value,
+        estado: document.getElementById('filtroEstado').value
+    };
+    
+    // Resetear página
+    currentPage = 1;
+    
+    // Cargar datos con filtros
+    cargarHistorial();
+}
+
+function limpiarFiltros() {
+    document.getElementById('filtroPlaca').value = '';
+    document.getElementById('filtroTipoDocumento').value = '';
+    document.getElementById('filtroFechaInicio').value = '';
+    document.getElementById('filtroFechaFin').value = '';
+    document.getElementById('filtroUsuario').value = '';
+    document.getElementById('filtroTipoCambio').value = '';
+    document.getElementById('filtroEstado').value = '';
+    
+    filtrosActivos = {};
+    currentPage = 1;
+    cargarHistorial();
+}
+
+function cargarHistorial() {
+    mostrarLoading(true);
+    
+    // Construir parámetros de consulta
+    const params = new URLSearchParams();
+    
+    Object.keys(filtrosActivos).forEach(key => {
+        if (filtrosActivos[key]) {
+            params.append(key, filtrosActivos[key]);
+        }
+    });
+    
+    params.append('page', currentPage);
+    params.append('per_page', itemsPerPage);
+    
+    fetch(`/api/mpa/historial/consolidado?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                historialData = data.data || [];
+                actualizarEstadisticas(data.estadisticas || {});
+                
+                // Renderizar vista actual
+                const vistaActual = document.querySelector('input[name="vistaOptions"]:checked').id;
+                cambiarVista();
+            } else {
+                mostrarError('Error al cargar el historial: ' + (data.error || 'Error desconocido'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarError('Error de conexión al cargar el historial');
+        })
+        .finally(() => {
+            mostrarLoading(false);
+        });
+}
+
+function actualizarEstadisticas(stats) {
+    document.getElementById('totalRegistros').textContent = stats.total || 0;
+    document.getElementById('totalCreaciones').textContent = stats.creaciones || 0;
+    document.getElementById('totalActualizaciones').textContent = stats.actualizaciones || 0;
+    document.getElementById('totalEliminaciones').textContent = stats.eliminaciones || 0;
+}
+
+function renderizarTimeline() {
+    const container = document.getElementById('timelineContent');
+    
+    if (!historialData || historialData.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No hay registros de historial</h5>
+                <p class="text-muted">Ajusta los filtros para ver más resultados</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    historialData.forEach((item, index) => {
+        const fecha = new Date(item.fecha_cambio);
+        const tipoClase = item.tipo_documento || 'default';
+        const cambioClase = (item.tipo_cambio || 'update').toLowerCase();
+        
+        html += `
+            <div class="timeline-item fade-in" style="animation-delay: ${index * 0.1}s">
+                <div class="timeline-marker ${tipoClase} ${cambioClase}"></div>
+                <div class="timeline-content card-hover">
+                    <div class="timeline-header">
+                        <h6 class="timeline-title">
+                            <i class="fas fa-${getIconoTipoDocumento(item.tipo_documento)} me-2"></i>
+                            ${item.tipo_documento?.toUpperCase() || 'DOCUMENTO'} - ${item.placa || 'N/A'}
+                        </h6>
+                        <span class="timeline-date">
+                            <i class="fas fa-clock me-1"></i>
+                            ${fecha.toLocaleDateString()} ${fecha.toLocaleTimeString()}
+                        </span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="timeline-badge badge bg-${getBadgeColor(item.tipo_cambio)}">
+                            ${getTipoCambioTexto(item.tipo_cambio)}
+                        </span>
+                        <small class="text-muted">
+                            <i class="fas fa-user me-1"></i>
+                            ${item.usuario || 'Sistema'}
+                        </small>
+                    </div>
+                    <p class="mb-2">${item.descripcion || 'Cambio en documento vehicular'}</p>
+                    ${item.observaciones ? `<p class="text-muted small mb-2"><strong>Observaciones:</strong> ${item.observaciones}</p>` : ''}
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-muted small">
+                            ${item.valores_anteriores ? `<i class="fas fa-arrow-right me-1"></i>Cambios registrados` : ''}
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="verDetalles(${index})">
+                            <i class="fas fa-eye me-1"></i>Ver Detalles
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function renderizarTabla() {
+    const tbody = document.getElementById('tablaHistorialBody');
+    
+    if (!historialData || historialData.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-4">
+                    <i class="fas fa-table fa-2x text-muted mb-2"></i>
+                    <br>No hay registros para mostrar
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    historialData.forEach((item, index) => {
+        const fecha = new Date(item.fecha_cambio);
+        
+        html += `
+            <tr class="fade-in" style="animation-delay: ${index * 0.05}s">
+                <td>
+                    <small>
+                        ${fecha.toLocaleDateString()}<br>
+                        ${fecha.toLocaleTimeString()}
+                    </small>
+                </td>
+                <td>
+                    <span class="badge bg-${getBadgeColorTipo(item.tipo_documento)}">
+                        <i class="fas fa-${getIconoTipoDocumento(item.tipo_documento)} me-1"></i>
+                        ${item.tipo_documento?.toUpperCase() || 'N/A'}
+                    </span>
+                </td>
+                <td><strong>${item.placa || 'N/A'}</strong></td>
+                <td>${item.numero_documento || 'N/A'}</td>
+                <td>
+                    <span class="badge bg-${getBadgeColor(item.tipo_cambio)}">
+                        ${getTipoCambioTexto(item.tipo_cambio)}
+                    </span>
+                </td>
+                <td>
+                    <small>
+                        <i class="fas fa-user me-1"></i>
+                        ${item.usuario || 'Sistema'}
+                    </small>
+                </td>
+                <td>
+                    <small>${item.descripcion || 'Sin descripción'}</small>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary" onclick="verDetalles(${index})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+}
+
+function renderizarGraficos() {
+    // Implementar gráficos con Chart.js
+    setTimeout(() => {
+        crearGraficoTipoDocumento();
+        crearGraficoActividad();
+        crearGraficoUsuarios();
+    }, 100);
+}
+
+function crearGraficoTipoDocumento() {
+    const ctx = document.getElementById('graficoTipoDocumento').getContext('2d');
+    
+    // Procesar datos
+    const tipos = {};
+    historialData.forEach(item => {
+        const tipo = item.tipo_documento || 'Otros';
+        tipos[tipo] = (tipos[tipo] || 0) + 1;
+    });
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(tipos),
+            datasets: [{
+                data: Object.values(tipos),
+                backgroundColor: [
+                    '#28a745',
+                    '#17a2b8',
+                    '#6c757d',
+                    '#ffc107',
+                    '#dc3545'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function crearGraficoActividad() {
+    const ctx = document.getElementById('graficoActividad').getContext('2d');
+    
+    // Procesar datos por fecha
+    const actividad = {};
+    historialData.forEach(item => {
+        const fecha = new Date(item.fecha_cambio).toLocaleDateString();
+        actividad[fecha] = (actividad[fecha] || 0) + 1;
+    });
+    
+    const fechas = Object.keys(actividad).sort();
+    const valores = fechas.map(fecha => actividad[fecha]);
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: fechas,
+            datasets: [{
+                label: 'Cambios por día',
+                data: valores,
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function crearGraficoUsuarios() {
+    const ctx = document.getElementById('graficoUsuarios').getContext('2d');
+    
+    // Procesar datos por usuario
+    const usuarios = {};
+    historialData.forEach(item => {
+        const usuario = item.usuario || 'Sistema';
+        usuarios[usuario] = (usuarios[usuario] || 0) + 1;
+    });
+    
+    // Tomar los 10 usuarios más activos
+    const usuariosOrdenados = Object.entries(usuarios)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10);
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: usuariosOrdenados.map(([usuario]) => usuario),
+            datasets: [{
+                label: 'Número de cambios',
+                data: usuariosOrdenados.map(([,cambios]) => cambios),
+                backgroundColor: '#6f42c1'
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function verDetalles(index) {
+    const item = historialData[index];
+    if (!item) return;
+    
+    let html = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="fas fa-info-circle me-2"></i>Información General</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Tipo de Documento:</strong></td><td>${item.tipo_documento || 'N/A'}</td></tr>
+                    <tr><td><strong>Placa:</strong></td><td>${item.placa || 'N/A'}</td></tr>
+                    <tr><td><strong>Número de Documento:</strong></td><td>${item.numero_documento || 'N/A'}</td></tr>
+                    <tr><td><strong>Tipo de Cambio:</strong></td><td><span class="badge bg-${getBadgeColor(item.tipo_cambio)}">${getTipoCambioTexto(item.tipo_cambio)}</span></td></tr>
+                    <tr><td><strong>Usuario:</strong></td><td>${item.usuario || 'Sistema'}</td></tr>
+                    <tr><td><strong>Fecha:</strong></td><td>${new Date(item.fecha_cambio).toLocaleString()}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h6><i class="fas fa-edit me-2"></i>Detalles del Cambio</h6>
+                <p><strong>Descripción:</strong><br>${item.descripcion || 'Sin descripción'}</p>
+                ${item.observaciones ? `<p><strong>Observaciones:</strong><br>${item.observaciones}</p>` : ''}
+            </div>
+        </div>
+    `;
+    
+    if (item.valores_anteriores || item.valores_nuevos) {
+        html += `
+            <hr>
+            <div class="row">
+                <div class="col-md-6">
+                    <h6><i class="fas fa-history me-2"></i>Valores Anteriores</h6>
+                    <pre class="bg-light p-2 rounded">${JSON.stringify(item.valores_anteriores || {}, null, 2)}</pre>
+                </div>
+                <div class="col-md-6">
+                    <h6><i class="fas fa-arrow-right me-2"></i>Valores Nuevos</h6>
+                    <pre class="bg-light p-2 rounded">${JSON.stringify(item.valores_nuevos || {}, null, 2)}</pre>
+                </div>
+            </div>
+        `;
+    }
+    
+    document.getElementById('modalDetallesBody').innerHTML = html;
+    new bootstrap.Modal(document.getElementById('modalDetalles')).show();
+}
+
+// Funciones auxiliares
+function getIconoTipoDocumento(tipo) {
+    switch(tipo?.toLowerCase()) {
+        case 'soat': return 'shield-alt';
+        case 'tecnomecanica': return 'cogs';
+        case 'licencia': return 'id-card';
+        default: return 'file';
+    }
+}
+
+function getBadgeColor(tipoCambio) {
+    switch(tipoCambio?.toLowerCase()) {
+        case 'insert': return 'success';
+        case 'update': return 'warning';
+        case 'delete': return 'danger';
+        default: return 'secondary';
+    }
+}
+
+function getBadgeColorTipo(tipoDocumento) {
+    switch(tipoDocumento?.toLowerCase()) {
+        case 'soat': return 'success';
+        case 'tecnomecanica': return 'info';
+        case 'licencia': return 'secondary';
+        default: return 'dark';
+    }
+}
+
+function getTipoCambioTexto(tipoCambio) {
+    switch(tipoCambio?.toLowerCase()) {
+        case 'insert': return 'Creación';
+        case 'update': return 'Actualización';
+        case 'delete': return 'Eliminación';
+        default: return 'Cambio';
+    }
+}
+
+function mostrarLoading(mostrar) {
+    document.getElementById('loadingIndicator').style.display = mostrar ? 'block' : 'none';
+}
+
+function mostrarError(mensaje) {
+    // Implementar notificación de error
+    alert(mensaje); // Temporal, se puede mejorar con toast notifications
+}
+
+function actualizarHistorial() {
+    cargarHistorial();
+}
+
+function exportarHistorial() {
+    // Implementar exportación
+    const params = new URLSearchParams();
+    Object.keys(filtrosActivos).forEach(key => {
+        if (filtrosActivos[key]) {
+            params.append(key, filtrosActivos[key]);
+        }
+    });
+    params.append('export', 'true');
+    
+    window.open(`/api/mpa/historial/consolidado?${params.toString()}`, '_blank');
+}
+</script>
+{% endblock %}

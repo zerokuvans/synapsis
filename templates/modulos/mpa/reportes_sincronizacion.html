@@ -1,0 +1,833 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #17a2b8 0%, #138496 100%) !important;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">
+                            <i class="fas fa-sync-alt me-2"></i>Reportes de Sincronización
+                        </h3>
+                        <div>
+                            <button class="btn btn-light btn-sm me-2" onclick="exportarReporte()">
+                                <i class="fas fa-download me-1"></i>Exportar
+                            </button>
+                            <button class="btn btn-outline-light btn-sm" onclick="actualizarReportes()">
+                                <i class="fas fa-sync me-1"></i>Actualizar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Resumen de sincronización -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="sincronizacionesExitosas">0</h4>
+                                            <p class="mb-0">Exitosas</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-check-circle fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="sincronizacionesFallidas">0</h4>
+                                            <p class="mb-0">Fallidas</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-times-circle fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="sincronizacionesPendientes">0</h4>
+                                            <p class="mb-0">Pendientes</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-clock fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h4 id="ultimaSincronizacion">--</h4>
+                                            <p class="mb-0">Última Sync</p>
+                                        </div>
+                                        <div class="align-self-center">
+                                            <i class="fas fa-history fa-2x"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card bg-light">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-filter me-2"></i>Filtros de Búsqueda
+                                        <button class="btn btn-sm btn-outline-secondary float-end" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosCollapse">
+                                            <i class="fas fa-chevron-down"></i>
+                                        </button>
+                                    </h5>
+                                </div>
+                                <div class="collapse show" id="filtrosCollapse">
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-3">
+                                                <label for="filtroVehiculo" class="form-label">Vehículo (Placa)</label>
+                                                <input type="text" class="form-control" id="filtroVehiculo" placeholder="Ej: ABC123">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label for="filtroEstado" class="form-label">Estado</label>
+                                                <select class="form-select" id="filtroEstado">
+                                                    <option value="">Todos los estados</option>
+                                                    <option value="exitoso">Exitoso</option>
+                                                    <option value="fallido">Fallido</option>
+                                                    <option value="pendiente">Pendiente</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label for="filtroFechaInicio" class="form-label">Fecha Inicio</label>
+                                                <input type="date" class="form-control" id="filtroFechaInicio">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label for="filtroFechaFin" class="form-label">Fecha Fin</label>
+                                                <input type="date" class="form-control" id="filtroFechaFin">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label for="filtroTipoSync" class="form-label">Tipo</label>
+                                                <select class="form-select" id="filtroTipoSync">
+                                                    <option value="">Todos</option>
+                                                    <option value="automatica">Automática</option>
+                                                    <option value="manual">Manual</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-3">
+                                            <div class="col-md-12">
+                                                <div class="d-flex gap-2">
+                                                    <button class="btn btn-primary" onclick="aplicarFiltros()">
+                                                        <i class="fas fa-search me-1"></i>Buscar
+                                                    </button>
+                                                    <button class="btn btn-secondary" onclick="limpiarFiltros()">
+                                                        <i class="fas fa-eraser me-1"></i>Limpiar
+                                                    </button>
+                                                    <button class="btn btn-success" onclick="sincronizarTodos()">
+                                                        <i class="fas fa-sync-alt me-1"></i>Sincronizar Todos
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico de tendencias -->
+                    <div class="row mb-4">
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-chart-line me-2"></i>Tendencia de Sincronizaciones</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="graficoTendencias"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-chart-pie me-2"></i>Estados de Sincronización</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="graficoEstados"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loading indicator -->
+                    <div id="loadingIndicator" class="text-center py-4" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Cargando reportes...</p>
+                    </div>
+
+                    <!-- Tabla de reportes -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list me-2"></i>Detalle de Sincronizaciones
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover" id="tablaSincronizaciones">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Fecha/Hora</th>
+                                            <th>Vehículo</th>
+                                            <th>Tipo</th>
+                                            <th>Estado</th>
+                                            <th>Documentos</th>
+                                            <th>Duración</th>
+                                            <th>Detalles</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tablaSincronizacionesBody">
+                                        <!-- Los datos se cargarán aquí dinámicamente -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- Paginación -->
+                            <nav aria-label="Paginación de reportes">
+                                <ul class="pagination justify-content-center" id="paginacion">
+                                    <!-- La paginación se generará dinámicamente -->
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para detalles de sincronización -->
+<div class="modal fade" id="modalDetallesSincronizacion" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-info-circle me-2"></i>Detalles de Sincronización
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalDetallesSincronizacionBody">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="btnReintentarSync" onclick="reintentarSincronizacion()">
+                    <i class="fas fa-redo me-1"></i>Reintentar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para sincronización masiva -->
+<div class="modal fade" id="modalSincronizacionMasiva" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-sync-alt me-2"></i>Sincronización Masiva
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Esta acción sincronizará todos los vehículos que tengan documentos pendientes de actualización.
+                </div>
+                <div id="progresoSincronizacion" style="display: none;">
+                    <div class="progress mb-3">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%" id="barraProgreso"></div>
+                    </div>
+                    <div id="estadoSincronizacion" class="text-center">
+                        Iniciando sincronización...
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btnConfirmarSincronizacion" onclick="confirmarSincronizacionMasiva()">
+                    <i class="fas fa-play me-1"></i>Iniciar Sincronización
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estilos CSS personalizados -->
+<style>
+.card-hover {
+    transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.status-badge {
+    font-size: 0.8em;
+    padding: 4px 8px;
+    border-radius: 12px;
+}
+
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.progress-bar-animated {
+    animation: progress-bar-stripes 1s linear infinite;
+}
+
+@keyframes progress-bar-stripes {
+    0% { background-position: 1rem 0; }
+    100% { background-position: 0 0; }
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0,123,255,.075);
+}
+
+.btn-group-sm > .btn, .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    border-radius: 0.2rem;
+}
+</style>
+
+<!-- JavaScript para funcionalidad -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Variables globales
+let reportesData = [];
+let currentPage = 1;
+let itemsPerPage = 20;
+let filtrosActivos = {};
+let sincronizacionEnProgreso = false;
+let currentSyncId = null;
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar fechas por defecto (última semana)
+    const hoy = new Date();
+    const unaSemanaAtras = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 7);
+    
+    document.getElementById('filtroFechaInicio').value = unaSemanaAtras.toISOString().split('T')[0];
+    document.getElementById('filtroFechaFin').value = hoy.toISOString().split('T')[0];
+    
+    // Cargar datos iniciales
+    cargarReportes();
+    
+    // Actualizar cada 30 segundos
+    setInterval(cargarReportes, 30000);
+});
+
+function aplicarFiltros() {
+    // Recopilar filtros
+    filtrosActivos = {
+        vehiculo: document.getElementById('filtroVehiculo').value,
+        estado: document.getElementById('filtroEstado').value,
+        fecha_inicio: document.getElementById('filtroFechaInicio').value,
+        fecha_fin: document.getElementById('filtroFechaFin').value,
+        tipo_sincronizacion: document.getElementById('filtroTipoSync').value
+    };
+    
+    // Resetear página
+    currentPage = 1;
+    
+    // Cargar datos con filtros
+    cargarReportes();
+}
+
+function limpiarFiltros() {
+    document.getElementById('filtroVehiculo').value = '';
+    document.getElementById('filtroEstado').value = '';
+    document.getElementById('filtroFechaInicio').value = '';
+    document.getElementById('filtroFechaFin').value = '';
+    document.getElementById('filtroTipoSync').value = '';
+    
+    filtrosActivos = {};
+    currentPage = 1;
+    cargarReportes();
+}
+
+function cargarReportes() {
+    if (sincronizacionEnProgreso) return;
+    
+    mostrarLoading(true);
+    
+    // Construir parámetros de consulta
+    const params = new URLSearchParams();
+    
+    Object.keys(filtrosActivos).forEach(key => {
+        if (filtrosActivos[key]) {
+            params.append(key, filtrosActivos[key]);
+        }
+    });
+    
+    params.append('page', currentPage);
+    params.append('per_page', itemsPerPage);
+    
+    fetch(`/api/mpa/reportes/sincronizacion?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                reportesData = data.data || [];
+                actualizarEstadisticas(data.estadisticas || {});
+                renderizarTabla();
+                actualizarGraficos();
+            } else {
+                mostrarError('Error al cargar los reportes: ' + (data.error || 'Error desconocido'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarError('Error de conexión al cargar los reportes');
+        })
+        .finally(() => {
+            mostrarLoading(false);
+        });
+}
+
+function actualizarEstadisticas(stats) {
+    document.getElementById('sincronizacionesExitosas').textContent = stats.exitosas || 0;
+    document.getElementById('sincronizacionesFallidas').textContent = stats.fallidas || 0;
+    document.getElementById('sincronizacionesPendientes').textContent = stats.pendientes || 0;
+    
+    if (stats.ultima_sincronizacion) {
+        const fecha = new Date(stats.ultima_sincronizacion);
+        document.getElementById('ultimaSincronizacion').textContent = fecha.toLocaleDateString();
+    } else {
+        document.getElementById('ultimaSincronizacion').textContent = '--';
+    }
+}
+
+function renderizarTabla() {
+    const tbody = document.getElementById('tablaSincronizacionesBody');
+    
+    if (!reportesData || reportesData.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-4">
+                    <i class="fas fa-sync-alt fa-2x text-muted mb-2"></i>
+                    <br>No hay reportes de sincronización
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    let html = '';
+    
+    reportesData.forEach((item, index) => {
+        const fecha = new Date(item.fecha_sincronizacion);
+        const duracion = item.duracion_segundos ? `${item.duracion_segundos}s` : 'N/A';
+        
+        html += `
+            <tr class="fade-in" style="animation-delay: ${index * 0.05}s">
+                <td>
+                    <small>
+                        ${fecha.toLocaleDateString()}<br>
+                        ${fecha.toLocaleTimeString()}
+                    </small>
+                </td>
+                <td>
+                    <strong>${item.placa || 'N/A'}</strong>
+                    ${item.marca ? `<br><small class="text-muted">${item.marca} ${item.modelo || ''}</small>` : ''}
+                </td>
+                <td>
+                    <span class="badge bg-${item.tipo_sincronizacion === 'automatica' ? 'info' : 'secondary'}">
+                        ${item.tipo_sincronizacion === 'automatica' ? 'Automática' : 'Manual'}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge bg-${getEstadoBadgeColor(item.estado)} status-badge">
+                        <i class="fas fa-${getEstadoIcon(item.estado)} me-1"></i>
+                        ${getEstadoTexto(item.estado)}
+                    </span>
+                </td>
+                <td>
+                    <small>
+                        ${item.documentos_sincronizados || 0} sincronizados<br>
+                        ${item.documentos_fallidos || 0} fallidos
+                    </small>
+                </td>
+                <td>${duracion}</td>
+                <td>
+                    <small>${item.mensaje || 'Sin detalles'}</small>
+                </td>
+                <td>
+                    <div class="btn-group-sm">
+                        <button class="btn btn-sm btn-outline-primary" onclick="verDetallesSincronizacion(${index})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        ${item.estado === 'fallido' ? `
+                            <button class="btn btn-sm btn-outline-warning" onclick="reintentarSincronizacionDirecta('${item.vehiculo_id}')">
+                                <i class="fas fa-redo"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tbody.innerHTML = html;
+}
+
+function actualizarGraficos() {
+    setTimeout(() => {
+        crearGraficoTendencias();
+        crearGraficoEstados();
+    }, 100);
+}
+
+function crearGraficoTendencias() {
+    const ctx = document.getElementById('graficoTendencias').getContext('2d');
+    
+    // Procesar datos por fecha
+    const tendencias = {};
+    reportesData.forEach(item => {
+        const fecha = new Date(item.fecha_sincronizacion).toLocaleDateString();
+        if (!tendencias[fecha]) {
+            tendencias[fecha] = { exitosas: 0, fallidas: 0 };
+        }
+        if (item.estado === 'exitoso') {
+            tendencias[fecha].exitosas++;
+        } else if (item.estado === 'fallido') {
+            tendencias[fecha].fallidas++;
+        }
+    });
+    
+    const fechas = Object.keys(tendencias).sort();
+    const exitosas = fechas.map(fecha => tendencias[fecha].exitosas);
+    const fallidas = fechas.map(fecha => tendencias[fecha].fallidas);
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: fechas,
+            datasets: [
+                {
+                    label: 'Exitosas',
+                    data: exitosas,
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    tension: 0.4
+                },
+                {
+                    label: 'Fallidas',
+                    data: fallidas,
+                    borderColor: '#dc3545',
+                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function crearGraficoEstados() {
+    const ctx = document.getElementById('graficoEstados').getContext('2d');
+    
+    // Contar estados
+    const estados = {};
+    reportesData.forEach(item => {
+        const estado = item.estado || 'desconocido';
+        estados[estado] = (estados[estado] || 0) + 1;
+    });
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(estados).map(estado => getEstadoTexto(estado)),
+            datasets: [{
+                data: Object.values(estados),
+                backgroundColor: [
+                    '#28a745', // exitoso
+                    '#dc3545', // fallido
+                    '#ffc107', // pendiente
+                    '#6c757d'  // otros
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function verDetallesSincronizacion(index) {
+    const item = reportesData[index];
+    if (!item) return;
+    
+    currentSyncId = item.id;
+    
+    let html = `
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="fas fa-car me-2"></i>Información del Vehículo</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Placa:</strong></td><td>${item.placa || 'N/A'}</td></tr>
+                    <tr><td><strong>Marca:</strong></td><td>${item.marca || 'N/A'}</td></tr>
+                    <tr><td><strong>Modelo:</strong></td><td>${item.modelo || 'N/A'}</td></tr>
+                    <tr><td><strong>Año:</strong></td><td>${item.anio || 'N/A'}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h6><i class="fas fa-sync-alt me-2"></i>Detalles de Sincronización</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Estado:</strong></td><td><span class="badge bg-${getEstadoBadgeColor(item.estado)}">${getEstadoTexto(item.estado)}</span></td></tr>
+                    <tr><td><strong>Tipo:</strong></td><td>${item.tipo_sincronizacion === 'automatica' ? 'Automática' : 'Manual'}</td></tr>
+                    <tr><td><strong>Fecha:</strong></td><td>${new Date(item.fecha_sincronizacion).toLocaleString()}</td></tr>
+                    <tr><td><strong>Duración:</strong></td><td>${item.duracion_segundos ? `${item.duracion_segundos} segundos` : 'N/A'}</td></tr>
+                </table>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="fas fa-file-alt me-2"></i>Documentos Sincronizados</h6>
+                <p><strong>Exitosos:</strong> ${item.documentos_sincronizados || 0}</p>
+                <p><strong>Fallidos:</strong> ${item.documentos_fallidos || 0}</p>
+            </div>
+            <div class="col-md-6">
+                <h6><i class="fas fa-comment me-2"></i>Mensaje</h6>
+                <p>${item.mensaje || 'Sin mensaje adicional'}</p>
+            </div>
+        </div>
+    `;
+    
+    if (item.detalles_error) {
+        html += `
+            <hr>
+            <div class="row">
+                <div class="col-12">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Detalles del Error</h6>
+                    <pre class="bg-light p-2 rounded">${item.detalles_error}</pre>
+                </div>
+            </div>
+        `;
+    }
+    
+    document.getElementById('modalDetallesSincronizacionBody').innerHTML = html;
+    
+    // Mostrar/ocultar botón de reintentar
+    const btnReintentar = document.getElementById('btnReintentarSync');
+    if (item.estado === 'fallido') {
+        btnReintentar.style.display = 'inline-block';
+    } else {
+        btnReintentar.style.display = 'none';
+    }
+    
+    new bootstrap.Modal(document.getElementById('modalDetallesSincronizacion')).show();
+}
+
+function reintentarSincronizacion() {
+    if (!currentSyncId) return;
+    
+    const item = reportesData.find(r => r.id === currentSyncId);
+    if (!item) return;
+    
+    reintentarSincronizacionDirecta(item.vehiculo_id);
+}
+
+function reintentarSincronizacionDirecta(vehiculoId) {
+    if (sincronizacionEnProgreso) {
+        mostrarError('Ya hay una sincronización en progreso');
+        return;
+    }
+    
+    sincronizacionEnProgreso = true;
+    
+    fetch(`/api/mpa/vehiculos/${vehiculoId}/sync-auto`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarExito('Sincronización iniciada correctamente');
+            // Cerrar modal si está abierto
+            const modal = bootstrap.Modal.getInstance(document.getElementById('modalDetallesSincronizacion'));
+            if (modal) modal.hide();
+            
+            // Recargar datos después de un momento
+            setTimeout(cargarReportes, 2000);
+        } else {
+            mostrarError('Error al reintentar sincronización: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarError('Error de conexión al reintentar sincronización');
+    })
+    .finally(() => {
+        sincronizacionEnProgreso = false;
+    });
+}
+
+function sincronizarTodos() {
+    new bootstrap.Modal(document.getElementById('modalSincronizacionMasiva')).show();
+}
+
+function confirmarSincronizacionMasiva() {
+    if (sincronizacionEnProgreso) return;
+    
+    sincronizacionEnProgreso = true;
+    
+    // Mostrar progreso
+    document.getElementById('progresoSincronizacion').style.display = 'block';
+    document.getElementById('btnConfirmarSincronizacion').disabled = true;
+    
+    // Simular progreso (en una implementación real, esto vendría del servidor)
+    let progreso = 0;
+    const intervalo = setInterval(() => {
+        progreso += Math.random() * 20;
+        if (progreso > 100) progreso = 100;
+        
+        document.getElementById('barraProgreso').style.width = progreso + '%';
+        document.getElementById('estadoSincronizacion').textContent = 
+            progreso < 100 ? `Sincronizando... ${Math.round(progreso)}%` : 'Completado';
+        
+        if (progreso >= 100) {
+            clearInterval(intervalo);
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('modalSincronizacionMasiva')).hide();
+                cargarReportes();
+                sincronizacionEnProgreso = false;
+                document.getElementById('btnConfirmarSincronizacion').disabled = false;
+                document.getElementById('progresoSincronizacion').style.display = 'none';
+                document.getElementById('barraProgreso').style.width = '0%';
+            }, 1000);
+        }
+    }, 500);
+    
+    // Llamada real al API
+    fetch('/api/mpa/vehiculos/sync-all', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarExito('Sincronización masiva completada');
+        } else {
+            mostrarError('Error en sincronización masiva: ' + (data.error || 'Error desconocido'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarError('Error de conexión en sincronización masiva');
+    });
+}
+
+// Funciones auxiliares
+function getEstadoBadgeColor(estado) {
+    switch(estado?.toLowerCase()) {
+        case 'exitoso': return 'success';
+        case 'fallido': return 'danger';
+        case 'pendiente': return 'warning';
+        default: return 'secondary';
+    }
+}
+
+function getEstadoIcon(estado) {
+    switch(estado?.toLowerCase()) {
+        case 'exitoso': return 'check-circle';
+        case 'fallido': return 'times-circle';
+        case 'pendiente': return 'clock';
+        default: return 'question-circle';
+    }
+}
+
+function getEstadoTexto(estado) {
+    switch(estado?.toLowerCase()) {
+        case 'exitoso': return 'Exitoso';
+        case 'fallido': return 'Fallido';
+        case 'pendiente': return 'Pendiente';
+        default: return 'Desconocido';
+    }
+}
+
+function mostrarLoading(mostrar) {
+    document.getElementById('loadingIndicator').style.display = mostrar ? 'block' : 'none';
+}
+
+function mostrarError(mensaje) {
+    // Implementar notificación de error
+    alert('Error: ' + mensaje); // Temporal, se puede mejorar con toast notifications
+}
+
+function mostrarExito(mensaje) {
+    // Implementar notificación de éxito
+    alert('Éxito: ' + mensaje); // Temporal, se puede mejorar con toast notifications
+}
+
+function actualizarReportes() {
+    cargarReportes();
+}
+
+function exportarReporte() {
+    const params = new URLSearchParams();
+    Object.keys(filtrosActivos).forEach(key => {
+        if (filtrosActivos[key]) {
+            params.append(key, filtrosActivos[key]);
+        }
+    });
+    params.append('export', 'true');
+    
+    window.open(`/api/mpa/reportes/sincronizacion?${params.toString()}`, '_blank');
+}
+</script>
+{% endblock %}
