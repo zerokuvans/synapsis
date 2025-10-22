@@ -2806,19 +2806,30 @@ def api_validar_unicidad():
             
         cursor = connection.cursor()
         
-        # Ejecutar validación usando el procedimiento almacenado
-        cursor.callproc('sp_validar_unicidad_documento', [tipo_documento, placa])
+        # Ejecutar validación directamente
+        if tipo_documento == 'soat':
+            cursor.execute("""
+                SELECT id_mpa_soat, numero_poliza, fecha_vencimiento 
+                FROM mpa_soat 
+                WHERE placa = %s AND estado = 'activo'
+            """, (placa,))
+        elif tipo_documento == 'tecnomecanica':
+            cursor.execute("""
+                SELECT id_mpa_tecnomecanica, numero_certificado, fecha_vencimiento 
+                FROM mpa_tecnomecanica 
+                WHERE placa = %s AND estado = 'activo'
+            """, (placa,))
+        else:
+            return jsonify({'success': False, 'error': 'Tipo de documento no válido'}), 400
         
-        # Obtener los resultados del procedimiento
-        validation_result = "Validación completada"
-        is_valid = True
-        for result in cursor.stored_results():
-            validation_data = result.fetchone()
-            if validation_data:
-                validation_result = validation_data[0] if validation_data[0] else validation_result
-                # Si el mensaje contiene "ERROR" o "Ya existe", marcar como inválido
-                if "ERROR" in validation_result or "Ya existe" in validation_result:
-                    is_valid = False
+        # Obtener los resultados de la consulta
+        existing_record = cursor.fetchone()
+        if existing_record:
+            validation_result = f"Ya existe un {tipo_documento} activo para la placa {placa}"
+            is_valid = False
+        else:
+            validation_result = "Validación completada - No hay conflictos"
+            is_valid = True
         
         return jsonify({
             'success': True,
@@ -3751,19 +3762,24 @@ def api_create_soat():
         # Usar el técnico asignado del vehículo si no se especifica
         tecnico_asignado = data.get('tecnico_asignado', vehiculo[1])
         
-        # Validar unicidad usando el procedimiento almacenado
-        cursor.callproc('sp_validar_unicidad_documento', ['soat', data['placa']])
+        # Validar unicidad directamente
+        cursor.execute("""
+            SELECT id_mpa_soat, numero_poliza, fecha_vencimiento 
+            FROM mpa_soat 
+            WHERE placa = %s AND estado = 'activo'
+        """, (data['placa'],))
         
-        # Obtener resultado de la validación
-        validation_result = None
-        for result in cursor.stored_results():
-            validation_data = result.fetchone()
-            if validation_data:
-                validation_result = validation_data[0]
-        
-        # Si hay un error en la validación, retornar el mensaje
-        if validation_result and ("ERROR" in validation_result or "Ya existe" in validation_result):
-            return jsonify({'success': False, 'error': validation_result}), 400
+        existing_soat = cursor.fetchone()
+        if existing_soat:
+            return jsonify({
+                'success': False, 
+                'error': f'Ya existe un SOAT activo para la placa {data["placa"]}',
+                'registro_existente': {
+                    'id': existing_soat[0],
+                    'numero_poliza': existing_soat[1],
+                    'fecha_vencimiento': existing_soat[2].strftime('%Y-%m-%d') if existing_soat[2] else None
+                }
+            }), 400
         
         # Insertar nuevo SOAT
         query = """
@@ -3834,20 +3850,23 @@ def api_update_soat(soat_id):
         # Si se está actualizando información crítica, validar unicidad
         if 'numero_poliza' in data or 'placa' in data:
             placa_validar = data.get('placa', placa)
-            cursor.callproc('sp_validar_unicidad_documento', ['soat', placa_validar])
+            cursor.execute("""
+                SELECT id_mpa_soat, numero_poliza, fecha_vencimiento 
+                FROM mpa_soat 
+                WHERE placa = %s AND estado = 'activo' AND id_mpa_soat != %s
+            """, (placa_validar, soat_id))
             
-            # Obtener resultado de la validación
-            validation_result = None
-            for result in cursor.stored_results():
-                validation_data = result.fetchone()
-                if validation_data:
-                    validation_result = validation_data[0]
-            
-            # Si hay un error en la validación y no es el mismo registro, retornar el mensaje
-            if validation_result and ("ERROR" in validation_result or "Ya existe" in validation_result):
-                # Verificar si el error es por el mismo registro que se está actualizando
-                if f"ID {soat_id}" not in validation_result:
-                    return jsonify({'success': False, 'error': validation_result}), 400
+            existing_soat = cursor.fetchone()
+            if existing_soat:
+                return jsonify({
+                    'success': False, 
+                    'error': f'Ya existe otro SOAT activo para la placa {placa_validar}',
+                    'registro_existente': {
+                        'id': existing_soat[0],
+                        'numero_poliza': existing_soat[1],
+                        'fecha_vencimiento': existing_soat[2].strftime('%Y-%m-%d') if existing_soat[2] else None
+                    }
+                }), 400
         
         # Construir query de actualización dinámicamente
         update_fields = []
@@ -4402,19 +4421,25 @@ def api_create_tecnico_mecanica():
         tecnico_asignado = data.get('tecnico_asignado', vehiculo[1])
         tipo_vehiculo = data.get('tipo_vehiculo', vehiculo[2])
         
-        # Validar unicidad usando el procedimiento almacenado
-        cursor.callproc('sp_validar_unicidad_documento', ['tecnomecanica', data['placa']])
+        # Validar unicidad directamente
+        cursor.execute("""
+            SELECT id_mpa_tecnomecanica, numero_certificado, fecha_vencimiento 
+            FROM mpa_tecnomecanica 
+            WHERE placa = %s AND estado = 'activo'
+        """, (data['placa'],))
         
         # Obtener resultado de la validación
-        validation_result = None
-        for result in cursor.stored_results():
-            validation_data = result.fetchone()
-            if validation_data:
-                validation_result = validation_data[0]
-        
-        # Si hay un error en la validación, retornar el mensaje
-        if validation_result and ("ERROR" in validation_result or "Ya existe" in validation_result):
-            return jsonify({'success': False, 'error': validation_result}), 400
+        existing_tm = cursor.fetchone()
+        if existing_tm:
+            return jsonify({
+                'success': False, 
+                'error': f'Ya existe una tecnomecánica activa para la placa {data["placa"]}',
+                'registro_existente': {
+                    'id': existing_tm[0],
+                    'numero_certificado': existing_tm[1],
+                    'fecha_vencimiento': existing_tm[2].strftime('%Y-%m-%d') if existing_tm[2] else None
+                }
+            }), 400
         
         # Validar fechas
         from datetime import datetime
@@ -4501,23 +4526,21 @@ def api_update_tecnico_mecanica(tm_id):
             placa_validar = data.get('placa', placa)
             print(f"[DEBUG] Validando unicidad para placa: {placa_validar}")
             try:
-                cursor.callproc('sp_validar_unicidad_documento', ['tecnomecanica', placa_validar])
+                cursor.execute("""
+                    SELECT id_mpa_tecnomecanica, numero_certificado, fecha_vencimiento 
+                    FROM mpa_tecnomecanica 
+                    WHERE placa = %s AND estado = 'activo' AND id_mpa_tecnomecanica != %s
+                """, (placa_validar, tm_id))
                 
-                # Obtener resultado de la validación
-                validation_result = None
-                for result in cursor.stored_results():
-                    validation_data = result.fetchone()
-                    if validation_data:
-                        validation_result = validation_data[0]
+                # Verificar si existe un registro duplicado
+                existing_record = cursor.fetchone()
                 
-                print(f"[DEBUG] Resultado validación unicidad: {validation_result}")
-                
-                # Si hay un error en la validación y no es el mismo registro, retornar el mensaje
-                if validation_result and ("ERROR" in validation_result or "Ya existe" in validation_result):
-                    # Verificar si el error es por el mismo registro que se está actualizando
-                    if f"ID {tm_id}" not in validation_result:
-                        print(f"[ERROR] Error de validación de unicidad: {validation_result}")
-                        return jsonify({'success': False, 'error': validation_result}), 400
+                if existing_record:
+                    print(f"[ERROR] Ya existe una tecnomecánica activa para la placa {placa_validar}")
+                    return jsonify({
+                        'success': False, 
+                        'error': f'Ya existe una tecnomecánica activa para la placa {placa_validar}. Certificado: {existing_record[1]}, Vencimiento: {existing_record[2]}'
+                    }), 400
             except Exception as validation_error:
                 print(f"[WARNING] Error en validación de unicidad (continuando): {validation_error}")
         
