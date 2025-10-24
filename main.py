@@ -1977,6 +1977,83 @@ def validar_kilometraje():
         if connection and connection.is_connected():
             connection.close()
 
+# ==================== MÓDULO MANTENIMIENTOS - TÉCNICOS ====================
+
+@app.route('/tecnicos/mantenimientos')
+@login_required(role='tecnicos')
+def tecnicos_mantenimientos():
+    """Módulo de mantenimientos para técnicos"""
+    try:
+        return render_template('modulos/tecnicos/mantenimientos.html')
+    except Exception as e:
+        flash(f'Error al cargar el módulo de mantenimientos: {str(e)}', 'danger')
+        return render_template('modulos/tecnicos/mantenimientos.html')
+
+@app.route('/api/tecnicos/mantenimientos', methods=['GET'])
+@login_required(role='tecnicos')
+def api_tecnicos_mantenimientos():
+    """API para obtener mantenimientos asignados al técnico logueado"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener información del técnico logueado
+        cursor.execute("""
+            SELECT nombre, recurso_operativo_cedula 
+            FROM capired.recurso_operativo 
+            WHERE id_codigo_consumidor = %s
+        """, (session['id_codigo_consumidor'],))
+        
+        tecnico_info = cursor.fetchone()
+        if not tecnico_info:
+            return jsonify({'error': 'Técnico no encontrado'}), 404
+        
+        tecnico_nombre = tecnico_info['nombre']
+        
+        # Obtener mantenimientos asignados al técnico
+        # Filtrar por el nombre del técnico en el campo 'tecnico'
+        query = """
+        SELECT 
+            m.id_mpa_mantenimientos,
+            m.placa,
+            m.fecha_mantenimiento,
+            m.kilometraje,
+            m.observacion,
+            m.soporte_foto_geo as foto_taller,
+            m.soporte_foto_factura as foto_factura,
+            m.tipo_vehiculo,
+            m.tecnico as tecnico_nombre,
+            m.tipo_mantenimiento
+        FROM mpa_mantenimientos m
+        WHERE m.tecnico = %s
+        ORDER BY m.fecha_mantenimiento DESC
+        """
+        
+        cursor.execute(query, (tecnico_nombre,))
+        mantenimientos = cursor.fetchall()
+        
+        # Formatear fechas para el frontend
+        for mantenimiento in mantenimientos:
+            if mantenimiento['fecha_mantenimiento']:
+                mantenimiento['fecha_mantenimiento'] = mantenimiento['fecha_mantenimiento'].strftime('%Y-%m-%d %H:%M:%S')
+        
+        return jsonify({
+            'success': True,
+            'data': mantenimientos,
+            'tecnico': tecnico_nombre
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
 @app.route('/operativo')
 @login_required(role='operativo')
 def operativo_dashboard():
