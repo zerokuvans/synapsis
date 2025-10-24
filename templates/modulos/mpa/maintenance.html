@@ -32,6 +32,7 @@
                                     <th>Técnico</th>
                                     <th>Fecha Mantenimiento</th>
                                     <th>Tipo</th>
+                                    <th>Estado</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -105,6 +106,22 @@
                         <div class="col-md-12 mb-3">
                             <label for="observaciones" class="form-label">Observaciones del Mantenimiento <span class="text-danger">*</span></label>
                             <textarea class="form-control" id="observaciones" name="observaciones" rows="4" required placeholder="Describe detalladamente el mantenimiento realizado..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Campo de Estado del Mantenimiento -->
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="estadoMantenimiento" class="form-label">Estado del Mantenimiento <span class="text-danger">*</span></label>
+                            <select class="form-select" id="estadoMantenimiento" name="estadoMantenimiento" required>
+                                <option value="Abierto" selected>🟠 Abierto</option>
+                                <option value="Finalizado">🟢 Finalizado</option>
+                            </select>
+                            <small class="form-text text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <strong>Abierto:</strong> Mantenimiento en proceso o pendiente. 
+                                <strong>Finalizado:</strong> Mantenimiento completado.
+                            </small>
                         </div>
                     </div>
                     
@@ -215,7 +232,12 @@ function displayMaintenances(maintenances) {
     table.style.display = 'table';
     noMaintenanceMessage.style.display = 'none';
     
-    tbody.innerHTML = maintenances.map(maintenance => `
+    tbody.innerHTML = maintenances.map(maintenance => {
+        const estadoBadge = maintenance.estado === 'Finalizado' 
+            ? '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Finalizado</span>'
+            : '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Abierto</span>';
+        
+        return `
         <tr>
             <td><strong>${maintenance.placa}</strong></td>
             <td>${maintenance.tecnico_nombre || 'Sin asignar'}</td>
@@ -224,6 +246,7 @@ function displayMaintenances(maintenances) {
                 <span class="badge bg-primary">${maintenance.tipo_mantenimiento || 'Sin especificar'}</span><br>
                 <small class="text-muted">Mantenimiento</small>
             </td>
+            <td>${estadoBadge}</td>
             <td>
                 <div class="btn-group" role="group">
                     <button type="button" class="btn btn-sm btn-info" onclick="viewMaintenance(${maintenance.id_mpa_mantenimientos})" title="Ver detalles">
@@ -238,7 +261,8 @@ function displayMaintenances(maintenances) {
                 </div>
             </td>
         </tr>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // Cargar lista de placas de vehículos
@@ -372,6 +396,9 @@ function viewMaintenance(maintenanceId) {
                             <p><strong>Fecha:</strong> ${formatDateTime(maintenance.fecha_mantenimiento)}</p>
                             <p><strong>Kilometraje:</strong> ${maintenance.kilometraje} km</p>
                             <p><strong>Tipo de Mantenimiento:</strong> <span class="badge bg-primary">${maintenance.tipo_mantenimiento || 'Sin especificar'}</span></p>
+                            <p><strong>Estado:</strong> ${maintenance.estado === 'Finalizado' 
+                                ? '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Finalizado</span>'
+                                : '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Abierto</span>'}</p>
                         </div>
                     </div>
                     <div class="row mt-3">
@@ -430,6 +457,7 @@ function editMaintenance(maintenanceId) {
                 document.getElementById('tipoVehiculo').value = maintenance.tipo_vehiculo;
                 document.getElementById('kilometraje').value = maintenance.kilometraje;
                 document.getElementById('observaciones').value = maintenance.observacion || '';
+                document.getElementById('estadoMantenimiento').value = maintenance.estado || 'Abierto';
                 
                 // Cargar categorías y seleccionar la actual
                 loadMaintenanceCategories(maintenance.tipo_vehiculo);
@@ -499,7 +527,8 @@ async function saveMaintenance() {
             observacion: document.getElementById('observaciones').value,
             foto_taller: fotoTallerPath,
             foto_factura: fotoFacturaPath,
-            tecnico: document.getElementById('tecnicoAsignado').value
+            tecnico: document.getElementById('tecnicoAsignado').value,
+            estado: document.getElementById('estadoMantenimiento').value
         };
         
         const url = currentMaintenanceId ? `/api/mpa/mantenimientos/${currentMaintenanceId}` : '/api/mpa/mantenimientos';

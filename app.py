@@ -24,10 +24,16 @@ login_manager.login_view = 'login'  # Redirigir al login cuando se requiera aute
 def unauthorized():
     # Devolver JSON para llamadas a API (evitar HTML que rompe fetch)
     try:
-        if request.path.startswith('/api/'):
+        print(f"DEBUG unauthorized_handler: request.path = {request.path}")
+        # Endpoints que deben devolver JSON en lugar de redirigir
+        api_endpoints = ['/api/', '/preoperacional', '/login']
+        if any(request.path.startswith(endpoint) for endpoint in api_endpoints):
+            print(f"DEBUG: Devolviendo JSON 401 para {request.path}")
             return jsonify({'success': False, 'error': 'AUTH_REQUIRED', 'message': 'Autenticación requerida'}), 401
+        print(f"DEBUG: Redirigiendo a login para {request.path}")
         return redirect(url_for('login'))
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG: Exception en unauthorized_handler: {e}")
         # Fallback seguro
         return redirect(url_for('login'))
 
@@ -89,6 +95,16 @@ def get_db_connection():
 # Función para obtener la fecha y hora actual en Bogotá
 def get_bogota_datetime():
     return datetime.now(TIMEZONE)
+
+# Endpoint de prueba simple para verificar Flask-Login
+@app.route('/test_simple', methods=['GET'])
+def test_simple():
+    return jsonify({'message': 'Endpoint simple funcionando', 'authenticated': current_user.is_authenticated if current_user else False})
+
+@app.route('/test_auth_simple', methods=['GET'])
+@login_required
+def test_auth_simple():
+    return jsonify({'message': 'Autenticado correctamente', 'user': current_user.id})
 
 # Ruta de inicio de sesión para compatibilidad con Flask-Login
 @app.route('/', methods=['GET', 'POST'])
@@ -515,48 +531,79 @@ def guardar_asistencia_administrativa():
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
-
-            connection.close()
+@app.route('/test_auth', methods=['GET'])
+@login_required
+def test_auth():
+    return jsonify({'message': 'Autenticado correctamente', 'user': current_user.id})
 
 @app.route('/preoperacional', methods=['POST'])
 @login_required
 def preoperacional():
     try:
+        print(f"DEBUG: Sesión actual: {session}")
+        print(f"DEBUG: id_codigo_consumidor en sesión: {session.get('id_codigo_consumidor')}")
+        
         # Obtener datos del formulario
         data = request.get_json()
+        print(f"DEBUG: Datos recibidos: {data}")
         
         # Obtener la fecha actual en zona horaria de Bogotá
         bogota_tz = pytz.timezone('America/Bogota')
         fecha_actual = datetime.now(bogota_tz).date()
         
         # Verificar si ya existe un registro para este usuario en la fecha actual
-        cursor = get_db_connection().cursor()
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        
         cursor.execute("""
             SELECT COUNT(*) FROM preoperacional 
-            WHERE id_codigo_consumidor = %s AND DATE(fecha_registro) = %s
+            WHERE id_codigo_consumidor = %s AND DATE(fecha) = %s
         """, (session['id_codigo_consumidor'], fecha_actual))
         
         if cursor.fetchone()[0] > 0:
             cursor.close()
+            connection.close()
             return jsonify({
                 'success': False, 
                 'message': 'Ya existe un registro preoperacional para hoy'
             }), 400
         
-        # Verificar que el id_codigo_consumidor existe en la tabla usuarios
-        cursor.execute("SELECT id_codigo_consumidor FROM usuarios WHERE id_codigo_consumidor = %s", 
+        # Verificar que el id_codigo_consumidor existe en la tabla recurso_operativo
+        cursor.execute("SELECT id_codigo_consumidor FROM recurso_operativo WHERE id_codigo_consumidor = %s", 
                       (session['id_codigo_consumidor'],))
         if not cursor.fetchone():
             cursor.close()
+            connection.close()
             return jsonify({
                 'success': False, 
                 'message': 'Usuario no encontrado'
             }), 400
-        
+
+        # VALIDACIÓN CRÍTICA: Verificar si el vehículo tiene mantenimientos abiertos
+        placa_vehiculo = data.get('placa_vehiculo')
+        if placa_vehiculo:
+            cursor.execute("""
+                SELECT COUNT(*) FROM mpa_mantenimientos 
+                WHERE placa = %s AND estado = 'Abierto'
+            """, (placa_vehiculo,))
+            
+            mantenimientos_abiertos = cursor.fetchone()[0]
+            
+            if mantenimientos_abiertos > 0:
+                cursor.close()
+                connection.close()
+                return jsonify({
+                    'success': False,
+                    'message': f'No se puede completar el preoperacional. El vehículo {placa_vehiculo} tiene {mantenimientos_abiertos} mantenimiento(s) abierto(s) pendiente(s). Contacte al área de MPA para finalizar el mantenimiento antes de continuar.',
+                    'tiene_mantenimientos_abiertos': True,
+                    'placa': placa_vehiculo,
+                    'mantenimientos_abiertos': mantenimientos_abiertos
+                }), 400
+
         # Insertar el nuevo registro
         insert_query = """
             INSERT INTO preoperacional (
-                id_codigo_consumidor, fecha_registro, vehiculo_asignado, placa_vehiculo,
+                id_codigo_consumidor, fecha, vehiculo_asignado, placa_vehiculo,
                 kilometraje, nivel_combustible, nivel_aceite, nivel_liquido_frenos,
                 nivel_refrigerante, presion_llantas, luces_funcionando, espejos_estado,
                 cinturon_seguridad, extintor_presente, botiquin_presente, triangulos_seguridad,
@@ -592,8 +639,9 @@ def preoperacional():
             data.get('observaciones_generales')
         ))
         
-        get_db_connection().commit()
+        connection.commit()
         cursor.close()
+        connection.close()
         
         return jsonify({
             'success': True, 
@@ -616,15 +664,17 @@ def verificar_registro_preoperacional():
         hora_actual = datetime.now(bogota_tz).time()
         
         # Verificar si ya existe un registro para este usuario en la fecha actual
-        cursor = get_db_connection().cursor()
+        connection = get_db_connection()
+        cursor = connection.cursor()
         cursor.execute("""
-            SELECT fecha_registro FROM preoperacional 
-            WHERE id_codigo_consumidor = %s AND DATE(fecha_registro) = %s
-            ORDER BY fecha_registro DESC LIMIT 1
+            SELECT fecha FROM preoperacional 
+            WHERE id_codigo_consumidor = %s AND DATE(fecha) = %s
+            ORDER BY fecha DESC LIMIT 1
         """, (session['id_codigo_consumidor'], fecha_actual))
         
         resultado = cursor.fetchone()
         cursor.close()
+        connection.close()
         
         if resultado:
             return jsonify({
@@ -644,6 +694,49 @@ def verificar_registro_preoperacional():
         return jsonify({
             'success': False,
             'message': f'Error al verificar registro: {str(e)}'
+        }), 500
+
+@app.route('/api/validar-mantenimiento-preoperacional', methods=['GET'])
+@login_required
+def validar_mantenimiento_preoperacional():
+    """Valida si el vehículo del técnico tiene mantenimientos abiertos"""
+    try:
+        # Obtener la placa del vehículo del técnico desde la sesión o datos del usuario
+        placa_vehiculo = request.args.get('placa')
+        
+        if not placa_vehiculo:
+            return jsonify({
+                'success': False,
+                'message': 'Placa del vehículo requerida'
+            }), 400
+        
+        # Verificar si hay mantenimientos abiertos para esta placa
+        cursor = get_db_connection().cursor()
+        cursor.execute("""
+            SELECT COUNT(*) FROM mpa_mantenimientos 
+            WHERE placa = %s AND estado = 'Abierto'
+        """, (placa_vehiculo,))
+        
+        mantenimientos_abiertos = cursor.fetchone()[0]
+        cursor.close()
+        
+        if mantenimientos_abiertos > 0:
+            return jsonify({
+                'success': False,
+                'tiene_mantenimientos_abiertos': True,
+                'message': f'No se puede completar el preoperacional. El vehículo {placa_vehiculo} tiene {mantenimientos_abiertos} mantenimiento(s) abierto(s) pendiente(s). Contacte al área de MPA.'
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'tiene_mantenimientos_abiertos': False,
+                'message': 'El vehículo no tiene mantenimientos abiertos. Puede proceder con el preoperacional.'
+            })
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error al validar mantenimientos: {str(e)}'
         }), 500
 
 # ============================================================================
@@ -2818,7 +2911,8 @@ def api_get_mantenimientos():
             m.soporte_foto_factura as foto_factura,
             m.tipo_vehiculo,
             m.tecnico as tecnico_nombre,
-            m.tipo_mantenimiento
+            m.tipo_mantenimiento,
+            m.estado
         FROM mpa_mantenimientos m
         ORDER BY m.fecha_mantenimiento DESC
         """
@@ -2870,7 +2964,8 @@ def api_get_mantenimiento(mantenimiento_id):
             m.soporte_foto_factura as foto_factura,
             m.tipo_vehiculo,
             m.tecnico as tecnico_nombre,
-            m.tipo_mantenimiento
+            m.tipo_mantenimiento,
+            m.estado
         FROM mpa_mantenimientos m
         WHERE m.id_mpa_mantenimientos = %s
         """
@@ -2938,8 +3033,8 @@ def api_create_mantenimiento():
         # Insertar nuevo mantenimiento
         insert_query = """
         INSERT INTO mpa_mantenimientos 
-        (placa, fecha_mantenimiento, kilometraje, tipo_vehiculo, tipo_mantenimiento, observacion, soporte_foto_geo, soporte_foto_factura, tecnico)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        (placa, fecha_mantenimiento, kilometraje, tipo_vehiculo, tipo_mantenimiento, observacion, soporte_foto_geo, soporte_foto_factura, tecnico, estado)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         
         cursor.execute(insert_query, (
@@ -2951,7 +3046,8 @@ def api_create_mantenimiento():
             data['observacion'],
             data.get('foto_taller', ''),
             data.get('foto_factura', ''),
-            data.get('tecnico', '')
+            data.get('tecnico', ''),
+            data.get('estado', 'Abierto')
         ))
         
         connection.commit()
@@ -3030,6 +3126,10 @@ def api_update_mantenimiento(mantenimiento_id):
         if 'foto_factura' in data:
             update_fields.append("soporte_foto_factura = %s")
             values.append(data['foto_factura'])
+        
+        if 'estado' in data:
+            update_fields.append("estado = %s")
+            values.append(data['estado'])
         
         if not update_fields:
             return jsonify({'success': False, 'error': 'No hay campos para actualizar'}), 400
@@ -5256,4 +5356,25 @@ def api_agrupaciones_codigos_facturacion():
             connection.close()
 
 if __name__ == '__main__':
+    print(f"🚀 Iniciando servidor Flask...")
+    print(f"📋 Total de rutas registradas: {len(list(app.url_map.iter_rules()))}")
+    
+    # Verificar rutas específicas
+    test_routes = []
+    preoperacional_routes = []
+    
+    for rule in app.url_map.iter_rules():
+        if 'test' in rule.rule:
+            test_routes.append(f"   🔗 {rule.rule} -> {rule.endpoint}")
+        if 'preoperacional' in rule.rule:
+            preoperacional_routes.append(f"   🔗 {rule.rule} -> {rule.endpoint}")
+    
+    print(f"🧪 Rutas de test: {len(test_routes)}")
+    for route in test_routes:
+        print(route)
+        
+    print(f"🎯 Rutas de preoperacional: {len(preoperacional_routes)}")
+    for route in preoperacional_routes:
+        print(route)
+    
     app.run(debug=True, host='0.0.0.0', port=8080)

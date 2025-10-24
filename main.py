@@ -75,6 +75,21 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+@login_manager.unauthorized_handler
+def unauthorized():
+    """Manejador para usuarios no autorizados"""
+    try:
+        # Devolver JSON para endpoints de API
+        api_endpoints = ['/api/', '/preoperacional', '/login']
+        if any(request.path.startswith(endpoint) for endpoint in api_endpoints):
+            return jsonify({'error': 'No autorizado', 'message': 'Debe iniciar sesión'}), 401
+        else:
+            # Redirigir a login para páginas web
+            return redirect(url_for('login'))
+    except Exception as e:
+        app.logger.error(f"Error en unauthorized_handler: {e}")
+        return jsonify({'error': 'Error de autorización'}), 401
+
 # Definición de la clase User para Flask-Login
 class User(UserMixin):
     def __init__(self, id, nombre, role):
@@ -3816,7 +3831,7 @@ def registrar_preoperacional():
         cursor = connection.cursor(dictionary=True)
         
         # Verificar si ya existe un registro para el día actual
-        id_codigo_consumidor = request.form.get('id_codigo_consumidor')
+        id_codigo_consumidor = session['id_codigo_consumidor']
         fecha_actual = get_bogota_datetime().date()
         
         cursor.execute("""
@@ -3881,6 +3896,31 @@ def registrar_preoperacional():
                 'message': 'El id_codigo_consumidor no existe en la tabla recurso_operativo.'
             }), 404
 
+        # VALIDACIÓN CRÍTICA: Verificar si el vehículo tiene mantenimientos abiertos
+        placa_vehiculo = data.get('placa_vehiculo')
+        if placa_vehiculo:
+            app.logger.info(f"Verificando mantenimientos abiertos para vehículo: {placa_vehiculo}")
+            cursor.execute("""
+                SELECT COUNT(*) FROM mpa_mantenimientos 
+                WHERE placa = %s AND estado = 'Abierto'
+            """, (placa_vehiculo,))
+            
+            result = cursor.fetchone()
+            mantenimientos_abiertos = result['COUNT(*)'] if result else 0
+            app.logger.info(f"Mantenimientos abiertos encontrados: {mantenimientos_abiertos}")
+            
+            if mantenimientos_abiertos > 0:
+                app.logger.warning(f"Bloqueando preoperacional: vehículo {placa_vehiculo} tiene {mantenimientos_abiertos} mantenimiento(s) abierto(s)")
+                cursor.close()
+                connection.close()
+                return jsonify({
+                    'status': 'error',
+                    'message': f'No se puede completar el preoperacional. El vehículo {placa_vehiculo} tiene {mantenimientos_abiertos} mantenimiento(s) abierto(s) pendiente(s). Contacte al área de MPA para finalizar el mantenimiento antes de continuar.',
+                    'tiene_mantenimientos_abiertos': True,
+                    'placa': placa_vehiculo,
+                    'mantenimientos_abiertos': mantenimientos_abiertos
+                }), 400
+
         # Validación de kilometraje antes de insertar
         placa_vehiculo = data.get('placa_vehiculo')
         try:
@@ -3900,8 +3940,8 @@ def registrar_preoperacional():
             """, (placa_vehiculo,))
             ultimo_registro = cursor.fetchone()
             if ultimo_registro:
-                ultimo_kilometraje = ultimo_registro.get('kilometraje_actual') or 0
-                fecha_ultimo_registro = ultimo_registro.get('fecha')
+                ultimo_kilometraje = ultimo_registro['kilometraje_actual'] or 0
+                fecha_ultimo_registro = ultimo_registro['fecha']
 
         # Bloquear si supera 1,000,000 km
         if kilometraje_propuesto > 1000000:
@@ -11658,7 +11698,8 @@ def api_operativo_inicio_asistencia():
             FROM asistencia
             WHERE super = %s AND DATE(fecha_asistencia) = %s
         """, (supervisor_actual, fecha_consulta))
-        total_tecnicos = cursor.fetchone().get('total', 0) or 0
+        result = cursor.fetchone()
+        total_tecnicos = result['total'] if result else 0
 
         # 2) Sin asistencia: contar solo las siguientes tipificaciones del día
         categorias_sin = [
