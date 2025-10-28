@@ -30,6 +30,7 @@ class GestorStockConValidacionEstado:
             'camisetagris': 'CAMISA_GRIS_DOTACION',
             'guerrera': 'GUERRERA_DOTACION',
             'camisetapolo': 'POLO_DOTACION',
+            'chaqueta': 'CHAQUETA_DOTACION',
             'botas': 'BOTAS_DOTACION',
             'guantes_nitrilo': 'GUANTES_NITRILO',
             'guantes_carnaza': 'GUANTES_CARNAZA',

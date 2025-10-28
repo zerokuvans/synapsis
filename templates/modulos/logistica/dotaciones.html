@@ -1198,6 +1198,19 @@
                                     </div>
                                 </div>
 
+                                <!-- Chaqueta -->
+                                <div class="col-md-6 mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-jacket me-2 text-secondary"></i>
+                                        <div>
+                                            <strong>Chaqueta:</strong>
+                                            <span id="detalleChaqueta">-</span>
+                                            <span id="detalleChaquetaTalla" class="text-muted">-</span>
+                                            <span id="detalleChaquetaEstado" class="badge ms-2">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- EPP -->
                                 <div class="col-12 mt-3">
                                     <h6 class="text-primary mb-3">Elementos de Protección Personal</h6>
@@ -1627,7 +1640,7 @@
 
         // Cargar clientes en el select del modal
         function cargarClientesModal() {
-            fetch('/api/clientes')
+            return fetch('/api/clientes')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -1641,12 +1654,15 @@
                                 selectCliente.add(option);
                             });
                         }
+                        return data.data; // Retornar los datos para uso posterior
                     } else {
                         console.error('Error al cargar clientes en modal:', data.message);
+                        throw new Error('Error al cargar clientes en modal');
                     }
                 })
                 .catch(error => {
                     console.error('Error al cargar clientes en modal:', error);
+                    throw error;
                 });
         }
 
@@ -1669,13 +1685,19 @@
                 url += '?' + params.toString();
             }
             
-            fetch(url)
+            return fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     const filtroTecnico = document.getElementById('filtroTecnico');
+                    const selectTecnico = document.getElementById('idCodigoConsumidor');
                     
                     if (filtroTecnico) {
                         filtroTecnico.innerHTML = '<option value="">Todos los técnicos</option>';
+                    }
+                    
+                    // También cargar en el select del modal si existe
+                    if (selectTecnico) {
+                        selectTecnico.innerHTML = '<option value="">Seleccionar técnico...</option>';
                     }
                     
                     console.log('Datos de técnicos recibidos:', data);
@@ -1687,14 +1709,21 @@
                                 const option = new Option(`${tecnico.nombre} - ${tecnico.recurso_operativo_cedula}`, tecnico.id_codigo_consumidor);
                                 filtroTecnico.add(option);
                             }
+                            if (selectTecnico) {
+                                const option = new Option(`${tecnico.nombre} - ${tecnico.recurso_operativo_cedula}`, tecnico.id_codigo_consumidor);
+                                selectTecnico.add(option);
+                            }
                         });
                         console.log(`Cargados ${data.data.length} técnicos`);
+                        return data.data; // Retornar los datos para uso posterior
                     } else {
                         console.error('Error en la respuesta de técnicos:', data);
+                        throw new Error('Error en la respuesta de técnicos');
                     }
                 })
                 .catch(error => {
                     console.error('Error al cargar técnicos:', error);
+                    throw error;
                 });
         }
         
@@ -1880,7 +1909,7 @@
                 url += '?' + params.toString();
             }
             
-            fetch(url)
+            return fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     const selectTecnico = document.getElementById('idCodigoConsumidor');
@@ -1896,83 +1925,107 @@
                                 selectTecnico.add(option);
                             });
                             console.log(`Cargados ${data.data.length} técnicos filtrados`);
+                            return data.data; // Retornar los datos para uso posterior
                         } else {
                             console.error('Error en la respuesta de técnicos filtrados:', data);
+                            throw new Error('Error en la respuesta de técnicos filtrados');
                         }
                     }
                 })
                 .catch(error => {
                     console.error('Error al cargar técnicos filtrados:', error);
+                    throw error;
                 });
         }
 
         // Editar dotación
-        function editarDotacion(id) {
-            fetch(`/api/dotaciones/${id}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const dotacion = data.dotacion;
-                        
-                        // Cargar clientes en el select del modal
-                        cargarClientesModal();
-                        
-                        // Esperar a que se carguen los clientes y luego establecer los valores
-                        setTimeout(() => {
-                            document.getElementById('idDotacion').value = dotacion.id_dotacion;
-                            document.getElementById('cliente').value = dotacion.cliente || '';
-                            
-                            // Cargar técnicos filtrados por el cliente de la dotación
-                            if (dotacion.cliente) {
-                                cargarTecnicosFiltrados(dotacion.cliente, 'Activo');
-                                
-                                // Esperar a que se carguen los técnicos y luego establecer el valor
-                                setTimeout(() => {
-                                    document.getElementById('idCodigoConsumidor').value = dotacion.id_codigo_consumidor || '';
-                                }, 300);
-                            } else {
-                                // Si no hay cliente, cargar todos los técnicos
-                                cargarTecnicos();
-                                setTimeout(() => {
-                                    document.getElementById('idCodigoConsumidor').value = dotacion.id_codigo_consumidor || '';
-                                }, 300);
-                            }
-                            
-                            document.getElementById('pantalon').value = dotacion.pantalon || '';
-                            document.getElementById('pantalonTalla').value = dotacion.pantalon_talla || '';
-                            document.getElementById('camisetagris').value = dotacion.camisetagris || '';
-                            document.getElementById('camisetaGrisTalla').value = dotacion.camiseta_gris_talla || '';
-                            document.getElementById('guerrera').value = dotacion.guerrera || '';
-                            document.getElementById('guerreraTalla').value = dotacion.guerrera_talla || '';
-                            document.getElementById('chaqueta').value = dotacion.chaqueta || '';
-                            document.getElementById('chaquetaTalla').value = dotacion.chaqueta_talla || '';
-                            document.getElementById('camisetapolo').value = dotacion.camisetapolo || '';
-                            document.getElementById('camisetaPoloTalla').value = dotacion.camiseta_polo_talla || '';
-                            document.getElementById('guantesNitrilo').value = dotacion.guantes_nitrilo || '';
-                            document.getElementById('guantesCarnaza').value = dotacion.guantes_carnaza || '';
-                            document.getElementById('gafas').value = dotacion.gafas || '';
-                            document.getElementById('gorra').value = dotacion.gorra || '';
-                            document.getElementById('casco').value = dotacion.casco || '';
-                            document.getElementById('botas').value = dotacion.botas || '';
-                            document.getElementById('botasTalla').value = dotacion.botas_talla || '';
-                        }, 500);
-                        
-                        document.getElementById('modalTitulo').innerHTML = '<i class="fas fa-edit me-2"></i>Editar Dotación';
-                        const modal = new bootstrap.Modal(document.getElementById('modalDotacion'));
-                        modal.show();
-                        
-                        // Inicializar checkboxes después de mostrar el modal
-                        setTimeout(() => {
-                            inicializarCheckboxesEstado();
-                        }, 100);
+        async function editarDotacion(id) {
+            try {
+                console.log(`🔍 Iniciando edición de dotación ID: ${id}`);
+                
+                // Obtener datos de la dotación
+                const response = await fetch(`/api/dotaciones/${id}`);
+                const data = await response.json();
+                
+                if (!data.success) {
+                    mostrarError('Error al cargar dotación: ' + data.message);
+                    return;
+                }
+                
+                const dotacion = data.dotacion;
+                console.log('📋 Datos de dotación cargados:', dotacion);
+                
+                // Cargar clientes en el select del modal
+                await cargarClientesModal();
+                
+                // Establecer valores básicos
+                document.getElementById('idDotacion').value = dotacion.id_dotacion;
+                document.getElementById('cliente').value = dotacion.cliente || '';
+                
+                // Cargar técnicos y esperar a que termine
+                try {
+                    if (dotacion.cliente) {
+                        console.log(`👥 Cargando técnicos filtrados para cliente: ${dotacion.cliente}`);
+                        await cargarTecnicosFiltrados(dotacion.cliente, 'Activo');
                     } else {
-                        mostrarError('Error al cargar dotación: ' + data.message);
+                        console.log('👥 Cargando todos los técnicos (sin cliente específico)');
+                        await cargarTecnicos();
                     }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    mostrarError('Error de conexión al cargar dotación');
-                });
+                    
+                    // Ahora establecer el técnico seleccionado
+                    const selectTecnico = document.getElementById('idCodigoConsumidor');
+                    if (selectTecnico && dotacion.id_codigo_consumidor) {
+                        selectTecnico.value = dotacion.id_codigo_consumidor;
+                        console.log(`✅ Técnico establecido: ${dotacion.id_codigo_consumidor}`);
+                        
+                        // Verificar si el valor se estableció correctamente
+                        if (selectTecnico.value !== dotacion.id_codigo_consumidor) {
+                            console.warn(`⚠️ El técnico no se pudo establecer. Valor esperado: ${dotacion.id_codigo_consumidor}, Valor actual: ${selectTecnico.value}`);
+                            console.log('📝 Opciones disponibles en el select:', Array.from(selectTecnico.options).map(opt => `${opt.value}: ${opt.text}`));
+                        }
+                    } else {
+                        console.log('ℹ️ No hay técnico asignado a esta dotación');
+                    }
+                } catch (error) {
+                    console.error('❌ Error al cargar técnicos:', error);
+                    mostrarError('Error al cargar la lista de técnicos');
+                }
+                
+                // Establecer valores de elementos de dotación
+                document.getElementById('pantalon').value = dotacion.pantalon || '';
+                document.getElementById('pantalonTalla').value = dotacion.pantalon_talla || '';
+                document.getElementById('camisetagris').value = dotacion.camisetagris || '';
+                document.getElementById('camisetaGrisTalla').value = dotacion.camiseta_gris_talla || '';
+                document.getElementById('guerrera').value = dotacion.guerrera || '';
+                document.getElementById('guerreraTalla').value = dotacion.guerrera_talla || '';
+                document.getElementById('chaqueta').value = dotacion.chaqueta || '';
+                document.getElementById('chaquetaTalla').value = dotacion.chaqueta_talla || '';
+                document.getElementById('camisetapolo').value = dotacion.camisetapolo || '';
+                document.getElementById('camisetaPoloTalla').value = dotacion.camiseta_polo_talla || '';
+                document.getElementById('guantesNitrilo').value = dotacion.guantes_nitrilo || '';
+                document.getElementById('guantesCarnaza').value = dotacion.guantes_carnaza || '';
+                document.getElementById('gafas').value = dotacion.gafas || '';
+                document.getElementById('gorra').value = dotacion.gorra || '';
+                document.getElementById('casco').value = dotacion.casco || '';
+                document.getElementById('botas').value = dotacion.botas || '';
+                document.getElementById('botasTalla').value = dotacion.botas_talla || '';
+                
+                // Mostrar modal
+                document.getElementById('modalTitulo').innerHTML = '<i class="fas fa-edit me-2"></i>Editar Dotación';
+                const modal = new bootstrap.Modal(document.getElementById('modalDotacion'));
+                modal.show();
+                
+                // Inicializar checkboxes después de mostrar el modal
+                setTimeout(() => {
+                    inicializarCheckboxesEstado();
+                }, 100);
+                
+                console.log('✅ Dotación cargada exitosamente para edición');
+                
+            } catch (error) {
+                console.error('❌ Error en editarDotacion:', error);
+                mostrarError('Error de conexión al cargar dotación');
+            }
         }
 
         // Guardar dotación
