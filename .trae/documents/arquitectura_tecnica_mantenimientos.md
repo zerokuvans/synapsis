@@ -34,46 +34,54 @@ graph TD
 
 ## 2. Technology Description
 
-- Frontend: HTML5 + Bootstrap 5 + JavaScript ES6 + jQuery
-- Backend: Flask + Python 3.8+
-- Database: MySQL 8.0
-- Authentication: Flask-Login + Session Management
-- File Upload: Flask file handling + local storage
+* Frontend: HTML5 + Bootstrap 5 + JavaScript ES6 + jQuery
+
+* Backend: Flask + Python 3.8+
+
+* Database: MySQL 8.0
+
+* Authentication: Flask-Login + Session Management
+
+* File Upload: Flask file handling + local storage
 
 ## 3. Route definitions
 
-| Route | Purpose |
-|-------|---------|
-| /mpa/mantenimientos | Página principal de gestión de mantenimientos MPA |
-| /api/mpa/mantenimientos | API REST para CRUD de mantenimientos |
-| /api/mpa/mantenimientos/<id> | API para actualizar estado específico |
-| /api/tecnicos/validar-mantenimientos/<placa> | API de validación de mantenimientos pendientes |
-| /preoperacional_operativo | Formulario preoperacional con validación |
-| /tecnicos/dashboard | Dashboard con notificaciones de estado |
+| Route                                        | Purpose                                           |
+| -------------------------------------------- | ------------------------------------------------- |
+| /mpa/mantenimientos                          | Página principal de gestión de mantenimientos MPA |
+| /api/mpa/mantenimientos                      | API REST para CRUD de mantenimientos              |
+| /api/mpa/mantenimientos/<id>                 | API para actualizar estado específico             |
+| /api/tecnicos/validar-mantenimientos/<placa> | API de validación de mantenimientos pendientes    |
+| /preoperacional\_operativo                   | Formulario preoperacional con validación          |
+| /tecnicos/dashboard                          | Dashboard con notificaciones de estado            |
 
 ## 4. API definitions
 
 ### 4.1 Core API
 
 **Actualización de estado de mantenimiento**
+
 ```
 PUT /api/mpa/mantenimientos/<id>
 ```
 
 Request:
-| Param Name | Param Type | isRequired | Description |
-|------------|------------|------------|-------------|
-| estado | string | true | Estado: 'abierto' o 'finalizado' |
-| observaciones_cierre | string | false | Observaciones al finalizar |
+
+| Param Name            | Param Type | isRequired | Description                      |
+| --------------------- | ---------- | ---------- | -------------------------------- |
+| estado                | string     | true       | Estado: 'abierto' o 'finalizado' |
+| observaciones\_cierre | string     | false      | Observaciones al finalizar       |
 
 Response:
-| Param Name | Param Type | Description |
-|------------|------------|-------------|
-| success | boolean | Estado de la operación |
-| message | string | Mensaje descriptivo |
-| data | object | Datos del mantenimiento actualizado |
+
+| Param Name | Param Type | Description                         |
+| ---------- | ---------- | ----------------------------------- |
+| success    | boolean    | Estado de la operación              |
+| message    | string     | Mensaje descriptivo                 |
+| data       | object     | Datos del mantenimiento actualizado |
 
 Example Request:
+
 ```json
 {
   "estado": "finalizado",
@@ -82,6 +90,7 @@ Example Request:
 ```
 
 Example Response:
+
 ```json
 {
   "success": true,
@@ -96,19 +105,22 @@ Example Response:
 ```
 
 **Validación de mantenimientos pendientes**
+
 ```
 GET /api/tecnicos/validar-mantenimientos/<placa>
 ```
 
 Response:
-| Param Name | Param Type | Description |
-|------------|------------|-------------|
-| tiene_pendientes | boolean | Si hay mantenimientos abiertos |
-| mantenimientos_abiertos | array | Lista de mantenimientos pendientes |
-| puede_preoperacional | boolean | Si puede realizar preoperacional |
-| mensaje_bloqueo | string | Mensaje para mostrar al técnico |
+
+| Param Name               | Param Type | Description                        |
+| ------------------------ | ---------- | ---------------------------------- |
+| tiene\_pendientes        | boolean    | Si hay mantenimientos abiertos     |
+| mantenimientos\_abiertos | array      | Lista de mantenimientos pendientes |
+| puede\_preoperacional    | boolean    | Si puede realizar preoperacional   |
+| mensaje\_bloqueo         | string     | Mensaje para mostrar al técnico    |
 
 Example Response:
+
 ```json
 {
   "tiene_pendientes": true,
@@ -126,18 +138,20 @@ Example Response:
 ```
 
 **Crear mantenimiento con estado**
+
 ```
 POST /api/mpa/mantenimientos
 ```
 
 Request:
-| Param Name | Param Type | isRequired | Description |
-|------------|------------|------------|-------------|
-| placa | string | true | Placa del vehículo |
-| tipo_mantenimiento | string | true | Tipo de mantenimiento |
-| kilometraje | integer | true | Kilometraje actual |
-| observaciones | string | true | Observaciones del mantenimiento |
-| estado | string | false | Estado inicial (default: 'abierto') |
+
+| Param Name          | Param Type | isRequired | Description                         |
+| ------------------- | ---------- | ---------- | ----------------------------------- |
+| placa               | string     | true       | Placa del vehículo                  |
+| tipo\_mantenimiento | string     | true       | Tipo de mantenimiento               |
+| kilometraje         | integer    | true       | Kilometraje actual                  |
+| observaciones       | string     | true       | Observaciones del mantenimiento     |
+| estado              | string     | false      | Estado inicial (default: 'abierto') |
 
 ## 5. Server architecture diagram
 
@@ -214,7 +228,8 @@ erDiagram
 
 ### 6.2 Data Definition Language
 
-**Modificación tabla mpa_mantenimientos**
+**Modificación tabla mpa\_mantenimientos**
+
 ```sql
 -- Agregar campo estado
 ALTER TABLE mpa_mantenimientos 
@@ -238,6 +253,7 @@ WHERE fecha_mantenimiento < DATE_SUB(NOW(), INTERVAL 30 DAY);
 ```
 
 **Tabla de logs de cambios de estado**
+
 ```sql
 -- Crear tabla de auditoría
 CREATE TABLE mpa_mantenimientos_log (
@@ -257,6 +273,7 @@ CREATE INDEX idx_mantenimientos_log_mantenimiento ON mpa_mantenimientos_log(id_m
 ```
 
 **Datos iniciales y configuración**
+
 ```sql
 -- Configurar estados por defecto para registros existentes
 UPDATE mpa_mantenimientos 
@@ -280,6 +297,7 @@ INSERT INTO mpa_mantenimientos (
 ### 7.1 Backend Implementation
 
 **Flask Route Handler:**
+
 ```python
 @app.route('/api/mpa/mantenimientos/<int:id>', methods=['PUT'])
 @login_required
@@ -307,6 +325,7 @@ def actualizar_mantenimiento(id):
 ```
 
 **Validation Service:**
+
 ```python
 @app.route('/api/tecnicos/validar-mantenimientos/<placa>')
 @login_required
@@ -332,6 +351,7 @@ def validar_mantenimientos_pendientes(placa):
 ### 7.2 Frontend Implementation
 
 **JavaScript Validation:**
+
 ```javascript
 // Validar antes de mostrar formulario preoperacional
 async function validarAccesoPreoperacional() {
@@ -365,3 +385,4 @@ function mostrarMensajeBloqueo(mensaje) {
     document.getElementById('preoperacional-form').innerHTML = alertHtml;
 }
 ```
+
