@@ -2176,6 +2176,18 @@ def lider_inicio_operacion():
         flash(f'Error al cargar inicio de operación: {str(e)}', 'danger')
         return redirect(url_for('lider_indicadores_operaciones'))
 
+@app.route('/lider/indicadores/operaciones/presupuesto')
+@login_required_lider()
+def lider_presupuesto():
+    """
+    Página del submódulo Presupuesto - Muestra tabla de supervisores con valores mensuales
+    """
+    try:
+        return render_template('modulos/lider/presupuesto.html')
+    except Exception as e:
+        flash(f'Error al cargar presupuesto: {str(e)}', 'danger')
+        return redirect(url_for('lider_indicadores_operaciones'))
+
 # APIs para Inicio de Operación
 @app.route('/api/lider/inicio-operacion/supervisores', methods=['GET'])
 @login_required_lider_api()
@@ -14698,6 +14710,140 @@ def obtener_estado_vehiculos():
             'success': False,
             'error': str(e)
         }), 500
+
+# APIs para Presupuesto
+@app.route('/api/lider/presupuesto', methods=['GET'])
+@login_required_lider_api()
+def api_lider_presupuesto():
+    """
+    API para obtener datos de presupuesto mensual por supervisor
+    """
+    connection = None
+    cursor = None
+    try:
+        # Obtener parámetros de filtro opcionales
+        mes = request.args.get('mes')
+        año = request.args.get('año')
+        supervisor = request.args.get('supervisor')
+        
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Construir consulta SQL base
+        sql = """
+            SELECT 
+                super as supervisor,
+                MONTH(fecha_asistencia) as mes,
+                YEAR(fecha_asistencia) as año,
+                SUM(valor) as total_presupuesto
+            FROM asistencia 
+            WHERE super IS NOT NULL AND super != ''
+        """
+        
+        params = []
+        
+        # Agregar filtros opcionales
+        if mes:
+            sql += " AND MONTH(fecha_asistencia) = %s"
+            params.append(mes)
+            
+        if año:
+            sql += " AND YEAR(fecha_asistencia) = %s"
+            params.append(año)
+            
+        if supervisor:
+            sql += " AND super = %s"
+            params.append(supervisor)
+        
+        # Agrupar por supervisor, mes y año
+        sql += """
+            GROUP BY super, MONTH(fecha_asistencia), YEAR(fecha_asistencia)
+            ORDER BY super, año DESC, mes DESC
+        """
+        
+        cursor.execute(sql, params)
+        resultados = cursor.fetchall()
+        
+        # Formatear resultados
+        datos_presupuesto = []
+        for row in resultados:
+            datos_presupuesto.append({
+                'supervisor': row['supervisor'],
+                'mes': row['mes'],
+                'año': row['año'],
+                'total_presupuesto': float(row['total_presupuesto']) if row['total_presupuesto'] else 0
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': datos_presupuesto,
+            'total_registros': len(datos_presupuesto)
+        })
+        
+    except mysql.connector.Error as e:
+        print(f"ERROR DB - API Presupuesto: {str(e)}")
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        print(f"ERROR - API Presupuesto: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/lider/presupuesto/supervisores', methods=['GET'])
+@login_required_lider_api()
+def api_lider_presupuesto_supervisores():
+    """
+    API para obtener lista de supervisores únicos de la tabla asistencia
+    """
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Obtener supervisores únicos
+        cursor.execute("""
+            SELECT DISTINCT super as supervisor
+            FROM asistencia 
+            WHERE super IS NOT NULL AND super != ''
+            ORDER BY super
+        """)
+        
+        resultados = cursor.fetchall()
+        
+        # Extraer solo los nombres de supervisores
+        supervisores = [row['supervisor'] for row in resultados]
+        
+        return jsonify({
+            'success': True,
+            'supervisores': supervisores,
+            'total': len(supervisores)
+        })
+        
+    except mysql.connector.Error as e:
+        print(f"ERROR DB - API Supervisores Presupuesto: {str(e)}")
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        print(f"ERROR - API Supervisores Presupuesto: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 
 # Rutas para el módulo de historial de seriales
 @app.route('/logistica/historial_seriales')

@@ -1,0 +1,524 @@
+{% extends "header.html" %}
+{% block content %}
+<style>
+    .metric-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        height: 100%;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .metric-card .card-body {
+        padding: 1.5rem;
+        text-align: center;
+        position: relative;
+    }
+    
+    .metric-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        opacity: 0.8;
+    }
+    
+    .metric-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+    
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .metric-subtitle {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 0;
+    }
+    
+    .filters-section {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 2rem;
+        border-left: 4px solid #007bff;
+    }
+    
+    .table-container {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+    
+    .table-header {
+        background: #007bff;
+        color: white;
+        padding: 1rem;
+        margin: 0;
+    }
+    
+    .loading-spinner {
+        display: none;
+        text-align: center;
+        padding: 2rem;
+    }
+    
+    .error-message {
+        display: none;
+        background: #f8d7da;
+        color: #721c24;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 1rem 0;
+    }
+    
+    /* Colores para diferentes tipos de tarjetas */
+    .card-presupuesto { border-left: 4px solid #28a745; }
+    .card-total { border-left: 4px solid #17a2b8; }
+    .card-promedio { border-left: 4px solid #ffc107; }
+    .card-supervisores { border-left: 4px solid #6f42c1; }
+    
+    .text-presupuesto { color: #28a745; }
+    .text-total { color: #17a2b8; }
+    .text-promedio { color: #ffc107; }
+    .text-supervisores { color: #6f42c1; }
+    
+    /* Contenedor principal centrado */
+    .main-container {
+        max-width: 1900px;
+        margin: 0 auto;
+        padding: 0 15px;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .metric-card .card-body {
+            padding: 1rem;
+        }
+        
+        .metric-icon {
+            font-size: 2rem;
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+        }
+        
+        .main-container {
+            padding: 0 10px;
+        }
+    }
+    
+    @media (max-width: 1920px) {
+        .main-container {
+            max-width: 1900px;
+        }
+    }
+    
+    /* Estilos para la tabla */
+    .table-responsive {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    
+    .table th {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        font-weight: 600;
+        text-align: center;
+        vertical-align: middle;
+    }
+    
+    .table td {
+        text-align: center;
+        vertical-align: middle;
+        border-color: #dee2e6;
+    }
+    
+    .table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .currency {
+        font-weight: 600;
+        color: #28a745;
+    }
+</style>
+
+<div class="container-fluid mt-4" style="max-width: 1900px; margin: 0 auto;">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-dollar-sign me-2"></i>Presupuesto por Supervisor
+                    </h3>
+                </div>
+                <div class="card-body bg-light">
+                    <div class="alert alert-info mb-0" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Visualización de presupuestos mensuales acumulados por supervisor desde la tabla de asistencia.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Botón de regreso -->
+            <div class="mb-4">
+                <a href="/lider/indicadores/operaciones" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Volver a Indicadores de Operaciones
+                </a>
+            </div>
+            
+            <!-- Filtros -->
+            <div class="filters-section">
+                <h6>
+                    <i class="fas fa-filter me-2"></i>Filtros
+                </h6>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="filtroMes" class="form-label">Mes</label>
+                        <select class="form-select" id="filtroMes">
+                            <option value="">Todos los meses</option>
+                            <option value="1">Enero</option>
+                            <option value="2">Febrero</option>
+                            <option value="3">Marzo</option>
+                            <option value="4">Abril</option>
+                            <option value="5">Mayo</option>
+                            <option value="6">Junio</option>
+                            <option value="7">Julio</option>
+                            <option value="8">Agosto</option>
+                            <option value="9">Septiembre</option>
+                            <option value="10">Octubre</option>
+                            <option value="11">Noviembre</option>
+                            <option value="12">Diciembre</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="filtroAno" class="form-label">Año</label>
+                        <select class="form-select" id="filtroAno">
+                            <option value="">Todos los años</option>
+                            <!-- Se cargan dinámicamente -->
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="filtroSupervisor" class="form-label">Supervisor</label>
+                        <select class="form-select" id="filtroSupervisor">
+                            <option value="">Todos los supervisores</option>
+                            <!-- Se cargan dinámicamente -->
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-12">
+                        <button type="button" class="btn btn-primary me-2" onclick="aplicarFiltros()">
+                            <i class="fas fa-search me-2"></i>Aplicar Filtros
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="limpiarFiltros()">
+                            <i class="fas fa-times me-2"></i>Limpiar
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loading y Error -->
+            <div class="loading-spinner" id="loadingSpinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Cargando datos de presupuesto...</p>
+            </div>
+            
+            <div class="error-message" id="errorMessage">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <span id="errorText">Error al cargar los datos</span>
+            </div>
+            
+            <!-- Métricas Resumen -->
+            <div class="row mb-4" id="metricsSection" style="display: none;">
+                <div class="col-12 mb-3">
+                    <h5 class="text-presupuesto"><i class="fas fa-chart-bar me-2"></i>Resumen de Presupuesto</h5>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <div class="card metric-card card-total">
+                        <div class="card-body">
+                            <div class="metric-icon text-total">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                            <h6 class="metric-title">Total Presupuesto</h6>
+                            <div class="metric-value text-total" id="totalPresupuesto">$0</div>
+                            <p class="metric-subtitle">Suma total del período</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <div class="card metric-card card-promedio">
+                        <div class="card-body">
+                            <div class="metric-icon text-promedio">
+                                <i class="fas fa-calculator"></i>
+                            </div>
+                            <h6 class="metric-title">Promedio por Supervisor</h6>
+                            <div class="metric-value text-promedio" id="promedioSupervisor">$0</div>
+                            <p class="metric-subtitle">Promedio del período</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <div class="card metric-card card-supervisores">
+                        <div class="card-body">
+                            <div class="metric-icon text-supervisores">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <h6 class="metric-title">Supervisores Activos</h6>
+                            <div class="metric-value text-supervisores" id="totalSupervisores">0</div>
+                            <p class="metric-subtitle">Con presupuesto asignado</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-3">
+                    <div class="card metric-card card-presupuesto">
+                        <div class="card-body">
+                            <div class="metric-icon text-presupuesto">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <h6 class="metric-title">Mayor Presupuesto</h6>
+                            <div class="metric-value text-presupuesto" id="mayorPresupuesto">$0</div>
+                            <p class="metric-subtitle">Supervisor con mayor valor</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tabla de Presupuestos -->
+            <div class="table-container" id="tableSection" style="display: none;">
+                <div class="table-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-table me-2"></i>Presupuesto por Supervisor
+                    </h5>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Supervisor</th>
+                                <th>Mes</th>
+                                <th>Año</th>
+                                <th>Presupuesto Mensual</th>
+                                <th>Registros</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaPresupuestoBody">
+                            <!-- Se carga dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Botón de regreso al dashboard -->
+            <div class="text-center mt-4">
+                <a href="/lider" class="btn btn-secondary">
+                    <i class="fas fa-home me-2"></i>Regresar al Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Variables globales
+let presupuestoData = [];
+let supervisoresData = [];
+
+// Inicializar página
+document.addEventListener('DOMContentLoaded', function() {
+    // Establecer mes y año actual por defecto
+    const today = new Date();
+    document.getElementById('filtroMes').value = today.getMonth() + 1;
+    
+    // Cargar años disponibles
+    cargarAnos();
+    
+    // Cargar datos iniciales
+    cargarSupervisores();
+    cargarDatos();
+});
+
+// Cargar años disponibles
+function cargarAnos() {
+    const anoSelect = document.getElementById('filtroAno');
+    const currentYear = new Date().getFullYear();
+    
+    // Agregar años desde 2020 hasta el año actual + 1
+    for (let year = 2020; year <= currentYear + 1; year++) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        if (year === currentYear) {
+            option.selected = true;
+        }
+        anoSelect.appendChild(option);
+    }
+}
+
+// Cargar supervisores
+async function cargarSupervisores() {
+    try {
+        const response = await fetch('/api/lider/presupuesto/supervisores');
+        const data = await response.json();
+        
+        if (data.success) {
+            supervisoresData = data.supervisores;
+            const select = document.getElementById('filtroSupervisor');
+            
+            // Limpiar opciones existentes (excepto la primera)
+            select.innerHTML = '<option value="">Todos los supervisores</option>';
+            
+            // Agregar supervisores
+            data.supervisores.forEach(supervisor => {
+                const option = document.createElement('option');
+                option.value = supervisor;
+                option.textContent = supervisor;
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error al cargar supervisores:', error);
+    }
+}
+
+// Cargar datos de presupuesto
+async function cargarDatos() {
+    mostrarLoading(true);
+    ocultarError();
+    
+    try {
+        const mes = document.getElementById('filtroMes').value;
+        const ano = document.getElementById('filtroAno').value;
+        const supervisor = document.getElementById('filtroSupervisor').value;
+        
+        const params = new URLSearchParams();
+        if (mes) params.append('mes', mes);
+        if (ano) params.append('ano', ano);
+        if (supervisor) params.append('supervisor', supervisor);
+        
+        const response = await fetch(`/api/lider/presupuesto?${params.toString()}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            presupuestoData = data.presupuestos;
+            actualizarMetricas(data.resumen);
+            actualizarTabla(data.presupuestos);
+            mostrarSecciones(true);
+        } else {
+            mostrarError(data.message || 'Error al cargar los datos');
+        }
+    } catch (error) {
+        console.error('Error al cargar datos:', error);
+        mostrarError('Error de conexión al cargar los datos');
+    } finally {
+        mostrarLoading(false);
+    }
+}
+
+// Actualizar métricas
+function actualizarMetricas(resumen) {
+    document.getElementById('totalPresupuesto').textContent = formatCurrency(resumen.total || 0);
+    document.getElementById('promedioSupervisor').textContent = formatCurrency(resumen.promedio || 0);
+    document.getElementById('totalSupervisores').textContent = resumen.supervisores || 0;
+    document.getElementById('mayorPresupuesto').textContent = formatCurrency(resumen.mayor || 0);
+}
+
+// Actualizar tabla
+function actualizarTabla(presupuestos) {
+    const tbody = document.getElementById('tablaPresupuestoBody');
+    tbody.innerHTML = '';
+    
+    if (presupuestos.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted py-4">
+                    <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                    No se encontraron datos de presupuesto para los filtros seleccionados
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    presupuestos.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong>${item.supervisor}</strong></td>
+            <td>${getNombreMes(item.mes)}</td>
+            <td>${item.ano}</td>
+            <td class="currency">${formatCurrency(item.presupuesto_mensual)}</td>
+            <td><span class="badge bg-primary">${item.registros}</span></td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Aplicar filtros
+function aplicarFiltros() {
+    cargarDatos();
+}
+
+// Limpiar filtros
+function limpiarFiltros() {
+    document.getElementById('filtroMes').value = '';
+    document.getElementById('filtroAno').value = new Date().getFullYear();
+    document.getElementById('filtroSupervisor').value = '';
+    cargarDatos();
+}
+
+// Funciones de utilidad
+function mostrarLoading(show) {
+    document.getElementById('loadingSpinner').style.display = show ? 'block' : 'none';
+}
+
+function mostrarError(mensaje) {
+    document.getElementById('errorText').textContent = mensaje;
+    document.getElementById('errorMessage').style.display = 'block';
+}
+
+function ocultarError() {
+    document.getElementById('errorMessage').style.display = 'none';
+}
+
+function mostrarSecciones(show) {
+    document.getElementById('metricsSection').style.display = show ? 'block' : 'none';
+    document.getElementById('tableSection').style.display = show ? 'block' : 'none';
+}
+
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(amount);
+}
+
+function getNombreMes(numeroMes) {
+    const meses = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    return meses[numeroMes - 1] || 'Desconocido';
+}
+</script>
+
+{% endblock %}

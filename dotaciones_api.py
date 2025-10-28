@@ -199,6 +199,10 @@ def registrar_rutas_dotaciones(app):
                 'guerrera_talla': dotacion.get('guerrera_talla'),
                 'guerrera_valorado': 1 if dotacion.get('estado_guerrera') == 'VALORADO' else 0,
                 
+                'chaqueta_cantidad': dotacion.get('chaqueta') or 0,
+                'chaqueta_talla': dotacion.get('chaqueta_talla'),
+                'chaqueta_valorado': 1 if dotacion.get('estado_chaqueta') == 'VALORADO' else 0,
+                
                 'camiseta_polo_cantidad': dotacion.get('camisetapolo') or 0,
                 'camiseta_polo_talla': dotacion.get('camiseta_polo_talla'),
                 'camisetapolo_valorado': 1 if dotacion.get('estado_camiseta_polo') == 'VALORADO' else 0,
@@ -817,7 +821,7 @@ def registrar_rutas_dotaciones(app):
     
     @app.route('/api/dotaciones/<int:id_dotacion>', methods=['PUT'])
     def actualizar_dotacion(id_dotacion):
-        """Actualizar una dotación existente"""
+        """Actualizar una dotación existente con integración de stock"""
         connection = get_db_connection()
         if not connection:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
@@ -825,11 +829,70 @@ def registrar_rutas_dotaciones(app):
         try:
             data = request.get_json()
             
-            # Validar que la dotación existe
-            cursor = connection.cursor()
-            cursor.execute("SELECT id_dotacion FROM dotaciones WHERE id_dotacion = %s", (id_dotacion,))
-            if not cursor.fetchone():
+            # Validar que la dotación existe y obtener datos originales
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute("""
+                SELECT * FROM dotaciones WHERE id_dotacion = %s
+            """, (id_dotacion,))
+            dotacion_original = cursor.fetchone()
+            
+            if not dotacion_original:
                 return jsonify({'success': False, 'message': 'Dotación no encontrada'}), 404
+            
+            # Calcular diferencias para gestión de stock
+            elementos_stock = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'chaqueta', 
+                             'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas']
+            
+            cambios_stock = {}
+            items_con_estado = {}
+            
+            for elemento in elementos_stock:
+                cantidad_original = dotacion_original.get(elemento, 0) or 0
+                cantidad_nueva = data.get(elemento, 0) or 0
+                diferencia = cantidad_nueva - cantidad_original
+                
+                if diferencia != 0:
+                    # Determinar el estado de valoración
+                    campo_estado = f'estado_{elemento}' if elemento != 'camisetagris' else 'estado_camisetagris'
+                    if elemento == 'camisetapolo':
+                        campo_estado = 'estado_camiseta_polo'
+                    elif elemento == 'camisetagris':
+                        campo_estado = 'estado_camisetagris'
+                    
+                    # Obtener estado desde los datos enviados
+                    estado_valorado = data.get(f'{elemento}_valorado', False)
+                    if elemento == 'camisetagris':
+                        estado_valorado = data.get('camisetagris_valorado', False)
+                    elif elemento == 'camisetapolo':
+                        estado_valorado = data.get('camiseta_polo_valorado', False)
+                    
+                    estado = 'VALORADO' if estado_valorado else 'NO VALORADO'
+                    
+                    cambios_stock[elemento] = {
+                        'diferencia': diferencia,
+                        'estado': estado,
+                        'cantidad_nueva': cantidad_nueva
+                    }
+                    
+                    # Si es un incremento, necesitamos validar stock
+                    if diferencia > 0:
+                        items_con_estado[elemento] = (diferencia, estado)
+            
+            # Validar stock para incrementos
+            if items_con_estado:
+                validador = ValidadorStockPorEstado()
+                items_dict = {k: v[0] for k, v in items_con_estado.items()}
+                estados_dict = {k: v[1] for k, v in items_con_estado.items()}
+                
+                es_valido, resultado = validador.validar_asignacion_con_estados(
+                    data.get('id_codigo_consumidor', 0), items_dict, estados_dict
+                )
+                
+                if not es_valido:
+                    return jsonify({
+                        'success': False, 
+                        'message': f'Stock insuficiente para los cambios: {resultado}'
+                    }), 400
             
             # Preparar query de actualización
             query = """
@@ -844,6 +907,8 @@ def registrar_rutas_dotaciones(app):
                 guerrera_talla = %s,
                 camisetapolo = %s,
                 camiseta_polo_talla = %s,
+                chaqueta = %s,
+                chaqueta_talla = %s,
                 guantes_nitrilo = %s,
                 guantes_carnaza = %s,
                 gafas = %s,
@@ -855,6 +920,7 @@ def registrar_rutas_dotaciones(app):
                 estado_camisetagris = %s,
                 estado_guerrera = %s,
                 estado_camiseta_polo = %s,
+                estado_chaqueta = %s,
                 estado_guantes_nitrilo = %s,
                 estado_guantes_carnaza = %s,
                 estado_gafas = %s,
@@ -876,6 +942,8 @@ def registrar_rutas_dotaciones(app):
                 data.get('guerrera_talla'),
                 data.get('camisetapolo'),
                 data.get('camiseta_polo_talla'),
+                data.get('chaqueta'),
+                data.get('chaqueta_talla'),
                 data.get('guantes_nitrilo'),
                 data.get('guantes_carnaza'),
                 data.get('gafas'),
@@ -888,6 +956,7 @@ def registrar_rutas_dotaciones(app):
                 data.get('estado_camisetagris'),
                 data.get('estado_guerrera'),
                 data.get('estado_camiseta_polo'),
+                'VALORADO' if data.get('chaqueta_valorado') else 'NO VALORADO',  # Convertir boolean a formato de estado
                 data.get('estado_guantes_nitrilo'),
                 data.get('estado_guantes_carnaza'),
                 data.get('estado_gafas'),
@@ -898,12 +967,77 @@ def registrar_rutas_dotaciones(app):
             )
             
             cursor.execute(query, valores)
+            connection.commit()
             
-            logger.info(f"Dotación {id_dotacion} actualizada")
+            # Procesar movimientos de stock después de actualizar la dotación
+            if cambios_stock:
+                try:
+                    gestor = GestorStockConValidacionEstado()
+                    movimientos_procesados = []
+                    
+                    for elemento, cambio in cambios_stock.items():
+                        diferencia = cambio['diferencia']
+                        estado = cambio['estado']
+                        
+                        # Debug logging específico para chaquetas
+                        if elemento == 'chaqueta':
+                            logger.info(f"🧥 PROCESANDO CHAQUETA - Dotación {id_dotacion}: diferencia={diferencia}, estado={estado}, talla={data.get('chaqueta_talla', 'N/A')}")
+                        
+                        if diferencia > 0:
+                            # Incremento: asignar más elementos (descontar del stock)
+                            if elemento == 'chaqueta':
+                                logger.info(f"🧥 ASIGNANDO CHAQUETA: {diferencia} unidades {estado} para técnico {data.get('id_codigo_consumidor', 0)}")
+                            
+                            exito, mensaje = gestor._registrar_movimiento_con_estado(
+                                elemento, diferencia, estado, 'asignacion', 
+                                data.get('id_codigo_consumidor', 0), f'UPDATE_DOTACION_{id_dotacion}'
+                            )
+                            if exito:
+                                movimientos_procesados.append(f"Asignado {diferencia} {elemento} {estado}")
+                                if elemento == 'chaqueta':
+                                    logger.info(f"🧥 ✅ CHAQUETA ASIGNADA EXITOSAMENTE: {mensaje}")
+                            else:
+                                logger.warning(f"Error procesando incremento de {elemento}: {mensaje}")
+                                if elemento == 'chaqueta':
+                                    logger.error(f"🧥 ❌ ERROR ASIGNANDO CHAQUETA: {mensaje}")
+                        
+                        elif diferencia < 0:
+                            # Decremento: devolver elementos (incrementar el stock)
+                            cantidad_devuelta = abs(diferencia)
+                            if elemento == 'chaqueta':
+                                logger.info(f"🧥 DEVOLVIENDO CHAQUETA: {cantidad_devuelta} unidades {estado}")
+                            
+                            exito, mensaje = gestor._registrar_movimiento_con_estado(
+                                elemento, cantidad_devuelta, estado, 'devolucion', 
+                                data.get('id_codigo_consumidor', 0), f'UPDATE_DOTACION_{id_dotacion}'
+                            )
+                            if exito:
+                                movimientos_procesados.append(f"Devuelto {cantidad_devuelta} {elemento} {estado}")
+                                if elemento == 'chaqueta':
+                                    logger.info(f"🧥 ✅ CHAQUETA DEVUELTA EXITOSAMENTE: {mensaje}")
+                            else:
+                                logger.warning(f"Error procesando decremento de {elemento}: {mensaje}")
+                                if elemento == 'chaqueta':
+                                    logger.error(f"🧥 ❌ ERROR DEVOLVIENDO CHAQUETA: {mensaje}")
+                    
+                    if movimientos_procesados:
+                        logger.info(f"Stock procesado para dotación {id_dotacion}: {', '.join(movimientos_procesados)}")
+                    
+                    gestor.cerrar_conexion()
+                    
+                except Exception as e:
+                    logger.error(f"Error procesando stock para dotación {id_dotacion}: {e}")
+                    # No fallar la actualización por errores de stock, solo registrar
+            
+            logger.info(f"Dotación {id_dotacion} actualizada correctamente")
+            
+            mensaje_respuesta = 'Dotación actualizada correctamente'
+            if cambios_stock:
+                mensaje_respuesta += f' con {len(cambios_stock)} cambios de stock procesados'
             
             return jsonify({
                 'success': True,
-                'message': 'Dotación actualizada correctamente'
+                'message': mensaje_respuesta
             })
             
         except mysql.connector.Error as e:
@@ -1866,6 +2000,28 @@ def registrar_rutas_dotaciones(app):
                 COALESCE(SUM(casco), 0) as total_entregado
             FROM cambios_dotacion
             WHERE casco > 0
+            
+            UNION ALL
+            
+            SELECT 
+                'chaqueta' as tipo_elemento,
+                COALESCE(chaqueta_talla, 'Sin talla') as talla,
+                'Sin número' as numero_calzado,
+                SUM(chaqueta) as total_entregado
+            FROM dotaciones
+            WHERE chaqueta > 0
+            GROUP BY chaqueta_talla
+            
+            UNION ALL
+            
+            SELECT 
+                'chaqueta' as tipo_elemento,
+                COALESCE(chaqueta_talla, 'Sin talla') as talla,
+                'Sin número' as numero_calzado,
+                SUM(chaqueta) as total_entregado
+            FROM cambios_dotacion
+            WHERE chaqueta > 0
+            GROUP BY chaqueta_talla
             """
             
             # Agregar filtro por tipo si se especifica
