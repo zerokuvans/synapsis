@@ -361,8 +361,8 @@ function loadVehiclePlates() {
             if (data.success) {
                 vehiclePlates = data.data;
                 const select = document.getElementById('placa');
-                select.innerHTML = '<option value="">Seleccionar placa</option>' +
-                    vehiclePlates.map(vehicle => `<option value="${vehicle.placa}" data-tecnico="${vehicle.tecnico_nombre || 'Sin asignar'}" data-tipo="${vehicle.tipo_vehiculo}">${vehicle.placa}</option>`).join('');
+                select.innerHTML = '<option value="">Seleccione una placa</option>' + 
+            vehiclePlates.map(vehicle => `<option value="${vehicle.placa}" data-tecnico="${vehicle.tecnico_asignado || ''}" data-tipo="${vehicle.tipo_vehiculo}">${vehicle.placa}</option>`).join('');
             } else {
                 showAlert('Error al cargar placas: ' + (data.message || 'Error desconocido'), 'warning');
             }

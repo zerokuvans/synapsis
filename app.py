@@ -2809,12 +2809,12 @@ def api_get_tecnicos():
             connection.close()
 
 @app.route('/mpa/vencimientos')
+@login_required
 def mpa_vencimientos():
     """Módulo de gestión de vencimientos consolidados"""
-    # Temporalmente sin autenticación para pruebas
-    # if not current_user.has_role('administrativo'):
-    #     flash('No tienes permisos para acceder a este módulo.', 'error')
-    #     return redirect(url_for('mpa_dashboard'))
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
     
     return render_template('modulos/mpa/vencimientos.html')
 
@@ -3656,11 +3656,11 @@ def api_delete_soat(soat_id):
 
 # API consolidada para obtener todos los vencimientos
 @app.route('/api/mpa/vencimientos', methods=['GET'])
+@login_required
 def api_vencimientos_consolidados():
     """API consolidada para obtener vencimientos de SOAT, Técnico Mecánica y Licencias de Conducir"""
-    # Temporalmente sin autenticación para pruebas
-    # if not current_user.has_role('administrativo'):
-    #     return jsonify({'error': 'Sin permisos'}), 403
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
     
     try:
         connection = get_db_connection()
@@ -3683,7 +3683,14 @@ def api_vencimientos_consolidados():
             s.estado
         FROM mpa_soat s
         LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor
-        WHERE s.fecha_vencimiento IS NOT NULL AND (ro.estado = 'Activo' OR s.tecnico_asignado IS NULL)
+        WHERE s.fecha_vencimiento IS NOT NULL
+          AND s.fecha_vencimiento NOT LIKE '0000-00-00%'
+          AND s.fecha_vencimiento > '1900-01-01'
+          AND (
+              s.tecnico_asignado IS NULL
+              OR TRIM(s.tecnico_asignado) = ''
+              OR ro.estado = 'Activo'
+          )
         ORDER BY s.fecha_vencimiento ASC
         """
         
@@ -3712,7 +3719,14 @@ def api_vencimientos_consolidados():
             tm.estado
         FROM mpa_tecnico_mecanica tm
         LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor
-        WHERE tm.fecha_vencimiento IS NOT NULL AND (ro.estado = 'Activo' OR tm.tecnico_asignado IS NULL)
+        WHERE tm.fecha_vencimiento IS NOT NULL
+          AND tm.fecha_vencimiento NOT LIKE '0000-00-00%'
+          AND tm.fecha_vencimiento > '1900-01-01'
+          AND (
+              tm.tecnico_asignado IS NULL
+              OR TRIM(tm.tecnico_asignado) = ''
+              OR ro.estado = 'Activo'
+          )
         ORDER BY tm.fecha_vencimiento ASC
         """
         
@@ -3739,7 +3753,14 @@ def api_vencimientos_consolidados():
             'Licencia de Conducir' as tipo
         FROM mpa_licencia_conducir lc
         LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor
-        WHERE lc.fecha_vencimiento IS NOT NULL AND (ro.estado = 'Activo' OR lc.tecnico IS NULL)
+        WHERE lc.fecha_vencimiento IS NOT NULL
+          AND lc.fecha_vencimiento NOT LIKE '0000-00-00%'
+          AND lc.fecha_vencimiento > '1900-01-01'
+          AND (
+              lc.tecnico IS NULL
+              OR TRIM(lc.tecnico) = ''
+              OR ro.estado = 'Activo'
+          )
         ORDER BY lc.fecha_vencimiento ASC
         """
         
@@ -3757,17 +3778,47 @@ def api_vencimientos_consolidados():
             })
         
         # 4. Calcular días restantes y estado para todos los vencimientos
-        from datetime import datetime
+        from datetime import datetime, date
         import pytz
+        import re
         
         colombia_tz = pytz.timezone('America/Bogota')
         fecha_actual = datetime.now(colombia_tz).date()
         
-        for vencimiento in vencimientos_consolidados:
-            if vencimiento['fecha_vencimiento']:
-                fecha_venc = datetime.strptime(vencimiento['fecha_vencimiento'], '%Y-%m-%d').date()
-                dias_restantes = (fecha_venc - fecha_actual).days
+        def validar_fecha(fecha_str):
+            """Valida que una fecha tenga el formato YYYY-MM-DD y sea válida"""
+            if not fecha_str or fecha_str == '0000-00-00':
+                return False, None, 'Sin fecha'
                 
+            # Validar formato YYYY-MM-DD
+            if not re.match(r'^\d{4}-\d{2}-\d{2}$', fecha_str):
+                return False, None, 'Fecha inválida'
+                
+            try:
+                # Convertir a fecha y validar
+                year, month, day = map(int, fecha_str.split('-'))
+                fecha = date(year, month, day)
+                
+                # Validar que los componentes coincidan (para detectar fechas inválidas como 2024-02-31)
+                if fecha.year != year or fecha.month != month or fecha.day != day:
+                    return False, None, 'Fecha inválida'
+                    
+                return True, fecha, None
+            except ValueError:
+                return False, None, 'Fecha inválida'
+        
+        for vencimiento in vencimientos_consolidados:
+            try:
+                fecha_str = vencimiento['fecha_vencimiento']
+                es_valida, fecha_venc, estado_error = validar_fecha(fecha_str)
+                
+                if not es_valida:
+                    vencimiento['dias_restantes'] = None
+                    vencimiento['estado'] = estado_error
+                    continue
+                
+                # Calcular días restantes
+                dias_restantes = (fecha_venc - fecha_actual).days
                 vencimiento['dias_restantes'] = dias_restantes
                 
                 # Determinar estado basado en días restantes
@@ -3777,19 +3828,40 @@ def api_vencimientos_consolidados():
                     vencimiento['estado'] = 'Próximo a vencer'
                 else:
                     vencimiento['estado'] = 'Vigente'
-            else:
+                    
+            except Exception as e:
                 vencimiento['dias_restantes'] = None
-                vencimiento['estado'] = 'Sin fecha'
+                vencimiento['estado'] = 'Fecha inválida'
+                app.logger.error(f"Error procesando fecha para vencimiento ID {vencimiento['id']}: {str(e)}", exc_info=True)
         
         # 5. Ordenar por fecha de vencimiento (más próximos primero)
-        vencimientos_consolidados.sort(key=lambda x: (
-            x['fecha_vencimiento'] if x['fecha_vencimiento'] else '9999-12-31'
-        ))
+        def get_sort_key(x):
+            try:
+                fecha_str = x['fecha_vencimiento']
+                es_valida, fecha, _ = validar_fecha(fecha_str)
+                if not es_valida:
+                    return '9999-12-31'
+                return fecha_str
+            except Exception as e:
+                app.logger.error(f"Error al ordenar vencimiento ID {x['id']}: {str(e)}", exc_info=True)
+                return '9999-12-31'
+        
+        vencimientos_consolidados.sort(key=get_sort_key)
+        
+        # 6. Agregar estadísticas
+        estadisticas = {
+            'total': len(vencimientos_consolidados),
+            'vencidos': sum(1 for v in vencimientos_consolidados if v['estado'] == 'Vencido'),
+            'proximos_vencer': sum(1 for v in vencimientos_consolidados if v['estado'] == 'Próximo a vencer'),
+            'vigentes': sum(1 for v in vencimientos_consolidados if v['estado'] == 'Vigente'),
+            'sin_fecha': sum(1 for v in vencimientos_consolidados if v['estado'] in ['Sin fecha', 'Fecha inválida'])
+        }
         
         return jsonify({
             'success': True,
             'data': vencimientos_consolidados,
-            'total': len(vencimientos_consolidados)
+            'total': len(vencimientos_consolidados),
+            'estadisticas': estadisticas
         })
         
     except Exception as e:
@@ -3802,11 +3874,11 @@ def api_vencimientos_consolidados():
 
 # API para obtener detalles de un vencimiento específico
 @app.route('/api/mpa/vencimiento/<string:tipo>/<int:documento_id>', methods=['GET'])
+@login_required
 def api_get_vencimiento_detalle(tipo, documento_id):
     """API para obtener detalles de un vencimiento específico"""
-    # Temporalmente sin autenticación para pruebas
-    # if not current_user.has_role('administrativo'):
-    #     return jsonify({'error': 'Sin permisos'}), 403
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
     
     try:
         connection = get_db_connection()

@@ -143,13 +143,30 @@
 let vencimientosData = [];
 let vencimientosFiltrados = [];
 
-// Cargar datos al inicializar la página
+// Cargar datos al inicializar la página y cada 5 minutos
 document.addEventListener('DOMContentLoaded', function() {
     loadVencimientos();
+    
+    // Recargar datos cada 5 minutos
+    setInterval(loadVencimientos, 5 * 60 * 1000);
 });
 
 // Cargar lista de vencimientos
 function loadVencimientos() {
+    // Mostrar indicador de carga
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.id = 'loadingIndicator';
+    loadingIndicator.className = 'position-fixed top-50 start-50 translate-middle bg-white p-3 rounded shadow-lg';
+    loadingIndicator.innerHTML = `
+        <div class="d-flex align-items-center">
+            <div class="spinner-border text-primary me-2" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <span>Actualizando vencimientos...</span>
+        </div>
+    `;
+    document.body.appendChild(loadingIndicator);
+
     fetch('/api/mpa/vencimientos')
         .then(response => {
             if (!response.ok) {
@@ -164,6 +181,9 @@ function loadVencimientos() {
                 renderVencimientos();
                 actualizarEstadisticas();
                 cargarTecnicosEnFiltro();
+                
+                // Mostrar mensaje de éxito
+                showAlert('Datos de vencimientos actualizados correctamente', 'success');
             } else {
                 showAlert('Error al cargar datos de vencimientos: ' + (data.error || 'Error desconocido'), 'danger');
             }
@@ -171,6 +191,13 @@ function loadVencimientos() {
         .catch(error => {
             console.error('Error:', error);
             showAlert('Error al cargar datos de vencimientos: ' + error.message, 'danger');
+        })
+        .finally(() => {
+            // Remover indicador de carga
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            if (loadingIndicator) {
+                loadingIndicator.remove();
+            }
         });
 }
 
@@ -223,11 +250,22 @@ function getEstadoBadge(estado) {
     const badges = {
         'Vencido': 'bg-danger',
         'Próximo a vencer': 'bg-warning text-dark',
-        'Vigente': 'bg-success'
+        'Vigente': 'bg-success',
+        'Sin fecha': 'bg-secondary',
+        'Fecha inválida': 'bg-danger'
+    };
+    
+    const icons = {
+        'Vencido': 'fas fa-exclamation-circle',
+        'Próximo a vencer': 'fas fa-exclamation-triangle',
+        'Vigente': 'fas fa-check-circle',
+        'Sin fecha': 'fas fa-calendar-times',
+        'Fecha inválida': 'fas fa-times-circle'
     };
     
     const badgeClass = badges[estado] || 'bg-secondary';
-    return `<span class="badge ${badgeClass}">${estado}</span>`;
+    const icon = icons[estado] ? `<i class="${icons[estado]} me-1"></i>` : '';
+    return `<span class="badge ${badgeClass}">${icon}${estado}</span>`;
 }
 
 // Obtener badge de tipo
@@ -251,17 +289,56 @@ function getDiasRestantesBadge(dias) {
 
 // Formatear fecha
 function formatDate(dateString) {
-    if (!dateString) return 'N/A';
+    if (!dateString || dateString === '0000-00-00') return 'Sin fecha';
     
     try {
-        const date = new Date(dateString + 'T00:00:00');
-        return date.toLocaleDateString('es-CO', {
+        // Validar formato de fecha YYYY-MM-DD
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+            console.error('Formato de fecha inválido:', dateString);
+            return 'Fecha inválida';
+        }
+        
+        // Crear fecha en zona horaria local
+        const [year, month, day] = dateString.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+        
+        // Validar que la fecha sea válida
+        if (isNaN(date.getTime()) || 
+            date.getFullYear() !== year || 
+            date.getMonth() !== month - 1 || 
+            date.getDate() !== day) {
+            console.error('Fecha inválida:', dateString);
+            return 'Fecha inválida';
+        }
+        
+        // Formatear fecha
+        const formattedDate = date.toLocaleDateString('es-CO', {
             year: 'numeric',
             month: '2-digit',
             day: '2-digit'
         });
+        
+        // Calcular días restantes para el tooltip
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const diffTime = date.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        let statusText = '';
+        if (diffDays < 0) {
+            statusText = `Vencido hace ${Math.abs(diffDays)} días`;
+        } else if (diffDays === 0) {
+            statusText = 'Vence hoy';
+        } else if (diffDays === 1) {
+            statusText = 'Vence mañana';
+        } else {
+            statusText = `Vence en ${diffDays} días`;
+        }
+        
+        return `<span title="${statusText}" class="text-nowrap">${formattedDate}</span>`;
     } catch (error) {
-        return dateString;
+        console.error('Error al formatear fecha:', error, error.stack);
+        return 'Error en fecha';
     }
 }
 
@@ -312,14 +389,42 @@ function actualizarEstadisticas() {
             case 'Vigente':
                 acc.vigentes++;
                 break;
+            case 'Sin fecha':
+            case 'Fecha inválida':
+                acc.sin_fecha++;
+                break;
         }
         return acc;
-    }, { total: 0, vencidos: 0, proximosVencer: 0, vigentes: 0 });
+    }, { total: 0, vencidos: 0, proximosVencer: 0, vigentes: 0, sin_fecha: 0 });
     
-    document.getElementById('countTotal').textContent = stats.total;
-    document.getElementById('countVencidos').textContent = stats.vencidos;
-    document.getElementById('countProximosVencer').textContent = stats.proximosVencer;
-    document.getElementById('countVigentes').textContent = stats.vigentes;
+    // Actualizar contadores con animación
+    animateCounter('countTotal', stats.total);
+    animateCounter('countVencidos', stats.vencidos);
+    animateCounter('countProximosVencer', stats.proximosVencer);
+    animateCounter('countVigentes', stats.vigentes);
+}
+
+// Función para animar contadores
+function animateCounter(elementId, targetValue) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    const startValue = parseInt(element.textContent) || 0;
+    const duration = 500; // duración en milisegundos
+    const steps = 20; // número de pasos
+    const stepValue = (targetValue - startValue) / steps;
+    let currentStep = 0;
+    
+    const interval = setInterval(() => {
+        currentStep++;
+        const currentValue = Math.round(startValue + (stepValue * currentStep));
+        element.textContent = currentValue;
+        
+        if (currentStep >= steps) {
+            clearInterval(interval);
+            element.textContent = targetValue; // asegurar el valor final exacto
+        }
+    }, duration / steps);
 }
 
 // Cargar técnicos en filtro
