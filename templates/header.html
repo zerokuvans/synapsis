@@ -243,6 +243,28 @@
         </div>
     </nav>
 
+    <!-- Modal Encuesta Activa -->
+    <div class="modal fade" id="modalEncuestaActiva" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-clipboard-list me-2"></i>Encuesta</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="encuesta-popup-contenido">
+                        <div class="text-center text-muted py-5">Cargando encuesta…</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="btnEnviarEncuestaPopup" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-1"></i>Enviar respuestas
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Mensajes Flash -->
     <div class="flash-messages">
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -302,6 +324,180 @@
             });
         }, 5000);
     });
+    </script>
+
+    <!-- Encuestas Popup al iniciar sesión -->
+    <script>
+    (function(){
+        const path = window.location.pathname;
+        if (path.includes('/encuestas/preview') || path.includes('/login')) return;
+
+        let encuestaActual = null;
+        let preguntasActuales = [];
+        // Usuario actual en sesión (para asociar respuesta y ocultar encuestas ya respondidas)
+        const usuarioId = {{ (session.get('user_id') or session.get('id_codigo_consumidor')) | tojson }};
+
+        async function cargarEncuestasActivasParaMi(){
+            try{
+                const res = await fetch('/api/encuestas/activas/para-mi');
+                const data = await res.json();
+                if (!data.success) return;
+                const encuestas = data.encuestas || [];
+                if (encuestas.length === 0) return;
+                encuestaActual = encuestas[0];
+                await renderPopup(encuestaActual.id_encuesta);
+                const modal = new bootstrap.Modal(document.getElementById('modalEncuestaActiva'));
+                modal.show();
+            }catch(e){ console.warn('No se pudo cargar encuestas activas', e); }
+        }
+
+        async function renderPopup(encuestaId){
+            const cont = document.getElementById('encuesta-popup-contenido');
+            cont.innerHTML = '<div class="text-center text-muted py-3">Cargando preguntas…</div>';
+            try{
+                const r = await fetch(`/api/encuestas/${encuestaId}`);
+                const d = await r.json();
+                if(!d.success){ cont.innerHTML = '<div class="text-danger">No se pudo cargar la encuesta.</div>'; return; }
+                const enc = d.encuesta || {};
+                const preguntas = d.preguntas || enc.preguntas || [];
+                // Normalizar campos desde nuestro builder
+                preguntasActuales = preguntas.map(p=>{
+                    const mapTipo = (t)=>{
+                        if (t === 'seleccion_unica' || t === 'dropdown') return 'opcion_unica';
+                        if (t === 'opcion_multiple' || t === 'checkbox') return 'opcion_multiple';
+                        return t; // texto, numero, fecha, hora, imagen, etc.
+                    };
+                    return {
+                        ...p,
+                        titulo: p.titulo || p.texto,
+                        obligatoria: p.obligatoria ?? !!p.requerida,
+                        tipo: mapTipo(p.tipo)
+                    };
+                });
+                const titulo = enc.titulo || 'Encuesta';
+                const htmlPregs = preguntasActuales.map(p=>{
+                    const req = p.obligatoria ? '<span class="text-danger">*</span>' : '';
+                    if (p.tipo === 'parrafo'){
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><textarea class="form-control" data-pid="${p.id_pregunta}"></textarea></div>`
+                    } else if (p.tipo === 'texto'){
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="text" class="form-control" data-pid="${p.id_pregunta}" /></div>`
+                    } else if (p.tipo === 'numero'){
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="number" class="form-control" data-pid="${p.id_pregunta}" /></div>`
+                    } else if (p.tipo === 'fecha'){
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="date" class="form-control" data-pid="${p.id_pregunta}" /></div>`
+                    } else if (p.tipo === 'hora'){
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="time" class="form-control" data-pid="${p.id_pregunta}" /></div>`
+                    } else if (p.tipo === 'opcion_unica'){
+                        const opts = (p.opciones||[]).map(o=>`<div class="form-check"><input class="form-check-input" type="radio" name="p-${p.id_pregunta}" value="${o.id_opcion}" data-pid="${p.id_pregunta}"><label class="form-check-label">${o.texto}</label></div>`).join('');
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${opts}</div>`
+                    } else if (p.tipo === 'opcion_multiple'){
+                        const opts = (p.opciones||[]).map(o=>`<div class="form-check"><input class="form-check-input" type="checkbox" value="${o.id_opcion}" data-pid="${p.id_pregunta}"><label class="form-check-label">${o.texto}</label></div>`).join('');
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${opts}</div>`
+                    } else if (p.tipo === 'imagen'){
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="file" accept="image/*" class="form-control" data-pid="${p.id_pregunta}" /></div>`
+                    }
+                    return '';
+                }).join('');
+                cont.innerHTML = `<h5 class="mb-3">${titulo}</h5>${htmlPregs}`;
+            }catch(e){ cont.innerHTML = '<div class="text-danger">Error cargando preguntas.</div>'; }
+        }
+
+        async function enviarRespuestas(){
+            if (!encuestaActual) return;
+            const encuestaId = encuestaActual.id_encuesta;
+            // Validación simple de obligatorias
+            for(const p of preguntasActuales){
+                if (!p.obligatoria) continue;
+                const inputs = document.querySelectorAll(`[data-pid="${p.id_pregunta}"]`);
+                let ok=false;
+                if (p.tipo === 'opcion_unica'){
+                    ok = Array.from(document.querySelectorAll(`input[name="p-${p.id_pregunta}"]`)).some(r=>r.checked);
+                } else if (p.tipo === 'opcion_multiple'){
+                    ok = Array.from(inputs).some(ch=>ch.checked);
+                } else if (p.tipo === 'imagen'){
+                    ok = inputs[0] && inputs[0].files && inputs[0].files.length>0;
+                } else {
+                    ok = inputs[0] && inputs[0].value.trim() !== '';
+                }
+                if(!ok){
+                    Swal.fire('Falta información', `Responde: ${p.titulo}`, 'warning');
+                    return;
+                }
+            }
+
+            // Construir payload con el esquema que espera el backend
+            const respuestas = colectarRespuestasBackend();
+
+            // Envío con soporte a archivos
+            const archivos = Array.from(document.querySelectorAll('#encuesta-popup-contenido input[type="file"][data-pid]'));
+            const tieneArchivo = archivos.some(el=>el.files && el.files.length>0);
+            if (tieneArchivo){
+                const fd = new FormData();
+                fd.append('payload', JSON.stringify({ respuestas, usuario_id: usuarioId }));
+                archivos.forEach((f)=>{
+                    const pid = f.getAttribute('data-pid');
+                    if (f.files[0]) fd.append(`file_${pid}`, f.files[0]);
+                });
+                const resp = await fetch(`/api/encuestas/${encuestaId}/respuestas`, { method:'POST', body: fd });
+                const d = await resp.json().catch(()=>({success:false}));
+                if (!resp.ok || !d.success){
+                    const falt = Array.isArray(d.faltantes) ? d.faltantes : null;
+                    const html = (d.message || 'No se pudo enviar la encuesta') + (falt ? '<br><div class="text-start mt-2"><strong>Faltantes:</strong><ul>' + falt.map(f=>`<li>${f}</li>`).join('') + '</ul></div>' : '');
+                    Swal.fire('Error', html, 'error');
+                    return;
+                }
+            } else {
+                const resp = await fetch(`/api/encuestas/${encuestaId}/respuestas`, {
+                    method: 'POST', headers: { 'Content-Type':'application/json' },
+                    body: JSON.stringify({ respuestas, usuario_id: usuarioId })
+                });
+                const d = await resp.json().catch(()=>({success:false}));
+                if (!resp.ok || !d.success){
+                    const falt = Array.isArray(d.faltantes) ? d.faltantes : null;
+                    const html = (d.message || 'No se pudo enviar la encuesta') + (falt ? '<br><div class="text-start mt-2"><strong>Faltantes:</strong><ul>' + falt.map(f=>`<li>${f}</li>`).join('') + '</ul></div>' : '');
+                    Swal.fire('Error', html, 'error');
+                    return;
+                }
+            }
+            Swal.fire('Gracias', 'Tus respuestas fueron enviadas.', 'success');
+            const modalEl = document.getElementById('modalEncuestaActiva');
+            bootstrap.Modal.getInstance(modalEl)?.hide();
+        }
+
+        function colectarRespuestasBackend(){
+            const out = [];
+            for(const p of preguntasActuales){
+                const pid = p.id_pregunta;
+                if (p.tipo === 'opcion_unica'){
+                    const sel = Array.from(document.querySelectorAll(`input[name="p-${pid}"]`)).find(r=>r.checked);
+                    if (sel) out.push({ pregunta_id: pid, tipo: 'seleccion_unica', opcion_id: sel.value });
+                } else if (p.tipo === 'opcion_multiple'){
+                    const sels = Array.from(document.querySelectorAll(`[data-pid="${pid}"]`)).filter(ch=>ch.checked).map(ch=>ch.value);
+                    out.push({ pregunta_id: pid, tipo: 'opcion_multiple', opcion_ids: sels });
+                } else if (p.tipo === 'imagen'){
+                    // El archivo se adjunta por FormData con clave file_<pregunta_id>
+                    out.push({ pregunta_id: pid, tipo: 'imagen' });
+                } else if (p.tipo === 'numero'){
+                    const v = document.querySelector(`[data-pid="${pid}"]`).value;
+                    out.push({ pregunta_id: pid, tipo: 'numero', valor_numero: v });
+                } else if (p.tipo === 'fecha' || p.tipo === 'hora'){
+                    const v = document.querySelector(`[data-pid="${pid}"]`).value;
+                    out.push({ pregunta_id: pid, tipo: p.tipo, valor_texto: v });
+                } else { // texto/parrafo
+                    const v = document.querySelector(`[data-pid="${pid}"]`).value;
+                    const tipoTexto = (p.tipo === 'parrafo') ? 'parrafo' : 'texto';
+                    out.push({ pregunta_id: pid, tipo: tipoTexto, valor_texto: v });
+                }
+            }
+            return out;
+        }
+
+        document.addEventListener('DOMContentLoaded', ()=>{
+            const btn = document.getElementById('btnEnviarEncuestaPopup');
+            if (btn) btn.addEventListener('click', enviarRespuestas);
+            cargarEncuestasActivasParaMi();
+        });
+    })();
     </script>
 
     {% block extra_js %}
