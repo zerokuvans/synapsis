@@ -1,0 +1,1079 @@
+{% extends "header.html" %}
+{% block content %}
+<style>
+  body { background: #f7f8fa; }
+  .page-title { font-weight: 600; }
+  .card-placeholder { border: 1px dashed #b8c1d9; background: #fff; }
+  .builder-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+  .list-group-item.active { background-color: #2a6ef0; border-color: #2a6ef0; }
+  .question-item { border: 1px solid #e4e7ef; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fafbfc; }
+  .option-pill { display:inline-block; background:#eef3ff; color:#2a6ef0; border:1px solid #d7e3ff; border-radius: 20px; padding: 2px 10px; margin-right: 6px; margin-top: 6px; font-size: .85rem; }
+</style>
+
+<div class="container py-4">
+  <div class="d-flex align-items-center mb-3">
+    <i class="fas fa-clipboard-list text-primary me-2" style="font-size: 1.5rem"></i>
+    <h1 class="page-title mb-0">Constructor de Encuestas</h1>
+  </div>
+
+  <div class="row g-4">
+    <!-- Panel izquierdo: listado y creación -->
+    <div class="col-lg-5">
+      <div class="builder-card p-3 mb-3">
+        <h6 class="mb-2">Nueva encuesta</h6>
+        <div class="mb-2">
+          <label class="form-label">Título</label>
+          <input id="enc-titulo" class="form-control" placeholder="Ej: Encuesta de satisfacción"/>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Descripción</label>
+          <textarea id="enc-descripcion" class="form-control" rows="2" placeholder="Opcional"></textarea>
+        </div>
+        <!-- Fila 1: Anónima, Visibilidad, Dirigida a -->
+        <div class="row g-3 mb-2 align-items-end">
+          <div class="col-auto">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="enc-anonima">
+              <label class="form-check-label" for="enc-anonima">Anónima</label>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Visibilidad</label>
+            <select id="enc-visibilidad" class="form-select">
+              <option value="privada">Privada</option>
+              <option value="publica">Pública</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Dirigida a</label>
+            <select id="enc-dirigida-a" class="form-select">
+              <option value="todos">Todos</option>
+              <option value="tecnicos">Técnicos</option>
+              <option value="analistas">Analistas</option>
+              <option value="supervisores">Supervisores</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Fila 2: Filtros de audiencia (solo cuando aplica) -->
+        <div class="row g-3 mb-2">
+          <div id="enc-supervisores-container" class="col-12 col-md-4" style="display:none;">
+            <label class="form-label">Supervisores (filtra técnicos)</label>
+            <input id="enc-supervisores-buscar" class="form-control mb-2" type="text" placeholder="Buscar supervisor..." />
+            <select id="enc-supervisores" class="form-select" multiple size="8" style="min-height:160px;"></select>
+            <div id="enc-supervisores-info" class="form-text">Mantén Ctrl/Cmd para seleccionar múltiples supervisores</div>
+          </div>
+          <div id="enc-carpetas-container" class="col-12 col-md-4" style="display:none;">
+            <label class="form-label">Carpetas (solo Técnicos)</label>
+            <input id="enc-carpetas-buscar" class="form-control mb-2" type="text" placeholder="Buscar carpeta..." />
+            <select id="enc-carpetas" class="form-select" multiple size="12" style="min-height:260px;"></select>
+            <div id="enc-carpetas-info" class="form-text">Mantén Ctrl/Cmd para seleccionar múltiples carpetas</div>
+          </div>
+          <div id="enc-tecnicos-container" class="col-12 col-md-4" style="display:none;">
+            <label class="form-label">Nombres de los Técnicos (según Supervisor)</label>
+            <div class="row g-2 align-items-end">
+              <div class="col-12">
+                <label class="form-label">Supervisor</label>
+                <select id="enc-tec-supervisor" class="form-select"></select>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Buscar técnico</label>
+                <input id="enc-tecnicos-buscar" class="form-control" type="text" placeholder="Escribe para filtrar..." />
+              </div>
+            </div>
+            <select id="enc-tecnicos" class="form-select mt-2" multiple size="10" style="min-height:220px;"></select>
+            <div id="enc-tecnicos-info" class="form-text">Primero elige un supervisor. Mantén Ctrl/Cmd para múltiples técnicos.</div>
+          </div>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-md-6">
+            <label class="form-label">Fecha inicio</label>
+            <input id="enc-fecha-inicio" type="datetime-local" class="form-control" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Fecha fin</label>
+            <input id="enc-fecha-fin" type="datetime-local" class="form-control" />
+          </div>
+          <div class="col-12"><div class="form-text">La encuesta se activará/desactivará automáticamente según estas fechas.</div></div>
+        </div>
+        <button id="btn-crear-encuesta" class="btn btn-primary w-100">
+          <i class="fas fa-plus me-1"></i>Crear encuesta
+        </button>
+      </div>
+
+      <div class="builder-card p-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h6 class="mb-0">Encuestas</h6>
+          <button id="btn-refrescar" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-sync"></i>
+          </button>
+        </div>
+        <ul id="lista-encuestas" class="list-group"></ul>
+      </div>
+    </div>
+
+    <!-- Panel derecho: builder de preguntas -->
+    <div class="col-lg-7">
+      <div class="builder-card p-3 mb-3">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <h5 id="encuesta-seleccionada-titulo" class="mb-1">Selecciona una encuesta</h5>
+            <div id="encuesta-seleccionada-desc" class="text-muted small"></div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <div id="encuesta-seleccionada-badges" class="text-muted"></div>
+            <button id="btn-editar-encuesta" class="btn btn-primary btn-sm" style="display:none;">
+              <i class="fas fa-edit"></i> Editar
+            </button>
+            <a id="btn-preview" class="btn btn-outline-primary btn-sm" style="display:none;">
+              <i class="fas fa-eye"></i> Previsualizar
+            </a>
+            <a id="btn-respuestas" class="btn btn-outline-success btn-sm" style="display:none;">
+              <i class="fas fa-list-alt"></i> Ver respuestas
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div id="builder-preguntas" class="builder-card p-3" style="display:none;">
+        <h6 class="mb-2">Agregar pregunta</h6>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-6">
+            <label class="form-label">Texto de la pregunta</label>
+            <input id="preg-texto" class="form-control" placeholder="Ej: ¿Cómo calificarías el servicio?"/>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Tipo</label>
+            <select id="preg-tipo" class="form-select">
+              <option value="texto">Texto</option>
+              <option value="parrafo">Párrafo</option>
+              <option value="numero">Número</option>
+              <option value="fecha">Fecha</option>
+              <option value="hora">Hora</option>
+              <option value="imagen">Imagen</option>
+              <option value="seleccion_unica">Selección única</option>
+              <option value="opcion_multiple">Opción múltiple</option>
+              <option value="checkbox">Checkbox</option>
+              <option value="dropdown">Dropdown</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="preg-requerida">
+              <label class="form-check-label" for="preg-requerida">Requerida</label>
+            </div>
+          </div>
+        </div>
+
+        <div id="preg-opciones-container" class="mt-2" style="display:none;">
+          <label class="form-label">Opciones</label>
+          <div class="input-group mb-2">
+            <input id="nuevo-texto-opcion" class="form-control" placeholder="Texto de opción"/>
+            <button id="btn-agregar-opcion" class="btn btn-outline-primary"><i class="fas fa-plus"></i></button>
+          </div>
+          <div id="opciones-list" class="d-flex flex-wrap"></div>
+        </div>
+
+        <div class="mt-3">
+          <button id="btn-agregar-pregunta" class="btn btn-success">
+            <i class="fas fa-check me-1"></i>Guardar pregunta
+          </button>
+        </div>
+
+        <hr class="my-3"/>
+        <h6 class="mb-2">Preguntas existentes</h6>
+        <div id="preguntas-existentes"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Editar encuesta -->
+  <div class="modal fade" id="modal-editar-encuesta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar encuesta</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Título</label>
+              <input id="edit-enc-titulo" class="form-control" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Descripción</label>
+              <textarea id="edit-enc-descripcion" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-md-3 d-flex align-items-center gap-2">
+              <input class="form-check-input" type="checkbox" id="edit-enc-anonima">
+              <label class="form-check-label" for="edit-enc-anonima">Anónima</label>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Visibilidad</label>
+              <select id="edit-enc-visibilidad" class="form-select">
+                <option value="privada">Privada</option>
+                <option value="publica">Pública</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Estado</label>
+              <select id="edit-enc-estado" class="form-select">
+                <option value="borrador">Borrador</option>
+                <option value="activa">Activa</option>
+              </select>
+            </div>
+          <div class="col-md-3">
+            <label class="form-label">Dirigida a</label>
+            <select id="edit-enc-dirigida-a" class="form-select">
+              <option value="todos">Todos</option>
+              <option value="tecnicos">Técnicos</option>
+              <option value="analistas">Analistas</option>
+              <option value="supervisores">Supervisores</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Fecha inicio</label>
+            <input id="edit-enc-fecha-inicio" type="datetime-local" class="form-control" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Fecha fin</label>
+            <input id="edit-enc-fecha-fin" type="datetime-local" class="form-control" />
+          </div>
+          <div class="col-12" id="edit-enc-supervisores-container" style="display:none;">
+            <label class="form-label">Supervisores (filtra técnicos)</label>
+            <input id="edit-enc-supervisores-buscar" class="form-control mb-2" type="text" placeholder="Buscar supervisor..." />
+            <select id="edit-enc-supervisores" class="form-select" multiple size="8" style="min-height:160px;"></select>
+            <div id="edit-enc-supervisores-info" class="form-text">Mantén Ctrl/Cmd para seleccionar múltiples supervisores</div>
+          </div>
+            <div class="col-12" id="edit-enc-carpetas-container" style="display:none;">
+              <label class="form-label">Carpetas (solo Técnicos)</label>
+              <input id="edit-enc-carpetas-buscar" class="form-control mb-2" type="text" placeholder="Buscar carpeta..." />
+              <select id="edit-enc-carpetas" class="form-select" multiple size="10" style="min-height:220px;"></select>
+              <div id="edit-enc-carpetas-info" class="form-text">Mantén Ctrl/Cmd para seleccionar múltiples carpetas</div>
+            </div>
+            <div class="col-12" id="edit-enc-tecnicos-container" style="display:none;">
+              <label class="form-label">Nombres de los Técnicos (según Supervisor)</label>
+              <div class="row g-2 align-items-end">
+                <div class="col-md-6">
+                  <label class="form-label">Supervisor</label>
+                  <select id="edit-enc-tec-supervisor" class="form-select"></select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Buscar técnico</label>
+                  <input id="edit-enc-tecnicos-buscar" class="form-control" type="text" placeholder="Escribe para filtrar..." />
+                </div>
+              </div>
+              <select id="edit-enc-tecnicos" class="form-select mt-2" multiple size="8" style="min-height:200px;"></select>
+              <div id="edit-enc-tecnicos-info" class="form-text">Selecciona el supervisor y luego marca los técnicos.</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button id="btn-guardar-encuesta" type="button" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i>Guardar cambios
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Editar pregunta -->
+  <div class="modal fade" id="modal-editar-pregunta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar pregunta</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="form-label">Texto</label>
+            <input id="edit-preg-texto" class="form-control" />
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Tipo</label>
+            <select id="edit-preg-tipo" class="form-select">
+              <option value="texto">Texto</option>
+              <option value="parrafo">Párrafo</option>
+              <option value="numero">Número</option>
+              <option value="fecha">Fecha</option>
+              <option value="hora">Hora</option>
+              <option value="imagen">Imagen</option>
+              <option value="seleccion_unica">Selección única</option>
+              <option value="opcion_multiple">Opción múltiple</option>
+              <option value="checkbox">Checkbox</option>
+              <option value="dropdown">Dropdown</option>
+            </select>
+          </div>
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="edit-preg-requerida">
+            <label class="form-check-label" for="edit-preg-requerida">Requerida</label>
+          </div>
+          <div id="edit-preg-opciones-container" style="display:none;">
+            <label class="form-label">Opciones (una por línea)</label>
+            <textarea id="edit-preg-opciones" class="form-control" rows="5" placeholder="Opción 1\nOpción 2\n..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button id="btn-guardar-pregunta" type="button" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i>Guardar cambios
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <a class="btn btn-outline-secondary" href="/lider"><i class="fas fa-arrow-left me-1"></i>Volver</a>
+    <a class="btn btn-outline-primary" href="/api/encuestas" target="_blank"><i class="fas fa-code me-1"></i>Ver API</a>
+  </div>
+</div>
+
+<script>
+(() => {
+  const lista = document.getElementById('lista-encuestas');
+  const btnCrear = document.getElementById('btn-crear-encuesta');
+  const btnRefrescar = document.getElementById('btn-refrescar');
+  const titulo = document.getElementById('enc-titulo');
+  const descripcion = document.getElementById('enc-descripcion');
+  const anonima = document.getElementById('enc-anonima');
+  const visibilidad = document.getElementById('enc-visibilidad');
+  const dirigidaA = document.getElementById('enc-dirigida-a');
+  const fechaInicio = document.getElementById('enc-fecha-inicio');
+  const fechaFin = document.getElementById('enc-fecha-fin');
+  const supervisoresContainer = document.getElementById('enc-supervisores-container');
+  const supervisoresSelect = document.getElementById('enc-supervisores');
+  const supervisoresBuscar = document.getElementById('enc-supervisores-buscar');
+  const supervisoresInfo = document.getElementById('enc-supervisores-info');
+  const carpetasContainer = document.getElementById('enc-carpetas-container');
+  const carpetasSelect = document.getElementById('enc-carpetas');
+  const carpetasBuscar = document.getElementById('enc-carpetas-buscar');
+  const carpetasInfo = document.getElementById('enc-carpetas-info');
+  const tecnicosContainer = document.getElementById('enc-tecnicos-container');
+  const encTecSupervisor = document.getElementById('enc-tec-supervisor');
+  const tecnicosBuscar = document.getElementById('enc-tecnicos-buscar');
+  const tecnicosSelect = document.getElementById('enc-tecnicos');
+  const tecnicosInfo = document.getElementById('enc-tecnicos-info');
+
+  const builder = document.getElementById('builder-preguntas');
+  const encTitulo = document.getElementById('encuesta-seleccionada-titulo');
+  const encDesc = document.getElementById('encuesta-seleccionada-desc');
+  const encBadges = document.getElementById('encuesta-seleccionada-badges');
+  const btnPreview = document.getElementById('btn-preview');
+  const btnRespuestas = document.getElementById('btn-respuestas');
+  const btnEditarEncuesta = document.getElementById('btn-editar-encuesta');
+
+  const pregTexto = document.getElementById('preg-texto');
+  const pregTipo = document.getElementById('preg-tipo');
+  const pregReq = document.getElementById('preg-requerida');
+  const pregOpcContainer = document.getElementById('preg-opciones-container');
+  const nuevoTextoOpcion = document.getElementById('nuevo-texto-opcion');
+  const btnAgregarOpcion = document.getElementById('btn-agregar-opcion');
+  const opcionesList = document.getElementById('opciones-list');
+  const btnAgregarPregunta = document.getElementById('btn-agregar-pregunta');
+  const preguntasExistentes = document.getElementById('preguntas-existentes');
+
+  let encuestaSeleccionada = null;
+  let opciones = [];
+  let cacheCarpetas = null;
+  let cacheSupervisores = null;
+  let cacheTecnicosPorSupervisor = {};
+
+  function toInputDateTime(v) {
+    if (!v) return '';
+    try {
+      const s = String(v);
+      const t = s.replace(' ', 'T');
+      return t.slice(0,16);
+    } catch (_) { return ''; }
+  }
+
+  function showToast(title, text, icon='success') {
+    if (window.Swal) {
+      Swal.fire({ title, text, icon, timer: 1500, showConfirmButton: false });
+    } else {
+      alert(title + ' - ' + text);
+    }
+  }
+
+  function renderOpciones() {
+    opcionesList.innerHTML = '';
+    opciones.forEach((op, idx) => {
+      const pill = document.createElement('span');
+      pill.className = 'option-pill';
+      pill.textContent = op.texto || ('Opción ' + (idx+1));
+      opcionesList.appendChild(pill);
+    });
+  }
+
+  pregTipo.addEventListener('change', () => {
+    const tiposConOpciones = new Set(['seleccion_unica','opcion_multiple','checkbox','dropdown']);
+    pregOpcContainer.style.display = tiposConOpciones.has(pregTipo.value) ? '' : 'none';
+  });
+
+  async function cargarCarpetas() {
+    if (cacheCarpetas) return cacheCarpetas;
+    try {
+      const res = await fetch('/api/recursos/carpetas');
+      const data = await res.json();
+      if (data.success) {
+        cacheCarpetas = data.carpetas || [];
+        return cacheCarpetas;
+      }
+    } catch (e) {}
+    cacheCarpetas = [];
+    return cacheCarpetas;
+  }
+
+  function updateCarpetasInfo() {
+    if (!carpetasInfo) return;
+    const seleccionadas = Array.from(carpetasSelect.selectedOptions).map(o => o.value);
+    const count = seleccionadas.length;
+    const help = 'Mantén Ctrl/Cmd para seleccionar múltiples carpetas';
+    carpetasInfo.textContent = count > 0 ? `${count} seleccionada(s) • ${help}` : help;
+  }
+
+  function updateSupervisoresInfo() {
+    if (!supervisoresInfo) return;
+    const seleccionadas = Array.from(supervisoresSelect.selectedOptions).map(o => o.value);
+    const count = seleccionadas.length;
+    const help = 'Mantén Ctrl/Cmd para seleccionar múltiples supervisores';
+    supervisoresInfo.textContent = count > 0 ? `${count} seleccionado(s) • ${help}` : help;
+  }
+
+  async function cargarSupervisores() {
+    if (cacheSupervisores) return cacheSupervisores;
+    try {
+      const res = await fetch('/api/supervisores');
+      const data = await res.json();
+      if (data.success) {
+        cacheSupervisores = data.supervisores || [];
+        return cacheSupervisores;
+      }
+    } catch (_) {}
+    cacheSupervisores = [];
+    return cacheSupervisores;
+  }
+
+  function renderSupervisores(filtro = '') {
+    const lista = cacheSupervisores || [];
+    const seleccionadas = new Set(Array.from(supervisoresSelect.selectedOptions).map(o => o.value));
+    const filtroLc = (filtro || '').toLowerCase();
+    const filtradas = filtroLc ? lista.filter(s => (s || '').toLowerCase().includes(filtroLc)) : lista;
+    supervisoresSelect.innerHTML = '';
+    filtradas.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s; opt.textContent = s; if (seleccionadas.has(s)) opt.selected = true; supervisoresSelect.appendChild(opt);
+    });
+    updateSupervisoresInfo();
+  }
+
+  function renderCarpetas(filtro = '') {
+    const lista = cacheCarpetas || [];
+    const seleccionadas = new Set(Array.from(carpetasSelect.selectedOptions).map(o => o.value));
+    const filtroLc = (filtro || '').toLowerCase();
+    const filtradas = filtroLc
+      ? lista.filter(c => (c || '').toLowerCase().includes(filtroLc))
+      : lista;
+
+    carpetasSelect.innerHTML = '';
+    filtradas.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      if (seleccionadas.has(c)) opt.selected = true;
+      carpetasSelect.appendChild(opt);
+    });
+    updateCarpetasInfo();
+  }
+
+  async function mostrarOcultarCarpetas() { // mantiene compatibilidad con código existente
+    const esTecnicos = dirigidaA.value === 'tecnicos';
+    carpetasContainer.style.display = esTecnicos ? '' : 'none';
+    supervisoresContainer.style.display = esTecnicos ? '' : 'none';
+    tecnicosContainer.style.display = esTecnicos ? '' : 'none';
+    if (esTecnicos) {
+      await cargarSupervisores();
+      renderSupervisores((supervisoresBuscar && supervisoresBuscar.value) ? supervisoresBuscar.value.trim() : '');
+      await cargarCarpetas();
+      renderCarpetas((carpetasBuscar && carpetasBuscar.value) ? carpetasBuscar.value.trim() : '');
+      // Poblar select de supervisor para técnicos
+      encTecSupervisor.innerHTML = '<option value="">-- Selecciona supervisor --</option>';
+      (cacheSupervisores || []).forEach(s => {
+        const opt = document.createElement('option'); opt.value = s; opt.textContent = s; encTecSupervisor.appendChild(opt);
+      });
+    } else {
+      supervisoresSelect.innerHTML = '';
+      updateSupervisoresInfo();
+      carpetasSelect.innerHTML = '';
+      updateCarpetasInfo();
+      encTecSupervisor.innerHTML = '';
+      tecnicosSelect.innerHTML = '';
+      if (tecnicosInfo) tecnicosInfo.textContent = 'Primero elige un supervisor. Mantén Ctrl/Cmd para múltiples técnicos.';
+    }
+  }
+
+  dirigidaA.addEventListener('change', mostrarOcultarCarpetas);
+  if (supervisoresBuscar) {
+    supervisoresBuscar.addEventListener('input', () => {
+      if (dirigidaA.value === 'tecnicos') renderSupervisores(supervisoresBuscar.value.trim());
+    });
+  }
+  if (supervisoresSelect) supervisoresSelect.addEventListener('change', updateSupervisoresInfo);
+  if (carpetasBuscar) {
+    carpetasBuscar.addEventListener('input', () => {
+      if (dirigidaA.value === 'tecnicos') renderCarpetas(carpetasBuscar.value.trim());
+    });
+  }
+  carpetasSelect.addEventListener('change', updateCarpetasInfo);
+  function updateTecnicosInfo() {
+    if (!tecnicosInfo) return; const count = Array.from(tecnicosSelect.selectedOptions).length;
+    const help = 'Mantén Ctrl/Cmd para múltiples técnicos'; tecnicosInfo.textContent = count > 0 ? `${count} seleccionado(s) • ${help}` : `Primero elige un supervisor. ${help}`;
+  }
+  async function cargarTecnicosPorSupervisor(supervisor) {
+    if (!supervisor) return [];
+    if (cacheTecnicosPorSupervisor[supervisor]) return cacheTecnicosPorSupervisor[supervisor];
+    try {
+      const r = await fetch(`/api/tecnicos_por_supervisor?supervisor=${encodeURIComponent(supervisor)}`);
+      const d = await r.json();
+      if (d && d.success) {
+        const lista = (d.tecnicos || []).map(t => ({ id: String(t.id_codigo_consumidor), nombre: t.nombre }));
+        cacheTecnicosPorSupervisor[supervisor] = lista; return lista;
+      }
+    } catch (_) {}
+    cacheTecnicosPorSupervisor[supervisor] = [];
+    return [];
+  }
+  function renderTecnicos(filtro = '') {
+    const sup = encTecSupervisor.value || '';
+    const lista = cacheTecnicosPorSupervisor[sup] || [];
+    const seleccionadas = new Set(Array.from(tecnicosSelect.selectedOptions).map(o => o.value));
+    const f = (filtro || '').toLowerCase();
+    const filtradas = f ? lista.filter(t => (t.nombre || '').toLowerCase().includes(f)) : lista;
+    tecnicosSelect.innerHTML = '';
+    filtradas.forEach(t => { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = `${t.nombre} (ID ${t.id})`; if (seleccionadas.has(t.id)) opt.selected = true; tecnicosSelect.appendChild(opt); });
+    updateTecnicosInfo();
+  }
+  encTecSupervisor.addEventListener('change', async () => { const sup = encTecSupervisor.value; await cargarTecnicosPorSupervisor(sup); renderTecnicos(tecnicosBuscar.value.trim()); });
+  if (tecnicosBuscar) tecnicosBuscar.addEventListener('input', () => renderTecnicos(tecnicosBuscar.value.trim()));
+  if (tecnicosSelect) tecnicosSelect.addEventListener('change', updateTecnicosInfo);
+  // Inicializar estado
+  mostrarOcultarCarpetas();
+
+  btnAgregarOpcion.addEventListener('click', (e) => {
+    e.preventDefault();
+    const texto = (nuevoTextoOpcion.value || '').trim();
+    opciones.push({ texto });
+    nuevoTextoOpcion.value = '';
+    renderOpciones();
+  });
+
+  async function cargarEncuestas() {
+    lista.innerHTML = '';
+    try {
+      const res = await fetch('/api/encuestas', {
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+
+      if (!res.ok) {
+        const ct = res.headers.get('Content-Type') || '';
+        let message = `Error HTTP: ${res.status}`;
+        if (ct.includes('application/json')) {
+          try {
+            const body = await res.json();
+            message = body.message || message;
+          } catch (_) {
+            // Ignorar errores de parseo JSON
+          }
+        } else {
+          try {
+            const text = await res.text();
+            message = (text && text.slice(0, 120)) || message;
+          } catch (_) {}
+        }
+        showToast('Error', message, 'error');
+        return;
+      }
+
+      const data = await res.json();
+      if (!data.success) {
+        showToast('Error', data.message || 'No se pudo cargar encuestas', 'error');
+        return;
+      }
+
+      const encuestas = data.encuestas || [];
+      if (encuestas.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item';
+        li.textContent = 'No hay encuestas aún';
+        lista.appendChild(li);
+        return;
+      }
+
+      encuestas.forEach((enc) => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+        li.innerHTML = `<span>${enc.titulo}</span><span class="badge bg-secondary">${enc.estado || ''}</span>`;
+        li.addEventListener('click', () => seleccionarEncuesta(enc.id_encuesta));
+        lista.appendChild(li);
+      });
+    } catch (err) {
+      console.error('[encuestas] Error cargando encuestas:', err);
+      showToast('Error', 'Falló la carga de encuestas', 'error');
+    }
+  }
+
+  async function seleccionarEncuesta(id) {
+    const res = await fetch(`/api/encuestas/${id}`);
+    const data = await res.json();
+    if (!data.success) { showToast('Error', 'No se pudo cargar la encuesta', 'error'); return; }
+    encuestaSeleccionada = data.encuesta;
+    encTitulo.textContent = encuestaSeleccionada.titulo;
+    encDesc.textContent = encuestaSeleccionada.descripcion || '';
+    encBadges.innerHTML = `<span class="badge bg-info me-1">${encuestaSeleccionada.estado}</span>` +
+                          `<span class="badge bg-dark">${encuestaSeleccionada.visibilidad || 'privada'}</span>`;
+    builder.style.display = '';
+    btnPreview.style.display = '';
+    btnPreview.href = `/lider/encuestas/${encuestaSeleccionada.id_encuesta}/preview`;
+    btnRespuestas.style.display = '';
+    btnRespuestas.href = `/lider/encuestas/${encuestaSeleccionada.id_encuesta}/respuestas`;
+    if (btnEditarEncuesta) btnEditarEncuesta.style.display = '';
+    renderPreguntasExistentes(encuestaSeleccionada.preguntas || []);
+  }
+
+  function renderPreguntasExistentes(pregs) {
+    preguntasExistentes.innerHTML = '';
+    pregs.forEach((p) => {
+      const div = document.createElement('div');
+      div.className = 'question-item';
+      const opts = (p.opciones || []).map(o => `<span class="option-pill">${o.texto}</span>`).join('');
+      div.innerHTML = `<div class="fw-semibold">${p.texto}</div>` +
+                      `<div class="text-muted small">Tipo: ${p.tipo} ${p.requerida ? '• Requerida' : ''} • Orden: ${p.orden ?? 0}</div>` +
+                      `<div class="mt-2">${opts}</div>` +
+                      `<div class="mt-2 d-flex gap-2">
+                         <button class="btn btn-sm btn-outline-primary" data-action="edit"><i class="fas fa-edit"></i></button>
+                         <button class="btn btn-sm btn-outline-secondary" data-action="up"><i class="fas fa-arrow-up"></i></button>
+                         <button class="btn btn-sm btn-outline-secondary" data-action="down"><i class="fas fa-arrow-down"></i></button>
+                         <button class="btn btn-sm btn-outline-danger" data-action="delete"><i class="fas fa-trash"></i></button>
+                       </div>`;
+
+      const btnEdit = div.querySelector('[data-action="edit"]');
+      const btnUp = div.querySelector('[data-action="up"]');
+      const btnDown = div.querySelector('[data-action="down"]');
+      const btnDelete = div.querySelector('[data-action="delete"]');
+      btnEdit.addEventListener('click', () => abrirModalEditarPregunta(p));
+      btnUp.addEventListener('click', () => moverPregunta(p.id_pregunta, Math.max(0, (p.orden ?? 0) - 1)));
+      btnDown.addEventListener('click', () => moverPregunta(p.id_pregunta, (p.orden ?? 0) + 1));
+      btnDelete.addEventListener('click', () => eliminarPregunta(p.id_pregunta));
+      preguntasExistentes.appendChild(div);
+    });
+  }
+
+  // ====== Edición de encuesta ======
+  const editEncTitulo = document.getElementById('edit-enc-titulo');
+  const editEncDesc = document.getElementById('edit-enc-descripcion');
+  const editEncAnonima = document.getElementById('edit-enc-anonima');
+  const editEncVisibilidad = document.getElementById('edit-enc-visibilidad');
+  const editEncEstado = document.getElementById('edit-enc-estado');
+  const editDirigidaA = document.getElementById('edit-enc-dirigida-a');
+  const editFechaInicio = document.getElementById('edit-enc-fecha-inicio');
+  const editFechaFin = document.getElementById('edit-enc-fecha-fin');
+  const editSupervisoresContainer = document.getElementById('edit-enc-supervisores-container');
+  const editSupervisoresSelect = document.getElementById('edit-enc-supervisores');
+  const editSupervisoresBuscar = document.getElementById('edit-enc-supervisores-buscar');
+  const editSupervisoresInfo = document.getElementById('edit-enc-supervisores-info');
+  const editCarpetasContainer = document.getElementById('edit-enc-carpetas-container');
+  const editCarpetasSelect = document.getElementById('edit-enc-carpetas');
+  const editCarpetasBuscar = document.getElementById('edit-enc-carpetas-buscar');
+  const editCarpetasInfo = document.getElementById('edit-enc-carpetas-info');
+  const editTecnicosContainer = document.getElementById('edit-enc-tecnicos-container');
+  const editEncTecSupervisor = document.getElementById('edit-enc-tec-supervisor');
+  const editTecnicosBuscar = document.getElementById('edit-enc-tecnicos-buscar');
+  const editTecnicosSelect = document.getElementById('edit-enc-tecnicos');
+  const editTecnicosInfo = document.getElementById('edit-enc-tecnicos-info');
+
+  function updateCarpetasInfoEdit() {
+    if (!editCarpetasInfo) return;
+    const seleccionadas = Array.from(editCarpetasSelect.selectedOptions).map(o => o.value);
+    const count = seleccionadas.length;
+    const help = 'Mantén Ctrl/Cmd para seleccionar múltiples carpetas';
+    editCarpetasInfo.textContent = count > 0 ? `${count} seleccionada(s) • ${help}` : help;
+  }
+
+  function renderCarpetasEdit(filtro = '') {
+    const lista = cacheCarpetas || [];
+    const seleccionadas = new Set(Array.from(editCarpetasSelect.selectedOptions).map(o => o.value));
+    const filtroLc = (filtro || '').toLowerCase();
+    const filtradas = filtroLc ? lista.filter(c => (c || '').toLowerCase().includes(filtroLc)) : lista;
+    editCarpetasSelect.innerHTML = '';
+    filtradas.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c; opt.textContent = c; if (seleccionadas.has(c)) opt.selected = true; editCarpetasSelect.appendChild(opt);
+    });
+    updateCarpetasInfoEdit();
+  }
+
+  async function mostrarOcultarCarpetasEdit() {
+    const esTecnicos = editDirigidaA.value === 'tecnicos';
+    editCarpetasContainer.style.display = esTecnicos ? '' : 'none';
+    editSupervisoresContainer.style.display = esTecnicos ? '' : 'none';
+    if (editTecnicosContainer) editTecnicosContainer.style.display = esTecnicos ? '' : 'none';
+    if (esTecnicos) {
+      await cargarSupervisores();
+      // mantener selección al re-renderizar
+      const actualesSup = new Set(Array.from(editSupervisoresSelect.selectedOptions).map(o => o.value));
+      editSupervisoresSelect.innerHTML = '';
+      (cacheSupervisores || []).forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s; if (actualesSup.has(s)) opt.selected = true; editSupervisoresSelect.appendChild(opt);
+      });
+      // Poblado del select de supervisor para el bloque de técnicos (edición)
+      if (editEncTecSupervisor) {
+        const seleccionado = editEncTecSupervisor.value;
+        editEncTecSupervisor.innerHTML = '<option value="">-- Selecciona supervisor --</option>';
+        (cacheSupervisores || []).forEach(s => {
+          const opt = document.createElement('option'); opt.value = s; opt.textContent = s; editEncTecSupervisor.appendChild(opt);
+        });
+        if (seleccionado) editEncTecSupervisor.value = seleccionado;
+      }
+      if (editSupervisoresInfo) {
+        const count = actualesSup.size;
+        const help = 'Mantén Ctrl/Cmd para seleccionar múltiples supervisores';
+        editSupervisoresInfo.textContent = count > 0 ? `${count} seleccionado(s) • ${help}` : help;
+      }
+      await cargarCarpetas();
+      renderCarpetasEdit((editCarpetasBuscar && editCarpetasBuscar.value) ? editCarpetasBuscar.value.trim() : '');
+      if (editEncTecSupervisor && editEncTecSupervisor.value) {
+        await cargarTecnicosPorSupervisor(editEncTecSupervisor.value);
+        // Mantener selección al re-renderizar
+        const filtro = (editTecnicosBuscar && editTecnicosBuscar.value) ? editTecnicosBuscar.value.trim() : '';
+        const actualesTec = new Set(Array.from(editTecnicosSelect.selectedOptions).map(o => o.value));
+        const lista = cacheTecnicosPorSupervisor[editEncTecSupervisor.value] || [];
+        const f = (filtro || '').toLowerCase();
+        const filtradas = f ? lista.filter(t => (t.nombre || '').toLowerCase().includes(f)) : lista;
+        editTecnicosSelect.innerHTML = '';
+        filtradas.forEach(t => { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = `${t.nombre} (ID ${t.id})`; if (actualesTec.has(t.id)) opt.selected = true; editTecnicosSelect.appendChild(opt); });
+        if (editTecnicosInfo) {
+          const count = Array.from(editTecnicosSelect.selectedOptions).length;
+          const help = 'Mantén Ctrl/Cmd para múltiples técnicos';
+          editTecnicosInfo.textContent = count > 0 ? `${count} seleccionado(s) • ${help}` : help;
+        }
+      }
+    } else {
+      editSupervisoresSelect.innerHTML = '';
+      if (editSupervisoresInfo) editSupervisoresInfo.textContent = 'Mantén Ctrl/Cmd para seleccionar múltiples supervisores';
+      editCarpetasSelect.innerHTML = '';
+      updateCarpetasInfoEdit();
+      if (editEncTecSupervisor) editEncTecSupervisor.innerHTML = '';
+      if (editTecnicosSelect) editTecnicosSelect.innerHTML = '';
+    }
+  }
+
+  if (editCarpetasBuscar) {
+    editCarpetasBuscar.addEventListener('input', () => {
+      if (editDirigidaA.value === 'tecnicos') renderCarpetasEdit(editCarpetasBuscar.value.trim());
+    });
+  }
+  if (editCarpetasSelect) editCarpetasSelect.addEventListener('change', updateCarpetasInfoEdit);
+  if (editDirigidaA) editDirigidaA.addEventListener('change', mostrarOcultarCarpetasEdit);
+  if (editSupervisoresBuscar) {
+    editSupervisoresBuscar.addEventListener('input', () => {
+      if (editDirigidaA.value === 'tecnicos') {
+        const filtro = editSupervisoresBuscar.value.trim();
+        const lista = cacheSupervisores || [];
+        const seleccionadas = new Set(Array.from(editSupervisoresSelect.selectedOptions).map(o => o.value));
+        const filtradas = filtro ? lista.filter(s => (s || '').toLowerCase().includes(filtro.toLowerCase())) : lista;
+        editSupervisoresSelect.innerHTML = '';
+        filtradas.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s; opt.textContent = s; if (seleccionadas.has(s)) opt.selected = true; editSupervisoresSelect.appendChild(opt);
+        });
+      }
+    });
+  }
+  if (editSupervisoresSelect) editSupervisoresSelect.addEventListener('change', () => {
+    if (editSupervisoresInfo) {
+      const count = Array.from(editSupervisoresSelect.selectedOptions).length;
+      const help = 'Mantén Ctrl/Cmd para seleccionar múltiples supervisores';
+      editSupervisoresInfo.textContent = count > 0 ? `${count} seleccionado(s) • ${help}` : help;
+    }
+  });
+
+  function updateTecnicosInfoEdit() {
+    if (!editTecnicosInfo) return; const count = Array.from(editTecnicosSelect.selectedOptions).length;
+    const help = 'Mantén Ctrl/Cmd para múltiples técnicos';
+    editTecnicosInfo.textContent = count > 0 ? `${count} seleccionado(s) • ${help}` : help;
+  }
+  if (editEncTecSupervisor) editEncTecSupervisor.addEventListener('change', async () => {
+    const sup = editEncTecSupervisor.value; await cargarTecnicosPorSupervisor(sup); // re-render
+    const filtro = (editTecnicosBuscar && editTecnicosBuscar.value) ? editTecnicosBuscar.value.trim() : '';
+    const lista = cacheTecnicosPorSupervisor[sup] || [];
+    const f = (filtro || '').toLowerCase();
+    const filtradas = f ? lista.filter(t => (t.nombre || '').toLowerCase().includes(f)) : lista;
+    // mantener selección
+    const actuales = new Set(Array.from(editTecnicosSelect.selectedOptions).map(o => o.value));
+    editTecnicosSelect.innerHTML = '';
+    filtradas.forEach(t => { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = `${t.nombre} (ID ${t.id})`; if (actuales.has(t.id)) opt.selected = true; editTecnicosSelect.appendChild(opt); });
+    updateTecnicosInfoEdit();
+  });
+  if (editTecnicosBuscar) editTecnicosBuscar.addEventListener('input', () => {
+    const f = editTecnicosBuscar.value.trim();
+    const sup = editEncTecSupervisor.value;
+    const lista = cacheTecnicosPorSupervisor[sup] || [];
+    const filtradas = f ? lista.filter(t => (t.nombre || '').toLowerCase().includes(f.toLowerCase())) : lista;
+    const actuales = new Set(Array.from(editTecnicosSelect.selectedOptions).map(o => o.value));
+    editTecnicosSelect.innerHTML = '';
+    filtradas.forEach(t => { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = `${t.nombre} (ID ${t.id})`; if (actuales.has(t.id)) opt.selected = true; editTecnicosSelect.appendChild(opt); });
+    updateTecnicosInfoEdit();
+  });
+  if (editTecnicosSelect) editTecnicosSelect.addEventListener('change', updateTecnicosInfoEdit);
+
+  function abrirModalEditarEncuesta() {
+    if (!encuestaSeleccionada) return;
+    editEncTitulo.value = encuestaSeleccionada.titulo || '';
+    editEncDesc.value = encuestaSeleccionada.descripcion || '';
+    editEncAnonima.checked = !!encuestaSeleccionada.anonima;
+    editEncVisibilidad.value = encuestaSeleccionada.visibilidad || 'privada';
+    editEncEstado.value = encuestaSeleccionada.estado || 'borrador';
+    editDirigidaA.value = encuestaSeleccionada.dirigida_a || 'todos';
+    // fechas
+    editFechaInicio.value = toInputDateTime(encuestaSeleccionada.fecha_inicio);
+    editFechaFin.value = toInputDateTime(encuestaSeleccionada.fecha_fin);
+
+    const setCarpetas = async () => {
+      await cargarCarpetas();
+      editCarpetasSelect.innerHTML = '';
+      const actuales = new Set((encuestaSeleccionada.audiencia_carpetas || []).map(c => String(c)));
+      (cacheCarpetas || []).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c; if (actuales.has(c)) opt.selected = true; editCarpetasSelect.appendChild(opt);
+      });
+      updateCarpetasInfoEdit();
+    };
+    const setSupervisores = async () => {
+      await cargarSupervisores();
+      editSupervisoresSelect.innerHTML = '';
+      const actualesSup = new Set((encuestaSeleccionada.audiencia_supervisores || []).map(s => String(s)));
+      (cacheSupervisores || []).forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s; if (actualesSup.has(s)) opt.selected = true; editSupervisoresSelect.appendChild(opt);
+      });
+      // Supervisor para técnicos (edición): usar el primero de audiencia_supervisores si existe
+      if (editEncTecSupervisor) {
+        editEncTecSupervisor.innerHTML = '<option value="">-- Selecciona supervisor --</option>';
+        (cacheSupervisores || []).forEach(s => { const opt = document.createElement('option'); opt.value = s; opt.textContent = s; editEncTecSupervisor.appendChild(opt); });
+        if (actualesSup.size > 0) {
+          const primero = Array.from(actualesSup)[0];
+          editEncTecSupervisor.value = primero;
+          await cargarTecnicosPorSupervisor(primero);
+        }
+      }
+      if (editSupervisoresInfo) {
+        const count = actualesSup.size;
+        const help = 'Mantén Ctrl/Cmd para seleccionar múltiples supervisores';
+        editSupervisoresInfo.textContent = count > 0 ? `${count} seleccionado(s) • ${help}` : help;
+      }
+    };
+    const setTecnicos = async () => {
+      if (!editEncTecSupervisor) return;
+      const sup = editEncTecSupervisor.value;
+      if (sup) await cargarTecnicosPorSupervisor(sup);
+      const actualesTec = new Set((encuestaSeleccionada.audiencia_tecnicos || []).map(x => String(x)));
+      const lista = sup ? (cacheTecnicosPorSupervisor[sup] || []) : [];
+      editTecnicosSelect.innerHTML = '';
+      lista.forEach(t => { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = `${t.nombre} (ID ${t.id})`; if (actualesTec.has(String(t.id))) opt.selected = true; editTecnicosSelect.appendChild(opt); });
+      updateTecnicosInfoEdit();
+    };
+    if (editDirigidaA.value === 'tecnicos') { setSupervisores().then(setTecnicos); setCarpetas(); }
+    mostrarOcultarCarpetasEdit();
+    const modal = window.bootstrap ? new bootstrap.Modal(document.getElementById('modal-editar-encuesta')) : null;
+    if (modal) modal.show();
+  }
+
+  async function guardarEdicionEncuesta() {
+    if (!encuestaSeleccionada) return;
+    const payload = {
+      titulo: editEncTitulo.value.trim(),
+      descripcion: editEncDesc.value.trim(),
+      anonima: !!editEncAnonima.checked,
+      visibilidad: editEncVisibilidad.value,
+      estado: editEncEstado.value,
+      dirigida_a: editDirigidaA.value,
+      fecha_inicio: editFechaInicio.value || null,
+      fecha_fin: editFechaFin.value || null
+    };
+    if (!payload.titulo) { showToast('Falta título', 'Ingresa un título', 'warning'); return; }
+    if (payload.dirigida_a === 'tecnicos') {
+      const supSeleccionados = Array.from(editSupervisoresSelect.selectedOptions).map(o => o.value).filter(Boolean);
+      payload.audiencia_supervisores = supSeleccionados;
+      const seleccionadas = Array.from(editCarpetasSelect.selectedOptions).map(o => o.value).filter(Boolean);
+      payload.audiencia_carpetas = seleccionadas;
+      const tecSeleccionados = Array.from(editTecnicosSelect.selectedOptions).map(o => o.value).filter(Boolean);
+      if (tecSeleccionados.length > 0) payload.audiencia_tecnicos = tecSeleccionados;
+    } else {
+      payload.audiencia_supervisores = [];
+      payload.audiencia_carpetas = [];
+      payload.audiencia_tecnicos = [];
+    }
+    const res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Guardado', 'Encuesta actualizada');
+      if (window.bootstrap) {
+        const m = bootstrap.Modal.getInstance(document.getElementById('modal-editar-encuesta'));
+        if (m) m.hide();
+      }
+      await cargarEncuestas();
+      await seleccionarEncuesta(encuestaSeleccionada.id_encuesta);
+    } else {
+      showToast('Error', data.message || 'No se pudo actualizar', 'error');
+    }
+  }
+  if (btnEditarEncuesta) btnEditarEncuesta.addEventListener('click', abrirModalEditarEncuesta);
+  const btnGuardarEncuesta = document.getElementById('btn-guardar-encuesta');
+  if (btnGuardarEncuesta) btnGuardarEncuesta.addEventListener('click', guardarEdicionEncuesta);
+
+  // ====== Edición de pregunta ======
+  const editPregTexto = document.getElementById('edit-preg-texto');
+  const editPregTipo = document.getElementById('edit-preg-tipo');
+  const editPregReq = document.getElementById('edit-preg-requerida');
+  const editPregOpcContainer = document.getElementById('edit-preg-opciones-container');
+  const editPregOpciones = document.getElementById('edit-preg-opciones');
+  const btnGuardarPregunta = document.getElementById('btn-guardar-pregunta');
+  let editPreguntaActual = null;
+
+  function toggleOpcionesEdit() {
+    const tiposConOpciones = new Set(['seleccion_unica','opcion_multiple','checkbox','dropdown']);
+    editPregOpcContainer.style.display = tiposConOpciones.has(editPregTipo.value) ? '' : 'none';
+  }
+  if (editPregTipo) editPregTipo.addEventListener('change', toggleOpcionesEdit);
+
+  function abrirModalEditarPregunta(p) {
+    editPreguntaActual = p;
+    editPregTexto.value = p.texto || '';
+    editPregTipo.value = p.tipo || 'texto';
+    editPregReq.checked = !!p.requerida;
+    editPregOpciones.value = (p.opciones || []).map(o => o.texto || '').join('\n');
+    toggleOpcionesEdit();
+    const modal = window.bootstrap ? new bootstrap.Modal(document.getElementById('modal-editar-pregunta')) : null;
+    if (modal) modal.show();
+  }
+
+  async function guardarEdicionPregunta() {
+    if (!encuestaSeleccionada || !editPreguntaActual) return;
+    const payload = {
+      tipo: editPregTipo.value,
+      texto: editPregTexto.value.trim(),
+      requerida: !!editPregReq.checked
+    };
+    if (!payload.texto) { showToast('Falta texto', 'Ingresa el texto de la pregunta', 'warning'); return; }
+    const tiposConOpciones = new Set(['seleccion_unica','opcion_multiple','checkbox','dropdown']);
+    if (tiposConOpciones.has(payload.tipo)) {
+      const lineas = (editPregOpciones.value || '').split('\n').map(s => s.trim()).filter(Boolean);
+      payload.opciones = lineas.map(t => ({ texto: t }));
+    }
+    const res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}/preguntas/${editPreguntaActual.id_pregunta}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Guardado', 'Pregunta actualizada');
+      if (window.bootstrap) {
+        const m = bootstrap.Modal.getInstance(document.getElementById('modal-editar-pregunta'));
+        if (m) m.hide();
+      }
+      await seleccionarEncuesta(encuestaSeleccionada.id_encuesta);
+    } else {
+      showToast('Error', data.message || 'No se pudo actualizar', 'error');
+    }
+  }
+  if (btnGuardarPregunta) btnGuardarPregunta.addEventListener('click', guardarEdicionPregunta);
+
+  async function eliminarPregunta(idPregunta) {
+    if (!encuestaSeleccionada) return;
+    const confirmar = window.Swal ? await Swal.fire({ title: 'Eliminar pregunta', text: 'Esta acción no se puede deshacer', icon: 'warning', showCancelButton: true, confirmButtonText: 'Eliminar', cancelButtonText: 'Cancelar' }) : { isConfirmed: confirm('¿Eliminar?') };
+    if (!confirmar.isConfirmed) return;
+    const res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}/preguntas/${idPregunta}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Eliminada', 'La pregunta fue eliminada');
+      await seleccionarEncuesta(encuestaSeleccionada.id_encuesta);
+    } else {
+      showToast('Error', data.message || 'No se pudo eliminar', 'error');
+    }
+  }
+
+  async function moverPregunta(idPregunta, nuevoOrden) {
+    if (!encuestaSeleccionada) return;
+    const res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}/preguntas/${idPregunta}/orden`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ orden: nuevoOrden }) });
+    const data = await res.json();
+    if (data.success) {
+      await seleccionarEncuesta(encuestaSeleccionada.id_encuesta);
+    } else {
+      showToast('Error', data.message || 'No se pudo actualizar el orden', 'error');
+    }
+  }
+
+  btnCrear.addEventListener('click', async () => {
+    const payload = {
+      titulo: titulo.value.trim(),
+      descripcion: descripcion.value.trim(),
+      anonima: anonima.checked,
+      visibilidad: visibilidad.value,
+      dirigida_a: dirigidaA.value,
+      estado: 'borrador',
+      fecha_inicio: (fechaInicio && fechaInicio.value) ? fechaInicio.value : null,
+      fecha_fin: (fechaFin && fechaFin.value) ? fechaFin.value : null
+    };
+    if (payload.dirigida_a === 'tecnicos') {
+      const supSeleccionados = Array.from(supervisoresSelect.selectedOptions).map(o => o.value).filter(Boolean);
+      if (supSeleccionados.length > 0) payload.audiencia_supervisores = supSeleccionados;
+      const seleccionadas = Array.from(carpetasSelect.selectedOptions).map(o => o.value).filter(Boolean);
+      if (seleccionadas.length > 0) payload.audiencia_carpetas = seleccionadas;
+      const tecSeleccionados = Array.from(tecnicosSelect.selectedOptions).map(o => o.value).filter(Boolean);
+      if (tecSeleccionados.length > 0) payload.audiencia_tecnicos = tecSeleccionados;
+    }
+    if (!payload.titulo) { showToast('Falta título', 'Ingresa un título para la encuesta', 'warning'); return; }
+    const res = await fetch('/api/encuestas', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Encuesta creada', 'ID ' + data.id_encuesta);
+      titulo.value = ''; descripcion.value=''; anonima.checked=false; visibilidad.value='privada'; dirigidaA.value='todos';
+      mostrarOcultarCarpetas();
+      await cargarEncuestas();
+      await seleccionarEncuesta(data.id_encuesta);
+    } else {
+      showToast('Error', data.message || 'No se pudo crear', 'error');
+    }
+  });
+
+  btnAgregarPregunta.addEventListener('click', async () => {
+    if (!encuestaSeleccionada) { showToast('Selecciona encuesta', 'Debes seleccionar una encuesta', 'warning'); return; }
+    const tipo = pregTipo.value;
+    const payload = {
+      tipo,
+      texto: pregTexto.value.trim(),
+      requerida: pregReq.checked,
+      opciones: opciones
+    };
+    if (!payload.texto) { showToast('Falta texto', 'Ingresa el texto de la pregunta', 'warning'); return; }
+    const res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}/preguntas`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Pregunta guardada', 'ID ' + data.id_pregunta);
+      pregTexto.value=''; pregReq.checked=false; opciones=[]; renderOpciones();
+      await seleccionarEncuesta(encuestaSeleccionada.id_encuesta);
+    } else {
+      showToast('Error', data.message || 'No se pudo guardar', 'error');
+    }
+  });
+
+  btnRefrescar.addEventListener('click', cargarEncuestas);
+  cargarEncuestas();
+})();
+</script>
+{% endblock %}

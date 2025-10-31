@@ -1,0 +1,240 @@
+{% extends "header.html" %}
+{% block content %}
+<style>
+  .preview-card { background: #fff; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+  .question-item { border: 1px solid #e4e7ef; border-radius: 8px; padding: 12px; margin-bottom: 10px; background: #fafbfc; }
+  .error-msg { display: none; }
+  .error-msg.show { display: block; }
+  .question-item .form-label.text-danger { font-weight: 700; }
+</style>
+
+<div class="container py-4">
+  <div class="d-flex align-items-center mb-3">
+    <i class="fas fa-eye text-primary me-2" style="font-size:1.5rem"></i>
+    <h1 class="mb-0">Previsualización de Encuesta</h1>
+  </div>
+
+  <div class="preview-card p-3 mb-3">
+    <h5 id="enc-titulo" class="mb-1">Cargando encuesta...</h5>
+    <div id="enc-desc" class="text-muted"></div>
+  </div>
+
+  <form id="form-respuesta" class="preview-card p-3">
+    <div id="preguntas-container"></div>
+    <div class="mt-3 d-flex gap-2">
+      <button id="btn-enviar" class="btn btn-success" type="submit">
+        <i class="fas fa-paper-plane me-1"></i>Enviar respuestas
+      </button>
+      <a class="btn btn-outline-secondary" href="/lider/encuestas"><i class="fas fa-arrow-left me-1"></i>Volver</a>
+    </div>
+  </form>
+</div>
+
+<script>
+(() => {
+  const encuestaId = {{ encuesta_id }};
+  const usuarioId = {{ (session.get('user_id') or session.get('id_codigo_consumidor')) | tojson }};
+  const encTitulo = document.getElementById('enc-titulo');
+  const encDesc = document.getElementById('enc-desc');
+  const container = document.getElementById('preguntas-container');
+  const form = document.getElementById('form-respuesta');
+
+  function showToast(title, text, icon='success'){
+    if (window.Swal) Swal.fire({ title, text, icon, timer: 1500, showConfirmButton:false });
+    else alert(title + ' - ' + text);
+  }
+
+  function renderPregunta(p) {
+    const wrap = document.createElement('div');
+    wrap.className = 'question-item';
+    const label = document.createElement('label');
+    label.className = 'form-label fw-semibold';
+    label.textContent = p.texto + (p.requerida ? ' *' : '');
+    wrap.appendChild(label);
+
+    let input;
+    switch (p.tipo) {
+      case 'texto':
+        input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control';
+        break;
+      case 'imagen':
+        input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.className = 'form-control';
+        input.name = `file_${p.id_pregunta}`;
+        break;
+      case 'parrafo':
+        input = document.createElement('textarea');
+        input.className = 'form-control';
+        input.rows = 3;
+        break;
+      case 'numero':
+        input = document.createElement('input');
+        input.type = 'number';
+        input.className = 'form-control';
+        break;
+      case 'fecha':
+        input = document.createElement('input');
+        input.type = 'date';
+        input.className = 'form-control';
+        break;
+      case 'hora':
+        input = document.createElement('input');
+        input.type = 'time';
+        input.className = 'form-control';
+        break;
+      case 'seleccion_unica':
+      case 'dropdown': {
+        input = document.createElement('select');
+        input.className = 'form-select';
+        const opts = p.opciones || [];
+        const empty = document.createElement('option'); empty.value=''; empty.textContent='Seleccione...'; input.appendChild(empty);
+        opts.forEach(o => { const opt = document.createElement('option'); opt.value = o.id_opcion; opt.textContent = o.texto; input.appendChild(opt); });
+        break;
+      }
+      case 'opcion_multiple':
+      case 'checkbox': {
+        input = document.createElement('div');
+        (p.opciones || []).forEach(o => {
+          const chkWrap = document.createElement('div');
+          chkWrap.className = 'form-check';
+          const chk = document.createElement('input');
+          chk.type = 'checkbox';
+          chk.className = 'form-check-input';
+          chk.value = o.id_opcion;
+          const lbl = document.createElement('label');
+          lbl.className = 'form-check-label';
+          lbl.textContent = o.texto;
+          chkWrap.appendChild(chk); chkWrap.appendChild(lbl);
+          input.appendChild(chkWrap);
+        });
+        break;
+      }
+      default:
+        input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control';
+    }
+
+    input.dataset.preguntaId = p.id_pregunta;
+    input.dataset.tipo = p.tipo;
+    input.dataset.requerida = p.requerida ? '1' : '0';
+    wrap.appendChild(input);
+    const err = document.createElement('div');
+    err.className = 'text-danger small error-msg';
+    wrap.appendChild(err);
+    container.appendChild(wrap);
+  }
+
+  async function cargarEncuesta(){
+    const res = await fetch(`/api/encuestas/${encuestaId}`);
+    const data = await res.json();
+    if (!data.success) { showToast('Error', data.message || 'No se pudo cargar', 'error'); return; }
+    const enc = data.encuesta;
+    encTitulo.textContent = enc.titulo;
+    encDesc.textContent = enc.descripcion || '';
+    (enc.preguntas || []).forEach(renderPregunta);
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const respuestas = [];
+    const filesToSend = [];
+    const faltantes = [];
+    let firstErrorEl = null;
+    container.querySelectorAll('[data-pregunta-id]').forEach(el => {
+      const pid = parseInt(el.dataset.preguntaId);
+      const tipo = el.dataset.tipo;
+      const req = el.dataset.requerida === '1';
+      const errMsgEl = el.nextElementSibling && el.nextElementSibling.classList.contains('error-msg') ? el.nextElementSibling : null;
+      const clearError = () => {
+        el.classList.remove('is-invalid');
+        if (el.dataset.errorBorder === '1') {
+          el.classList.remove('border', 'border-danger', 'rounded-2', 'p-1');
+          el.dataset.errorBorder = '0';
+        }
+        const lbl = el.parentElement && el.parentElement.querySelector('label.form-label');
+        if (lbl) lbl.classList.remove('text-danger');
+        if (errMsgEl) { errMsgEl.textContent = ''; errMsgEl.classList.remove('show'); }
+      };
+      const markError = (msg) => {
+        if (el.tagName === 'DIV') { el.classList.add('border', 'border-danger', 'rounded-2', 'p-1'); el.dataset.errorBorder = '1'; }
+        el.classList.add('is-invalid');
+        const lbl = el.parentElement && el.parentElement.querySelector('label.form-label');
+        if (lbl) lbl.classList.add('text-danger');
+        if (errMsgEl) { errMsgEl.textContent = msg || 'Campo requerido'; errMsgEl.classList.add('show'); }
+        faltantes.push(pid);
+        if (!firstErrorEl) firstErrorEl = el;
+      };
+      clearError();
+      if (tipo === 'opcion_multiple' || tipo === 'checkbox') {
+        const ids = Array.from(el.querySelectorAll('input[type="checkbox"]')).filter(c=>c.checked).map(c=>parseInt(c.value));
+        if (req && ids.length === 0) markError('Selecciona al menos una opción');
+        respuestas.push({ pregunta_id: pid, tipo, opcion_ids: ids });
+      } else if (tipo === 'seleccion_unica' || tipo === 'dropdown') {
+        const oid = el.value ? parseInt(el.value) : null;
+        if (req && (oid === null || Number.isNaN(oid))) markError('Selecciona una opción');
+        respuestas.push({ pregunta_id: pid, tipo, opcion_id: oid });
+      } else if (tipo === 'numero') {
+        const val = el.value ? parseFloat(el.value) : null;
+        if (req && (el.value === '' || val === null || Number.isNaN(val))) markError('Ingresa un número');
+        respuestas.push({ pregunta_id: pid, tipo, valor_numero: val });
+      } else if (tipo === 'imagen') {
+        const file = el.files && el.files[0];
+        if (req && !file) markError('Debes adjuntar una imagen');
+        respuestas.push({ pregunta_id: pid, tipo });
+        if (file) { filesToSend.push({ key: `file_${pid}`, file }); }
+      } else {
+        const val = el.value || '';
+        if (req && val.trim() === '') markError('Este campo es requerido');
+        respuestas.push({ pregunta_id: pid, tipo, valor_texto: val });
+      }
+    });
+    if (faltantes.length > 0) {
+      if (window.Swal) Swal.fire({ icon: 'error', title: 'Campos requeridos', text: 'Completa los campos marcados con *', confirmButtonText: 'Entendido' });
+      else alert('Completa los campos requeridos (*)');
+      try {
+        if (firstErrorEl) {
+          const target = firstErrorEl.tagName === 'DIV' ? (firstErrorEl.querySelector('input,select,textarea') || firstErrorEl) : firstErrorEl;
+          firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          if (target && typeof target.focus === 'function') setTimeout(()=>target.focus(), 200);
+        }
+      } catch (e) {}
+      return;
+    }
+    let res, data;
+    if (filesToSend.length > 0) {
+      const fd = new FormData();
+      fd.append('payload', JSON.stringify({ respuestas, usuario_id: usuarioId }));
+      filesToSend.forEach(({key, file}) => fd.append(key, file));
+      res = await fetch(`/api/encuestas/${encuestaId}/respuestas`, { method: 'POST', body: fd });
+      data = await res.json();
+    } else {
+      const payload = { respuestas, usuario_id: usuarioId };
+      res = await fetch(`/api/encuestas/${encuestaId}/respuestas`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      data = await res.json();
+    }
+    if (data.success) {
+      showToast('Enviado', 'Respuestas registradas correctamente');
+      form.reset();
+    } else {
+      const falt = Array.isArray(data.faltantes) ? data.faltantes : null;
+      if (window.Swal) {
+        Swal.fire({
+          icon: 'error',
+          title: 'No se pudo enviar',
+          html: (data.message || 'Error al enviar') + (falt ? '<br><div class="text-start mt-2"><strong>Faltantes:</strong><ul>' + falt.map(f=>`<li>${f}</li>`).join('') + '</ul></div>' : ''),
+        });
+      } else {
+        alert((data.message || 'No se pudo enviar') + (falt ? '\nFaltantes:\n- ' + falt.join('\n- ') : ''));
+      }
+    }
+  });
+
+  cargarEncuesta();
+})();
+</script>
+{% endblock %}

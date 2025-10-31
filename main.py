@@ -138,6 +138,7 @@ from app import api_import_vehiculos_excel, api_import_tecnico_mecanica_excel, a
 
 # Importar módulo de dotaciones
 from dotaciones_api import registrar_rutas_dotaciones
+from encuestas_api import registrar_rutas_encuestas
 
 # Registrar rutas de app.py
 app.route('/administrativo/asistencia')(administrativo_asistencia)
@@ -212,6 +213,9 @@ app.route('/api/mpa/licencias-conducir/<int:licencia_id>', methods=['DELETE'])(a
 
 # Registrar rutas del módulo de dotaciones
 registrar_rutas_dotaciones(app)
+
+# Registrar rutas del módulo de encuestas
+registrar_rutas_encuestas(app)
 
 # Database configuration
 db_config = {
