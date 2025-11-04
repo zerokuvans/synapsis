@@ -131,6 +131,9 @@
             <a id="btn-respuestas" class="btn btn-outline-success btn-sm" style="display:none;">
               <i class="fas fa-list-alt"></i> Ver respuestas
             </a>
+            <a id="btn-exportar-respuestas" class="btn btn-outline-secondary btn-sm" style="display:none;">
+              <i class="fas fa-file-excel"></i> Exportar Excel
+            </a>
           </div>
         </div>
       </div>
@@ -364,6 +367,7 @@
   const encBadges = document.getElementById('encuesta-seleccionada-badges');
   const btnPreview = document.getElementById('btn-preview');
   const btnRespuestas = document.getElementById('btn-respuestas');
+  const btnExportar = document.getElementById('btn-exportar-respuestas');
   const btnEditarEncuesta = document.getElementById('btn-editar-encuesta');
 
   const pregTexto = document.getElementById('preg-texto');
@@ -637,14 +641,27 @@
     encTitulo.textContent = encuestaSeleccionada.titulo;
     encDesc.textContent = encuestaSeleccionada.descripcion || '';
     encBadges.innerHTML = `<span class="badge bg-info me-1">${encuestaSeleccionada.estado}</span>` +
-                          `<span class="badge bg-dark">${encuestaSeleccionada.visibilidad || 'privada'}</span>`;
+                          `<span class="badge bg-dark me-1">${encuestaSeleccionada.visibilidad || 'privada'}</span>` +
+                          `<span class="badge bg-success" id="badge-total-respuestas" style="display:none;">Respuestas: 0</span>`;
     builder.style.display = '';
     btnPreview.style.display = '';
     btnPreview.href = `/lider/encuestas/${encuestaSeleccionada.id_encuesta}/preview`;
     btnRespuestas.style.display = '';
     btnRespuestas.href = `/lider/encuestas/${encuestaSeleccionada.id_encuesta}/respuestas`;
+    if (btnExportar) { btnExportar.style.display = 'none'; btnExportar.removeAttribute('href'); }
     if (btnEditarEncuesta) btnEditarEncuesta.style.display = '';
     renderPreguntasExistentes(encuestaSeleccionada.preguntas || []);
+
+    // Cargar estadísticas de respuestas para mostrar contador y habilitar exportación
+    try {
+      const sRes = await fetch(`/api/encuestas/${id}/estadisticas`);
+      const sData = await sRes.json();
+      if (sData && sData.success) {
+        const badge = document.getElementById('badge-total-respuestas');
+        if (badge) { badge.style.display = ''; badge.textContent = `Respuestas: ${sData.total_respuestas}`; }
+        if (btnExportar) { btnExportar.style.display = ''; btnExportar.href = `/api/encuestas/${id}/respuestas/export?formato=excel`; }
+      }
+    } catch (e) { console.warn('[encuestas] No se pudieron cargar estadísticas', e); }
   }
 
   function renderPreguntasExistentes(pregs) {

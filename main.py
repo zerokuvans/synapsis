@@ -1935,14 +1935,15 @@ def validar_kilometraje():
             
         cursor = connection.cursor(dictionary=True)
         
-        # Obtener último kilometraje registrado para la placa
+        # Obtener último kilometraje registrado para la placa (comparación normalizada)
+        placa_norm_tecnico = (placa or '').strip().upper().replace('-', '').replace(' ', '')
         cursor.execute("""
             SELECT kilometraje_actual, fecha
             FROM capired.preoperacional 
-            WHERE placa_vehiculo = %s 
+            WHERE UPPER(REPLACE(REPLACE(TRIM(placa_vehiculo), '-', ''), ' ', '')) = %s 
             ORDER BY fecha DESC 
             LIMIT 1
-        """, (placa,))
+        """, (placa_norm_tecnico,))
         
         ultimo_registro = cursor.fetchone()
         
@@ -2007,6 +2008,203 @@ def tecnicos_mantenimientos():
     except Exception as e:
         flash(f'Error al cargar el módulo de mantenimientos: {str(e)}', 'danger')
         return render_template('modulos/tecnicos/mantenimientos.html')
+
+# ==================== MÓDULO PREOPERACIONAL - OPERATIVOS ====================
+
+@app.route('/api/operativo/datos-preoperacional', methods=['GET'])
+@login_required(role=['operativo'])
+def obtener_datos_preoperacional_operativo():
+    """
+    Endpoint para obtener datos del vehículo y licencia del operativo logueado
+    """
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        cursor = connection.cursor(dictionary=True, buffered=True)
+
+        # Obtener cédula del operativo logueado
+        cursor.execute(
+            """
+            SELECT recurso_operativo_cedula 
+            FROM capired.recurso_operativo 
+            WHERE id_codigo_consumidor = %s
+            """,
+            (session['id_codigo_consumidor'],)
+        )
+
+        usuario_actual = cursor.fetchone()
+        if not usuario_actual:
+            return jsonify({'success': False, 'message': 'Usuario no encontrado'}), 404
+
+        # Consulta principal de datos asociado al usuario
+        cursor.execute(
+            """
+            SELECT 
+                ro.ciudad,
+                ro.super AS supervisor,
+                mv.placa,
+                mv.modelo,
+                mv.marca,
+                mv.tipo_vehiculo,
+                mlc.tipo_licencia,
+                mlc.fecha_vencimiento as fecha_venc_licencia,
+                ms.fecha_vencimiento as fecha_venc_soat,
+                mtm.fecha_vencimiento as fecha_venc_tecnico_mecanica,
+                0 as ultimo_kilometraje,
+                NULL as fecha_ultimo_kilometraje
+            FROM capired.recurso_operativo ro
+            LEFT JOIN capired.mpa_vehiculos mv ON ro.id_codigo_consumidor = mv.tecnico_asignado
+            LEFT JOIN capired.mpa_licencia_conducir mlc ON ro.id_codigo_consumidor = mlc.tecnico
+            LEFT JOIN capired.mpa_soat ms ON mv.placa = ms.placa AND ms.estado = 'Activo'
+            LEFT JOIN capired.mpa_tecnico_mecanica mtm ON mv.placa = mtm.placa AND mtm.estado = 'Activo'
+            WHERE ro.id_codigo_consumidor = %s
+            """,
+            (session['id_codigo_consumidor'],)
+        )
+
+        datos = cursor.fetchone()
+        if not datos:
+            return jsonify({'success': False, 'message': 'No se encontraron datos para el usuario'}), 404
+
+        # Calcular alertas de vencimientos
+        alertas = []
+        fecha_actual = datetime.now().date()
+
+        if datos['fecha_venc_licencia']:
+            fecha_venc_licencia = datos['fecha_venc_licencia'].date() if hasattr(datos['fecha_venc_licencia'], 'date') else datos['fecha_venc_licencia']
+            dias_licencia = (fecha_venc_licencia - fecha_actual).days
+            if dias_licencia < 0:
+                alertas.append({'tipo': 'error', 'mensaje': f"Licencia de conducción vencida desde el {datos['fecha_venc_licencia'].strftime('%d/%m/%Y')}"})
+            elif dias_licencia <= 30:
+                alertas.append({'tipo': 'warning', 'mensaje': f'Licencia de conducción próxima a vencer en {dias_licencia} días'})
+
+        if datos['fecha_venc_soat']:
+            fecha_venc_soat = datos['fecha_venc_soat'].date() if hasattr(datos['fecha_venc_soat'], 'date') else datos['fecha_venc_soat']
+            dias_soat = (fecha_venc_soat - fecha_actual).days
+            if dias_soat < 0:
+                alertas.append({'tipo': 'error', 'mensaje': f"SOAT vencido desde el {datos['fecha_venc_soat'].strftime('%d/%m/%Y')}"})
+            elif dias_soat <= 30:
+                alertas.append({'tipo': 'warning', 'mensaje': f'SOAT próximo a vencer en {dias_soat} días'})
+
+        if datos['fecha_venc_tecnico_mecanica']:
+            fecha_venc_tm = datos['fecha_venc_tecnico_mecanica'].date() if hasattr(datos['fecha_venc_tecnico_mecanica'], 'date') else datos['fecha_venc_tecnico_mecanica']
+            dias_tm = (fecha_venc_tm - fecha_actual).days
+            if dias_tm < 0:
+                alertas.append({'tipo': 'error', 'mensaje': f"Técnico mecánica vencida desde el {datos['fecha_venc_tecnico_mecanica'].strftime('%d/%m/%Y')}"})
+            elif dias_tm <= 30:
+                alertas.append({'tipo': 'warning', 'mensaje': f'Técnico mecánica próxima a vencer en {dias_tm} días'})
+
+        response_data = {
+            'ciudad': datos['ciudad'] or '',
+            'supervisor': datos.get('supervisor') or '',
+            'placa': datos['placa'] or '',
+            'modelo': datos['modelo'] or '',
+            'marca': datos['marca'] or '',
+            'tipo_vehiculo': datos['tipo_vehiculo'] or '',
+            'tipo_licencia': datos['tipo_licencia'] or '',
+            'fecha_venc_licencia': datos['fecha_venc_licencia'].strftime('%Y-%m-%d') if datos['fecha_venc_licencia'] else '',
+            'fecha_venc_soat': datos['fecha_venc_soat'].strftime('%Y-%m-%d') if datos['fecha_venc_soat'] else '',
+            'fecha_venc_tecnico_mecanica': datos['fecha_venc_tecnico_mecanica'].strftime('%Y-%m-%d') if datos['fecha_venc_tecnico_mecanica'] else '',
+            'ultimo_kilometraje': datos['ultimo_kilometraje'],
+            'fecha_ultimo_kilometraje': datos['fecha_ultimo_kilometraje'].strftime('%Y-%m-%d') if datos['fecha_ultimo_kilometraje'] else ''
+        }
+
+        return jsonify({'success': True, 'data': response_data, 'alertas': alertas})
+    except mysql.connector.Error as e:
+        return jsonify({'success': False, 'message': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error interno: {str(e)}'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/operativo/validar-kilometraje', methods=['POST'])
+@login_required(role=['operativo'])
+def validar_kilometraje_operativo():
+    """
+    Endpoint para validar kilometraje en tiempo real (operativos)
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'No se recibieron datos'}), 400
+
+        placa = data.get('placa')
+        kilometraje_propuesto = data.get('kilometraje_propuesto')
+        if not placa or kilometraje_propuesto is None:
+            return jsonify({'success': False, 'message': 'Placa y kilometraje son requeridos'}), 400
+
+        try:
+            kilometraje_propuesto = int(kilometraje_propuesto)
+        except ValueError:
+            return jsonify({'success': False, 'message': 'El kilometraje debe ser un número entero'}), 400
+
+        if kilometraje_propuesto < 0:
+            return jsonify({'success': False, 'message': 'El kilometraje no puede ser negativo'}), 400
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        # Normalizar placa para evitar falsos "primer registro" por variaciones (espacios/guiones/minúsculas)
+        placa_normalizada = (placa or '').strip().upper().replace('-', '').replace(' ', '')
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT kilometraje_actual, fecha
+            FROM capired.preoperacional 
+            WHERE UPPER(REPLACE(REPLACE(TRIM(placa_vehiculo), '-', ''), ' ', '')) = %s
+            ORDER BY fecha DESC 
+            LIMIT 1
+            """,
+            (placa_normalizada,)
+        )
+        ultimo_registro = cursor.fetchone()
+
+        if not ultimo_registro:
+            return jsonify({'success': True, 'valido': True, 'ultimo_kilometraje': 0, 'fecha_ultimo_registro': '', 'mensaje': 'Primer registro de kilometraje para este vehículo'})
+
+        ultimo_kilometraje = ultimo_registro['kilometraje_actual']
+        fecha_ultimo_registro = ultimo_registro['fecha']
+
+        if kilometraje_propuesto < ultimo_kilometraje:
+            return jsonify({
+                'success': True,
+                'valido': False,
+                'ultimo_kilometraje': ultimo_kilometraje,
+                'fecha_ultimo_registro': fecha_ultimo_registro.strftime('%d/%m/%Y') if fecha_ultimo_registro else '',
+                'mensaje': f'El kilometraje no puede ser menor al último registrado: {ultimo_kilometraje} km en fecha {fecha_ultimo_registro.strftime("%d/%m/%Y") if fecha_ultimo_registro else "N/A"}'
+            })
+
+        if kilometraje_propuesto > 1000000:
+            return jsonify({
+                'success': True,
+                'valido': False,
+                'ultimo_kilometraje': ultimo_kilometraje,
+                'fecha_ultimo_registro': fecha_ultimo_registro.strftime('%d/%m/%Y') if fecha_ultimo_registro else '',
+                'mensaje': 'El kilometraje no puede superar los 1,000,000 km.'
+            })
+
+        return jsonify({
+            'success': True,
+            'valido': True,
+            'ultimo_kilometraje': ultimo_kilometraje,
+            'fecha_ultimo_registro': fecha_ultimo_registro.strftime('%d/%m/%Y') if fecha_ultimo_registro else '',
+            'mensaje': 'Kilometraje válido'
+        })
+    except mysql.connector.Error as e:
+        return jsonify({'success': False, 'message': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error interno: {str(e)}'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
 
 @app.route('/api/tecnicos/mantenimientos', methods=['GET'])
 @login_required(role='tecnicos')
@@ -3900,6 +4098,83 @@ def registrar_preoperacional():
             'observaciones': request.form.get('observaciones', '')
         }
 
+        # Bloqueo por vencimientos (SOAT / Tecnomecánica / Licencia) dentro de 30 días o vencidos
+        try:
+            vencimientos_detectados = []
+            placa_form = data.get('placa_vehiculo')
+
+            # Fecha actual (Bogotá)
+            fecha_hoy = get_bogota_datetime().date()
+
+            # Consultar último SOAT por placa
+            if placa_form:
+                cursor.execute("""
+                    SELECT fecha_vencimiento
+                    FROM mpa_soat
+                    WHERE placa = %s
+                    ORDER BY fecha_vencimiento DESC
+                    LIMIT 1
+                """, (placa_form,))
+                soat_row = cursor.fetchone()
+                if soat_row and soat_row.get('fecha_vencimiento'):
+                    dias_restantes = (soat_row['fecha_vencimiento'].date() - fecha_hoy).days
+                    if dias_restantes <= 30:
+                        vencimientos_detectados.append({
+                            'tipo': 'SOAT',
+                            'fecha': soat_row['fecha_vencimiento'].strftime('%Y-%m-%d'),
+                            'dias_restantes': dias_restantes
+                        })
+
+                # Consultar Tecnomecánica por placa
+                cursor.execute("""
+                    SELECT fecha_vencimiento
+                    FROM mpa_tecnico_mecanica
+                    WHERE placa = %s
+                    ORDER BY fecha_vencimiento DESC
+                    LIMIT 1
+                """, (placa_form,))
+                tm_row = cursor.fetchone()
+                if tm_row and tm_row.get('fecha_vencimiento'):
+                    dias_restantes = (tm_row['fecha_vencimiento'].date() - fecha_hoy).days
+                    if dias_restantes <= 30:
+                        vencimientos_detectados.append({
+                            'tipo': 'Tecnomecánica',
+                            'fecha': tm_row['fecha_vencimiento'].strftime('%Y-%m-%d'),
+                            'dias_restantes': dias_restantes
+                        })
+
+            # Consultar Licencia de Conducir por técnico
+            cursor.execute("""
+                SELECT fecha_vencimiento
+                FROM mpa_licencia_conducir
+                WHERE id_codigo_consumidor = %s
+                ORDER BY fecha_vencimiento DESC
+                LIMIT 1
+            """, (id_codigo_consumidor,))
+            lic_row = cursor.fetchone()
+            if lic_row and lic_row.get('fecha_vencimiento'):
+                dias_restantes = (lic_row['fecha_vencimiento'].date() - fecha_hoy).days
+                if dias_restantes <= 30:
+                    vencimientos_detectados.append({
+                        'tipo': 'Licencia de Conducir',
+                        'fecha': lic_row['fecha_vencimiento'].strftime('%Y-%m-%d'),
+                        'dias_restantes': dias_restantes
+                    })
+
+            # Si existen vencimientos, bloquear
+            if vencimientos_detectados:
+                cursor.close()
+                connection.close()
+                return jsonify({
+                    'status': 'error',
+                    'message': 'No puedes registrar el preoperacional: existen vencimientos próximos o vencidos.',
+                    'bloqueo_por_vencimientos': True,
+                    'vencimientos': vencimientos_detectados
+                }), 400
+        except Error as e:
+            app.logger.error(f"Error validando vencimientos en preoperacional: {str(e)}")
+            # No bloquear por error en validación, continuar
+
         # Verificar que el id_codigo_consumidor existe en la tabla recurso_operativo
         cursor.execute("SELECT id_codigo_consumidor FROM recurso_operativo WHERE id_codigo_consumidor = %s", (id_codigo_consumidor,))
         usuario_existe = cursor.fetchone()
@@ -3947,13 +4222,14 @@ def registrar_preoperacional():
         ultimo_kilometraje = 0
         fecha_ultimo_registro = None
         if placa_vehiculo:
+            placa_norm_insert = (placa_vehiculo or '').strip().upper().replace('-', '').replace(' ', '')
             cursor.execute("""
                 SELECT kilometraje_actual, fecha
                 FROM preoperacional
-                WHERE placa_vehiculo = %s
+                WHERE UPPER(REPLACE(REPLACE(TRIM(placa_vehiculo), '-', ''), ' ', '')) = %s
                 ORDER BY fecha DESC
                 LIMIT 1
-            """, (placa_vehiculo,))
+            """, (placa_norm_insert,))
             ultimo_registro = cursor.fetchone()
             if ultimo_registro:
                 ultimo_kilometraje = ultimo_registro['kilometraje_actual'] or 0
@@ -4087,6 +4363,81 @@ def registrar_preoperacional_operativo():
             'observaciones': request.form.get('observaciones', '')
         }
 
+        # Bloqueo por vencimientos (SOAT / Tecnomecánica / Licencia) dentro de 30 días o vencidos
+        try:
+            vencimientos_detectados = []
+            placa_form = data.get('placa_vehiculo')
+
+            # Fecha actual (Bogotá)
+            fecha_hoy = get_bogota_datetime().date()
+
+            # Consultar último SOAT por placa
+            if placa_form:
+                cursor.execute("""
+                    SELECT fecha_vencimiento
+                    FROM mpa_soat
+                    WHERE placa = %s
+                    ORDER BY fecha_vencimiento DESC
+                    LIMIT 1
+                """, (placa_form,))
+                soat_row = cursor.fetchone()
+                if soat_row and soat_row.get('fecha_vencimiento'):
+                    dias_restantes = (soat_row['fecha_vencimiento'].date() - fecha_hoy).days
+                    if dias_restantes <= 30:
+                        vencimientos_detectados.append({
+                            'tipo': 'SOAT',
+                            'fecha': soat_row['fecha_vencimiento'].strftime('%Y-%m-%d'),
+                            'dias_restantes': dias_restantes
+                        })
+
+                # Consultar Tecnomecánica por placa
+                cursor.execute("""
+                    SELECT fecha_vencimiento
+                    FROM mpa_tecnico_mecanica
+                    WHERE placa = %s
+                    ORDER BY fecha_vencimiento DESC
+                    LIMIT 1
+                """, (placa_form,))
+                tm_row = cursor.fetchone()
+                if tm_row and tm_row.get('fecha_vencimiento'):
+                    dias_restantes = (tm_row['fecha_vencimiento'].date() - fecha_hoy).days
+                    if dias_restantes <= 30:
+                        vencimientos_detectados.append({
+                            'tipo': 'Tecnomecánica',
+                            'fecha': tm_row['fecha_vencimiento'].strftime('%Y-%m-%d'),
+                            'dias_restantes': dias_restantes
+                        })
+
+            # Consultar Licencia de Conducir por operativo (id_codigo_consumidor de la petición)
+            cursor.execute("""
+                SELECT fecha_vencimiento
+                FROM mpa_licencia_conducir
+                WHERE id_codigo_consumidor = %s
+                ORDER BY fecha_vencimiento DESC
+                LIMIT 1
+            """, (id_codigo_consumidor,))
+            lic_row = cursor.fetchone()
+            if lic_row and lic_row.get('fecha_vencimiento'):
+                dias_restantes = (lic_row['fecha_vencimiento'].date() - fecha_hoy).days
+                if dias_restantes <= 30:
+                    vencimientos_detectados.append({
+                        'tipo': 'Licencia de Conducir',
+                        'fecha': lic_row['fecha_vencimiento'].strftime('%Y-%m-%d'),
+                        'dias_restantes': dias_restantes
+                    })
+
+            # Si existen vencimientos, bloquear
+            if vencimientos_detectados:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'No puedes registrar el preoperacional: existen vencimientos próximos o vencidos.',
+                    'bloqueo_por_vencimientos': True,
+                    'vencimientos': vencimientos_detectados
+                }), 400
+        except Error as e:
+            app.logger.error(f"Error validando vencimientos en preoperacional operativo: {str(e)}")
+            # No bloquear por error en validación, continuar
+
         # Verificar que el id_codigo_consumidor existe en la tabla recurso_operativo
         cursor.execute("SELECT id_codigo_consumidor FROM recurso_operativo WHERE id_codigo_consumidor = %s", (id_codigo_consumidor,))
         if cursor.fetchone() is None:
@@ -4094,6 +4445,70 @@ def registrar_preoperacional_operativo():
                 'status': 'error', 
                 'message': 'El id_codigo_consumidor no existe en la tabla recurso_operativo.'
             }), 404
+
+        # Validación de kilometraje contra último registro
+        placa_form = request.form.get('placa_vehiculo')
+        km_actual_str = request.form.get('kilometraje_actual')
+        try:
+            km_actual = int(km_actual_str) if km_actual_str is not None and km_actual_str != '' else 0
+        except ValueError:
+            # Cerrar recursos antes de responder
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'status': 'error',
+                'message': 'El kilometraje debe ser un número entero.'
+            }), 400
+
+        if km_actual < 0:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'status': 'error',
+                'message': 'El kilometraje no puede ser negativo.'
+            }), 400
+
+        if not placa_form:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'status': 'error',
+                'message': 'La placa del vehículo es requerida para validar el kilometraje.'
+            }), 400
+
+        # Normalizar placa para comparación robusta
+        placa_form_normalizada = (placa_form or '').strip().upper().replace('-', '').replace(' ', '')
+        cursor.execute(
+            """
+            SELECT kilometraje_actual, fecha
+            FROM capired.preoperacional
+            WHERE UPPER(REPLACE(REPLACE(TRIM(placa_vehiculo), '-', ''), ' ', '')) = %s
+            ORDER BY fecha DESC
+            LIMIT 1
+            """,
+            (placa_form_normalizada,)
+        )
+        ultimo_registro_km = cursor.fetchone()
+
+        if ultimo_registro_km:
+            ultimo_km = int(ultimo_registro_km.get('kilometraje_actual') or 0)
+            fecha_ultimo = ultimo_registro_km.get('fecha')
+            if km_actual < ultimo_km:
+                cursor.close()
+                connection.close()
+                return jsonify({
+                    'status': 'error',
+                    'message': f'El kilometraje no puede ser menor al último registrado: {ultimo_km} km' + (f" en fecha {fecha_ultimo.strftime('%d/%m/%Y')}" if fecha_ultimo else ''),
+                    'ultimo_kilometraje': ultimo_km
+                }), 400
+
+        if km_actual > 1000000:
+            cursor.close()
+            connection.close()
+            return jsonify({
+                'status': 'error',
+                'message': 'El kilometraje no puede superar los 1,000,000 km.'
+            }), 400
 
         # Construir la consulta SQL dinámicamente
         columns = list(data.keys()) + ['id_codigo_consumidor']
@@ -21149,6 +21564,288 @@ def api_test_vencimientos():
         'message': 'API de prueba funcionando correctamente'
     })
 
+@app.route('/api/mi/vencimientos', methods=['GET'])
+@login_required()
+def api_mis_vencimientos():
+    """Devuelve vencimientos próximos para el usuario actual:
+    - SOAT y Tecnomecánica de sus vehículos asignados
+    - Licencia de conducir del usuario
+    Filtra por ventana de días (param "dias", default 45).
+    """
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        cursor = connection.cursor(dictionary=True)
+
+        dias_anticipacion = int(request.args.get('dias', 45))
+        user_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        if not user_id:
+            return jsonify({'success': False, 'message': 'Usuario no autenticado'}), 401
+
+        vencimientos_items = []
+
+        # SOAT desde mpa_soat por técnico asignado
+        query_soat = """
+            SELECT 
+                s.placa,
+                s.fecha_vencimiento,
+                DATEDIFF(s.fecha_vencimiento, CURDATE()) AS dias_soat
+            FROM mpa_soat s
+            WHERE s.tecnico_asignado = %s
+              AND s.fecha_vencimiento IS NOT NULL
+              AND s.fecha_vencimiento NOT LIKE '0000-00-00%'
+              AND s.fecha_vencimiento > '1900-01-01'
+              AND s.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY)
+            ORDER BY s.fecha_vencimiento ASC
+        """
+        cursor.execute(query_soat, (user_id, dias_anticipacion))
+        soats = cursor.fetchall()
+
+        # Tecnomecánica desde mpa_tecnico_mecanica por técnico asignado
+        query_tm = """
+            SELECT 
+                tm.placa,
+                tm.fecha_vencimiento,
+                DATEDIFF(tm.fecha_vencimiento, CURDATE()) AS dias_tm
+            FROM mpa_tecnico_mecanica tm
+            WHERE tm.tecnico_asignado = %s
+              AND tm.fecha_vencimiento IS NOT NULL
+              AND tm.fecha_vencimiento NOT LIKE '0000-00-00%'
+              AND tm.fecha_vencimiento > '1900-01-01'
+              AND tm.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY)
+            ORDER BY tm.fecha_vencimiento ASC
+        """
+        cursor.execute(query_tm, (user_id, dias_anticipacion))
+        tecnomecanicas = cursor.fetchall()
+
+        def estado_desde_dias(dias:int) -> str:
+            if dias is None:
+                return 'desconocido'
+            if dias < 0:
+                return 'vencido'
+            if dias <= 7:
+                return 'critico'
+            if dias <= 30:
+                return 'proximo'
+            return 'vigente'
+
+        # Armar items SOAT
+        for s in soats:
+            dias = s.get('dias_soat')
+            fecha = s.get('fecha_vencimiento')
+            vencimientos_items.append({
+                'tipo': 'SOAT',
+                'placa': s.get('placa'),
+                'fecha_vencimiento': fecha.strftime('%Y-%m-%d') if fecha else None,
+                'dias_restantes': dias,
+                'estado': estado_desde_dias(dias)
+            })
+
+        # Armar items Tecnomecánica
+        for tm in tecnomecanicas:
+            dias = tm.get('dias_tm')
+            fecha = tm.get('fecha_vencimiento')
+            vencimientos_items.append({
+                'tipo': 'Tecnomecánica',
+                'placa': tm.get('placa'),
+                'fecha_vencimiento': fecha.strftime('%Y-%m-%d') if fecha else None,
+                'dias_restantes': dias,
+                'estado': estado_desde_dias(dias)
+            })
+
+        # Licencia de conducir del usuario
+        query_lic = """
+            SELECT 
+                lc.tipo_licencia,
+                lc.fecha_vencimiento,
+                DATEDIFF(lc.fecha_vencimiento, CURDATE()) as dias_licencia
+            FROM mpa_licencia_conducir lc
+            WHERE lc.tecnico = %s
+              AND lc.fecha_vencimiento IS NOT NULL
+              AND lc.fecha_vencimiento NOT IN ('0000-00-00', '1900-01-01')
+              AND lc.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY)
+            ORDER BY lc.fecha_vencimiento ASC
+        """
+        cursor.execute(query_lic, (user_id, dias_anticipacion))
+        licencias = cursor.fetchall()
+
+        for lc in licencias:
+            dias = lc.get('dias_licencia')
+            vencimientos_items.append({
+                'tipo': 'Licencia de Conducir',
+                'placa': None,
+                'tipo_licencia': lc.get('tipo_licencia'),
+                'fecha_vencimiento': lc['fecha_vencimiento'].strftime('%Y-%m-%d') if lc['fecha_vencimiento'] else None,
+                'dias_restantes': dias,
+                'estado': estado_desde_dias(dias)
+            })
+
+        cursor.close()
+        connection.close()
+
+        items_filtrados = [i for i in vencimientos_items if i.get('fecha_vencimiento')]
+
+        return jsonify({
+            'success': True,
+            'total': len(items_filtrados),
+            'items': items_filtrados
+        })
+
+    except Exception as e:
+        try:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'connection' in locals() and connection and connection.is_connected():
+                connection.close()
+        except Exception:
+            pass
+        print(f"Error en /api/mi/vencimientos: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error al obtener vencimientos: {str(e)}'}), 500
+
+
+@app.route('/api/operativo/vencimientos_tecnicos', methods=['GET'])
+@login_required(role=['operativo', 'administrativo'])
+def api_vencimientos_tecnicos_operativo():
+    """Devuelve documentos vencidos de los técnicos a cargo de un supervisor (SOAT, Técnico Mecánica, Licencia)."""
+    try:
+        # Usar SIEMPRE el usuario logueado como supervisor responsable de técnicos
+        supervisor = session.get('user_name', '')
+        dias_param = request.args.get('dias', default='30')
+        try:
+            dias_ventana = int(dias_param)
+        except Exception:
+            dias_ventana = 30
+
+        if not supervisor:
+            return jsonify({'success': False, 'message': 'Usuario no identificado en sesión'}), 400
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+
+        # SOAT por técnicos del supervisor
+        # Mejora: considerar vínculos por técnico_asignado o por placa del vehículo asignado
+        cursor.execute(
+            """
+            SELECT DISTINCT
+                s.id_mpa_soat AS id,
+                s.fecha_vencimiento,
+                ro.id_codigo_consumidor AS tecnico_id,
+                ro.nombre AS tecnico_nombre,
+                'SOAT' AS tipo
+            FROM capired.recurso_operativo ro
+            LEFT JOIN capired.mpa_vehiculos mv ON mv.tecnico_asignado = ro.id_codigo_consumidor
+            LEFT JOIN capired.mpa_soat s ON (s.tecnico_asignado = ro.id_codigo_consumidor OR (mv.placa IS NOT NULL AND s.placa = mv.placa))
+            WHERE TRIM(UPPER(ro.super)) = TRIM(UPPER(%s)) AND ro.estado = 'Activo'
+              AND s.fecha_vencimiento IS NOT NULL
+              AND s.fecha_vencimiento NOT LIKE '0000-00-00%'
+              AND s.fecha_vencimiento > '1900-01-01'
+            """,
+            (supervisor,)
+        )
+        soats = cursor.fetchall()
+
+        # Técnico Mecánica por técnicos del supervisor
+        cursor.execute(
+            """
+            SELECT DISTINCT
+                tm.id_mpa_tecnico_mecanica AS id,
+                tm.fecha_vencimiento,
+                ro.id_codigo_consumidor AS tecnico_id,
+                ro.nombre AS tecnico_nombre,
+                'Técnico Mecánica' AS tipo
+            FROM capired.recurso_operativo ro
+            LEFT JOIN capired.mpa_vehiculos mv ON mv.tecnico_asignado = ro.id_codigo_consumidor
+            LEFT JOIN capired.mpa_tecnico_mecanica tm ON (tm.tecnico_asignado = ro.id_codigo_consumidor OR (mv.placa IS NOT NULL AND tm.placa = mv.placa))
+            WHERE TRIM(UPPER(ro.super)) = TRIM(UPPER(%s)) AND ro.estado = 'Activo'
+              AND tm.fecha_vencimiento IS NOT NULL
+              AND tm.fecha_vencimiento NOT LIKE '0000-00-00%'
+              AND tm.fecha_vencimiento > '1900-01-01'
+            """,
+            (supervisor,)
+        )
+        tms = cursor.fetchall()
+
+        # Licencias de conducir por técnicos del supervisor
+        cursor.execute(
+            """
+            SELECT 
+                lc.id_mpa_licencia_conducir AS id,
+                lc.fecha_vencimiento,
+                ro.id_codigo_consumidor AS tecnico_id,
+                ro.nombre AS tecnico_nombre,
+                'Licencia de Conducir' AS tipo
+            FROM capired.mpa_licencia_conducir lc
+            LEFT JOIN capired.recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor
+            WHERE TRIM(UPPER(ro.super)) = TRIM(UPPER(%s)) AND ro.estado = 'Activo'
+              AND lc.fecha_vencimiento IS NOT NULL
+              AND lc.fecha_vencimiento NOT LIKE '0000-00-00%'
+              AND lc.fecha_vencimiento > '1900-01-01'
+            """,
+            (supervisor,)
+        )
+        lcs = cursor.fetchall()
+
+        # Calcular estado y filtrar vencidos
+        from datetime import datetime, date
+        import re
+        hoy = datetime.now().date()
+
+        def validar_fecha(fecha_val):
+            if not fecha_val:
+                return False, None
+            if hasattr(fecha_val, 'date'):
+                return True, fecha_val.date()
+            s = str(fecha_val)
+            if s == '0000-00-00' or not re.match(r'^\d{4}-\d{2}-\d{2}$', s):
+                return False, None
+            try:
+                y, m, d = map(int, s.split('-'))
+                return True, date(y, m, d)
+            except Exception:
+                return False, None
+
+        vencidos = []
+        for grupo in (soats, tms, lcs):
+            for v in grupo:
+                ok, fv = validar_fecha(v['fecha_vencimiento'])
+                if not ok:
+                    continue
+                dias = (fv - hoy).days
+                estado = 'Vencido' if dias < 0 else ('Próximo a vencer' if dias <= dias_ventana else 'Vigente')
+                if estado == 'Vencido':
+                    vencidos.append({
+                        'id': v['id'],
+                        'tipo': v['tipo'],
+                        'tecnico_id': v['tecnico_id'],
+                        'tecnico_nombre': v['tecnico_nombre'],
+                        'fecha_vencimiento': fv.strftime('%Y-%m-%d'),
+                        'dias_restantes': dias,
+                        'estado': estado
+                    })
+
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+        return jsonify({'success': True, 'data': vencidos, 'supervisor': supervisor, 'total_vencidos': len(vencidos)})
+
+    except mysql.connector.Error as e:
+        return jsonify({'success': False, 'message': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        try:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'connection' in locals() and connection and connection.is_connected():
+                connection.close()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+
 @app.route('/dev/login', methods=['POST'])
 def dev_login():
     try:
@@ -21169,4 +21866,35 @@ def dev_login():
         return jsonify({'message': 'Error en dev login', 'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0',port=8080)
+    # Handlers de error para evitar exposición de información y listados
+    @app.errorhandler(404)
+    def handle_404(e):
+        try:
+            if request.path.startswith('/api/'):
+                return jsonify({'success': False, 'message': 'Recurso no encontrado'}), 404
+            return render_template('error.html', code=404, message='Recurso no encontrado'), 404
+        except Exception:
+            return 'Recurso no encontrado', 404
+
+    @app.errorhandler(500)
+    def handle_500(e):
+        try:
+            if request.path.startswith('/api/'):
+                return jsonify({'success': False, 'message': 'Error interno del servidor'}), 500
+            return render_template('error.html', code=500, message='Error interno del servidor'), 500
+        except Exception:
+            return 'Error interno del servidor', 500
+
+    @app.errorhandler(405)
+    def handle_405(e):
+        try:
+            if request.path.startswith('/api/'):
+                return jsonify({'success': False, 'message': 'Método no permitido'}), 405
+            return render_template('error.html', code=405, message='Método no permitido'), 405
+        except Exception:
+            return 'Método no permitido', 405
+
+    # Deshabilitar modo debug por defecto para evitar fugas de información
+    import os
+    debug_mode = os.environ.get('FLASK_DEBUG', '0') == '1'
+    app.run(debug=debug_mode, host='0.0.0.0', port=8080)

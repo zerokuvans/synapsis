@@ -265,6 +265,24 @@
         </div>
     </div>
 
+    <!-- Modal Vencimientos al iniciar sesión -->
+    <div class="modal fade" id="modalVencimientosLogin" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-bell me-2"></i>Documentos próximos a vencer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="vencimientos-popup-contenido">
+                        <div class="text-center text-muted py-4">Cargando vencimientos…</div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+
     <!-- Mensajes Flash -->
     <div class="flash-messages">
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -500,6 +518,77 @@
     })();
     </script>
 
+    <!-- Vencimientos Popup al iniciar sesión -->
+    <script>
+    (function(){
+        const path = window.location.pathname;
+        if (path.includes('/login')) return;
+
+        const cont = document.getElementById('vencimientos-popup-contenido');
+
+        function pintarItems(items){
+            if (!items || items.length === 0){
+                cont.innerHTML = '<div class="text-center text-muted py-3">No hay documentos próximos a vencer.</div>';
+                return;
+            }
+            const icono = (tipo)=>{
+                if (tipo === 'SOAT') return '<i class="fas fa-shield-halved"></i>';
+                if (tipo === 'Tecnomecánica') return '<i class="fas fa-wrench"></i>';
+                return '<i class="fas fa-id-card"></i>';
+            };
+            const color = (estado)=>{
+                if (estado === 'vencido') return 'border-danger';
+                if (estado === 'critico') return 'border-warning';
+                if (estado === 'proximo') return 'border-info';
+                return 'border-secondary';
+            };
+            const descDias = (dias)=>{
+                if (dias == null) return '';
+                if (dias < 0) return `Vencido hace ${Math.abs(dias)} día(s)`;
+                if (dias === 0) return 'Vence hoy';
+                return `En ${dias} día(s)`;
+            };
+            const cards = items.map(it=>{
+                const placa = it.placa ? `<span class="badge bg-light text-dark ms-2">Placa ${it.placa}</span>` : '';
+                const sub = it.tipo_licencia ? `<small class="text-muted">Tipo: ${it.tipo_licencia}</small>` : '';
+                return `
+                    <div class="card mb-2 ${color(it.estado)}" style="border-width:2px;">
+                        <div class="card-body d-flex align-items-center">
+                            <div class="me-3 fs-4">${icono(it.tipo)}</div>
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">${it.tipo} ${placa}</div>
+                                <div class="text-muted">Vence: ${it.fecha_vencimiento} • ${descDias(it.dias_restantes)}</div>
+                                ${sub}
+                            </div>
+                        </div>
+                    </div>`;
+            }).join('');
+            cont.innerHTML = cards;
+        }
+
+        async function cargarVencimientos(){
+            try{
+                const r = await fetch('/api/mi/vencimientos?dias=30');
+                const d = await r.json();
+                if (!d.success) return;
+                const items = d.items || [];
+                pintarItems(items);
+                // Mostrar el modal SOLO cuando hay ítems dentro del rango
+                if (items.length > 0){
+                    const modal = new bootstrap.Modal(document.getElementById('modalVencimientosLogin'));
+                    modal.show();
+                }
+            }catch(e){
+                cont.innerHTML = '<div class="text-danger">Error cargando vencimientos.</div>';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', ()=>{
+            cargarVencimientos();
+        });
+    })();
+    </script>
+
     {% block extra_js %}
     {% endblock %}
 
@@ -534,6 +623,12 @@
     .alert-info {
         border-left-color: #0dcaf0;
     }
+
+    /* Bordes de estados para tarjetas del popup de vencimientos */
+    .border-danger { border-color: #dc3545 !important; }
+    .border-warning { border-color: #ffc107 !important; }
+    .border-info { border-color: #0dcaf0 !important; }
+    .border-secondary { border-color: #6c757d !important; }
 
     /* Estilo para la etiqueta de versión beta */
     .version-beta {

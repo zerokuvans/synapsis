@@ -6,7 +6,7 @@ Sistema - Capired
 """
 
 import mysql.connector
-from flask import jsonify, request, render_template, session, redirect, url_for
+from flask import jsonify, request, render_template, session, redirect, url_for, make_response
 import os
 from datetime import datetime
 import json
@@ -1071,6 +1071,10 @@ def registrar_rutas_encuestas(app):
 
     @app.route('/api/encuestas/<int:encuesta_id>/respuestas', methods=['GET'])
     def listar_respuestas(encuesta_id):
+        # Requiere autenticación para consultar respuestas
+        user_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        if not user_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
         connection = get_db_connection()
         if not connection:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
@@ -1119,6 +1123,172 @@ def registrar_rutas_encuestas(app):
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
         finally:
             connection.close()
+
+    @app.route('/api/encuestas/<int:encuesta_id>/estadisticas', methods=['GET'])
+    def estadisticas_encuesta(encuesta_id):
+        """Devuelve estadísticas básicas de una encuesta: total de respuestas y distribución por pregunta/opción."""
+        user_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        logger.info(f"[encuestas] estadisticas_encuesta encuesta_id={encuesta_id} user_id={user_id}")
+        if not user_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cur = conn.cursor(dictionary=True)
+            # Total de respuestas
+            cur.execute("SELECT COUNT(*) AS total_respuestas FROM encuesta_respuestas WHERE encuesta_id = %s", (encuesta_id,))
+            row_total = cur.fetchone() or {}
+            total_respuestas = row_total.get('total_respuestas', 0)
+
+            # Preguntas
+            cur.execute("SELECT id_pregunta, texto, tipo, orden FROM encuesta_preguntas WHERE encuesta_id = %s ORDER BY orden, id_pregunta", (encuesta_id,))
+            preguntas = cur.fetchall() or []
+
+            # Total respondidas por pregunta
+            cur.execute(
+                """
+                SELECT d.pregunta_id, COUNT(*) AS total
+                FROM encuesta_respuestas_detalle d
+                JOIN encuesta_preguntas p ON p.id_pregunta = d.pregunta_id
+                WHERE p.encuesta_id = %s
+                GROUP BY d.pregunta_id
+                """,
+                (encuesta_id,)
+            )
+            totals_det = {r['pregunta_id']: r['total'] for r in (cur.fetchall() or [])}
+
+            # Distribución por opción (para tipos con opciones)
+            cur.execute(
+                """
+                SELECT d.pregunta_id, d.opcion_id, o.texto AS texto_opcion, COUNT(*) AS total
+                FROM encuesta_respuestas_detalle d
+                JOIN encuesta_preguntas p ON p.id_pregunta = d.pregunta_id
+                LEFT JOIN encuesta_opciones o ON o.id_opcion = d.opcion_id
+                WHERE p.encuesta_id = %s AND d.opcion_id IS NOT NULL
+                GROUP BY d.pregunta_id, d.opcion_id, o.texto
+                ORDER BY d.pregunta_id, total DESC
+                """,
+                (encuesta_id,)
+            )
+            dist_rows = cur.fetchall() or []
+            dist_map = {}
+            for r in dist_rows:
+                dist_map.setdefault(r['pregunta_id'], []).append({
+                    'opcion_id': r['opcion_id'],
+                    'texto_opcion': r['texto_opcion'],
+                    'total': r['total']
+                })
+
+            resumen = []
+            for p in preguntas:
+                resumen.append({
+                    'pregunta_id': p['id_pregunta'],
+                    'texto': p['texto'],
+                    'tipo': p['tipo'],
+                    'total_respondidas': totals_det.get(p['id_pregunta'], 0),
+                    'opciones': dist_map.get(p['id_pregunta'], [])
+                })
+
+            return jsonify({
+                'success': True,
+                'encuesta_id': encuesta_id,
+                'total_respuestas': total_respuestas,
+                'preguntas': resumen
+            })
+        except mysql.connector.Error as e:
+            logger.error(f"Error estadísticas encuesta {encuesta_id}: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            conn.close()
+
+    @app.route('/api/encuestas/<int:encuesta_id>/respuestas/export', methods=['GET'])
+    def exportar_respuestas(encuesta_id):
+        """Exporta las respuestas de la encuesta en formato Excel o CSV (long-form)."""
+        user_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        if not user_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+
+        formato = (request.args.get('formato') or 'excel').lower()
+        if formato not in ('excel', 'csv'):
+            formato = 'excel'
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cur = conn.cursor(dictionary=True)
+            cur.execute(
+                """
+                SELECT r.id_respuesta, r.usuario_id, r.fecha_respuesta, r.ip,
+                       d.pregunta_id, p.texto AS texto_pregunta, p.tipo,
+                       d.valor_texto, d.valor_numero, d.opcion_id, o.texto AS texto_opcion, d.archivo_url
+                FROM encuesta_respuestas r
+                JOIN encuesta_respuestas_detalle d ON d.respuesta_id = r.id_respuesta
+                JOIN encuesta_preguntas p ON p.id_pregunta = d.pregunta_id
+                LEFT JOIN encuesta_opciones o ON o.id_opcion = d.opcion_id
+                WHERE r.encuesta_id = %s
+                ORDER BY r.id_respuesta, d.pregunta_id
+                """,
+                (encuesta_id,)
+            )
+            rows = cur.fetchall() or []
+
+            if not rows:
+                return jsonify({'success': False, 'message': 'No hay respuestas para exportar'}), 404
+
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+
+            if formato == 'csv':
+                import io, csv
+                output = io.StringIO()
+                writer = csv.DictWriter(output, fieldnames=list(rows[0].keys()))
+                writer.writeheader()
+                writer.writerows(rows)
+                response = make_response(output.getvalue())
+                response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+                response.headers['Content-Disposition'] = f'attachment; filename=encuesta_{encuesta_id}_respuestas_{timestamp}.csv'
+                return response
+            else:
+                # Excel
+                try:
+                    import pandas as pd
+                    import io
+                    output = io.BytesIO()
+                    df = pd.DataFrame(rows)
+                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                        df.to_excel(writer, index=False, sheet_name=f"respuestas_{encuesta_id}")
+                    response = make_response(output.getvalue())
+                    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    response.headers['Content-Disposition'] = f'attachment; filename=encuesta_{encuesta_id}_respuestas_{timestamp}.xlsx'
+                    return response
+                except Exception as e:
+                    logger.warning(f"Fallo export Excel, devolviendo CSV. Error: {e}")
+                    import io, csv
+                    output = io.StringIO()
+                    writer = csv.DictWriter(output, fieldnames=list(rows[0].keys()))
+                    writer.writeheader()
+                    writer.writerows(rows)
+                    response = make_response(output.getvalue())
+                    response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+                    response.headers['Content-Disposition'] = f'attachment; filename=encuesta_{encuesta_id}_respuestas_{timestamp}.csv'
+                    return response
+
+        except mysql.connector.Error as e:
+            logger.error(f"Error exportando respuestas encuesta {encuesta_id}: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        except Exception as e:
+            logger.error(f"Error inesperado exportando respuestas {encuesta_id}: {e}")
+            return jsonify({'success': False, 'message': 'Error interno del servidor'}), 500
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     logger.info("Rutas de encuestas registradas correctamente")
 

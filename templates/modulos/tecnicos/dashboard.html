@@ -801,11 +801,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         inputs.forEach(input => input.disabled = true);
                     }
                 } else {
-                    // Si no existe registro, habilitar el formulario
-                    if (preoperacionalForm) {
-                        const inputs = preoperacionalForm.querySelectorAll('input, select, textarea');
-                        inputs.forEach(input => input.disabled = false);
-                    }
+                    // Si no existe registro, verificar vencimientos y habilitar/bloquear según corresponda
+                    verificarVencimientosYBloqueo();
                 }
             })
             .catch(error => {
@@ -816,6 +813,53 @@ document.addEventListener('DOMContentLoaded', function() {
                     text: 'Ocurrió un error al verificar el registro preoperacional.',
                     confirmButtonText: 'Cerrar'
                 });
+            });
+    }
+
+    function verificarVencimientosYBloqueo() {
+        fetch('/api/mi/vencimientos?dias=30')
+            .then(response => response.json())
+            .then(data => {
+                const items = (data && Array.isArray(data.items)) ? data.items : [];
+                const debeBloquear = items.some(i => {
+                    const estado = (i.estado || '').toLowerCase();
+                    return estado === 'vencido' || estado === 'critico' || estado === 'proximo';
+                });
+
+                if (debeBloquear && items.length > 0) {
+                    // Mostrar alerta y bloquear formulario
+                    const detalles = items.map(i => {
+                        const fecha = i.fecha_vencimiento || 'N/A';
+                        const dias = (i.dias_restantes !== undefined && i.dias_restantes !== null) ? i.dias_restantes : 'N/A';
+                        const placa = i.placa ? ` - ${i.placa}` : '';
+                        return `${i.tipo}${placa}: vence ${fecha} (${dias} días)`;
+                    }).join('\n');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Vencimientos Detectados',
+                        text: 'No puedes registrar el preoperacional: existen vencimientos próximos o vencidos.',
+                        footer: `<pre style="text-align:left">${detalles}</pre>`,
+                        confirmButtonText: 'Entendido'
+                    });
+                    if (preoperacionalForm) {
+                        const inputs = preoperacionalForm.querySelectorAll('input, select, textarea');
+                        inputs.forEach(input => input.disabled = true);
+                    }
+                } else {
+                    // Habilitar el formulario
+                    if (preoperacionalForm) {
+                        const inputs = preoperacionalForm.querySelectorAll('input, select, textarea');
+                        inputs.forEach(input => input.disabled = false);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error verificando vencimientos:', error);
+                // En caso de error, no bloquear, permitir continuar
+                if (preoperacionalForm) {
+                    const inputs = preoperacionalForm.querySelectorAll('input, select, textarea');
+                    inputs.forEach(input => input.disabled = false);
+                }
             });
     }
     
