@@ -470,6 +470,152 @@ def obtener_tecnicos_por_supervisor():
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
+# === API Operativo: Vencimientos de técnicos a cargo ===
+@app.route('/api/operativo/vencimientos_tecnicos', methods=['GET'])
+@login_required
+def api_vencimientos_tecnicos_operativo():
+    """Devuelve documentos vencidos de los técnicos a cargo de un supervisor (SOAT, Técnico Mecánica, Licencia)."""
+    # Permitir a roles operativo y administrativo
+    if not (current_user.has_role('operativo') or current_user.has_role('administrativo')):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+
+    supervisor = request.args.get('supervisor')
+    dias_param = request.args.get('dias', default='30')
+    try:
+        dias_ventana = int(dias_param)
+    except Exception:
+        dias_ventana = 30
+
+    if not supervisor:
+        return jsonify({'success': False, 'message': 'Supervisor no especificado'}), 400
+
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        cursor = connection.cursor(dictionary=True)
+
+        vencimientos = []
+
+        # SOAT por técnicos del supervisor
+        # Mejora: considerar vínculos por técnico_asignado o por placa del vehículo asignado
+        query_soat = """
+            SELECT DISTINCT
+                s.id_mpa_soat AS id,
+                s.fecha_vencimiento,
+                ro.id_codigo_consumidor AS tecnico_id,
+                ro.nombre AS tecnico_nombre,
+                'SOAT' AS tipo
+            FROM recurso_operativo ro
+            LEFT JOIN mpa_vehiculos mv ON mv.tecnico_asignado = ro.id_codigo_consumidor
+            LEFT JOIN mpa_soat s ON (s.tecnico_asignado = ro.id_codigo_consumidor OR (mv.placa IS NOT NULL AND s.placa = mv.placa))
+            WHERE ro.super = %s AND ro.estado = 'Activo'
+              AND s.fecha_vencimiento IS NOT NULL
+              AND s.fecha_vencimiento NOT LIKE '0000-00-00%'
+              AND s.fecha_vencimiento > '1900-01-01'
+        """
+        cursor.execute(query_soat, (supervisor,))
+        soats = cursor.fetchall()
+
+        # Técnico Mecánica por técnicos del supervisor
+        query_tm = """
+            SELECT DISTINCT
+                tm.id_mpa_tecnico_mecanica AS id,
+                tm.fecha_vencimiento,
+                ro.id_codigo_consumidor AS tecnico_id,
+                ro.nombre AS tecnico_nombre,
+                'Técnico Mecánica' AS tipo
+            FROM recurso_operativo ro
+            LEFT JOIN mpa_vehiculos mv ON mv.tecnico_asignado = ro.id_codigo_consumidor
+            LEFT JOIN mpa_tecnico_mecanica tm ON (tm.tecnico_asignado = ro.id_codigo_consumidor OR (mv.placa IS NOT NULL AND tm.placa = mv.placa))
+            WHERE ro.super = %s AND ro.estado = 'Activo'
+              AND tm.fecha_vencimiento IS NOT NULL
+              AND tm.fecha_vencimiento NOT LIKE '0000-00-00%'
+              AND tm.fecha_vencimiento > '1900-01-01'
+        """
+        cursor.execute(query_tm, (supervisor,))
+        tms = cursor.fetchall()
+
+        # Licencias de conducir por técnicos del supervisor
+        query_lc = """
+            SELECT 
+                lc.id_mpa_licencia_conducir AS id,
+                lc.fecha_vencimiento,
+                ro.id_codigo_consumidor AS tecnico_id,
+                ro.nombre AS tecnico_nombre,
+                'Licencia de Conducir' AS tipo
+            FROM mpa_licencia_conducir lc
+            LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor
+            WHERE ro.super = %s AND ro.estado = 'Activo'
+              AND lc.fecha_vencimiento IS NOT NULL
+              AND lc.fecha_vencimiento NOT LIKE '0000-00-00%'
+              AND lc.fecha_vencimiento > '1900-01-01'
+        """
+        cursor.execute(query_lc, (supervisor,))
+        lcs = cursor.fetchall()
+
+        # Unificar y calcular estado
+        from datetime import datetime, date
+        import pytz
+        import re
+        colombia_tz = pytz.timezone('America/Bogota')
+        hoy = datetime.now(colombia_tz).date()
+
+        def validar_fecha(fecha_str):
+            if not fecha_str or fecha_str == '0000-00-00':
+                return False, None
+            if not re.match(r'^\d{4}-\d{2}-\d{2}$', str(fecha_str)):
+                return False, None
+            try:
+                if isinstance(fecha_str, date):
+                    return True, fecha_str
+                y, m, d = map(int, str(fecha_str).split('-'))
+                return True, date(y, m, d)
+            except Exception:
+                return False, None
+
+        def procesar(items):
+            for v in items:
+                ok, fv = validar_fecha(v['fecha_vencimiento'])
+                if not ok:
+                    continue
+                dias = (fv - hoy).days
+                estado = 'Vencido' if dias < 0 else ('Próximo a vencer' if dias <= dias_ventana else 'Vigente')
+                vencimientos.append({
+                    'id': v['id'],
+                    'tipo': v['tipo'],
+                    'tecnico_id': v['tecnico_id'],
+                    'tecnico_nombre': v['tecnico_nombre'],
+                    'fecha_vencimiento': fv.strftime('%Y-%m-%d'),
+                    'dias_restantes': dias,
+                    'estado': estado
+                })
+
+        procesar(soats)
+        procesar(tms)
+        procesar(lcs)
+
+        # Filtrar solo vencidos para bloqueo estricto (según requerimiento)
+        vencidos = [v for v in vencimientos if v['estado'] == 'Vencido']
+
+        return jsonify({
+            'success': True,
+            'data': vencidos,
+            'supervisor': supervisor,
+            'total_vencidos': len(vencidos)
+        })
+
+    except mysql.connector.Error as e:
+        return jsonify({'success': False, 'message': f'Error de base de datos: {str(e)}'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
 @app.route('/api/asistencia/guardar', methods=['POST'])
 def guardar_asistencia_administrativa():
     """Guardar asistencias desde el sistema administrativo"""

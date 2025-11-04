@@ -2,6 +2,19 @@
 
 Plataforma de gestión operativa para recursos de movilidad
 
+## Ejecución
+La aplicación principal se ejecuta desde `main.py` en el puerto `8080`.
+
+```bash
+python main.py
+```
+
+- URL local: `http://127.0.0.1:8080`
+- URL LAN (si aplica): `http://<IP_local>:8080`
+- Constructor de encuestas: `http://127.0.0.1:8080/lider/encuestas`
+
+Para detener el servidor, usa `Ctrl + C` en la terminal.
+
 ## Requisitos
 - Python 3.10+
 - MySQL 8.0+
