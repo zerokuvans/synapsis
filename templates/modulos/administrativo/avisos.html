@@ -5,9 +5,6 @@
     <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
       <h5 class="mb-0"><i class="fas fa-bullhorn me-2"></i>Avisos</h5>
       <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary btn-sm" id="btnCrearDemo" title="Crear aviso de prueba">
-          <i class="fas fa-flask me-1"></i>Prueba
-        </button>
         <button class="btn btn-success btn-sm" data-bs-toggle="collapse" data-bs-target="#formAviso">
           <i class="fas fa-plus me-1"></i>Nuevo aviso
         </button>
@@ -42,6 +39,7 @@
             <div class="col-md-6">
               <label class="form-label">Imagen (opcional)</label>
               <input type="file" class="form-control" name="imagen" accept="image/*">
+              <div id="imagenPreview" class="form-text mt-2"></div>
             </div>
           </div>
           <div class="mt-3">
@@ -76,6 +74,58 @@
 
 {% block extra_js %}
 <script>
+let avisosCache = [];
+let modoEdicion = false;
+let avisoEditandoId = null;
+
+function setModoEdicion(on){
+  modoEdicion = !!on;
+  const btnSubmit = document.querySelector('#crearAvisoForm button[type="submit"]');
+  if(btnSubmit){ btnSubmit.innerHTML = modoEdicion ? '<i class="fas fa-save me-1"></i>Actualizar aviso' : '<i class="fas fa-save me-1"></i>Guardar aviso'; }
+  const colForm = document.getElementById('formAviso');
+  if(colForm){ const collapse = bootstrap.Collapse.getOrCreateInstance(colForm); collapse.show(); }
+}
+
+function limpiarEdicion(){
+  modoEdicion = false;
+  avisoEditandoId = null;
+  const form = document.getElementById('crearAvisoForm');
+  if(form){ form.reset(); }
+  const btnSubmit = document.querySelector('#crearAvisoForm button[type="submit"]');
+  if(btnSubmit){ btnSubmit.innerHTML = '<i class="fas fa-save me-1"></i>Guardar aviso'; }
+}
+
+function llenarFormulario(aviso){
+  const form = document.getElementById('crearAvisoForm');
+  if(!form || !aviso) return;
+  form.querySelector('[name="titulo"]').value = aviso.titulo || '';
+  form.querySelector('[name="mensaje"]').value = aviso.mensaje || '';
+  const toLocal = (s)=>{
+    if(!s) return '';
+    // s viene como 'YYYY-MM-DD HH:MM:SS' → input datetime-local espera 'YYYY-MM-DDTHH:MM'
+    const m = String(s).trim().match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})/);
+    return m ? `${m[1]}T${m[2]}` : '';
+  };
+  form.querySelector('[name="fecha_inicio"]').value = toLocal(aviso.fecha_inicio);
+  form.querySelector('[name="fecha_fin"]').value = toLocal(aviso.fecha_fin);
+  const chk = document.getElementById('activoCheck');
+  if(chk){ chk.checked = !!aviso.activo; }
+  const prev = document.getElementById('imagenPreview');
+  if(prev){
+    prev.innerHTML = aviso.imagen_url ? `Imagen actual:<br><img src="${aviso.imagen_url}" class="img-fluid rounded mt-1" style="max-width:100%; height:auto; max-height:50vh">` : 'Sin imagen actual';
+  }
+}
+
+function iniciarEdicion(id){
+  try{
+    const aviso = avisosCache.find(a => Number(a.id) === Number(id));
+    if(!aviso){ console.warn('Aviso no encontrado en cache', id); return; }
+    avisoEditandoId = id;
+    llenarFormulario(aviso);
+    setModoEdicion(true);
+  }catch(e){ console.error('Error iniciando edición', e); }
+}
+
 async function cargarAvisos(){
   try{
     const res = await fetch('/api/avisos', { credentials: 'same-origin' });
@@ -83,7 +133,8 @@ async function cargarAvisos(){
     if(!data.success){ throw new Error(data.message || 'Error'); }
     const tbody = document.querySelector('#tablaAvisos tbody');
     tbody.innerHTML = '';
-    (data.avisos||[]).forEach(a => {
+    avisosCache = data.avisos || [];
+    avisosCache.forEach(a => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${a.id}</td>
@@ -96,12 +147,35 @@ async function cargarAvisos(){
           <button class="btn btn-sm btn-outline-primary" onclick="toggleActivo(${a.id}, ${a.activo ? 0 : 1})">
             <i class="fas ${a.activo ? 'fa-eye-slash' : 'fa-eye'}"></i>
           </button>
+          <button class="btn btn-sm btn-outline-secondary ms-1" onclick="iniciarEdicion(${a.id})" title="Editar">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-danger ms-1" onclick="eliminarAviso(${a.id})" title="Eliminar">
+            <i class="fas fa-trash"></i>
+          </button>
         </td>
       `;
       tbody.appendChild(tr);
     });
   }catch(e){
     console.error('Error cargando avisos', e);
+  }
+}
+
+async function eliminarAviso(id){
+  try{
+    const ok = confirm('¿Está seguro de eliminar este aviso?');
+    if(!ok) return;
+    const res = await fetch(`/api/avisos/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if(data.success){
+      cargarAvisos();
+    }else{
+      alert(data.message || 'Error al eliminar aviso');
+    }
+  }catch(e){
+    console.error('Error eliminando aviso', e);
+    alert('Error eliminando aviso');
   }
 }
 
@@ -138,40 +212,52 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if (fi) fd.set('fecha_inicio', norm(fi));
   if (ff) fd.set('fecha_fin', norm(ff));
   try{
-    const res = await fetch('/api/avisos', { method: 'POST', body: fd, credentials: 'same-origin' });
-    console.debug('[Avisos] POST /api/avisos status:', res.status);
-    const data = await res.json();
-    if(data.success){
-      ev.target.reset();
-      const collapse = bootstrap.Collapse.getOrCreateInstance(document.getElementById('formAviso'));
-      collapse.hide();
-      cargarAvisos();
+    if(modoEdicion && avisoEditandoId){
+      // En edición: enviar PATCH con FormData para permitir reemplazar imagen
+      const res = await fetch(`/api/avisos/${avisoEditandoId}`, {
+        method: 'PATCH',
+        body: fd,
+        credentials: 'same-origin'
+      });
+      console.debug('[Avisos] PATCH /api/avisos/'+avisoEditandoId+' status:', res.status);
+      const data = await res.json();
+      if(data.success){
+        limpiarEdicion();
+        const collapse = bootstrap.Collapse.getOrCreateInstance(document.getElementById('formAviso'));
+        collapse.hide();
+        cargarAvisos();
+      } else {
+        console.error('[Avisos] Error actualizando aviso:', data);
+        alert(data.message || 'Error actualizando aviso');
+      }
     } else {
-      console.error('[Avisos] Error creando aviso:', data);
-      alert(data.message || 'Error creando aviso');
+      // Creación normal
+      const res = await fetch('/api/avisos', { method: 'POST', body: fd, credentials: 'same-origin' });
+      console.debug('[Avisos] POST /api/avisos status:', res.status);
+      const data = await res.json();
+      if(data.success){
+        ev.target.reset();
+        const collapse = bootstrap.Collapse.getOrCreateInstance(document.getElementById('formAviso'));
+        collapse.hide();
+        cargarAvisos();
+      } else {
+        console.error('[Avisos] Error creando aviso:', data);
+        alert(data.message || 'Error creando aviso');
+      }
     }
   }catch(e){ console.error('Error creando aviso', e); }
   });
-  // Botón de prueba rápida
-  const btnDemo = document.getElementById('btnCrearDemo');
-  if (btnDemo) {
-    btnDemo.addEventListener('click', async ()=>{
-      try{
-        const fd = new FormData();
-        fd.append('titulo', 'Aviso de prueba');
-        fd.append('mensaje', 'Este es un aviso creado desde el botón de prueba.');
-        fd.append('activo', '1');
-        const res = await fetch('/api/avisos', { method: 'POST', body: fd, credentials: 'same-origin' });
-        console.debug('[Avisos] POST demo status:', res.status);
-        const data = await res.json();
-        if (data.success) {
-          cargarAvisos();
-          alert('Aviso de prueba creado (ID ' + data.id + ')');
-        } else {
-          alert(data.message || 'Error creando aviso de prueba');
-        }
-      }catch(e){ console.error('Error creando aviso de prueba', e); }
-    });
+
+  // Agregar botón cancelar edición si estamos en modo edición
+  const contForm = document.getElementById('formAviso');
+  if(contForm){
+    const cancelarBtn = document.createElement('button');
+    cancelarBtn.type = 'button';
+    cancelarBtn.className = 'btn btn-outline-secondary ms-2';
+    cancelarBtn.textContent = 'Cancelar';
+    cancelarBtn.addEventListener('click', ()=>{ limpiarEdicion(); });
+    const acciones = form.querySelector('.mt-3');
+    if(acciones){ acciones.appendChild(cancelarBtn); }
   }
 });
 

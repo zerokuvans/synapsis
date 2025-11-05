@@ -288,7 +288,7 @@
 
     <!-- Modal Avisos al iniciar sesión -->
     <div class="modal fade" id="modalAvisosLogin" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="fas fa-bullhorn me-2"></i>Aviso</h5>
@@ -553,7 +553,9 @@
                 const avisos = data.avisos || [];
                 if(avisos.length === 0) return;
                 renderAvisos(avisos);
-                const modal = new bootstrap.Modal(document.getElementById('modalAvisosLogin'));
+                const el = document.getElementById('modalAvisosLogin');
+                el.addEventListener('shown.bs.modal', ajustarModalAvisosConImgs);
+                const modal = new bootstrap.Modal(el);
                 modal.show();
             }catch(e){ console.warn('No se pudo cargar avisos', e); }
         }
@@ -563,14 +565,42 @@
             const html = avisos.map(a => `
                 <div class="mb-4">
                     <h4 class="mb-2">${a.titulo || ''}</h4>
-                    ${a.imagen_url ? `<div class="text-center mb-3"><img src="${a.imagen_url}" class="img-fluid rounded" style="max-height:380px"></div>` : ''}
+                    ${a.imagen_url ? `<div class="text-center mb-3"><img src="${a.imagen_url}" class="img-fluid rounded aviso-img" style="max-width:100%; height:auto; max-height:85vh"></div>` : ''}
                     <p>${a.mensaje || ''}</p>
                     <hr>
                 </div>
             `).join('');
             cont.innerHTML = html;
+            ajustarModalAvisosConImgs();
         }
 
+        async function esperarCargaImagenes(selector){
+            const imgs = Array.from(document.querySelectorAll(selector));
+            if (imgs.length === 0) return;
+            await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => img.addEventListener('load', res, { once: true }))));
+        }
+
+        async function ajustarModalAvisosConImgs(){
+            try{
+                await esperarCargaImagenes('#avisos-popup-contenido img');
+                const dialog = document.querySelector('#modalAvisosLogin .modal-dialog');
+                if(!dialog) return;
+                const imgs = Array.from(document.querySelectorAll('#avisos-popup-contenido img'));
+                if(imgs.length === 0){
+                    dialog.style.removeProperty('maxWidth');
+                    return;
+                }
+                let targetWidth = 0;
+                for (const img of imgs){
+                    const w = img.naturalWidth || img.width || 0;
+                    if (w > targetWidth) targetWidth = w;
+                }
+                const maxW = Math.floor(window.innerWidth * 0.95);
+                dialog.style.maxWidth = Math.min(targetWidth, maxW) + 'px';
+            }catch(e){ console.warn('No se pudo ajustar modal por imágenes', e); }
+        }
+
+        window.addEventListener('resize', ajustarModalAvisosConImgs);
         document.addEventListener('DOMContentLoaded', cargarAvisosParaMi);
     })();
     </script>
@@ -650,6 +680,9 @@
     {% endblock %}
 
     <style>
+    /* Ampliar el ancho del modal de avisos para adaptarse al viewport */
+    #modalAvisosLogin .modal-dialog { max-width: 95vw; width: auto; }
+    #modalAvisosLogin .modal-body { overflow-x: hidden; display: flex; justify-content: center; }
     .flash-messages {
         position: fixed;
         top: 20px;

@@ -156,6 +156,55 @@ def registrar_rutas_avisos(app):
             except Exception:
                 pass
 
+    @app.route('/api/avisos/<int:aviso_id>', methods=['DELETE'])
+    def api_delete_aviso(aviso_id):
+        if not _is_admin():
+            return jsonify({'success': False, 'message': 'No autorizado'}), 403
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'Error de conexión'}), 500
+        try:
+            cur = conn.cursor(dictionary=True)
+            cur.execute("SELECT imagen_url FROM avisos WHERE id = %s", (aviso_id,))
+            row = cur.fetchone()
+            if not row:
+                return jsonify({'success': False, 'message': 'Aviso no encontrado'}), 404
+            imagen_url = row.get('imagen_url')
+            cur.close()
+
+            cur = conn.cursor()
+            cur.execute("DELETE FROM avisos WHERE id = %s", (aviso_id,))
+            conn.commit()
+
+            # Intentar eliminar el archivo asociado si pertenece a avisos
+            if imagen_url:
+                try:
+                    rel = imagen_url.lstrip('/').replace('\\', '/')
+                    if rel.startswith('static/uploads/avisos/'):
+                        full_path = os.path.join(current_app.root_path, rel)
+                        if os.path.exists(full_path):
+                            os.remove(full_path)
+                except Exception as fe:
+                    try:
+                        current_app.logger.warning(f"No se pudo eliminar archivo de aviso {imagen_url}: {fe}")
+                    except Exception:
+                        logging.warning(f"No se pudo eliminar archivo de aviso {imagen_url}: {fe}")
+
+            return jsonify({'success': True, 'message': 'Aviso eliminado'})
+        except Exception as e:
+            try:
+                current_app.logger.error(f"Error eliminando aviso: {e}")
+            except Exception:
+                logging.error(f"Error eliminando aviso: {e}")
+            return jsonify({'success': False, 'message': str(e)}), 500
+        finally:
+            try:
+                cur.close()
+                if conn.is_connected():
+                    conn.close()
+            except Exception:
+                pass
+
     @app.route('/api/avisos', methods=['POST'])
     def api_create_aviso():
         if not _is_admin():
@@ -211,24 +260,60 @@ def registrar_rutas_avisos(app):
         if not conn:
             return jsonify({'success': False, 'message': 'Error de conexión'}), 500
         try:
-            data = request.get_json(silent=True) or {}
+            content_type = request.headers.get('Content-Type', '')
             campos = []
             valores = []
-            if 'titulo' in data:
-                campos.append('titulo = %s')
-                valores.append(data.get('titulo'))
-            if 'mensaje' in data:
-                campos.append('mensaje = %s')
-                valores.append(data.get('mensaje'))
-            if 'activo' in data:
-                campos.append('activo = %s')
-                valores.append(1 if data.get('activo') else 0)
-            if 'fecha_inicio' in data:
-                campos.append('fecha_inicio = %s')
-                valores.append(_normalize_datetime(data.get('fecha_inicio')))
-            if 'fecha_fin' in data:
-                campos.append('fecha_fin = %s')
-                valores.append(_normalize_datetime(data.get('fecha_fin')))
+
+            if 'application/json' in content_type:
+                data = request.get_json(silent=True) or {}
+                if 'titulo' in data:
+                    campos.append('titulo = %s')
+                    valores.append(data.get('titulo'))
+                if 'mensaje' in data:
+                    campos.append('mensaje = %s')
+                    valores.append(data.get('mensaje'))
+                if 'activo' in data:
+                    campos.append('activo = %s')
+                    valores.append(1 if data.get('activo') else 0)
+                if 'fecha_inicio' in data:
+                    campos.append('fecha_inicio = %s')
+                    valores.append(_normalize_datetime(data.get('fecha_inicio')))
+                if 'fecha_fin' in data:
+                    campos.append('fecha_fin = %s')
+                    valores.append(_normalize_datetime(data.get('fecha_fin')))
+            else:
+                # multipart/form-data o application/x-www-form-urlencoded
+                titulo = request.form.get('titulo')
+                mensaje = request.form.get('mensaje')
+                activo = request.form.get('activo')
+                fecha_inicio = request.form.get('fecha_inicio')
+                fecha_fin = request.form.get('fecha_fin')
+                if titulo is not None:
+                    campos.append('titulo = %s')
+                    valores.append(titulo)
+                if mensaje is not None:
+                    campos.append('mensaje = %s')
+                    valores.append(mensaje)
+                if activo is not None:
+                    campos.append('activo = %s')
+                    valores.append(_parse_activo(activo))
+                if fecha_inicio is not None:
+                    campos.append('fecha_inicio = %s')
+                    valores.append(_normalize_datetime(fecha_inicio))
+                if fecha_fin is not None:
+                    campos.append('fecha_fin = %s')
+                    valores.append(_normalize_datetime(fecha_fin))
+                # Imagen opcional: si viene archivo, reemplazar
+                if 'imagen' in request.files and getattr(request.files['imagen'], 'filename', ''):
+                    try:
+                        imagen_url = save_uploaded_file(request.files['imagen'])
+                        campos.append('imagen_url = %s')
+                        valores.append(imagen_url)
+                    except Exception as e:
+                        try:
+                            current_app.logger.warning(f"No se pudo guardar imagen en actualización de aviso {aviso_id}: {e}")
+                        except Exception:
+                            logging.warning(f"No se pudo guardar imagen en actualización de aviso {aviso_id}: {e}")
             if not campos:
                 return jsonify({'success': False, 'message': 'Sin cambios'}), 400
             valores.append(aviso_id)
