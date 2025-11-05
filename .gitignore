@@ -11,9 +11,7 @@ __pycache__/
 # IDE/Editores
 .vscode/
 .idea/
-.trae/
-.vercel/
-__pycache__/
+
 # Base de datos
 *.db
 *.sql
