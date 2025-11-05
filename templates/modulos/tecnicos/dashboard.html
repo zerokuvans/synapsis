@@ -830,7 +830,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     return estado === 'vencido';
                 });
 
-                const debeBloquear = vencidos.length > 0;
+                const debeBloquear = vencidos.length < 0;
 
                 if (debeBloquear) {
                     // Mostrar alerta y bloquear formulario
