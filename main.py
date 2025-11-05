@@ -4118,7 +4118,7 @@ def registrar_preoperacional():
                 soat_row = cursor.fetchone()
                 if soat_row and soat_row.get('fecha_vencimiento'):
                     dias_restantes = (soat_row['fecha_vencimiento'].date() - fecha_hoy).days
-                    if dias_restantes <= 30:
+                    if dias_restantes <= 0:
                         vencimientos_detectados.append({
                             'tipo': 'SOAT',
                             'fecha': soat_row['fecha_vencimiento'].strftime('%Y-%m-%d'),
@@ -4136,7 +4136,7 @@ def registrar_preoperacional():
                 tm_row = cursor.fetchone()
                 if tm_row and tm_row.get('fecha_vencimiento'):
                     dias_restantes = (tm_row['fecha_vencimiento'].date() - fecha_hoy).days
-                    if dias_restantes <= 30:
+                    if dias_restantes <= 0:
                         vencimientos_detectados.append({
                             'tipo': 'Tecnomecánica',
                             'fecha': tm_row['fecha_vencimiento'].strftime('%Y-%m-%d'),
@@ -4154,7 +4154,7 @@ def registrar_preoperacional():
             lic_row = cursor.fetchone()
             if lic_row and lic_row.get('fecha_vencimiento'):
                 dias_restantes = (lic_row['fecha_vencimiento'].date() - fecha_hoy).days
-                if dias_restantes <= 30:
+                if dias_restantes <= 0:
                     vencimientos_detectados.append({
                         'tipo': 'Licencia de Conducir',
                         'fecha': lic_row['fecha_vencimiento'].strftime('%Y-%m-%d'),
@@ -4430,7 +4430,7 @@ def registrar_preoperacional_operativo():
             if vencimientos_detectados:
                 return jsonify({
                     'status': 'error',
-                    'message': 'No puedes registrar el preoperacional: existen vencimientos próximos o vencidos.',
+                    'message': 'No puedes registrar el preoperacional: tienes documentos vencidos.',
                     'bloqueo_por_vencimientos': True,
                     'vencimientos': vencimientos_detectados
                 }), 400
