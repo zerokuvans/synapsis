@@ -817,18 +817,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function verificarVencimientosYBloqueo() {
-        fetch('/api/mi/vencimientos?dias=0')
+        // Cache busting para evitar respuestas antiguas del navegador
+        fetch(`/api/mi/vencimientos?dias=0&cb=${Date.now()}`)
             .then(response => response.json())
             .then(data => {
                 const items = (data && Array.isArray(data.items)) ? data.items : [];
-                const debeBloquear = items.some(i => {
+                // Bloquear únicamente cuando hay documentos realmente vencidos (dias<=0)
+                const vencidos = items.filter(i => {
+                    const dias = Number(i.dias_restantes);
+                    if (Number.isFinite(dias)) return dias <= 0;
                     const estado = (i.estado || '').toLowerCase();
                     return estado === 'vencido';
                 });
 
-                if (debeBloquear && items.length > 0) {
+                const debeBloquear = vencidos.length > 0;
+
+                if (debeBloquear) {
                     // Mostrar alerta y bloquear formulario
-                    const detalles = items.map(i => {
+                    const detalles = vencidos.map(i => {
                         const fecha = i.fecha_vencimiento || 'N/A';
                         const dias = (i.dias_restantes !== undefined && i.dias_restantes !== null) ? i.dias_restantes : 'N/A';
                         const placa = i.placa ? ` - ${i.placa}` : '';
