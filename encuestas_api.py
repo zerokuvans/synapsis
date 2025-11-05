@@ -589,6 +589,150 @@ def registrar_rutas_encuestas(app):
         finally:
             connection.close()
 
+    @app.route('/api/encuestas/<int:encuesta_id>/audiencia-estado', methods=['GET'])
+    def audiencia_estado_encuesta(encuesta_id):
+        """Devuelve la lista de técnicos habilitados para la encuesta y su estado de respuesta.
+        Respuesta: { success: true, encuesta, tecnicos: [{ id, nombre, carpeta, super, fecha, estado }] }
+        estado: 'ok' si tiene respuesta enviada, 'pendiente' en otro caso.
+        """
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cur = conn.cursor(dictionary=True)
+            cur.execute(
+                """
+                SELECT id_encuesta, dirigida_a, audiencia_carpetas, audiencia_supervisores, audiencia_tecnicos
+                FROM encuestas
+                WHERE id_encuesta = %s
+                """,
+                (encuesta_id,)
+            )
+            enc = cur.fetchone()
+            if not enc:
+                return jsonify({'success': False, 'message': 'Encuesta no encontrada'}), 404
+
+            dirigida_a = (enc.get('dirigida_a') or '').strip().lower()
+            aud_carpetas = enc.get('audiencia_carpetas')
+            aud_supervisores = enc.get('audiencia_supervisores')
+            aud_tecnicos = enc.get('audiencia_tecnicos')
+
+            # Parsear JSONs si son textos
+            try:
+                if isinstance(aud_carpetas, str) and aud_carpetas:
+                    aud_carpetas = json.loads(aud_carpetas)
+            except Exception:
+                aud_carpetas = None
+            try:
+                if isinstance(aud_supervisores, str) and aud_supervisores:
+                    aud_supervisores = json.loads(aud_supervisores)
+            except Exception:
+                aud_supervisores = None
+            try:
+                if isinstance(aud_tecnicos, str) and aud_tecnicos:
+                    aud_tecnicos = json.loads(aud_tecnicos)
+            except Exception:
+                aud_tecnicos = None
+
+            tecnicos_rows = []
+
+            if dirigida_a == 'tecnicos':
+                # Construir consulta base de técnicos habilitados
+                if isinstance(aud_tecnicos, list) and len(aud_tecnicos) > 0:
+                    # Lista explícita de técnicos
+                    ids = [str(t).strip() for t in aud_tecnicos if str(t).strip()]
+                    placeholders = ','.join(['%s'] * len(ids))
+                    cur.execute(
+                        f"""
+                        SELECT ro.id_codigo_consumidor AS id, ro.nombre, ro.carpeta, ro.super
+                        FROM recurso_operativo ro
+                        WHERE ro.id_codigo_consumidor IN ({placeholders})
+                          AND (ro.estado IS NULL OR ro.estado = 'Activo')
+                        ORDER BY ro.nombre
+                        """,
+                        ids
+                    )
+                    tecnicos_rows = cur.fetchall() or []
+                else:
+                    # Filtrar por supervisores y/o carpetas
+                    where_clauses = ["(ro.estado IS NULL OR ro.estado = 'Activo')"]
+                    params = []
+                    if isinstance(aud_supervisores, list) and len(aud_supervisores) > 0:
+                        # Comparación case-insensitive
+                        placeholders = ','.join(['%s'] * len(aud_supervisores))
+                        where_clauses.append(f"LOWER(ro.super) IN ({placeholders})")
+                        params.extend([(s or '').strip().lower() for s in aud_supervisores])
+                    if isinstance(aud_carpetas, list) and len(aud_carpetas) > 0:
+                        placeholders = ','.join(['%s'] * len(aud_carpetas))
+                        where_clauses.append(f"LOWER(ro.carpeta) IN ({placeholders})")
+                        params.extend([(c or '').strip().lower() for c in aud_carpetas])
+
+                    # Si no hay filtros, por seguridad retornar vacío para evitar listados masivos
+                    if len(where_clauses) == 1:
+                        tecnicos_rows = []
+                    else:
+                        cur.execute(
+                            f"""
+                            SELECT ro.id_codigo_consumidor AS id, ro.nombre, ro.carpeta, ro.super
+                            FROM recurso_operativo ro
+                            WHERE {' AND '.join(where_clauses)}
+                            ORDER BY ro.nombre
+                            """,
+                            params
+                        )
+                        tecnicos_rows = cur.fetchall() or []
+            else:
+                # Por ahora soportamos solo encuestas dirigidas a técnicos
+                tecnicos_rows = []
+
+            # Obtener última fecha de respuesta por usuario para esta encuesta
+            cur.execute(
+                """
+                SELECT usuario_id, MAX(fecha_respuesta) AS fecha, MAX(CASE WHEN estado = 'enviada' THEN 1 ELSE 0 END) AS enviada
+                FROM encuesta_respuestas
+                WHERE encuesta_id = %s
+                GROUP BY usuario_id
+                """,
+                (encuesta_id,)
+            )
+            respuestas_map = {}
+            for r in cur.fetchall() or []:
+                respuestas_map[str(r['usuario_id'])] = {
+                    'fecha': r['fecha'],
+                    'enviada': r['enviada'] == 1
+                }
+
+            # Armar salida con estado
+            tecnicos = []
+            for t in tecnicos_rows:
+                rid = str(t.get('id'))
+                info = respuestas_map.get(rid)
+                estado = 'ok' if (info and info.get('enviada')) else ('ok' if info else 'pendiente')
+                fecha = info.get('fecha') if info else None
+                tecnicos.append({
+                    'id': t.get('id'),
+                    'nombre': t.get('nombre'),
+                    'carpeta': t.get('carpeta'),
+                    'supervisor': t.get('super'),
+                    'fecha': fecha.strftime('%Y-%m-%d %H:%M:%S') if isinstance(fecha, datetime) else (fecha if fecha else None),
+                    'estado': estado
+                })
+
+            return jsonify({'success': True, 'encuesta': {
+                'id_encuesta': enc.get('id_encuesta'),
+                'dirigida_a': dirigida_a,
+                'audiencia_carpetas': aud_carpetas,
+                'audiencia_supervisores': aud_supervisores,
+                'audiencia_tecnicos': aud_tecnicos
+            }, 'tecnicos': tecnicos})
+
+        except mysql.connector.Error as e:
+            logger.error(f"Error consultando audiencia/estado de encuesta {encuesta_id}: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            conn.close()
+
     @app.route('/api/encuestas/<int:encuesta_id>', methods=['PATCH'])
     def actualizar_encuesta(encuesta_id):
         data = request.get_json(silent=True) or {}
@@ -1223,13 +1367,15 @@ def registrar_rutas_encuestas(app):
             cur = conn.cursor(dictionary=True)
             cur.execute(
                 """
-                SELECT r.id_respuesta, r.usuario_id, r.fecha_respuesta, r.ip,
+                SELECT r.id_respuesta, r.usuario_id, r.fecha_respuesta, r.estado,
+                       ro.nombre AS tecnico, ro.super AS supervisor, ro.carpeta AS carpeta,
                        d.pregunta_id, p.texto AS texto_pregunta, p.tipo,
-                       d.valor_texto, d.valor_numero, d.opcion_id, o.texto AS texto_opcion, d.archivo_url
+                       d.valor_texto, d.valor_numero, d.opcion_id, o.texto AS texto_opcion, d.archivo_url, r.ip
                 FROM encuesta_respuestas r
                 JOIN encuesta_respuestas_detalle d ON d.respuesta_id = r.id_respuesta
                 JOIN encuesta_preguntas p ON p.id_pregunta = d.pregunta_id
                 LEFT JOIN encuesta_opciones o ON o.id_opcion = d.opcion_id
+                LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = r.usuario_id
                 WHERE r.encuesta_id = %s
                 ORDER BY r.id_respuesta, d.pregunta_id
                 """,
@@ -1243,12 +1389,36 @@ def registrar_rutas_encuestas(app):
             from datetime import datetime
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
+            # Transformar filas para incluir columnas pedidas: técnico, supervisor, fecha, pregunta y respuesta, estado
+            def formatear_respuesta(r):
+                # Derivar valor de respuesta en texto
+                if r.get('archivo_url'):
+                    return r.get('archivo_url')
+                if r.get('texto_opcion') is not None:
+                    return r.get('texto_opcion')
+                if r.get('valor_numero') is not None:
+                    return str(r.get('valor_numero'))
+                return r.get('valor_texto')
+
+            export_rows = []
+            for r in rows:
+                estado_label = 'OK' if (r.get('estado') == 'enviada') else 'Pendiente'
+                export_rows.append({
+                    'Tecnico': r.get('tecnico') or str(r.get('usuario_id') or ''),
+                    'Supervisor': r.get('supervisor') or '',
+                    'Carpeta': r.get('carpeta') or '',
+                    'Fecha': r.get('fecha_respuesta'),
+                    'Estado': estado_label,
+                    'Pregunta': r.get('texto_pregunta'),
+                    'Respuesta': formatear_respuesta(r)
+                })
+
             if formato == 'csv':
                 import io, csv
                 output = io.StringIO()
-                writer = csv.DictWriter(output, fieldnames=list(rows[0].keys()))
+                writer = csv.DictWriter(output, fieldnames=list(export_rows[0].keys()))
                 writer.writeheader()
-                writer.writerows(rows)
+                writer.writerows(export_rows)
                 response = make_response(output.getvalue())
                 response.headers['Content-Type'] = 'text/csv; charset=utf-8'
                 response.headers['Content-Disposition'] = f'attachment; filename=encuesta_{encuesta_id}_respuestas_{timestamp}.csv'
@@ -1259,9 +1429,57 @@ def registrar_rutas_encuestas(app):
                     import pandas as pd
                     import io
                     output = io.BytesIO()
-                    df = pd.DataFrame(rows)
-                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                        df.to_excel(writer, index=False, sheet_name=f"respuestas_{encuesta_id}")
+                    # Por defecto exportar en wide-form en Excel (una fila por respuesta, columnas por pregunta)
+                    wide_param = (request.args.get('wide', '').strip().lower())
+                    wide_requested = True if wide_param in ('', '1', 'true', 'yes', 'si', 'sí', 'y') else False
+                    if wide_requested:
+                        # Construir estructura wide usando id_respuesta como fila
+                        # Columnas base
+                        base_cols = ['Tecnico', 'Supervisor', 'Carpeta', 'Fecha', 'Estado']
+                        # Descubrir preguntas únicas
+                        preguntas_unicas = []
+                        seen = set()
+                        for r in rows:
+                            txt = r.get('texto_pregunta')
+                            if txt not in seen:
+                                seen.add(txt)
+                                preguntas_unicas.append(txt)
+                        # Mapear respuesta -> fila
+                        filas = {}
+                        for r in rows:
+                            resp_id = r.get('id_respuesta')
+                            estado_label = 'OK' if (r.get('estado') == 'enviada') else 'Pendiente'
+                            if resp_id not in filas:
+                                filas[resp_id] = {
+                                    'Tecnico': r.get('tecnico') or str(r.get('usuario_id') or ''),
+                                    'Supervisor': r.get('supervisor') or '',
+                                    'Carpeta': r.get('carpeta') or '',
+                                    'Fecha': r.get('fecha_respuesta'),
+                                    'Estado': estado_label,
+                                }
+                            ans = formatear_respuesta(r)
+                            col = r.get('texto_pregunta')
+                            if col:
+                                if col in filas[resp_id] and filas[resp_id][col]:
+                                    # Concatenar múltiples respuestas para la misma pregunta
+                                    filas[resp_id][col] = f"{filas[resp_id][col]} | {ans}" if ans else filas[resp_id][col]
+                                else:
+                                    filas[resp_id][col] = ans
+                        # Ordenar columnas: base + preguntas
+                        ordered_cols = base_cols + preguntas_unicas
+                        df = pd.DataFrame(list(filas.values()))
+                        # Asegurar orden de columnas y presencia de todas
+                        for c in ordered_cols:
+                            if c not in df.columns:
+                                df[c] = None
+                        df = df[ordered_cols]
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            df.to_excel(writer, index=False, sheet_name=f"respuestas_{encuesta_id}")
+                    else:
+                        # long-form
+                        df = pd.DataFrame(export_rows)
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            df.to_excel(writer, index=False, sheet_name=f"respuestas_{encuesta_id}")
                     response = make_response(output.getvalue())
                     response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                     response.headers['Content-Disposition'] = f'attachment; filename=encuesta_{encuesta_id}_respuestas_{timestamp}.xlsx'
@@ -1270,9 +1488,9 @@ def registrar_rutas_encuestas(app):
                     logger.warning(f"Fallo export Excel, devolviendo CSV. Error: {e}")
                     import io, csv
                     output = io.StringIO()
-                    writer = csv.DictWriter(output, fieldnames=list(rows[0].keys()))
+                    writer = csv.DictWriter(output, fieldnames=list(export_rows[0].keys()))
                     writer.writeheader()
-                    writer.writerows(rows)
+                    writer.writerows(export_rows)
                     response = make_response(output.getvalue())
                     response.headers['Content-Type'] = 'text/csv; charset=utf-8'
                     response.headers['Content-Disposition'] = f'attachment; filename=encuesta_{encuesta_id}_respuestas_{timestamp}.csv'

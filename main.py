@@ -882,7 +882,11 @@ def tecnicos_dashboard():
         connection = get_db_connection()
         if connection is None:
             flash('Error de conexión a la base de datos', 'danger')
-            return render_template('modulos/tecnicos/dashboard.html', supervisor=None, tiene_asistencia=False)
+            resp = make_response(render_template('modulos/tecnicos/dashboard.html', supervisor=None, tiene_asistencia=False))
+            resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            resp.headers['Pragma'] = 'no-cache'
+            resp.headers['Expires'] = '0'
+            return resp
             
         cursor = connection.cursor(dictionary=True, buffered=True)
         
@@ -920,11 +924,19 @@ def tecnicos_dashboard():
             registro_existente = cursor.fetchone()
             tiene_asistencia = registro_existente['registros_hoy'] > 0 if registro_existente else False
         
-        return render_template('modulos/tecnicos/dashboard.html', supervisor=supervisor_tecnico, tiene_asistencia=tiene_asistencia)
+        resp = make_response(render_template('modulos/tecnicos/dashboard.html', supervisor=supervisor_tecnico, tiene_asistencia=tiene_asistencia))
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+        return resp
                            
     except mysql.connector.Error as e:
         flash(f'Error al cargar datos del supervisor: {str(e)}', 'warning')
-        return render_template('modulos/tecnicos/dashboard.html', supervisor=None, tiene_asistencia=False)
+        resp = make_response(render_template('modulos/tecnicos/dashboard.html', supervisor=None, tiene_asistencia=False))
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+        return resp
     finally:
         if cursor:
             try:
@@ -2048,17 +2060,54 @@ def obtener_datos_preoperacional_operativo():
                 mv.modelo,
                 mv.marca,
                 mv.tipo_vehiculo,
-                mlc.tipo_licencia,
-                mlc.fecha_vencimiento as fecha_venc_licencia,
-                ms.fecha_vencimiento as fecha_venc_soat,
-                mtm.fecha_vencimiento as fecha_venc_tecnico_mecanica,
-                0 as ultimo_kilometraje,
-                NULL as fecha_ultimo_kilometraje
+                -- Licencia activa más reciente del operativo
+                (
+                    SELECT sub.tipo_licencia
+                    FROM capired.mpa_licencia_conducir sub
+                    WHERE sub.tecnico = ro.id_codigo_consumidor
+                      AND sub.fecha_vencimiento IS NOT NULL
+                      AND sub.fecha_vencimiento > '1900-01-01'
+                      AND (sub.estado IS NULL OR sub.estado = 'Activo')
+                    ORDER BY sub.fecha_vencimiento DESC
+                    LIMIT 1
+                ) AS tipo_licencia,
+                (
+                    SELECT sub.fecha_vencimiento
+                    FROM capired.mpa_licencia_conducir sub
+                    WHERE sub.tecnico = ro.id_codigo_consumidor
+                      AND sub.fecha_vencimiento IS NOT NULL
+                      AND sub.fecha_vencimiento > '1900-01-01'
+                      AND (sub.estado IS NULL OR sub.estado = 'Activo')
+                    ORDER BY sub.fecha_vencimiento DESC
+                    LIMIT 1
+                ) AS fecha_venc_licencia,
+                -- SOAT activo más reciente por placa del vehículo asignado
+                (
+                    SELECT s.fecha_vencimiento
+                    FROM capired.mpa_soat s
+                    WHERE s.placa = mv.placa
+                      AND s.estado = 'Activo'
+                      AND s.fecha_vencimiento IS NOT NULL
+                      AND s.fecha_vencimiento > '1900-01-01'
+                    ORDER BY s.fecha_vencimiento DESC
+                    LIMIT 1
+                ) AS fecha_venc_soat,
+                -- Tecnomecánica activa más reciente por placa del vehículo asignado
+                (
+                    SELECT t.fecha_vencimiento
+                    FROM capired.mpa_tecnico_mecanica t
+                    WHERE t.placa = mv.placa
+                      AND t.estado = 'Activo'
+                      AND t.fecha_vencimiento IS NOT NULL
+                      AND t.fecha_vencimiento > '1900-01-01'
+                    ORDER BY t.fecha_vencimiento DESC
+                    LIMIT 1
+                ) AS fecha_venc_tecnico_mecanica,
+                0 AS ultimo_kilometraje,
+                NULL AS fecha_ultimo_kilometraje
             FROM capired.recurso_operativo ro
             LEFT JOIN capired.mpa_vehiculos mv ON ro.id_codigo_consumidor = mv.tecnico_asignado
-            LEFT JOIN capired.mpa_licencia_conducir mlc ON ro.id_codigo_consumidor = mlc.tecnico
-            LEFT JOIN capired.mpa_soat ms ON mv.placa = ms.placa AND ms.estado = 'Activo'
-            LEFT JOIN capired.mpa_tecnico_mecanica mtm ON mv.placa = mtm.placa AND mtm.estado = 'Activo'
+            -- Se reemplazan joins directos por subconsultas para evitar múltiples resultados y fechas inválidas
             WHERE ro.id_codigo_consumidor = %s
             """,
             (session['id_codigo_consumidor'],)
@@ -2278,7 +2327,11 @@ def operativo_dashboard():
         connection = get_db_connection()
         if connection is None:
             flash('Error de conexión a la base de datos', 'danger')
-            return render_template('modulos/operativo/dashboard.html', tiene_asistencia=False)
+            resp = make_response(render_template('modulos/operativo/dashboard.html', tiene_asistencia=False))
+            resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            resp.headers['Pragma'] = 'no-cache'
+            resp.headers['Expires'] = '0'
+            return resp
             
         cursor = connection.cursor(dictionary=True)
         
@@ -2307,11 +2360,19 @@ def operativo_dashboard():
             registro_existente = cursor.fetchone()
             tiene_asistencia = registro_existente['registros_hoy'] > 0 if registro_existente else False
         
-        return render_template('modulos/operativo/dashboard.html', tiene_asistencia=tiene_asistencia)
+        resp = make_response(render_template('modulos/operativo/dashboard.html', tiene_asistencia=tiene_asistencia))
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+        return resp
         
     except mysql.connector.Error as e:
         flash(f'Error al verificar asistencia: {str(e)}', 'danger')
-        return render_template('modulos/operativo/dashboard.html', tiene_asistencia=False)
+        resp = make_response(render_template('modulos/operativo/dashboard.html', tiene_asistencia=False))
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+        return resp
     finally:
         if cursor:
             cursor.close()

@@ -596,14 +596,18 @@ def api_vencimientos_tecnicos_operativo():
         procesar(tms)
         procesar(lcs)
 
-        # Filtrar solo vencidos para bloqueo estricto (según requerimiento)
+        # Clasificaciones: vencidos para bloqueo, próximos (<= ventana) informativos (no bloqueo)
         vencidos = [v for v in vencimientos if v['estado'] == 'Vencido']
+        proximos = [v for v in vencimientos if v['estado'] == 'Próximo a vencer']
 
         return jsonify({
             'success': True,
+            # Mantener compatibilidad: 'data' sigue siendo la lista de vencidos usada por el frontend actual para bloqueo
             'data': vencidos,
+            'proximos': proximos,
             'supervisor': supervisor,
-            'total_vencidos': len(vencidos)
+            'total_vencidos': len(vencidos),
+            'total_proximos': len(proximos),
         })
 
     except mysql.connector.Error as e:
@@ -885,6 +889,268 @@ def validar_mantenimiento_preoperacional():
             'message': f'Error al validar mantenimientos: {str(e)}'
         }), 500
 
+# Alias para envío del formulario preoperacional desde Operativo (FormData)
+@app.route('/preoperacional_operativo', methods=['POST'])
+@login_required
+def preoperacional_operativo():
+    try:
+        bogota_tz = pytz.timezone('America/Bogota')
+        fecha_actual = datetime.now(bogota_tz).date()
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'status': 'error', 'message': 'Error de conexión a la base de datos.'}), 500
+        cursor = connection.cursor()
+
+        # Evitar doble registro en el mismo día
+        cursor.execute(
+            """
+            SELECT COUNT(*) FROM preoperacional 
+            WHERE id_codigo_consumidor = %s AND DATE(fecha) = %s
+            """,
+            (session.get('id_codigo_consumidor'), fecha_actual)
+        )
+        if cursor.fetchone()[0] > 0:
+            cursor.close()
+            connection.close()
+            return jsonify({'status': 'error', 'message': 'Ya existe un registro preoperacional para hoy'}), 400
+
+        # Validar mantenimientos abiertos por placa
+        placa_vehiculo = request.form.get('placa_vehiculo')
+        if placa_vehiculo:
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM mpa_mantenimientos 
+                WHERE placa = %s AND estado = 'Abierto'
+                """,
+                (placa_vehiculo,)
+            )
+            abiertos = cursor.fetchone()[0]
+            if abiertos > 0:
+                cursor.close()
+                connection.close()
+                return jsonify({
+                    'status': 'error',
+                    'message': f'No se puede completar el preoperacional. El vehículo {placa_vehiculo} tiene {abiertos} mantenimiento(s) abierto(s).',
+                    'tiene_mantenimientos_abiertos': True,
+                    'placa': placa_vehiculo,
+                    'mantenimientos_abiertos': abiertos
+                }), 400
+
+        # Insertar registro tomando campos del formulario (alineados con /preoperacional)
+        insert_query = """
+            INSERT INTO preoperacional (
+                id_codigo_consumidor, fecha, vehiculo_asignado, placa_vehiculo,
+                kilometraje, nivel_combustible, nivel_aceite, nivel_liquido_frenos,
+                nivel_refrigerante, presion_llantas, luces_funcionando, espejos_estado,
+                cinturon_seguridad, extintor_presente, botiquin_presente, triangulos_seguridad,
+                chaleco_reflectivo, casco_presente, guantes_presente, rodilleras_presente,
+                impermeable_presente, observaciones_generales
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+        """
+
+        cursor.execute(
+            insert_query,
+            (
+                session.get('id_codigo_consumidor'),
+                datetime.now(bogota_tz),
+                request.form.get('vehiculo_asignado'),
+                request.form.get('placa_vehiculo'),
+                request.form.get('kilometraje'),
+                request.form.get('nivel_combustible'),
+                request.form.get('nivel_aceite'),
+                request.form.get('nivel_liquido_frenos'),
+                request.form.get('nivel_refrigerante'),
+                request.form.get('presion_llantas'),
+                request.form.get('luces_funcionando'),
+                request.form.get('espejos_estado'),
+                request.form.get('cinturon_seguridad'),
+                request.form.get('extintor_presente'),
+                request.form.get('botiquin_presente'),
+                request.form.get('triangulos_seguridad'),
+                request.form.get('chaleco_reflectivo'),
+                request.form.get('casco_presente'),
+                request.form.get('guantes_presente'),
+                request.form.get('rodilleras_presente'),
+                request.form.get('impermeable_presente'),
+                request.form.get('observaciones_generales')
+            )
+        )
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+        return jsonify({'status': 'success', 'message': 'Preoperacional registrado exitosamente'})
+    except Exception as e:
+        try:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'connection' in locals() and connection and connection.is_connected():
+                connection.close()
+        except Exception:
+            pass
+        return jsonify({'status': 'error', 'message': f'Error al registrar preoperacional: {str(e)}'}), 500
+
+# Datos para precargar formulario de preoperacional operativo
+@app.route('/api/operativo/datos-preoperacional', methods=['GET'])
+@login_required
+def api_operativo_datos_preoperacional():
+    try:
+        bogota_tz = pytz.timezone('America/Bogota')
+        hoy = datetime.now(bogota_tz).date()
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+        cursor = connection.cursor(dictionary=True)
+
+        # Datos del usuario operativo
+        cursor.execute(
+            """
+            SELECT ciudad, super, id_codigo_consumidor
+            FROM recurso_operativo
+            WHERE id_codigo_consumidor = %s AND estado = 'Activo'
+            """,
+            (session.get('id_codigo_consumidor'),)
+        )
+        ro = cursor.fetchone() or {}
+
+        # Vehículo asignado
+        cursor.execute(
+            """
+            SELECT placa, marca, modelo, tipo_vehiculo
+            FROM mpa_vehiculos
+            WHERE tecnico_asignado = %s AND estado = 'Activo'
+            ORDER BY id_mpa_vehiculos DESC
+            LIMIT 1
+            """,
+            (session.get('id_codigo_consumidor'),)
+        )
+        veh = cursor.fetchone() or {}
+        placa = veh.get('placa')
+
+        # Último kilometraje
+        cursor.execute(
+            """
+            SELECT kilometraje, fecha
+            FROM preoperacional
+            WHERE id_codigo_consumidor = %s
+            ORDER BY fecha DESC
+            LIMIT 1
+            """,
+            (session.get('id_codigo_consumidor'),)
+        )
+        km_row = cursor.fetchone() or {}
+
+        # Helper para calcular días
+        def dias_restantes(fecha_str):
+            try:
+                y, m, d = map(int, str(fecha_str).split('-'))
+                fv = date(y, m, d)
+                return (fv - hoy).days
+            except Exception:
+                return None
+
+        # Consultar vencimientos propios (SOAT, Tecnomecánica del vehículo y Licencia del técnico)
+        fecha_venc_soat = None
+        fecha_venc_tm = None
+        fecha_venc_lic = None
+        alertas = []
+
+        if placa:
+            cursor.execute(
+                """
+                SELECT fecha_vencimiento
+                FROM mpa_soat
+                WHERE placa = %s AND estado = 'Activo' AND fecha_vencimiento IS NOT NULL AND fecha_vencimiento > '1900-01-01'
+                ORDER BY fecha_vencimiento DESC
+                LIMIT 1
+                """,
+                (placa,)
+            )
+            r = cursor.fetchone()
+            if r and r.get('fecha_vencimiento'):
+                fv = str(r['fecha_vencimiento'])
+                fecha_venc_soat = fv
+                dias = dias_restantes(fv)
+                if dias is not None:
+                    if dias <= 0:
+                        alertas.append({'tipo': 'error', 'mensaje': f'SOAT vencido (placa {placa})'})
+                    elif dias <= 30:
+                        alertas.append({'tipo': 'warning', 'mensaje': f'SOAT próximo a vencer en {dias} días (placa {placa})'})
+
+            cursor.execute(
+                """
+                SELECT fecha_vencimiento
+                FROM mpa_tecnico_mecanica
+                WHERE placa = %s AND estado = 'Activo' AND fecha_vencimiento IS NOT NULL AND fecha_vencimiento > '1900-01-01'
+                ORDER BY fecha_vencimiento DESC
+                LIMIT 1
+                """,
+                (placa,)
+            )
+            r2 = cursor.fetchone()
+            if r2 and r2.get('fecha_vencimiento'):
+                fv = str(r2['fecha_vencimiento'])
+                fecha_venc_tm = fv
+                dias = dias_restantes(fv)
+                if dias is not None:
+                    if dias <= 0:
+                        alertas.append({'tipo': 'error', 'mensaje': f'Tecnomecánica vencida (placa {placa})'})
+                    elif dias <= 30:
+                        alertas.append({'tipo': 'warning', 'mensaje': f'Tecnomecánica próxima a vencer en {dias} días (placa {placa})'})
+
+        cursor.execute(
+            """
+            SELECT fecha_vencimiento
+            FROM mpa_licencia_conducir
+            WHERE tecnico = %s AND estado = 'Activo' AND fecha_vencimiento IS NOT NULL AND fecha_vencimiento > '1900-01-01'
+            ORDER BY fecha_vencimiento DESC
+            LIMIT 1
+            """,
+            (session.get('id_codigo_consumidor'),)
+        )
+        r3 = cursor.fetchone()
+        if r3 and r3.get('fecha_vencimiento'):
+            fv = str(r3['fecha_vencimiento'])
+            fecha_venc_lic = fv
+            dias = dias_restantes(fv)
+            if dias is not None:
+                if dias <= 0:
+                    alertas.append({'tipo': 'error', 'mensaje': 'Licencia de conducir vencida'})
+                elif dias <= 30:
+                    alertas.append({'tipo': 'warning', 'mensaje': f'Licencia próxima a vencer en {dias} días'})
+
+        data = {
+            'ciudad': ro.get('ciudad'),
+            'supervisor': ro.get('super'),
+            'tipo_vehiculo': veh.get('tipo_vehiculo'),
+            'placa': placa,
+            'modelo': veh.get('modelo'),
+            'marca': veh.get('marca'),
+            'tipo_licencia': None,
+            'fecha_venc_licencia': fecha_venc_lic,
+            'fecha_venc_soat': fecha_venc_soat,
+            'fecha_venc_tecnico_mecanica': fecha_venc_tm,
+            'ultimo_kilometraje': km_row.get('kilometraje') or 0,
+            'fecha_ultimo_kilometraje': km_row.get('fecha').strftime('%Y-%m-%d %H:%M:%S') if km_row.get('fecha') else None
+        }
+
+        cursor.close()
+        connection.close()
+        return jsonify({'success': True, 'data': data, 'alertas': alertas})
+    except Exception as e:
+        try:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'connection' in locals() and connection and connection.is_connected():
+                connection.close()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)})
+
 # ============================================================================
 # MÓDULO ANALISTAS - API ENDPOINTS
 # ============================================================================
@@ -894,6 +1160,20 @@ def validar_mantenimiento_preoperacional():
 def analistas_index():
     """Renderizar el dashboard del módulo analistas"""
     return render_template('modulos/analistas/dashboard.html')
+
+# ============================================================================
+# MÓDULO OPERATIVO - RUTAS
+# ============================================================================
+
+@app.route('/operativo')
+@login_required
+def operativo_dashboard():
+    """Renderizar el dashboard del módulo operativo"""
+    try:
+        return render_template('modulos/operativo/dashboard.html')
+    except Exception as e:
+        flash(f'Error al cargar el módulo operativo: {str(e)}', 'danger')
+        return redirect(url_for('dashboard'))
 
 @app.route('/analistas/causas')
 @login_required
