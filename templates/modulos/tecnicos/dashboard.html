@@ -563,8 +563,10 @@ document.addEventListener('DOMContentLoaded', function() {
     obtenerHoraLimite().then(() => {
         // Iniciar reloj en tiempo real de Bogotá después de obtener la hora límite
         actualizarRelojBogota();
-        // Actualizar cada segundo
-        setInterval(actualizarRelojBogota, 1000);
+        // Asegurar un único temporizador para evitar múltiples intervalos y spam de logs
+        if (!window._relojBogotaInterval) {
+            window._relojBogotaInterval = setInterval(actualizarRelojBogota, 1000);
+        }
     });
     
     // Cargar datos del vehículo al abrir el modal
@@ -628,8 +630,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const fechaHoraCompleta = ahora.toLocaleString('es-CO', opcionesBogota);
             const fechaBogota = new Date(fechaHoraCompleta.replace(/(\d+)\/(\d+)\/(\d+)/, '$3/$2/$1'));
             
-            console.log("Fecha y hora en Bogotá:", fechaHoraCompleta);
-            console.log("Hora formateada:", horaFormateada);
+            // Reducir ruido en consola: solo log si la bandera de depuración está activa
+            if (window.DEBUG_HORARIO_PREOP) {
+                console.debug("Fecha y hora en Bogotá:", fechaHoraCompleta);
+                console.debug("Hora formateada:", horaFormateada);
+            }
             
             return {
                 fechaCompleta: fechaBogota,
@@ -720,7 +725,10 @@ document.addEventListener('DOMContentLoaded', function() {
             // Parsear la hora límite
             const [horaLimite, minutosLimite] = window.horaLimitePreoperacional.split(':').map(Number);
             
-            console.log(`Validando horario: Hora en Bogotá ${datosBogota.hora}:${datosBogota.minutos.toString().padStart(2, '0')} - Permitido hasta las ${window.horaLimitePreoperacional}`);
+            // Reducir ruido en consola: solo log si la bandera de depuración está activa
+            if (window.DEBUG_HORARIO_PREOP) {
+                console.debug(`Validando horario: Hora en Bogotá ${datosBogota.hora}:${datosBogota.minutos.toString().padStart(2, '0')} - Permitido hasta las ${window.horaLimitePreoperacional}`);
+            }
             
             // Comprobar si es antes de la hora límite
             if (datosBogota.hora < horaLimite) {
