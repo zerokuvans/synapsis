@@ -29,10 +29,11 @@
     <table class="table table-sm table-striped">
       <thead>
         <tr>
-          <th>ID</th>
+          <th>Técnico</th>
+          <th>Supervisor</th>
+          <th>Carpeta</th>
           <th>Fecha</th>
-          <th>Usuario</th>
-          <th>Resumen</th>
+          <th>Estado</th>
         </tr>
       </thead>
       <tbody id="respuestas-body"></tbody>
@@ -77,38 +78,21 @@
     } catch (e) { console.warn('[respuestas] No se pudieron cargar estadísticas', e); }
   }
 
-  function resumenRespuesta(detalles) {
-    const parts = [];
-    (detalles || []).forEach(d => {
-      const label = d.texto_pregunta || ('Pregunta ' + d.pregunta_id);
-      if (d.archivo_url) {
-        const isImg = /\.(png|jpe?g|gif|bmp|webp|svg)(\?.*)?$/i.test(d.archivo_url);
-        const content = isImg
-          ? `<a href="#" class="link-imagen" data-img="${d.archivo_url}">Imagen</a>`
-          : `<a href="${d.archivo_url}" target="_blank">Archivo</a>`;
-        parts.push(`${label}: ${content}`);
-        return;
-      }
-      let valor = d.valor_texto;
-      if (d.valor_numero != null) valor = d.valor_numero;
-      if (d.texto_opcion) valor = d.texto_opcion;
-      parts.push(`${label}: ${valor ?? ''}`);
-    });
-    return parts.join(' | ');
-  }
-
   async function cargarRespuestas(){
-    const res = await fetch(`/api/encuestas/${encuestaId}/respuestas`);
+    const res = await fetch(`/api/encuestas/${encuestaId}/audiencia-estado`);
     const data = await res.json();
-    if (!data.success) { showToast('Error', data.message || 'No se pudieron cargar respuestas', 'error'); return; }
+    if (!data.success) { showToast('Error', data.message || 'No se pudieron cargar técnicos habilitados', 'error'); return; }
     tbody.innerHTML = '';
-    (data.respuestas || []).forEach(r => {
+    (data.tecnicos || []).forEach(t => {
       const tr = document.createElement('tr');
+      const fecha = t.fecha ? t.fecha : '';
+      const estadoBadge = t.estado === 'ok' ? '<span class="badge bg-success">OK</span>' : '<span class="badge bg-warning text-dark">Pendiente</span>';
       tr.innerHTML = `
-        <td>${r.id_respuesta}</td>
-        <td>${r.fecha_respuesta}</td>
-        <td>${r.usuario_id ?? ''}</td>
-        <td>${resumenRespuesta(r.detalles)}</td>
+        <td>${t.nombre ?? t.id}</td>
+        <td>${t.supervisor ?? ''}</td>
+        <td>${t.carpeta ?? ''}</td>
+        <td>${fecha}</td>
+        <td>${estadoBadge}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -117,26 +101,7 @@
   cargarEncabezado();
   cargarRespuestas();
 
-  // Ver imagen en popup
-  tbody.addEventListener('click', (ev) => {
-    const a = ev.target.closest('.link-imagen');
-    if (!a) return;
-    ev.preventDefault();
-    const url = a.dataset.img;
-    if (window.Swal) {
-      Swal.fire({
-        imageUrl: url,
-        imageAlt: 'Imagen de respuesta',
-        showConfirmButton: false,
-        showCloseButton: true,
-        width: 'auto',
-        background: '#111',
-      });
-    } else {
-      const w = window.open('', '_blank');
-      w.document.write(`<img src="${url}" style="max-width:100%;height:auto;display:block;margin:auto">`);
-    }
-  });
+  // Sin manejo de imágenes en esta vista (listado de estado por técnico)
 })();
 </script>
 {% endblock %}

@@ -186,12 +186,7 @@
                             </div>
                             <div class="mb-3">
                                 <label for="tipo_vehiculo" class="form-label fw-bold">Tipo de Vehículo</label>
-                                <select class="form-select" id="tipo_vehiculo" name="tipo_vehiculo" required>
-                                    <option value="">Seleccione un tipo</option>
-                                    <option value="Moto">Moto</option>
-                                    <option value="Camioneta">Camioneta</option>
-                                    <option value="Camión">Camión</option>
-                                </select>
+                                <input type="text" class="form-control" id="tipo_vehiculo" name="tipo_vehiculo" placeholder="Tipo de vehículo asignado" required readonly>
                             </div>
                             <div class="mb-3">
                                 <label for="placa_vehiculo" class="form-label fw-bold">Placa del Vehículo</label>
@@ -203,40 +198,12 @@
                             </div>
                             <div class="mb-3">
                                 <label for="marca_vehiculo" class="form-label fw-bold">Marca del Vehículo</label>
-                                <select class="form-select" id="marca_vehiculo" name="marca_vehiculo" required>
-                                    <option value="">Seleccione una marca</option>
-                                    <option value="Honda">Honda</option>
-                                    <option value="Yamaha">Yamaha</option>
-                                    <option value="Suzuki">Suzuki</option>
-                                    <option value="Kawasaki">Kawasaki</option>
-                                    <option value="Ducati">Ducati</option>
-                                    <option value="AKT">AKT</option>
-                                    <option value="BAJAJ">BAJAJ</option>
-                                    <option value="HERO">HERO</option>
-                                    <option value="KYMCO">KYMCO</option>
-                                    <option value="TVS">TVS</option>
-                                    <option value="Fuso">Fuso</option>
-                                    <option value="Chevrolet">Chevrolet</option>
-                                    <option value="Ford">Ford</option>
-                                    <option value="Toyota">Toyota</option>
-
-
-                                    <!-- Add more brands as needed -->
-                                </select>
+                                <input type="text" class="form-control" id="marca_vehiculo" name="marca_vehiculo" placeholder="Marca del vehículo asignado" required readonly>
                             </div>
    
                             <div class="mb-3">
                                 <label for="licencia_conduccion" class="form-label fw-bold">Licencia de Conducción</label>
-                                <select class="form-select" id="licencia_conduccion" name="licencia_conduccion" required>
-                                    <option value="">Seleccione una licencia</option>
-                                    <option value="A1">A1</option>
-                                    <option value="A2">A2</option>
-                                    <option value="B1">B1</option>
-                                    <option value="B2">B2</option>
-                                    <option value="C1">C1</option>
-                                    <option value="C2">C2</option>
-                                    <option value="C3">C3</option>
-                                </select>
+                                <input type="text" class="form-control" id="licencia_conduccion" name="licencia_conduccion" placeholder="Se completará automáticamente" required readonly>
                             </div>
                             <div class="mb-3">
                                 <label for="fecha_vencimiento_licencia" class="form-label fw-bold">Fecha de Vencimiento de la Licencia</label>
@@ -438,7 +405,7 @@
                             </div>
                             <div class="mb-3">
                                 <label for="casco_certificado" class="form-label fw-bold">Casco Certificado</label>
-                                <select class="form-select" id="casco_certificado" name="casco_certificado" required>
+                                <select class="form-select" id="casco_certificado" name="casco_certificado" required-if-moto>
                                     <option value="">Seleccione una opción</option>
                                     <option value="Sí">Sí</option>
                                     <option value="No">No</option>
@@ -532,15 +499,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Ocultar al inicio hasta que se seleccione un tipo de vehículo
         seccionSeguridadMoto.closest('.card').style.display = 'none';
         
-        // Manejar cambios en el tipo de vehículo
-        tipoVehiculoSelect.addEventListener('change', function() {
-            const tipoSeleccionado = this.value;
-            
+        function aplicarVisibilidadSeguridadMoto() {
+            const tipoSeleccionado = (tipoVehiculoSelect.value || '').trim();
             if (tipoSeleccionado === 'Moto') {
-                // Mostrar sección de seguridad para motos
                 seccionSeguridadMoto.closest('.card').style.display = 'block';
-                
-                // Habilitar campos obligatorios
                 const campos = seccionSeguridadMoto.querySelectorAll('input, select');
                 campos.forEach(campo => {
                     if (campo.hasAttribute('required-if-moto')) {
@@ -548,20 +510,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 });
             } else {
-                // Ocultar sección de seguridad para motos
                 seccionSeguridadMoto.closest('.card').style.display = 'none';
-                
-                // Desabilitar campos obligatorios
                 const campos = seccionSeguridadMoto.querySelectorAll('input, select');
                 campos.forEach(campo => {
                     if (campo.hasAttribute('required')) {
                         campo.removeAttribute('required');
-                        // Guardar el estado para restaurar si se selecciona moto nuevamente
                         campo.setAttribute('required-if-moto', '');
                     }
                 });
             }
-        });
+        }
+
+        // Si hubiera cambios (por asignación programática), intentar aplicar
+        tipoVehiculoSelect.addEventListener('change', aplicarVisibilidadSeguridadMoto);
+        // Aplicar estado inicial por si ya viene seteado al cargar
+        aplicarVisibilidadSeguridadMoto();
     }
     
     // Obtener la hora límite desde la API y actualizar el texto del modal
@@ -832,7 +795,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Éxito',
-                                text: data.message || 'Inspección preoperacional registrada correctamente.',
+                                text: 'Preoperacional registrado con éxito',
                                 confirmButtonText: 'Aceptar'
                             }).then(() => {
                                 // Mantener al usuario en el dashboard operativo sin redireccionar
@@ -942,6 +905,12 @@ document.addEventListener('DOMContentLoaded', function() {
         setVal('ciudad', datos.ciudad, true);
         setVal('supervisor', datos.supervisor, true);
         setVal('tipo_vehiculo', datos.tipo_vehiculo);
+        // Actualizar visibilidad de sección moto tras completar valores
+        const tipoVehiculoEl = document.getElementById('tipo_vehiculo');
+        if (tipoVehiculoEl) {
+            // Despachar evento change para reutilizar la lógica
+            try { tipoVehiculoEl.dispatchEvent(new Event('change', { bubbles: true })); } catch(e) {}
+        }
         setVal('placa_vehiculo', datos.placa);
         setVal('modelo_vehiculo', datos.modelo);
         setVal('marca_vehiculo', datos.marca);
@@ -1016,6 +985,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Verificación adicional: bloquear si algún técnico a cargo tiene documentos vencidos
     async function verificarVencimientosTecnicosSupervisor(supervisor) {
         try {
+            // 1) Solicitar vencidos (bloqueo estricto)
             const resp = await fetch(`/api/operativo/vencimientos_tecnicos?supervisor=${encodeURIComponent(supervisor)}&dias=0&cb=${Date.now()}`);
             const data = await resp.json();
             if (!data.success) return;
@@ -1068,6 +1038,50 @@ document.addEventListener('DOMContentLoaded', function() {
                     confirmButtonText: 'Entendido'
                 });
                 window.preopOperativoBloqueoMostrado = true;
+            }
+
+            // 2) Mostrar advertencias informativas (no bloqueo) para próximos a vencer
+            try {
+                // Si el backend ya envió 'proximos' en la misma respuesta, úsalos; si no, hacer una segunda consulta con ventana de 30 días
+                let proximosRaw = Array.isArray(data.proximos) ? data.proximos : [];
+                if (!proximosRaw.length) {
+                    const respWarn = await fetch(`/api/operativo/vencimientos_tecnicos?supervisor=${encodeURIComponent(supervisor)}&dias=30&cb=${Date.now()}`);
+                    const dataWarn = await respWarn.json();
+                    if (dataWarn && dataWarn.success) {
+                        // Calcular proximos a partir de todos los vencimientos potenciales
+                        const combinar = [].concat(
+                            Array.isArray(dataWarn.data) ? dataWarn.data : [],
+                            Array.isArray(dataWarn.proximos) ? dataWarn.proximos : []
+                        );
+                        // Excluir vencidos y dejar solo los con 1..30 días
+                        proximosRaw = combinar.filter(v => {
+                            const dias = typeof v.dias_restantes === 'number' ? v.dias_restantes : null;
+                            return dias !== null && dias > 0 && dias <= 30;
+                        });
+                    }
+                }
+
+                if (proximosRaw.length > 0) {
+                    const contenedor = document.getElementById('alertas_documentos');
+                    if (contenedor) {
+                        let listaWarn = '';
+                        proximosRaw.forEach(v => {
+                            listaWarn += `<div class="mt-1"><i class="fas fa-user me-1"></i><strong>${v.tecnico_nombre}</strong> — ${v.tipo} próximo a vencer (fecha ${v.fecha_vencimiento}, ${v.dias_restantes} días)</div>`;
+                        });
+                        const bloqueWarn = `
+                            <div class="alert alert-warning mb-2">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Atención: algunos técnicos tienen documentos próximos a vencer (no bloquea el registro).
+                                ${listaWarn}
+                            </div>
+                        `;
+                        // Insertar advertencia sin remover el bloqueo previo
+                        contenedor.innerHTML = bloqueWarn + contenedor.innerHTML;
+                        contenedor.style.display = 'block';
+                    }
+                }
+            } catch (warnErr) {
+                console.warn('No fue posible cargar advertencias de próximos a vencer:', warnErr);
             }
         } catch (e) {
             console.error('Error verificando vencimientos de técnicos:', e);
