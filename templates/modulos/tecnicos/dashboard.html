@@ -817,13 +817,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function verificarVencimientosYBloqueo() {
-        fetch('/api/mi/vencimientos?dias=30')
+        fetch('/api/mi/vencimientos?dias=0')
             .then(response => response.json())
             .then(data => {
                 const items = (data && Array.isArray(data.items)) ? data.items : [];
                 const debeBloquear = items.some(i => {
                     const estado = (i.estado || '').toLowerCase();
-                    return estado === 'vencido' || estado === 'critico' || estado === 'proximo';
+                    return estado === 'vencido';
                 });
 
                 if (debeBloquear && items.length > 0) {
@@ -837,7 +837,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     Swal.fire({
                         icon: 'warning',
                         title: 'Vencimientos Detectados',
-                        text: 'No puedes registrar el preoperacional: existen vencimientos próximos o vencidos.',
+                        text: 'No puedes registrar el preoperacional: tienes documentos vencidos.',
                         footer: `<pre style="text-align:left">${detalles}</pre>`,
                         confirmButtonText: 'Entendido'
                     });
