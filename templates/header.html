@@ -56,6 +56,9 @@
                             <li><a class="dropdown-item" href="/logistica/estadisticas_ferretero_page">
                                 <i class="fas fa-chart-line me-2"></i>Estadísticas Ferretero
                             </a></li>
+                            <li><a class="dropdown-item" href="/admin/avisos">
+                                <i class="fas fa-bullhorn me-2"></i>Avisos
+                            </a></li>
                         </ul>
                     </li>
                     {% endif %}
@@ -279,6 +282,23 @@
                     </div>
                 </div>
                 
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Avisos al iniciar sesión -->
+    <div class="modal fade" id="modalAvisosLogin" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-bullhorn me-2"></i>Aviso</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="avisos-popup-contenido">
+                        <div class="text-center text-muted py-4">Cargando avisos…</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -515,6 +535,43 @@
             if (btn) btn.addEventListener('click', enviarRespuestas);
             cargarEncuestasActivasParaMi();
         });
+    })();
+    </script>
+
+    <!-- Avisos Popup al iniciar sesión -->
+    <script>
+    (function(){
+        const path = window.location.pathname;
+        if (path.includes('/login')) return;
+        const usuarioId = {{ (session.get('user_id') or session.get('id_codigo_consumidor')) | tojson }};
+
+        async function cargarAvisosParaMi(){
+            try{
+                const res = await fetch('/api/avisos/para-mi');
+                const data = await res.json();
+                if(!data.success) return;
+                const avisos = data.avisos || [];
+                if(avisos.length === 0) return;
+                renderAvisos(avisos);
+                const modal = new bootstrap.Modal(document.getElementById('modalAvisosLogin'));
+                modal.show();
+            }catch(e){ console.warn('No se pudo cargar avisos', e); }
+        }
+
+        function renderAvisos(avisos){
+            const cont = document.getElementById('avisos-popup-contenido');
+            const html = avisos.map(a => `
+                <div class="mb-4">
+                    <h4 class="mb-2">${a.titulo || ''}</h4>
+                    ${a.imagen_url ? `<div class="text-center mb-3"><img src="${a.imagen_url}" class="img-fluid rounded" style="max-height:380px"></div>` : ''}
+                    <p>${a.mensaje || ''}</p>
+                    <hr>
+                </div>
+            `).join('');
+            cont.innerHTML = html;
+        }
+
+        document.addEventListener('DOMContentLoaded', cargarAvisosParaMi);
     })();
     </script>
 
