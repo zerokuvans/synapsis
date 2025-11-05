@@ -21815,7 +21815,7 @@ def api_vencimientos_tecnicos_operativo():
                 if not ok:
                     continue
                 dias = (fv - hoy).days
-                estado = 'Vencido' if dias < 0 else ('Próximo a vencer' if dias <= dias_ventana else 'Vigente')
+                estado = 'Vencido' if dias <= 0 else ('Próximo a vencer' if dias <= dias_ventana else 'Vigente')
                 if estado == 'Vencido':
                     vencidos.append({
                         'id': v['id'],

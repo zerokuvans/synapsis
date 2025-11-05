@@ -999,17 +999,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 window.preopOperativoBloqueoMostrado = true;
             }
+        } else if (preoperacionalForm) {
+            // No hay bloqueo: asegurar que el formulario y el botón queden habilitados
+            const inputs = preoperacionalForm.querySelectorAll('input, select, textarea');
+            inputs.forEach(i => i.disabled = false);
+            const guardarBtn = preoperacionalForm.querySelector('#btn_guardar_preoperacional');
+            if (guardarBtn) {
+                guardarBtn.disabled = false;
+                guardarBtn.classList.remove('btn-secondary');
+                guardarBtn.classList.add('btn-primary');
+                guardarBtn.removeAttribute('title');
+            }
         }
     }
 
     // Verificación adicional: bloquear si algún técnico a cargo tiene documentos vencidos
     async function verificarVencimientosTecnicosSupervisor(supervisor) {
         try {
-            const resp = await fetch(`/api/operativo/vencimientos_tecnicos?supervisor=${encodeURIComponent(supervisor)}&dias=0`);
+            const resp = await fetch(`/api/operativo/vencimientos_tecnicos?supervisor=${encodeURIComponent(supervisor)}&dias=0&cb=${Date.now()}`);
             const data = await resp.json();
             if (!data.success) return;
 
-            const vencidos = Array.isArray(data.data) ? data.data : [];
+            // Reforzar filtro en cliente: solo documentos verdaderamente vencidos (<= 0 días)
+            const vencidosRaw = Array.isArray(data.data) ? data.data : [];
+            const vencidos = vencidosRaw.filter(v => {
+                const dias = typeof v.dias_restantes === 'number' ? v.dias_restantes : null;
+                return v.estado === 'Vencido' || (dias !== null && dias <= 0);
+            });
             if (vencidos.length === 0) return;
 
             const contenedor = document.getElementById('alertas_documentos');
