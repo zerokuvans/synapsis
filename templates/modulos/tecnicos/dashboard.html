@@ -830,7 +830,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     return estado === 'vencido';
                 });
 
-                const debeBloquear = vencidos.length < 0;
+                const debeBloquear = vencidos.length > 0;
+                console.debug('[Vencimientos] items:', items.length, 'vencidos:', vencidos.length, 'debeBloquear:', debeBloquear);
 
                 if (debeBloquear) {
                     // Mostrar alerta y bloquear formulario
@@ -841,8 +842,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         return `${i.tipo}${placa}: vence ${fecha} (${dias} días)`;
                     }).join('\n');
                     Swal.fire({
-                        icon: 'warning',
-                        title: 'Vencimientos Detectados',
+                        icon: 'error',
+                        title: 'Documentos Vencidos',
                         text: 'No puedes registrar el preoperacional: tienes documentos vencidos.',
                         footer: `<pre style="text-align:left">${detalles}</pre>`,
                         confirmButtonText: 'Entendido'
@@ -850,12 +851,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (preoperacionalForm) {
                         const inputs = preoperacionalForm.querySelectorAll('input, select, textarea');
                         inputs.forEach(input => input.disabled = true);
+                        const submitButton = preoperacionalForm.querySelector('button[type="submit"], #btn_guardar_preoperacional');
+                        if (submitButton) {
+                            submitButton.disabled = true;
+                            submitButton.classList.remove('btn-primary');
+                            submitButton.classList.add('btn-secondary');
+                            submitButton.setAttribute('title', 'Bloqueado por documentos vencidos');
+                        }
                     }
                 } else {
                     // Habilitar el formulario
                     if (preoperacionalForm) {
                         const inputs = preoperacionalForm.querySelectorAll('input, select, textarea');
                         inputs.forEach(input => input.disabled = false);
+                        const submitButton = preoperacionalForm.querySelector('button[type="submit"], #btn_guardar_preoperacional');
+                        if (submitButton) {
+                            submitButton.disabled = false;
+                            submitButton.classList.remove('btn-secondary');
+                            submitButton.classList.add('btn-primary');
+                            submitButton.removeAttribute('title');
+                        }
                     }
                 }
             })
