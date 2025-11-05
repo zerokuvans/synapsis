@@ -4167,7 +4167,7 @@ def registrar_preoperacional():
                 connection.close()
                 return jsonify({
                     'status': 'error',
-                    'message': 'No puedes registrar el preoperacional: existen vencimientos próximos o vencidos.',
+                    'message': 'No puedes registrar el preoperacional: tienes documentos vencidos.',
                     'bloqueo_por_vencimientos': True,
                     'vencimientos': vencimientos_detectados
                 }), 400
