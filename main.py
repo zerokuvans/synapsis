@@ -11431,6 +11431,55 @@ def guardar_asistencias_operativo():
                             carpeta_tecnico = tecnico_row['carpeta']
                             cargo_tecnico = tecnico_row['cargo']
                             print(f"DEBUG - Técnico {cedula_tecnico}: carpeta='{carpeta_tecnico}', cargo='{cargo_tecnico}'")
+
+                            # Normalización de carpetas para coincidencias de presupuesto
+                            def normalizar_carpeta(nombre):
+                                if not nombre:
+                                    return ''
+                                n = str(nombre).strip()
+                                # Unificar mayúsculas/minúsculas sin perder formato de la BD
+                                n_upper = n.upper()
+                                # Remover sufijo BACK si existe
+                                if n_upper.endswith(' BACK'):
+                                    n_upper = n_upper.replace(' BACK', '')
+                                # Sinónimos y correcciones comunes
+                                mapa = {
+                                    'BROWFIELD': 'BROWNFIELD',
+                                }
+                                # Carpetas válidas esperadas (canónicas)
+                                validas = [
+                                    'POSTVENTA', 'POSTVENTA FTTH',
+                                    'FTTH INSTALACIONES', 'INSTALACIONES DOBLES',
+                                    'MANTENIMIENTO FTTH', 'ARREGLOS HFC',
+                                    'BROWNFIELD'
+                                ]
+                                # Aplicar corrección de sinónimos
+                                n_upper = mapa.get(n_upper, n_upper)
+                                # Si tras quitar BACK coincide con alguna válida, devolver esa forma
+                                for v in validas:
+                                    if n_upper == v:
+                                        return v
+                                # Si no coincide exactamente, intentar igualar por palabras claves
+                                if 'POSTVENTA FTTH' in n_upper:
+                                    return 'POSTVENTA FTTH'
+                                if 'POSTVENTA' == n_upper or n_upper.startswith('POSTVENTA'):
+                                    return 'POSTVENTA'
+                                if 'FTTH INSTALACIONES' in n_upper:
+                                    return 'FTTH INSTALACIONES'
+                                if 'INSTALACIONES DOBLES' in n_upper:
+                                    return 'INSTALACIONES DOBLES'
+                                if 'MANTENIMIENTO FTTH' in n_upper:
+                                    return 'MANTENIMIENTO FTTH'
+                                if 'ARREGLOS HFC' in n_upper:
+                                    return 'ARREGLOS HFC'
+                                if 'BROWNFIELD' in n_upper or 'BROWFIELD' in n_upper:
+                                    return 'BROWNFIELD'
+                                # Por defecto devolver nombre original limpio (mayúsculas)
+                                return n_upper
+
+                            carpeta_normalizada = normalizar_carpeta(carpeta_tecnico)
+                            if carpeta_normalizada != carpeta_tecnico:
+                                print(f"DEBUG - Normalización de carpeta: '{carpeta_tecnico}' -> '{carpeta_normalizada}'")
                             
                             # VALIDACIÓN DUAL: Verificar carpeta Y cargo en presupuesto_carpeta
                             cursor.execute("""
@@ -11438,7 +11487,7 @@ def guardar_asistencias_operativo():
                                 FROM presupuesto_carpeta 
                                 WHERE presupuesto_carpeta = %s AND presupuesto_cargo = %s
                                 LIMIT 1
-                            """, (carpeta_tecnico, cargo_tecnico))
+                            """, (carpeta_normalizada, cargo_tecnico))
                             presupuesto_row = cursor.fetchone()
                             
                             if presupuesto_row:
@@ -11486,7 +11535,7 @@ def guardar_asistencias_operativo():
                     asistencia.get('cedula', ''),
                     asistencia.get('tecnico', ''),
                     asistencia.get('carpeta_dia', ''),
-                    asistencia.get('carpeta', ''),
+                    carpeta_normalizada,
                     asistencia.get('super', nombre_usuario_actual),
                     asistencia.get('fecha_asistencia', datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
                     asistencia.get('id_codigo_consumidor', 0),
@@ -13032,15 +13081,32 @@ def obtener_resumen_agrupado_asistencia():
         
         # ===== NUEVA FUNCIONALIDAD: OPERACIÓN X RECURSO OPERATIVO =====
         # Consulta para obtener datos agrupados por grupo y carpeta (excluyendo ausencias)
+        # Se normaliza la carpeta para agrupar variantes como BACK y la falta de ortografía BROWFIELD
         query_operacion = """
             SELECT 
                 CASE 
-                    WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH','DX') THEN 'ARREGLOS'
-                    WHEN a.carpeta IN ('BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES') THEN 'INSTALACIONES'
-                    WHEN a.carpeta IN ('POSTVENTA', 'POSTVENTA FTTH') THEN 'POSTVENTA'
+                    WHEN UPPER(a.carpeta) LIKE 'ARREGLOS HFC%'
+                         OR UPPER(a.carpeta) LIKE 'MANTENIMIENTO FTTH%'
+                         OR UPPER(a.carpeta) = 'DX' THEN 'ARREGLOS'
+                    WHEN UPPER(a.carpeta) LIKE 'BROWNFIELD%'
+                         OR UPPER(a.carpeta) LIKE 'BROWFIELD%'
+                         OR UPPER(a.carpeta) LIKE 'FTTH INSTALACIONES%'
+                         OR UPPER(a.carpeta) LIKE 'INSTALACIONES DOBLES%' THEN 'INSTALACIONES'
+                    WHEN UPPER(a.carpeta) LIKE 'POSTVENTA%'
+                         OR UPPER(a.carpeta) LIKE 'POSTVENTA FTTH%' THEN 'POSTVENTA'
                     ELSE 'OTROS'
                 END as grupo,
-                a.carpeta,
+                CASE 
+                    WHEN UPPER(a.carpeta) LIKE 'ARREGLOS HFC%' THEN 'ARREGLOS HFC'
+                    WHEN UPPER(a.carpeta) LIKE 'MANTENIMIENTO FTTH%' THEN 'MANTENIMIENTO FTTH'
+                    WHEN UPPER(a.carpeta) = 'DX' THEN 'DX'
+                    WHEN UPPER(a.carpeta) LIKE 'BROWNFIELD%' OR UPPER(a.carpeta) LIKE 'BROWFIELD%' THEN 'BROWNFIELD'
+                    WHEN UPPER(a.carpeta) LIKE 'FTTH INSTALACIONES%' THEN 'FTTH INSTALACIONES'
+                    WHEN UPPER(a.carpeta) LIKE 'INSTALACIONES DOBLES%' THEN 'INSTALACIONES DOBLES'
+                    WHEN UPPER(a.carpeta) LIKE 'POSTVENTA FTTH%' THEN 'POSTVENTA FTTH'
+                    WHEN UPPER(a.carpeta) LIKE 'POSTVENTA%' THEN 'POSTVENTA'
+                    ELSE a.carpeta
+                END as carpeta,
                 COUNT(DISTINCT a.id_codigo_consumidor) as total_tecnicos
             FROM asistencia a
             INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
@@ -13051,7 +13117,17 @@ def obtener_resumen_agrupado_asistencia():
                 AND t.grupo IN ('ARREGLOS', 'INSTALACIONES', 'POSTVENTA')
                 AND a.carpeta IS NOT NULL
                 AND a.carpeta != ''
-                AND a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH', 'BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES', 'POSTVENTA', 'POSTVENTA FTTH')
+                AND (
+                    UPPER(a.carpeta) LIKE 'ARREGLOS HFC%'
+                    OR UPPER(a.carpeta) LIKE 'MANTENIMIENTO FTTH%'
+                    OR UPPER(a.carpeta) = 'DX'
+                    OR UPPER(a.carpeta) LIKE 'BROWNFIELD%'
+                    OR UPPER(a.carpeta) LIKE 'BROWFIELD%'
+                    OR UPPER(a.carpeta) LIKE 'FTTH INSTALACIONES%'
+                    OR UPPER(a.carpeta) LIKE 'INSTALACIONES DOBLES%'
+                    OR UPPER(a.carpeta) LIKE 'POSTVENTA%'
+                    OR UPPER(a.carpeta) LIKE 'POSTVENTA FTTH%'
+                )
         """
         
         params_operacion = [fecha_inicio, fecha_fin]
@@ -13062,13 +13138,31 @@ def obtener_resumen_agrupado_asistencia():
             params_operacion.append(supervisor_filtro)
         
         query_operacion += """
-            GROUP BY CASE 
-                WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH', 'DX') THEN 'ARREGLOS'
-                WHEN a.carpeta IN ('BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES') THEN 'INSTALACIONES'
-                WHEN a.carpeta IN ('POSTVENTA', 'POSTVENTA FTTH') THEN 'POSTVENTA'
-                ELSE 'OTROS'
-            END, a.carpeta
-            ORDER BY grupo, a.carpeta
+            GROUP BY 
+                CASE 
+                    WHEN UPPER(a.carpeta) LIKE 'ARREGLOS HFC%'
+                         OR UPPER(a.carpeta) LIKE 'MANTENIMIENTO FTTH%'
+                         OR UPPER(a.carpeta) = 'DX' THEN 'ARREGLOS'
+                    WHEN UPPER(a.carpeta) LIKE 'BROWNFIELD%'
+                         OR UPPER(a.carpeta) LIKE 'BROWFIELD%'
+                         OR UPPER(a.carpeta) LIKE 'FTTH INSTALACIONES%'
+                         OR UPPER(a.carpeta) LIKE 'INSTALACIONES DOBLES%' THEN 'INSTALACIONES'
+                    WHEN UPPER(a.carpeta) LIKE 'POSTVENTA%'
+                         OR UPPER(a.carpeta) LIKE 'POSTVENTA FTTH%' THEN 'POSTVENTA'
+                    ELSE 'OTROS'
+                END,
+                CASE 
+                    WHEN UPPER(a.carpeta) LIKE 'ARREGLOS HFC%' THEN 'ARREGLOS HFC'
+                    WHEN UPPER(a.carpeta) LIKE 'MANTENIMIENTO FTTH%' THEN 'MANTENIMIENTO FTTH'
+                    WHEN UPPER(a.carpeta) = 'DX' THEN 'DX'
+                    WHEN UPPER(a.carpeta) LIKE 'BROWNFIELD%' OR UPPER(a.carpeta) LIKE 'BROWFIELD%' THEN 'BROWNFIELD'
+                    WHEN UPPER(a.carpeta) LIKE 'FTTH INSTALACIONES%' THEN 'FTTH INSTALACIONES'
+                    WHEN UPPER(a.carpeta) LIKE 'INSTALACIONES DOBLES%' THEN 'INSTALACIONES DOBLES'
+                    WHEN UPPER(a.carpeta) LIKE 'POSTVENTA FTTH%' THEN 'POSTVENTA FTTH'
+                    WHEN UPPER(a.carpeta) LIKE 'POSTVENTA%' THEN 'POSTVENTA'
+                    ELSE a.carpeta
+                END
+            ORDER BY grupo, carpeta
         """
         
         # Ejecutar consulta para operación por recurso operativo
@@ -13087,7 +13181,17 @@ def obtener_resumen_agrupado_asistencia():
                 AND t.grupo IN ('ARREGLOS', 'INSTALACIONES', 'POSTVENTA')
                 AND a.carpeta IS NOT NULL
                 AND a.carpeta != ''
-                AND a.carpeta IN ('DX','ARREGLOS HFC', 'MANTENIMIENTO FTTH', 'BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES', 'POSTVENTA', 'POSTVENTA FTTH')
+                AND (
+                    UPPER(a.carpeta) LIKE 'ARREGLOS HFC%'
+                    OR UPPER(a.carpeta) LIKE 'MANTENIMIENTO FTTH%'
+                    OR UPPER(a.carpeta) = 'DX'
+                    OR UPPER(a.carpeta) LIKE 'BROWNFIELD%'
+                    OR UPPER(a.carpeta) LIKE 'BROWFIELD%'
+                    OR UPPER(a.carpeta) LIKE 'FTTH INSTALACIONES%'
+                    OR UPPER(a.carpeta) LIKE 'INSTALACIONES DOBLES%'
+                    OR UPPER(a.carpeta) LIKE 'POSTVENTA%'
+                    OR UPPER(a.carpeta) LIKE 'POSTVENTA FTTH%'
+                )
         """
         
         params_total_operativo = [fecha_inicio, fecha_fin]
