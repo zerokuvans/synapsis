@@ -826,14 +826,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function verificarVencimientosYBloqueo() {
         // Cache busting para evitar respuestas antiguas del navegador
-        fetch(`/api/mi/vencimientos?dias=0&cb=${Date.now()}`)
+        // Cambiado umbral de bloqueo: solo bloquear con días < 0 (no 0)
+        fetch(`/api/mi/vencimientos?dias=-1&cb=${Date.now()}`)
             .then(response => response.json())
             .then(data => {
                 const items = (data && Array.isArray(data.items)) ? data.items : [];
-                // Bloquear únicamente cuando hay documentos realmente vencidos (dias<=0)
+                // Bloquear únicamente cuando hay documentos realmente vencidos (dias < 0)
                 const vencidos = items.filter(i => {
                     const dias = Number(i.dias_restantes);
-                    if (Number.isFinite(dias)) return dias <= 0;
+                    if (Number.isFinite(dias)) return dias < 0;
                     const estado = (i.estado || '').toLowerCase();
                     return estado === 'vencido';
                 });

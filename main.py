@@ -13035,7 +13035,7 @@ def obtener_resumen_agrupado_asistencia():
         query_operacion = """
             SELECT 
                 CASE 
-                    WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH') THEN 'ARREGLOS'
+                    WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH','DX') THEN 'ARREGLOS'
                     WHEN a.carpeta IN ('BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES') THEN 'INSTALACIONES'
                     WHEN a.carpeta IN ('POSTVENTA', 'POSTVENTA FTTH') THEN 'POSTVENTA'
                     ELSE 'OTROS'
@@ -13063,7 +13063,7 @@ def obtener_resumen_agrupado_asistencia():
         
         query_operacion += """
             GROUP BY CASE 
-                WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH') THEN 'ARREGLOS'
+                WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH', 'DX') THEN 'ARREGLOS'
                 WHEN a.carpeta IN ('BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES') THEN 'INSTALACIONES'
                 WHEN a.carpeta IN ('POSTVENTA', 'POSTVENTA FTTH') THEN 'POSTVENTA'
                 ELSE 'OTROS'
@@ -13087,7 +13087,7 @@ def obtener_resumen_agrupado_asistencia():
                 AND t.grupo IN ('ARREGLOS', 'INSTALACIONES', 'POSTVENTA')
                 AND a.carpeta IS NOT NULL
                 AND a.carpeta != ''
-                AND a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH', 'BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES', 'POSTVENTA', 'POSTVENTA FTTH')
+                AND a.carpeta IN ('DX','ARREGLOS HFC', 'MANTENIMIENTO FTTH', 'BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES', 'POSTVENTA', 'POSTVENTA FTTH')
         """
         
         params_total_operativo = [fecha_inicio, fecha_fin]
@@ -21074,7 +21074,7 @@ def obtener_datos_grafica_operacion_recurso():
             SELECT 
                 {formato_fecha} as periodo,
                 CASE 
-                    WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH') THEN 'ARREGLOS'
+                    WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH','DX') THEN 'ARREGLOS'
                     WHEN a.carpeta IN ('BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES') THEN 'INSTALACIONES'
                     WHEN a.carpeta IN ('POSTVENTA', 'POSTVENTA FTTH') THEN 'POSTVENTA'
                     ELSE 'OTROS'
@@ -21084,7 +21084,7 @@ def obtener_datos_grafica_operacion_recurso():
             WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s
                 AND a.carpeta IS NOT NULL
                 AND a.carpeta != ''
-                AND a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH', 'BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES', 'POSTVENTA', 'POSTVENTA FTTH')
+                AND a.carpeta IN ('DX','ARREGLOS HFC', 'MANTENIMIENTO FTTH', 'BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES', 'POSTVENTA', 'POSTVENTA FTTH')
         """
         
         params = [fecha_inicio, fecha_fin]
@@ -21096,7 +21096,7 @@ def obtener_datos_grafica_operacion_recurso():
         
         query += f"""
             GROUP BY {formato_fecha}, CASE 
-                WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH') THEN 'ARREGLOS'
+                WHEN a.carpeta IN ('ARREGLOS HFC', 'MANTENIMIENTO FTTH','DX') THEN 'ARREGLOS'
                 WHEN a.carpeta IN ('BROWNFIELD', 'FTTH INSTALACIONES', 'INSTALACIONES DOBLES') THEN 'INSTALACIONES'
                 WHEN a.carpeta IN ('POSTVENTA', 'POSTVENTA FTTH') THEN 'POSTVENTA'
                 ELSE 'OTROS'
@@ -21855,7 +21855,10 @@ def api_vencimientos_tecnicos_operativo():
         # Calcular estado y filtrar vencidos
         from datetime import datetime, date
         import re
-        hoy = datetime.now().date()
+        import pytz
+        # Asegurar cálculo de hoy en zona horaria de Colombia para evitar desfases
+        colombia_tz = pytz.timezone('America/Bogota')
+        hoy = datetime.now(colombia_tz).date()
 
         def validar_fecha(fecha_val):
             if not fecha_val:
@@ -21878,7 +21881,8 @@ def api_vencimientos_tecnicos_operativo():
                 if not ok:
                     continue
                 dias = (fv - hoy).days
-                estado = 'Vencido' if dias <= 0 else ('Próximo a vencer' if dias <= dias_ventana else 'Vigente')
+                # Consistencia de bloqueo: Vencido solo cuando días restantes < 0
+                estado = 'Vencido' if dias < 0 else ('Próximo a vencer' if dias <= dias_ventana else 'Vigente')
                 if estado == 'Vencido':
                     vencidos.append({
                         'id': v['id'],
