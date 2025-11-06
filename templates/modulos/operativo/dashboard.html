@@ -986,15 +986,17 @@ document.addEventListener('DOMContentLoaded', function() {
     async function verificarVencimientosTecnicosSupervisor(supervisor) {
         try {
             // 1) Solicitar vencidos (bloqueo estricto)
-            const resp = await fetch(`/api/operativo/vencimientos_tecnicos?supervisor=${encodeURIComponent(supervisor)}&dias=0&cb=${Date.now()}`);
+            // Cambiado umbral de bloqueo: solo bloquear con días < 0 (no 0)
+            const resp = await fetch(`/api/operativo/vencimientos_tecnicos?supervisor=${encodeURIComponent(supervisor)}&dias=-1&cb=${Date.now()}`);
             const data = await resp.json();
             if (!data.success) return;
 
-            // Reforzar filtro en cliente: solo documentos verdaderamente vencidos (<= 0 días)
+            // Reforzar filtro en cliente: solo documentos verdaderamente vencidos (< 0 días)
             const vencidosRaw = Array.isArray(data.data) ? data.data : [];
             const vencidos = vencidosRaw.filter(v => {
                 const dias = typeof v.dias_restantes === 'number' ? v.dias_restantes : null;
-                return v.estado === 'Vencido' || (dias !== null && dias <= 0);
+                // Bloqueo estricto: únicamente si los días restantes son negativos
+                return dias !== null && dias < 0;
             });
             if (vencidos.length === 0) return;
 
