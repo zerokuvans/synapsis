@@ -1284,6 +1284,8 @@ def registrar_rutas_dotaciones(app):
                 d.gafas,
                 d.gorra,
                 d.casco,
+                d.botas,
+                d.botas_talla,
                 DATE_FORMAT(d.fecha_registro, '%Y-%m-%d %H:%i:%s') as fecha_registro
             FROM dotaciones d
             LEFT JOIN recurso_operativo ro ON d.id_codigo_consumidor = ro.id_codigo_consumidor
