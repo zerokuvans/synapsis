@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Novedades Asistencia{% endblock %}
+
+{% block extra_css %}
+<style>
+  .calendar-container { overflow-x: auto; }
+  .calendar-table { min-width: 900px; border-collapse: separate; border-spacing: 0; }
+  .calendar-table thead th { position: sticky; top: 0; background: #f8f9fa; z-index: 1; }
+  .col-empleado { position: sticky; left: 0; background: #fff; z-index: 2; }
+  .col-tecnico { background: #fff; }
+  /* Colores de celdas con mayor especificidad y compatibilidad */
+  td.cell-present { background-color: rgba(40, 167, 69, 0.2) !important; }
+  td.cell-absent { background-color: rgba(220, 53, 69, 0.2) !important; }
+  td.cell-none { background-color: #ffffff !important; }
+  /* Refuerzo visual de borde para distinguir estados */
+  td.cell-present { border: 1px solid rgba(40, 167, 69, 0.6) !important; }
+  td.cell-absent { border: 1px solid rgba(220, 53, 69, 0.6) !important; }
+  td.cell-none { border: 1px solid #e9ecef !important; }
+  .legend { font-size: 0.9rem; }
+  .legend .badge { width: 16px; height: 16px; display: inline-block; margin-right: 6px; }
+  /* Celdas de día con texto de carpeta_dia visible */
+  td.day-cell { font-size: 12px; line-height: 1.25; padding: 6px; white-space: normal; word-break: break-word; text-align: center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+  <h1 class="mt-4"><i class="fas fa-calendar-check me-2"></i>Novedades de Asistencia</h1>
+
+  <div class="card mt-3">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label for="mesSelector" class="form-label">Mes</label>
+          <input type="month" id="mesSelector" class="form-control" value="{{ current_year }}-{{ current_month }}">
+        </div>
+        <div class="col-md-3">
+          <button id="btnCargar" class="btn btn-primary w-100"><i class="fas fa-sync-alt me-2"></i>Cargar</button>
+        </div>
+        <div class="col-md-6 text-end">
+          <div class="legend">
+            <span class="badge" style="background:#28a74533;border:1px solid #28a745"></span> Presencia registrada
+            <span class="badge ms-3" style="background:#dc354533;border:1px solid #dc3545"></span> Ausencia injustificada (0)
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="calendar-container mt-3">
+    <div class="table-responsive">
+      <table class="table table-bordered calendar-table" id="tablaNovedades">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  async function cargarNovedades(year, month) {
+    const thead = document.querySelector('#tablaNovedades thead');
+    const tbody = document.querySelector('#tablaNovedades tbody');
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+    try {
+      const base = "{{ url_for('api_asistencia_novedades') }}";
+      const url = `${base}?year=${year}&month=${month}`;
+      const res = await fetch(url, { credentials: 'same-origin' });
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('Fetch falló', { status: res.status, url, body: text });
+        // Si redirige al login, avisar explícitamente
+        if ((res.url || '').includes('/login')) {
+          Swal.fire('Sesión requerida', 'Por favor inicie sesión para ver las novedades.', 'warning');
+          return;
+        }
+        Swal.fire('Error', `No se pudo cargar la información (HTTP ${res.status}).`, 'error');
+        return;
+      }
+      const data = await res.json();
+      if (!data.success) {
+        Swal.fire('Error', data.message || 'No se pudo cargar la información', 'error');
+        return;
+      }
+
+      // Encabezado: Cédula + Técnico + días
+      const thRow = document.createElement('tr');
+      const thCedula = document.createElement('th');
+      thCedula.textContent = 'Cédula';
+      thCedula.classList.add('col-empleado');
+      thRow.appendChild(thCedula);
+
+      const thTecnico = document.createElement('th');
+      thTecnico.textContent = 'Técnico';
+      thTecnico.classList.add('col-tecnico');
+      thRow.appendChild(thTecnico);
+      for (let d = 1; d <= data.days_in_month; d++) {
+        const th = document.createElement('th');
+        th.textContent = d;
+        thRow.appendChild(th);
+      }
+      thead.appendChild(thRow);
+
+      // Filas de usuarios
+      const whitelist = [
+        'FTTHI','POST','BACK POST','HFCI','MTFTTH','ARGHFC','CP','AUXMOTO','SUPER','I.MED',
+        'AUXCAM','FTTHPOST','BROW','BACK HFCI','BACK BROW','APOCAMIONETA','IN'
+      ];
+      const usuarios = data.usuarios || [];
+      if (usuarios.length === 0) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = (data.days_in_month || 0) + 2;
+        td.className = 'text-center text-muted';
+        td.textContent = 'No hay registros de asistencia para el periodo seleccionado.';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+      usuarios.forEach(u => {
+        const tr = document.createElement('tr');
+        const tdCedula = document.createElement('td');
+        tdCedula.textContent = u.cedula || '';
+        tdCedula.classList.add('col-empleado');
+        tr.appendChild(tdCedula);
+
+        const tdTecnico = document.createElement('td');
+        tdTecnico.textContent = u.tecnico || '';
+        tdTecnico.classList.add('col-tecnico');
+        tr.appendChild(tdTecnico);
+        for (let i = 0; i < data.days_in_month; i++) {
+          const v = (u.dias && (i in u.dias)) ? u.dias[i] : 'none';
+          const carpetas = (u.carpetas && (i in u.carpetas)) ? u.carpetas[i] : null;
+          const td = document.createElement('td');
+          // Tooltip para validar la correspondencia Día -> Columna + carpeta_dia
+          const diaNumero = i + 1;
+          let estadoTexto = 'Sin registro';
+          if (v === 0) estadoTexto = 'carpeta_dia = 0';
+          else if (v === 1 || v === true || v === 'present') estadoTexto = 'carpeta_dia != 0';
+          else if (v === false || v === 'absent') estadoTexto = 'carpeta_dia = 0';
+          let tooltip = `Día ${diaNumero} · ${estadoTexto}`;
+          if (Array.isArray(carpetas) && carpetas.length > 0) {
+            const lista = carpetas.join(', ');
+            tooltip += ` · carpetas: ${lista}`;
+          }
+          td.title = tooltip;
+          // Colores: solo whitelist en verde; 0 en rojo; resto blanco
+          const isAbsent = (v === 'absent') || (typeof v === 'number' && v === 0) || (v === false);
+          const hasWhitelistedColor = Array.isArray(carpetas) && carpetas.some(c => whitelist.includes(String(c).trim().toUpperCase()));
+          if (hasWhitelistedColor) td.classList.add('cell-present');
+          else if (isAbsent) td.classList.add('cell-absent');
+          else td.classList.add('cell-none');
+
+          // Mostrar los valores de carpeta_dia dentro de la celda
+          td.classList.add('day-cell');
+          if (Array.isArray(carpetas) && carpetas.length > 0) {
+            const hasWhitelisted = carpetas.some(c => whitelist.includes(String(c).trim().toUpperCase()));
+            td.textContent = hasWhitelisted ? 'OK' : carpetas.join(' ');
+          } else {
+            td.textContent = '';
+          }
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      console.error(e);
+      Swal.fire('Error', 'Ocurrió un problema al cargar la información', 'error');
+    }
+  }
+
+  document.getElementById('btnCargar').addEventListener('click', () => {
+    const val = document.getElementById('mesSelector').value; // YYYY-MM
+    const [y, m] = val.split('-');
+    cargarNovedades(parseInt(y, 10), parseInt(m, 10));
+  });
+
+  // Carga inicial
+  document.addEventListener('DOMContentLoaded', () => {
+    const val = document.getElementById('mesSelector').value;
+    const [y, m] = val.split('-');
+    cargarNovedades(parseInt(y, 10), parseInt(m, 10));
+  });
+</script>
+{% endblock %}
