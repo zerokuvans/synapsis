@@ -3337,10 +3337,13 @@ def api_get_mantenimientos():
             m.soporte_foto_geo as foto_taller,
             m.soporte_foto_factura as foto_factura,
             m.tipo_vehiculo,
-            m.tecnico as tecnico_nombre,
+            COALESCE(ro_v.nombre, ro_m.nombre, m.tecnico) AS tecnico_nombre,
             m.tipo_mantenimiento,
             m.estado
         FROM mpa_mantenimientos m
+        LEFT JOIN mpa_vehiculos v ON v.placa = m.placa
+        LEFT JOIN recurso_operativo ro_v ON ro_v.id_codigo_consumidor = v.tecnico_asignado
+        LEFT JOIN recurso_operativo ro_m ON ro_m.id_codigo_consumidor = CAST(m.tecnico AS UNSIGNED)
         ORDER BY m.fecha_mantenimiento DESC
         """
         
@@ -3390,10 +3393,13 @@ def api_get_mantenimiento(mantenimiento_id):
             m.soporte_foto_geo as foto_taller,
             m.soporte_foto_factura as foto_factura,
             m.tipo_vehiculo,
-            m.tecnico as tecnico_nombre,
+            COALESCE(ro_v.nombre, ro_m.nombre, m.tecnico) AS tecnico_nombre,
             m.tipo_mantenimiento,
             m.estado
         FROM mpa_mantenimientos m
+        LEFT JOIN mpa_vehiculos v ON v.placa = m.placa
+        LEFT JOIN recurso_operativo ro_v ON ro_v.id_codigo_consumidor = v.tecnico_asignado
+        LEFT JOIN recurso_operativo ro_m ON ro_m.id_codigo_consumidor = CAST(m.tecnico AS UNSIGNED)
         WHERE m.id_mpa_mantenimientos = %s
         """
         
@@ -3457,6 +3463,21 @@ def api_create_mantenimiento():
         bogota_tz = pytz.timezone('America/Bogota')
         fecha_mantenimiento = datetime.now(bogota_tz).replace(tzinfo=None)
         
+        # Normalizar el valor de técnico: si es UID numérico, mapear a nombre
+        tecnico_input = (data.get('tecnico', '') or '').strip()
+        tecnico_guardar = tecnico_input
+        if tecnico_input.isdigit():
+            try:
+                cursor.execute(
+                    "SELECT nombre FROM recurso_operativo WHERE CAST(TRIM(id_codigo_consumidor) AS UNSIGNED) = %s",
+                    (int(tecnico_input),)
+                )
+                row = cursor.fetchone()
+                if row:
+                    tecnico_guardar = row[0]
+            except Exception:
+                pass
+
         # Insertar nuevo mantenimiento
         insert_query = """
         INSERT INTO mpa_mantenimientos 
@@ -3473,7 +3494,7 @@ def api_create_mantenimiento():
             data['observacion'],
             data.get('foto_taller', ''),
             data.get('foto_factura', ''),
-            data.get('tecnico', ''),
+            tecnico_guardar,
             data.get('estado', 'Abierto')
         ))
         
@@ -3539,8 +3560,21 @@ def api_update_mantenimiento(mantenimiento_id):
             values.append(data['tipo_mantenimiento'])
         
         if 'tecnico' in data:
+            tecnico_input = (data.get('tecnico', '') or '').strip()
+            tecnico_guardar = tecnico_input
+            if tecnico_input.isdigit():
+                try:
+                    cursor.execute(
+                        "SELECT nombre FROM recurso_operativo WHERE CAST(TRIM(id_codigo_consumidor) AS UNSIGNED) = %s",
+                        (int(tecnico_input),)
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        tecnico_guardar = row[0]
+                except Exception:
+                    pass
             update_fields.append("tecnico = %s")
-            values.append(data['tecnico'])
+            values.append(tecnico_guardar)
         
         if 'observacion' in data:
             update_fields.append("observacion = %s")
@@ -3643,7 +3677,8 @@ def api_get_placas():
             v.tecnico_asignado,
             COALESCE(ro.nombre, CAST(v.tecnico_asignado AS CHAR)) as tecnico_nombre
         FROM mpa_vehiculos v
-        LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+        LEFT JOIN recurso_operativo ro 
+            ON CAST(TRIM(ro.id_codigo_consumidor) AS UNSIGNED) = CAST(v.tecnico_asignado AS UNSIGNED)
         WHERE v.estado = 'Activo'
         ORDER BY v.placa
         """
