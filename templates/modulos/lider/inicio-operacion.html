@@ -153,6 +153,9 @@
                 <a href="/lider/indicadores/operaciones" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left me-2"></i>Volver a Indicadores de Operaciones
                 </a>
+                <button type="button" class="btn btn-success ms-2" onclick="abrirIndicadorDiario()">
+                    <i class="fas fa-chart-bar me-2"></i>Indicador Diario
+                </button>
             </div>
             
             <!-- Filtros -->
@@ -479,6 +482,7 @@
 // Variables globales
 let supervisoresData = [];
 let analistasData = [];
+let graficoMensual = null;
 
 // Inicializar página
 document.addEventListener('DOMContentLoaded', function() {
@@ -708,6 +712,143 @@ function limpiarFiltros() {
     document.getElementById('filtroAnalistas').selectedIndex = 0; // Seleccionar "Todos los analistas"
     cargarDatos();
 }
+
+// Abrir modal y cargar indicador diario
+async function abrirIndicadorDiario() {
+    // Construir parámetros desde filtros actuales
+    const params = new URLSearchParams();
+    const fecha = document.getElementById('filtroFecha').value;
+    if (fecha) params.append('fecha', fecha);
+    const supervisor = document.getElementById('filtroSupervisores').value;
+    if (supervisor) params.append('supervisores[]', supervisor);
+    const analista = document.getElementById('filtroAnalistas').value;
+    if (analista) params.append('analistas[]', analista);
+
+    try {
+        const resp = await fetch(`/api/lider/inicio-operacion/indicador-diario?${params}`);
+        const data = await resp.json();
+        if (!data.success) {
+            mostrarError(data.error || 'Error cargando indicador diario');
+            return;
+        }
+
+        // Poblar tabla diaria
+        const tbody = document.getElementById('tablaIndicadorDiarioBody');
+        tbody.innerHTML = '';
+        data.diario.forEach(item => {
+            const tr = document.createElement('tr');
+            const porcentaje = typeof item.porcentaje === 'number' ? item.porcentaje : 0;
+            tr.innerHTML = `
+                <td>${item.supervisor || ''}</td>
+                <td class="text-success fw-bold">${item.cumple || 0}</td>
+                <td class="text-danger fw-bold">${item.no_cumple || 0}</td>
+                <td>
+                  <div class="d-flex flex-column" style="min-width: 180px;">
+                    <span class="text-muted small text-end">${porcentaje.toFixed(2)}%</span>
+                    <div class="progress" style="height: 8px;">
+                      <div class="progress-bar bg-success" role="progressbar" style="width: ${porcentaje}%;" aria-valuenow="${porcentaje}" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                  </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Gráfica mensual por supervisor (Chart.js)
+        const labels = (data.mensual || []).map(i => i.supervisor);
+        const valores = (data.mensual || []).map(i => Math.round((Number(i.porcentaje || 0)) * 100) / 100);
+        const canvas = document.getElementById('graficaMensualCumplimiento');
+        if (canvas) {
+          if (typeof Chart === 'undefined') {
+            console.error('Chart.js no está cargado');
+            // Fallback simple: mostrar texto si la librería no está disponible
+            canvas.insertAdjacentHTML('beforebegin', '<div class="text-danger">No se pudo cargar la gráfica (Chart.js no disponible).</div>');
+            return;
+          }
+          const ctx = canvas.getContext('2d');
+          if (window.ChartDataLabels) { Chart.register(window.ChartDataLabels); }
+          if (window.graficoMensual) { window.graficoMensual.destroy(); }
+          window.graficoMensual = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: '% Cumplimiento Mensual',
+                data: valores,
+                backgroundColor: '#198754'
+              }]
+            },
+            options: {
+              responsive: true,
+              scales: {
+                y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } }
+              },
+              plugins: {
+                tooltip: { callbacks: { label: ctx => ctx.parsed.y + '%' } },
+                datalabels: {
+                  anchor: 'end',
+                  align: 'end',
+                  formatter: v => (typeof v === 'number' ? v.toFixed(2) : v) + '%',
+                  color: '#212529',
+                  font: { weight: 'bold', size: 10 }
+                }
+              }
+            }
+          });
+        }
+
+        // Mostrar modal
+        const modal = new bootstrap.Modal(document.getElementById('indicadorDiarioModal'));
+        modal.show();
+    } catch (e) {
+        console.error('Error indicador diario:', e);
+        mostrarError('Error cargando indicador diario');
+    }
+}
+</script>
+
+<!-- Chart.js Library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Chart.js DataLabels Plugin -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+<!-- Modal Indicador Diario -->
+<div class="modal fade" id="indicadorDiarioModal" tabindex="-1" aria-labelledby="indicadorDiarioLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="indicadorDiarioLabel"><i class="fas fa-chart-bar me-2"></i>Indicador Diario por Supervisor</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive mb-4">
+          <table class="table table-striped table-hover">
+            <thead class="table-success">
+              <tr>
+                <th>Supervisor</th>
+                <th>Cumple</th>
+                <th>No Cumple</th>
+                <th>% Día</th>
+              </tr>
+            </thead>
+            <tbody id="tablaIndicadorDiarioBody"></tbody>
+          </table>
+        </div>
+        <div>
+          <h6 class="mb-3"><i class="fas fa-chart-line me-2"></i>% Mensual de Cumplimiento por Supervisor</h6>
+<canvas id="graficaMensualCumplimiento"></canvas>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+<script>
+// Renderiza la lista de cumplimiento mensual como barras de progreso
+// Gráfica mensual: se dibuja con Chart.js en el canvas 'graficaMensualCumplimiento'
 </script>
 
 {% endblock %}
