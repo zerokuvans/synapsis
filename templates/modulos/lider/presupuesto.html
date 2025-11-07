@@ -499,7 +499,8 @@ function ocultarError() {
 }
 
 function mostrarSecciones(show) {
-    document.getElementById('metricsSection').style.display = show ? 'block' : 'none';
+    // Mantener el comportamiento horizontal de Bootstrap (.row = display:flex)
+    document.getElementById('metricsSection').style.display = show ? '' : 'none';
     document.getElementById('tableSection').style.display = show ? 'block' : 'none';
 }
 
