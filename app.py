@@ -372,6 +372,117 @@ def administrativo_asistencia():
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
+# Submódulo: Novedades asistencia (vista calendario por mes)
+@app.route('/administrativo/novedades', methods=['GET'])
+@login_required
+def administrativo_novedades():
+    """Renderiza el submódulo de Novedades asistencia"""
+    try:
+        # Datos iniciales: mes actual
+        now = get_bogota_datetime()
+        current_year = now.year
+        current_month = now.month
+        return render_template(
+            'modulos/administrativo/novedades_asistencia.html',
+            current_year=current_year,
+            current_month=f"{current_month:02d}"
+        )
+    except Exception as e:
+        flash(f'Error al cargar Novedades: {str(e)}', 'danger')
+        return redirect(url_for('dashboard'))
+
+# API: matriz mensual de novedades de asistencia
+@app.route('/api/asistencia/novedades', methods=['GET'])
+@login_required
+def api_asistencia_novedades():
+    """Devuelve matriz de asistencia por usuario y día del mes.
+    Verde: tiene registro de asistencia.
+    Rojo: registro con carpeta_dia=0 o carpeta=0 (ausencia injustificada).
+    """
+    try:
+        year = request.args.get('year', type=int)
+        month = request.args.get('month', type=int)
+
+        now = get_bogota_datetime()
+        if not year:
+            year = now.year
+        if not month:
+            month = now.month
+
+        # Determinar cantidad de días del mes
+        import calendar
+        days_in_month = calendar.monthrange(year, month)[1]
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+
+        cursor = connection.cursor(dictionary=True)
+
+        # Usuarios con asistencia registrada en el mes
+        cursor.execute(
+            """
+            SELECT DISTINCT id_codigo_consumidor AS usuario_id, tecnico AS nombre
+            FROM asistencia
+            WHERE YEAR(fecha_asistencia) = %s AND MONTH(fecha_asistencia) = %s
+            ORDER BY nombre
+            """,
+            (year, month)
+        )
+        usuarios = cursor.fetchall() or []
+
+        # Registros por día para el mes
+        cursor.execute(
+            """
+            SELECT id_codigo_consumidor AS usuario_id,
+                   DATE(fecha_asistencia) AS fecha,
+                   MAX(CASE WHEN carpeta_dia = '0' OR carpeta = '0' THEN 1 ELSE 0 END) AS es_ausencia,
+                   COUNT(*) AS registros
+            FROM asistencia
+            WHERE YEAR(fecha_asistencia) = %s AND MONTH(fecha_asistencia) = %s
+            GROUP BY id_codigo_consumidor, DATE(fecha_asistencia)
+            """,
+            (year, month)
+        )
+        registros = cursor.fetchall() or []
+
+        # Indexar por usuario y día
+        por_usuario = {}
+        for r in registros:
+            uid = r['usuario_id']
+            dia = int(str(r['fecha']).split('-')[-1])
+            estado = 'absent' if r['es_ausencia'] == 1 else ('present' if (r['registros'] or 0) > 0 else 'none')
+            por_usuario.setdefault(uid, {})[dia] = estado
+
+        # Construir matriz
+        matriz = []
+        for u in usuarios:
+            fila = []
+            for d in range(1, days_in_month + 1):
+                estado = por_usuario.get(u['usuario_id'], {}).get(d, 'none')
+                fila.append(estado)
+            matriz.append({
+                'id': u['usuario_id'],
+                'nombre': u['nombre'],
+                'dias': fila
+            })
+
+        return jsonify({
+            'success': True,
+            'year': year,
+            'month': month,
+            'days_in_month': days_in_month,
+            'usuarios': matriz
+        })
+    except mysql.connector.Error as e:
+        return jsonify({'success': False, 'message': f'Error de base de datos: {str(e)}'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
 # Endpoints para el sistema administrativo de asistencia
 @app.route('/api/supervisores', methods=['GET'])
 @login_required

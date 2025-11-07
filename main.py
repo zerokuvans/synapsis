@@ -125,7 +125,7 @@ def load_user(user_id):
 from app import administrativo_asistencia, obtener_supervisores, obtener_tecnicos_por_supervisor, guardar_asistencia_administrativa
 
 # Importar rutas del módulo analistas desde app.py
-from app import analistas_index, analistas_causas, analistas_dashboard, api_causas_cierre, api_grupos_causas_cierre, api_tecnologias_causas_cierre, api_agrupaciones_causas_cierre, api_estadisticas_causas_cierre
+from app import analistas_index, analistas_causas, analistas_dashboard, api_grupos_causas_cierre, api_tecnologias_causas_cierre, api_agrupaciones_causas_cierre, api_estadisticas_causas_cierre
 
 # Importar rutas del módulo MPA desde app.py
 from app import mpa_dashboard, mpa_dashboard_stats, mpa_vehiculos, mpa_soat, mpa_tecnico_mecanica, mpa_licencias, mpa_licencias_conducir, mpa_inspecciones, mpa_siniestros, mpa_mantenimientos
@@ -151,7 +151,6 @@ app.route('/api/asistencia/guardar', methods=['POST'])(guardar_asistencia_admini
 app.route('/analistas')(analistas_index)
 app.route('/analistas/causas')(analistas_causas)
 app.route('/analistas/dashboard')(analistas_dashboard)
-app.route('/api/analistas/causas-cierre', methods=['GET'])(api_causas_cierre)
 app.route('/api/analistas/grupos', methods=['GET'])(api_grupos_causas_cierre)
 app.route('/api/analistas/tecnologias', methods=['GET'])(api_tecnologias_causas_cierre)
 app.route('/api/analistas/agrupaciones', methods=['GET'])(api_agrupaciones_causas_cierre)
@@ -298,29 +297,49 @@ def role_required_login(role=None):
 
 # Mantener el decorador original para compatibilidad con código existente
 def login_required(role=None):
+    """Decorador de autenticación compatible con dos modos:
+    - Uso directo: @login_required
+    - Uso con argumentos: @login_required() o @login_required(role='...')
+    """
+    # Modo directo: @login_required
+    if callable(role):
+        f = role
+        role = None
+
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'user_id' not in session:
+                flash('Please log in to access this page.', 'warning')
+                return redirect(url_for('login'))
+
+            return f(*args, **kwargs)
+
+        return decorated_function
+
+    # Modo con argumentos: @login_required(...) 
     def login_decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if 'user_id' not in session:
                 flash('Please log in to access this page.', 'warning')
                 return redirect(url_for('login'))
-            
+
             user_role = session.get('user_role')
-            
+
             # Si hay un rol requerido y el usuario no es administrativo
             if role and user_role != 'administrativo':
-                # Si role es una lista, verificar si el rol del usuario está en la lista
                 if isinstance(role, list):
                     if user_role not in role:
                         flash("No tienes permisos para acceder a esta página.", 'danger')
                         return redirect(url_for('login'))
-                # Si role es un string, verificar igualdad
                 elif user_role != role:
                     flash("No tienes permisos para acceder a esta página.", 'danger')
                     return redirect(url_for('login'))
-            
+
             return f(*args, **kwargs)
+
         return decorated_function
+
     return login_decorator
 
 def login_required_api(role=None):
@@ -22196,6 +22215,134 @@ def dev_login():
         return jsonify({'success': True, 'message': 'Sesión de desarrollo creada', 'user_name': name, 'user_role': role})
     except Exception as e:
         return jsonify({'message': 'Error en dev login', 'error': str(e)}), 500
+
+# Submódulo: Novedades asistencia (vista calendario por mes)
+@app.route('/administrativo/novedades', methods=['GET'], endpoint='administrativo_novedades')
+@login_required
+def administrativo_novedades():
+    """Renderiza el submódulo de Novedades asistencia"""
+    try:
+        # Datos iniciales: mes actual
+        now = get_bogota_datetime()
+        current_year = now.year
+        current_month = now.month
+        return render_template(
+            'modulos/administrativo/novedades_asistencia.html',
+            current_year=current_year,
+            current_month=f"{current_month:02d}"
+        )
+    except Exception as e:
+        return render_template('error.html', mensaje='Error al cargar Novedades', error=str(e))
+
+# API: matriz mensual de novedades de asistencia
+@app.route('/api/asistencia/novedades', methods=['GET'], endpoint='api_asistencia_novedades')
+@login_required
+def api_asistencia_novedades():
+    """Devuelve matriz de asistencia por usuario y día del mes.
+    Verde: tiene registro de asistencia.
+    Rojo: registro con carpeta_dia=0 o carpeta=0 (ausencia injustificada).
+    """
+    try:
+        year = request.args.get('year', type=int)
+        month = request.args.get('month', type=int)
+
+        now = get_bogota_datetime()
+        if not year:
+            year = now.year
+        if not month:
+            month = now.month
+
+        # Determinar cantidad de días del mes
+        import calendar
+        days_in_month = calendar.monthrange(year, month)[1]
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+
+        cursor = connection.cursor(dictionary=True)
+
+        # Usuarios con asistencia registrada en el mes (indexar por cédula, nombre desde recurso_operativo)
+        cursor.execute(
+            """
+            SELECT DISTINCT a.cedula AS usuario_id,
+                            COALESCE(ro.nombre, a.tecnico) AS nombre
+            FROM asistencia a
+            LEFT JOIN recurso_operativo ro ON ro.recurso_operativo_cedula = a.cedula
+            WHERE YEAR(a.fecha_asistencia) = %s AND MONTH(a.fecha_asistencia) = %s
+            ORDER BY nombre
+            """,
+            (year, month)
+        )
+        usuarios = cursor.fetchall() or []
+
+        # Registros por día para el mes (clave por cédula) usando SOLO carpeta_dia
+        # Además, recolectar los valores de carpeta_dia para mostrarlos en tooltips
+        cursor.execute(
+            """
+            SELECT a.cedula AS usuario_id,
+                   DATE(a.fecha_asistencia) AS fecha,
+                   MAX(CASE WHEN TRIM(COALESCE(a.carpeta_dia, '')) = '0' THEN 1 ELSE 0 END) AS tiene_cero,
+                   COUNT(*) AS registros,
+                   GROUP_CONCAT(DISTINCT TRIM(COALESCE(a.carpeta_dia, '')) ORDER BY TRIM(COALESCE(a.carpeta_dia, '')) SEPARATOR '|') AS carpetas_raw
+            FROM asistencia a
+            WHERE YEAR(a.fecha_asistencia) = %s AND MONTH(a.fecha_asistencia) = %s
+            GROUP BY a.cedula, DATE(a.fecha_asistencia)
+            """,
+            (year, month)
+        )
+        registros = cursor.fetchall() or []
+
+        # Indexar por usuario y día con detalle de carpetas
+        por_usuario = {}
+        for r in registros:
+            uid = r['usuario_id']
+            dia = int(str(r['fecha']).split('-')[-1])
+            valor = None
+            if (r['registros'] or 0) > 0:
+                valor = 0 if r['tiene_cero'] == 1 else 1
+            raw = (r.get('carpetas_raw') or '')
+            # Convertir el GROUP_CONCAT en lista, filtrando vacíos
+            carpetas_list = [c for c in raw.split('|') if c]
+            por_usuario.setdefault(uid, {})[dia] = {
+                'valor': valor,
+                'carpetas': carpetas_list if carpetas_list else None
+            }
+
+        # Construir matriz
+        matriz = []
+        for u in usuarios:
+            fila = []
+            fila_carpetas = []
+            for d in range(1, days_in_month + 1):
+                item = por_usuario.get(u['usuario_id'], {}).get(d, None)
+                valor = item['valor'] if isinstance(item, dict) else item
+                carpetas = (item.get('carpetas') if isinstance(item, dict) else None)
+                fila.append(valor)
+                fila_carpetas.append(carpetas)
+            matriz.append({
+                'cedula': u['usuario_id'],
+                'tecnico': u['nombre'],
+                'dias': fila,
+                'carpetas': fila_carpetas
+            })
+
+        return jsonify({
+            'success': True,
+            'year': year,
+            'month': month,
+            'days_in_month': days_in_month,
+            'usuarios': matriz
+        })
+    except mysql.connector.Error as e:
+        return jsonify({'success': False, 'message': f'Error de base de datos: {str(e)}'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'})
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
 
 if __name__ == '__main__':
     # Handlers de error para evitar exposición de información y listados

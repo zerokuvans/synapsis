@@ -15,7 +15,12 @@
                 </div>
                 <div class="card-body">
                     <div class="text-center">
-                        <h4 class="text-danger mb-4">{{ mensaje }}</h4>
+                        <h4 class="text-danger mb-2">{{ mensaje or message }}</h4>
+                        {% if code %}
+                        <div class="mb-3">
+                            <span class="badge bg-danger">Error {{ code }}</span>
+                        </div>
+                        {% endif %}
                         {% if error %}
                         <div class="alert alert-danger">
                             <p class="mb-0"><strong>Detalles del error:</strong></p>
@@ -32,4 +37,4 @@
         </div>
     </div>
 </div>
-{% endblock %} 
+{% endblock %}
