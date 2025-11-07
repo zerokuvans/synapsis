@@ -2980,6 +2980,129 @@ def api_inicio_operacion_datos():
         if connection and connection.is_connected():
             connection.close()
 
+@app.route('/api/lider/inicio-operacion/indicador-diario', methods=['GET'])
+@login_required_lider_api()
+def api_inicio_operacion_indicador_diario():
+    """
+    API para indicador diario: tabla por supervisor (cumple, no cumple, % día)
+    y gráfica de % mensual por supervisor.
+    """
+    connection = None
+    cursor = None
+    try:
+        # Parámetros
+        fecha = request.args.get('fecha')
+        supervisores = request.args.getlist('supervisores[]')
+        analistas = request.args.getlist('analistas[]')
+
+        # Conectar DB
+        connection = mysql.connector.connect(
+            host='localhost',
+            port=3306,
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        cursor = connection.cursor(dictionary=True)
+
+        # Si no viene fecha, usar hoy
+        if not fecha:
+            from datetime import datetime
+            fecha = datetime.now().strftime('%Y-%m-%d')
+
+        # Diario por supervisor
+        query_diario = """
+            SELECT 
+                a.super AS supervisor,
+                SUM(CASE WHEN LOWER(TRIM(a.estado)) IN ('cumple','novedad') THEN 1 ELSE 0 END) AS cumple,
+                SUM(CASE WHEN LOWER(TRIM(a.estado)) IN ('no cumple','no aplica') THEN 1 ELSE 0 END) AS no_cumple,
+                COUNT(*) AS total_evaluados
+            FROM asistencia a
+            LEFT JOIN recurso_operativo ro ON a.cedula = ro.recurso_operativo_cedula
+            WHERE DATE(a.fecha_asistencia) = %s
+        """
+        params_diario = [fecha]
+        if supervisores:
+            query_diario += f" AND a.super IN ({','.join(['%s']*len(supervisores))})"
+            params_diario.extend(supervisores)
+        if analistas:
+            query_diario += f" AND ro.analista IN ({','.join(['%s']*len(analistas))})"
+            params_diario.extend(analistas)
+        query_diario += " GROUP BY a.super ORDER BY a.super"
+
+        cursor.execute(query_diario, params_diario)
+        diario_rows = cursor.fetchall() or []
+        diario = []
+        for r in diario_rows:
+            cumple = int(r.get('cumple') or 0)
+            no_cumple = int(r.get('no_cumple') or 0)
+            total = int(r.get('total_evaluados') or 0)
+            denominador = cumple + no_cumple  # cumple+novedad + no cumple+no aplica
+            porcentaje = (cumple / denominador * 100) if denominador > 0 else 0
+            diario.append({
+                'supervisor': r.get('supervisor') or '',
+                'cumple': cumple,
+                'no_cumple': no_cumple,
+                'total_evaluados': total,
+                'porcentaje': porcentaje
+            })
+
+        # Mensual por supervisor
+        from datetime import datetime
+        dt = datetime.strptime(fecha, '%Y-%m-%d')
+        anio, mes = dt.year, dt.month
+        query_mensual = """
+            SELECT 
+                a.super AS supervisor,
+                SUM(CASE WHEN LOWER(TRIM(a.estado)) IN ('cumple','novedad') THEN 1 ELSE 0 END) AS cumple,
+                SUM(CASE WHEN LOWER(TRIM(a.estado)) IN ('no cumple','no aplica') THEN 1 ELSE 0 END) AS no_cumple
+            FROM asistencia a
+            LEFT JOIN recurso_operativo ro ON a.cedula = ro.recurso_operativo_cedula
+            WHERE YEAR(a.fecha_asistencia) = %s AND MONTH(a.fecha_asistencia) = %s
+        """
+        params_mensual = [anio, mes]
+        if supervisores:
+            query_mensual += f" AND a.super IN ({','.join(['%s']*len(supervisores))})"
+            params_mensual.extend(supervisores)
+        if analistas:
+            query_mensual += f" AND ro.analista IN ({','.join(['%s']*len(analistas))})"
+            params_mensual.extend(analistas)
+        query_mensual += " GROUP BY a.super ORDER BY a.super"
+
+        cursor.execute(query_mensual, params_mensual)
+        mensual_rows = cursor.fetchall() or []
+        mensual = []
+        for r in mensual_rows:
+            cumple = int(r.get('cumple') or 0)
+            no_cumple = int(r.get('no_cumple') or 0)
+            denominador = cumple + no_cumple
+            porcentaje = (cumple / denominador * 100) if denominador > 0 else 0
+            mensual.append({
+                'supervisor': r.get('supervisor') or '',
+                'porcentaje': porcentaje
+            })
+
+        return jsonify({
+            'success': True,
+            'fecha': fecha,
+            'diario': diario,
+            'mensual': mensual
+        })
+
+    except mysql.connector.Error as e:
+        print(f"ERROR DB - Indicador Diario: {str(e)}")
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        print(f"ERROR - Indicador Diario: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
 @app.route('/api/analistas', methods=['GET'])
 @login_required_lider_api()
 def api_get_analistas():
@@ -15302,81 +15425,119 @@ def obtener_estado_vehiculos():
 @login_required_lider_api()
 def api_lider_presupuesto():
     """
-    API para obtener datos de presupuesto mensual por supervisor
+    API para obtener datos de presupuesto mensual por supervisor.
+    Devuelve estructura compatible con el frontend:
+    {
+        success: true,
+        presupuestos: [{supervisor, mes, ano, presupuesto_mensual, registros}],
+        resumen: {total, promedio, supervisores, mayor},
+        total_registros: N
+    }
     """
     connection = None
     cursor = None
     try:
         # Obtener parámetros de filtro opcionales
         mes = request.args.get('mes')
-        año = request.args.get('año')
+        # Aceptar 'ano' y también 'año' por compatibilidad
+        ano = request.args.get('ano') or request.args.get('año')
         supervisor = request.args.get('supervisor')
-        
+
+        # Convertir tipos cuando sea posible
+        try:
+            mes = int(mes) if mes is not None and mes != '' else None
+        except Exception:
+            mes = None
+        try:
+            ano = int(ano) if ano is not None and ano != '' else None
+        except Exception:
+            ano = None
+
         connection = get_db_connection()
         if connection is None:
-            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
-            
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
         cursor = connection.cursor(dictionary=True)
-        
+
         # Construir consulta SQL base
         sql = """
             SELECT 
-                super as supervisor,
-                MONTH(fecha_asistencia) as mes,
-                YEAR(fecha_asistencia) as año,
-                SUM(valor) as total_presupuesto
+                super AS supervisor,
+                MONTH(fecha_asistencia) AS mes,
+                YEAR(fecha_asistencia) AS ano,
+                SUM(valor) AS presupuesto_mensual,
+                COUNT(*) AS registros
             FROM asistencia 
             WHERE super IS NOT NULL AND super != ''
         """
-        
+
         params = []
-        
+
         # Agregar filtros opcionales
-        if mes:
+        if mes is not None:
             sql += " AND MONTH(fecha_asistencia) = %s"
             params.append(mes)
-            
-        if año:
+
+        if ano is not None:
             sql += " AND YEAR(fecha_asistencia) = %s"
-            params.append(año)
-            
+            params.append(ano)
+
         if supervisor:
             sql += " AND super = %s"
             params.append(supervisor)
-        
+
         # Agrupar por supervisor, mes y año
         sql += """
             GROUP BY super, MONTH(fecha_asistencia), YEAR(fecha_asistencia)
-            ORDER BY super, año DESC, mes DESC
+            ORDER BY super, ano DESC, mes DESC
         """
-        
+
         cursor.execute(sql, params)
         resultados = cursor.fetchall()
-        
-        # Formatear resultados
-        datos_presupuesto = []
+
+        # Formatear resultados y calcular resumen
+        presupuestos = []
+        total = 0.0
+        mayor = 0.0
+        supervisores_set = set()
+
         for row in resultados:
-            datos_presupuesto.append({
-                'supervisor': row['supervisor'],
-                'mes': row['mes'],
-                'año': row['año'],
-                'total_presupuesto': float(row['total_presupuesto']) if row['total_presupuesto'] else 0
+            presupuesto_mensual = float(row['presupuesto_mensual']) if row.get('presupuesto_mensual') is not None else 0.0
+            presupuestos.append({
+                'supervisor': row.get('supervisor') or '',
+                'mes': row.get('mes') or 0,
+                'ano': row.get('ano') or 0,
+                'presupuesto_mensual': presupuesto_mensual,
+                'registros': int(row.get('registros') or 0)
             })
-        
+            total += presupuesto_mensual
+            mayor = max(mayor, presupuesto_mensual)
+            if row.get('supervisor'):
+                supervisores_set.add(row['supervisor'])
+
+        total_supervisores = len(supervisores_set)
+        promedio = total / total_supervisores if total_supervisores > 0 else 0.0
+
         return jsonify({
             'success': True,
-            'data': datos_presupuesto,
-            'total_registros': len(datos_presupuesto)
+            'presupuestos': presupuestos,
+            'resumen': {
+                'total': total,
+                'promedio': promedio,
+                'supervisores': total_supervisores,
+                'mayor': mayor
+            },
+            'total_registros': len(presupuestos)
         })
-        
+
     except mysql.connector.Error as e:
         print(f"ERROR DB - API Presupuesto: {str(e)}")
-        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': f'Error de base de datos: {str(e)}'}), 500
     except Exception as e:
         print(f"ERROR - API Presupuesto: {str(e)}")
         import traceback
         traceback.print_exc()
-        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': f'Error interno: {str(e)}'}), 500
     finally:
         if cursor:
             cursor.close()
