@@ -279,7 +279,7 @@ function loadVehiclePlates() {
                 vehiclePlates = data.data;
                 const select = document.getElementById('placa');
                 select.innerHTML = '<option value="">Seleccionar placa</option>' +
-                    vehiclePlates.map(vehicle => `<option value="${vehicle.placa}" data-tecnico="${vehicle.tecnico_asignado || ''}" data-tipo="${vehicle.tipo_vehiculo}">${vehicle.placa}</option>`).join('');
+                    vehiclePlates.map(vehicle => `<option value="${vehicle.placa}" data-tecnico="${vehicle.tecnico_nombre || ''}" data-tipo="${vehicle.tipo_vehiculo}">${vehicle.placa}</option>`).join('');
             } else {
                 showAlert('Error al cargar placas: ' + (data.message || 'Error desconocido'), 'warning');
             }
@@ -453,7 +453,8 @@ function editMaintenance(maintenanceId) {
                 document.getElementById('maintenanceModalLabel').textContent = 'Editar Mantenimiento';
                 document.getElementById('maintenanceId').value = maintenanceId;
                 document.getElementById('placa').value = maintenance.placa;
-                document.getElementById('tecnicoAsignado').value = maintenance.tecnico_nombre || 'Sin asignar';
+                // Autocompletar siempre el técnico desde la placa seleccionada
+                onPlacaChange();
                 document.getElementById('tipoVehiculo').value = maintenance.tipo_vehiculo;
                 document.getElementById('kilometraje').value = maintenance.kilometraje;
                 document.getElementById('observaciones').value = maintenance.observacion || '';
@@ -500,6 +501,11 @@ async function saveMaintenance() {
     }
     
     try {
+        // Asegurar que el técnico provenga SIEMPRE de la placa seleccionada
+        const placaSelect = document.getElementById('placa');
+        const selectedOption = placaSelect.options[placaSelect.selectedIndex];
+        const tecnicoFromPlate = selectedOption ? (selectedOption.getAttribute('data-tecnico') || '') : '';
+
         // Subir imágenes primero si existen
         let fotoTallerPath = '';
         let fotoFacturaPath = '';
@@ -527,7 +533,8 @@ async function saveMaintenance() {
             observacion: document.getElementById('observaciones').value,
             foto_taller: fotoTallerPath,
             foto_factura: fotoFacturaPath,
-            tecnico: document.getElementById('tecnicoAsignado').value,
+            // Forzar envío del técnico asignado desde la placa (no editable)
+            tecnico: tecnicoFromPlate,
             estado: document.getElementById('estadoMantenimiento').value
         };
         
