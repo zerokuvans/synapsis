@@ -34,6 +34,7 @@
           <th>Carpeta</th>
           <th>Fecha</th>
           <th>Estado</th>
+          <th>Acciones</th>
         </tr>
       </thead>
       <tbody id="respuestas-body"></tbody>
@@ -127,6 +128,11 @@
         <td>${t.carpeta ?? ''}</td>
         <td>${fecha}</td>
         <td>${estadoBadge}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-info btn-ver-respuestas" data-usuario-id="${t.id}" data-tecnico="${t.nombre ?? t.id}">
+            <i class="fas fa-eye me-1"></i>Ver
+          </button>
+        </td>
       `;
       tbody.appendChild(tr);
     });
@@ -200,6 +206,16 @@
     }
   });
 
+  // Event listener para botones de ver respuestas en la tabla general
+  document.getElementById('respuestas-body').addEventListener('click', function(e) {
+    if (e.target.closest('.btn-ver-respuestas')) {
+      const btn = e.target.closest('.btn-ver-respuestas');
+      const usuarioId = btn.getAttribute('data-usuario-id');
+      const tecnico = btn.getAttribute('data-tecnico');
+      verRespuestasIndividuales(usuarioId, tecnico);
+    }
+  });
+
   // Función para ver respuestas individuales
   async function verRespuestasIndividuales(usuarioId, tecnico) {
     try {
@@ -230,11 +246,16 @@
         html += `
           <div class="list-group-item">
             <div class="fw-semibold">${resp.texto_pregunta || 'Pregunta'}</div>
-            <div class="text-muted small mb-2">Tipo: ${resp.tipo}</div>
+            <div class="text-muted small mb-2">Tipo: ${resp.tipo_pregunta || '—'}</div>
             <div class="fw-light">`;
             
-        if (resp.tipo_pregunta === 'opcion_multiple' || resp.tipo_pregunta === 'seleccion_unica') {
-          html += `<span class="badge bg-primary">${resp.respuesta || 'Opción seleccionada'}</span>`;
+        if (resp.tipo_pregunta === 'opcion_multiple' || resp.tipo_pregunta === 'seleccion_unica' || resp.tipo_pregunta === 'seleccion_multiple') {
+          const respuestaTexto = resp.respuesta || 'Opción seleccionada';
+          html += `<span class="badge bg-primary">${respuestaTexto}</span>`;
+          // Mostrar puntaje si existe y es mayor que 0
+          if (resp.puntaje !== null && resp.puntaje !== undefined && Number(resp.puntaje) > 0) {
+            html += ` <span class="badge bg-success ms-2"><i class="fas fa-star me-1"></i>${resp.puntaje} pts</span>`;
+          }
         } else if (resp.tipo_pregunta === 'imagen' && resp.respuesta) {
           html += `<img src="${resp.respuesta}" style="max-width: 200px; max-height: 200px;" class="img-thumbnail">`;
         } else {
