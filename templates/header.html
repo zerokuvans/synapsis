@@ -401,6 +401,7 @@
                 if(!d.success){ cont.innerHTML = '<div class="text-danger">No se pudo cargar la encuesta.</div>'; return; }
                 const enc = d.encuesta || {};
                 const preguntas = d.preguntas || enc.preguntas || [];
+                const secciones = enc.secciones || [];
                 // Normalizar campos desde nuestro builder
                 preguntasActuales = preguntas.map(p=>{
                     const mapTipo = (t)=>{
@@ -416,30 +417,69 @@
                     };
                 });
                 const titulo = enc.titulo || 'Encuesta';
-                const htmlPregs = preguntasActuales.map(p=>{
+
+                // Mapear secciones por ID y agrupar preguntas por seccion_id
+                const seccionesById = Object.fromEntries((secciones || []).map(s => [s.id_seccion, s]));
+                const gruposPorId = {};
+                preguntasActuales.forEach(p => {
+                    const key = p.seccion_id ?? null; // null para "Sin sección"
+                    if (!gruposPorId[key]) gruposPorId[key] = [];
+                    gruposPorId[key].push(p);
+                });
+
+                // Helper para renderizar una pregunta
+                const renderPreguntaHTML = (p)=>{
                     const req = p.obligatoria ? '<span class="text-danger">*</span>' : '';
                     if (p.tipo === 'parrafo'){
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><textarea class="form-control" data-pid="${p.id_pregunta}"></textarea></div>`
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><textarea class="form-control" data-pid="${p.id_pregunta}"></textarea></div>`;
                     } else if (p.tipo === 'texto'){
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="text" class="form-control" data-pid="${p.id_pregunta}" /></div>`
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="text" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
                     } else if (p.tipo === 'numero'){
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="number" class="form-control" data-pid="${p.id_pregunta}" /></div>`
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="number" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
                     } else if (p.tipo === 'fecha'){
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="date" class="form-control" data-pid="${p.id_pregunta}" /></div>`
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="date" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
                     } else if (p.tipo === 'hora'){
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="time" class="form-control" data-pid="${p.id_pregunta}" /></div>`
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="time" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
                     } else if (p.tipo === 'opcion_unica'){
                         const opts = (p.opciones||[]).map(o=>`<div class="form-check"><input class="form-check-input" type="radio" name="p-${p.id_pregunta}" value="${o.id_opcion}" data-pid="${p.id_pregunta}"><label class="form-check-label">${o.texto}</label></div>`).join('');
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${opts}</div>`
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${opts}</div>`;
                     } else if (p.tipo === 'opcion_multiple'){
                         const opts = (p.opciones||[]).map(o=>`<div class="form-check"><input class="form-check-input" type="checkbox" value="${o.id_opcion}" data-pid="${p.id_pregunta}"><label class="form-check-label">${o.texto}</label></div>`).join('');
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${opts}</div>`
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${opts}</div>`;
                     } else if (p.tipo === 'imagen'){
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="file" accept="image/*" class="form-control" data-pid="${p.id_pregunta}" /></div>`
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="file" accept="image/*" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
                     }
                     return '';
-                }).join('');
-                cont.innerHTML = `<h5 class="mb-3">${titulo}</h5>${htmlPregs}`;
+                };
+
+                // Construir HTML agrupado por secciones
+                let html = `<h5 class="mb-3">${titulo}</h5>`;
+
+                // Renderizar secciones definidas primero, en su orden
+                (secciones || []).forEach(sec => {
+                    const arr = gruposPorId[sec.id_seccion] || [];
+                    html += `
+                        <div class="mb-3 p-3 bg-light rounded border">
+                            <div class="mb-2">
+                                <strong class="text-primary" style="cursor:default"><i class="fas fa-angle-right me-1"></i>${sec.titulo || ''}</strong>
+                                ${sec.descripcion ? `<div class="text-muted small">${sec.descripcion}</div>` : ''}
+                            </div>
+                            ${arr.map(renderPreguntaHTML).join('')}
+                        </div>
+                    `;
+                });
+
+                // Renderizar preguntas sin sección
+                const sinSeccion = gruposPorId[null] || [];
+                if (sinSeccion.length > 0) {
+                    html += `
+                        <div class="mb-3 p-3 bg-light rounded border">
+                            <div class="mb-2"><strong class="text-primary"><i class="fas fa-angle-right me-1"></i>Sin sección</strong></div>
+                            ${sinSeccion.map(renderPreguntaHTML).join('')}
+                        </div>
+                    `;
+                }
+                cont.innerHTML = html;
             }catch(e){ cont.innerHTML = '<div class="text-danger">Error cargando preguntas.</div>'; }
         }
 

@@ -44,9 +44,11 @@
     else alert(title + ' - ' + text);
   }
 
-  function renderPregunta(p) {
+  function renderPregunta(p, parent = container) {
     const wrap = document.createElement('div');
     wrap.className = 'question-item';
+    // Encabezado de sección removido: ahora las preguntas se agrupan por sección
+    
     const label = document.createElement('label');
     label.className = 'form-label fw-semibold';
     label.textContent = p.texto + (p.requerida ? ' *' : '');
@@ -126,7 +128,24 @@
     const err = document.createElement('div');
     err.className = 'text-danger small error-msg';
     wrap.appendChild(err);
-    container.appendChild(wrap);
+    parent.appendChild(wrap);
+  }
+
+  // Renderizar una sección completa con sus preguntas
+  function renderSeccion(seccion, preguntas) {
+    const card = document.createElement('div');
+    card.className = 'mb-3 p-3 bg-light rounded border';
+
+    const header = document.createElement('div');
+    header.className = 'mb-2';
+    const titulo = (typeof seccion === 'string') ? seccion : (seccion?.titulo || 'Sin sección');
+    const desc = (typeof seccion === 'object' && seccion?.descripcion) ? seccion.descripcion : '';
+    header.innerHTML = `<strong class="text-primary"><i class="fas fa-angle-right me-1"></i>${titulo}</strong>${desc ? `<div class="text-muted small">${desc}</div>` : ''}`;
+    card.appendChild(header);
+
+    preguntas.forEach(p => renderPregunta(p, card));
+
+    container.appendChild(card);
   }
 
   async function cargarEncuesta(){
@@ -136,7 +155,19 @@
     const enc = data.encuesta;
     encTitulo.textContent = enc.titulo;
     encDesc.textContent = enc.descripcion || '';
-    (enc.preguntas || []).forEach(renderPregunta);
+    const preguntas = enc.preguntas || [];
+    const secciones = enc.secciones || [];
+    const mapSecciones = Object.fromEntries(secciones.map(s => [s.id_seccion, s]));
+    // Agrupar por seccion_id; null para sin sección
+    const grupos = preguntas.reduce((acc, p) => {
+      const key = (p.seccion_id != null) ? p.seccion_id : 'sin';
+      (acc[key] = acc[key] || []).push(p);
+      return acc;
+    }, {});
+    // Renderizar secciones
+    secciones.forEach(sec => renderSeccion(sec, grupos[sec.id_seccion] || []));
+    // Renderizar preguntas sin sección
+    if (grupos.sin && grupos.sin.length) renderSeccion('Sin sección', grupos.sin);
   }
 
   form.addEventListener('submit', async (e) => {
