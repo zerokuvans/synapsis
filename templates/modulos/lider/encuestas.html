@@ -313,6 +313,9 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button id="btn-eliminar-encuesta" type="button" class="btn btn-danger me-auto">
+            <i class="fas fa-trash me-1"></i>Eliminar encuesta
+          </button>
           <button id="btn-guardar-encuesta" type="button" class="btn btn-primary">
             <i class="fas fa-save me-1"></i>Guardar cambios
           </button>
@@ -1253,6 +1256,37 @@
   if (btnEditarEncuesta) btnEditarEncuesta.addEventListener('click', abrirModalEditarEncuesta);
   const btnGuardarEncuesta = document.getElementById('btn-guardar-encuesta');
   if (btnGuardarEncuesta) btnGuardarEncuesta.addEventListener('click', guardarEdicionEncuesta);
+
+  // Eliminar encuesta
+  const btnEliminarEncuesta = document.getElementById('btn-eliminar-encuesta');
+  async function eliminarEncuesta() {
+    if (!encuestaSeleccionada) { showToast('Selecciona encuesta', 'Debes seleccionar una encuesta', 'warning'); return; }
+    if (!confirm('¿Seguro que deseas eliminar esta encuesta? Esta acción no se puede deshacer.')) return;
+    try {
+      const res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast('Eliminada', data.message || 'Encuesta eliminada');
+        // Cerrar modal si está abierto
+        const m = window.bootstrap ? bootstrap.Modal.getInstance(document.getElementById('modal-editar-encuesta')) : null;
+        if (m) m.hide();
+        encuestaSeleccionada = null;
+        builder.style.display = 'none';
+        btnPreview.style.display = 'none';
+        btnRespuestas.style.display = 'none';
+        encTitulo.textContent = 'Selecciona una encuesta';
+        encDesc.textContent = '';
+        encBadges.innerHTML = '';
+        await cargarEncuestas();
+      } else {
+        showToast('No eliminado', data.message || 'No se pudo eliminar', 'error');
+      }
+    } catch (e) {
+      console.error('[encuestas] Error eliminando encuesta', e);
+      showToast('Error', 'Falló la eliminación', 'error');
+    }
+  }
+  if (btnEliminarEncuesta) btnEliminarEncuesta.addEventListener('click', eliminarEncuesta);
 
   // ====== Edición de pregunta ======
   const editPregTexto = document.getElementById('edit-preg-texto');
