@@ -2043,12 +2043,16 @@ def registrar_rutas_encuestas(app):
                     'pregunta_id': respuesta['id_pregunta'],
                     'texto_pregunta': respuesta['texto_pregunta'],
                     'tipo_pregunta': respuesta['tipo_pregunta'],
-                    'respuesta': None
+                    'respuesta': None,
+                    'puntaje': None
                 }
 
                 # Determinar el valor de la respuesta según el tipo de pregunta
-                if respuesta['tipo_pregunta'] == 'opcion_multiple':
+                if respuesta['tipo_pregunta'] == 'opcion_multiple' or respuesta['tipo_pregunta'] == 'seleccion_unica':
                     respuesta_formateada['respuesta'] = respuesta['texto_opcion']
+                    # Incluir puntaje si existe
+                    if respuesta.get('puntaje') is not None:
+                        respuesta_formateada['puntaje'] = respuesta['puntaje']
                 elif respuesta['tipo_pregunta'] == 'texto':
                     respuesta_formateada['respuesta'] = respuesta['valor_texto']
                 elif respuesta['tipo_pregunta'] == 'numero':
@@ -2072,7 +2076,7 @@ def registrar_rutas_encuestas(app):
                     if ultima_respuesta:
                         cur.execute(
                             """
-                            SELECT o.texto 
+                            SELECT o.texto, o.puntaje 
                             FROM encuesta_respuestas_detalle d
                             JOIN encuesta_opciones o ON o.id_opcion = d.opcion_id
                             WHERE d.respuesta_id = %s
@@ -2082,6 +2086,10 @@ def registrar_rutas_encuestas(app):
                         )
                         opciones = cur.fetchall()
                         respuesta_formateada['respuesta'] = ', '.join([op['texto'] for op in opciones])
+                        # Sumar puntajes si existen
+                        puntaje_total = sum([op['puntaje'] or 0 for op in opciones]) if opciones else 0
+                        if puntaje_total > 0:
+                            respuesta_formateada['puntaje'] = float(puntaje_total)
                     else:
                         respuesta_formateada['respuesta'] = 'Sin respuestas'
 
