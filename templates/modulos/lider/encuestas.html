@@ -96,6 +96,13 @@
           </div>
           <div class="col-12"><div class="form-text">La encuesta se activará/desactivará automáticamente según estas fechas.</div></div>
         </div>
+        <div class="mb-2">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="enc-con-puntaje">
+            <label class="form-check-label" for="enc-con-puntaje">Habilitar puntuación</label>
+          </div>
+          <div class="form-text">Permite asignar puntajes a las opciones de respuesta y calcular puntajes totales</div>
+        </div>
         <button id="btn-crear-encuesta" class="btn btn-primary w-100">
           <i class="fas fa-plus me-1"></i>Crear encuesta
         </button>
@@ -141,11 +148,11 @@
       <div id="builder-preguntas" class="builder-card p-3" style="display:none;">
         <h6 class="mb-2">Agregar pregunta</h6>
         <div class="row g-2 align-items-end">
-          <div class="col-md-6">
+          <div class="col-md-5">
             <label class="form-label">Texto de la pregunta</label>
             <input id="preg-texto" class="form-control" placeholder="Ej: ¿Cómo calificarías el servicio?"/>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
             <label class="form-label">Tipo</label>
             <select id="preg-tipo" class="form-select">
               <option value="texto">Texto</option>
@@ -161,6 +168,12 @@
             </select>
           </div>
           <div class="col-md-2">
+            <label class="form-label">Sección</label>
+            <select id="preg-seccion" class="form-select">
+              <option value="">-- Sin sección --</option>
+            </select>
+          </div>
+          <div class="col-md-2">
             <div class="form-check">
               <input class="form-check-input" type="checkbox" id="preg-requerida">
               <label class="form-check-label" for="preg-requerida">Requerida</label>
@@ -170,9 +183,22 @@
 
         <div id="preg-opciones-container" class="mt-2" style="display:none;">
           <label class="form-label">Opciones</label>
-          <div class="input-group mb-2">
-            <input id="nuevo-texto-opcion" class="form-control" placeholder="Texto de opción"/>
-            <button id="btn-agregar-opcion" class="btn btn-outline-primary"><i class="fas fa-plus"></i></button>
+          <div class="row g-2 mb-2">
+            <div class="col-md-5">
+              <input id="nuevo-texto-opcion" class="form-control" placeholder="Texto de opción"/>
+            </div>
+            <div class="col-md-2">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="nuevo-es-correcta">
+                <label class="form-check-label" for="nuevo-es-correcta">Correcta</label>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <input id="nuevo-puntaje" type="number" step="0.1" class="form-control" placeholder="Puntaje"/>
+            </div>
+            <div class="col-md-2">
+              <button id="btn-agregar-opcion" class="btn btn-outline-primary w-100"><i class="fas fa-plus"></i></button>
+            </div>
           </div>
           <div id="opciones-list" class="d-flex flex-wrap"></div>
         </div>
@@ -180,6 +206,12 @@
         <div class="mt-3">
           <button id="btn-agregar-pregunta" class="btn btn-success">
             <i class="fas fa-check me-1"></i>Guardar pregunta
+          </button>
+        </div>
+
+        <div class="mt-3">
+          <button id="btn-agregar-seccion" class="btn btn-info">
+            <i class="fas fa-plus me-1"></i>Agregar sección
           </button>
         </div>
 
@@ -242,6 +274,13 @@
           <div class="col-md-6">
             <label class="form-label">Fecha fin</label>
             <input id="edit-enc-fecha-fin" type="datetime-local" class="form-control" />
+          </div>
+          <div class="col-12">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="edit-enc-con-puntaje">
+              <label class="form-check-label" for="edit-enc-con-puntaje">Habilitar puntuación</label>
+            </div>
+            <div class="form-text">Permite asignar puntajes a las opciones de respuesta y calcular puntajes totales</div>
           </div>
           <div class="col-12" id="edit-enc-supervisores-container" style="display:none;">
             <label class="form-label">Supervisores (filtra técnicos)</label>
@@ -314,14 +353,73 @@
             <input class="form-check-input" type="checkbox" id="edit-preg-requerida">
             <label class="form-check-label" for="edit-preg-requerida">Requerida</label>
           </div>
+          <div class="mb-2">
+            <label class="form-label">Sección</label>
+            <select id="edit-preg-seccion" class="form-select">
+              <option value="">-- Sin sección --</option>
+            </select>
+          </div>
           <div id="edit-preg-opciones-container" style="display:none;">
-            <label class="form-label">Opciones (una por línea)</label>
-            <textarea id="edit-preg-opciones" class="form-control" rows="5" placeholder="Opción 1\nOpción 2\n..."></textarea>
+            <label class="form-label">Opciones</label>
+            <div id="edit-preg-opciones-lista" class="mb-2"></div>
+            <div class="card mb-2">
+              <div class="card-body">
+                <h6 class="card-title">Agregar opción</h6>
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <input type="text" id="edit-nuevo-texto-opcion" class="form-control" placeholder="Texto de la opción">
+                  </div>
+                  <div class="col-md-3">
+                    <input type="number" id="edit-nuevo-puntaje" class="form-control" placeholder="Puntaje" min="0" step="0.1">
+                  </div>
+                  <div class="col-md-2">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="edit-nuevo-es-correcta">
+                      <label class="form-check-label" for="edit-nuevo-es-correcta">Correcta</label>
+                    </div>
+                  </div>
+                  <div class="col-md-1">
+                    <button type="button" id="edit-btn-agregar-opcion" class="btn btn-primary btn-sm">+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button id="btn-guardar-pregunta" type="button" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i>Guardar cambios
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Editar sección -->
+  <div class="modal fade" id="modalEditarSeccion" tabindex="-1" aria-labelledby="modalEditarSeccionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalEditarSeccionLabel">Editar Sección</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formEditarSeccion">
+            <input type="hidden" id="editSeccionId">
+            <div class="mb-3">
+              <label for="editSeccionTitulo" class="form-label">Título de la sección</label>
+              <input type="text" class="form-control" id="editSeccionTitulo" required>
+            </div>
+            <div class="mb-3">
+              <label for="editSeccionDescripcion" class="form-label">Descripción (opcional)</label>
+              <textarea class="form-control" id="editSeccionDescripcion" rows="3"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button id="btn-guardar-seccion" type="button" class="btn btn-primary">
             <i class="fas fa-save me-1"></i>Guardar cambios
           </button>
         </div>
@@ -347,6 +445,7 @@
   const dirigidaA = document.getElementById('enc-dirigida-a');
   const fechaInicio = document.getElementById('enc-fecha-inicio');
   const fechaFin = document.getElementById('enc-fecha-fin');
+  const conPuntaje = document.getElementById('enc-con-puntaje');
   const supervisoresContainer = document.getElementById('enc-supervisores-container');
   const supervisoresSelect = document.getElementById('enc-supervisores');
   const supervisoresBuscar = document.getElementById('enc-supervisores-buscar');
@@ -372,12 +471,15 @@
 
   const pregTexto = document.getElementById('preg-texto');
   const pregTipo = document.getElementById('preg-tipo');
+  const pregSeccion = document.getElementById('preg-seccion');
   const pregReq = document.getElementById('preg-requerida');
   const pregOpcContainer = document.getElementById('preg-opciones-container');
   const nuevoTextoOpcion = document.getElementById('nuevo-texto-opcion');
+  const nuevoPuntaje = document.getElementById('nuevo-puntaje');
   const btnAgregarOpcion = document.getElementById('btn-agregar-opcion');
   const opcionesList = document.getElementById('opciones-list');
   const btnAgregarPregunta = document.getElementById('btn-agregar-pregunta');
+  const btnAgregarSeccion = document.getElementById('btn-agregar-seccion');
   const preguntasExistentes = document.getElementById('preguntas-existentes');
 
   let encuestaSeleccionada = null;
@@ -408,7 +510,16 @@
     opciones.forEach((op, idx) => {
       const pill = document.createElement('span');
       pill.className = 'option-pill';
-      pill.textContent = op.texto || ('Opción ' + (idx+1));
+      
+      let pillText = op.texto || ('Opción ' + (idx+1));
+      if (op.es_correcta) {
+        pillText += ' ✓';
+      }
+      if (op.puntaje) {
+        pillText += ` (${op.puntaje} pts)`;
+      }
+      
+      pill.textContent = pillText;
       opcionesList.appendChild(pill);
     });
   }
@@ -570,8 +681,13 @@
   btnAgregarOpcion.addEventListener('click', (e) => {
     e.preventDefault();
     const texto = (nuevoTextoOpcion.value || '').trim();
-    opciones.push({ texto });
+    const es_correcta = document.getElementById('nuevo-es-correcta').checked;
+    const puntaje = parseFloat(nuevoPuntaje.value) || 0;
+    
+    opciones.push({ texto, es_correcta, puntaje });
     nuevoTextoOpcion.value = '';
+    document.getElementById('nuevo-es-correcta').checked = false;
+    nuevoPuntaje.value = '';
     renderOpciones();
   });
 
@@ -650,7 +766,23 @@
     btnRespuestas.href = `/lider/encuestas/${encuestaSeleccionada.id_encuesta}/respuestas`;
     if (btnExportar) { btnExportar.style.display = 'none'; btnExportar.removeAttribute('href'); }
     if (btnEditarEncuesta) btnEditarEncuesta.style.display = '';
-    renderPreguntasExistentes(encuestaSeleccionada.preguntas || []);
+    
+    // Cargar secciones de la encuesta
+    try {
+      const seccionesRes = await fetch(`/api/encuestas/${id}/secciones`);
+      const seccionesData = await seccionesRes.json();
+      if (seccionesData.success) {
+        encuestaSeleccionada.secciones = seccionesData.secciones || [];
+      }
+    } catch (e) {
+      console.warn('[encuestas] No se pudieron cargar las secciones', e);
+      encuestaSeleccionada.secciones = [];
+    }
+    
+    renderPreguntasExistentes(encuestaSeleccionada.preguntas || [], encuestaSeleccionada.secciones || []);
+    
+    // Cargar secciones en el selector de secciones para nuevas preguntas
+    await cargarSeccionesEnSelector(encuestaSeleccionada.secciones || []);
 
     // Cargar estadísticas de respuestas para mostrar contador y habilitar exportación
     try {
@@ -664,32 +796,195 @@
     } catch (e) { console.warn('[encuestas] No se pudieron cargar estadísticas', e); }
   }
 
-  function renderPreguntasExistentes(pregs) {
+  function renderPreguntasExistentes(pregs, secciones = []) {
     preguntasExistentes.innerHTML = '';
-    pregs.forEach((p) => {
-      const div = document.createElement('div');
-      div.className = 'question-item';
-      const opts = (p.opciones || []).map(o => `<span class="option-pill">${o.texto}</span>`).join('');
-      div.innerHTML = `<div class="fw-semibold">${p.texto}</div>` +
-                      `<div class="text-muted small">Tipo: ${p.tipo} ${p.requerida ? '• Requerida' : ''} • Orden: ${p.orden ?? 0}</div>` +
-                      `<div class="mt-2">${opts}</div>` +
-                      `<div class="mt-2 d-flex gap-2">
-                         <button class="btn btn-sm btn-outline-primary" data-action="edit"><i class="fas fa-edit"></i></button>
-                         <button class="btn btn-sm btn-outline-secondary" data-action="up"><i class="fas fa-arrow-up"></i></button>
-                         <button class="btn btn-sm btn-outline-secondary" data-action="down"><i class="fas fa-arrow-down"></i></button>
-                         <button class="btn btn-sm btn-outline-danger" data-action="delete"><i class="fas fa-trash"></i></button>
-                       </div>`;
+    
+    // Si no hay preguntas ni secciones
+    if ((!pregs || pregs.length === 0) && (!secciones || secciones.length === 0)) {
+      preguntasExistentes.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-question-circle fa-3x mb-3"></i><p>No hay preguntas en esta encuesta</p></div>';
+      return;
+    }
+    
+    // Crear un mapa de preguntas por sección
+    const preguntasPorSeccion = {};
+    const preguntasSinSeccion = [];
+    
+    // Inicializar secciones
+    if (secciones && secciones.length > 0) {
+      secciones.forEach(seccion => {
+        preguntasPorSeccion[seccion.id_seccion] = {
+          seccion: seccion,
+          preguntas: []
+        };
+      });
+    }
+    
+    // Agrupar preguntas por sección
+    if (pregs && pregs.length > 0) {
+      pregs.forEach(pregunta => {
+        if (pregunta.seccion_id) {
+          if (preguntasPorSeccion[pregunta.seccion_id]) {
+            preguntasPorSeccion[pregunta.seccion_id].preguntas.push(pregunta);
+          } else {
+            // Si la sección no existe en el mapa, la agregamos como sin sección
+            preguntasSinSeccion.push(pregunta);
+          }
+        } else {
+          preguntasSinSeccion.push(pregunta);
+        }
+      });
+    }
+    
+    // Renderizar secciones y sus preguntas
+    if (secciones && secciones.length > 0) {
+      secciones.forEach(seccion => {
+        const seccionDiv = document.createElement('div');
+        seccionDiv.className = 'card mb-4 border-primary';
+        seccionDiv.dataset.seccionId = seccion.id_seccion;
+        seccionDiv.dataset.orden = seccion.orden;
+        
+        const preguntasDeSeccion = preguntasPorSeccion[seccion.id_seccion]?.preguntas || [];
+        
+        seccionDiv.innerHTML = `
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0">${seccion.titulo}</h6>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-light" onclick="editarSeccion(${seccion.id_seccion})" title="Editar sección">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-light" onclick="eliminarSeccion(${seccion.id_seccion})" title="Eliminar sección">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            ${seccion.descripcion ? `<p class="card-text">${seccion.descripcion}</p>` : ''}
+            <div class="preguntas-seccion-${seccion.id_seccion}">
+              ${preguntasDeSeccion.length === 0 ? 
+                '<div class="text-center text-muted py-3"><small>No hay preguntas en esta sección</small></div>' : 
+                ''}
+            </div>
+          </div>
+        `;
+        
+        preguntasExistentes.appendChild(seccionDiv);
+        
+        // Renderizar preguntas de esta sección
+        const contenedorPreguntas = seccionDiv.querySelector(`.preguntas-seccion-${seccion.id_seccion}`);
+        preguntasDeSeccion.forEach((pregunta) => {
+          contenedorPreguntas.appendChild(crearElementoPregunta(pregunta));
+        });
+      });
+    }
+    
+    // Renderizar preguntas sin sección
+    if (preguntasSinSeccion.length > 0) {
+      const sinSeccionDiv = document.createElement('div');
+      sinSeccionDiv.className = 'mb-4';
+      
+      if (secciones && secciones.length > 0) {
+        sinSeccionDiv.innerHTML = '<h6 class="text-muted mb-3">Preguntas sin sección</h6>';
+      }
+      
+      preguntasSinSeccion.forEach(pregunta => {
+        sinSeccionDiv.appendChild(crearElementoPregunta(pregunta));
+      });
+      
+      preguntasExistentes.appendChild(sinSeccionDiv);
+    }
+  }
+  
+  function crearElementoPregunta(p) {
+    const div = document.createElement('div');
+    div.className = 'question-item mb-3';
+    const opts = (p.opciones || []).map(o => `<span class="option-pill">${o.texto}</span>`).join('');
+    div.innerHTML = `<div class="fw-semibold">${p.texto}</div>` +
+                    `<div class="text-muted small">Tipo: ${p.tipo} ${p.requerida ? '• Requerida' : ''} • Orden: ${p.orden ?? 0}</div>` +
+                    `<div class="mt-2">${opts}</div>` +
+                    `<div class="mt-2 d-flex gap-2">
+                       <button class="btn btn-sm btn-outline-primary" data-action="edit"><i class="fas fa-edit"></i></button>
+                       <button class="btn btn-sm btn-outline-secondary" data-action="up"><i class="fas fa-arrow-up"></i></button>
+                       <button class="btn btn-sm btn-outline-secondary" data-action="down"><i class="fas fa-arrow-down"></i></button>
+                       <button class="btn btn-sm btn-outline-danger" data-action="delete"><i class="fas fa-trash"></i></button>
+                     </div>`;
 
-      const btnEdit = div.querySelector('[data-action="edit"]');
-      const btnUp = div.querySelector('[data-action="up"]');
-      const btnDown = div.querySelector('[data-action="down"]');
-      const btnDelete = div.querySelector('[data-action="delete"]');
-      btnEdit.addEventListener('click', () => abrirModalEditarPregunta(p));
-      btnUp.addEventListener('click', () => moverPregunta(p.id_pregunta, Math.max(0, (p.orden ?? 0) - 1)));
-      btnDown.addEventListener('click', () => moverPregunta(p.id_pregunta, (p.orden ?? 0) + 1));
-      btnDelete.addEventListener('click', () => eliminarPregunta(p.id_pregunta));
-      preguntasExistentes.appendChild(div);
-    });
+    const btnEdit = div.querySelector('[data-action="edit"]');
+    const btnUp = div.querySelector('[data-action="up"]');
+    const btnDown = div.querySelector('[data-action="down"]');
+    const btnDelete = div.querySelector('[data-action="delete"]');
+    btnEdit.addEventListener('click', () => abrirModalEditarPregunta(p));
+    btnUp.addEventListener('click', () => moverPregunta(p.id_pregunta, Math.max(0, (p.orden ?? 0) - 1)));
+    btnDown.addEventListener('click', () => moverPregunta(p.id_pregunta, (p.orden ?? 0) + 1));
+    btnDelete.addEventListener('click', () => eliminarPregunta(p.id_pregunta));
+    
+    return div;
+  }
+  
+  // Función para cargar secciones en el selector de secciones
+  function cargarSeccionesEnSelector(secciones) {
+    pregSeccion.innerHTML = '<option value="">-- Sin sección --</option>';
+    
+    if (secciones && secciones.length > 0) {
+      secciones.forEach(seccion => {
+        const option = document.createElement('option');
+        option.value = seccion.id_seccion;
+        option.textContent = seccion.titulo;
+        pregSeccion.appendChild(option);
+      });
+    }
+  }
+
+  // Funciones para manejar secciones
+  async function editarSeccion(idSeccion) {
+    try {
+      const res = await fetch(`/api/secciones/${idSeccion}`);
+      const data = await res.json();
+      if (!data.success) { showToast('Error', 'No se pudo cargar la sección', 'error'); return; }
+      
+      const seccion = data.seccion;
+      
+      // Llenar el modal de edición de sección
+      document.getElementById('editSeccionId').value = seccion.id_seccion;
+      document.getElementById('editSeccionTitulo').value = seccion.titulo || '';
+      document.getElementById('editSeccionDescripcion').value = seccion.descripcion || '';
+      
+      // Mostrar el modal
+      const modal = new bootstrap.Modal(document.getElementById('modalEditarSeccion'));
+      modal.show();
+    } catch (error) {
+      console.error('Error al editar sección:', error);
+      showToast('Error', 'No se pudo cargar la sección', 'error');
+    }
+  }
+  
+  async function eliminarSeccion(idSeccion) {
+    try {
+      const confirmar = window.Swal
+        ? await Swal.fire({
+            title: 'Eliminar sección',
+            text: 'Las preguntas pasarán a estar sin sección. ¿Confirmas?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Eliminar',
+            cancelButtonText: 'Cancelar'
+          })
+        : { isConfirmed: confirm('¿Eliminar la sección?') };
+
+      if (!confirmar.isConfirmed) return;
+
+      const res = await fetch(`/api/secciones/${idSeccion}`, { method: 'DELETE' });
+      const data = await res.json();
+
+      if (data.success) {
+        showToast('Éxito', 'Sección eliminada correctamente', 'success');
+        if (encuestaSeleccionada) await seleccionarEncuesta(encuestaSeleccionada.id_encuesta);
+      } else {
+        showToast('Error', data.message || 'No se pudo eliminar la sección', 'error');
+      }
+    } catch (error) {
+      console.error('Error al eliminar sección:', error);
+      showToast('Error', 'No se pudo eliminar la sección', 'error');
+    }
   }
 
   // ====== Edición de encuesta ======
@@ -701,6 +996,7 @@
   const editDirigidaA = document.getElementById('edit-enc-dirigida-a');
   const editFechaInicio = document.getElementById('edit-enc-fecha-inicio');
   const editFechaFin = document.getElementById('edit-enc-fecha-fin');
+  const editEncConPuntaje = document.getElementById('edit-enc-con-puntaje');
   const editSupervisoresContainer = document.getElementById('edit-enc-supervisores-container');
   const editSupervisoresSelect = document.getElementById('edit-enc-supervisores');
   const editSupervisoresBuscar = document.getElementById('edit-enc-supervisores-buscar');
@@ -862,6 +1158,7 @@
     // fechas
     editFechaInicio.value = toInputDateTime(encuestaSeleccionada.fecha_inicio);
     editFechaFin.value = toInputDateTime(encuestaSeleccionada.fecha_fin);
+    if (editEncConPuntaje) editEncConPuntaje.checked = !!encuestaSeleccionada.con_puntaje;
 
     const setCarpetas = async () => {
       await cargarCarpetas();
@@ -923,7 +1220,8 @@
       estado: editEncEstado.value,
       dirigida_a: editDirigidaA.value,
       fecha_inicio: editFechaInicio.value || null,
-      fecha_fin: editFechaFin.value || null
+      fecha_fin: editFechaFin.value || null,
+      con_puntaje: !!(editEncConPuntaje && editEncConPuntaje.checked)
     };
     if (!payload.titulo) { showToast('Falta título', 'Ingresa un título', 'warning'); return; }
     if (payload.dirigida_a === 'tecnicos') {
@@ -960,10 +1258,16 @@
   const editPregTexto = document.getElementById('edit-preg-texto');
   const editPregTipo = document.getElementById('edit-preg-tipo');
   const editPregReq = document.getElementById('edit-preg-requerida');
+  const editPregSeccion = document.getElementById('edit-preg-seccion');
   const editPregOpcContainer = document.getElementById('edit-preg-opciones-container');
-  const editPregOpciones = document.getElementById('edit-preg-opciones');
+  const editPregOpcionesLista = document.getElementById('edit-preg-opciones-lista');
+  const editNuevoTextoOpcion = document.getElementById('edit-nuevo-texto-opcion');
+  const editNuevoPuntaje = document.getElementById('edit-nuevo-puntaje');
+  const editNuevoEsCorrecta = document.getElementById('edit-nuevo-es-correcta');
+  const editBtnAgregarOpcion = document.getElementById('edit-btn-agregar-opcion');
   const btnGuardarPregunta = document.getElementById('btn-guardar-pregunta');
   let editPreguntaActual = null;
+  let editOpciones = [];
 
   function toggleOpcionesEdit() {
     const tiposConOpciones = new Set(['seleccion_unica','opcion_multiple','checkbox','dropdown']);
@@ -971,12 +1275,108 @@
   }
   if (editPregTipo) editPregTipo.addEventListener('change', toggleOpcionesEdit);
 
-  function abrirModalEditarPregunta(p) {
+  function renderEditOpciones() {
+    editPregOpcionesLista.innerHTML = '';
+    editOpciones.forEach((op, idx) => {
+      const card = document.createElement('div');
+      card.className = 'card mb-2';
+      
+      let cardText = op.texto || ('Opción ' + (idx+1));
+      if (op.es_correcta) {
+        cardText += ' ✓';
+      }
+      if (op.puntaje) {
+        cardText += ` (${op.puntaje} pts)`;
+      }
+      
+      card.innerHTML = `
+        <div class="card-body py-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <span>${cardText}</span>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarEditOpcion(${idx})">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      `;
+      editPregOpcionesLista.appendChild(card);
+    });
+  }
+
+  function agregarEditOpcion() {
+    const texto = editNuevoTextoOpcion.value.trim();
+    if (!texto) {
+      showToast('Falta texto', 'Ingresa el texto de la opción', 'warning');
+      return;
+    }
+    
+    const opcion = {
+      texto: texto,
+      es_correcta: editNuevoEsCorrecta.checked,
+      puntaje: editNuevoPuntaje.value ? parseFloat(editNuevoPuntaje.value) : null
+    };
+    
+    editOpciones.push(opcion);
+    renderEditOpciones();
+    
+    // Limpiar campos
+    editNuevoTextoOpcion.value = '';
+    editNuevoPuntaje.value = '';
+    editNuevoEsCorrecta.checked = false;
+    editNuevoTextoOpcion.focus();
+  }
+
+  function eliminarEditOpcion(index) {
+    editOpciones.splice(index, 1);
+    renderEditOpciones();
+  }
+
+  if (editBtnAgregarOpcion) {
+    editBtnAgregarOpcion.addEventListener('click', agregarEditOpcion);
+  }
+  if (editNuevoTextoOpcion) {
+    editNuevoTextoOpcion.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        agregarEditOpcion();
+      }
+    });
+  }
+
+  async function abrirModalEditarPregunta(p) {
     editPreguntaActual = p;
     editPregTexto.value = p.texto || '';
     editPregTipo.value = p.tipo || 'texto';
     editPregReq.checked = !!p.requerida;
-    editPregOpciones.value = (p.opciones || []).map(o => o.texto || '').join('\n');
+    
+    // Cargar secciones disponibles
+    editPregSeccion.innerHTML = '<option value="">-- Sin sección --</option>';
+    if (encuestaSeleccionada && encuestaSeleccionada.secciones) {
+      encuestaSeleccionada.secciones.forEach(seccion => {
+        const option = document.createElement('option');
+        option.value = seccion.id_seccion;
+        option.textContent = seccion.titulo;
+        editPregSeccion.appendChild(option);
+      });
+    }
+    
+    // Seleccionar la sección actual de la pregunta
+    if (p.seccion_id) {
+      editPregSeccion.value = p.seccion_id;
+    } else {
+      editPregSeccion.value = '';
+    }
+    
+    // Cargar opciones con sus campos adicionales
+    editOpciones = [];
+    if (p.opciones && p.opciones.length > 0) {
+      editOpciones = p.opciones.map(op => ({
+        texto: op.texto || '',
+        es_correcta: op.es_correcta || false,
+        puntaje: op.puntaje || null
+      }));
+    }
+    
+    renderEditOpciones();
     toggleOpcionesEdit();
     const modal = window.bootstrap ? new bootstrap.Modal(document.getElementById('modal-editar-pregunta')) : null;
     if (modal) modal.show();
@@ -987,13 +1387,13 @@
     const payload = {
       tipo: editPregTipo.value,
       texto: editPregTexto.value.trim(),
-      requerida: !!editPregReq.checked
+      requerida: !!editPregReq.checked,
+      seccion_id: editPregSeccion.value || null
     };
     if (!payload.texto) { showToast('Falta texto', 'Ingresa el texto de la pregunta', 'warning'); return; }
     const tiposConOpciones = new Set(['seleccion_unica','opcion_multiple','checkbox','dropdown']);
     if (tiposConOpciones.has(payload.tipo)) {
-      const lineas = (editPregOpciones.value || '').split('\n').map(s => s.trim()).filter(Boolean);
-      payload.opciones = lineas.map(t => ({ texto: t }));
+      payload.opciones = editOpciones;
     }
     const res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}/preguntas/${editPreguntaActual.id_pregunta}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await res.json();
@@ -1009,6 +1409,45 @@
     }
   }
   if (btnGuardarPregunta) btnGuardarPregunta.addEventListener('click', guardarEdicionPregunta);
+
+  // Event listener para el botón de guardar sección
+  const btnGuardarSeccion = document.getElementById('btn-guardar-seccion');
+  async function guardarEdicionSeccion() {
+    const idSeccion = document.getElementById('editSeccionId').value;
+    const titulo = document.getElementById('editSeccionTitulo').value.trim();
+    const descripcion = document.getElementById('editSeccionDescripcion').value.trim();
+    
+    if (!titulo) {
+      showToast('Falta título', 'Ingresa un título para la sección', 'warning');
+      return;
+    }
+    
+    try {
+      const res = await fetch(`/api/secciones/${idSeccion}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ titulo, descripcion })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        showToast('Sección actualizada', 'Los cambios se guardaron correctamente');
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalEditarSeccion'));
+        if (modal) modal.hide();
+        
+        // Recargar la encuesta para actualizar la vista
+        if (encuestaSeleccionada) {
+          await seleccionarEncuesta(encuestaSeleccionada.id_encuesta);
+        }
+      } else {
+        showToast('Error', data.message || 'No se pudo actualizar la sección', 'error');
+      }
+    } catch (error) {
+      console.error('Error al guardar sección:', error);
+      showToast('Error', 'No se pudo actualizar la sección', 'error');
+    }
+  }
+  if (btnGuardarSeccion) btnGuardarSeccion.addEventListener('click', guardarEdicionSeccion);
 
   async function eliminarPregunta(idPregunta) {
     if (!encuestaSeleccionada) return;
@@ -1044,7 +1483,8 @@
       dirigida_a: dirigidaA.value,
       estado: 'borrador',
       fecha_inicio: (fechaInicio && fechaInicio.value) ? fechaInicio.value : null,
-      fecha_fin: (fechaFin && fechaFin.value) ? fechaFin.value : null
+      fecha_fin: (fechaFin && fechaFin.value) ? fechaFin.value : null,
+      con_puntaje: conPuntaje.checked
     };
     if (payload.dirigida_a === 'tecnicos') {
       const supSeleccionados = Array.from(supervisoresSelect.selectedOptions).map(o => o.value).filter(Boolean);
@@ -1075,7 +1515,8 @@
       tipo,
       texto: pregTexto.value.trim(),
       requerida: pregReq.checked,
-      opciones: opciones
+      opciones: opciones,
+      seccion_id: pregSeccion.value || null // Usar la sección seleccionada
     };
     if (!payload.texto) { showToast('Falta texto', 'Ingresa el texto de la pregunta', 'warning'); return; }
     const res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}/preguntas`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
@@ -1083,14 +1524,71 @@
     if (data.success) {
       showToast('Pregunta guardada', 'ID ' + data.id_pregunta);
       pregTexto.value=''; pregReq.checked=false; opciones=[]; renderOpciones();
+      // Recargar la encuesta para actualizar la vista y mostrar la pregunta en la sección correcta
       await seleccionarEncuesta(encuestaSeleccionada.id_encuesta);
     } else {
       showToast('Error', data.message || 'No se pudo guardar', 'error');
     }
   });
 
+  btnAgregarSeccion.addEventListener('click', async () => {
+    if (!encuestaSeleccionada) { showToast('Selecciona encuesta', 'Debes seleccionar una encuesta', 'warning'); return; }
+    
+    const { value: formValues } = await Swal.fire({
+      title: 'Nueva sección',
+      html: `
+        <div class="mb-2">
+          <label class="form-label">Título</label>
+          <input id="swal-seccion-titulo" class="form-control" placeholder="Ingresa el título de la sección" />
+        </div>
+        <div>
+          <label class="form-label">Descripción (opcional)</label>
+          <textarea id="swal-seccion-desc" class="form-control" rows="2" placeholder="Agrega una descripción"></textarea>
+        </div>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: 'Crear sección',
+      cancelButtonText: 'Cancelar',
+      preConfirm: () => {
+        const titulo = document.getElementById('swal-seccion-titulo').value.trim();
+        const descripcion = document.getElementById('swal-seccion-desc').value.trim();
+        if (!titulo) {
+          Swal.showValidationMessage('Debes ingresar un título para la sección');
+          return;
+        }
+        return { titulo, descripcion };
+      }
+    });
+    
+    if (formValues) {
+      try {
+        const res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}/secciones`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ titulo: formValues.titulo, descripcion: formValues.descripcion })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Sección creada', 'La sección fue creada exitosamente');
+          await seleccionarEncuesta(encuestaSeleccionada.id_encuesta);
+        } else {
+          showToast('Error', data.message || 'No se pudo crear la sección', 'error');
+        }
+      } catch (error) {
+        showToast('Error', 'No se pudo crear la sección', 'error');
+      }
+    }
+  });
+
+  // Exponer funciones de sección al ámbito global para los botones inline
+  window.editarSeccion = editarSeccion;
+  window.eliminarSeccion = eliminarSeccion;
+
   btnRefrescar.addEventListener('click', cargarEncuestas);
   cargarEncuestas();
 })();
 </script>
+<!-- Debug opcional: diagnosticar problemas de edición/eliminación de secciones -->
+<script src="/static/js/debug_seccion_editar.js"></script>
 {% endblock %}

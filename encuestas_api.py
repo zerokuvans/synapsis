@@ -7,6 +7,7 @@ Sistema - Capired
 
 import mysql.connector
 from flask import jsonify, request, render_template, session, redirect, url_for, make_response
+from flask_login import login_required
 import os
 from datetime import datetime
 import json
@@ -57,6 +58,7 @@ def ensure_encuestas_tables():
                 estado ENUM('borrador','activa','cerrada') DEFAULT 'borrador',
                 anonima TINYINT(1) DEFAULT 0,
                 permitir_edicion_respuesta TINYINT(1) DEFAULT 0,
+                con_puntaje TINYINT(1) DEFAULT 0,
                 visibilidad ENUM('privada','publica') DEFAULT 'privada',
                 creado_por INT NULL,
                 fecha_inicio DATETIME NULL,
@@ -77,6 +79,7 @@ def ensure_encuestas_tables():
         required_columns = [
             ("encuestas", "anonima", "TINYINT(1) DEFAULT 0"),
             ("encuestas", "permitir_edicion_respuesta", "TINYINT(1) DEFAULT 0"),
+            ("encuestas", "con_puntaje", "TINYINT(1) DEFAULT 0"),
             ("encuestas", "visibilidad", "ENUM('privada','publica') DEFAULT 'privada'"),
             ("encuestas", "dirigida_a", "ENUM('todos','tecnicos','analistas','supervisores') DEFAULT 'todos'"),
             ("encuestas", "audiencia_carpetas", "TEXT NULL"),
@@ -95,19 +98,37 @@ def ensure_encuestas_tables():
             except mysql.connector.Error as e:
                 logger.warning(f"No se pudo agregar columna {table}.{col}: {e}")
 
+        # Tabla secciones
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS encuesta_secciones (
+                id_seccion INT AUTO_INCREMENT PRIMARY KEY,
+                encuesta_id INT NOT NULL,
+                titulo VARCHAR(255) NOT NULL,
+                descripcion TEXT NULL,
+                orden INT DEFAULT 0,
+                fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                fecha_actualizacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (encuesta_id) REFERENCES encuestas(id_encuesta) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """
+        )
+
         # Tabla preguntas
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS encuesta_preguntas (
                 id_pregunta INT AUTO_INCREMENT PRIMARY KEY,
                 encuesta_id INT NOT NULL,
+                seccion_id INT NULL,
                 tipo ENUM('texto','parrafo','numero','fecha','hora','opcion_multiple','seleccion_unica','checkbox','dropdown','imagen') NOT NULL,
                 texto VARCHAR(500) NOT NULL,
                 ayuda VARCHAR(500) NULL,
                 requerida TINYINT(1) DEFAULT 0,
                 orden INT DEFAULT 0,
                 config_json JSON NULL,
-                FOREIGN KEY (encuesta_id) REFERENCES encuestas(id_encuesta) ON DELETE CASCADE
+                FOREIGN KEY (encuesta_id) REFERENCES encuestas(id_encuesta) ON DELETE CASCADE,
+                FOREIGN KEY (seccion_id) REFERENCES encuesta_secciones(id_seccion) ON DELETE SET NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
             """
         )
@@ -120,11 +141,32 @@ def ensure_encuestas_tables():
                 pregunta_id INT NOT NULL,
                 texto VARCHAR(255) NOT NULL,
                 valor VARCHAR(255) NULL,
+                es_correcta TINYINT(1) DEFAULT 0,
+                puntaje DECIMAL(10,2) NULL,
                 orden INT DEFAULT 0,
                 FOREIGN KEY (pregunta_id) REFERENCES encuesta_preguntas(id_pregunta) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
             """
         )
+
+        # Asegurar columnas de opciones en instalaciones existentes
+        for table, col, col_def in [
+            ("encuesta_opciones", "es_correcta", "TINYINT(1) DEFAULT 0"),
+            ("encuesta_opciones", "puntaje", "DECIMAL(10,2) NULL")
+        ]:
+            try:
+                if not column_exists(table, col):
+                    cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")
+            except mysql.connector.Error as e:
+                logger.warning(f"No se pudo agregar columna {table}.{col}: {e}")
+
+        # Asegurar columna seccion_id en preguntas para instalaciones existentes
+        try:
+            if not column_exists("encuesta_preguntas", "seccion_id"):
+                cursor.execute("ALTER TABLE encuesta_preguntas ADD COLUMN seccion_id INT NULL")
+                cursor.execute("ALTER TABLE encuesta_preguntas ADD CONSTRAINT fk_pregunta_seccion FOREIGN KEY (seccion_id) REFERENCES encuesta_secciones(id_seccion) ON DELETE SET NULL")
+        except mysql.connector.Error as e:
+            logger.warning(f"No se pudo agregar columna seccion_id a encuesta_preguntas: {e}")
 
         # Tabla respuestas (cabecera)
         cursor.execute(
@@ -276,6 +318,7 @@ def registrar_rutas_encuestas(app):
         descripcion = data.get('descripcion')
         estado = data.get('estado', 'borrador')
         anonima = 1 if data.get('anonima', False) else 0
+        con_puntaje = 1 if data.get('con_puntaje', False) else 0
         visibilidad = data.get('visibilidad', 'privada')
         dirigida_a = data.get('dirigida_a', 'todos')
         fecha_inicio = data.get('fecha_inicio')
@@ -324,14 +367,14 @@ def registrar_rutas_encuestas(app):
             cursor.execute(
                 """
                 INSERT INTO encuestas (
-                    titulo, descripcion, estado, anonima, visibilidad, dirigida_a,
+                    titulo, descripcion, estado, anonima, con_puntaje, visibilidad, dirigida_a,
                     audiencia_carpetas, audiencia_supervisores, audiencia_tecnicos,
                     fecha_inicio, fecha_fin, creado_por
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
-                    titulo, descripcion, estado, anonima, visibilidad, dirigida_a,
+                    titulo, descripcion, estado, anonima, con_puntaje, visibilidad, dirigida_a,
                     audiencia_carpetas, audiencia_supervisores, audiencia_tecnicos,
                     fecha_inicio, fecha_fin, user_id
                 )
@@ -569,7 +612,14 @@ def registrar_rutas_encuestas(app):
                 for op in opciones:
                     opciones_por_pregunta.setdefault(op['pregunta_id'], []).append(op)
 
-            # Convertir config_json a dict
+            # Obtener secciones de la encuesta
+            cursor.execute("SELECT * FROM encuesta_secciones WHERE encuesta_id = %s ORDER BY orden ASC", (encuesta_id,))
+            secciones = cursor.fetchall()
+
+            # Crear mapeo de secciones por ID para fácil acceso
+            secciones_por_id = {seccion['id_seccion']: seccion for seccion in secciones}
+
+            # Convertir config_json a dict y agregar información de sección a cada pregunta
             for p in preguntas:
                 if p.get('config_json'):
                     try:
@@ -579,10 +629,17 @@ def registrar_rutas_encuestas(app):
                 else:
                     p['config'] = None
                 p['opciones'] = opciones_por_pregunta.get(p['id_pregunta'], [])
+                
+                # Agregar título de sección si la pregunta tiene seccion_id
+                if p.get('seccion_id') and p['seccion_id'] in secciones_por_id:
+                    p['titulo_seccion'] = secciones_por_id[p['seccion_id']]['titulo']
+                else:
+                    p['titulo_seccion'] = None
 
             encuesta['preguntas'] = preguntas
+            encuesta['secciones'] = secciones
             # También exponemos preguntas en el nivel raíz para compatibilidad del frontend
-            return jsonify({'success': True, 'encuesta': encuesta, 'preguntas': preguntas})
+            return jsonify({'success': True, 'encuesta': encuesta, 'preguntas': preguntas, 'secciones': secciones})
         except mysql.connector.Error as e:
             logger.error(f"Error obteniendo encuesta: {e}")
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
@@ -682,8 +739,19 @@ def registrar_rutas_encuestas(app):
                             params
                         )
                         tecnicos_rows = cur.fetchall() or []
+            elif dirigida_a == 'todos':
+                # Encuesta dirigida a todos los técnicos activos
+                cur.execute(
+                    """
+                    SELECT ro.id_codigo_consumidor AS id, ro.nombre, ro.carpeta, ro.super
+                    FROM recurso_operativo ro
+                    WHERE ro.estado = 'Activo'
+                    ORDER BY ro.nombre
+                    """
+                )
+                tecnicos_rows = cur.fetchall() or []
             else:
-                # Por ahora soportamos solo encuestas dirigidas a técnicos
+                # Otros tipos de audiencia (por ahora no soportados)
                 tecnicos_rows = []
 
             # Obtener última fecha de respuesta por usuario para esta encuesta
@@ -757,6 +825,9 @@ def registrar_rutas_encuestas(app):
         if 'anonima' in data:
             campos.append('anonima = %s')
             valores.append(1 if data.get('anonima') else 0)
+        if 'con_puntaje' in data:
+            campos.append('con_puntaje = %s')
+            valores.append(1 if data.get('con_puntaje') else 0)
         if 'dirigida_a' in data:
             dirigida_a = data.get('dirigida_a')
             campos.append('dirigida_a = %s')
@@ -892,14 +963,16 @@ def registrar_rutas_encuestas(app):
                 for idx, op in enumerate(opciones):
                     texto_op = (op.get('texto') or '').strip()
                     valor_op = op.get('valor')
+                    es_correcta = 1 if op.get('es_correcta', False) else 0
+                    puntaje = op.get('puntaje')
                     if not texto_op:
                         texto_op = f"Opción {idx+1}"
                     cursor.execute(
                         """
-                        INSERT INTO encuesta_opciones (pregunta_id, texto, valor, orden)
-                        VALUES (%s, %s, %s, %s)
+                        INSERT INTO encuesta_opciones (pregunta_id, texto, valor, es_correcta, puntaje, orden)
+                        VALUES (%s, %s, %s, %s, %s, %s)
                         """,
-                        (pregunta_id, texto_op, valor_op, idx)
+                        (pregunta_id, texto_op, valor_op, es_correcta, puntaje, idx)
                     )
 
             connection.commit()
@@ -979,6 +1052,7 @@ def registrar_rutas_encuestas(app):
         ayuda = data.get('ayuda')
         requerida = data.get('requerida')
         opciones = data.get('opciones')
+        seccion_id = data.get('seccion_id')
 
         connection = get_db_connection()
         if not connection:
@@ -1000,6 +1074,9 @@ def registrar_rutas_encuestas(app):
             if requerida is not None:
                 sets.append('requerida = %s')
                 vals.append(1 if requerida else 0)
+            if seccion_id is not None:
+                sets.append('seccion_id = %s')
+                vals.append(seccion_id if seccion_id != 'null' else None)
             if sets:
                 sql = f"UPDATE encuesta_preguntas SET {', '.join(sets)} WHERE id_pregunta = %s AND encuesta_id = %s"
                 vals.extend([pregunta_id, encuesta_id])
@@ -1025,14 +1102,16 @@ def registrar_rutas_encuestas(app):
                     for idx, op in enumerate(opciones or []):
                         texto_op = (op.get('texto') or '').strip()
                         valor_op = op.get('valor')
+                        es_correcta = 1 if op.get('es_correcta', False) else 0
+                        puntaje = op.get('puntaje')
                         if not texto_op:
                             texto_op = f"Opción {idx+1}"
                         cur.execute(
                             """
-                            INSERT INTO encuesta_opciones (pregunta_id, texto, valor, orden)
-                            VALUES (%s, %s, %s, %s)
+                            INSERT INTO encuesta_opciones (pregunta_id, texto, valor, es_correcta, puntaje, orden)
+                            VALUES (%s, %s, %s, %s, %s, %s)
                             """,
-                            (pregunta_id, texto_op, valor_op, idx)
+                            (pregunta_id, texto_op, valor_op, es_correcta, puntaje, idx)
                         )
 
             connection.commit()
@@ -1040,6 +1119,359 @@ def registrar_rutas_encuestas(app):
             return jsonify({'success': True})
         except mysql.connector.Error as e:
             logger.error(f"Error actualizando pregunta {pregunta_id}: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
+
+    # ============================================================================
+    # ENDPOINTS PARA SECCIONES
+    # ============================================================================
+
+    @app.route('/api/encuestas/<int:encuesta_id>/secciones', methods=['GET'])
+    def obtener_secciones_encuesta(encuesta_id):
+        """Obtener todas las secciones de una encuesta"""
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(
+                """
+                SELECT id_seccion, encuesta_id, titulo, descripcion, orden, fecha_creacion, fecha_actualizacion
+                FROM encuesta_secciones
+                WHERE encuesta_id = %s
+                ORDER BY orden ASC
+                """,
+                (encuesta_id,)
+            )
+            secciones = cursor.fetchall()
+            cursor.close()
+            return jsonify({'success': True, 'secciones': secciones})
+        except mysql.connector.Error as e:
+            logger.error(f"Error obteniendo secciones: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
+
+    # Alias: obtener una sección por ID sin requerir encuesta_id
+    @app.route('/api/secciones/<int:seccion_id>', methods=['GET'])
+    @login_required
+    def obtener_seccion_por_id(seccion_id):
+        """Obtener una sección por su ID"""
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(
+                """
+                SELECT id_seccion, encuesta_id, titulo, descripcion, orden
+                FROM encuesta_secciones
+                WHERE id_seccion = %s
+                """,
+                (seccion_id,)
+            )
+            seccion = cursor.fetchone()
+            cursor.close()
+            if not seccion:
+                return jsonify({'success': False, 'message': 'Sección no encontrada'}), 404
+            return jsonify({'success': True, 'seccion': seccion})
+        except mysql.connector.Error as e:
+            logger.error(f"Error obteniendo sección: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
+
+    @app.route('/api/encuestas/<int:encuesta_id>/secciones', methods=['POST'])
+    def crear_seccion(encuesta_id):
+        """Crear una nueva sección en una encuesta"""
+        data = request.get_json(silent=True) or {}
+        titulo = data.get('titulo', '').strip()
+        descripcion = data.get('descripcion', '').strip()
+        
+        if not titulo:
+            return jsonify({'success': False, 'message': 'El título de la sección es requerido'}), 400
+
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cursor = connection.cursor()
+            
+            # Obtener el máximo orden actual para esta encuesta
+            cursor.execute(
+                """
+                SELECT COALESCE(MAX(orden), 0) + 1 as nuevo_orden
+                FROM encuesta_secciones
+                WHERE encuesta_id = %s
+                """,
+                (encuesta_id,)
+            )
+            nuevo_orden = cursor.fetchone()[0]
+            
+            # Insertar la nueva sección
+            cursor.execute(
+                """
+                INSERT INTO encuesta_secciones (encuesta_id, titulo, descripcion, orden)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (encuesta_id, titulo, descripcion, nuevo_orden)
+            )
+            seccion_id = cursor.lastrowid
+            
+            connection.commit()
+            cursor.close()
+            
+            return jsonify({'success': True, 'id_seccion': seccion_id, 'message': 'Sección creada exitosamente'})
+        except mysql.connector.Error as e:
+            logger.error(f"Error creando sección: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
+
+    # Alias: actualizar sección por ID sin requerir encuesta_id
+    @app.route('/api/secciones/<int:seccion_id>', methods=['PATCH'])
+    @login_required
+    def actualizar_seccion_por_id(seccion_id):
+        """Actualizar una sección por su ID (titulo/descripcion)"""
+        data = request.get_json(silent=True) or {}
+        titulo = data.get('titulo')
+        descripcion = data.get('descripcion')
+
+        if titulo is not None:
+            titulo = titulo.strip()
+            if not titulo:
+                return jsonify({'success': False, 'message': 'El título de la sección no puede estar vacío'}), 400
+
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cursor = connection.cursor()
+
+            # Verificar existencia
+            cursor.execute("SELECT encuesta_id FROM encuesta_secciones WHERE id_seccion = %s", (seccion_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'message': 'Sección no encontrada'}), 404
+
+            update_fields = []
+            params = []
+            if titulo is not None:
+                update_fields.append("titulo = %s")
+                params.append(titulo)
+            if descripcion is not None:
+                update_fields.append("descripcion = %s")
+                params.append(descripcion)
+
+            if not update_fields:
+                return jsonify({'success': False, 'message': 'No hay campos para actualizar'}), 400
+
+            params.append(seccion_id)
+            query = f"""
+                UPDATE encuesta_secciones
+                SET {', '.join(update_fields)}
+                WHERE id_seccion = %s
+            """
+            cursor.execute(query, params)
+
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'message': 'Sección no encontrada'}), 404
+
+            connection.commit()
+            cursor.close()
+            return jsonify({'success': True, 'message': 'Sección actualizada exitosamente'})
+        except mysql.connector.Error as e:
+            logger.error(f"Error actualizando sección: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
+
+    # Alias: eliminar sección por ID sin requerir encuesta_id
+    @app.route('/api/secciones/<int:seccion_id>', methods=['DELETE'])
+    @login_required
+    def eliminar_seccion_por_id(seccion_id):
+        """Eliminar una sección por su ID"""
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cursor = connection.cursor()
+
+            # Obtener encuesta_id asociado para logging/coherencia
+            cursor.execute("SELECT encuesta_id FROM encuesta_secciones WHERE id_seccion = %s", (seccion_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'message': 'Sección no encontrada'}), 404
+
+            # Mover preguntas a "sin sección"
+            cursor.execute(
+                """
+                UPDATE encuesta_preguntas
+                SET seccion_id = NULL
+                WHERE seccion_id = %s
+                """,
+                (seccion_id,)
+            )
+
+            # Eliminar la sección
+            cursor.execute(
+                """
+                DELETE FROM encuesta_secciones
+                WHERE id_seccion = %s
+                """,
+                (seccion_id,)
+            )
+
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'message': 'Sección no encontrada'}), 404
+
+            connection.commit()
+            cursor.close()
+            return jsonify({'success': True, 'message': 'Sección eliminada exitosamente'})
+        except mysql.connector.Error as e:
+            logger.error(f"Error eliminando sección: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
+
+    @app.route('/api/encuestas/<int:encuesta_id>/secciones/<int:seccion_id>', methods=['PATCH'])
+    def actualizar_seccion(encuesta_id, seccion_id):
+        """Actualizar una sección existente"""
+        data = request.get_json(silent=True) or {}
+        titulo = data.get('titulo')
+        descripcion = data.get('descripcion')
+        
+        if titulo is not None:
+            titulo = titulo.strip()
+            if not titulo:
+                return jsonify({'success': False, 'message': 'El título de la sección no puede estar vacío'}), 400
+
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cursor = connection.cursor()
+            
+            # Construir la consulta dinámicamente
+            update_fields = []
+            params = []
+            
+            if titulo is not None:
+                update_fields.append("titulo = %s")
+                params.append(titulo)
+            
+            if descripcion is not None:
+                update_fields.append("descripcion = %s")
+                params.append(descripcion)
+            
+            if not update_fields:
+                return jsonify({'success': False, 'message': 'No hay campos para actualizar'}), 400
+            
+            params.append(seccion_id)
+            params.append(encuesta_id)
+            
+            query = f"""
+                UPDATE encuesta_secciones
+                SET {', '.join(update_fields)}
+                WHERE id_seccion = %s AND encuesta_id = %s
+                """
+            
+            cursor.execute(query, params)
+            
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'message': 'Sección no encontrada'}), 404
+            
+            connection.commit()
+            cursor.close()
+            
+            return jsonify({'success': True, 'message': 'Sección actualizada exitosamente'})
+        except mysql.connector.Error as e:
+            logger.error(f"Error actualizando sección: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
+
+    @app.route('/api/encuestas/<int:encuesta_id>/secciones/<int:seccion_id>', methods=['DELETE'])
+    def eliminar_seccion(encuesta_id, seccion_id):
+        """Eliminar una sección"""
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cursor = connection.cursor()
+            
+            # Primero, mover todas las preguntas de esta sección a "sin sección" (NULL)
+            cursor.execute(
+                """
+                UPDATE encuesta_preguntas
+                SET seccion_id = NULL
+                WHERE seccion_id = %s AND encuesta_id = %s
+                """,
+                (seccion_id, encuesta_id)
+            )
+            
+            # Luego eliminar la sección
+            cursor.execute(
+                """
+                DELETE FROM encuesta_secciones
+                WHERE id_seccion = %s AND encuesta_id = %s
+                """,
+                (seccion_id, encuesta_id)
+            )
+            
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'message': 'Sección no encontrada'}), 404
+            
+            connection.commit()
+            cursor.close()
+            
+            return jsonify({'success': True, 'message': 'Sección eliminada exitosamente'})
+        except mysql.connector.Error as e:
+            logger.error(f"Error eliminando sección: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
+
+    @app.route('/api/encuestas/<int:encuesta_id>/secciones/orden', methods=['PATCH'])
+    def actualizar_orden_secciones(encuesta_id):
+        """Actualizar el orden de las secciones"""
+        data = request.get_json(silent=True) or {}
+        secciones_orden = data.get('secciones', [])
+        
+        if not isinstance(secciones_orden, list):
+            return jsonify({'success': False, 'message': 'Formato inválido para el orden de secciones'}), 400
+
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cursor = connection.cursor()
+            
+            for orden, seccion_id in enumerate(secciones_orden):
+                cursor.execute(
+                    """
+                    UPDATE encuesta_secciones
+                    SET orden = %s
+                    WHERE id_seccion = %s AND encuesta_id = %s
+                    """,
+                    (orden, seccion_id, encuesta_id)
+                )
+            
+            connection.commit()
+            cursor.close()
+            
+            return jsonify({'success': True, 'message': 'Orden de secciones actualizado exitosamente'})
+        except mysql.connector.Error as e:
+            logger.error(f"Error actualizando orden de secciones: {e}")
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
         finally:
             connection.close()
@@ -1508,6 +1940,165 @@ def registrar_rutas_encuestas(app):
             except Exception:
                 pass
 
+    @app.route('/api/encuestas/<int:encuesta_id>/puntajes', methods=['GET'])
+    def puntajes_encuesta(encuesta_id):
+        """Devuelve los puntajes totales por usuario para una encuesta con puntaje habilitado."""
+        user_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        if not user_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cur = conn.cursor(dictionary=True)
+            
+            # Verificar si la encuesta tiene puntaje habilitado
+            cur.execute("SELECT con_puntaje FROM encuestas WHERE id_encuesta = %s", (encuesta_id,))
+            encuesta = cur.fetchone()
+            if not encuesta or not encuesta.get('con_puntaje'):
+                return jsonify({'success': False, 'message': 'Esta encuesta no tiene puntaje habilitado'}), 400
+
+            # Calcular puntajes totales por usuario
+            cur.execute(
+                """
+                SELECT 
+                    r.usuario_id,
+                    ro.nombre AS tecnico,
+                    ro.super AS supervisor,
+                    ro.carpeta,
+                    DATE_FORMAT(r.fecha_respuesta, %s) AS fecha_respuesta,
+                    r.estado,
+                    SUM(CASE WHEN o.puntaje IS NOT NULL THEN o.puntaje ELSE 0 END) AS puntaje_total
+                FROM encuesta_respuestas r
+                LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = r.usuario_id
+                LEFT JOIN encuesta_respuestas_detalle d ON d.respuesta_id = r.id_respuesta
+                LEFT JOIN encuesta_opciones o ON o.id_opcion = d.opcion_id
+                WHERE r.encuesta_id = %s
+                GROUP BY r.usuario_id, ro.nombre, ro.super, ro.carpeta, r.fecha_respuesta, r.estado
+                ORDER BY puntaje_total DESC, ro.nombre
+                """,
+                ('%Y-%m-%d %H:%i:%s', encuesta_id)
+            )
+            puntajes = cur.fetchall() or []
+
+            return jsonify({
+                'success': True,
+                'encuesta_id': encuesta_id,
+                'puntajes': puntajes
+            })
+        except mysql.connector.Error as e:
+            logger.error(f"Error obteniendo puntajes encuesta {encuesta_id}: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            conn.close()
+
+    @app.route('/api/encuestas/<int:encuesta_id>/respuestas/<int:usuario_id>', methods=['GET'])
+    def respuestas_usuario_encuesta(encuesta_id, usuario_id):
+        """Devuelve las respuestas individuales de un usuario específico para una encuesta."""
+        user_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        if not user_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cur = conn.cursor(dictionary=True)
+            
+            # Obtener todas las respuestas del usuario para esta encuesta
+            cur.execute(
+                """
+                SELECT 
+                    p.id_pregunta,
+                    p.texto AS texto_pregunta,
+                    p.tipo AS tipo_pregunta,
+                    d.valor_texto,
+                    d.valor_numero,
+                    d.archivo_url,
+                    o.texto AS texto_opcion,
+                    o.puntaje,
+                    r.fecha_respuesta,
+                    r.estado
+                FROM encuesta_respuestas r
+                JOIN encuesta_respuestas_detalle d ON d.respuesta_id = r.id_respuesta
+                JOIN encuesta_preguntas p ON p.id_pregunta = d.pregunta_id
+                LEFT JOIN encuesta_opciones o ON o.id_opcion = d.opcion_id
+                WHERE r.encuesta_id = %s AND r.usuario_id = %s
+                ORDER BY p.orden, p.id_pregunta
+                """,
+                (encuesta_id, usuario_id)
+            )
+            respuestas = cur.fetchall() or []
+
+            if not respuestas:
+                return jsonify({'success': False, 'message': 'No se encontraron respuestas para este usuario'}), 404
+
+            # Formatear las respuestas para mostrar
+            respuestas_formateadas = []
+            for respuesta in respuestas:
+                respuesta_formateada = {
+                    'pregunta_id': respuesta['id_pregunta'],
+                    'texto_pregunta': respuesta['texto_pregunta'],
+                    'tipo_pregunta': respuesta['tipo_pregunta'],
+                    'respuesta': None
+                }
+
+                # Determinar el valor de la respuesta según el tipo de pregunta
+                if respuesta['tipo_pregunta'] == 'opcion_multiple':
+                    respuesta_formateada['respuesta'] = respuesta['texto_opcion']
+                elif respuesta['tipo_pregunta'] == 'texto':
+                    respuesta_formateada['respuesta'] = respuesta['valor_texto']
+                elif respuesta['tipo_pregunta'] == 'numero':
+                    respuesta_formateada['respuesta'] = respuesta['valor_numero']
+                elif respuesta['tipo_pregunta'] == 'imagen':
+                    respuesta_formateada['respuesta'] = respuesta['archivo_url']
+                elif respuesta['tipo_pregunta'] == 'seleccion_multiple':
+                    # Para selección múltiple, necesitamos obtener todas las opciones seleccionadas
+                    # Primero obtenemos el id_respuesta más reciente para este usuario y encuesta
+                    cur.execute(
+                        """
+                        SELECT id_respuesta 
+                        FROM encuesta_respuestas 
+                        WHERE encuesta_id = %s AND usuario_id = %s 
+                        ORDER BY fecha_respuesta DESC LIMIT 1
+                        """,
+                        (encuesta_id, usuario_id)
+                    )
+                    ultima_respuesta = cur.fetchone()
+                    
+                    if ultima_respuesta:
+                        cur.execute(
+                            """
+                            SELECT o.texto 
+                            FROM encuesta_respuestas_detalle d
+                            JOIN encuesta_opciones o ON o.id_opcion = d.opcion_id
+                            WHERE d.respuesta_id = %s
+                            AND d.pregunta_id = %s
+                            """,
+                            (ultima_respuesta['id_respuesta'], respuesta['id_pregunta'])
+                        )
+                        opciones = cur.fetchall()
+                        respuesta_formateada['respuesta'] = ', '.join([op['texto'] for op in opciones])
+                    else:
+                        respuesta_formateada['respuesta'] = 'Sin respuestas'
+
+                respuestas_formateadas.append(respuesta_formateada)
+
+            return jsonify({
+                'success': True,
+                'encuesta_id': encuesta_id,
+                'usuario_id': usuario_id,
+                'respuestas': respuestas_formateadas
+            })
+        except mysql.connector.Error as e:
+            logger.error(f"Error obteniendo respuestas usuario {usuario_id} encuesta {encuesta_id}: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            conn.close()
+
     logger.info("Rutas de encuestas registradas correctamente")
 
 if __name__ == '__main__':
@@ -1521,3 +2112,4 @@ if __name__ == '__main__':
     print("- POST /api/encuestas")
     print("- GET /api/encuestas/<id>")
     print("- POST /api/encuestas/<id>/preguntas")
+    print("- GET /api/encuestas/<id>/puntajes")
