@@ -290,19 +290,39 @@ def registrar_rutas_encuestas(app):
             if not user_id:
                 # Si no hay usuario en sesión, devolver no autorizado para API
                 return jsonify({'success': False, 'message': 'No autorizado'}), 401
-            cursor.execute(
-                """
-                SELECT id_encuesta, titulo, descripcion, estado, anonima, visibilidad,
-                       DATE_FORMAT(fecha_inicio, %s) AS fecha_inicio,
-                       DATE_FORMAT(fecha_fin, %s) AS fecha_fin,
-                       DATE_FORMAT(fecha_creacion, %s) AS fecha_creacion,
-                       DATE_FORMAT(fecha_actualizacion, %s) AS fecha_actualizacion
-                FROM encuestas
-                WHERE creado_por = %s
-                ORDER BY id_encuesta DESC
-                """,
-                ('%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', user_id)
-            )
+
+            # Usuario especial 1988914 puede ver todas las encuestas
+            es_admin_encuestas = str(user_id) == '1988914'
+
+            if es_admin_encuestas:
+                cursor.execute(
+                    """
+                    SELECT id_encuesta, titulo, descripcion, estado, anonima, visibilidad,
+                           DATE_FORMAT(fecha_inicio, %s) AS fecha_inicio,
+                           DATE_FORMAT(fecha_fin, %s) AS fecha_fin,
+                           DATE_FORMAT(fecha_creacion, %s) AS fecha_creacion,
+                           DATE_FORMAT(fecha_actualizacion, %s) AS fecha_actualizacion,
+                           creado_por
+                    FROM encuestas
+                    ORDER BY id_encuesta DESC
+                    """,
+                    ('%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s')
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT id_encuesta, titulo, descripcion, estado, anonima, visibilidad,
+                           DATE_FORMAT(fecha_inicio, %s) AS fecha_inicio,
+                           DATE_FORMAT(fecha_fin, %s) AS fecha_fin,
+                           DATE_FORMAT(fecha_creacion, %s) AS fecha_creacion,
+                           DATE_FORMAT(fecha_actualizacion, %s) AS fecha_actualizacion,
+                           creado_por
+                    FROM encuestas
+                    WHERE creado_por = %s
+                    ORDER BY id_encuesta DESC
+                    """,
+                    ('%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', user_id)
+                )
             encuestas = cursor.fetchall()
             return jsonify({'success': True, 'encuestas': encuestas, 'total': len(encuestas)})
         except mysql.connector.Error as e:
@@ -645,6 +665,75 @@ def registrar_rutas_encuestas(app):
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
         finally:
             connection.close()
+
+    @app.route('/api/encuestas/<int:encuesta_id>', methods=['DELETE'])
+    def eliminar_encuesta(encuesta_id):
+        """Elimina una encuesta si el usuario es 1988914 o el creador.
+        Valida que no existan respuestas enviadas asociadas. Elimina en orden:
+        opciones -> preguntas -> secciones -> encuesta.
+        """
+        usuario_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        if not usuario_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            admin_total = str(usuario_id) == '1988914'
+            cur = conn.cursor(dictionary=True)
+            # Verificar existencia y creador
+            cur.execute("SELECT id_encuesta, creado_por FROM encuestas WHERE id_encuesta = %s", (encuesta_id,))
+            enc = cur.fetchone()
+            if not enc:
+                return jsonify({'success': False, 'message': 'Encuesta no encontrada'}), 404
+
+            creador = str(enc.get('creado_por')) if enc.get('creado_por') is not None else None
+            if not admin_total and creador != str(usuario_id):
+                return jsonify({'success': False, 'message': 'No tiene permisos para eliminar esta encuesta'}), 403
+
+            # Validar que no haya respuestas enviadas
+            cur.execute("SELECT COUNT(*) AS total FROM encuesta_respuestas WHERE encuesta_id = %s AND estado = 'enviada'", (encuesta_id,))
+            total_env = (cur.fetchone() or {}).get('total', 0)
+            if total_env and int(total_env) > 0:
+                return jsonify({'success': False, 'message': 'No se puede eliminar: existen respuestas enviadas asociadas'}), 400
+
+            # Iniciar transacción manual
+            conn.start_transaction()
+
+            # Eliminar opciones de preguntas de esta encuesta
+            cur2 = conn.cursor()
+            cur2.execute("SELECT id_pregunta FROM encuesta_preguntas WHERE encuesta_id = %s", (encuesta_id,))
+            ids_preg = [row[0] for row in (cur2.fetchall() or [])]
+            if ids_preg:
+                for pid in ids_preg:
+                    try:
+                        cur2.execute("DELETE FROM encuesta_opciones WHERE pregunta_id = %s", (pid,))
+                    except Exception:
+                        pass
+            # Eliminar preguntas
+            cur2.execute("DELETE FROM encuesta_preguntas WHERE encuesta_id = %s", (encuesta_id,))
+            # Eliminar secciones
+            cur2.execute("DELETE FROM encuesta_secciones WHERE encuesta_id = %s", (encuesta_id,))
+            # Eliminar respuestas (borrador o no enviadas) si existieran
+            cur2.execute("DELETE FROM encuesta_respuestas_detalle WHERE respuesta_id IN (SELECT id_respuesta FROM encuesta_respuestas WHERE encuesta_id = %s)", (encuesta_id,))
+            cur2.execute("DELETE FROM encuesta_respuestas WHERE encuesta_id = %s AND (estado IS NULL OR estado <> 'enviada')", (encuesta_id,))
+            # Finalmente eliminar encuesta
+            cur2.execute("DELETE FROM encuestas WHERE id_encuesta = %s", (encuesta_id,))
+
+            conn.commit()
+            cur.close(); cur2.close()
+            return jsonify({'success': True, 'message': 'Encuesta eliminada'})
+        except mysql.connector.Error as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            logger.error(f"Error eliminando encuesta {encuesta_id}: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            conn.close()
 
     @app.route('/api/encuestas/<int:encuesta_id>/audiencia-estado', methods=['GET'])
     def audiencia_estado_encuesta(encuesta_id):
