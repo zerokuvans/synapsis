@@ -678,7 +678,7 @@ def registrar_rutas_encuestas(app):
                   )
                 ORDER BY fecha_inicio ASC, id_encuesta ASC
                 """,
-                ['%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', *valores, usuario_id, usuario_id, usuario_id, usuario_id, usuario_id, usuario_id]
+                ['%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', *valores, usuario_id, usuario_id, usuario_id, usuario_id, usuario_id]
             )
             rows = cur.fetchall() or []
 
@@ -764,6 +764,185 @@ def registrar_rutas_encuestas(app):
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
         finally:
             conn.close()
+
+    @app.route('/api/encuestas/activas/diagnostico', methods=['GET'])
+    def encuestas_activas_diagnostico():
+        """Diagnóstico de por qué una encuesta se muestra u oculta para el usuario actual."""
+        usuario_id = request.args.get('user_id') or session.get('user_id') or session.get('id_codigo_consumidor')
+        if not usuario_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        try:
+            cur = conn.cursor(dictionary=True)
+            auds = _resolver_audiencias_usuario(conn, usuario_id)
+            valores = ['todos'] + (auds or [])
+            placeholders = ','.join(['%s'] * len(valores))
+
+            cur.execute(
+                f"""
+                SELECT id_encuesta, titulo, descripcion, dirigida_a, audiencia_carpetas, audiencia_supervisores, audiencia_tecnicos,
+                       tipo_encuesta,
+                       permitir_multiples_respuestas, modo_multiples_respuestas,
+                       con_puntaje,
+                       fecha_inicio, fecha_fin
+                FROM encuestas
+                WHERE estado = 'activa'
+                  AND (
+                       fecha_inicio IS NULL OR fecha_inicio <= NOW() OR DATE(fecha_inicio) <= CURDATE()
+                  )
+                  AND (
+                       fecha_fin IS NULL OR fecha_fin >= NOW() OR DATE(fecha_fin) >= CURDATE()
+                  )
+                  AND (
+                      LOWER(CASE
+                        WHEN LOWER(dirigida_a) IN ('supervisor','supervisores') THEN 'supervisores'
+                        WHEN LOWER(dirigida_a) IN ('analista','analistas') THEN 'analistas'
+                        WHEN LOWER(dirigida_a) IN ('tecnico','tecnicos') THEN 'tecnicos'
+                        ELSE LOWER(dirigida_a)
+                      END) IN ({placeholders})
+                      OR (
+                        LOWER(CASE
+                            WHEN LOWER(dirigida_a) IN ('supervisor','supervisores') THEN 'supervisores'
+                            WHEN LOWER(dirigida_a) IN ('analista','analistas') THEN 'analistas'
+                            WHEN LOWER(dirigida_a) IN ('tecnico','tecnicos') THEN 'tecnicos'
+                            ELSE LOWER(dirigida_a)
+                        END) = 'tecnicos'
+                        AND audiencia_tecnicos IS NOT NULL
+                      )
+                  )
+                ORDER BY id_encuesta ASC
+                """,
+                valores
+            )
+            encs = cur.fetchall() or []
+
+            # Datos adicionales del usuario para filtro fino
+            carpeta_usuario = None
+            supervisor_usuario = None
+            try:
+                cur.execute("SELECT carpeta, super FROM recurso_operativo WHERE id_codigo_consumidor = %s", (usuario_id,))
+                r = cur.fetchone()
+                carpeta_usuario = (r or {}).get('carpeta') if r else None
+                supervisor_usuario = (r or {}).get('super') if r else None
+            except Exception as e:
+                logger.warning(f"No se pudo obtener carpeta/supervisor del usuario {usuario_id}: {e}")
+
+            diagnostico = []
+            for enc in encs:
+                dirigida = (enc.get('dirigida_a') or '').strip().lower()
+                if dirigida in ('tecnico','técnico'):
+                    dirigida = 'tecnicos'
+
+                # Validación de audiencia específica (carpetas/supervisores/técnicos)
+                audiencia_ok = True
+                motivo_aud = None
+                if dirigida == 'tecnicos':
+                    # Carpetas
+                    if enc.get('audiencia_carpetas'):
+                        try:
+                            lista = json.loads(enc.get('audiencia_carpetas'))
+                            if isinstance(lista, list) and len(lista) > 0:
+                                cu = (carpeta_usuario or '').strip().lower()
+                                audiencia_ok = any((c or '').strip().lower() == cu for c in lista)
+                                if not audiencia_ok:
+                                    motivo_aud = f"carpeta '{carpeta_usuario}' no incluida"
+                        except Exception as e:
+                            motivo_aud = f"error leyendo carpetas: {e}"
+                            audiencia_ok = True
+                    # Supervisores
+                    if audiencia_ok and enc.get('audiencia_supervisores'):
+                        try:
+                            lista = json.loads(enc.get('audiencia_supervisores'))
+                            if isinstance(lista, list) and len(lista) > 0:
+                                su = (supervisor_usuario or '').strip().lower()
+                                audiencia_ok = any((s or '').strip().lower() == su for s in lista)
+                                if not audiencia_ok:
+                                    motivo_aud = f"supervisor '{supervisor_usuario}' no incluido"
+                        except Exception as e:
+                            motivo_aud = f"error leyendo supervisores: {e}"
+                            audiencia_ok = True
+                    # Técnicos (lista de IDs)
+                    if audiencia_ok and enc.get('audiencia_tecnicos'):
+                        try:
+                            t_list = json.loads(enc.get('audiencia_tecnicos'))
+                            if isinstance(t_list, list) and len(t_list) > 0:
+                                audiencia_ok = str(usuario_id) in set(str(t) for t in t_list)
+                                if not audiencia_ok:
+                                    motivo_aud = f"usuario {usuario_id} no está en audiencia_tecnicos"
+                        except Exception as e:
+                            motivo_aud = f"error leyendo tecnicos: {e}"
+                            audiencia_ok = True
+
+                # Conteos de respuestas para el usuario
+                aprobada = 0
+                respondida_total = 0
+                respondida_mes = 0
+                try:
+                    cur.execute("""
+                        SELECT COUNT(1) AS cnt FROM encuesta_respuestas r
+                        WHERE r.encuesta_id = %s AND r.usuario_id = %s AND r.estado = 'enviada' AND r.aprobado = 1
+                    """, (enc['id_encuesta'], usuario_id))
+                    aprobada = (cur.fetchone() or {}).get('cnt') or 0
+                    cur.execute("""
+                        SELECT COUNT(1) AS cnt FROM encuesta_respuestas r
+                        WHERE r.encuesta_id = %s AND r.usuario_id = %s AND r.estado = 'enviada'
+                    """, (enc['id_encuesta'], usuario_id))
+                    respondida_total = (cur.fetchone() or {}).get('cnt') or 0
+                    cur.execute("""
+                        SELECT COUNT(1) AS cnt FROM encuesta_respuestas r
+                        WHERE r.encuesta_id = %s AND r.usuario_id = %s AND r.estado = 'enviada'
+                          AND YEAR(r.fecha_respuesta) = YEAR(NOW()) AND MONTH(r.fecha_respuesta) = MONTH(NOW())
+                    """, (enc['id_encuesta'], usuario_id))
+                    respondida_mes = (cur.fetchone() or {}).get('cnt') or 0
+                except Exception as e:
+                    logger.warning(f"Error consultando respuestas para diagnóstico: {e}")
+
+                permitir_multi = int(enc.get('permitir_multiples_respuestas') or 1)
+                modo = (enc.get('modo_multiples_respuestas') or 'por_mes')
+                con_puntaje = int(enc.get('con_puntaje') or 0)
+
+                activa = True
+                motivos = []
+                if not audiencia_ok:
+                    activa = False
+                    motivos.append(motivo_aud or 'audiencia no coincide')
+                if con_puntaje == 1 and aprobada > 0:
+                    activa = False
+                    motivos.append('ya aprobada por puntaje')
+                if activa and permitir_multi == 1 and modo == 'por_mes' and respondida_mes > 0:
+                    activa = False
+                    motivos.append('ya respondida este mes')
+                if activa and (permitir_multi == 0 or modo == 'unica') and respondida_total > 0:
+                    activa = False
+                    motivos.append('modo única ya respondida')
+
+                diagnostico.append({
+                    'id_encuesta': enc['id_encuesta'],
+                    'titulo': enc.get('titulo'),
+                    'dirigida_a': dirigida,
+                    'permitir_multiples_respuestas': permitir_multi,
+                    'modo_multiples_respuestas': modo,
+                    'con_puntaje': con_puntaje,
+                    'audiencia_ok': audiencia_ok,
+                    'aprobada': int(aprobada),
+                    'respondida_total': int(respondida_total),
+                    'respondida_mes': int(respondida_mes),
+                    'activa': activa,
+                    'motivos': motivos,
+                })
+
+            return jsonify({'success': True, 'usuario_id': usuario_id, 'audiencias_usuario': auds, 'carpeta_usuario': carpeta_usuario, 'supervisor_usuario': supervisor_usuario, 'diagnostico': diagnostico})
+        except mysql.connector.Error as e:
+            logger.error(f"Error generando diagnóstico: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     @app.route('/api/recursos/carpetas', methods=['GET'])
     def listar_carpetas_recursos():

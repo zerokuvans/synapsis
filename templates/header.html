@@ -638,11 +638,26 @@
                 const data = await res.json();
                 if (!data.success) return;
                 const encuestas = data.encuestas || [];
+                console.log('[Encuestas] activas para mi:', encuestas);
                 if (encuestas.length === 0) return;
                 encuestaActual = encuestas[0];
                 await renderPopup(encuestaActual.id_encuesta);
-                const modal = new bootstrap.Modal(document.getElementById('modalEncuestaActiva'));
-                modal.show();
+                const modalEl = document.getElementById('modalEncuestaActiva');
+                if (modalEl) {
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                    console.log('[Encuestas] mostrando modalEncuestaActiva para encuesta', encuestaActual.id_encuesta);
+                } else {
+                    console.warn('[Encuestas] No se encontró el modalEncuestaActiva en el DOM');
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire('Encuesta activa', 'Tienes una encuesta activa para responder.', 'info');
+                    }
+                }
+                // Mostrar botón flotante como respaldo para abrir el modal
+                const btnAbrir = document.getElementById('btnAbrirEncuestaActiva');
+                if (btnAbrir) {
+                    btnAbrir.style.display = 'inline-block';
+                }
             }catch(e){ console.warn('No se pudo cargar encuestas activas', e); }
         }
 
@@ -857,10 +872,25 @@
         document.addEventListener('DOMContentLoaded', ()=>{
             const btn = document.getElementById('btnEnviarEncuestaPopup');
             if (btn) btn.addEventListener('click', enviarRespuestas);
+            const btnAbrir = document.getElementById('btnAbrirEncuestaActiva');
+            if (btnAbrir) btnAbrir.addEventListener('click', ()=>{
+                if (!encuestaActual) return;
+                const modalEl = document.getElementById('modalEncuestaActiva');
+                if (!modalEl) return;
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            });
             cargarEncuestasActivasParaMi();
+            console.log('[Encuestas] inicializado loader de encuestas activas');
         });
     })();
     </script>
+
+    <!-- Botón flotante para abrir encuesta activa (respaldo) -->
+    <button id="btnAbrirEncuestaActiva" class="btn btn-primary"
+            style="position:fixed; right:16px; bottom:16px; z-index:1050; display:none;">
+        <i class="fas fa-clipboard-list me-1"></i> Encuesta activa
+    </button>
 
     <!-- Avisos Popup al iniciar sesión -->
     <script>
