@@ -559,6 +559,15 @@ def registrar_rutas_encuestas(app):
                         WHEN LOWER(dirigida_a) IN ('tecnico','tecnicos') THEN 'tecnicos'
                         ELSE LOWER(dirigida_a)
                   END) IN ({placeholders})
+                  OR (
+                        LOWER(CASE
+                            WHEN LOWER(dirigida_a) IN ('supervisor','supervisores') THEN 'supervisores'
+                            WHEN LOWER(dirigida_a) IN ('analista','analistas') THEN 'analistas'
+                            WHEN LOWER(dirigida_a) IN ('tecnico','tecnicos') THEN 'tecnicos'
+                            ELSE LOWER(dirigida_a)
+                        END) = 'tecnicos'
+                        AND audiencia_tecnicos IS NOT NULL
+                  )
                   AND (
                         (COALESCE(tipo_encuesta, 'encuesta') = 'votacion' AND NOT EXISTS (
                             SELECT 1 FROM votos v
@@ -593,44 +602,65 @@ def registrar_rutas_encuestas(app):
             # Filtrar por carpeta/supervisor/técnicos si la encuesta es para tecnicos
             filtradas = []
             for enc in rows:
-                if enc.get('dirigida_a') == 'tecnicos':
+                # Normalizar dirigida_a para evaluación
+                dirigida = (enc.get('dirigida_a') or '').strip().lower()
+                if dirigida in ('tecnico', 'técnico'):
+                    dirigida = 'tecnicos'
+
+                if dirigida == 'tecnicos':
                     pasa = True
-                    # Filtro por carpetas (si está definido)
-                    if enc.get('audiencia_carpetas'):
+                    # Filtro por carpetas (ignorar listas vacías)
+                    if pasa and enc.get('audiencia_carpetas'):
                         try:
                             lista = json.loads(enc.get('audiencia_carpetas'))
-                            if lista and not carpeta_usuario:
-                                pasa = False
-                            elif isinstance(lista, list):
-                                pasa = any((carpeta_usuario or '').strip().lower() == (c or '').strip().lower() for c in lista)
+                            if isinstance(lista, list):
+                                if len(lista) > 0:
+                                    if not carpeta_usuario:
+                                        pasa = False
+                                    else:
+                                        cu = (carpeta_usuario or '').strip().lower()
+                                        pasa = any((c or '').strip().lower() == cu for c in lista)
+                                # Si la lista está vacía, no restringe
+                            else:
+                                # Formato inesperado: no bloquear
+                                pasa = True
                         except Exception:
                             # JSON inválido: permitir por seguridad
                             pasa = True
-                    # Filtro por supervisores (si está definido)
+
+                    # Filtro por supervisores (ignorar listas vacías)
                     if pasa and enc.get('audiencia_supervisores'):
                         try:
                             sup_list = json.loads(enc.get('audiencia_supervisores'))
-                            if sup_list and not supervisor_usuario:
-                                pasa = False
-                            elif isinstance(sup_list, list):
-                                compara = (supervisor_usuario or '').strip().lower()
-                                pasa = any((s or '').strip().lower() == compara for s in sup_list)
+                            if isinstance(sup_list, list):
+                                if len(sup_list) > 0:
+                                    if not supervisor_usuario:
+                                        pasa = False
+                                    else:
+                                        compara = (supervisor_usuario or '').strip().lower()
+                                        pasa = any((s or '').strip().lower() == compara for s in sup_list)
+                                # Lista vacía: no restringe
+                            else:
+                                pasa = True
                         except Exception:
                             pasa = True
+
                     # Filtro por técnicos (si está definido). Se espera lista de IDs.
                     if pasa and enc.get('audiencia_tecnicos'):
                         try:
                             t_list = json.loads(enc.get('audiencia_tecnicos'))
                             if isinstance(t_list, list) and len(t_list) > 0:
-                                # Si hay lista, debe estar el usuario actual
-                                # Convertir a str para comparar sin tipo
+                                # Si hay lista, debe estar el usuario actual (comparar como str)
                                 pasa = str(usuario_id) in set(str(t) for t in t_list)
+                            # Lista vacía: no restringe
                         except Exception:
                             # Si hay problema con el JSON, no bloquear
                             pasa = True
+
                     if pasa:
                         filtradas.append(enc)
                 else:
+                    # Audiencias distintas a técnicos no requieren filtro adicional
                     filtradas.append(enc)
             rows = filtradas
 
