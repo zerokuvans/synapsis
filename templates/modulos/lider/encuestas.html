@@ -1358,6 +1358,7 @@
   const btnGuardarPregunta = document.getElementById('btn-guardar-pregunta');
   let editPreguntaActual = null;
   let editOpciones = [];
+  let editOpcionEnEdicion = null; // índice de la opción actualmente en edición
 
   function toggleOpcionesEdit() {
     const tiposConOpciones = new Set(['seleccion_unica','opcion_multiple','checkbox','dropdown']);
@@ -1370,37 +1371,124 @@
     editOpciones.forEach((op, idx) => {
       const card = document.createElement('div');
       card.className = 'card mb-2';
-      
-      let cardText = op.texto || ('Opción ' + (idx+1));
-      if (op.es_correcta) {
-        cardText += ' ✓';
-      }
-      if (op.puntaje) {
-        cardText += ` (${op.puntaje} pts)`;
-      }
-      
-      card.innerHTML = `
-        <div class="card-body py-2">
-          <div class="d-flex justify-content-between align-items-center">
-            <span>${cardText}</span>
-            <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-opcion-edit" data-index="${idx}">
-              <i class="fas fa-trash"></i>
-            </button>
+      card.setAttribute('data-index', String(idx));
+
+      if (editOpcionEnEdicion === idx) {
+        // Modo edición
+        card.innerHTML = `
+          <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+              <div class="col-md-6">
+                <label class="form-label mb-1">Texto de la opción</label>
+                <input type="text" class="form-control form-control-sm input-texto-opcion-edit" value="${(op.texto || '').replace(/"/g, '&quot;')}">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label mb-1">Puntaje</label>
+                <input type="number" step="0.01" class="form-control form-control-sm input-puntaje-opcion-edit" value="${op.puntaje != null ? op.puntaje : ''}">
+              </div>
+              <div class="col-md-3">
+                <div class="form-check mt-4">
+                  <input class="form-check-input input-correcta-opcion-edit" type="checkbox" ${op.es_correcta ? 'checked' : ''} id="edit-correcta-${idx}">
+                  <label class="form-check-label" for="edit-correcta-${idx}">Correcta</label>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex justify-content-end gap-2 mt-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary btn-cancelar-opcion-edit" data-index="${idx}">Cancelar</button>
+              <button type="button" class="btn btn-sm btn-primary btn-guardar-opcion-edit" data-index="${idx}">Guardar</button>
+              <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-opcion-edit" data-index="${idx}"><i class="fas fa-trash"></i></button>
+            </div>
           </div>
-        </div>
-      `;
+        `;
+      } else {
+        // Modo vista
+        let cardText = op.texto || ('Opción ' + (idx+1));
+        if (op.es_correcta) { cardText += ' ✓'; }
+        if (op.puntaje != null && op.puntaje !== '') { cardText += ` (${op.puntaje} pts)`; }
+
+        card.innerHTML = `
+          <div class="card-body py-2">
+            <div class="d-flex justify-content-between align-items-center">
+              <span>${cardText}</span>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-primary btn-editar-opcion-edit" data-index="${idx}"><i class="fas fa-pen"></i></button>
+                <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-opcion-edit" data-index="${idx}"><i class="fas fa-trash"></i></button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
       editPregOpcionesLista.appendChild(card);
     });
   }
 
-  // Delegar evento de eliminación para opciones en edición (evita depender de scope global)
+  // Delegar eventos para editar/guardar/cancelar/eliminar opción
   if (editPregOpcionesLista) {
     editPregOpcionesLista.addEventListener('click', (e) => {
-      const btn = e.target.closest('.btn-eliminar-opcion-edit');
-      if (!btn) return;
-      const idx = parseInt(btn.getAttribute('data-index'), 10);
-      if (!Number.isNaN(idx)) eliminarEditOpcion(idx);
+      const btnDelete = e.target.closest('.btn-eliminar-opcion-edit');
+      if (btnDelete) {
+        const idx = parseInt(btnDelete.getAttribute('data-index'), 10);
+        if (!Number.isNaN(idx)) eliminarEditOpcion(idx);
+        return;
+      }
+
+      const btnEdit = e.target.closest('.btn-editar-opcion-edit');
+      if (btnEdit) {
+        const idx = parseInt(btnEdit.getAttribute('data-index'), 10);
+        if (!Number.isNaN(idx)) editarOpcion(idx);
+        return;
+      }
+
+      const btnSave = e.target.closest('.btn-guardar-opcion-edit');
+      if (btnSave) {
+        const idx = parseInt(btnSave.getAttribute('data-index'), 10);
+        if (!Number.isNaN(idx)) guardarEdicionOpcion(idx);
+        return;
+      }
+
+      const btnCancel = e.target.closest('.btn-cancelar-opcion-edit');
+      if (btnCancel) {
+        const idx = parseInt(btnCancel.getAttribute('data-index'), 10);
+        if (!Number.isNaN(idx)) cancelarEdicionOpcion(idx);
+        return;
+      }
     });
+  }
+
+  function editarOpcion(index) {
+    editOpcionEnEdicion = index;
+    renderEditOpciones();
+    // Focus al campo texto
+    const card = editPregOpcionesLista.querySelector(`.card[data-index="${index}"]`);
+    if (card) {
+      const input = card.querySelector('.input-texto-opcion-edit');
+      if (input) input.focus();
+    }
+  }
+
+  function guardarEdicionOpcion(index) {
+    const card = editPregOpcionesLista.querySelector(`.card[data-index="${index}"]`);
+    if (!card) return;
+    const textoEl = card.querySelector('.input-texto-opcion-edit');
+    const puntajeEl = card.querySelector('.input-puntaje-opcion-edit');
+    const correctaEl = card.querySelector('.input-correcta-opcion-edit');
+    const nuevoTexto = (textoEl && textoEl.value ? textoEl.value.trim() : '');
+    if (!nuevoTexto) {
+      showToast('Falta texto', 'Ingresa el texto de la opción', 'warning');
+      if (textoEl) textoEl.focus();
+      return;
+    }
+    const nuevoPuntajeVal = puntajeEl && puntajeEl.value !== '' ? parseFloat(puntajeEl.value) : null;
+    const nuevaCorrecta = !!(correctaEl && correctaEl.checked);
+    editOpciones[index] = { texto: nuevoTexto, puntaje: nuevoPuntajeVal, es_correcta: nuevaCorrecta };
+    editOpcionEnEdicion = null;
+    renderEditOpciones();
+  }
+
+  function cancelarEdicionOpcion(index) {
+    editOpcionEnEdicion = null;
+    renderEditOpciones();
   }
 
   function agregarEditOpcion() {
