@@ -88,7 +88,12 @@ def ensure_encuestas_tables():
             ("encuestas", "creado_por", "INT NULL"),
             ("encuestas", "fecha_inicio", "DATETIME NULL"),
             ("encuestas", "fecha_fin", "DATETIME NULL"),
-            ("encuestas", "fecha_actualizacion", "DATETIME NULL")
+            ("encuestas", "fecha_actualizacion", "DATETIME NULL"),
+            # Campos para sistema de votaciones
+            ("encuestas", "tipo_encuesta", "ENUM('encuesta','votacion') DEFAULT 'encuesta'"),
+            ("encuestas", "mostrar_resultados", "TINYINT(1) DEFAULT 0"),
+            ("encuestas", "fecha_inicio_votacion", "DATETIME NULL"),
+            ("encuestas", "fecha_fin_votacion", "DATETIME NULL")
         ]
 
         for table, col, col_def in required_columns:
@@ -97,6 +102,44 @@ def ensure_encuestas_tables():
                     cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")
             except mysql.connector.Error as e:
                 logger.warning(f"No se pudo agregar columna {table}.{col}: {e}")
+
+        # Tabla de candidatos para votaciones
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS candidatos (
+                id_candidato INT AUTO_INCREMENT PRIMARY KEY,
+                id_encuesta INT NOT NULL,
+                nombre VARCHAR(255) NOT NULL,
+                descripcion TEXT NULL,
+                foto_url VARCHAR(500) NULL,
+                orden INT DEFAULT 0,
+                fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT fk_candidatos_encuesta FOREIGN KEY (id_encuesta)
+                    REFERENCES encuestas(id_encuesta) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """
+        )
+
+        # Tabla de votos para votaciones
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS votos (
+                id_voto INT AUTO_INCREMENT PRIMARY KEY,
+                id_encuesta INT NOT NULL,
+                id_candidato INT NOT NULL,
+                id_usuario INT NOT NULL,
+                fecha_voto DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                ip_address VARCHAR(45) NULL,
+                UNIQUE KEY uniq_voto (id_encuesta, id_usuario),
+                CONSTRAINT fk_votos_encuesta FOREIGN KEY (id_encuesta)
+                    REFERENCES encuestas(id_encuesta) ON DELETE CASCADE,
+                CONSTRAINT fk_votos_candidato FOREIGN KEY (id_candidato)
+                    REFERENCES candidatos(id_candidato) ON DELETE CASCADE,
+                CONSTRAINT fk_votos_usuario FOREIGN KEY (id_usuario)
+                    REFERENCES usuarios(idusuarios) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """
+        )
 
         # Tabla secciones
         cursor.execute(
@@ -497,9 +540,13 @@ def registrar_rutas_encuestas(app):
             placeholders = ','.join(['%s'] * len(valores))
             cur = conn.cursor(dictionary=True)
             # Activas y dentro de ventana de fechas (o sin ventana)
+            # Diferenciar filtros de visibilidad según tipo de encuesta:
+            # - Para votaciones: ocultar si el usuario ya votó (tabla votos)
+            # - Para encuestas normales: ocultar si el usuario ya envió respuesta (tabla encuesta_respuestas)
             cur.execute(
                 f"""
                 SELECT id_encuesta, titulo, descripcion, dirigida_a, audiencia_carpetas, audiencia_supervisores, audiencia_tecnicos,
+                       tipo_encuesta,
                        DATE_FORMAT(fecha_inicio, %s) AS fecha_inicio,
                        DATE_FORMAT(fecha_fin, %s) AS fecha_fin
                 FROM encuestas
@@ -507,16 +554,23 @@ def registrar_rutas_encuestas(app):
                   AND (fecha_inicio IS NULL OR fecha_inicio <= NOW())
                   AND (fecha_fin IS NULL OR fecha_fin >= NOW())
                   AND dirigida_a IN ({placeholders})
-                  AND NOT EXISTS (
-                        SELECT 1 FROM encuesta_respuestas r
-                        WHERE r.encuesta_id = encuestas.id_encuesta
-                          AND r.usuario_id = %s
-                          AND r.estado = 'enviada'
+                  AND (
+                        (COALESCE(tipo_encuesta, 'encuesta') = 'votacion' AND NOT EXISTS (
+                            SELECT 1 FROM votos v
+                            WHERE v.id_encuesta = encuestas.id_encuesta
+                              AND v.id_usuario = %s
+                        ))
+                        OR
+                        (COALESCE(tipo_encuesta, 'encuesta') <> 'votacion' AND NOT EXISTS (
+                            SELECT 1 FROM encuesta_respuestas r
+                            WHERE r.encuesta_id = encuestas.id_encuesta
+                              AND r.usuario_id = %s
+                              AND r.estado = 'enviada'
+                        ))
                   )
-                ORDER BY id_encuesta DESC
-                LIMIT 5
+                ORDER BY fecha_inicio ASC, id_encuesta ASC
                 """,
-                ['%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', *valores, usuario_id]
+                ['%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', *valores, usuario_id, usuario_id]
             )
             rows = cur.fetchall() or []
 
@@ -926,6 +980,7 @@ def registrar_rutas_encuestas(app):
         campos = []
         valores = []
         # Campos permitidos de edición
+        # Datos generales
         if 'titulo' in data:
             campos.append('titulo = %s')
             valores.append(data.get('titulo'))
@@ -947,6 +1002,23 @@ def registrar_rutas_encuestas(app):
         if 'con_puntaje' in data:
             campos.append('con_puntaje = %s')
             valores.append(1 if data.get('con_puntaje') else 0)
+        # Campos específicos de votaciones
+        if 'tipo_encuesta' in data:
+            tipo_encuesta = (data.get('tipo_encuesta') or '').strip()
+            if tipo_encuesta not in ('encuesta', 'votacion'):
+                return jsonify({'success': False, 'message': 'tipo_encuesta inválido'}), 400
+            campos.append('tipo_encuesta = %s')
+            valores.append(tipo_encuesta)
+        if 'mostrar_resultados' in data:
+            mostrar = 1 if bool(data.get('mostrar_resultados')) else 0
+            campos.append('mostrar_resultados = %s')
+            valores.append(mostrar)
+        if 'fecha_inicio_votacion' in data:
+            campos.append('fecha_inicio_votacion = %s')
+            valores.append(data.get('fecha_inicio_votacion') or None)
+        if 'fecha_fin_votacion' in data:
+            campos.append('fecha_fin_votacion = %s')
+            valores.append(data.get('fecha_fin_votacion') or None)
         if 'dirigida_a' in data:
             dirigida_a = data.get('dirigida_a')
             campos.append('dirigida_a = %s')
@@ -2292,6 +2364,284 @@ def registrar_rutas_encuestas(app):
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
         finally:
             conn.close()
+
+    # ============================================================================
+    # ENDPOINTS DE VOTACIONES
+    # ============================================================================
+
+    def _validar_encuesta_votacion(encuesta_id, cursor):
+        """Valida que la encuesta exista y sea de tipo 'votacion'.
+        Devuelve el registro de la encuesta (dict) si es válido, o None en caso contrario.
+        """
+        try:
+            cursor.execute(
+                """
+                SELECT id_encuesta, titulo, estado, tipo_encuesta, mostrar_resultados,
+                       fecha_inicio_votacion, fecha_fin_votacion
+                FROM encuestas WHERE id_encuesta = %s
+                """,
+                (encuesta_id,)
+            )
+            encuesta = cursor.fetchone()
+            if not encuesta:
+                return None
+            if not isinstance(encuesta, dict):
+                cols = [d[0] for d in cursor.description]
+                encuesta = dict(zip(cols, encuesta))
+            if (encuesta.get('tipo_encuesta') or 'encuesta') != 'votacion':
+                return None
+            return encuesta
+        except Exception:
+            return None
+
+    @app.route('/api/votaciones/<int:encuesta_id>/candidatos', methods=['POST'])
+    def crear_candidato(encuesta_id):
+        """Crea un candidato para una encuesta de tipo votación."""
+        data = request.get_json(silent=True)
+        if not data:
+            data = {
+                'nombre': request.form.get('nombre'),
+                'descripcion': request.form.get('descripcion')
+            }
+        data = data or {}
+        nombre = (data.get('nombre') or '').strip()
+        descripcion = data.get('descripcion')
+
+        if not nombre:
+            return jsonify({'success': False, 'message': 'El nombre del candidato es obligatorio'}), 400
+
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cursor = connection.cursor(dictionary=True)
+            encuesta = _validar_encuesta_votacion(encuesta_id, cursor)
+            if not encuesta:
+                return jsonify({'success': False, 'message': 'Encuesta no encontrada o no es de tipo votación'}), 400
+
+            foto_url = None
+            try:
+                f = request.files.get('foto')
+            except Exception:
+                f = None
+            if f and getattr(f, 'filename', ''):
+                try:
+                    base_dir = os.path.join('static', 'uploads', 'votaciones', str(encuesta_id), 'candidatos')
+                    os.makedirs(base_dir, exist_ok=True)
+                    filename = secure_filename(getattr(f, 'filename', '') or 'foto')
+                    name, ext = os.path.splitext(filename)
+                    timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+                    final_name = f"cand_{encuesta_id}_{timestamp}{ext or '.bin'}"
+                    path = os.path.join(base_dir, final_name)
+                    f.save(path)
+                    foto_url = '/' + path.replace('\\', '/')
+                except Exception as e:
+                    logger.warning(f"No se pudo guardar la foto del candidato: {e}")
+            else:
+                foto_url = data.get('foto_url')
+
+            cursor.execute(
+                "SELECT COALESCE(MAX(orden), 0) AS max_orden FROM candidatos WHERE id_encuesta = %s",
+                (encuesta_id,)
+            )
+            row = cursor.fetchone() or {}
+            next_orden = int(row.get('max_orden') or 0) + 1
+
+            cursor.execute(
+                """
+                INSERT INTO candidatos (id_encuesta, nombre, descripcion, foto_url, orden)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (encuesta_id, nombre, descripcion, foto_url, next_orden)
+            )
+            candidato_id = cursor.lastrowid
+            connection.commit()
+            cursor.execute(
+                "SELECT id_candidato, id_encuesta, nombre, descripcion, foto_url, orden, fecha_creacion FROM candidatos WHERE id_candidato = %s",
+                (candidato_id,)
+            )
+            candidato = cursor.fetchone() or {}
+            return jsonify({'success': True, 'candidato': candidato}), 201
+        except mysql.connector.Error as e:
+            logger.error(f"Error creando candidato: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
+
+    @app.route('/api/votaciones/<int:encuesta_id>/candidatos', methods=['GET'])
+    def listar_candidatos(encuesta_id):
+        """Lista los candidatos de una encuesta de votación."""
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        try:
+            cursor = connection.cursor(dictionary=True)
+            encuesta = _validar_encuesta_votacion(encuesta_id, cursor)
+            if not encuesta:
+                return jsonify({'success': False, 'message': 'Encuesta no encontrada o no es de tipo votación'}), 400
+            cursor.execute(
+                """
+                SELECT id_candidato, id_encuesta, nombre, descripcion, foto_url, orden, fecha_creacion
+                FROM candidatos WHERE id_encuesta = %s ORDER BY orden ASC, id_candidato ASC
+                """,
+                (encuesta_id,)
+            )
+            candidatos = cursor.fetchall() or []
+            return jsonify({'success': True, 'candidatos': candidatos, 'total': len(candidatos)})
+        except mysql.connector.Error as e:
+            logger.error(f"Error listando candidatos de encuesta {encuesta_id}: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
+
+    @app.route('/api/votaciones/<int:encuesta_id>/candidatos/<int:candidato_id>', methods=['DELETE'])
+    def eliminar_candidato(encuesta_id, candidato_id):
+        """Elimina un candidato de una encuesta de votación."""
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        try:
+            cursor = connection.cursor()
+            cursor.execute(
+                "SELECT id_candidato FROM candidatos WHERE id_candidato = %s AND id_encuesta = %s",
+                (candidato_id, encuesta_id)
+            )
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({'success': False, 'message': 'Candidato no existe o no pertenece a la encuesta'}), 404
+            cursor.execute("DELETE FROM candidatos WHERE id_candidato = %s", (candidato_id,))
+            connection.commit()
+            return jsonify({'success': True})
+        except mysql.connector.Error as e:
+            logger.error(f"Error eliminando candidato {candidato_id} encuesta {encuesta_id}: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
+
+    @app.route('/api/votaciones/<int:encuesta_id>/votar', methods=['POST'])
+    def registrar_voto(encuesta_id):
+        """Registra un voto para un candidato en una encuesta de votación."""
+        user_id = _get_usuario_id()
+        if not user_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+
+        data = request.get_json(silent=True) or {}
+        candidato_id = data.get('id_candidato')
+        try:
+            candidato_id = int(candidato_id)
+        except Exception:
+            candidato_id = None
+        if not candidato_id:
+            return jsonify({'success': False, 'message': 'id_candidato es obligatorio'}), 400
+
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cursor = connection.cursor(dictionary=True)
+            encuesta = _validar_encuesta_votacion(encuesta_id, cursor)
+            if not encuesta:
+                return jsonify({'success': False, 'message': 'Encuesta no encontrada o no es de tipo votación'}), 400
+
+            # Validar que el usuario exista en tabla usuarios (para evitar violación de FK)
+            cursor.execute("SELECT idusuarios FROM usuarios WHERE idusuarios = %s", (user_id,))
+            if not cursor.fetchone():
+                return jsonify({'success': False, 'message': 'Usuario no válido para emitir voto'}), 401
+
+            # Validar ventana de votación
+            def _parse_dt(val):
+                if val is None:
+                    return None
+                if isinstance(val, datetime):
+                    return val
+                try:
+                    return datetime.fromisoformat(str(val))
+                except Exception:
+                    return None
+
+            ahora = datetime.now()
+            ini = _parse_dt(encuesta.get('fecha_inicio_votacion'))
+            fin = _parse_dt(encuesta.get('fecha_fin_votacion'))
+            if ini and ahora < ini:
+                return jsonify({'success': False, 'message': 'La votación aún no ha iniciado'}), 400
+            if fin and ahora > fin:
+                return jsonify({'success': False, 'message': 'La votación ha finalizado'}), 400
+
+            # Validar candidato pertenece a encuesta
+            cursor.execute(
+                "SELECT id_candidato FROM candidatos WHERE id_candidato = %s AND id_encuesta = %s",
+                (candidato_id, encuesta_id)
+            )
+            cand = cursor.fetchone()
+            if not cand:
+                return jsonify({'success': False, 'message': 'Candidato no válido para esta encuesta'}), 400
+
+            # Validar voto único
+            cursor.execute(
+                "SELECT id_voto FROM votos WHERE id_encuesta = %s AND id_usuario = %s",
+                (encuesta_id, user_id)
+            )
+            if cursor.fetchone():
+                return jsonify({'success': False, 'message': 'Ya has votado en esta encuesta'}), 409
+
+            ip_addr = request.headers.get('X-Forwarded-For', request.remote_addr)
+            cursor.execute(
+                """
+                INSERT INTO votos (id_encuesta, id_candidato, id_usuario, ip_address)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (encuesta_id, candidato_id, user_id, ip_addr)
+            )
+            connection.commit()
+            return jsonify({'success': True, 'message': 'Voto registrado'}), 201
+        except mysql.connector.Error as e:
+            msg = str(e)
+            if 'Duplicate' in msg or 'UNIQUE' in msg:
+                return jsonify({'success': False, 'message': 'Ya has votado en esta encuesta'}), 409
+            logger.error(f"Error registrando voto: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
+
+    @app.route('/api/votaciones/<int:encuesta_id>/resultados', methods=['GET'])
+    def resultados_votacion(encuesta_id):
+        """Devuelve el conteo por candidato y porcentajes si se permite mostrar resultados."""
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        try:
+            cursor = connection.cursor(dictionary=True)
+            encuesta = _validar_encuesta_votacion(encuesta_id, cursor)
+            if not encuesta:
+                return jsonify({'success': False, 'message': 'Encuesta no encontrada o no es de tipo votación'}), 400
+            if not encuesta.get('mostrar_resultados'):
+                return jsonify({'success': False, 'message': 'La encuesta no permite mostrar resultados'}), 403
+
+            cursor.execute(
+                """
+                SELECT c.id_candidato, c.nombre, c.descripcion, c.foto_url, c.orden,
+                       COUNT(v.id_voto) AS votos
+                FROM candidatos c
+                LEFT JOIN votos v ON v.id_candidato = c.id_candidato AND v.id_encuesta = c.id_encuesta
+                WHERE c.id_encuesta = %s
+                GROUP BY c.id_candidato, c.nombre, c.descripcion, c.foto_url, c.orden
+                ORDER BY c.orden ASC, c.id_candidato ASC
+                """,
+                (encuesta_id,)
+            )
+            resultados = cursor.fetchall() or []
+            total_votos = sum(int(r.get('votos') or 0) for r in resultados)
+            for r in resultados:
+                votos = int(r.get('votos') or 0)
+                r['porcentaje'] = (round((votos * 100.0 / total_votos), 2) if total_votos > 0 else 0.0)
+            return jsonify({'success': True, 'encuesta_id': encuesta_id, 'total_votos': total_votos, 'resultados': resultados})
+        except mysql.connector.Error as e:
+            logger.error(f"Error obteniendo resultados de encuesta {encuesta_id}: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
 
     logger.info("Rutas de encuestas registradas correctamente")
 

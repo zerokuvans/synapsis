@@ -29,6 +29,29 @@
           <label class="form-label">Descripción</label>
           <textarea id="enc-descripcion" class="form-control" rows="2" placeholder="Opcional"></textarea>
         </div>
+        <!-- Tipo de encuesta / votación -->
+        <div class="row g-3 mb-2 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label">Tipo</label>
+            <select id="enc-tipo-encuesta" class="form-select">
+              <option value="encuesta">Encuesta</option>
+              <option value="votacion">Votación</option>
+            </select>
+          </div>
+          <div class="col-md-4" id="enc-mostrar-resultados-wrap" style="display:none;">
+            <label class="form-label">Resultados</label>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="enc-mostrar-resultados">
+              <label class="form-check-label" for="enc-mostrar-resultados">Mostrar resultados a usuarios</label>
+            </div>
+          </div>
+          <div class="col-md-4" id="enc-boton-gestionar-candidatos-wrap" style="display:none;">
+            <label class="form-label">Candidatos</label>
+            <button id="btn-gestionar-candidatos" class="btn btn-outline-primary w-100">
+              <i class="fas fa-users me-1"></i> Gestionar candidatos
+            </button>
+          </div>
+        </div>
         <!-- Fila 1: Anónima, Visibilidad, Dirigida a -->
         <div class="row g-3 mb-2 align-items-end">
           <div class="col-auto">
@@ -145,7 +168,29 @@
         </div>
       </div>
 
-      <div id="builder-preguntas" class="builder-card p-3" style="display:none;">
+  <div id="builder-preguntas" class="builder-card p-3" style="display:none;">
+    <!-- Sección de votación: candidatos, votar y resultados -->
+    <div id="votacion-panel" style="display:none;">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">Votación</h6>
+        <div class="d-flex gap-2">
+          <button id="btn-ver-resultados" class="btn btn-outline-success btn-sm" style="display:none;">
+            <i class="fas fa-chart-bar"></i> Ver resultados
+          </button>
+          <button id="btn-abrir-candidatos" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-users"></i> Gestionar candidatos
+          </button>
+        </div>
+      </div>
+      <div id="lista-candidatos-votacion" class="row g-3 mb-3"></div>
+      <div id="votacion-info" class="text-muted small mb-3"></div>
+      <div id="resultados-panel" style="display:none;">
+        <canvas id="grafico-resultados" height="120"></canvas>
+        <div id="resumen-resultados" class="mt-2"></div>
+      </div>
+      <hr class="my-3"/>
+    </div>
+
         <h6 class="mb-2">Agregar pregunta</h6>
         <div class="row g-2 align-items-end">
           <div class="col-md-5">
@@ -230,6 +275,44 @@
     </div>
   </div>
 
+  <!-- Modal: Gestión de candidatos -->
+  <div class="modal fade" id="modal-candidatos" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Candidatos de la votación</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="form-candidato">
+            <div class="mb-2">
+              <label class="form-label">Nombre</label>
+              <input id="cand-nombre" class="form-control" required />
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Descripción</label>
+              <textarea id="cand-descripcion" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Foto</label>
+              <input id="cand-foto" type="file" accept="image/*" class="form-control" />
+              <div id="cand-foto-preview" class="mt-2" style="display:none;">
+                <img id="cand-foto-img" src="" alt="Previsualización" class="img-thumbnail" style="max-height:160px;"/>
+              </div>
+            </div>
+            <div class="d-flex justify-content-end">
+              <button id="btn-agregar-candidato" type="submit" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i> Agregar
+              </button>
+            </div>
+          </form>
+          <hr/>
+          <div id="lista-candidatos-modal" class="list-group"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Editar encuesta -->
   <div class="modal fade" id="modal-editar-encuesta" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -266,6 +349,13 @@
                 <option value="activa">Activa</option>
               </select>
             </div>
+            <div class="col-md-3">
+              <label class="form-label">Tipo</label>
+              <select id="edit-enc-tipo-encuesta" class="form-select">
+                <option value="encuesta">Encuesta</option>
+                <option value="votacion">Votación</option>
+              </select>
+            </div>
           <div class="col-md-3">
             <label class="form-label">Dirigida a</label>
             <select id="edit-enc-dirigida-a" class="form-select">
@@ -274,6 +364,13 @@
               <option value="analistas">Analistas</option>
               <option value="supervisores">Supervisores</option>
             </select>
+          </div>
+          <div class="col-md-3" id="edit-enc-mostrar-resultados-wrap" style="display:none;">
+            <label class="form-label">Resultados</label>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="edit-enc-mostrar-resultados">
+              <label class="form-check-label" for="edit-enc-mostrar-resultados">Mostrar resultados a usuarios</label>
+            </div>
           </div>
           <div class="col-md-6">
             <label class="form-label">Fecha inicio</label>
@@ -461,6 +558,10 @@
   const anonima = document.getElementById('enc-anonima');
   const visibilidad = document.getElementById('enc-visibilidad');
   const dirigidaA = document.getElementById('enc-dirigida-a');
+  const tipoEncuestaSel = document.getElementById('enc-tipo-encuesta');
+  const mostrarResultadosChk = document.getElementById('enc-mostrar-resultados');
+  const mostrarResultadosWrap = document.getElementById('enc-mostrar-resultados-wrap');
+  const botonGestionarCandidatosWrap = document.getElementById('enc-boton-gestionar-candidatos-wrap');
   const fechaInicio = document.getElementById('enc-fecha-inicio');
   const fechaFin = document.getElementById('enc-fecha-fin');
   const conPuntaje = document.getElementById('enc-con-puntaje');
@@ -486,6 +587,7 @@
   const btnRespuestas = document.getElementById('btn-respuestas');
   const btnExportar = document.getElementById('btn-exportar-respuestas');
   const btnEditarEncuesta = document.getElementById('btn-editar-encuesta');
+  const btnAbrirCandidatos = document.getElementById('btn-abrir-candidatos');
 
   const pregTexto = document.getElementById('preg-texto');
   const pregTipo = document.getElementById('preg-tipo');
@@ -513,6 +615,18 @@
   let cacheCarpetas = null;
   let cacheSupervisores = null;
   let cacheTecnicosPorSupervisor = {};
+  let candidatosCache = [];
+
+  // ===== Campos de tipo y votación (creación) =====
+  function actualizarUITipoEncuesta() {
+    const esVotacion = tipoEncuestaSel && tipoEncuestaSel.value === 'votacion';
+    if (mostrarResultadosWrap) mostrarResultadosWrap.style.display = esVotacion ? '' : 'none';
+    if (botonGestionarCandidatosWrap) botonGestionarCandidatosWrap.style.display = esVotacion ? '' : 'none';
+  }
+  if (tipoEncuestaSel) {
+    tipoEncuestaSel.addEventListener('change', actualizarUITipoEncuesta);
+    actualizarUITipoEncuesta();
+  }
 
   function toInputDateTime(v) {
     if (!v) return '';
@@ -852,6 +966,18 @@
         if (btnExportar) { btnExportar.style.display = ''; btnExportar.href = `/api/encuestas/${id}/respuestas/export?formato=excel`; }
       }
     } catch (e) { console.warn('[encuestas] No se pudieron cargar estadísticas', e); }
+
+    // Mostrar/ocultar panel de votación y cargar candidatos/resultados si aplica
+    const votacionPanel = document.getElementById('votacion-panel');
+    const btnVerResultados = document.getElementById('btn-ver-resultados');
+    const esVotacion = (encuestaSeleccionada.tipo_encuesta || 'encuesta') === 'votacion';
+    if (votacionPanel) votacionPanel.style.display = esVotacion ? '' : 'none';
+    if (btnVerResultados) btnVerResultados.style.display = (esVotacion && encuestaSeleccionada.mostrar_resultados) ? '' : 'none';
+    if (esVotacion) {
+      await cargarCandidatos();
+      renderCandidatos();
+      await dibujarResultados();
+    }
   }
 
   function renderPreguntasExistentes(pregs, secciones = []) {
@@ -1052,6 +1178,9 @@
   const editEncAnonima = document.getElementById('edit-enc-anonima');
   const editEncVisibilidad = document.getElementById('edit-enc-visibilidad');
   const editEncEstado = document.getElementById('edit-enc-estado');
+  const editTipoEncuestaSel = document.getElementById('edit-enc-tipo-encuesta');
+  const editMostrarResultadosChk = document.getElementById('edit-enc-mostrar-resultados');
+  const editMostrarResultadosWrap = document.getElementById('edit-enc-mostrar-resultados-wrap');
   const editDirigidaA = document.getElementById('edit-enc-dirigida-a');
   const editFechaInicio = document.getElementById('edit-enc-fecha-inicio');
   const editFechaFin = document.getElementById('edit-enc-fecha-fin');
@@ -1213,6 +1342,9 @@
     editEncAnonima.checked = !!encuestaSeleccionada.anonima;
     editEncVisibilidad.value = encuestaSeleccionada.visibilidad || 'privada';
     editEncEstado.value = encuestaSeleccionada.estado || 'borrador';
+    if (editTipoEncuestaSel) editTipoEncuestaSel.value = encuestaSeleccionada.tipo_encuesta || 'encuesta';
+    if (editMostrarResultadosChk) editMostrarResultadosChk.checked = !!encuestaSeleccionada.mostrar_resultados;
+    if (editMostrarResultadosWrap) editMostrarResultadosWrap.style.display = (editTipoEncuestaSel && editTipoEncuestaSel.value === 'votacion') ? '' : 'none';
     editDirigidaA.value = encuestaSeleccionada.dirigida_a || 'todos';
     // fechas
     editFechaInicio.value = toInputDateTime(encuestaSeleccionada.fecha_inicio);
@@ -1277,6 +1409,10 @@
       anonima: !!editEncAnonima.checked,
       visibilidad: editEncVisibilidad.value,
       estado: editEncEstado.value,
+      tipo_encuesta: editTipoEncuestaSel ? editTipoEncuestaSel.value : undefined,
+      mostrar_resultados: !!(editMostrarResultadosChk && editMostrarResultadosChk.checked),
+      fecha_inicio_votacion: (editTipoEncuestaSel && editTipoEncuestaSel.value === 'votacion' && editFechaInicio && editFechaInicio.value) ? editFechaInicio.value : null,
+      fecha_fin_votacion: (editTipoEncuestaSel && editTipoEncuestaSel.value === 'votacion' && editFechaFin && editFechaFin.value) ? editFechaFin.value : null,
       dirigida_a: editDirigidaA.value,
       fecha_inicio: editFechaInicio.value || null,
       fecha_fin: editFechaFin.value || null,
@@ -1308,6 +1444,14 @@
     } else {
       showToast('Error', data.message || 'No se pudo actualizar', 'error');
     }
+  }
+
+  // Mostrar/ocultar campos según tipo de encuesta en modal edición
+  if (editTipoEncuestaSel) {
+    editTipoEncuestaSel.addEventListener('change', () => {
+      const esVotacion = editTipoEncuestaSel.value === 'votacion';
+      if (editMostrarResultadosWrap) editMostrarResultadosWrap.style.display = esVotacion ? '' : 'none';
+    });
   }
   if (btnEditarEncuesta) btnEditarEncuesta.addEventListener('click', abrirModalEditarEncuesta);
   const btnGuardarEncuesta = document.getElementById('btn-guardar-encuesta');
@@ -1688,6 +1832,10 @@
       anonima: anonima.checked,
       visibilidad: visibilidad.value,
       dirigida_a: dirigidaA.value,
+      tipo_encuesta: tipoEncuestaSel ? tipoEncuestaSel.value : 'encuesta',
+      mostrar_resultados: !!(mostrarResultadosChk && mostrarResultadosChk.checked),
+      fecha_inicio_votacion: (tipoEncuestaSel && tipoEncuestaSel.value === 'votacion' && fechaInicio && fechaInicio.value) ? fechaInicio.value : null,
+      fecha_fin_votacion: (tipoEncuestaSel && tipoEncuestaSel.value === 'votacion' && fechaFin && fechaFin.value) ? fechaFin.value : null,
       estado: 'borrador',
       fecha_inicio: (fechaInicio && fechaInicio.value) ? fechaInicio.value : null,
       fecha_fin: (fechaFin && fechaFin.value) ? fechaFin.value : null,
@@ -1810,3 +1958,295 @@
 <!-- Debug opcional: diagnosticar problemas de edición/eliminación de secciones -->
 <script src="/static/js/debug_seccion_editar.js"></script>
 {% endblock %}
+  // ====== Gestión de candidatos (modal y panel) ======
+  const modalCandidatosEl = document.getElementById('modal-candidatos');
+  const formCandidato = document.getElementById('form-candidato');
+  const candNombre = document.getElementById('cand-nombre');
+  const candDescripcion = document.getElementById('cand-descripcion');
+  const candFotoInput = document.getElementById('cand-foto');
+  const candFotoPreview = document.getElementById('cand-foto-preview');
+  const candFotoImg = document.getElementById('cand-foto-img');
+  const listaCandidatosModal = document.getElementById('lista-candidatos-modal');
+
+  let modalCandidatos = null;
+  if (modalCandidatosEl && window.bootstrap) {
+    modalCandidatos = new bootstrap.Modal(modalCandidatosEl);
+  }
+
+  function renderCandidatosLista(container, candidatos) {
+    container.innerHTML = '';
+    (candidatos || []).forEach(c => {
+      const item = document.createElement('div');
+      item.className = 'list-group-item d-flex align-items-center justify-content-between';
+      const info = document.createElement('div');
+      info.className = 'd-flex align-items-center gap-2';
+      if (c.foto_url) {
+        const img = document.createElement('img');
+        img.src = c.foto_url;
+        img.alt = c.nombre;
+        img.className = 'rounded';
+        img.style.height = '40px';
+        img.style.width = '40px';
+        img.style.objectFit = 'cover';
+        info.appendChild(img);
+      }
+      const txt = document.createElement('div');
+      txt.innerHTML = `<strong>${c.nombre || ''}</strong><div class="text-muted small">${c.descripcion || ''}</div>`;
+      info.appendChild(txt);
+      const actions = document.createElement('div');
+      const btnDel = document.createElement('button');
+      btnDel.className = 'btn btn-outline-danger btn-sm';
+      btnDel.innerHTML = '<i class="fas fa-trash"></i>';
+      btnDel.addEventListener('click', async () => {
+        if (!encuestaSeleccionada) return;
+        const ok = !window.Swal ? confirm('¿Eliminar candidato?') : (await Swal.fire({title:'Eliminar candidato', text:'Esta acción no se puede deshacer', icon:'warning', showCancelButton:true})).isConfirmed;
+        if (!ok) return;
+        try {
+          const res = await fetch(`/api/votaciones/${encuestaSeleccionada.id_encuesta}/candidatos/${c.id_candidato}`, { method: 'DELETE' });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.message || 'Error eliminando');
+          showToast('Listo', 'Candidato eliminado');
+          await cargarCandidatos();
+          renderCandidatos();
+        } catch (e) {
+          showToast('Error', e.message || 'No se pudo eliminar', 'error');
+        }
+      });
+      actions.appendChild(btnDel);
+      item.appendChild(info);
+      item.appendChild(actions);
+      container.appendChild(item);
+    });
+  }
+
+  function renderCandidatos() {
+    // Panel principal (tarjetas)
+    const cont = document.getElementById('lista-candidatos-votacion');
+    const info = document.getElementById('votacion-info');
+    cont.innerHTML = '';
+    if (!encuestaSeleccionada || (encuestaSeleccionada.tipo_encuesta || 'encuesta') !== 'votacion') {
+      info.textContent = 'Esta encuesta no es una votación.';
+      return;
+    }
+    if (!Array.isArray(candidatosCache)) candidatosCache = [];
+    if (candidatosCache.length === 0) {
+      info.textContent = 'No hay candidatos aún. Agrega algunos para iniciar la votación.';
+    } else {
+      info.textContent = `${candidatosCache.length} candidato(s).`;
+    }
+
+    candidatosCache.forEach(c => {
+      const col = document.createElement('div');
+      col.className = 'col-12 col-md-4';
+      const card = document.createElement('div');
+      card.className = 'card h-100';
+      const img = document.createElement('img');
+      img.className = 'card-img-top';
+      img.style.maxHeight = '180px';
+      img.style.objectFit = 'cover';
+      img.alt = c.nombre || '';
+      img.src = c.foto_url || 'https://via.placeholder.com/400x200?text=Candidato';
+      const body = document.createElement('div');
+      body.className = 'card-body d-flex flex-column';
+      const h5 = document.createElement('h5');
+      h5.className = 'card-title';
+      h5.textContent = c.nombre || '';
+      const p = document.createElement('p');
+      p.className = 'card-text text-muted';
+      p.textContent = c.descripcion || '';
+      const btnVote = document.createElement('button');
+      btnVote.className = 'btn btn-primary mt-auto';
+      btnVote.innerHTML = '<i class="fas fa-vote-yea me-1"></i> Votar';
+      btnVote.addEventListener('click', () => confirmarYVotar(c));
+      body.appendChild(h5);
+      body.appendChild(p);
+      body.appendChild(btnVote);
+      card.appendChild(img);
+      card.appendChild(body);
+      col.appendChild(card);
+      cont.appendChild(col);
+    });
+
+    // Actualizar lista del modal
+    if (listaCandidatosModal) renderCandidatosLista(listaCandidatosModal, candidatosCache);
+  }
+
+  async function cargarCandidatos() {
+    if (!encuestaSeleccionada) return [];
+    try {
+      const res = await fetch(`/api/votaciones/${encuestaSeleccionada.id_encuesta}/candidatos`);
+      const data = await res.json();
+      if (data.success) {
+        candidatosCache = data.candidatos || [];
+        return candidatosCache;
+      }
+    } catch (e) {}
+    candidatosCache = [];
+    return candidatosCache;
+  }
+
+  async function confirmarYVotar(candidato) {
+    if (!encuestaSeleccionada) return;
+    let confirmar = true;
+    if (window.Swal) {
+      const r = await Swal.fire({
+        title: 'Confirmar voto',
+        text: `¿Confirmas tu voto por "${candidato.nombre}"?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, votar'
+      });
+      confirmar = r.isConfirmed;
+    } else {
+      confirmar = confirm('Confirmar tu voto');
+    }
+    if (!confirmar) return;
+    try {
+      const res = await fetch(`/api/votaciones/${encuestaSeleccionada.id_encuesta}/votar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_candidato: candidato.id_candidato })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'No se pudo registrar el voto');
+      showToast('¡Voto registrado!', 'Gracias por participar');
+      await dibujarResultados();
+    } catch (e) {
+      showToast('Error', e.message || 'No se pudo votar', 'error');
+    }
+  }
+
+  function resultadosDisponibles() {
+    return encuestaSeleccionada && encuestaSeleccionada.mostrar_resultados && (encuestaSeleccionada.tipo_encuesta || 'encuesta') === 'votacion';
+  }
+
+  async function dibujarResultados() {
+    const panel = document.getElementById('resultados-panel');
+    const resumen = document.getElementById('resumen-resultados');
+    const canvas = document.getElementById('grafico-resultados');
+    const btnVerResultados = document.getElementById('btn-ver-resultados');
+    if (!encuestaSeleccionada) return;
+    if (!resultadosDisponibles()) {
+      panel.style.display = 'none';
+      if (btnVerResultados) btnVerResultados.style.display = 'none';
+      return;
+    }
+    if (btnVerResultados) btnVerResultados.style.display = '';
+    try {
+      const res = await fetch(`/api/votaciones/${encuestaSeleccionada.id_encuesta}/resultados`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'No se pudieron obtener resultados');
+      const resultados = data.resultados || [];
+      const labels = resultados.map(r => r.nombre);
+      const valores = resultados.map(r => parseInt(r.votos || 0, 10));
+
+      if (!window.Chart) {
+        canvas.insertAdjacentHTML('beforebegin', '<div class="text-danger">No se pudo cargar la gráfica (Chart.js no disponible).</div>');
+      } else {
+        const ctx = canvas.getContext('2d');
+        if (window.graficoResultados) window.graficoResultados.destroy();
+        window.graficoResultados = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Votos',
+              data: valores,
+              backgroundColor: '#2a6ef0'
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: true }
+            },
+            scales: {
+              y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            }
+          }
+        });
+      }
+
+      const total = parseInt(data.total_votos || 0, 10);
+      const detalles = resultados.map(r => `${r.nombre}: ${r.votos} voto(s) • ${r.porcentaje}%`).join('<br/>');
+      resumen.innerHTML = `<div class="text-muted">Total de votos: <strong>${total}</strong></div><div class="mt-1">${detalles}</div>`;
+      document.getElementById('resultados-panel').style.display = '';
+    } catch (e) {
+      showToast('Error', e.message || 'No se pudieron cargar resultados', 'error');
+    }
+  }
+
+  // Abrir modal gestionar candidatos
+  if (btnAbrirCandidatos) {
+    btnAbrirCandidatos.addEventListener('click', async () => {
+      if (!encuestaSeleccionada || (encuestaSeleccionada.tipo_encuesta || 'encuesta') !== 'votacion') {
+        showToast('Atención', 'Esta encuesta no es de tipo votación', 'info');
+        return;
+      }
+      await cargarCandidatos();
+      if (listaCandidatosModal) renderCandidatosLista(listaCandidatosModal, candidatosCache);
+      if (modalCandidatos) modalCandidatos.show();
+    });
+  }
+
+  // Previsualización de foto en modal
+  if (candFotoInput) {
+    candFotoInput.addEventListener('change', () => {
+      const f = candFotoInput.files && candFotoInput.files[0];
+      if (f) {
+        const url = URL.createObjectURL(f);
+        candFotoImg.src = url;
+        candFotoPreview.style.display = '';
+      } else {
+        candFotoPreview.style.display = 'none';
+        candFotoImg.src = '';
+      }
+    });
+  }
+
+  // Agregar candidato (multipart si hay foto)
+  if (formCandidato) {
+    formCandidato.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      if (!encuestaSeleccionada) return;
+      const nombre = (candNombre.value || '').trim();
+      const descripcion = (candDescripcion.value || '').trim();
+      if (!nombre) {
+        showToast('Falta nombre', 'El nombre del candidato es obligatorio', 'warning');
+        return;
+      }
+      try {
+        const tieneFoto = candFotoInput && candFotoInput.files && candFotoInput.files[0];
+        let res;
+        if (tieneFoto) {
+          const fd = new FormData();
+          fd.append('nombre', nombre);
+          fd.append('descripcion', descripcion);
+          fd.append('foto', candFotoInput.files[0]);
+          res = await fetch(`/api/votaciones/${encuestaSeleccionada.id_encuesta}/candidatos`, {
+            method: 'POST',
+            body: fd
+          });
+        } else {
+          res = await fetch(`/api/votaciones/${encuestaSeleccionada.id_encuesta}/candidatos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre, descripcion })
+          });
+        }
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'No se pudo crear el candidato');
+        showToast('Candidato agregado', nombre);
+        candNombre.value = '';
+        candDescripcion.value = '';
+        if (candFotoInput) candFotoInput.value = '';
+        candFotoPreview.style.display = 'none';
+        candFotoImg.src = '';
+        await cargarCandidatos();
+        renderCandidatos();
+      } catch (e) {
+        showToast('Error', e.message || 'No se pudo agregar candidato', 'error');
+      }
+    });
+  }

@@ -306,6 +306,46 @@
         </div>
     </div>
 
+    <!-- Modal Votaciones Activas -->
+    <div class="modal fade" id="modalVotacionesActivas" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-vote-yea me-2"></i>Votaciones activas</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="votaciones-popup-contenido">
+                        <div class="text-center text-muted py-4">Cargando votaciones…</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Confirmación de Voto -->
+    <div class="modal fade" id="modalConfirmarVoto" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-md modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-check me-2"></i>Confirmar voto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="confirm-voto-contenido" class="text-center">
+                        <div class="mb-3" id="confirm-voto-foto"></div>
+                        <div class="fw-semibold" id="confirm-voto-nombre"></div>
+                        <div class="text-muted small mt-1" id="confirm-voto-encuesta"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btnConfirmarVoto">Confirmar voto</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Mensajes Flash -->
     <div class="flash-messages">
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -342,6 +382,9 @@
             integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" 
             crossorigin="anonymous"></script>
 
+    <!-- Chart.js para resultados de votaciones -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <!-- Scripts personalizados -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -367,6 +410,217 @@
     });
     </script>
 
+    <!-- Votaciones Popup al iniciar sesión -->
+    <script>
+    (function(){
+        const path = window.location.pathname;
+        if (path.includes('/login')) return;
+
+        const usuarioId = {{ (session.get('user_id') or session.get('id_codigo_consumidor')) | tojson }};
+        let votacionesData = {};
+        let seleccion = { encuestaId: null, candidato: null };
+
+        function dentroVentana(enc){
+            const ini = enc.fecha_inicio_votacion ? new Date(enc.fecha_inicio_votacion) : null;
+            const fin = enc.fecha_fin_votacion ? new Date(enc.fecha_fin_votacion) : null;
+            const ahora = new Date();
+            if (ini && ahora < ini) return false;
+            if (fin && ahora > fin) return false;
+            return true;
+        }
+
+        async function cargarDetalleVotacion(encuestaId){
+            try{
+                const [rEnc, rCands] = await Promise.all([
+                    fetch(`/api/encuestas/${encuestaId}`),
+                    fetch(`/api/votaciones/${encuestaId}/candidatos`)
+                ]);
+                const dEnc = await rEnc.json();
+                const dCands = await rCands.json();
+                if (!dEnc.success || !dCands.success) return null;
+                const enc = dEnc.encuesta || {};
+                const candidatos = dCands.candidatos || [];
+                return { enc, candidatos };
+            }catch(e){ console.warn('Error cargando detalle de votación', encuestaId, e); return null; }
+        }
+
+        async function cargarVotacionesActivasParaMi(){
+            try{
+                const res = await fetch('/api/encuestas/activas/para-mi');
+                const data = await res.json();
+                if (!data.success) return;
+                const base = data.encuestas || [];
+                // Cargar detalle y filtrar sólo tipo 'votacion'
+                const detalles = await Promise.all(base.map(b => cargarDetalleVotacion(b.id_encuesta)));
+                const votaciones = detalles.filter(d => d && (d.enc.tipo_encuesta || 'encuesta') === 'votacion');
+                if (votaciones.length === 0) return;
+                // Guardar cache
+                votacionesData = Object.fromEntries(votaciones.map(v => [v.enc.id_encuesta, v]));
+                renderVotaciones(votaciones.map(v => v.enc.id_encuesta));
+                const modal = new bootstrap.Modal(document.getElementById('modalVotacionesActivas'));
+                modal.show();
+            }catch(e){ console.warn('No se pudo cargar votaciones activas', e); }
+        }
+
+        function cardCandidatoHTML(encId, c){
+            const foto = c.foto_url ? `<img src="${c.foto_url}" class="card-img-top" style="max-height:160px; object-fit:cover;"/>` : '';
+            return `
+                <div class="col-12 col-sm-6 col-md-4 col-lg-3 mb-3">
+                    <div class="card h-100">
+                        ${foto}
+                        <div class="card-body d-flex flex-column">
+                            <h6 class="card-title">${c.nombre || ''}</h6>
+                            ${c.descripcion ? `<p class="card-text small text-muted">${c.descripcion}</p>` : ''}
+                            <div class="mt-auto">
+                                <button class="btn btn-outline-primary w-100 btn-votar-candidato" data-encuesta-id="${encId}" data-id-candidato="${c.id_candidato}">
+                                    <i class="fas fa-check me-1"></i>Votar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        async function dibujarResultados(encId){
+            try{
+                const r = await fetch(`/api/votaciones/${encId}/resultados`);
+                const d = await r.json();
+                if (!d.success) return;
+                const canvas = document.getElementById(`grafico-votacion-${encId}`);
+                if (!canvas) return;
+                const labels = (d.resultados||[]).map(r=>r.nombre);
+                const datos = (d.resultados||[]).map(r=>r.porcentaje);
+                const ctx = canvas.getContext('2d');
+                new Chart(ctx, {
+                    type:'bar',
+                    data:{ labels, datasets:[{ label:'% votos', data: datos, backgroundColor:'#0d6efd55', borderColor:'#0d6efd' }] },
+                    options:{ scales:{ y:{ beginAtZero:true, max:100 } }, plugins:{ legend:{ display:false } } }
+                });
+                const resumenEl = document.getElementById(`resumen-votacion-${encId}`);
+                if (resumenEl) resumenEl.innerHTML = `Total votos: ${d.total_votos}`;
+            }catch(e){ console.warn('No se pudieron dibujar resultados', e); }
+        }
+
+        function renderVotaciones(encIds){
+            const cont = document.getElementById('votaciones-popup-contenido');
+            if (!cont) return;
+            const bloques = encIds.map(id => {
+                const info = votacionesData[id];
+                const enc = info.enc;
+                const candidatos = info.candidatos || [];
+                const ventanaOk = dentroVentana(enc);
+                const avisoVentana = ventanaOk ? '' : '<div class="alert alert-warning py-2">Fuera de la ventana de votación.</div>';
+                const cards = candidatos.length > 0 ? candidatos.map(c => cardCandidatoHTML(id, c)).join('') : '<div class="text-muted">Sin candidatos.</div>';
+                const resultados = enc.mostrar_resultados ? `
+                    <div class="mt-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <strong class="me-2">Resultados</strong>
+                            <small class="text-muted">(siempre visibles)</small>
+                        </div>
+                        <div class="row">
+                            <div class="col-12 col-md-8">
+                                <canvas id="grafico-votacion-${id}" height="140"></canvas>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div id="resumen-votacion-${id}" class="small text-muted">Cargando…</div>
+                            </div>
+                        </div>
+                    </div>` : '';
+                const fechas = [];
+                if (enc.fecha_inicio_votacion) fechas.push(`Inicio: ${enc.fecha_inicio_votacion}`);
+                if (enc.fecha_fin_votacion) fechas.push(`Fin: ${enc.fecha_fin_votacion}`);
+                return `
+                    <div class="mb-4 p-3 border rounded">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <h5 class="mb-1">${enc.titulo || 'Votación'}</h5>
+                                ${enc.descripcion ? `<div class="text-muted small">${enc.descripcion}</div>` : ''}
+                                ${fechas.length ? `<div class="small text-muted mt-1">${fechas.join(' • ')}</div>` : ''}
+                            </div>
+                            ${!ventanaOk ? '<span class="badge bg-secondary">Inactiva</span>' : '<span class="badge bg-success">Activa</span>'}
+                        </div>
+                        ${avisoVentana}
+                        <div class="row">
+                            ${cards}
+                        </div>
+                        ${resultados}
+                    </div>`;
+            }).join('');
+            cont.innerHTML = bloques;
+            // Dibujar resultados para las que apliquen
+            encIds.forEach(id => { const enc = votacionesData[id].enc; if (enc.mostrar_resultados) dibujarResultados(id); });
+        }
+
+        function abrirConfirm(encId, candidato){
+            seleccion.encuestaId = encId;
+            seleccion.candidato = candidato;
+            const nombreEl = document.getElementById('confirm-voto-nombre');
+            const fotoEl = document.getElementById('confirm-voto-foto');
+            const encEl = document.getElementById('confirm-voto-encuesta');
+            nombreEl.textContent = candidato.nombre || '';
+            fotoEl.innerHTML = candidato.foto_url ? `<img src="${candidato.foto_url}" class="img-fluid rounded" style="max-height:200px; object-fit:cover;"/>` : '';
+            const enc = votacionesData[encId]?.enc;
+            encEl.textContent = enc ? (enc.titulo || '') : '';
+            const modal = new bootstrap.Modal(document.getElementById('modalConfirmarVoto'));
+            modal.show();
+        }
+
+        async function confirmarVoto(){
+            const encId = seleccion.encuestaId;
+            const candidato = seleccion.candidato;
+            if (!encId || !candidato) return;
+            try{
+                const resp = await fetch(`/api/votaciones/${encId}/votar`, {
+                    method:'POST', headers:{ 'Content-Type':'application/json' },
+                    body: JSON.stringify({ id_candidato: candidato.id_candidato })
+                });
+                const d = await resp.json().catch(()=>({ success:false }));
+                if (!resp.ok || !d.success){
+                    const msg = d.message || 'No se pudo registrar tu voto.';
+                    Swal.fire('No se pudo votar', msg, 'error');
+                    return;
+                }
+                Swal.fire('¡Voto registrado!', 'Gracias por participar.', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('modalConfirmarVoto'))?.hide();
+                // Actualizar resultados si se muestran
+                const enc = votacionesData[encId]?.enc;
+                if (enc && enc.mostrar_resultados){ dibujarResultados(encId); }
+                // Deshabilitar botones de esa encuesta (voto único)
+                document.querySelectorAll(`.btn-votar-candidato[data-encuesta-id="${encId}"]`).forEach(btn=>{
+                    btn.setAttribute('disabled','disabled');
+                    btn.classList.remove('btn-outline-primary');
+                    btn.classList.add('btn-secondary');
+                    btn.innerHTML = '<i class="fas fa-ban me-1"></i>Ya votaste';
+                });
+            }catch(e){ Swal.fire('Error', 'Ocurrió un error al votar.', 'error'); }
+        }
+
+        document.addEventListener('DOMContentLoaded', ()=>{
+            const cont = document.getElementById('votaciones-popup-contenido');
+            // Delegación para botones "Votar"
+            if (cont){
+                cont.addEventListener('click', (ev)=>{
+                    const btn = ev.target.closest('.btn-votar-candidato');
+                    if (!btn) return;
+                    const encId = parseInt(btn.getAttribute('data-encuesta-id'));
+                    const candId = parseInt(btn.getAttribute('data-id-candidato'));
+                    const info = votacionesData[encId];
+                    if (!info) return;
+                    const candidato = (info.candidatos||[]).find(c => c.id_candidato === candId);
+                    const enc = info.enc;
+                    if (!dentroVentana(enc)){
+                        Swal.fire('No disponible', 'La votación no está activa actualmente.', 'warning');
+                        return;
+                    }
+                    abrirConfirm(encId, candidato);
+                });
+            }
+            const btnConf = document.getElementById('btnConfirmarVoto');
+            if (btnConf) btnConf.addEventListener('click', confirmarVoto);
+            cargarVotacionesActivasParaMi();
+        });
+    })();
+    </script>
     <!-- Encuestas Popup al iniciar sesión -->
     <script>
     (function(){
