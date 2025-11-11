@@ -257,7 +257,33 @@
       data = await res.json();
     }
     if (data.success) {
-      showToast('Enviado', 'Respuestas registradas correctamente');
+      // Popup de aprobación/reprobación si aplica
+      try {
+        const evalInfo = data.evaluacion;
+        if (evalInfo && (typeof evalInfo.puntaje_total !== 'undefined' || typeof evalInfo.porcentaje_obtenido !== 'undefined')){
+          const aprobado = !!evalInfo.aprobado;
+          const titulo = aprobado ? 'APROBASTE' : 'NO APROBASTE';
+          const icon = aprobado ? 'success' : 'error';
+          const correctas = typeof evalInfo.correctas !== 'undefined' ? evalInfo.correctas : null;
+          const total = typeof evalInfo.total_preguntas !== 'undefined' ? evalInfo.total_preguntas : null;
+          const porcentaje = typeof evalInfo.porcentaje_obtenido !== 'undefined' ? evalInfo.porcentaje_obtenido : evalInfo.puntaje_total;
+          const detalleBase = (correctas !== null && total !== null)
+            ? `Tuviste ${correctas} correctas de ${total} preguntas (${Math.round(porcentaje)}%)`
+            : `Puntaje: ${Math.round(porcentaje)}% (umbral ${Math.round(evalInfo.porcentaje_aprobacion)}%)`;
+          const puedeReintentar = !!evalInfo.puede_reintentar;
+          const footer = (!aprobado && puedeReintentar) ? `Puedes intentar nuevamente (intentos ${evalInfo.intentos_utilizados}/${evalInfo.maximo_intentos}).` : (aprobado ? 'Se guardó tu respuesta.' : 'Se alcanzó el máximo de intentos.');
+          const textoFinal = detalleBase + '\n' + `Umbral ${Math.round(evalInfo.porcentaje_aprobacion)}%` + '\n' + footer;
+          if (window.Swal) {
+            await Swal.fire({ title: titulo, text: textoFinal, icon, confirmButtonText: 'OK' });
+          } else {
+            alert(`${titulo}\n${textoFinal}`);
+          }
+        } else {
+          showToast('Enviado', 'Respuestas registradas correctamente');
+        }
+      } catch(e){
+        showToast('Enviado', 'Respuestas registradas correctamente');
+      }
       form.reset();
     } else {
       const falt = Array.isArray(data.faltantes) ? data.faltantes : null;

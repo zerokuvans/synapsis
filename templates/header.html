@@ -767,6 +767,7 @@
             // Envío con soporte a archivos
             const archivos = Array.from(document.querySelectorAll('#encuesta-popup-contenido input[type="file"][data-pid]'));
             const tieneArchivo = archivos.some(el=>el.files && el.files.length>0);
+            let resultadoBackend;
             if (tieneArchivo){
                 const fd = new FormData();
                 fd.append('payload', JSON.stringify({ respuestas, usuario_id: usuarioId }));
@@ -782,6 +783,7 @@
                     Swal.fire('Error', html, 'error');
                     return;
                 }
+                resultadoBackend = d;
             } else {
                 const resp = await fetch(`/api/encuestas/${encuestaId}/respuestas`, {
                     method: 'POST', headers: { 'Content-Type':'application/json' },
@@ -794,8 +796,32 @@
                     Swal.fire('Error', html, 'error');
                     return;
                 }
+                resultadoBackend = d;
             }
-            Swal.fire('Gracias', 'Tus respuestas fueron enviadas.', 'success');
+            // Popup de aprobación/reprobación para encuestas de puntaje
+            try {
+                const evalInfo = resultadoBackend && resultadoBackend.evaluacion;
+                if (evalInfo && (typeof evalInfo.puntaje_total !== 'undefined' || typeof evalInfo.porcentaje_obtenido !== 'undefined')){
+                    const aprobado = !!evalInfo.aprobado;
+                    const titulo = aprobado ? 'APROBASTE' : 'NO APROBASTE';
+                    const icon = aprobado ? 'success' : 'error';
+                    const correctas = typeof evalInfo.correctas !== 'undefined' ? evalInfo.correctas : null;
+                    const total = typeof evalInfo.total_preguntas !== 'undefined' ? evalInfo.total_preguntas : null;
+                    const porcentaje = typeof evalInfo.porcentaje_obtenido !== 'undefined' ? evalInfo.porcentaje_obtenido : evalInfo.puntaje_total;
+                    const detalleBase = (correctas !== null && total !== null)
+                        ? `Tuviste ${correctas} correctas de ${total} preguntas (${Math.round(porcentaje)}%)`
+                        : `Puntaje: ${Math.round(porcentaje)}% (umbral ${Math.round(evalInfo.porcentaje_aprobacion)}%)`;
+                    const puedeReintentar = !!evalInfo.puede_reintentar;
+                    const footer = (!aprobado && puedeReintentar)
+                        ? `Puedes intentar nuevamente (intentos ${evalInfo.intentos_utilizados}/${evalInfo.maximo_intentos}).`
+                        : (aprobado ? 'Se guardó tu respuesta.' : 'Se alcanzó el máximo de intentos.');
+                    await Swal.fire({ title: titulo, text: detalleBase + '\n' + `Umbral ${Math.round(evalInfo.porcentaje_aprobacion)}%` + '\n' + footer, icon, confirmButtonText: 'OK' });
+                } else {
+                    Swal.fire('Gracias', 'Tus respuestas fueron enviadas.', 'success');
+                }
+            } catch(e){
+                Swal.fire('Gracias', 'Tus respuestas fueron enviadas.', 'success');
+            }
             const modalEl = document.getElementById('modalEncuestaActiva');
             bootstrap.Modal.getInstance(modalEl)?.hide();
         }

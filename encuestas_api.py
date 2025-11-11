@@ -103,6 +103,20 @@ def ensure_encuestas_tables():
             except mysql.connector.Error as e:
                 logger.warning(f"No se pudo agregar columna {table}.{col}: {e}")
 
+        # Asegurar columnas de múltiples respuestas
+        try:
+            if not column_exists("encuestas", "permitir_multiples_respuestas"):
+                cursor.execute("ALTER TABLE encuestas ADD COLUMN permitir_multiples_respuestas TINYINT(1) DEFAULT 1")
+            if not column_exists("encuestas", "modo_multiples_respuestas"):
+                cursor.execute("ALTER TABLE encuestas ADD COLUMN modo_multiples_respuestas ENUM('por_mes','por_periodo','libre','unica') DEFAULT 'por_mes'")
+            # Campos para encuestas de puntaje: umbral de aprobación y límite de intentos
+            if not column_exists("encuestas", "porcentaje_aprobacion"):
+                cursor.execute("ALTER TABLE encuestas ADD COLUMN porcentaje_aprobacion DECIMAL(5,2) DEFAULT 90.00")
+            if not column_exists("encuestas", "maximo_intentos"):
+                cursor.execute("ALTER TABLE encuestas ADD COLUMN maximo_intentos INT DEFAULT 2")
+        except mysql.connector.Error as e:
+            logger.warning(f"No se pudo agregar columnas de múltiples respuestas: {e}")
+
         # Tabla de candidatos para votaciones
         cursor.execute(
             """
@@ -232,6 +246,15 @@ def ensure_encuestas_tables():
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
             """
         )
+
+        # Asegurar columnas para encuestas con puntaje en respuestas
+        try:
+            if not column_exists("encuesta_respuestas", "aprobado"):
+                cursor.execute("ALTER TABLE encuesta_respuestas ADD COLUMN aprobado TINYINT(1) NULL")
+            if not column_exists("encuesta_respuestas", "porcentaje_obtenido"):
+                cursor.execute("ALTER TABLE encuesta_respuestas ADD COLUMN porcentaje_obtenido DECIMAL(5,2) NULL")
+        except mysql.connector.Error as e:
+            logger.warning(f"No se pudo agregar columnas a encuesta_respuestas (aprobado/porcentaje_obtenido): {e}")
 
         # Tabla detalles de respuestas
         cursor.execute(
@@ -412,6 +435,19 @@ def registrar_rutas_encuestas(app):
         estado = data.get('estado', 'borrador')
         anonima = 1 if data.get('anonima', False) else 0
         con_puntaje = 1 if data.get('con_puntaje', False) else 0
+        porcentaje_aprobacion = None
+        try:
+            porcentaje_aprobacion = float(data.get('porcentaje_aprobacion')) if data.get('porcentaje_aprobacion') is not None else 90.0
+        except Exception:
+            porcentaje_aprobacion = 90.0
+        if porcentaje_aprobacion < 0: porcentaje_aprobacion = 0.0
+        if porcentaje_aprobacion > 100: porcentaje_aprobacion = 100.0
+        maximo_intentos = None
+        try:
+            maximo_intentos = int(data.get('maximo_intentos')) if data.get('maximo_intentos') is not None else 2
+        except Exception:
+            maximo_intentos = 2
+        if maximo_intentos < 1: maximo_intentos = 1
         visibilidad = data.get('visibilidad', 'privada')
         dirigida_a = data.get('dirigida_a', 'todos')
         fecha_inicio = data.get('fecha_inicio')
@@ -462,14 +498,19 @@ def registrar_rutas_encuestas(app):
                 INSERT INTO encuestas (
                     titulo, descripcion, estado, anonima, con_puntaje, visibilidad, dirigida_a,
                     audiencia_carpetas, audiencia_supervisores, audiencia_tecnicos,
-                    fecha_inicio, fecha_fin, creado_por
+                    fecha_inicio, fecha_fin, creado_por,
+                    permitir_multiples_respuestas, modo_multiples_respuestas,
+                    porcentaje_aprobacion, maximo_intentos
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     titulo, descripcion, estado, anonima, con_puntaje, visibilidad, dirigida_a,
                     audiencia_carpetas, audiencia_supervisores, audiencia_tecnicos,
-                    fecha_inicio, fecha_fin, user_id
+                    fecha_inicio, fecha_fin, user_id,
+                    1 if (data.get('permitir_multiples_respuestas') in (1, True)) else 0,
+                    (data.get('modo_multiples_respuestas') or 'por_mes'),
+                    porcentaje_aprobacion, maximo_intentos
                 )
             )
             encuesta_id = cursor.lastrowid
@@ -539,6 +580,7 @@ def registrar_rutas_encuestas(app):
                 f"""
                 SELECT id_encuesta, titulo, descripcion, dirigida_a, audiencia_carpetas, audiencia_supervisores, audiencia_tecnicos,
                        tipo_encuesta,
+                       permitir_multiples_respuestas, modo_multiples_respuestas,
                        DATE_FORMAT(fecha_inicio, %s) AS fecha_inicio,
                        DATE_FORMAT(fecha_fin, %s) AS fecha_fin
                 FROM encuestas
@@ -553,13 +595,14 @@ def registrar_rutas_encuestas(app):
                        OR fecha_fin >= NOW()
                        OR DATE(fecha_fin) >= CURDATE()
                   )
-                  AND LOWER(CASE
+                  AND (
+                      LOWER(CASE
                         WHEN LOWER(dirigida_a) IN ('supervisor','supervisores') THEN 'supervisores'
                         WHEN LOWER(dirigida_a) IN ('analista','analistas') THEN 'analistas'
                         WHEN LOWER(dirigida_a) IN ('tecnico','tecnicos') THEN 'tecnicos'
                         ELSE LOWER(dirigida_a)
-                  END) IN ({placeholders})
-                  OR (
+                      END) IN ({placeholders})
+                      OR (
                         LOWER(CASE
                             WHEN LOWER(dirigida_a) IN ('supervisor','supervisores') THEN 'supervisores'
                             WHEN LOWER(dirigida_a) IN ('analista','analistas') THEN 'analistas'
@@ -567,6 +610,7 @@ def registrar_rutas_encuestas(app):
                             ELSE LOWER(dirigida_a)
                         END) = 'tecnicos'
                         AND audiencia_tecnicos IS NOT NULL
+                      )
                   )
                   AND (
                         (COALESCE(tipo_encuesta, 'encuesta') = 'votacion' AND NOT EXISTS (
@@ -575,16 +619,66 @@ def registrar_rutas_encuestas(app):
                               AND v.id_usuario = %s
                         ))
                         OR
-                        (COALESCE(tipo_encuesta, 'encuesta') <> 'votacion' AND NOT EXISTS (
-                            SELECT 1 FROM encuesta_respuestas r
-                            WHERE r.encuesta_id = encuestas.id_encuesta
-                              AND r.usuario_id = %s
-                              AND r.estado = 'enviada'
-                        ))
+                        (
+                          COALESCE(tipo_encuesta, 'encuesta') <> 'votacion' AND (
+                            (
+                              COALESCE(permitir_multiples_respuestas, 1) = 1 AND COALESCE(modo_multiples_respuestas, 'por_mes') = 'libre'
+                            )
+                            OR
+                            (
+                              COALESCE(permitir_multiples_respuestas, 1) = 1 AND COALESCE(modo_multiples_respuestas, 'por_mes') = 'por_mes'
+                              AND NOT EXISTS (
+                                SELECT 1 FROM encuesta_respuestas r
+                                WHERE r.encuesta_id = encuestas.id_encuesta
+                                  AND r.usuario_id = %s
+                                  AND r.estado = 'enviada'
+                                  AND YEAR(r.fecha_respuesta) = YEAR(NOW())
+                                  AND MONTH(r.fecha_respuesta) = MONTH(NOW())
+                              )
+                            )
+                            OR
+                            (
+                              COALESCE(permitir_multiples_respuestas, 1) = 1 AND COALESCE(modo_multiples_respuestas, 'por_mes') = 'por_periodo'
+                              AND NOT EXISTS (
+                                SELECT 1 FROM encuesta_respuestas r
+                                WHERE r.encuesta_id = encuestas.id_encuesta
+                                  AND r.usuario_id = %s
+                                  AND r.estado = 'enviada'
+                                  AND (
+                                    (encuestas.fecha_inicio IS NOT NULL AND encuestas.fecha_fin IS NOT NULL AND r.fecha_respuesta BETWEEN encuestas.fecha_inicio AND encuestas.fecha_fin)
+                                    OR
+                                    (encuestas.fecha_inicio IS NOT NULL AND encuestas.fecha_fin IS NULL AND r.fecha_respuesta >= encuestas.fecha_inicio)
+                                    OR
+                                    (encuestas.fecha_inicio IS NULL AND encuestas.fecha_fin IS NOT NULL AND r.fecha_respuesta <= encuestas.fecha_fin)
+                                  )
+                              )
+                            )
+                            OR
+                            (
+                              (COALESCE(permitir_multiples_respuestas, 1) = 0 OR COALESCE(modo_multiples_respuestas, 'por_mes') = 'unica')
+                              AND NOT EXISTS (
+                                SELECT 1 FROM encuesta_respuestas r
+                                WHERE r.encuesta_id = encuestas.id_encuesta
+                                  AND r.usuario_id = %s
+                                  AND r.estado = 'enviada'
+                              )
+                            )
+                          )
+                          AND (
+                            COALESCE(con_puntaje, 0) = 0
+                            OR NOT EXISTS (
+                              SELECT 1 FROM encuesta_respuestas r
+                              WHERE r.encuesta_id = encuestas.id_encuesta
+                                AND r.usuario_id = %s
+                                AND r.estado = 'enviada'
+                                AND r.aprobado = 1
+                            )
+                          )
+                        )
                   )
                 ORDER BY fecha_inicio ASC, id_encuesta ASC
                 """,
-                ['%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', *valores, usuario_id, usuario_id]
+                ['%Y-%m-%d %H:%i:%s', '%Y-%m-%d %H:%i:%s', *valores, usuario_id, usuario_id, usuario_id, usuario_id, usuario_id, usuario_id]
             )
             rows = cur.fetchall() or []
 
@@ -1037,6 +1131,29 @@ def registrar_rutas_encuestas(app):
         if 'con_puntaje' in data:
             campos.append('con_puntaje = %s')
             valores.append(1 if data.get('con_puntaje') else 0)
+        if 'porcentaje_aprobacion' in data:
+            try:
+                pa = float(data.get('porcentaje_aprobacion'))
+            except Exception:
+                pa = 90.0
+            if pa < 0: pa = 0.0
+            if pa > 100: pa = 100.0
+            campos.append('porcentaje_aprobacion = %s')
+            valores.append(pa)
+        if 'maximo_intentos' in data:
+            try:
+                mi = int(data.get('maximo_intentos'))
+            except Exception:
+                mi = 2
+            if mi < 1: mi = 1
+            campos.append('maximo_intentos = %s')
+            valores.append(mi)
+        if 'permitir_multiples_respuestas' in data:
+            campos.append('permitir_multiples_respuestas = %s')
+            valores.append(1 if data.get('permitir_multiples_respuestas') else 0)
+        if 'modo_multiples_respuestas' in data:
+            campos.append('modo_multiples_respuestas = %s')
+            valores.append(data.get('modo_multiples_respuestas'))
         # Campos específicos de votaciones
         if 'tipo_encuesta' in data:
             tipo_encuesta = (data.get('tipo_encuesta') or '').strip()
@@ -1842,6 +1959,150 @@ def registrar_rutas_encuestas(app):
                     'faltantes': faltantes
                 }), 400
 
+            # Validar según modo de respuestas configurado
+            cursor.execute("SELECT permitir_multiples_respuestas, modo_multiples_respuestas, fecha_inicio, fecha_fin FROM encuestas WHERE id_encuesta = %s", (encuesta_id,))
+            enc = cursor.fetchone()
+            permitir_multi = 1
+            modo_multi = 'por_mes'
+            fecha_inicio = None
+            fecha_fin = None
+            if enc:
+                permitir_multi = int(enc[0]) if enc[0] is not None else 1
+                modo_multi = enc[1] or 'por_mes'
+                fecha_inicio = enc[2]
+                fecha_fin = enc[3]
+
+            if permitir_multi == 0 or modo_multi == 'unica':
+                cursor.execute(
+                    """
+                    SELECT 1 FROM encuesta_respuestas
+                    WHERE encuesta_id = %s AND usuario_id = %s AND estado = 'enviada'
+                    LIMIT 1
+                    """,
+                    (encuesta_id, usuario_id)
+                )
+                if cursor.fetchone():
+                    return jsonify({'success': False, 'message': 'Ya respondiste esta encuesta'}), 409
+            elif modo_multi == 'por_mes':
+                # Si la encuesta maneja puntaje y tiene más de 1 intento, permitir reintentar
+                try:
+                    cursor.execute("SELECT con_puntaje, maximo_intentos FROM encuestas WHERE id_encuesta = %s", (encuesta_id,))
+                    row_cfg = cursor.fetchone()
+                    con_puntaje_flag_tmp = int(row_cfg[0]) if row_cfg and row_cfg[0] is not None else 0
+                    max_intentos_tmp = int(row_cfg[1]) if row_cfg and row_cfg[1] is not None else 1
+                except Exception:
+                    con_puntaje_flag_tmp = 0
+                    max_intentos_tmp = 1
+                # Contar intentos del mes actual
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) FROM encuesta_respuestas
+                    WHERE encuesta_id = %s AND usuario_id = %s AND estado = 'enviada'
+                      AND YEAR(fecha_respuesta) = YEAR(NOW())
+                      AND MONTH(fecha_respuesta) = MONTH(NOW())
+                    """,
+                    (encuesta_id, usuario_id)
+                )
+                cnt_mes = cursor.fetchone()
+                intentos_mes = 0
+                try:
+                    intentos_mes = int(cnt_mes[0]) if cnt_mes and cnt_mes[0] is not None else 0
+                except Exception:
+                    intentos_mes = 0
+                if con_puntaje_flag_tmp:
+                    if intentos_mes >= max_intentos_tmp:
+                        return jsonify({'success': False, 'message': 'Has alcanzado el máximo de intentos'}), 409
+                    # Si aún hay intentos disponibles, permitir continuar (no bloquear por mes)
+                else:
+                    if intentos_mes > 0:
+                        return jsonify({'success': False, 'message': 'Ya respondiste esta encuesta en el mes actual'}), 409
+            elif modo_multi == 'por_periodo':
+                cursor.execute(
+                    """
+                    SELECT 1 FROM encuesta_respuestas r
+                    JOIN encuestas e ON e.id_encuesta = r.encuesta_id
+                    WHERE r.encuesta_id = %s AND r.usuario_id = %s AND r.estado = 'enviada'
+                      AND (
+                        (e.fecha_inicio IS NOT NULL AND e.fecha_fin IS NOT NULL AND r.fecha_respuesta BETWEEN e.fecha_inicio AND e.fecha_fin)
+                        OR (e.fecha_inicio IS NOT NULL AND e.fecha_fin IS NULL AND r.fecha_respuesta >= e.fecha_inicio)
+                        OR (e.fecha_inicio IS NULL AND e.fecha_fin IS NOT NULL AND r.fecha_respuesta <= e.fecha_fin)
+                      )
+                    LIMIT 1
+                    """,
+                    (encuesta_id, usuario_id)
+                )
+                if cursor.fetchone():
+                    return jsonify({'success': False, 'message': 'Ya respondiste esta encuesta en el periodo activo'}), 409
+
+            # Si la encuesta es con puntaje, verificar intentos y preparar cálculo
+            cursor.execute("SELECT con_puntaje, porcentaje_aprobacion, maximo_intentos FROM encuestas WHERE id_encuesta = %s", (encuesta_id,))
+            row_enc = cursor.fetchone()
+            con_puntaje_flag = 1
+            pct_aprob = 90.0
+            max_intentos = 2
+            if row_enc:
+                con_puntaje_flag = int(row_enc[0]) if row_enc[0] is not None else 0
+                try:
+                    pct_aprob = float(row_enc[1]) if row_enc[1] is not None else 90.0
+                except Exception:
+                    pct_aprob = 90.0
+                try:
+                    max_intentos = int(row_enc[2]) if row_enc[2] is not None else 2
+                except Exception:
+                    max_intentos = 2
+                if pct_aprob < 0: pct_aprob = 0.0
+                if pct_aprob > 100: pct_aprob = 100.0
+                if max_intentos < 1: max_intentos = 1
+            # En modo única (o cuando no se permiten múltiples) el máximo de intentos es 1
+            try:
+                if (permitir_multi == 0) or (str(modo_multi or '').lower() == 'unica'):
+                    max_intentos = 1
+            except Exception:
+                pass
+
+            # Control de intentos (aplica si hay puntaje); respeta el modo configurado
+            intentos_previos = 0
+            if con_puntaje_flag:
+                if modo_multi == 'por_mes':
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) FROM encuesta_respuestas
+                        WHERE encuesta_id = %s AND usuario_id = %s AND estado = 'enviada'
+                          AND YEAR(fecha_respuesta) = YEAR(NOW())
+                          AND MONTH(fecha_respuesta) = MONTH(NOW())
+                        """,
+                        (encuesta_id, usuario_id)
+                    )
+                elif modo_multi == 'por_periodo':
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) FROM encuesta_respuestas r
+                        JOIN encuestas e ON e.id_encuesta = r.encuesta_id
+                        WHERE r.encuesta_id = %s AND r.usuario_id = %s AND r.estado = 'enviada'
+                          AND (
+                            (e.fecha_inicio IS NOT NULL AND e.fecha_fin IS NOT NULL AND r.fecha_respuesta BETWEEN e.fecha_inicio AND e.fecha_fin)
+                            OR (e.fecha_inicio IS NOT NULL AND e.fecha_fin IS NULL AND r.fecha_respuesta >= e.fecha_inicio)
+                            OR (e.fecha_inicio IS NULL AND e.fecha_fin IS NOT NULL AND r.fecha_respuesta <= e.fecha_fin)
+                          )
+                        """,
+                        (encuesta_id, usuario_id)
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) FROM encuesta_respuestas
+                        WHERE encuesta_id = %s AND usuario_id = %s AND estado = 'enviada'
+                        """,
+                        (encuesta_id, usuario_id)
+                    )
+                cnt = cursor.fetchone()
+                try:
+                    intentos_previos = int(cnt[0]) if cnt and cnt[0] is not None else 0
+                except Exception:
+                    intentos_previos = 0
+                if intentos_previos >= max_intentos:
+                    return jsonify({'success': False, 'message': 'Has alcanzado el máximo de intentos'}), 409
+
             # Crear cabecera de respuesta
             cursor.execute(
                 """
@@ -1927,9 +2188,143 @@ def registrar_rutas_encuestas(app):
                         (respuesta_id, pregunta_id, valor_texto)
                     )
 
+            # Si la encuesta maneja puntaje, calcular aprobación por respuestas correctas
+            resultado_eval = None
+            if con_puntaje_flag:
+                try:
+                    # Contar preguntas evaluables (con opciones y al menos una correcta) y cuántas se respondieron correctamente
+                    tipos_con_opciones = ('opcion_multiple','seleccion_unica','checkbox','dropdown')
+                    cursor.execute(
+                        """
+                        SELECT id_pregunta, tipo
+                        FROM encuesta_preguntas
+                        WHERE encuesta_id = %s AND tipo IN ('opcion_multiple','seleccion_unica','checkbox','dropdown')
+                        """,
+                        (encuesta_id,)
+                    )
+                    preguntas_rows = cursor.fetchall() or []
+                    total_evaluable = 0
+                    correctas = 0
+
+                    for pr in preguntas_rows:
+                        try:
+                            p_id = pr[0]
+                            p_tipo = pr[1]
+                        except Exception:
+                            # fallback por seguridad
+                            p_id = pr.get('id_pregunta') if isinstance(pr, dict) else None
+                            p_tipo = pr.get('tipo') if isinstance(pr, dict) else None
+                        if not p_id:
+                            continue
+
+                        # Verificar que la pregunta tiene al menos una opción marcada como correcta
+                        cursor.execute(
+                            """
+                            SELECT COUNT(*) FROM encuesta_opciones
+                            WHERE pregunta_id = %s AND es_correcta = 1
+                            """,
+                            (p_id,)
+                        )
+                        row_cnt_cor = cursor.fetchone()
+                        cnt_correct_opts = int(row_cnt_cor[0]) if row_cnt_cor and row_cnt_cor[0] is not None else 0
+                        if cnt_correct_opts <= 0:
+                            # No evaluable si no hay opciones correctas definidas
+                            continue
+                        total_evaluable += 1
+
+                        if p_tipo in ('seleccion_unica','dropdown'):
+                            # Correcta si la opción seleccionada está marcada como correcta
+                            cursor.execute(
+                                """
+                                SELECT o.es_correcta
+                                FROM encuesta_respuestas_detalle d
+                                JOIN encuesta_opciones o ON o.id_opcion = d.opcion_id
+                                WHERE d.respuesta_id = %s AND d.pregunta_id = %s
+                                LIMIT 1
+                                """,
+                                (respuesta_id, p_id)
+                            )
+                            row_sel = cursor.fetchone()
+                            es_cor = int(row_sel[0]) if row_sel and row_sel[0] is not None else 0
+                            if es_cor == 1:
+                                correctas += 1
+                        elif p_tipo in ('opcion_multiple','checkbox'):
+                            # Correcta si: seleccionó exactamente todas las opciones correctas y ninguna incorrecta
+                            cursor.execute(
+                                """
+                                SELECT COUNT(*) FROM encuesta_respuestas_detalle
+                                WHERE respuesta_id = %s AND pregunta_id = %s
+                                """,
+                                (respuesta_id, p_id)
+                            )
+                            row_sel_total = cursor.fetchone()
+                            cnt_sel_total = int(row_sel_total[0]) if row_sel_total and row_sel_total[0] is not None else 0
+
+                            cursor.execute(
+                                """
+                                SELECT COUNT(*)
+                                FROM encuesta_respuestas_detalle d
+                                JOIN encuesta_opciones o ON o.id_opcion = d.opcion_id
+                                WHERE d.respuesta_id = %s AND d.pregunta_id = %s AND o.es_correcta = 0
+                                """,
+                                (respuesta_id, p_id)
+                            )
+                            row_sel_incor = cursor.fetchone()
+                            cnt_sel_incor = int(row_sel_incor[0]) if row_sel_incor and row_sel_incor[0] is not None else 0
+
+                            if cnt_sel_incor == 0 and cnt_sel_total == cnt_correct_opts and cnt_sel_total > 0:
+                                correctas += 1
+                        else:
+                            # Tipos no evaluables
+                            pass
+
+                    porcentaje_obtenido = 0.0
+                    if total_evaluable > 0:
+                        porcentaje_obtenido = round((correctas / total_evaluable) * 100.0, 2)
+
+                    aprobo = porcentaje_obtenido >= pct_aprob
+                    intentos_totales = intentos_previos + 1
+
+                    # Devolver resultado y si puede reintentar
+                    resultado_eval = {
+                        'correctas': correctas,
+                        'total_preguntas': total_evaluable,
+                        'porcentaje_obtenido': porcentaje_obtenido,
+                        'porcentaje_aprobacion': pct_aprob,
+                        'aprobado': aprobo,
+                        'intentos_utilizados': intentos_totales,
+                        'maximo_intentos': max_intentos,
+                        'puede_reintentar': (not aprobo) and (intentos_totales < max_intentos),
+                        # compatibilidad con frontend previo
+                        'puntaje_total': porcentaje_obtenido
+                    }
+                except Exception as _e_calc:
+                    logger.warning(f"No se pudo calcular evaluación por correctas: {_e_calc}")
+                    # fallback: sin evaluación
+                    resultado_eval = None
+
+            # Persistir resultado de aprobación si aplica
+            try:
+                if con_puntaje_flag:
+                    aprobado_val = None
+                    porc_val = None
+                    if resultado_eval is not None:
+                        aprobado_val = 1 if (resultado_eval.get('aprobado')) else 0
+                        porc_val = resultado_eval.get('porcentaje_obtenido')
+                    cursor.execute(
+                        """
+                        UPDATE encuesta_respuestas
+                        SET aprobado = %s, porcentaje_obtenido = %s
+                        WHERE id_respuesta = %s
+                        """,
+                        (aprobado_val, porc_val, respuesta_id)
+                    )
+            except Exception as _e_upd:
+                logger.warning(f"No se pudo actualizar aprobado/porcentaje_obtenido en respuesta {respuesta_id}: {_e_upd}")
+
             connection.commit()
             cursor.close()
-            return jsonify({'success': True, 'id_respuesta': respuesta_id})
+            return jsonify({'success': True, 'id_respuesta': respuesta_id, 'evaluacion': resultado_eval})
         except mysql.connector.Error as e:
             logger.error(f"Error guardando respuesta: {e}")
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
