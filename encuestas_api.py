@@ -488,8 +488,8 @@ def registrar_rutas_encuestas(app):
             cur = conn.cursor(dictionary=True)
             cur.execute(
                 """
-                SELECT id_roles, UPPER(COALESCE(cargo, '')) AS cargo, 
-                       COALESCE(super, 0) AS es_supervisor, COALESCE(analista, 0) AS es_analista
+                SELECT id_roles, UPPER(COALESCE(cargo, '')) AS cargo,
+                       COALESCE(analista, 0) AS es_analista
                 FROM recurso_operativo
                 WHERE id_codigo_consumidor = %s
                 """,
@@ -497,27 +497,19 @@ def registrar_rutas_encuestas(app):
             )
             row = cur.fetchone()
             if row:
-                # Técnicos por id_roles == 2 o por rol de sesión
                 rol_sesion = (session.get('user_role') or '').lower()
+                # Técnicos por id_roles == 2 o por rol de sesión
                 if row.get('id_roles') == 2 or rol_sesion == 'tecnicos':
                     auds.add('tecnicos')
-                # Analistas por flag o por cargo
                 cargo = (row.get('cargo') or '').upper()
-                if row.get('es_analista') in (1, True) or 'ANALISTA' in cargo:
+                # Analistas por flag o por cargo
+                if row.get('es_analista') in (1, True) or 'ANALISTA' in cargo or rol_sesion == 'analistas':
                     auds.add('analistas')
-                # Supervisores por flag o por cargo
-                if row.get('es_supervisor') in (1, True) or 'SUPERVIS' in cargo:
+                # Supervisores por cargo o rol líder (id_roles == 7) o rol de sesión
+                if row.get('id_roles') == 7 or 'SUPERVIS' in cargo or rol_sesion == 'lider':
                     auds.add('supervisores')
         except Exception as e:
             logger.warning(f"No se pudo resolver audiencia de usuario {usuario_id}: {e}")
-        # Si no se pudo determinar, intentar inferir del rol de sesión
-        rol_sesion = (session.get('user_role') or '').lower()
-        if rol_sesion == 'tecnicos':
-            auds.add('tecnicos')
-        if rol_sesion == 'analistas':
-            auds.add('analistas')
-        if rol_sesion == 'lider':
-            auds.add('supervisores')
         return list(auds) or []
 
     @app.route('/api/encuestas/activas/para-mi', methods=['GET'])
@@ -551,9 +543,22 @@ def registrar_rutas_encuestas(app):
                        DATE_FORMAT(fecha_fin, %s) AS fecha_fin
                 FROM encuestas
                 WHERE estado = 'activa'
-                  AND (fecha_inicio IS NULL OR fecha_inicio <= NOW())
-                  AND (fecha_fin IS NULL OR fecha_fin >= NOW())
-                  AND dirigida_a IN ({placeholders})
+                  AND (
+                       fecha_inicio IS NULL
+                       OR fecha_inicio <= NOW()
+                       OR DATE(fecha_inicio) <= CURDATE()
+                  )
+                  AND (
+                       fecha_fin IS NULL
+                       OR fecha_fin >= NOW()
+                       OR DATE(fecha_fin) >= CURDATE()
+                  )
+                  AND LOWER(CASE
+                        WHEN LOWER(dirigida_a) IN ('supervisor','supervisores') THEN 'supervisores'
+                        WHEN LOWER(dirigida_a) IN ('analista','analistas') THEN 'analistas'
+                        WHEN LOWER(dirigida_a) IN ('tecnico','tecnicos') THEN 'tecnicos'
+                        ELSE LOWER(dirigida_a)
+                  END) IN ({placeholders})
                   AND (
                         (COALESCE(tipo_encuesta, 'encuesta') = 'votacion' AND NOT EXISTS (
                             SELECT 1 FROM votos v
