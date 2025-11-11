@@ -54,6 +54,14 @@
     label.textContent = p.texto + (p.requerida ? ' *' : '');
     wrap.appendChild(label);
 
+    // Imagen de referencia si existe
+    if (p.imagen_referencia_url) {
+      const ref = document.createElement('div');
+      ref.className = 'mt-2';
+      ref.innerHTML = `<img src="${p.imagen_referencia_url}" alt="Imagen de referencia" style="max-height:140px; border:1px solid #ddd; border-radius:6px;"/>`;
+      wrap.appendChild(ref);
+    }
+
     let input;
     switch (p.tipo) {
       case 'texto':

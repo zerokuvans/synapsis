@@ -127,6 +127,7 @@ def ensure_encuestas_tables():
                 requerida TINYINT(1) DEFAULT 0,
                 orden INT DEFAULT 0,
                 config_json JSON NULL,
+                imagen_referencia_url VARCHAR(500) NULL,
                 FOREIGN KEY (encuesta_id) REFERENCES encuestas(id_encuesta) ON DELETE CASCADE,
                 FOREIGN KEY (seccion_id) REFERENCES encuesta_secciones(id_seccion) ON DELETE SET NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -165,8 +166,11 @@ def ensure_encuestas_tables():
             if not column_exists("encuesta_preguntas", "seccion_id"):
                 cursor.execute("ALTER TABLE encuesta_preguntas ADD COLUMN seccion_id INT NULL")
                 cursor.execute("ALTER TABLE encuesta_preguntas ADD CONSTRAINT fk_pregunta_seccion FOREIGN KEY (seccion_id) REFERENCES encuesta_secciones(id_seccion) ON DELETE SET NULL")
+            # Asegurar columna imagen_referencia_url en instalaciones existentes
+            if not column_exists("encuesta_preguntas", "imagen_referencia_url"):
+                cursor.execute("ALTER TABLE encuesta_preguntas ADD COLUMN imagen_referencia_url VARCHAR(500) NULL")
         except mysql.connector.Error as e:
-            logger.warning(f"No se pudo agregar columna seccion_id a encuesta_preguntas: {e}")
+            logger.warning(f"No se pudo agregar columnas a encuesta_preguntas: {e}")
 
         # Tabla respuestas (cabecera)
         cursor.execute(
@@ -246,6 +250,32 @@ def registrar_rutas_encuestas(app):
             pass
         return bool(session.get('user_id') or session.get('id_codigo_consumidor'))
 
+    def _get_usuario_id():
+        """Obtiene el ID de usuario desde Flask-Login o desde la sesión.
+        Retorna None si no hay usuario autenticado.
+        """
+        # Intentar con Flask-Login
+        try:
+            from flask_login import current_user  # type: ignore
+            if getattr(current_user, 'is_authenticated', False):
+                # Soporta atributos comunes: id, get_id()
+                if hasattr(current_user, 'get_id'):
+                    try:
+                        return str(current_user.get_id())
+                    except Exception:
+                        pass
+                if hasattr(current_user, 'id'):
+                    try:
+                        return str(current_user.id)
+                    except Exception:
+                        pass
+        except Exception:
+            # Ignorar si Flask-Login no está disponible
+            pass
+        # Fallback a claves en sesión
+        uid = session.get('user_id') or session.get('id_codigo_consumidor')
+        return str(uid) if uid is not None else None
+
     @app.route('/lider/encuestas')
     def encuestas_page():
         try:
@@ -285,8 +315,8 @@ def registrar_rutas_encuestas(app):
 
         try:
             cursor = connection.cursor(dictionary=True)
-            user_id = session.get('user_id') or session.get('id_codigo_consumidor')
-            logger.info(f"[encuestas] listar_encuestas session.user_id={user_id} (alt id_codigo_consumidor)")
+            user_id = _get_usuario_id()
+            logger.info(f"[encuestas] listar_encuestas user_id={user_id} (Flask-Login o sesión)")
             if not user_id:
                 # Si no hay usuario en sesión, devolver no autorizado para API
                 return jsonify({'success': False, 'message': 'No autorizado'}), 401
@@ -370,8 +400,8 @@ def registrar_rutas_encuestas(app):
                 audiencia_tecnicos = None
         else:
             audiencia_tecnicos = None
-        user_id = session.get('user_id') or session.get('id_codigo_consumidor')
-        logger.info(f"[encuestas] crear_encuesta session.user_id={user_id} (alt id_codigo_consumidor) payload.titulo={titulo}")
+        user_id = _get_usuario_id()
+        logger.info(f"[encuestas] crear_encuesta user_id={user_id} (Flask-Login o sesión) payload.titulo={titulo}")
 
         if not titulo:
             return jsonify({'success': False, 'message': 'El título es obligatorio'}), 400
@@ -1017,7 +1047,16 @@ def registrar_rutas_encuestas(app):
 
     @app.route('/api/encuestas/<int:encuesta_id>/preguntas', methods=['POST'])
     def crear_pregunta(encuesta_id):
-        data = request.get_json(silent=True) or {}
+        # Soportar JSON y multipart con 'payload' + archivo 'imagen_referencia'
+        data = request.get_json(silent=True)
+        if not data:
+            try:
+                payload_str = request.form.get('payload')
+                data = json.loads(payload_str) if payload_str else {}
+            except Exception:
+                data = {}
+        data = data or {}
+
         tipo = data.get('tipo')
         texto = data.get('texto')
         ayuda = data.get('ayuda')
@@ -1025,6 +1064,8 @@ def registrar_rutas_encuestas(app):
         orden = data.get('orden', 0)
         config = data.get('config')
         opciones = data.get('opciones', [])
+        seccion_id = data.get('seccion_id') if data.get('seccion_id') not in (None, '', 'null') else None
+        imagen_referencia_url = data.get('imagen_referencia_url')
 
         if not tipo or not texto:
             return jsonify({'success': False, 'message': 'Tipo y texto son obligatorios'}), 400
@@ -1036,13 +1077,32 @@ def registrar_rutas_encuestas(app):
         try:
             cursor = connection.cursor()
 
+            # Guardar imagen de referencia si viene adjunta
+            try:
+                f = request.files.get('imagen_referencia')
+            except Exception:
+                f = None
+            if f and getattr(f, 'filename', ''):
+                try:
+                    base_dir = os.path.join('static', 'uploads', 'encuestas', str(encuesta_id), 'preguntas')
+                    os.makedirs(base_dir, exist_ok=True)
+                    filename = secure_filename(getattr(f, 'filename', '') or 'imagen')
+                    name, ext = os.path.splitext(filename)
+                    timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+                    final_name = f"preg_{encuesta_id}_{timestamp}{ext or '.bin'}"
+                    path = os.path.join(base_dir, final_name)
+                    f.save(path)
+                    imagen_referencia_url = '/' + path.replace('\\', '/')
+                except Exception as e:
+                    logger.warning(f"No se pudo guardar imagen de referencia: {e}")
+
             config_json = json.dumps(config, ensure_ascii=False) if config else None
             cursor.execute(
                 """
-                INSERT INTO encuesta_preguntas (encuesta_id, tipo, texto, ayuda, requerida, orden, config_json)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO encuesta_preguntas (encuesta_id, seccion_id, tipo, texto, ayuda, requerida, orden, config_json, imagen_referencia_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (encuesta_id, tipo, texto, ayuda, requerida, orden, config_json)
+                (encuesta_id, seccion_id, tipo, texto, ayuda, requerida, orden, config_json, imagen_referencia_url)
             )
             pregunta_id = cursor.lastrowid
 
@@ -1135,13 +1195,23 @@ def registrar_rutas_encuestas(app):
 
     @app.route('/api/encuestas/<int:encuesta_id>/preguntas/<int:pregunta_id>', methods=['PATCH'])
     def actualizar_pregunta(encuesta_id, pregunta_id):
-        data = request.get_json(silent=True) or {}
+        # Soportar JSON y multipart con 'payload' + archivo 'imagen_referencia'
+        data = request.get_json(silent=True)
+        if not data:
+            try:
+                payload_str = request.form.get('payload')
+                data = json.loads(payload_str) if payload_str else {}
+            except Exception:
+                data = {}
+        data = data or {}
+
         tipo = data.get('tipo')
         texto = data.get('texto')
         ayuda = data.get('ayuda')
         requerida = data.get('requerida')
         opciones = data.get('opciones')
         seccion_id = data.get('seccion_id')
+        imagen_referencia_url = data.get('imagen_referencia_url')
 
         connection = get_db_connection()
         if not connection:
@@ -1166,6 +1236,31 @@ def registrar_rutas_encuestas(app):
             if seccion_id is not None:
                 sets.append('seccion_id = %s')
                 vals.append(seccion_id if seccion_id != 'null' else None)
+            # Manejo de imagen de referencia
+            try:
+                f = request.files.get('imagen_referencia')
+            except Exception:
+                f = None
+            if f and getattr(f, 'filename', ''):
+                try:
+                    base_dir = os.path.join('static', 'uploads', 'encuestas', str(encuesta_id), 'preguntas')
+                    os.makedirs(base_dir, exist_ok=True)
+                    filename = secure_filename(getattr(f, 'filename', '') or 'imagen')
+                    name, ext = os.path.splitext(filename)
+                    timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+                    final_name = f"preg_{encuesta_id}_{pregunta_id}_{timestamp}{ext or '.bin'}"
+                    path = os.path.join(base_dir, final_name)
+                    f.save(path)
+                    imagen_referencia_url = '/' + path.replace('\\', '/')
+                    sets.append('imagen_referencia_url = %s')
+                    vals.append(imagen_referencia_url)
+                except Exception as e:
+                    logger.warning(f"No se pudo guardar imagen de referencia (update): {e}")
+
+            if imagen_referencia_url is not None and not (f and getattr(f, 'filename', '')):
+                sets.append('imagen_referencia_url = %s')
+                vals.append(imagen_referencia_url if imagen_referencia_url != 'null' else None)
+
             if sets:
                 sql = f"UPDATE encuesta_preguntas SET {', '.join(sets)} WHERE id_pregunta = %s AND encuesta_id = %s"
                 vals.extend([pregunta_id, encuesta_id])
@@ -2104,6 +2199,7 @@ def registrar_rutas_encuestas(app):
                     p.id_pregunta,
                     p.texto AS texto_pregunta,
                     p.tipo AS tipo_pregunta,
+                    p.imagen_referencia_url,
                     d.valor_texto,
                     d.valor_numero,
                     d.archivo_url,
@@ -2132,6 +2228,7 @@ def registrar_rutas_encuestas(app):
                     'pregunta_id': respuesta['id_pregunta'],
                     'texto_pregunta': respuesta['texto_pregunta'],
                     'tipo_pregunta': respuesta['tipo_pregunta'],
+                    'imagen_referencia_url': respuesta.get('imagen_referencia_url'),
                     'respuesta': None,
                     'puntaje': None
                 }

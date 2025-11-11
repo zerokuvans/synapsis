@@ -430,24 +430,25 @@
                 // Helper para renderizar una pregunta
                 const renderPreguntaHTML = (p)=>{
                     const req = p.obligatoria ? '<span class="text-danger">*</span>' : '';
+                    const imgRef = p.imagen_referencia_url ? `<div class="mt-2"><img src="${p.imagen_referencia_url}" alt="Imagen de referencia" style="max-height:140px; border:1px solid #ddd; border-radius:6px;"/></div>` : '';
                     if (p.tipo === 'parrafo'){
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><textarea class="form-control" data-pid="${p.id_pregunta}"></textarea></div>`;
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${imgRef}<textarea class="form-control" data-pid="${p.id_pregunta}"></textarea></div>`;
                     } else if (p.tipo === 'texto'){
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="text" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${imgRef}<input type="text" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
                     } else if (p.tipo === 'numero'){
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="number" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${imgRef}<input type="number" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
                     } else if (p.tipo === 'fecha'){
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="date" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${imgRef}<input type="date" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
                     } else if (p.tipo === 'hora'){
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="time" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${imgRef}<input type="time" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
                     } else if (p.tipo === 'opcion_unica'){
                         const opts = (p.opciones||[]).map(o=>`<div class="form-check"><input class="form-check-input" type="radio" name="p-${p.id_pregunta}" value="${o.id_opcion}" data-pid="${p.id_pregunta}"><label class="form-check-label">${o.texto}</label></div>`).join('');
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${opts}</div>`;
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${imgRef}${opts}</div>`;
                     } else if (p.tipo === 'opcion_multiple'){
                         const opts = (p.opciones||[]).map(o=>`<div class="form-check"><input class="form-check-input" type="checkbox" value="${o.id_opcion}" data-pid="${p.id_pregunta}"><label class="form-check-label">${o.texto}</label></div>`).join('');
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${opts}</div>`;
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${imgRef}${opts}</div>`;
                     } else if (p.tipo === 'imagen'){
-                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label><input type="file" accept="image/*" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
+                        return `<div class="mb-3"><label class="form-label">${p.titulo} ${req}</label>${imgRef}<input type="file" accept="image/*" class="form-control" data-pid="${p.id_pregunta}" /></div>`;
                     }
                     return '';
                 };

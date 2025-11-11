@@ -247,6 +247,7 @@
           <div class="list-group-item">
             <div class="fw-semibold">${resp.texto_pregunta || 'Pregunta'}</div>
             <div class="text-muted small mb-2">Tipo: ${resp.tipo_pregunta || '—'}</div>
+            ${resp.imagen_referencia_url ? `<div class="mb-2"><div class="text-muted small">Imagen de referencia</div><img src="${resp.imagen_referencia_url}" alt="Imagen de referencia" style="max-height:140px; border:1px solid #ddd; border-radius:6px;"></div>` : ''}
             <div class="fw-light">`;
             
         if (resp.tipo_pregunta === 'opcion_multiple' || resp.tipo_pregunta === 'seleccion_unica' || resp.tipo_pregunta === 'seleccion_multiple') {
@@ -257,7 +258,7 @@
             html += ` <span class="badge bg-success ms-2"><i class="fas fa-star me-1"></i>${resp.puntaje} pts</span>`;
           }
         } else if (resp.tipo_pregunta === 'imagen' && resp.respuesta) {
-          html += `<img src="${resp.respuesta}" style="max-width: 200px; max-height: 200px;" class="img-thumbnail">`;
+          html += `<div class="mt-1"><div class="text-muted small">Foto tomada</div><img src="${resp.respuesta}" style="max-width: 200px; max-height: 200px;" class="img-thumbnail"></div>`;
         } else {
           html += `${resp.respuesta || 'Sin respuesta'}`;
         }
