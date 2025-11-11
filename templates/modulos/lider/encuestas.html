@@ -181,6 +181,14 @@
           </div>
         </div>
 
+        <div id="preg-imagen-ref-wrap" class="mt-2" style="display:none;">
+          <label class="form-label">Imagen de referencia (opcional)</label>
+          <input id="preg-imagen-ref" type="file" accept="image/*" class="form-control" />
+          <div id="preg-imagen-ref-preview" class="mt-2" style="display:none;">
+            <img id="preg-imagen-ref-img" src="" alt="Preview" style="max-height:120px; border:1px solid #ddd; border-radius:6px;" />
+          </div>
+        </div>
+
         <div id="preg-opciones-container" class="mt-2" style="display:none;">
           <label class="form-label">Opciones</label>
           <div class="row g-2 mb-2">
@@ -362,6 +370,13 @@
               <option value="">-- Sin sección --</option>
             </select>
           </div>
+          <div id="edit-preg-imagen-ref-wrap" class="mb-2" style="display:none;">
+            <label class="form-label">Imagen de referencia (opcional)</label>
+            <input id="edit-preg-imagen-ref" type="file" accept="image/*" class="form-control" />
+            <div id="edit-preg-imagen-ref-preview" class="mt-2" style="display:none;">
+              <img id="edit-preg-imagen-ref-img" src="" alt="Preview" style="max-height:120px; border:1px solid #ddd; border-radius:6px;" />
+            </div>
+          </div>
           <div id="edit-preg-opciones-container" style="display:none;">
             <label class="form-label">Opciones</label>
             <div id="edit-preg-opciones-lista" class="mb-2"></div>
@@ -477,6 +492,14 @@
   const pregSeccion = document.getElementById('preg-seccion');
   const pregReq = document.getElementById('preg-requerida');
   const pregOpcContainer = document.getElementById('preg-opciones-container');
+  const pregImgRefWrap = document.getElementById('preg-imagen-ref-wrap');
+  const pregImgRefInput = document.getElementById('preg-imagen-ref');
+  const pregImgRefPreview = document.getElementById('preg-imagen-ref-preview');
+  const pregImgRefImg = document.getElementById('preg-imagen-ref-img');
+  const editImgRefWrap = document.getElementById('edit-preg-imagen-ref-wrap');
+  const editImgRefInput = document.getElementById('edit-preg-imagen-ref');
+  const editImgRefPreview = document.getElementById('edit-preg-imagen-ref-preview');
+  const editImgRefImg = document.getElementById('edit-preg-imagen-ref-img');
   const nuevoTextoOpcion = document.getElementById('nuevo-texto-opcion');
   const nuevoPuntaje = document.getElementById('nuevo-puntaje');
   const btnAgregarOpcion = document.getElementById('btn-agregar-opcion');
@@ -530,7 +553,39 @@
   pregTipo.addEventListener('change', () => {
     const tiposConOpciones = new Set(['seleccion_unica','opcion_multiple','checkbox','dropdown']);
     pregOpcContainer.style.display = tiposConOpciones.has(pregTipo.value) ? '' : 'none';
+    // Mostrar input de imagen de referencia para cualquier tipo (opcional) o solo para tipos relevantes
+    pregImgRefWrap.style.display = '';
   });
+
+  // Preview al seleccionar archivo
+  if (pregImgRefInput) {
+    pregImgRefInput.addEventListener('change', () => {
+      const f = pregImgRefInput.files && pregImgRefInput.files[0];
+      if (f) {
+        const url = URL.createObjectURL(f);
+        pregImgRefImg.src = url;
+        pregImgRefPreview.style.display = '';
+      } else {
+        pregImgRefPreview.style.display = 'none';
+        pregImgRefImg.src = '';
+      }
+    });
+  }
+
+  // Preview en modal de edición al seleccionar archivo
+  if (editImgRefInput) {
+    editImgRefInput.addEventListener('change', () => {
+      const f = editImgRefInput.files && editImgRefInput.files[0];
+      if (f) {
+        const url = URL.createObjectURL(f);
+        editImgRefImg.src = url;
+        editImgRefPreview.style.display = '';
+      } else {
+        editImgRefPreview.style.display = 'none';
+        editImgRefImg.src = '';
+      }
+    });
+  }
 
   async function cargarCarpetas() {
     if (cacheCarpetas) return cacheCarpetas;
@@ -901,7 +956,8 @@
     const div = document.createElement('div');
     div.className = 'question-item mb-3';
     const opts = (p.opciones || []).map(o => `<span class="option-pill">${o.texto}</span>`).join('');
-    div.innerHTML = `<div class="fw-semibold">${p.texto}</div>` +
+    const imgRefHtml = p.imagen_referencia_url ? `<div class="mt-2"><img src="${p.imagen_referencia_url}" alt="Imagen de referencia" style="max-height:120px; border:1px solid #ddd; border-radius:6px;"/></div>` : '';
+    div.innerHTML = `<div class="fw-semibold">${p.texto}</div>` + imgRefHtml +
                     `<div class="text-muted small">Tipo: ${p.tipo} ${p.requerida ? '• Requerida' : ''} • Orden: ${p.orden ?? 0}</div>` +
                     `<div class="mt-2">${opts}</div>` +
                     `<div class="mt-2 d-flex gap-2">
@@ -1327,13 +1383,23 @@
         <div class="card-body py-2">
           <div class="d-flex justify-content-between align-items-center">
             <span>${cardText}</span>
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarEditOpcion(${idx})">
+            <button type="button" class="btn btn-sm btn-outline-danger btn-eliminar-opcion-edit" data-index="${idx}">
               <i class="fas fa-trash"></i>
             </button>
           </div>
         </div>
       `;
       editPregOpcionesLista.appendChild(card);
+    });
+  }
+
+  // Delegar evento de eliminación para opciones en edición (evita depender de scope global)
+  if (editPregOpcionesLista) {
+    editPregOpcionesLista.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-eliminar-opcion-edit');
+      if (!btn) return;
+      const idx = parseInt(btn.getAttribute('data-index'), 10);
+      if (!Number.isNaN(idx)) eliminarEditOpcion(idx);
     });
   }
 
@@ -1381,6 +1447,15 @@
     editPregTexto.value = p.texto || '';
     editPregTipo.value = p.tipo || 'texto';
     editPregReq.checked = !!p.requerida;
+    // Mostrar y cargar preview si hay imagen de referencia
+    if (editImgRefWrap) editImgRefWrap.style.display = '';
+    if (p.imagen_referencia_url && editImgRefImg && editImgRefPreview) {
+      editImgRefImg.src = p.imagen_referencia_url;
+      editImgRefPreview.style.display = '';
+    } else if (editImgRefPreview && editImgRefImg) {
+      editImgRefImg.src = '';
+      editImgRefPreview.style.display = 'none';
+    }
     
     // Cargar secciones disponibles
     editPregSeccion.innerHTML = '<option value="">-- Sin sección --</option>';
@@ -1429,7 +1504,17 @@
     if (tiposConOpciones.has(payload.tipo)) {
       payload.opciones = editOpciones;
     }
-    const res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}/preguntas/${editPreguntaActual.id_pregunta}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    // Enviar como multipart si hay nueva imagen
+    const file = editImgRefInput && editImgRefInput.files && editImgRefInput.files[0] ? editImgRefInput.files[0] : null;
+    let res;
+    if (file) {
+      const fd = new FormData();
+      fd.append('payload', JSON.stringify(payload));
+      fd.append('imagen_referencia', file);
+      res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}/preguntas/${editPreguntaActual.id_pregunta}`, { method: 'PATCH', body: fd });
+    } else {
+      res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}/preguntas/${editPreguntaActual.id_pregunta}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    }
     const data = await res.json();
     if (data.success) {
       showToast('Guardado', 'Pregunta actualizada');
@@ -1550,14 +1635,25 @@
       texto: pregTexto.value.trim(),
       requerida: pregReq.checked,
       opciones: opciones,
-      seccion_id: pregSeccion.value || null // Usar la sección seleccionada
+      seccion_id: pregSeccion.value || null
     };
     if (!payload.texto) { showToast('Falta texto', 'Ingresa el texto de la pregunta', 'warning'); return; }
-    const res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}/preguntas`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    // Enviar como multipart si hay imagen de referencia
+    const imgFile = pregImgRefInput && pregImgRefInput.files && pregImgRefInput.files[0] ? pregImgRefInput.files[0] : null;
+    let res;
+    if (imgFile) {
+      const fd = new FormData();
+      fd.append('payload', JSON.stringify(payload));
+      fd.append('imagen_referencia', imgFile);
+      res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}/preguntas`, { method: 'POST', body: fd });
+    } else {
+      res = await fetch(`/api/encuestas/${encuestaSeleccionada.id_encuesta}/preguntas`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    }
     const data = await res.json();
     if (data.success) {
       showToast('Pregunta guardada', 'ID ' + data.id_pregunta);
       pregTexto.value=''; pregReq.checked=false; opciones=[]; renderOpciones();
+      if (pregImgRefInput) { pregImgRefInput.value=''; pregImgRefPreview.style.display='none'; pregImgRefImg.src=''; }
       // Recargar la encuesta para actualizar la vista y mostrar la pregunta en la sección correcta
       await seleccionarEncuesta(encuestaSeleccionada.id_encuesta);
     } else {
