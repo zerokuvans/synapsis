@@ -124,7 +124,33 @@
             <input class="form-check-input" type="checkbox" id="enc-con-puntaje">
             <label class="form-check-label" for="enc-con-puntaje">Habilitar puntuación</label>
           </div>
-          <div class="form-text">Permite asignar puntajes a las opciones de respuesta y calcular puntajes totales</div>
+          <div class="form-text">El % de aprobación se calcula por respuestas correctas.</div>
+          <div id="enc-puntaje-config" class="row g-2 mt-2" style="display:none;">
+            <div class="col-md-6">
+              <label class="form-label">Porcentaje de aprobación</label>
+              <input id="enc-porcentaje-aprobacion" type="number" class="form-control" min="0" max="100" step="1" placeholder="Ej: 90" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Máximo de intentos</label>
+              <input id="enc-maximo-intentos" type="number" class="form-control" min="1" step="1" placeholder="Ej: 2" />
+            </div>
+          </div>
+        </div>
+        <!-- Múltiples respuestas -->
+        <div class="row g-3 mb-2 align-items-end">
+          <div class="col-md-6 d-flex align-items-center gap-2">
+            <input class="form-check-input" type="checkbox" id="enc-permitir-multiples-respuestas">
+            <label class="form-check-label" for="enc-permitir-multiples-respuestas">Permitir múltiples respuestas</label>
+          </div>
+          <div class="col-md-6" id="enc-modo-multiples-wrap" style="display:none;">
+            <label class="form-label">Modo de múltiples respuestas</label>
+            <select id="enc-modo-multiples-respuestas" class="form-select">
+              <option value="por_mes">Una por mes</option>
+              <option value="por_periodo">Una por período</option>
+              <option value="libre">Sin restricción</option>
+              <option value="unica">Solo una vez</option>
+            </select>
+          </div>
         </div>
         <button id="btn-crear-encuesta" class="btn btn-primary w-100">
           <i class="fas fa-plus me-1"></i>Crear encuesta
@@ -385,7 +411,31 @@
               <input class="form-check-input" type="checkbox" id="edit-enc-con-puntaje">
               <label class="form-check-label" for="edit-enc-con-puntaje">Habilitar puntuación</label>
             </div>
-            <div class="form-text">Permite asignar puntajes a las opciones de respuesta y calcular puntajes totales</div>
+            <div class="form-text">El % de aprobación se calcula por respuestas correctas.</div>
+            <div id="edit-enc-puntaje-config" class="row g-2 mt-2" style="display:none;">
+              <div class="col-md-6">
+                <label class="form-label">Porcentaje de aprobación</label>
+                <input id="edit-enc-porcentaje-aprobacion" type="number" class="form-control" min="0" max="100" step="1" placeholder="Ej: 90" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Máximo de intentos</label>
+                <input id="edit-enc-maximo-intentos" type="number" class="form-control" min="1" step="1" placeholder="Ej: 2" />
+              </div>
+            </div>
+          </div>
+          <!-- Múltiples respuestas (edición) -->
+          <div class="col-md-4 d-flex align-items-center gap-2">
+            <input class="form-check-input" type="checkbox" id="edit-enc-permitir-multiples-respuestas">
+            <label class="form-check-label" for="edit-enc-permitir-multiples-respuestas">Permitir múltiples respuestas</label>
+          </div>
+          <div class="col-md-8" id="edit-enc-modo-multiples-wrap" style="display:none;">
+            <label class="form-label">Modo de múltiples respuestas</label>
+            <select id="edit-enc-modo-multiples-respuestas" class="form-select">
+              <option value="por_mes">Una por mes</option>
+              <option value="por_periodo">Una por período</option>
+              <option value="libre">Sin restricción</option>
+              <option value="unica">Solo una vez</option>
+            </select>
           </div>
           <div class="col-12" id="edit-enc-supervisores-container" style="display:none;">
             <label class="form-label">Supervisores (filtra técnicos)</label>
@@ -565,6 +615,12 @@
   const fechaInicio = document.getElementById('enc-fecha-inicio');
   const fechaFin = document.getElementById('enc-fecha-fin');
   const conPuntaje = document.getElementById('enc-con-puntaje');
+  const puntajeConfig = document.getElementById('enc-puntaje-config');
+  const porcentajeAprobacionInput = document.getElementById('enc-porcentaje-aprobacion');
+  const maximoIntentosInput = document.getElementById('enc-maximo-intentos');
+  const permitirMultiples = document.getElementById('enc-permitir-multiples-respuestas');
+  const modoMultiples = document.getElementById('enc-modo-multiples-respuestas');
+  const modoMultiplesWrap = document.getElementById('enc-modo-multiples-wrap');
   const supervisoresContainer = document.getElementById('enc-supervisores-container');
   const supervisoresSelect = document.getElementById('enc-supervisores');
   const supervisoresBuscar = document.getElementById('enc-supervisores-buscar');
@@ -643,6 +699,38 @@
     } else {
       alert(title + ' - ' + text);
     }
+  }
+
+  // Mostrar/ocultar modo según el checkbox de múltiples respuestas (creación)
+  if (permitirMultiples) {
+    const updateModoMultiples = () => {
+      if (modoMultiplesWrap) modoMultiplesWrap.style.display = permitirMultiples.checked ? '' : 'none';
+      // Si no permite múltiples, forzar modo 'unica' en payload luego
+    };
+    permitirMultiples.addEventListener('change', updateModoMultiples);
+    updateModoMultiples();
+  }
+
+  // Mostrar/ocultar configuración de puntaje (creación)
+  if (conPuntaje) {
+    const updatePuntajeConfig = () => {
+      if (puntajeConfig) puntajeConfig.style.display = conPuntaje.checked ? '' : 'none';
+      if (conPuntaje.checked) {
+        if (porcentajeAprobacionInput && !porcentajeAprobacionInput.value) porcentajeAprobacionInput.value = '90';
+        if (maximoIntentosInput) {
+          const esUnica = ((modoMultiples && modoMultiples.value === 'unica') || (permitirMultiples && !permitirMultiples.checked));
+          if (esUnica) {
+            maximoIntentosInput.value = '1';
+            maximoIntentosInput.setAttribute('disabled','disabled');
+          } else {
+            maximoIntentosInput.removeAttribute('disabled');
+            if (!maximoIntentosInput.value) maximoIntentosInput.value = '2';
+          }
+        }
+      }
+    };
+    conPuntaje.addEventListener('change', updatePuntajeConfig);
+    updatePuntajeConfig();
   }
 
   function renderOpciones() {
@@ -1185,6 +1273,9 @@
   const editFechaInicio = document.getElementById('edit-enc-fecha-inicio');
   const editFechaFin = document.getElementById('edit-enc-fecha-fin');
   const editEncConPuntaje = document.getElementById('edit-enc-con-puntaje');
+  const editPermitirMultiples = document.getElementById('edit-enc-permitir-multiples-respuestas');
+  const editModoMultiples = document.getElementById('edit-enc-modo-multiples-respuestas');
+  const editModoMultiplesWrap = document.getElementById('edit-enc-modo-multiples-wrap');
   const editSupervisoresContainer = document.getElementById('edit-enc-supervisores-container');
   const editSupervisoresSelect = document.getElementById('edit-enc-supervisores');
   const editSupervisoresBuscar = document.getElementById('edit-enc-supervisores-buscar');
@@ -1349,7 +1440,35 @@
     // fechas
     editFechaInicio.value = toInputDateTime(encuestaSeleccionada.fecha_inicio);
     editFechaFin.value = toInputDateTime(encuestaSeleccionada.fecha_fin);
-    if (editEncConPuntaje) editEncConPuntaje.checked = !!encuestaSeleccionada.con_puntaje;
+    if (editEncConPuntaje) {
+      const conPuntajeActual = !!(encuestaSeleccionada.con_puntaje === 1 || encuestaSeleccionada.con_puntaje === true);
+      editEncConPuntaje.checked = conPuntajeActual;
+      const editPuntajeConfig = document.getElementById('edit-enc-puntaje-config');
+      const editPorcentajeAprobacionInput = document.getElementById('edit-enc-porcentaje-aprobacion');
+      const editMaximoIntentosInput = document.getElementById('edit-enc-maximo-intentos');
+      if (editPuntajeConfig) editPuntajeConfig.style.display = conPuntajeActual ? '' : 'none';
+      if (conPuntajeActual) {
+        if (editPorcentajeAprobacionInput) {
+          const pa = encuestaSeleccionada.porcentaje_aprobacion;
+          editPorcentajeAprobacionInput.value = (typeof pa === 'number' ? Math.round(pa) : (pa || '90'));
+        }
+        if (editMaximoIntentosInput) {
+          const mi = encuestaSeleccionada.maximo_intentos;
+          editMaximoIntentosInput.value = (typeof mi === 'number' ? mi : (mi || '2'));
+        }
+      }
+    }
+
+    // Múltiples respuestas
+    if (editPermitirMultiples) {
+      const permitir = !!(encuestaSeleccionada.permitir_multiples_respuestas === 1 || encuestaSeleccionada.permitir_multiples_respuestas === true);
+      editPermitirMultiples.checked = permitir;
+      if (editModoMultiples) {
+        const modo = encuestaSeleccionada.modo_multiples_respuestas || 'por_mes';
+        editModoMultiples.value = modo;
+      }
+      if (editModoMultiplesWrap) editModoMultiplesWrap.style.display = permitir ? '' : 'none';
+    }
 
     const setCarpetas = async () => {
       await cargarCarpetas();
@@ -1418,6 +1537,26 @@
       fecha_fin: editFechaFin.value || null,
       con_puntaje: !!(editEncConPuntaje && editEncConPuntaje.checked)
     };
+    // Configuración de puntaje (edición)
+    const editPorcentajeAprobacionInput = document.getElementById('edit-enc-porcentaje-aprobacion');
+    const editMaximoIntentosInput = document.getElementById('edit-enc-maximo-intentos');
+    if (editEncConPuntaje && editEncConPuntaje.checked) {
+      if (editPorcentajeAprobacionInput && editPorcentajeAprobacionInput.value !== '') {
+        const v = Math.max(0, Math.min(100, parseFloat(editPorcentajeAprobacionInput.value)));
+        payload.porcentaje_aprobacion = isNaN(v) ? 90 : v;
+      }
+      if (editMaximoIntentosInput && editMaximoIntentosInput.value !== '') {
+        const mi = Math.max(1, parseInt(editMaximoIntentosInput.value, 10));
+        payload.maximo_intentos = isNaN(mi) ? 2 : mi;
+      }
+    }
+    // Campos de múltiples respuestas (edición)
+    if (editPermitirMultiples) {
+      payload.permitir_multiples_respuestas = !!editPermitirMultiples.checked;
+      payload.modo_multiples_respuestas = (!!editPermitirMultiples.checked)
+        ? (editModoMultiples ? editModoMultiples.value : 'por_mes')
+        : 'unica';
+    }
     if (!payload.titulo) { showToast('Falta título', 'Ingresa un título', 'warning'); return; }
     if (payload.dirigida_a === 'tecnicos') {
       const supSeleccionados = Array.from(editSupervisoresSelect.selectedOptions).map(o => o.value).filter(Boolean);
@@ -1451,6 +1590,27 @@
     editTipoEncuestaSel.addEventListener('change', () => {
       const esVotacion = editTipoEncuestaSel.value === 'votacion';
       if (editMostrarResultadosWrap) editMostrarResultadosWrap.style.display = esVotacion ? '' : 'none';
+    });
+  }
+  // Mostrar/ocultar modo según el checkbox de múltiples respuestas (edición)
+  if (editPermitirMultiples) {
+    const updateModoMultiplesEdit = () => {
+      if (editModoMultiplesWrap) editModoMultiplesWrap.style.display = editPermitirMultiples.checked ? '' : 'none';
+    };
+    editPermitirMultiples.addEventListener('change', updateModoMultiplesEdit);
+  }
+
+  // Toggle config puntaje en edición
+  if (editEncConPuntaje) {
+    editEncConPuntaje.addEventListener('change', () => {
+      const editPuntajeConfig = document.getElementById('edit-enc-puntaje-config');
+      const editPorcentajeAprobacionInput = document.getElementById('edit-enc-porcentaje-aprobacion');
+      const editMaximoIntentosInput = document.getElementById('edit-enc-maximo-intentos');
+      if (editPuntajeConfig) editPuntajeConfig.style.display = editEncConPuntaje.checked ? '' : 'none';
+      if (editEncConPuntaje.checked) {
+        if (editPorcentajeAprobacionInput && !editPorcentajeAprobacionInput.value) editPorcentajeAprobacionInput.value = '90';
+        if (editMaximoIntentosInput && !editMaximoIntentosInput.value) editMaximoIntentosInput.value = '2';
+      }
     });
   }
   if (btnEditarEncuesta) btnEditarEncuesta.addEventListener('click', abrirModalEditarEncuesta);
@@ -1841,6 +2001,26 @@
       fecha_fin: (fechaFin && fechaFin.value) ? fechaFin.value : null,
       con_puntaje: conPuntaje.checked
     };
+    // Configuración de puntaje (creación)
+    const porcentajeAprobacionInput = document.getElementById('enc-porcentaje-aprobacion');
+    const maximoIntentosInput = document.getElementById('enc-maximo-intentos');
+    if (conPuntaje && conPuntaje.checked) {
+      if (porcentajeAprobacionInput && porcentajeAprobacionInput.value !== '') {
+        const v = Math.max(0, Math.min(100, parseFloat(porcentajeAprobacionInput.value)));
+        payload.porcentaje_aprobacion = isNaN(v) ? 90 : v;
+      }
+      if (maximoIntentosInput && maximoIntentosInput.value !== '') {
+        const mi = Math.max(1, parseInt(maximoIntentosInput.value, 10));
+        payload.maximo_intentos = isNaN(mi) ? 2 : mi;
+      }
+    }
+    // Campos de múltiples respuestas (creación)
+    if (permitirMultiples) {
+      payload.permitir_multiples_respuestas = !!permitirMultiples.checked;
+      payload.modo_multiples_respuestas = (!!permitirMultiples.checked)
+        ? (modoMultiples ? modoMultiples.value : 'por_mes')
+        : 'unica';
+    }
     if (payload.dirigida_a === 'tecnicos') {
       const supSeleccionados = Array.from(supervisoresSelect.selectedOptions).map(o => o.value).filter(Boolean);
       if (supSeleccionados.length > 0) payload.audiencia_supervisores = supSeleccionados;
