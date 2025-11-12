@@ -185,6 +185,9 @@
                             <a href="/lider/indicadores/operaciones/presupuesto" class="btn btn-warning">
                                 <i class="fas fa-chart-line me-2"></i>Ver Indicador
                             </a>
+                            <button type="button" class="btn btn-outline-warning ms-2" data-bs-toggle="modal" data-bs-target="#metasIndicadoresModal">
+                                <i class="fas fa-bullseye me-2"></i>Configurar Metas
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -243,5 +246,126 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var metasModalEl = document.getElementById('metasIndicadoresModal');
+  if (metasModalEl) {
+    metasModalEl.addEventListener('shown.bs.modal', function() {
+      cargarMetasActuales();
+    });
+  }
+});
+
+async function cargarMetasActuales() {
+  const hoy = new Date();
+  const periodo = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
+  const areas = [
+    { key: 'calidad', input: 'metaCalidad' },
+    { key: 'inicio_operacion', input: 'metaInicio' },
+    { key: 'presupuesto', input: 'metaPresupuesto' },
+    { key: 'logistica', input: 'metaLogistica' },
+    { key: 'indicadores', input: 'metaIndicadores' },
+    { key: 'sst', input: 'metaSST' }
+  ];
+  for (const a of areas) {
+    try {
+      const resp = await fetch(`/api/lider/metas-indicadores?area=${encodeURIComponent(a.key)}&periodo=${encodeURIComponent(periodo)}`);
+      const data = await resp.json();
+      const input = document.getElementById(a.input);
+      if (input) {
+        input.value = typeof data.meta_porcentaje === 'number' ? data.meta_porcentaje : (typeof data.meta_porcentaje === 'string' ? Number(data.meta_porcentaje) || '' : '');
+      }
+    } catch (e) {}
+  }
+}
+
+async function guardarMetas() {
+  const hoy = new Date();
+  const periodo = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}`;
+  const valores = [
+    { key: 'calidad', input: 'metaCalidad' },
+    { key: 'inicio_operacion', input: 'metaInicio' },
+    { key: 'presupuesto', input: 'metaPresupuesto' },
+    { key: 'logistica', input: 'metaLogistica' },
+    { key: 'indicadores', input: 'metaIndicadores' },
+    { key: 'sst', input: 'metaSST' }
+  ];
+  const btn = document.getElementById('btnGuardarMetas');
+  if (btn) btn.disabled = true;
+  let okCount = 0;
+  for (const v of valores) {
+    const input = document.getElementById(v.input);
+    if (!input) continue;
+    const num = Number(input.value);
+    if (isNaN(num)) continue;
+    if (num < 0 || num > 100) continue;
+    try {
+      const resp = await fetch('/api/lider/metas-indicadores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ area: v.key, periodo, meta_porcentaje: num })
+      });
+      const j = await resp.json().catch(() => ({}));
+      if (resp.ok && j && j.success) okCount++;
+    } catch (e) {}
+  }
+  var modal = bootstrap.Modal.getInstance(document.getElementById('metasIndicadoresModal'));
+  if (modal) modal.hide();
+  if (typeof Swal !== 'undefined') {
+    if (okCount > 0) {
+      Swal.fire({ title: 'Metas guardadas', text: 'Las metas del mes han sido actualizadas.', icon: 'success', confirmButtonColor: '#ffc107' });
+    } else {
+      Swal.fire({ title: 'Sin cambios válidos', text: 'Verifica que los valores estén entre 0 y 100.', icon: 'warning', confirmButtonColor: '#ffc107' });
+    }
+  } else {
+    alert(okCount > 0 ? 'Metas guardadas' : 'Sin cambios válidos');
+  }
+  if (btn) btn.disabled = false;
+}
+</script>
+
+<div class="modal fade" id="metasIndicadoresModal" tabindex="-1" aria-labelledby="metasIndicadoresLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="metasIndicadoresLabel"><i class="fas fa-bullseye me-2"></i>Metas Mensuales</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Calidad (%)</label>
+            <input type="number" min="0" max="100" step="0.01" class="form-control" id="metaCalidad" placeholder="0-100" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Inicio de Operación (%)</label>
+            <input type="number" min="0" max="100" step="0.01" class="form-control" id="metaInicio" placeholder="0-100" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Presupuesto (%)</label>
+            <input type="number" min="0" max="100" step="0.01" class="form-control" id="metaPresupuesto" placeholder="0-100" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Logística (%)</label>
+            <input type="number" min="0" max="100" step="0.01" class="form-control" id="metaLogistica" placeholder="0-100" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Indicadores (%)</label>
+            <input type="number" min="0" max="100" step="0.01" class="form-control" id="metaIndicadores" placeholder="0-100" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">SST (%)</label>
+            <input type="number" min="0" max="100" step="0.01" class="form-control" id="metaSST" placeholder="0-100" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-warning" id="btnGuardarMetas" onclick="guardarMetas()"><i class="fas fa-save me-2"></i>Guardar</button>
+      </div>
+    </div>
+  </div>
+ </div>
 
 {% endblock %}

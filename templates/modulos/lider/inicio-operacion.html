@@ -732,6 +732,21 @@ async function abrirIndicadorDiario() {
             return;
         }
 
+        let metaMes = null;
+        try {
+            const f = document.getElementById('filtroFecha').value;
+            const d = f ? new Date(f) : new Date();
+            const periodo = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            const rmeta = await fetch(`/api/lider/metas-indicadores?area=inicio_operacion&periodo=${encodeURIComponent(periodo)}`);
+            const jmeta = await rmeta.json();
+            metaMes = typeof jmeta.meta_porcentaje === 'number' ? jmeta.meta_porcentaje : (typeof jmeta.meta_porcentaje === 'string' ? Number(jmeta.meta_porcentaje) || null : null);
+        } catch (e) {}
+
+        const metaHeader = document.getElementById('metaIndicadorDiarioMes');
+        if (metaHeader) {
+            metaHeader.textContent = `Meta para este mes = ${metaMes !== null ? Number(metaMes).toFixed(2) + '%' : 'No definida'}`;
+        }
+
         // Poblar tabla diaria
         const tbody = document.getElementById('tablaIndicadorDiarioBody');
         tbody.innerHTML = '';
@@ -739,7 +754,11 @@ async function abrirIndicadorDiario() {
             const tr = document.createElement('tr');
             const porcentaje = typeof item.porcentaje === 'number' ? item.porcentaje : 0;
             tr.innerHTML = `
-                <td>${item.supervisor || ''}</td>
+                <td>
+                  <div class="d-flex flex-column">
+                    <span>${item.supervisor || ''}</span>
+                  </div>
+                </td>
                 <td class="text-success fw-bold">${item.cumple || 0}</td>
                 <td class="text-danger fw-bold">${item.no_cumple || 0}</td>
                 <td>
@@ -821,6 +840,7 @@ async function abrirIndicadorDiario() {
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
+        <div class="text-muted small mb-2 fw-bold" id="metaIndicadorDiarioMes"></div>
         <div class="table-responsive mb-4">
           <table class="table table-striped table-hover">
             <thead class="table-success">

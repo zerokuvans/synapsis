@@ -970,6 +970,126 @@ def tecnicos_dashboard():
         if connection and connection.is_connected():
             connection.close()
 
+@app.route('/api/lider/metas-indicadores', methods=['GET'])
+@login_required_lider_api()
+def api_get_metas_indicadores():
+    connection = None
+    cursor = None
+    try:
+        area = request.args.get('area', '').strip()
+        periodo_str = request.args.get('periodo')
+        from datetime import datetime
+        hoy = datetime.now()
+        if not periodo_str:
+            periodo_str = f"{hoy.year}-{str(hoy.month).zfill(2)}"
+        try:
+            anio, mes = periodo_str.split('-')
+            periodo_fecha = datetime(int(anio), int(mes), 1).strftime('%Y-%m-%d')
+        except Exception:
+            return jsonify({'error': 'Periodo inválido'}), 400
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS metas_indicadores (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                area VARCHAR(50) NOT NULL,
+                periodo DATE NOT NULL,
+                meta_porcentaje DECIMAL(5,2) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uniq_area_periodo (area, periodo)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+        if not area:
+            return jsonify({'error': 'Área requerida'}), 400
+        cursor.execute(
+            "SELECT meta_porcentaje FROM metas_indicadores WHERE area=%s AND periodo=%s",
+            (area, periodo_fecha)
+        )
+        row = cursor.fetchone()
+        meta = row['meta_porcentaje'] if row else None
+        try:
+            meta = float(meta) if meta is not None else None
+        except Exception:
+            meta = None
+        return jsonify({
+            'success': True,
+            'area': area,
+            'periodo': periodo_str,
+            'meta_porcentaje': meta
+        })
+    except mysql.connector.Error as e:
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/lider/metas-indicadores', methods=['POST'])
+@login_required_lider_api()
+def api_set_metas_indicadores():
+    connection = None
+    cursor = None
+    try:
+        data = request.get_json() or {}
+        area = (data.get('area') or '').strip()
+        periodo_str = data.get('periodo')
+        meta_val = data.get('meta_porcentaje')
+        if not area or not periodo_str or meta_val is None:
+            return jsonify({'error': 'Datos incompletos'}), 400
+        try:
+            meta_num = float(meta_val)
+        except Exception:
+            return jsonify({'error': 'Meta inválida'}), 400
+        if meta_num < 0 or meta_num > 100:
+            return jsonify({'error': 'Meta fuera de rango'}), 400
+        from datetime import datetime
+        try:
+            anio, mes = periodo_str.split('-')
+            periodo_fecha = datetime(int(anio), int(mes), 1).strftime('%Y-%m-%d')
+        except Exception:
+            return jsonify({'error': 'Periodo inválido'}), 400
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS metas_indicadores (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                area VARCHAR(50) NOT NULL,
+                periodo DATE NOT NULL,
+                meta_porcentaje DECIMAL(5,2) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uniq_area_periodo (area, periodo)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+        cursor.execute(
+            """
+            INSERT INTO metas_indicadores (area, periodo, meta_porcentaje)
+            VALUES (%s, %s, %s)
+            ON DUPLICATE KEY UPDATE meta_porcentaje = VALUES(meta_porcentaje)
+            """,
+            (area, periodo_fecha, meta_num)
+        )
+        connection.commit()
+        return jsonify({'success': True})
+    except mysql.connector.Error as e:
+        if connection:
+            connection.rollback()
+        return jsonify({'error': f'Error de base de datos: {str(e)}'}), 500
+    except Exception as e:
+        if connection:
+            connection.rollback()
+        return jsonify({'error': f'Error interno: {str(e)}'}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
 @app.route('/tecnicos/asignaciones_ferretero')
 @login_required(role='tecnicos')
 def tecnicos_asignaciones_ferretero():
