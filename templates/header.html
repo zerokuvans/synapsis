@@ -319,6 +319,9 @@
                         <div class="text-center text-muted py-4">Cargando votaciones…</div>
                     </div>
                 </div>
+                <div class="modal-footer">
+                    <div id="votarButtonContainer" class="w-100"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -387,6 +390,11 @@
 
     <!-- Scripts personalizados -->
     <script>
+    (function(){
+        const css = document.createElement('style');
+        css.textContent = `@media (max-width: 576px){ .candidato-img{ height:auto !important; max-height:60vh; object-fit:contain !important; } .candidato-img-placeholder{ height:auto !important; min-height:160px; } }`;
+        document.head.appendChild(css);
+    })();
     document.addEventListener('DOMContentLoaded', function() {
         // Manejar el envío del formulario de logout
         const logoutForm = document.getElementById('logout-form');
@@ -459,21 +467,33 @@
                 renderVotaciones(votaciones.map(v => v.enc.id_encuesta));
                 const modal = new bootstrap.Modal(document.getElementById('modalVotacionesActivas'));
                 modal.show();
+                window.__votacionesModalMostrado = true;
             }catch(e){ console.warn('No se pudo cargar votaciones activas', e); }
         }
 
         function cardCandidatoHTML(encId, c){
-            const foto = c.foto_url ? `<img src="${c.foto_url}" class="card-img-top" style="max-height:160px; object-fit:cover;"/>` : '';
+            const foto = c.foto_url ? 
+                `<img src="${c.foto_url}" class="card-img-top img-fluid candidato-img" style="height:200px; object-fit:contain; cursor:pointer; width:100%;" 
+                     onclick="seleccionarCandidato(${encId}, ${c.id_candidato})" 
+                     title="Haz clic para seleccionar este candidato"/>` : 
+                `<div class="card-img-top bg-light d-flex align-items-center justify-content-center candidato-img-placeholder" 
+                      style="height:200px; cursor:pointer;" 
+                      onclick="seleccionarCandidato(${encId}, ${c.id_candidato})"
+                      title="Haz clic para seleccionar este candidato">
+                     <i class="fas fa-user fa-3x text-muted"></i>
+                 </div>`;
             return `
                 <div class="col-12 col-sm-6 col-md-4 col-lg-3 mb-3">
-                    <div class="card h-100">
+                    <div class="card h-100 candidato-card border border-light" id="candidato-${encId}-${c.id_candidato}">
                         ${foto}
                         <div class="card-body d-flex flex-column">
                             <h6 class="card-title">${c.nombre || ''}</h6>
                             ${c.descripcion ? `<p class="card-text small text-muted">${c.descripcion}</p>` : ''}
                             <div class="mt-auto">
-                                <button class="btn btn-outline-primary w-100 btn-votar-candidato" data-encuesta-id="${encId}" data-id-candidato="${c.id_candidato}">
-                                    <i class="fas fa-check me-1"></i>Votar
+                                <button class="btn btn-outline-primary w-100 btn-votar-candidato" 
+                                        data-encuesta-id="${encId}" data-id-candidato="${c.id_candidato}"
+                                        onclick="seleccionarCandidato(${encId}, ${c.id_candidato})">
+                                    <i class="fas fa-check me-1"></i>Seleccionar
                                 </button>
                             </div>
                         </div>
@@ -530,7 +550,7 @@
                 if (enc.fecha_inicio_votacion) fechas.push(`Inicio: ${enc.fecha_inicio_votacion}`);
                 if (enc.fecha_fin_votacion) fechas.push(`Fin: ${enc.fecha_fin_votacion}`);
                 return `
-                    <div class="mb-4 p-3 border rounded">
+                    <div class="mb-4 p-3 border rounded" id="votacion-block-${id}" data-encuesta-id="${id}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div>
                                 <h5 class="mb-1">${enc.titulo || 'Votación'}</h5>
@@ -551,6 +571,32 @@
             encIds.forEach(id => { const enc = votacionesData[id].enc; if (enc.mostrar_resultados) dibujarResultados(id); });
         }
 
+        let seleccionActual = { encuestaId: null, candidatoId: null };
+        window.seleccionarCandidato = function(encuestaId, candidatoId){
+            const prev = document.getElementById(`candidato-${seleccionActual.encuestaId}-${seleccionActual.candidatoId}`);
+            if (prev) { prev.classList.remove('border-primary','border-3'); prev.classList.add('border-light'); }
+            seleccionActual = { encuestaId, candidatoId };
+            const nuevo = document.getElementById(`candidato-${encuestaId}-${candidatoId}`);
+            if (nuevo) { nuevo.classList.remove('border-light'); nuevo.classList.add('border-primary','border-3'); }
+            window.mostrarBotonVotar(encuestaId, candidatoId);
+        };
+        window.mostrarBotonVotar = function(encuestaId, candidatoId){
+            const container = document.getElementById('votarButtonContainer');
+            if (!container) return;
+            container.innerHTML = `<div class="d-grid"><button class="btn btn-primary btn-lg" onclick="prepararVoto(${encuestaId}, ${candidatoId})"><i class="fas fa-vote-yea me-2"></i>Votar por este candidato</button></div>`;
+        };
+        window.prepararVoto = function(encuestaId, candidatoId){
+            const info = votacionesData[encuestaId];
+            if (!info) return;
+            const candidato = (info.candidatos||[]).find(c => c.id_candidato === candidatoId);
+            const enc = info.enc;
+            if (!dentroVentana(enc)){
+                if (window.Swal) Swal.fire('No disponible', 'La votación no está activa actualmente.', 'warning');
+                return;
+            }
+            abrirConfirm(encuestaId, candidato);
+        };
+
         function abrirConfirm(encId, candidato){
             seleccion.encuestaId = encId;
             seleccion.candidato = candidato;
@@ -558,7 +604,7 @@
             const fotoEl = document.getElementById('confirm-voto-foto');
             const encEl = document.getElementById('confirm-voto-encuesta');
             nombreEl.textContent = candidato.nombre || '';
-            fotoEl.innerHTML = candidato.foto_url ? `<img src="${candidato.foto_url}" class="img-fluid rounded" style="max-height:200px; object-fit:cover;"/>` : '';
+            fotoEl.innerHTML = candidato.foto_url ? `<img src="${candidato.foto_url}" class="img-fluid rounded candidato-img" style="max-height:200px; object-fit:contain; width:100%;"/>` : '';
             const enc = votacionesData[encId]?.enc;
             encEl.textContent = enc ? (enc.titulo || '') : '';
             const modal = new bootstrap.Modal(document.getElementById('modalConfirmarVoto'));
@@ -585,36 +631,22 @@
                 // Actualizar resultados si se muestran
                 const enc = votacionesData[encId]?.enc;
                 if (enc && enc.mostrar_resultados){ dibujarResultados(encId); }
-                // Deshabilitar botones de esa encuesta (voto único)
-                document.querySelectorAll(`.btn-votar-candidato[data-encuesta-id="${encId}"]`).forEach(btn=>{
-                    btn.setAttribute('disabled','disabled');
-                    btn.classList.remove('btn-outline-primary');
-                    btn.classList.add('btn-secondary');
-                    btn.innerHTML = '<i class="fas fa-ban me-1"></i>Ya votaste';
-                });
+                const bloque = document.getElementById(`votacion-block-${encId}`);
+                if (bloque && bloque.parentElement){
+                    bloque.parentElement.removeChild(bloque);
+                }
+                const cont = document.getElementById('votaciones-popup-contenido');
+                if (cont && cont.children.length === 0){
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalVotacionesActivas'));
+                    modal?.hide();
+                }
+                const container = document.getElementById('votarButtonContainer');
+                if (container) container.innerHTML = '';
             }catch(e){ Swal.fire('Error', 'Ocurrió un error al votar.', 'error'); }
         }
 
         document.addEventListener('DOMContentLoaded', ()=>{
             const cont = document.getElementById('votaciones-popup-contenido');
-            // Delegación para botones "Votar"
-            if (cont){
-                cont.addEventListener('click', (ev)=>{
-                    const btn = ev.target.closest('.btn-votar-candidato');
-                    if (!btn) return;
-                    const encId = parseInt(btn.getAttribute('data-encuesta-id'));
-                    const candId = parseInt(btn.getAttribute('data-id-candidato'));
-                    const info = votacionesData[encId];
-                    if (!info) return;
-                    const candidato = (info.candidatos||[]).find(c => c.id_candidato === candId);
-                    const enc = info.enc;
-                    if (!dentroVentana(enc)){
-                        Swal.fire('No disponible', 'La votación no está activa actualmente.', 'warning');
-                        return;
-                    }
-                    abrirConfirm(encId, candidato);
-                });
-            }
             const btnConf = document.getElementById('btnConfirmarVoto');
             if (btnConf) btnConf.addEventListener('click', confirmarVoto);
             cargarVotacionesActivasParaMi();
@@ -638,12 +670,14 @@
                 const data = await res.json();
                 if (!data.success) return;
                 const encuestas = data.encuestas || [];
-                console.log('[Encuestas] activas para mi:', encuestas);
-                if (encuestas.length === 0) return;
-                encuestaActual = encuestas[0];
+                const encuestasNoVotacion = encuestas.filter(e => (e.tipo_encuesta || 'encuesta') !== 'votacion');
+                console.log('[Encuestas] activas para mi (no votación):', encuestasNoVotacion);
+                if (encuestasNoVotacion.length === 0) return;
+                encuestaActual = encuestasNoVotacion[0];
                 await renderPopup(encuestaActual.id_encuesta);
                 const modalEl = document.getElementById('modalEncuestaActiva');
                 if (modalEl) {
+                    if (window.__votacionesModalMostrado) { return; }
                     const modal = new bootstrap.Modal(modalEl);
                     modal.show();
                     console.log('[Encuestas] mostrando modalEncuestaActiva para encuesta', encuestaActual.id_encuesta);
