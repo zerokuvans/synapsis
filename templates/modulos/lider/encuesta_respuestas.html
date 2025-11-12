@@ -15,6 +15,7 @@
     <a class="btn btn-outline-secondary" href="/lider/encuestas"><i class="fas fa-arrow-left me-1"></i>Volver</a>
     <a id="btn-preview" class="btn btn-outline-primary"><i class="fas fa-eye me-1"></i>Previsualizar</a>
     <a id="btn-exportar" class="btn btn-success"><i class="fas fa-file-excel me-1"></i>Exportar Excel</a>
+    <a id="btn-exportar-zip" class="btn btn-info"><i class="fas fa-file-archive me-1"></i>Exportar ZIP</a>
   </div>
 
   <div class="resp-card p-3">
@@ -85,6 +86,7 @@
   const encBadges = document.getElementById('enc-badges');
   const btnPreview = document.getElementById('btn-preview');
   const btnExportar = document.getElementById('btn-exportar');
+  const btnExportarZip = document.getElementById('btn-exportar-zip');
 
   btnPreview.href = `/lider/encuestas/${encuestaId}/preview`;
 
@@ -109,6 +111,7 @@
       if (sData && sData.success) {
         encBadges.innerHTML += ` <span class="badge bg-success">Respuestas: ${sData.total_respuestas}</span>`;
         btnExportar.href = `/api/encuestas/${encuestaId}/respuestas/export?formato=excel`;
+        btnExportarZip.href = `/api/encuestas/${encuestaId}/respuestas/export?formato=zip`;
       }
     } catch (e) { console.warn('[respuestas] No se pudieron cargar estadísticas', e); }
   }

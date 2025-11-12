@@ -2293,13 +2293,19 @@ def registrar_rutas_encuestas(app):
             respuesta_id = cursor.lastrowid
 
             # Insertar detalles
-            def save_uploaded_file(file_storage, encuesta_id):
-                base_dir = os.path.join('static', 'uploads', 'encuestas', str(encuesta_id))
+            def save_uploaded_file(file_storage, encuesta_id, pregunta_id=None):
+                if pregunta_id:
+                    base_dir = os.path.join('static', 'uploads', 'encuestas', str(encuesta_id), 'preguntas')
+                else:
+                    base_dir = os.path.join('static', 'uploads', 'encuestas', str(encuesta_id))
                 os.makedirs(base_dir, exist_ok=True)
                 filename = secure_filename(getattr(file_storage, 'filename', '') or 'imagen')
                 name, ext = os.path.splitext(filename)
                 timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
-                final_name = f"enc_{encuesta_id}_{timestamp}{ext or '.bin'}"
+                if pregunta_id:
+                    final_name = f"preg_{pregunta_id}_{timestamp}{ext or '.bin'}"
+                else:
+                    final_name = f"enc_{encuesta_id}_{timestamp}{ext or '.bin'}"
                 path = os.path.join(base_dir, final_name)
                 file_storage.save(path)
                 return '/' + path.replace('\\', '/')
@@ -2346,7 +2352,7 @@ def registrar_rutas_encuestas(app):
                     f = files.get(fkey)
                     archivo_url = None
                     if f and getattr(f, 'filename', ''):
-                        archivo_url = save_uploaded_file(f, encuesta_id)
+                        archivo_url = save_uploaded_file(f, encuesta_id, pregunta_id)
                     else:
                         archivo_url = r.get('archivo_url')  # fallback por si envían URL
                     cursor.execute(
@@ -2653,7 +2659,7 @@ def registrar_rutas_encuestas(app):
             return jsonify({'success': False, 'message': 'No autorizado'}), 401
 
         formato = (request.args.get('formato') or 'excel').lower()
-        if formato not in ('excel', 'csv'):
+        if formato not in ('excel', 'csv', 'zip'):
             formato = 'excel'
 
         conn = get_db_connection()
@@ -2687,10 +2693,17 @@ def registrar_rutas_encuestas(app):
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
             # Transformar filas para incluir columnas pedidas: técnico, supervisor, fecha, pregunta y respuesta, estado
-            def formatear_respuesta(r):
+            def formatear_respuesta(r, formato_export='excel'):
                 # Derivar valor de respuesta en texto
                 if r.get('archivo_url'):
-                    return r.get('archivo_url')
+                    archivo_url = r.get('archivo_url')
+                    if formato_export == 'zip':
+                        # Para ZIP, generar hipervínculo relativo
+                        # Extraer solo el nombre del archivo de la URL completa
+                        import os
+                        filename = os.path.basename(archivo_url)
+                        return f'=HIPERVINCULO("imagenes/{filename}", "Ver imagen")'
+                    return archivo_url
                 if r.get('texto_opcion') is not None:
                     return r.get('texto_opcion')
                 if r.get('valor_numero') is not None:
@@ -2707,7 +2720,7 @@ def registrar_rutas_encuestas(app):
                     'Fecha': r.get('fecha_respuesta'),
                     'Estado': estado_label,
                     'Pregunta': r.get('texto_pregunta'),
-                    'Respuesta': formatear_respuesta(r)
+                    'Respuesta': formatear_respuesta(r, formato)
                 })
 
             if formato == 'csv':
@@ -2720,6 +2733,95 @@ def registrar_rutas_encuestas(app):
                 response.headers['Content-Type'] = 'text/csv; charset=utf-8'
                 response.headers['Content-Disposition'] = f'attachment; filename=encuesta_{encuesta_id}_respuestas_{timestamp}.csv'
                 return response
+            elif formato == 'zip':
+                # Exportación ZIP con Excel e imágenes
+                try:
+                    import pandas as pd
+                    import io
+                    import zipfile
+                    import os
+                    from werkzeug.utils import secure_filename
+                    
+                    # Crear Excel con hipervínculos relativos
+                    output = io.BytesIO()
+                    
+                    # Por defecto exportar en wide-form en Excel (una fila por respuesta, columnas por pregunta)
+                    wide_param = (request.args.get('wide', '').strip().lower())
+                    wide_requested = True if wide_param in ('', '1', 'true', 'yes', 'si', 'sí', 'y') else False
+                    
+                    if wide_requested:
+                        # Construir estructura wide usando id_respuesta como fila
+                        # Columnas base
+                        base_cols = ['Tecnico', 'Supervisor', 'Carpeta', 'Fecha', 'Estado']
+                        # Descubrir preguntas únicas
+                        preguntas_unicas = []
+                        seen = set()
+                        for r in rows:
+                            txt = r.get('texto_pregunta')
+                            if txt not in seen:
+                                seen.add(txt)
+                                preguntas_unicas.append(txt)
+                        # Mapear respuesta -> fila
+                        filas = {}
+                        for r in rows:
+                            resp_id = r.get('id_respuesta')
+                            estado_label = 'OK' if (r.get('estado') == 'enviada') else 'Pendiente'
+                            if resp_id not in filas:
+                                filas[resp_id] = {
+                                    'Tecnico': r.get('tecnico') or str(r.get('usuario_id') or ''),
+                                    'Supervisor': r.get('supervisor') or '',
+                                    'Carpeta': r.get('carpeta') or '',
+                                    'Fecha': r.get('fecha_respuesta'),
+                                    'Estado': estado_label,
+                                }
+                            ans = formatear_respuesta(r, formato)
+                            col = r.get('texto_pregunta')
+                            if col:
+                                if col in filas[resp_id] and filas[resp_id][col]:
+                                    # Concatenar múltiples respuestas para la misma pregunta
+                                    filas[resp_id][col] = f"{filas[resp_id][col]} | {ans}" if ans else filas[resp_id][col]
+                                else:
+                                    filas[resp_id][col] = ans
+                        # Ordenar columnas: base + preguntas
+                        ordered_cols = base_cols + preguntas_unicas
+                        df = pd.DataFrame(list(filas.values()))
+                        # Asegurar orden de columnas y presencia de todas
+                        for c in ordered_cols:
+                            if c not in df.columns:
+                                df[c] = None
+                        df = df[ordered_cols]
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            df.to_excel(writer, index=False, sheet_name=f"respuestas_{encuesta_id}")
+                    else:
+                        # long-form
+                        df = pd.DataFrame(export_rows)
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            df.to_excel(writer, index=False, sheet_name=f"respuestas_{encuesta_id}")
+                    
+                    # Crear archivo ZIP
+                    zip_output = io.BytesIO()
+                    with zipfile.ZipFile(zip_output, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                        # Agregar Excel al ZIP
+                        zipf.writestr(f'encuesta_{encuesta_id}_respuestas_{timestamp}.xlsx', output.getvalue())
+                        
+                        # Agregar imágenes al ZIP
+                        imagenes_dir = os.path.join('static', 'uploads', 'encuestas', str(encuesta_id), 'preguntas')
+                        if os.path.exists(imagenes_dir):
+                            for root, dirs, files in os.walk(imagenes_dir):
+                                for file in files:
+                                    file_path = os.path.join(root, file)
+                                    # Guardar en carpeta 'imagenes' dentro del ZIP
+                                    arcname = os.path.join('imagenes', file)
+                                    zipf.write(file_path, arcname)
+                    
+                    response = make_response(zip_output.getvalue())
+                    response.headers['Content-Type'] = 'application/zip'
+                    response.headers['Content-Disposition'] = f'attachment; filename=encuesta_{encuesta_id}_respuestas_{timestamp}.zip'
+                    return response
+                    
+                except Exception as e:
+                    logger.error(f"Error exportación ZIP encuesta {encuesta_id}: {e}")
+                    return jsonify({'success': False, 'message': f'Error en exportación ZIP: {e}'}), 500
             else:
                 # Excel
                 try:
@@ -2754,7 +2856,7 @@ def registrar_rutas_encuestas(app):
                                     'Fecha': r.get('fecha_respuesta'),
                                     'Estado': estado_label,
                                 }
-                            ans = formatear_respuesta(r)
+                            ans = formatear_respuesta(r, formato)
                             col = r.get('texto_pregunta')
                             if col:
                                 if col in filas[resp_id] and filas[resp_id][col]:
