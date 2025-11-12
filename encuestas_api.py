@@ -2736,6 +2736,7 @@ def registrar_rutas_encuestas(app):
             elif formato == 'zip':
                 # Exportación ZIP con Excel e imágenes
                 try:
+                    logger.info(f"Iniciando exportación ZIP para encuesta {encuesta_id}")
                     import pandas as pd
                     import io
                     import zipfile
@@ -2804,23 +2805,72 @@ def registrar_rutas_encuestas(app):
                         # Agregar Excel al ZIP
                         zipf.writestr(f'encuesta_{encuesta_id}_respuestas_{timestamp}.xlsx', output.getvalue())
                         
-                        # Agregar imágenes al ZIP
-                        imagenes_dir = os.path.join('static', 'uploads', 'encuestas', str(encuesta_id), 'preguntas')
-                        if os.path.exists(imagenes_dir):
-                            for root, dirs, files in os.walk(imagenes_dir):
-                                for file in files:
-                                    file_path = os.path.join(root, file)
-                                    # Guardar en carpeta 'imagenes' dentro del ZIP
-                                    arcname = os.path.join('imagenes', file)
-                                    zipf.write(file_path, arcname)
+                        # Agregar imágenes al ZIP - Obtener todas las URLs de imágenes desde la base de datos
+                        cur.execute(
+                            """
+                            SELECT DISTINCT archivo_url 
+                            FROM encuesta_respuestas_detalle 
+                            WHERE archivo_url IS NOT NULL AND archivo_url != ''
+                            AND respuesta_id IN (
+                                SELECT id_respuesta FROM encuesta_respuestas WHERE encuesta_id = %s
+                            )
+                            """, (encuesta_id,)
+                        )
+                        image_urls = [row['archivo_url'] for row in cur.fetchall()]
+                        logger.info(f"URLs de imágenes encontradas en BD: {len(image_urls)}")
+                        logger.info(f"URLs: {image_urls}")
+                        
+                        # Descargar y agregar cada imagen al ZIP
+                        images_added = 0
+                        for image_url in image_urls:
+                            try:
+                                # Obtener solo el nombre del archivo de la URL
+                                filename = os.path.basename(image_url)
+                                if filename:
+                                    # Construir la ruta local del archivo
+                                    local_path = os.path.join('static', 'uploads', 'encuestas', str(encuesta_id), 'preguntas', filename)
+                                    
+                                    if os.path.exists(local_path):
+                                        # Si el archivo existe localmente, agregarlo desde el sistema de archivos
+                                        arcname = os.path.join('imagenes', filename)
+                                        zipf.write(local_path, arcname)
+                                        images_added += 1
+                                        logger.info(f"Imagen local agregada al ZIP: {filename}")
+                                    else:
+                                        # Si no existe localmente, usar método más simple sin requests
+                                        # Buscar en toda la estructura de uploads
+                                        found = False
+                                        for root, dirs, files in os.walk('static/uploads'):
+                                            if filename in files:
+                                                found_path = os.path.join(root, filename)
+                                                arcname = os.path.join('imagenes', filename)
+                                                zipf.write(found_path, arcname)
+                                                images_added += 1
+                                                logger.info(f"Imagen encontrada en {root} y agregada al ZIP: {filename}")
+                                                found = True
+                                                break
+                                        
+                                        if not found:
+                                            logger.warning(f"Imagen no encontrada localmente: {filename}")
+                            except Exception as e:
+                                logger.error(f"Error procesando imagen {image_url}: {e}")
+                        
+                        logger.info(f"Total de imágenes agregadas al ZIP: {images_added}/{len(image_urls)}")
                     
+                    # Cerrar explícitamente el archivo ZIP antes de obtener el valor
+                    zip_output.seek(0)
                     response = make_response(zip_output.getvalue())
                     response.headers['Content-Type'] = 'application/zip'
                     response.headers['Content-Disposition'] = f'attachment; filename=encuesta_{encuesta_id}_respuestas_{timestamp}.zip'
                     return response
                     
+
+                    
                 except Exception as e:
                     logger.error(f"Error exportación ZIP encuesta {encuesta_id}: {e}")
+                    logger.error(f"Tipo de error: {type(e).__name__}")
+                    import traceback
+                    logger.error(f"Traceback completo: {traceback.format_exc()}")
                     return jsonify({'success': False, 'message': f'Error en exportación ZIP: {e}'}), 500
             else:
                 # Excel
