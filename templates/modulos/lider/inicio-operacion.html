@@ -750,7 +750,8 @@ async function abrirIndicadorDiario() {
         // Poblar tabla diaria
         const tbody = document.getElementById('tablaIndicadorDiarioBody');
         tbody.innerHTML = '';
-        data.diario.forEach(item => {
+        const diarioFiltrado = (data.diario || []).filter(i => i && i.supervisor !== 'CORTES CUERVO SANDRA CECILIA');
+        diarioFiltrado.forEach(item => {
             const tr = document.createElement('tr');
             const porcentaje = typeof item.porcentaje === 'number' ? item.porcentaje : 0;
             tr.innerHTML = `
@@ -774,8 +775,9 @@ async function abrirIndicadorDiario() {
         });
 
         // Gráfica mensual por supervisor (Chart.js)
-        const labels = (data.mensual || []).map(i => i.supervisor);
-        const valores = (data.mensual || []).map(i => Math.round((Number(i.porcentaje || 0)) * 100) / 100);
+        const mensualFiltrado = (data.mensual || []).filter(i => i && i.supervisor !== 'CORTES CUERVO SANDRA CECILIA' && i.porcentaje !== null && i.porcentaje !== undefined && isFinite(Number(i.porcentaje)));
+        const labels = mensualFiltrado.map(i => i.supervisor);
+        const valores = mensualFiltrado.map(i => Math.round((Number(i.porcentaje)) * 100) / 100);
         const canvas = document.getElementById('graficaMensualCumplimiento');
         if (canvas) {
           if (typeof Chart === 'undefined') {
@@ -807,9 +809,12 @@ async function abrirIndicadorDiario() {
                 datalabels: {
                   anchor: 'end',
                   align: 'end',
+                  textAlign: 'center',
+                  offset: -6,
+                  clip: true,
                   formatter: v => (typeof v === 'number' ? v.toFixed(2) : v) + '%',
-                  color: '#212529',
-                  font: { weight: 'bold', size: 10 }
+                  color: '#000000',
+                  font: { weight: 'bold', size: 16 }
                 }
               }
             }
