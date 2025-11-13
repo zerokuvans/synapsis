@@ -62,7 +62,11 @@ class AnalistasModule {
                 this.mostrarLoading(false);
             }, 10000);
             
-            const response = await fetch('/api/analistas/causas-cierre');
+            const response = await fetch('/api/analistas/causas-cierre', { credentials: 'include' });
+            if (response.status === 401 || response.status === 403 || response.redirected) {
+                window.location.href = '/login';
+                return;
+            }
             if (!response.ok) {
                 throw new Error('Error al cargar los datos');
             }
@@ -104,7 +108,8 @@ class AnalistasModule {
                 url += '?' + params.toString();
             }
             
-            const response = await fetch(url);
+            const response = await fetch(url, { credentials: 'include' });
+            if (response.status === 401 || response.status === 403 || response.redirected) { window.location.href = '/login'; return; }
             if (!response.ok) {
                 throw new Error('Error al cargar los grupos');
             }
@@ -124,7 +129,8 @@ class AnalistasModule {
                 url += `?tecnologia=${encodeURIComponent(tecnologia)}`;
             }
             
-            const response = await fetch(url);
+            const response = await fetch(url, { credentials: 'include' });
+            if (response.status === 401 || response.status === 403 || response.redirected) { window.location.href = '/login'; return; }
             if (!response.ok) {
                 throw new Error('Error al cargar las agrupaciones');
             }
