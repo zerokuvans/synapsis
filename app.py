@@ -1318,7 +1318,7 @@ def api_causas_cierre():
     try:
         connection = get_db_connection()
         if connection is None:
-            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            return jsonify([])
             
         cursor = connection.cursor(dictionary=True)
         
@@ -1378,11 +1378,17 @@ def api_causas_cierre():
         return jsonify(resultados)
         
     except mysql.connector.Error as e:
-        logging.error(f"Error en API causas-cierre: {str(e)}")
+        try:
+            errno = getattr(e, 'errno', None)
+        except Exception:
+            errno = None
+        logging.error(f"Error en API causas-cierre: {str(e)} (errno={errno})")
+        if errno == 1146:
+            return jsonify([])
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
     except Exception as e:
         logging.error(f"Error inesperado en API causas-cierre: {str(e)}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
+        return jsonify([])
     finally:
         if 'cursor' in locals() and cursor:
             cursor.close()
@@ -1396,7 +1402,7 @@ def api_grupos_causas_cierre():
     try:
         connection = get_db_connection()
         if connection is None:
-            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            return jsonify([])
             
         cursor = connection.cursor()
         
@@ -1438,11 +1444,14 @@ def api_grupos_causas_cierre():
         return jsonify(grupos)
         
     except mysql.connector.Error as e:
-        logging.error(f"Error en API grupos: {str(e)}")
+        errno = getattr(e, 'errno', None)
+        logging.error(f"Error en API grupos: {str(e)} (errno={errno})")
+        if errno == 1146:
+            return jsonify([])
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
     except Exception as e:
         logging.error(f"Error inesperado en API grupos: {str(e)}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
+        return jsonify([])
     finally:
         if 'cursor' in locals() and cursor:
             cursor.close()
@@ -1456,7 +1465,7 @@ def api_tecnologias_causas_cierre():
     try:
         connection = get_db_connection()
         if connection is None:
-            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            return jsonify([])
             
         cursor = connection.cursor()
         
@@ -1477,11 +1486,14 @@ def api_tecnologias_causas_cierre():
         return jsonify(tecnologias)
         
     except mysql.connector.Error as e:
-        logging.error(f"Error en API tecnologías: {str(e)}")
+        errno = getattr(e, 'errno', None)
+        logging.error(f"Error en API tecnologías: {str(e)} (errno={errno})")
+        if errno == 1146:
+            return jsonify([])
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
     except Exception as e:
         logging.error(f"Error inesperado en API tecnologías: {str(e)}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
+        return jsonify([])
     finally:
         if 'cursor' in locals() and cursor:
             cursor.close()
@@ -1495,7 +1507,7 @@ def api_agrupaciones_causas_cierre():
     try:
         connection = get_db_connection()
         if connection is None:
-            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+            return jsonify([])
             
         cursor = connection.cursor()
         
@@ -1532,11 +1544,14 @@ def api_agrupaciones_causas_cierre():
         return jsonify(agrupaciones)
         
     except mysql.connector.Error as e:
-        logging.error(f"Error en API agrupaciones: {str(e)}")
+        errno = getattr(e, 'errno', None)
+        logging.error(f"Error en API agrupaciones: {str(e)} (errno={errno})")
+        if errno == 1146:
+            return jsonify([])
         return jsonify({'error': 'Error al consultar la base de datos'}), 500
     except Exception as e:
         logging.error(f"Error inesperado en API agrupaciones: {str(e)}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
+        return jsonify([])
     finally:
         if 'cursor' in locals() and cursor:
             cursor.close()

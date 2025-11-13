@@ -5742,83 +5742,83 @@ def verificar_registro_preoperacional():
 @app.route('/api/analistas/causas-cierre', methods=['GET'])
 @login_required
 def api_causas_cierre():
-    """API endpoint para obtener causas de cierre con filtros"""
     try:
         connection = get_db_connection()
         if connection is None:
-            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
-            
+            return jsonify([])
         cursor = connection.cursor(dictionary=True)
-        
-        # Obtener parámetros de filtro
-        grupo = request.args.get('grupo')
-        tecnologia = request.args.get('tecnologia')
-        agrupacion = request.args.get('agrupacion')
-        fecha_inicio = request.args.get('fecha_inicio')
-        fecha_fin = request.args.get('fecha_fin')
-        
-        # Construir la consulta base
+
+        texto_busqueda = request.args.get('busqueda', '').strip()
+        tecnologia = request.args.get('tecnologia', '').strip()
+        agrupacion = request.args.get('agrupacion', '').strip()
+        grupo = request.args.get('grupo', '').strip()
+
         query = """
             SELECT 
-                cc.id,
-                cc.grupo,
-                cc.tecnologia,
-                cc.agrupacion,
-                cc.causa_cierre,
-                cc.descripcion,
-                cc.fecha_creacion,
-                cc.activo
-            FROM causas_cierre cc
-            WHERE cc.activo = 1
+                idbase_causas_cierre,
+                codigo_causas_cierre,
+                tipo_causas_cierre,
+                nombre_causas_cierre,
+                tecnologia_causas_cierre,
+                instrucciones_de_uso_causas_cierre,
+                agrupaciones_causas_cierre,
+                todos_los_grupos_causas_cierre,
+                facturable_causas_cierre
+            FROM base_causas_cierre
+            WHERE 1=1
         """
-        
+
         params = []
-        
-        # Agregar filtros
-        if grupo:
-            query += " AND cc.grupo = %s"
-            params.append(grupo)
+
+        if texto_busqueda:
+            query += """
+                AND (
+                    codigo_causas_cierre LIKE %s OR 
+                    nombre_causas_cierre LIKE %s OR 
+                    instrucciones_de_uso_causas_cierre LIKE %s
+                )
+            """
+            busqueda_param = f"%{texto_busqueda}%"
+            params.extend([busqueda_param, busqueda_param, busqueda_param])
+
         if tecnologia:
-            query += " AND cc.tecnologia = %s"
+            query += " AND tecnologia_causas_cierre = %s"
             params.append(tecnologia)
+
         if agrupacion:
-            query += " AND cc.agrupacion = %s"
+            query += " AND agrupaciones_causas_cierre = %s"
             params.append(agrupacion)
-        if fecha_inicio:
-            query += " AND DATE(cc.fecha_creacion) >= %s"
-            params.append(fecha_inicio)
-        if fecha_fin:
-            query += " AND DATE(cc.fecha_creacion) <= %s"
-            params.append(fecha_fin)
-            
-        query += " ORDER BY cc.fecha_creacion DESC"
-        
+
+        if grupo:
+            query += " AND todos_los_grupos_causas_cierre = %s"
+            params.append(grupo)
+
+        query += " ORDER BY codigo_causas_cierre ASC"
+
         cursor.execute(query, params)
-        causas = cursor.fetchall()
-        
-        return jsonify({
-            'success': True,
-            'total': len(causas),
-            'causas': causas
-        })
-        
+        resultados = cursor.fetchall()
+        return jsonify(resultados)
     except mysql.connector.Error as e:
-        logging.error(f"Error en API causas de cierre: {str(e)}")
-        return jsonify({'error': 'Error al consultar la base de datos'}), 500
+        errno = getattr(e, 'errno', None)
+        logging.error(f"Error en API causas-cierre: {str(e)} (errno={errno})")
+        if errno == 1146:
+            return jsonify([])
+        return jsonify([])
     except Exception as e:
-        logging.error(f"Error inesperado en API causas de cierre: {str(e)}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
+        logging.error(f"Error inesperado en API causas-cierre: {str(e)}")
+        return jsonify([])
     finally:
-        try:
-            if 'cursor' in locals() and cursor:
+        if 'cursor' in locals() and cursor:
+            try:
                 cursor.close()
-        except:
-            pass
-        try:
-            if 'connection' in locals() and connection and connection.is_connected():
-                connection.close()
-        except:
-            pass
+            except:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                if connection.is_connected():
+                    connection.close()
+            except:
+                pass
 def _normalizar_hora(valor):
     """Normaliza distintos formatos de hora a 'HH:MM'."""
     try:
