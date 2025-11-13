@@ -776,8 +776,10 @@ async function abrirIndicadorDiario() {
 
         // Gráfica mensual por supervisor (Chart.js)
         const mensualFiltrado = (data.mensual || []).filter(i => i && i.supervisor !== 'CORTES CUERVO SANDRA CECILIA' && i.porcentaje !== null && i.porcentaje !== undefined && isFinite(Number(i.porcentaje)));
+        mensualFiltrado.sort((a, b) => Number(b.porcentaje) - Number(a.porcentaje));
         const labels = mensualFiltrado.map(i => i.supervisor);
         const valores = mensualFiltrado.map(i => Math.round((Number(i.porcentaje)) * 100) / 100);
+        const colores = valores.map(v => (metaMes === null ? '#198754' : (v >= Number(metaMes) ? '#198754' : '#dc3545')));
         const canvas = document.getElementById('graficaMensualCumplimiento');
         if (canvas) {
           if (typeof Chart === 'undefined') {
@@ -796,22 +798,27 @@ async function abrirIndicadorDiario() {
               datasets: [{
                 label: '% Cumplimiento Mensual',
                 data: valores,
-                backgroundColor: '#198754'
+                backgroundColor: colores
               }]
             },
             options: {
               responsive: true,
+              indexAxis: 'y',
+              layout: { padding: { top: 20, right: 80 } },
+              maintainAspectRatio: false,
               scales: {
-                y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } }
+                x: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%' } }
               },
               plugins: {
-                tooltip: { callbacks: { label: ctx => ctx.parsed.y + '%' } },
+                tooltip: { callbacks: { label: ctx => ctx.parsed.x + '%' } },
                 datalabels: {
+                  display: true,
                   anchor: 'end',
-                  align: 'end',
+                  align: 'right',
                   textAlign: 'center',
-                  offset: -6,
-                  clip: true,
+                  offset: 8,
+                  clamp: true,
+                  clip: false,
                   formatter: v => (typeof v === 'number' ? v.toFixed(2) : v) + '%',
                   color: '#000000',
                   font: { weight: 'bold', size: 16 }
@@ -861,7 +868,9 @@ async function abrirIndicadorDiario() {
         </div>
         <div>
           <h6 class="mb-3"><i class="fas fa-chart-line me-2"></i>% Mensual de Cumplimiento por Supervisor</h6>
-<canvas id="graficaMensualCumplimiento"></canvas>
+          <div style="max-width: 800px; margin: 0 auto;">
+            <canvas id="graficaMensualCumplimiento" style="height: 320px;"></canvas>
+          </div>
         </div>
       </div>
       <div class="modal-footer">
