@@ -88,6 +88,19 @@
                         <div class="col-md-3 mb-4">
                             <div class="card h-100">
                                 <div class="card-body text-center">
+                                    <i class="fas fa-user-clock fa-3x text-info mb-3"></i>
+                                    <h5 class="card-title">Hora Inicio Operación Analistas</h5>
+                                    <p class="card-text">Configurar hora límite para registro de inicio de operación.</p>
+                                    <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#modalHoraInicioAnalistas">
+                                        <i class="fas fa-clock me-2"></i>Configurar Hora
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
                                     <i class="fas fa-boxes fa-3x text-primary mb-3"></i>
                                     <h5 class="card-title">Suministros</h5>
                                     <p class="card-text">Administrar suministros y materiales.</p>
@@ -447,6 +460,30 @@ function abrirModalNuevoUsuario() {
     </div>
 </div>
 
+<div class="modal fade" id="modalHoraInicioAnalistas" tabindex="-1" aria-labelledby="modalHoraInicioAnalistasLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalHoraInicioAnalistasLabel"><i class="fas fa-clock me-2"></i>Configurar Hora Límite Inicio Operación Analistas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formHoraInicioAnalistas">
+                    <div class="mb-3">
+                        <label for="horaLimiteAnalistas" class="form-label"><i class="fas fa-clock me-2"></i>Hora Límite (24 horas)</label>
+                        <input type="time" class="form-control" id="horaLimiteAnalistas" name="horaLimiteAnalistas" required>
+                        <div class="form-text">Hora actual configurada: <span id="horaActualAnalistas" class="fw-bold">--:--</span></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-info" id="btnGuardarHoraAnalistas"><i class="fas fa-save me-2"></i>Guardar Configuración</button>
+            </div>
+        </div>
+    </div>
+ </div>
+
 <script>
 // JavaScript para gestión de hora preoperacional
 document.addEventListener('DOMContentLoaded', function() {
@@ -544,6 +581,49 @@ document.addEventListener('DOMContentLoaded', function() {
             // Rehabilitar botón
             btnGuardarHora.disabled = false;
             btnGuardarHora.innerHTML = '<i class="fas fa-save me-2"></i>Guardar Configuración';
+        }
+    });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modalHoraInicioAnalistas = document.getElementById('modalHoraInicioAnalistas');
+    const horaActualAnalistas = document.getElementById('horaActualAnalistas');
+    const horaLimiteAnalistas = document.getElementById('horaLimiteAnalistas');
+    const btnGuardarHoraAnalistas = document.getElementById('btnGuardarHoraAnalistas');
+
+    modalHoraInicioAnalistas.addEventListener('show.bs.modal', async function() {
+        try {
+            const response = await fetch('/api/configuracion/hora-inicio-operacion');
+            const data = await response.json();
+            if (data.success && data.data && data.data.hora_limite_formatted) {
+                horaActualAnalistas.textContent = data.data.hora_limite_formatted;
+                horaLimiteAnalistas.value = data.data.hora_limite_formatted;
+            }
+        } catch (e) {}
+    });
+
+    btnGuardarHoraAnalistas.addEventListener('click', async function() {
+        const nuevaHora = horaLimiteAnalistas.value;
+        if (!nuevaHora) { return; }
+        btnGuardarHoraAnalistas.disabled = true;
+        btnGuardarHoraAnalistas.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Guardando...';
+        try {
+            const response = await fetch('/api/configuracion/hora-inicio-operacion', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hora_limite: nuevaHora })
+            });
+            const data = await response.json();
+            if (data.success) {
+                horaActualAnalistas.textContent = nuevaHora;
+                bootstrap.Modal.getInstance(modalHoraInicioAnalistas).hide();
+            }
+        } catch (e) {
+        } finally {
+            btnGuardarHoraAnalistas.disabled = false;
+            btnGuardarHoraAnalistas.innerHTML = '<i class="fas fa-save me-2"></i>Guardar Configuración';
         }
     });
 });

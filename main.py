@@ -19776,6 +19776,138 @@ def actualizar_hora_preoperacional():
             cursor.close()
             connection.close()
 
+@app.route('/api/configuracion/hora-inicio-operacion', methods=['GET'])
+def obtener_hora_inicio_operacion_analistas():
+    try:
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS hora_inicio_operacion_analistas (
+                id_hora_inicio_operacion INT AUTO_INCREMENT PRIMARY KEY,
+                hora_limite_inicio_operacion TIME NOT NULL DEFAULT '10:00:00'
+            )
+        """)
+
+        cursor.execute("""
+            SELECT id_hora_inicio_operacion, hora_limite_inicio_operacion
+            FROM hora_inicio_operacion_analistas
+            ORDER BY id_hora_inicio_operacion DESC
+            LIMIT 1
+        """)
+        resultado = cursor.fetchone()
+
+        if not resultado:
+            cursor.execute(
+                """
+                INSERT INTO hora_inicio_operacion_analistas (hora_limite_inicio_operacion)
+                VALUES ('10:00:00')
+                """
+            )
+            connection.commit()
+            cursor.execute("""
+                SELECT id_hora_inicio_operacion, hora_limite_inicio_operacion
+                FROM hora_inicio_operacion_analistas
+                ORDER BY id_hora_inicio_operacion DESC
+                LIMIT 1
+            """)
+            resultado = cursor.fetchone()
+
+        hora_limite = str(resultado['hora_limite_inicio_operacion'])
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'id': resultado['id_hora_inicio_operacion'],
+                'hora_limite': hora_limite,
+                'hora_limite_formatted': hora_limite[:5]
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error al obtener hora límite: {str(e)}'
+        }), 500
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
+
+@app.route('/api/configuracion/hora-inicio-operacion', methods=['PUT'])
+@login_required()
+def actualizar_hora_inicio_operacion_analistas():
+    try:
+        if session.get('user_role') != 'administrativo':
+            return jsonify({
+                'success': False,
+                'error': 'No tienes permisos para realizar esta acción'
+            }), 403
+
+        data = request.get_json()
+        nueva_hora = data.get('hora_limite')
+        if not nueva_hora:
+            return jsonify({'success': False, 'error': 'La hora límite es obligatoria'}), 400
+
+        import re
+        if not re.match(r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$', nueva_hora):
+            return jsonify({'success': False, 'error': 'Formato de hora inválido. Use HH:MM'}), 400
+
+        import mysql.connector
+        connection = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='732137A031E4b@',
+            database='capired'
+        )
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS hora_inicio_operacion_analistas (
+                id_hora_inicio_operacion INT AUTO_INCREMENT PRIMARY KEY,
+                hora_limite_inicio_operacion TIME NOT NULL DEFAULT '10:00:00'
+            )
+        """)
+
+        cursor.execute("SELECT id_hora_inicio_operacion FROM hora_inicio_operacion_analistas ORDER BY id_hora_inicio_operacion DESC LIMIT 1")
+        fila = cursor.fetchone()
+
+        if fila:
+            cursor.execute(
+                """
+                UPDATE hora_inicio_operacion_analistas
+                SET hora_limite_inicio_operacion = %s
+                WHERE id_hora_inicio_operacion = %s
+                """,
+                (nueva_hora + ':00', fila['id_hora_inicio_operacion'])
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO hora_inicio_operacion_analistas (hora_limite_inicio_operacion)
+                VALUES (%s)
+                """,
+                (nueva_hora + ':00',)
+            )
+
+        connection.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Hora límite actualizada a {nueva_hora}',
+            'data': {'hora_limite': nueva_hora}
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error al actualizar hora límite: {str(e)}'}), 500
+    finally:
+        if 'connection' in locals() and connection.is_connected():
+            cursor.close()
+            connection.close()
 
 # ============================================================================
 # APIs DEL SISTEMA DE GESTIÓN DE ESTADOS
