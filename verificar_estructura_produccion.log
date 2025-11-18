@@ -1,0 +1,61 @@
+2025-09-30 15:14:56,472 - INFO - Inicializando verificador para: http://148.113.171.196:8080
+2025-09-30 15:14:56,473 - INFO - INICIANDO VERIFICACIÓN DE ESTRUCTURA DE TABLA
+2025-09-30 15:14:56,473 - INFO - ============================================================
+2025-09-30 15:14:56,473 - INFO - === INICIANDO LOGIN ===
+2025-09-30 15:14:57,446 - INFO - Login response - Status: 200
+2025-09-30 15:14:57,447 - INFO - URL final: http://148.113.171.196:8080/dashboard
+2025-09-30 15:14:57,450 - INFO - === CREANDO ENDPOINT DE PRUEBA ===
+2025-09-30 15:14:57,450 - INFO - Código del endpoint de prueba:
+2025-09-30 15:14:57,470 - INFO - 
+@app.route('/api/debug/table_structure', methods=['GET'])
+@login_required
+def debug_table_structure():
+    """Endpoint temporal para verificar estructura de tipificacion_asistencia"""
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Verificar estructura de la tabla
+        cursor.execute("DESCRIBE tipificacion_asistencia")
+        estructura = cursor.fetchall()
+        
+        # Obtener algunos registros de muestra
+        cursor.execute("SELECT * FROM tipificacion_asistencia LIMIT 5")
+        muestra = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({
+            'success': True,
+            'estructura': estructura,
+            'muestra': muestra,
+            'total_columnas': len(estructura)
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+2025-09-30 15:14:57,470 - INFO - 
+========================================
+2025-09-30 15:14:57,470 - INFO - === PROBANDO CONSULTA SQL SIMPLIFICADA ===
+2025-09-30 15:14:57,980 - INFO - Status Code: 500
+2025-09-30 15:14:57,981 - ERROR - Error SQL: Error: 1054 (42S22): Unknown column 't.grupo' in 'field list'
+2025-09-30 15:14:57,981 - ERROR - Columna faltante identificada: t.grupo
+2025-09-30 15:14:57,981 - INFO - === SUGERENCIAS DE SOLUCIÓN ===
+2025-09-30 15:14:57,981 - INFO - PROBLEMA: La tabla tipificacion_asistencia no tiene la columna 'grupo'
+2025-09-30 15:14:57,982 - INFO - SOLUCIONES POSIBLES:
+2025-09-30 15:14:57,982 - INFO - 1. Agregar la columna 'grupo' a la tabla en producción:
+2025-09-30 15:14:57,982 - INFO -    ALTER TABLE tipificacion_asistencia ADD COLUMN grupo VARCHAR(100);
+2025-09-30 15:14:57,982 - INFO - 
+2025-09-30 15:14:57,982 - INFO - 2. Modificar la consulta para no usar la columna 'grupo':
+2025-09-30 15:14:57,983 - INFO -    - Usar solo 'nombre_tipificacion' para agrupar
+2025-09-30 15:14:57,983 - INFO -    - Crear lógica de agrupación en el código Python
+2025-09-30 15:14:57,983 - INFO - 
+2025-09-30 15:14:57,983 - INFO - 3. Sincronizar estructura de base de datos entre desarrollo y producción
+2025-09-30 15:14:57,983 - INFO - 
+============================================================
+2025-09-30 15:14:57,983 - INFO - VERIFICACIÓN COMPLETADA

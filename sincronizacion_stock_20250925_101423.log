@@ -1,0 +1,52 @@
+2025-09-25 10:14:23,850 - INFO - Sistema de logging configurado - Archivo: sincronizacion_stock_20250925_101423.log
+2025-09-25 10:14:23,851 - INFO - Inicializando sincronizador - Modo: DRY-RUN
+2025-09-25 10:14:23,851 - INFO - 🚀 Iniciando proceso de sincronización de stock
+2025-09-25 10:14:23,851 - INFO - Estableciendo conexión con la base de datos...
+2025-09-25 10:14:23,936 - INFO - package: mysql.connector.plugins
+2025-09-25 10:14:23,936 - INFO - plugin_name: caching_sha2_password
+2025-09-25 10:14:23,937 - INFO - AUTHENTICATION_PLUGIN_CLASS: MySQLCachingSHA2PasswordAuthPlugin
+2025-09-25 10:14:23,938 - INFO - package: mysql.connector.plugins
+2025-09-25 10:14:23,938 - INFO - plugin_name: mysql_native_password
+2025-09-25 10:14:23,939 - INFO - AUTHENTICATION_PLUGIN_CLASS: MySQLNativePasswordAuthPlugin
+2025-09-25 10:14:23,940 - INFO - ✅ Conexión exitosa a la base de datos
+2025-09-25 10:14:23,942 - INFO - Versión de MySQL: 8.0.41
+2025-09-25 10:14:23,949 - INFO - ✅ Todas las tablas requeridas están presentes
+2025-09-25 10:14:23,949 - INFO - 📦 Creando respaldo de datos actuales...
+2025-09-25 10:14:23,956 - INFO - ✅ Respaldo creado exitosamente: backup_stock_20250925_101423.json
+2025-09-25 10:14:23,957 - INFO -    - Registros vista_stock_dotaciones: 10
+2025-09-25 10:14:23,957 - INFO -    - Registros stock_ferretero: 0
+2025-09-25 10:14:23,957 - INFO - 🔄 Sincronizando elemento: botas
+2025-09-25 10:14:23,962 - ERROR - ❌ Error obteniendo stock actual para botas: 1054 (42S22): Unknown column 'stock_actual' in 'field list'
+2025-09-25 10:14:23,962 - ERROR - ❌ Falló sincronización de botas
+2025-09-25 10:14:23,962 - INFO - 🔄 Sincronizando elemento: pantalon
+2025-09-25 10:14:23,967 - ERROR - ❌ Error obteniendo stock actual para pantalon: 1054 (42S22): Unknown column 'stock_actual' in 'field list'
+2025-09-25 10:14:23,968 - ERROR - ❌ Falló sincronización de pantalon
+2025-09-25 10:14:23,968 - INFO - 🔄 Sincronizando elemento: camisetagris
+2025-09-25 10:14:23,971 - ERROR - ❌ Error obteniendo stock actual para camisetagris: 1054 (42S22): Unknown column 'stock_actual' in 'field list'
+2025-09-25 10:14:23,971 - ERROR - ❌ Falló sincronización de camisetagris
+2025-09-25 10:14:23,971 - INFO - 🔄 Sincronizando elemento: guerrera
+2025-09-25 10:14:23,977 - ERROR - ❌ Error obteniendo stock actual para guerrera: 1054 (42S22): Unknown column 'stock_actual' in 'field list'
+2025-09-25 10:14:23,978 - ERROR - ❌ Falló sincronización de guerrera
+2025-09-25 10:14:23,978 - INFO - 🔄 Sincronizando elemento: camisetapolo
+2025-09-25 10:14:23,981 - ERROR - ❌ Error obteniendo stock actual para camisetapolo: 1054 (42S22): Unknown column 'stock_actual' in 'field list'
+2025-09-25 10:14:23,981 - ERROR - ❌ Falló sincronización de camisetapolo
+2025-09-25 10:14:23,981 - INFO - 🔄 Sincronizando elemento: guantes_nitrilo
+2025-09-25 10:14:23,985 - ERROR - ❌ Error obteniendo stock actual para guantes_nitrilo: 1054 (42S22): Unknown column 'stock_actual' in 'field list'
+2025-09-25 10:14:23,986 - ERROR - ❌ Falló sincronización de guantes_nitrilo
+2025-09-25 10:14:23,986 - INFO - 🔄 Sincronizando elemento: guantes_carnaza
+2025-09-25 10:14:23,990 - ERROR - ❌ Error obteniendo stock actual para guantes_carnaza: 1054 (42S22): Unknown column 'stock_actual' in 'field list'
+2025-09-25 10:14:23,990 - ERROR - ❌ Falló sincronización de guantes_carnaza
+2025-09-25 10:14:23,990 - INFO - 🔄 Sincronizando elemento: gafas
+2025-09-25 10:14:23,994 - ERROR - ❌ Error obteniendo stock actual para gafas: 1054 (42S22): Unknown column 'stock_actual' in 'field list'
+2025-09-25 10:14:23,994 - ERROR - ❌ Falló sincronización de gafas
+2025-09-25 10:14:23,994 - INFO - 🔄 Sincronizando elemento: gorra
+2025-09-25 10:14:23,998 - ERROR - ❌ Error obteniendo stock actual para gorra: 1054 (42S22): Unknown column 'stock_actual' in 'field list'
+2025-09-25 10:14:23,998 - ERROR - ❌ Falló sincronización de gorra
+2025-09-25 10:14:23,998 - INFO - 🔄 Sincronizando elemento: casco
+2025-09-25 10:14:24,002 - ERROR - ❌ Error obteniendo stock actual para casco: 1054 (42S22): Unknown column 'stock_actual' in 'field list'
+2025-09-25 10:14:24,003 - ERROR - ❌ Falló sincronización de casco
+2025-09-25 10:14:24,003 - INFO - 🔄 Refrescando vista_stock_dotaciones...
+2025-09-25 10:14:24,003 - INFO - 📋 [DRY-RUN] Vista de stock se refrescaría
+2025-09-25 10:14:24,005 - INFO - 📄 Reporte generado: reporte_sincronizacion_20250925_101424.txt
+2025-09-25 10:14:24,005 - INFO - 🎉 Proceso de sincronización completado exitosamente
+2025-09-25 10:14:24,006 - INFO - 🔌 Conexión cerrada

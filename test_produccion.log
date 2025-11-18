@@ -1,0 +1,64 @@
+2025-09-30 15:08:56,674 - INFO - Inicializando tester para servidor de producción
+2025-09-30 15:08:56,675 - INFO - URL base: https://synapsis.com.co
+2025-09-30 15:08:56,675 - INFO - URL personalizada configurada: http://148.113.171.196:8080
+2025-09-30 15:08:56,675 - INFO - INICIANDO DIAGNÓSTICO COMPLETO DEL ENDPOINT
+2025-09-30 15:08:56,675 - INFO - ============================================================
+2025-09-30 15:08:56,675 - INFO - === PRUEBA DE CONECTIVIDAD ===
+2025-09-30 15:08:56,707 - DEBUG - Starting new HTTP connection (1): 148.113.171.196:8080
+2025-09-30 15:08:56,905 - DEBUG - http://148.113.171.196:8080 "GET / HTTP/1.1" 200 9182
+2025-09-30 15:08:56,913 - INFO - Conectividad OK - Status: 200
+2025-09-30 15:08:56,913 - INFO - === PRUEBA DE AUTENTICACIÓN ===
+2025-09-30 15:08:56,914 - DEBUG - Resetting dropped connection: 148.113.171.196
+2025-09-30 15:08:57,116 - DEBUG - http://148.113.171.196:8080 "GET /login HTTP/1.1" 404 207
+2025-09-30 15:08:57,127 - INFO - Página de login obtenida - Status: 404
+2025-09-30 15:08:57,129 - DEBUG - Resetting dropped connection: 148.113.171.196
+2025-09-30 15:08:57,299 - DEBUG - http://148.113.171.196:8080 "POST /login HTTP/1.1" 404 207
+2025-09-30 15:08:57,311 - INFO - Respuesta de login - Status: 404
+2025-09-30 15:08:57,311 - INFO - Headers de respuesta: {'Server': 'Werkzeug/3.1.3 Python/3.12.7', 'Date': 'Tue, 30 Sep 2025 20:08:56 GMT', 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': '207', 'Connection': 'close'}
+2025-09-30 15:08:57,311 - ERROR - Login fallido - Status code inesperado: 404
+2025-09-30 15:08:57,312 - WARNING - Probando endpoint sin autenticación
+2025-09-30 15:08:57,312 - INFO - === PRUEBA ENDPOINT BÁSICO ===
+2025-09-30 15:08:57,312 - INFO - Probando URL: http://148.113.171.196:8080/api/asistencia/resumen_agrupado
+2025-09-30 15:08:57,313 - DEBUG - Resetting dropped connection: 148.113.171.196
+2025-09-30 15:08:57,486 - DEBUG - http://148.113.171.196:8080 "GET /api/asistencia/resumen_agrupado HTTP/1.1" 302 189
+2025-09-30 15:08:57,498 - DEBUG - Resetting dropped connection: 148.113.171.196
+2025-09-30 15:08:57,686 - DEBUG - http://148.113.171.196:8080 "GET / HTTP/1.1" 200 9494
+2025-09-30 15:08:57,701 - INFO - Status Code: 200
+2025-09-30 15:08:57,702 - INFO - Headers: {'Server': 'Werkzeug/3.1.3 Python/3.12.7', 'Date': 'Tue, 30 Sep 2025 20:08:57 GMT', 'Content-Type': 'text/html; charset=utf-8', 'Content-Length': '9494', 'Vary': 'Cookie', 'Set-Cookie': 'session=eyJfZnJlc2giOmZhbHNlfQ.aNw42Q.1uad5evinQDE169SgsNSLoTucBs; HttpOnly; Path=/', 'Connection': 'close'}
+2025-09-30 15:08:57,702 - WARNING - Respuesta no es JSON válido
+2025-09-30 15:08:57,702 - INFO - Contenido: <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+        .login-card {
+            border-radius: 1rem;
+            box-shadow: 0 10px 
+2025-09-30 15:08:57,702 - INFO - === PRUEBA ENDPOINT CON FECHAS ===
+2025-09-30 15:08:57,702 - INFO - Probando URL: http://148.113.171.196:8080/api/asistencia/resumen_agrupado
+2025-09-30 15:08:57,702 - INFO - Parámetros: {'fecha_inicio': '2025-09-30', 'fecha_fin': '2025-09-30'}
+2025-09-30 15:08:57,705 - DEBUG - Resetting dropped connection: 148.113.171.196
+2025-09-30 15:08:57,882 - DEBUG - http://148.113.171.196:8080 "GET /api/asistencia/resumen_agrupado?fecha_inicio=2025-09-30&fecha_fin=2025-09-30 HTTP/1.1" 302 189
+2025-09-30 15:08:57,904 - DEBUG - Resetting dropped connection: 148.113.171.196
+2025-09-30 15:08:58,078 - DEBUG - http://148.113.171.196:8080 "GET / HTTP/1.1" 200 9494
+2025-09-30 15:08:58,088 - INFO - Status Code: 200
+2025-09-30 15:08:58,088 - WARNING - Respuesta con fechas no es JSON válido
+2025-09-30 15:08:58,088 - INFO - === PRUEBA ENDPOINT CON SUPERVISOR ===
+2025-09-30 15:08:58,089 - INFO - Probando URL: http://148.113.171.196:8080/api/asistencia/resumen_agrupado
+2025-09-30 15:08:58,089 - INFO - Parámetros: {'fecha_inicio': '2025-09-30', 'fecha_fin': '2025-09-30', 'supervisor': '1'}
+2025-09-30 15:08:58,090 - DEBUG - Resetting dropped connection: 148.113.171.196
+2025-09-30 15:08:58,263 - DEBUG - http://148.113.171.196:8080 "GET /api/asistencia/resumen_agrupado?fecha_inicio=2025-09-30&fecha_fin=2025-09-30&supervisor=1 HTTP/1.1" 302 189
+2025-09-30 15:08:58,276 - DEBUG - Resetting dropped connection: 148.113.171.196
+2025-09-30 15:08:58,438 - DEBUG - http://148.113.171.196:8080 "GET / HTTP/1.1" 200 9494
+2025-09-30 15:08:58,457 - INFO - Status Code: 200
+2025-09-30 15:08:58,457 - WARNING - Respuesta con supervisor no es JSON válido
+2025-09-30 15:08:58,457 - INFO - ============================================================
+2025-09-30 15:08:58,457 - INFO - RESUMEN DE RESULTADOS:
