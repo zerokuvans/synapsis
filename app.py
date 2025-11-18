@@ -2373,6 +2373,512 @@ def mpa_vehiculos():
     
     return render_template('modulos/mpa/vehicles.html')
 
+@app.route('/mpa/rutas')
+@login_required
+def mpa_rutas():
+    if not (current_user.has_role('administrativo') or current_user.has_role('operativo') or current_user.has_role('logistica')):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    return render_template('modulos/mpa/rutas.html')
+
+def ensure_rutas_table(conn):
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS mpa_rutas_tecnicos (
+            id_ruta INT AUTO_INCREMENT PRIMARY KEY,
+            cedula VARCHAR(32),
+            nombre VARCHAR(255),
+            lat_inicio DECIMAL(9,6),
+            lon_inicio DECIMAL(9,6),
+            lat_fin DECIMAL(9,6),
+            lon_fin DECIMAL(9,6),
+            fecha DATE NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        """
+    )
+    conn.commit()
+    cursor.close()
+
+@app.route('/api/mpa/rutas/import-excel', methods=['POST'])
+@login_required
+def api_import_rutas_excel():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        ensure_rutas_table(conn)
+        try:
+            import pandas as pd
+            from io import BytesIO
+        except Exception:
+            return jsonify({'success': False, 'message': 'Dependencia faltante: pandas.'}), 500
+        df = None
+        if 'file' in request.files and request.files['file'].filename != '':
+            file = request.files['file']
+            buf = BytesIO(file.read())
+            ext = (file.filename.split('.')[-1] or '').lower()
+            try:
+                df = pd.read_excel(buf) if ext in ['xlsx', 'xls'] else pd.read_csv(buf, sep=None, engine='python')
+            except Exception as e:
+                return jsonify({'success': False, 'message': 'No se pudo leer el archivo', 'error': str(e)}), 400
+        else:
+            file_path = request.json.get('file_path') if request.is_json else None
+            if not file_path:
+                return jsonify({'success': False, 'message': 'No se proporcionó archivo'}), 400
+            try:
+                df = pd.read_excel(file_path)
+            except Exception as e:
+                return jsonify({'success': False, 'message': 'No se pudo leer el archivo', 'error': str(e)}), 400
+        df.columns = [str(c).strip() for c in df.columns]
+        alias = {
+            'Coordenada X Inicio': 'lat_inicio',
+            'Coordenada Y Inicio': 'lon_inicio',
+            'Coordenada X Fin': 'lat_fin',
+            'Coordenada Y Fin': 'lon_fin',
+            'cedula': 'cedula',
+            'Nombre': 'nombre'
+        }
+        df.rename(columns=alias, inplace=True)
+        required = ['cedula', 'nombre', 'lat_inicio', 'lon_inicio', 'lat_fin', 'lon_fin']
+        missing = [c for c in required if c not in df.columns]
+        if missing:
+            return jsonify({'success': False, 'message': 'Columnas faltantes: ' + ', '.join(missing)}), 400
+        def fix_num(x):
+            s = str(x).strip()
+            s = s.replace('..', '.')
+            try:
+                return float(s)
+            except Exception:
+                return None
+        df['lat_inicio'] = df['lat_inicio'].apply(fix_num)
+        df['lon_inicio'] = df['lon_inicio'].apply(fix_num)
+        df['lat_fin'] = df['lat_fin'].apply(fix_num)
+        df['lon_fin'] = df['lon_fin'].apply(fix_num)
+        df = df.dropna(subset=['lat_inicio', 'lon_inicio', 'lat_fin', 'lon_fin'])
+        rows = []
+        for _, r in df.iterrows():
+            rows.append((
+                str(r['cedula']).strip(),
+                str(r['nombre']).strip(),
+                float(r['lat_inicio']),
+                float(r['lon_inicio']),
+                float(r['lat_fin']),
+                float(r['lon_fin']),
+                None
+            ))
+        cur = conn.cursor()
+        cur.executemany(
+            """
+            INSERT INTO mpa_rutas_tecnicos (cedula, nombre, lat_inicio, lon_inicio, lat_fin, lon_fin, fecha)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            rows
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True, 'inserted': len(rows)})
+    except Exception as e:
+        try:
+            if 'conn' in locals() and conn:
+                conn.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': 'Error procesando archivo', 'error': str(e)}), 500
+
+@app.route('/api/mpa/rutas/tecnicos', methods=['GET'])
+@login_required
+def api_rutas_tecnicos():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        ensure_rutas_table(conn)
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT DISTINCT cedula, nombre FROM mpa_rutas_tecnicos ORDER BY nombre")
+        data = cur.fetchall() or []
+        cur.close()
+        conn.close()
+        return jsonify({'success': True, 'tecnicos': data})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/mpa/rutas/por-tecnico', methods=['GET'])
+@login_required
+def api_rutas_por_tecnico():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    cedula = request.args.get('cedula')
+    if not cedula:
+        return jsonify({'success': False, 'message': 'Cedula requerida'}), 400
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        ensure_rutas_table(conn)
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT id_ruta, cedula, nombre, lat_inicio, lon_inicio, lat_fin, lon_fin, fecha, created_at
+            FROM mpa_rutas_tecnicos
+            WHERE cedula = %s
+            ORDER BY created_at DESC
+            """,
+            (cedula,)
+        )
+        data = cur.fetchall() or []
+        cur.close()
+        conn.close()
+        return jsonify({'success': True, 'rutas': data})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/mpa/rutas/google-directions', methods=['GET'])
+@login_required
+def api_google_directions_route():
+    if not (current_user.has_role('administrativo') or current_user.has_role('operativo') or current_user.has_role('logistica')):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+    try:
+        import os
+        import requests
+        key = os.getenv('GOOGLE_MAPS_API_KEY')
+        if not key:
+            return jsonify({'success': False, 'message': 'Falta GOOGLE_MAPS_API_KEY en entorno'}), 500
+        olat = request.args.get('origin_lat', type=float)
+        olon = request.args.get('origin_lon', type=float)
+        dlat = request.args.get('dest_lat', type=float)
+        dlon = request.args.get('dest_lon', type=float)
+        if olat is None or olon is None or dlat is None or dlon is None:
+            return jsonify({'success': False, 'message': 'Coordenadas inválidas'}), 400
+        url = (
+            'https://maps.googleapis.com/maps/api/directions/json'
+            f'?origin={olat},{olon}&destination={dlat},{dlon}&mode=driving&alternatives=false&key={key}'
+        )
+        r = requests.get(url, timeout=10)
+        data = r.json()
+        routes = data.get('routes') or []
+        if not routes:
+            return jsonify({'success': False, 'message': 'Sin ruta'}), 200
+        route = routes[0]
+        poly = ((route.get('overview_polyline') or {}).get('points'))
+        bounds = route.get('bounds') or {}
+        return jsonify({'success': True, 'polyline': poly, 'bounds': bounds})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/mpa/rutas/riesgo-motos', methods=['GET'])
+@login_required
+def api_riesgo_motos():
+    if not (current_user.has_role('administrativo') or current_user.has_role('operativo') or current_user.has_role('logistica')):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+    try:
+        import os
+        import csv
+        import requests
+        import time
+        min_lat = request.args.get('min_lat', type=float)
+        min_lon = request.args.get('min_lon', type=float)
+        max_lat = request.args.get('max_lat', type=float)
+        max_lon = request.args.get('max_lon', type=float)
+        months = request.args.get('months', default=12, type=int)
+        vehicle_in = (request.args.get('vehicle') or '').strip().lower()
+
+        global RISK_CACHE, RISK_CACHE_TTL
+        if 'RISK_CACHE' not in globals():
+            RISK_CACHE = {}
+            RISK_CACHE_TTL = 300
+        key = (
+            round((min_lat or 0), 2),
+            round((min_lon or 0), 2),
+            round((max_lat or 0), 2),
+            round((max_lon or 0), 2),
+            int(months or 12)
+        )
+        now = time.time()
+        if key in RISK_CACHE and (now - RISK_CACHE[key]['ts'] < RISK_CACHE_TTL):
+            pts = RISK_CACHE[key]['points']
+            return jsonify({'success': True, 'points': pts, 'count': len(pts), 'cached': True})
+
+        puntos = []
+
+        socrata_url = os.getenv('BOGOTA_ACCIDENTS_API_URL')
+        resource_id = os.getenv('BOGOTA_ACCIDENTS_RESOURCE_ID')
+        lat_field = os.getenv('BOGOTA_ACCIDENTS_LAT_FIELD', 'latitud')
+        lon_field = os.getenv('BOGOTA_ACCIDENTS_LON_FIELD', 'longitud')
+        date_field = os.getenv('BOGOTA_ACCIDENTS_DATE_FIELD', 'fecha')
+        vehicle_field = os.getenv('BOGOTA_ACCIDENTS_VEHICLE_FIELD', 'clase_vehiculo')
+
+        if socrata_url and resource_id:
+            try:
+                where_parts = [f"lower({vehicle_field})='motocicleta'"]
+                if vehicle_in and vehicle_in not in ['todos', 'all']:
+                    where_parts = [f"lower({vehicle_field})='{vehicle_in}'"]
+                else:
+                    where_parts = []
+                if months and months > 0:
+                    where_parts.append(f"{date_field} >= date_trunc('month', now()) - interval '{months} month'")
+                if all(v is not None for v in [min_lat, min_lon, max_lat, max_lon]):
+                    where_parts.append(f"{lat_field} between {min_lat} and {max_lat}")
+                    where_parts.append(f"{lon_field} between {min_lon} and {max_lon}")
+                where_clause = ' AND '.join(where_parts)
+                params = {
+                    '$select': f"{lat_field} as lat, {lon_field} as lon",
+                    '$where': where_clause,
+                    '$limit': 5000
+                }
+                url = f"{socrata_url.rstrip('/')}/{resource_id}.json"
+                headers = {}
+                token = os.getenv('ANSV_APP_TOKEN')
+                if token:
+                    headers['X-App-Token'] = token
+                r = requests.get(url, params=params, headers=headers, timeout=10)
+                arr = r.json() if r.ok else []
+                for it in arr:
+                    try:
+                        lat = float(it.get('lat'))
+                        lon = float(it.get('lon'))
+                        if -90 <= lat <= 90 and -180 <= lon <= 180:
+                            puntos.append([lat, lon])
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        # Fallback 2: ArcGIS FeatureServer con geometría
+        if not puntos:
+            arcgis_url = os.getenv('BOGOTA_ACCIDENTS_ARCGIS_URL')  # e.g. https://services.arcgis.com/<org>/ArcGIS/rest/services/<service>/FeatureServer
+            arcgis_layer = os.getenv('BOGOTA_ACCIDENTS_ARCGIS_LAYER', '0')
+            if arcgis_url:
+                try:
+                    geom = {
+                        'geometry': f"{min_lon},{min_lat},{max_lon},{max_lat}",
+                        'geometryType': 'esriGeometryEnvelope',
+                        'inSR': 4326,
+                        'spatialRel': 'esriSpatialRelIntersects',
+                        'where': '1=1',
+                        'outFields': '*',
+                        'returnGeometry': 'true',
+                        'outSR': 4326,
+                        'f': 'json'
+                    }
+                    url = arcgis_url.rstrip('/') + f"/{arcgis_layer}/query"
+                    r = requests.get(url, params=geom, timeout=10)
+                    data = r.json() if r.ok else {}
+                    feats = data.get('features') or []
+                    for ft in feats:
+                        g = ft.get('geometry') or {}
+                        lat = g.get('y')
+                        lon = g.get('x')
+                        if lat is None or lon is None:
+                            # algunos servicios entregan geometry como {rings} o {paths}
+                            if 'paths' in g and g['paths']:
+                                for seg in g['paths']:
+                                    for p in seg:
+                                        lon, lat = p[0], p[1]
+                                        if -90 <= lat <= 90 and -180 <= lon <= 180:
+                                            puntos.append([lat, lon])
+                            if 'rings' in g and g['rings']:
+                                for ring in g['rings']:
+                                    for p in ring:
+                                        lon, lat = p[0], p[1]
+                                        if -90 <= lat <= 90 and -180 <= lon <= 180:
+                                            puntos.append([lat, lon])
+                        else:
+                            if -90 <= lat <= 90 and -180 <= lon <= 180:
+                                puntos.append([lat, lon])
+                except Exception:
+                    pass
+
+        # Fallback 2.5: Shapefile local en carpeta Siniestros
+        if not puntos:
+            try:
+                import shapefile
+                shp_path = os.path.join(os.getcwd(), 'Siniestros', 'Hoja1_XYTableToPoint3.shp')
+                if os.path.isfile(shp_path):
+                    sf = shapefile.Reader(shp_path)
+                    lat_idx = None
+                    lon_idx = None
+                    date_idx = None
+                    veh_idx = None
+                    fields = [f[0] for f in sf.fields[1:]]
+                    for i, f in enumerate(fields):
+                        fn = f.lower()
+                        if fn == 'latitud': lat_idx = i
+                        if fn == 'longitud': lon_idx = i
+                        if fn in ('fechaacc', 'fecha_acc', 'fecha'): date_idx = i
+                        if fn in ('vehiculo_v', 'claseveh', 'clasevehiculo', 'clasenombr'): veh_idx = i
+                    for rec in sf.iterRecords():
+                        try:
+                            lat = float(rec[lat_idx]) if lat_idx is not None else None
+                            lon = float(rec[lon_idx]) if lon_idx is not None else None
+                            if lat is None or lon is None:
+                                continue
+                            if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                                continue
+                            if all(v is not None for v in [min_lat, min_lon, max_lat, max_lon]):
+                                if not (min_lat <= lat <= max_lat and min_lon <= lon <= max_lon):
+                                    continue
+                            if date_idx is not None and months and months > 0:
+                                try:
+                                    d = rec[date_idx]
+                                    if hasattr(d, 'toordinal'):
+                                        from datetime import date as _date, timedelta as _td
+                                        cutoff = _date.today() - _td(days=months*30)
+                                        if d < cutoff:
+                                            continue
+                                except Exception:
+                                    pass
+                            if veh_idx is not None and vehicle_in and vehicle_in not in ('todos','all'):
+                                v = str(rec[veh_idx]).strip().lower()
+                                if v != vehicle_in:
+                                    continue
+                            puntos.append([lat, lon])
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+        # Fallback 3: archivo local CSV
+        if not puntos:
+            local_csv = os.path.join(os.getcwd(), 'excel', 'accidentes_motos_bogota.csv')
+            if os.path.isfile(local_csv):
+                try:
+                    with open(local_csv, newline='', encoding='utf-8') as f:
+                        reader = csv.DictReader(f)
+                        lf = lat_field
+                        lo = lon_field
+                        for row in reader:
+                            try:
+                                lat = float(row.get(lf))
+                                lon = float(row.get(lo))
+                                if -90 <= lat <= 90 and -180 <= lon <= 180:
+                                    if all(v is not None for v in [min_lat, min_lon, max_lat, max_lon]):
+                                        if min_lat <= lat <= max_lat and min_lon <= lon <= max_lon:
+                                            puntos.append([lat, lon])
+                                    else:
+                                        puntos.append([lat, lon])
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+
+        RISK_CACHE[key] = { 'points': puntos, 'ts': now }
+        if len(RISK_CACHE) > 50:
+            RISK_CACHE.clear()
+        return jsonify({'success': True, 'points': puntos, 'count': len(puntos), 'cached': False})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/mpa/rutas/riesgo-por-localidad', methods=['GET'])
+@login_required
+def api_riesgo_por_localidad():
+    if not (current_user.has_role('administrativo') or current_user.has_role('operativo') or current_user.has_role('logistica')):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+    try:
+        import os
+        import shapefile
+        from collections import defaultdict
+        months = request.args.get('months', default=12, type=int)
+        vehicle_in = (request.args.get('vehicle') or '').strip().lower()
+        shp_path = os.path.join(os.getcwd(), 'Siniestros', 'Hoja1_XYTableToPoint3.shp')
+        if not os.path.isfile(shp_path):
+            return jsonify({'success': False, 'message': 'Fuente local de siniestros no disponible'}), 200
+        sf = shapefile.Reader(shp_path)
+        fields = [f[0] for f in sf.fields[1:]]
+        idx_local = None
+        idx_date = None
+        idx_vehicle = None
+        for i, f in enumerate(fields):
+            fn = f.lower()
+            if fn == 'localidad': idx_local = i
+            if fn in ('fechaacc', 'fecha_acc', 'fecha'): idx_date = i
+            if fn in ('vehiculo_v', 'claseveh', 'clasevehiculo', 'clasenombr'): idx_vehicle = i
+        if idx_local is None:
+            return jsonify({'success': False, 'message': 'El shapefile no contiene campo Localidad'}), 200
+        from datetime import date as _date, timedelta as _td
+        cutoff = _date.today() - _td(days=(months or 12)*30)
+        counts = defaultdict(int)
+        for rec in sf.iterRecords():
+            try:
+                loc = str(rec[idx_local]).strip()
+                if not loc:
+                    continue
+                if idx_vehicle is not None and vehicle_in and vehicle_in not in ('todos','all'):
+                    v = str(rec[idx_vehicle]).strip().lower()
+                    if v != vehicle_in:
+                        continue
+                if idx_date is not None and months and months > 0:
+                    d = rec[idx_date]
+                    if hasattr(d, 'toordinal') and d < cutoff:
+                        continue
+                counts[loc] += 1
+            except Exception:
+                pass
+        result = [{'localidad': k, 'count': v} for k, v in counts.items()]
+        return jsonify({'success': True, 'data': sorted(result, key=lambda x: -x['count'])})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/mpa/localidades', methods=['GET'])
+@login_required
+def api_localidades():
+    if not (current_user.has_role('administrativo') or current_user.has_role('operativo') or current_user.has_role('logistica')):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+    try:
+        import os
+        import time
+        import requests
+        global LOCALIDADES_CACHE
+        global LOCALIDADES_CACHE_TTL
+        if 'LOCALIDADES_CACHE' not in globals():
+            LOCALIDADES_CACHE = None
+            LOCALIDADES_CACHE_TTL = 86400
+        now = time.time()
+        if LOCALIDADES_CACHE and (now - LOCALIDADES_CACHE['ts'] < LOCALIDADES_CACHE_TTL):
+            return jsonify({'success': True, 'geojson': LOCALIDADES_CACHE['geojson']})
+        url_gj = os.getenv('BOGOTA_LOCALIDADES_GEOJSON_URL')
+        if url_gj:
+            r = requests.get(url_gj, timeout=15)
+            if r.ok:
+                data = r.json()
+                LOCALIDADES_CACHE = {'geojson': data, 'ts': now}
+                return jsonify({'success': True, 'geojson': data})
+        url_fs = os.getenv('BOGOTA_LOCALIDADES_ARCGIS_URL')
+        layer = os.getenv('BOGOTA_LOCALIDADES_ARCGIS_LAYER', '0')
+        if not url_fs:
+            url_fs = 'https://serviciosgis.catastrobogota.gov.co/arcgis/rest/services/ordenamientoterritorial/localidad/MapServer'
+            layer = '0'
+        if url_fs:
+            params = {
+                'where': '1=1',
+                'outFields': '*',
+                'returnGeometry': 'true',
+                'outSR': 4326,
+                'f': 'geojson'
+            }
+            r = requests.get(url_fs.rstrip('/') + f'/{layer}/query', params=params, timeout=15)
+            if r.ok:
+                data = r.json()
+                LOCALIDADES_CACHE = {'geojson': data, 'ts': now}
+                return jsonify({'success': True, 'geojson': data})
+        import json
+        import os as _os
+        local_file = _os.path.join(_os.getcwd(), 'excel', 'localidades_bogota.geojson')
+        if _os.path.isfile(local_file):
+            with open(local_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                LOCALIDADES_CACHE = {'geojson': data, 'ts': now}
+                return jsonify({'success': True, 'geojson': data})
+        return jsonify({'success': False, 'message': 'No hay fuente de localidades configurada'}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 # API para obtener lista de vehículos
 @app.route('/api/mpa/vehiculos', methods=['GET'])
 @login_required

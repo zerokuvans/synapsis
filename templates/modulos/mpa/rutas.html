@@ -1,0 +1,408 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container-fluid mt-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card shadow">
+        <div class="card-header" style="background: linear-gradient(135deg, #667eea 0%, #667eea 100%);">
+          <h3 class="mb-0 text-white">Rutas Frecuentes de Técnicos</h3>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-bold">Técnico</label>
+              <select id="tecnicoSelect" class="form-select"></select>
+            </div>
+            <div class="col-md-4 d-flex align-items-end gap-2">
+              <button id="verRutasBtn" class="btn btn-primary">Ver rutas</button>
+              <button id="cargarRutasBtn" class="btn btn-outline-primary">Cargar rutas</button>
+            </div>
+            <div class="col-md-4">
+              <div class="d-flex gap-3 align-items-end">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="modoVial">
+                  <label class="form-check-label" for="modoVial">Ruta vial</label>
+                </div>
+                <div>
+                  <label class="form-label">Motor</label>
+                  <select id="motorSelect" class="form-select">
+                    <option value="osrm">OSRM</option>
+                    <option value="google">Google</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Accidente</label>
+                  <select id="tipoAccSelect" class="form-select">
+                    <option value="todos" selected>Todos</option>
+                    <option value="motocicleta">Motocicleta</option>
+                    <option value="automóvil">Automóvil</option>
+                    <option value="bicicleta">Bicicleta</option>
+                    <option value="peatón">Peatón</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Meses</label>
+                  <select id="mesesSelect" class="form-select">
+                    <option value="3">3</option>
+                    <option value="6">6</option>
+                    <option value="12" selected>12</option>
+                    <option value="24">24</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Intensidad</label>
+                  <input type="range" id="intensidadRange" class="form-range" min="0.1" max="2" step="0.1" value="0.6">
+                </div>
+                <div>
+                  <label class="form-label">Máx. rutas</label>
+                  <input type="number" id="maxRutas" class="form-control" value="50" min="1" max="300">
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="status" class="mb-3"></div>
+          <div id="map" style="height: 80vh; width: 100%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
+<script>
+let map;
+let layers = [];
+let heatLayer = null;
+function initMap() {
+  map = L.map('map').setView([4.65, -74.1], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+}
+function clearLayers() {
+  layers.forEach(l => map.removeLayer(l));
+  layers = [];
+}
+async function drawRoadRoute(start, end) {
+  const s = { lat: start[0], lon: start[1] };
+  const e = { lat: end[0], lon: end[1] };
+  const motor = document.getElementById('motorSelect').value;
+  if (motor === 'google') {
+    try {
+      const r = await fetch(`/api/mpa/rutas/google-directions?origin_lat=${s.lat}&origin_lon=${s.lon}&dest_lat=${e.lat}&dest_lon=${e.lon}`);
+      const d = await r.json();
+      const points = d.polyline || '';
+      if (d.success && points) {
+        const latlngs = decodePolyline(points).map(p => [p[0], p[1]]);
+        const pl = L.polyline(latlngs, { color: '#0d6efd', weight: 3, opacity: 0.9 });
+        pl.addTo(map);
+        layers.push(pl);
+        return true;
+      }
+    } catch (e) {}
+  } else {
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${s.lon},${s.lat};${e.lon},${e.lat}?overview=full&geometries=geojson`;
+      const r = await fetch(url);
+      const d = await r.json();
+      const coords = (d.routes && d.routes[0] && d.routes[0].geometry && d.routes[0].geometry.coordinates) || [];
+      if (coords.length > 0) {
+        const latlngs = coords.map(c => [c[1], c[0]]);
+        const pl = L.polyline(latlngs, { color: '#1f7a8c', weight: 3, opacity: 0.9 });
+        pl.addTo(map);
+        layers.push(pl);
+        return true;
+      }
+    } catch (e) {}
+  }
+  const line = L.polyline([start, end], { color: '#667eea', weight: 3, opacity: 0.7 });
+  line.addTo(map);
+  layers.push(line);
+  return false;
+}
+function decodePolyline(str) {
+  let index = 0, lat = 0, lng = 0, coordinates = [];
+  while (index < str.length) {
+    let b, shift = 0, result = 0;
+    do {
+      b = str.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lat += dlat;
+    shift = 0; result = 0;
+    do {
+      b = str.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lng += dlng;
+    coordinates.push([lat * 1e-5, lng * 1e-5]);
+  }
+  return coordinates;
+}
+async function loadTecnicos() {
+  const res = await fetch('/api/mpa/rutas/tecnicos');
+  const data = await res.json();
+  const sel = document.getElementById('tecnicoSelect');
+  sel.innerHTML = '';
+  if (data.success) {
+    data.tecnicos.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.cedula;
+      opt.textContent = `${t.nombre} (${t.cedula})`;
+      sel.appendChild(opt);
+    });
+  }
+}
+async function verRutas() {
+  const cedula = document.getElementById('tecnicoSelect').value;
+  if (!cedula) return;
+  document.getElementById('status').textContent = '';
+  const res = await fetch(`/api/mpa/rutas/por-tecnico?cedula=${encodeURIComponent(cedula)}`);
+  const data = await res.json();
+  clearLayers();
+  if (data.success) {
+    const modoVial = document.getElementById('modoVial').checked;
+    const maxRutas = parseInt(document.getElementById('maxRutas').value || '50', 10);
+    const lista = data.rutas.slice(0, Math.max(1, Math.min(300, maxRutas)));
+    for (const r of lista) {
+      const start = [r.lat_inicio, r.lon_inicio];
+      const end = [r.lat_fin, r.lon_fin];
+      const m1 = L.circleMarker(start, { radius: 5, color: '#28a745' });
+      const m2 = L.circleMarker(end, { radius: 5, color: '#dc3545' });
+      m1.addTo(map);
+      m2.addTo(map);
+      layers.push(m1, m2);
+      if (modoVial) {
+        await drawRoadRoute(start, end);
+        await new Promise(res => setTimeout(res, 100));
+      } else {
+        const line = L.polyline([start, end], { color: '#667eea', weight: 3, opacity: 0.7 });
+        line.addTo(map);
+        layers.push(line);
+      }
+    }
+    if (layers.length > 0) {
+      const group = L.featureGroup(layers);
+      map.fitBounds(group.getBounds().pad(0.2));
+    }
+  }
+}
+
+async function toggleRiesgo() {
+  const status = document.getElementById('status');
+  if (heatLayer) {
+    map.removeLayer(heatLayer);
+    heatLayer = null;
+  }
+  const bounds = map.getBounds();
+  const meses = document.getElementById('mesesSelect').value || 12;
+  const params = new URLSearchParams({
+    min_lat: bounds.getSouth(),
+    min_lon: bounds.getWest(),
+    max_lat: bounds.getNorth(),
+    max_lon: bounds.getEast(),
+    months: meses,
+    vehicle: document.getElementById('tipoAccSelect').value
+  });
+  status.textContent = 'Cargando zonas de riesgo (motos)...';
+  try {
+    const r = await fetch(`/api/mpa/rutas/riesgo-motos?${params.toString()}`);
+    const d = await r.json();
+    if (d.success && d.points && d.points.length) {
+      const inten = parseFloat(document.getElementById('intensidadRange').value || '0.6');
+      heatLayer = L.heatLayer(
+        d.points.map(p => [p[0], p[1], inten]),
+        {
+          radius: 25,
+          blur: 20,
+          gradient: {
+            0.2: '#FFB0B0',
+            0.4: '#FF6B6B',
+            0.6: '#FF4242',
+            0.8: '#FF2B2B',
+            1.0: '#FC0000'
+          }
+        }
+      );
+      heatLayer.addTo(map);
+      status.textContent = `Zonas de riesgo cargadas: ${d.count}`;
+    } else {
+      status.textContent = d.message || 'No se encontraron puntos de riesgo en el área.';
+    }
+  } catch (e) {
+    status.textContent = 'Error al cargar zonas de riesgo.';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  initMap();
+  loadTecnicos();
+  document.getElementById('verRutasBtn').addEventListener('click', verRutas);
+  document.getElementById('cargarRutasBtn').addEventListener('click', cargarRutas);
+  const riesgoBtn = document.createElement('button');
+  riesgoBtn.id = 'riesgoBtn';
+  riesgoBtn.className = 'btn btn-outline-danger';
+  riesgoBtn.textContent = 'Zonas de riesgo (accidentes)';
+  riesgoBtn.style.marginLeft = '8px';
+  riesgoBtn.addEventListener('click', toggleHeatRisk);
+  document.querySelector('.col-md-4.d-flex.align-items-end.gap-2').appendChild(riesgoBtn);
+  // activar por defecto
+  toggleRiesgo();
+  document.getElementById('riesgoBtn').className = 'btn btn-danger';
+  // cambio de meses reactiva capa
+  document.getElementById('mesesSelect').addEventListener('change', () => { if (heatLayer) toggleRiesgo(); });
+  document.getElementById('tipoAccSelect').addEventListener('change', () => { if (heatLayer) toggleRiesgo(); });
+  document.getElementById('intensidadRange').addEventListener('input', () => { if (heatLayer) toggleRiesgo(); });
+  // botón por localidad
+  const locBtn = document.createElement('button');
+  locBtn.id = 'locBtn';
+  locBtn.className = 'btn btn-outline-danger';
+  locBtn.textContent = 'Riesgo por localidad';
+  locBtn.style.marginLeft = '8px';
+  locBtn.addEventListener('click', toggleLocalidadRisk);
+  document.querySelector('.col-md-4.d-flex.align-items-end.gap-2').appendChild(locBtn);
+  const bordersBtn = document.createElement('button');
+  bordersBtn.id = 'bordersBtn';
+  bordersBtn.className = 'btn btn-outline-secondary';
+  bordersBtn.textContent = 'Fronteras localidades';
+  bordersBtn.style.marginLeft = '8px';
+  bordersBtn.addEventListener('click', toggleLocalidadBorders);
+  document.querySelector('.col-md-4.d-flex.align-items-end.gap-2').appendChild(bordersBtn);
+});
+
+let localidadLayer = null;
+async function drawLocalidadRisk() {
+  const status = document.getElementById('status');
+  if (localidadLayer) { map.removeLayer(localidadLayer); localidadLayer = null; }
+  const meses = document.getElementById('mesesSelect').value || 12;
+  const tipo = document.getElementById('tipoAccSelect').value;
+  try {
+    const r = await fetch(`/api/mpa/rutas/riesgo-por-localidad?months=${meses}&vehicle=${encodeURIComponent(tipo)}`);
+    const d = await r.json();
+    if (!d.success) { status.textContent = d.message || 'No fue posible obtener riesgo por localidad'; return; }
+    const mapa = new Map(d.data.map(it => [String(it.localidad).toLowerCase(), it.count]));
+    const resp = await fetch('/api/mpa/localidades');
+    const gjResp = await resp.json();
+    if (!gjResp.success) { status.textContent = gjResp.message || 'No se pudo obtener localidades'; return; }
+    const gj = gjResp.geojson;
+    const max = Math.max(...d.data.map(x => x.count), 1);
+    function colorFor(v) {
+      const t = v / max;
+      if (t > 0.8) return '#cc0000';
+      if (t > 0.6) return '#ff3333';
+      if (t > 0.4) return '#ff6666';
+      if (t > 0.2) return '#ff9999';
+      return '#ffe5e5';
+    }
+    localidadLayer = L.geoJSON(gj, {
+      style: f => {
+        const name = (f.properties.NOMBRE || f.properties.nombre || f.properties.Localidad || '').toLowerCase();
+        const v = mapa.get(name) || 0;
+        return { color: '#b22222', weight: 1, fillColor: colorFor(v), fillOpacity: 0.5 };
+      },
+      onEachFeature: (f, layer) => {
+        const name = (f.properties.NOMBRE || f.properties.nombre || f.properties.Localidad || 'Localidad');
+        const v = mapa.get(String(name).toLowerCase()) || 0;
+        layer.bindPopup(`${name}: ${v} siniestros`);
+      }
+    });
+    localidadLayer.addTo(map);
+    status.textContent = 'Capa por localidad cargada';
+  } catch (e) { status.textContent = 'Error al cargar riesgo por localidad'; }
+}
+
+function toggleHeatRisk() {
+  const status = document.getElementById('status');
+  const b = document.getElementById('riesgoBtn');
+  if (heatLayer) {
+    map.removeLayer(heatLayer);
+    heatLayer = null;
+    if (b) b.className = 'btn btn-outline-danger';
+    status.textContent = '';
+  } else {
+    if (b) b.className = 'btn btn-danger';
+    toggleRiesgo();
+  }
+}
+function toggleLocalidadRisk() {
+  const status = document.getElementById('status');
+  if (localidadLayer) {
+    map.removeLayer(localidadLayer);
+    localidadLayer = null;
+    const b = document.getElementById('locBtn');
+    if (b) b.className = 'btn btn-outline-danger';
+    status.textContent = '';
+  } else {
+    const b = document.getElementById('locBtn');
+    if (b) b.className = 'btn btn-danger';
+    drawLocalidadRisk();
+  }
+}
+let localidadBordersLayer = null;
+async function drawLocalidadBorders() {
+  const status = document.getElementById('status');
+  if (localidadBordersLayer) { map.removeLayer(localidadBordersLayer); localidadBordersLayer = null; }
+  try {
+    const resp = await fetch('/api/mpa/localidades');
+    const gjResp = await resp.json();
+    if (!gjResp.success) { status.textContent = gjResp.message || 'No se pudo obtener localidades'; return; }
+    const gj = gjResp.geojson;
+    localidadBordersLayer = L.geoJSON(gj, {
+      style: { color: '#8B0000', weight: 2, fillOpacity: 0 },
+      onEachFeature: (f, layer) => {
+        layer.on('mouseover', () => layer.setStyle({ weight: 3 }));
+        layer.on('mouseout', () => layer.setStyle({ weight: 2 }));
+      }
+    });
+    localidadBordersLayer.addTo(map);
+    status.textContent = 'Fronteras de localidades cargadas';
+  } catch (e) { status.textContent = 'Error al cargar fronteras de localidades'; }
+}
+function toggleLocalidadBorders() {
+  const status = document.getElementById('status');
+  if (localidadBordersLayer) {
+    map.removeLayer(localidadBordersLayer);
+    localidadBordersLayer = null;
+    const b = document.getElementById('bordersBtn');
+    if (b) b.className = 'btn btn-outline-secondary';
+    status.textContent = '';
+  } else {
+    const b = document.getElementById('bordersBtn');
+    if (b) b.className = 'btn btn-secondary';
+    drawLocalidadBorders();
+  }
+}
+async function cargarRutas() {
+  const status = document.getElementById('status');
+  status.textContent = 'Cargando rutas desde Excel...';
+  try {
+    const res = await fetch('/api/mpa/rutas/import-excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_path: 'excel/DTA.xlsx' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      status.textContent = `Rutas cargadas: ${data.inserted}`;
+      await loadTecnicos();
+      await verRutas();
+    } else {
+      status.textContent = data.message || 'Error al cargar rutas';
+    }
+  } catch (e) {
+    status.textContent = 'Error de red al cargar rutas';
+  }
+}
+document.addEventListener('DOMContentLoaded', async () => {
+  initMap();
+  await loadTecnicos();
+  document.getElementById('verRutasBtn').addEventListener('click', verRutas);
+  document.getElementById('cargarRutasBtn').addEventListener('click', cargarRutas);
+});
+</script>
+{% endblock %}

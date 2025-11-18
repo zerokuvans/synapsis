@@ -185,7 +185,7 @@
                     </li>
                     {% endif %}
 
-                    {% if session.get('user_role') in ['administrativo', 'mpa'] %}
+                    {% if session.get('user_role') in ['administrativo', 'mpa', 'operativo', 'logistica'] %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" id="mpaDropdown" role="button" 
                            data-bs-toggle="dropdown" aria-expanded="false">
@@ -219,8 +219,12 @@
                             <li><a class="dropdown-item" href="/mpa/mantenimientos">
                                 <i class="fas fa-wrench me-2"></i>Mantenimientos
                             </a></li>
+                            <li><a class="dropdown-item" href="/mpa/rutas">
+                                <i class="fas fa-route me-2"></i>Rutas Frecuentes
+                            </a></li>
                         </ul>
                     </li>
+                    
                     {% endif %}
                 </ul>
                 <ul class="navbar-nav">
