@@ -273,6 +273,12 @@ document.addEventListener('DOMContentLoaded', () => {
   bordersBtn.style.marginLeft = '8px';
   bordersBtn.addEventListener('click', toggleLocalidadBorders);
   document.querySelector('.col-md-4.d-flex.align-items-end.gap-2').appendChild(bordersBtn);
+  const impBtn = document.createElement('button');
+  impBtn.className = 'btn btn-outline-dark';
+  impBtn.textContent = 'Cargar riesgo (local)';
+  impBtn.style.marginLeft = '8px';
+  impBtn.addEventListener('click', importarRiesgoLocal);
+  document.querySelector('.col-md-4.d-flex.align-items-end.gap-2').appendChild(impBtn);
 });
 
 let localidadLayer = null;
@@ -375,6 +381,23 @@ function toggleLocalidadBorders() {
     const b = document.getElementById('bordersBtn');
     if (b) b.className = 'btn btn-secondary';
     drawLocalidadBorders();
+  }
+}
+
+async function importarRiesgoLocal() {
+  const status = document.getElementById('status');
+  status.textContent = 'Importando puntos de riesgo desde shapefile local...';
+  try {
+    const r = await fetch('/api/mpa/rutas/riesgo-importar', { method: 'POST' });
+    const d = await r.json();
+    if (d.success) {
+      status.textContent = `Importación completa: ${d.inserted} puntos`; 
+      if (heatLayer) toggleRiesgo();
+    } else {
+      status.textContent = d.message || 'No fue posible importar riesgo';
+    }
+  } catch (e) {
+    status.textContent = 'Error al importar puntos de riesgo';
   }
 }
 async function cargarRutas() {

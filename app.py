@@ -92,6 +92,117 @@ def get_db_connection():
         print(f"Error al conectar a la base de datos: {e}")
         return None
 
+def ensure_riesgo_table():
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mpa_riesgo_accidentes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                lat DOUBLE NOT NULL,
+                lon DOUBLE NOT NULL,
+                fecha DATE NULL,
+                tipo_vehiculo VARCHAR(64) NULL,
+                localidad VARCHAR(128) NULL,
+                gravedad VARCHAR(64) NULL,
+                fuente VARCHAR(64) NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_lat (lat),
+                INDEX idx_lon (lon),
+                INDEX idx_fecha (fecha),
+                INDEX idx_tipo (tipo_vehiculo),
+                INDEX idx_localidad (localidad)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        conn.commit()
+        cur.close(); conn.close()
+    except Exception:
+        pass
+
+ensure_riesgo_table()
+
+def import_riesgo_from_shapefile():
+    try:
+        import os
+        import shapefile
+        from datetime import datetime
+        conn = get_db_connection()
+        if not conn:
+            return {'success': False, 'message': 'BD no disponible'}
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mpa_riesgo_accidentes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                lat DOUBLE NOT NULL,
+                lon DOUBLE NOT NULL,
+                fecha DATE NULL,
+                tipo_vehiculo VARCHAR(64) NULL,
+                localidad VARCHAR(128) NULL,
+                gravedad VARCHAR(64) NULL,
+                fuente VARCHAR(64) NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_lat (lat),
+                INDEX idx_lon (lon),
+                INDEX idx_fecha (fecha),
+                INDEX idx_tipo (tipo_vehiculo),
+                INDEX idx_localidad (localidad)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        shp_path = os.path.join(os.getcwd(), 'Siniestros', 'Hoja1_XYTableToPoint3.shp')
+        if not os.path.isfile(shp_path):
+            return {'success': False, 'message': 'No existe shapefile local en Siniestros/'}
+        sf = shapefile.Reader(shp_path)
+        fields = [f[0] for f in sf.fields[1:]]
+        idx_lat = next((i for i,f in enumerate(fields) if f.lower()=='latitud'), None)
+        idx_lon = next((i for i,f in enumerate(fields) if f.lower()=='longitud'), None)
+        idx_fecha = next((i for i,f in enumerate(fields) if f.lower() in ('fechaacc','fecha','fecha_acc')), None)
+        idx_veh = next((i for i,f in enumerate(fields) if f.lower() in ('vehiculo_v','clasenombr','claseveh','clasevehiculo')), None)
+        idx_loc = next((i for i,f in enumerate(fields) if f.lower()=='localidad'), None)
+        idx_grav = next((i for i,f in enumerate(fields) if 'gravedad' in f.lower()), None)
+        data = []
+        for rec in sf.iterRecords():
+            try:
+                lat = float(rec[idx_lat]) if idx_lat is not None else None
+                lon = float(rec[idx_lon]) if idx_lon is not None else None
+                if lat is None or lon is None:
+                    continue
+                if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                    continue
+                fecha_val = None
+                if idx_fecha is not None:
+                    d = rec[idx_fecha]
+                    if hasattr(d, 'year'):
+                        fecha_val = d
+                    else:
+                        try:
+                            fecha_val = datetime.strptime(str(d)[:10], '%Y-%m-%d').date()
+                        except Exception:
+                            fecha_val = None
+                tipo = str(rec[idx_veh]).strip() if idx_veh is not None else None
+                loc = str(rec[idx_loc]).strip() if idx_loc is not None else None
+                grav = str(rec[idx_grav]).strip() if idx_grav is not None else None
+                data.append((lat, lon, fecha_val, tipo, loc, grav, 'shapefile'))
+            except Exception:
+                pass
+        if not data:
+            return {'success': False, 'message': 'No se obtuvieron registros válidos'}
+        cur.execute("DELETE FROM mpa_riesgo_accidentes WHERE fuente='shapefile'")
+        cur.executemany(
+            "INSERT INTO mpa_riesgo_accidentes (lat, lon, fecha, tipo_vehiculo, localidad, gravedad, fuente) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            data
+        )
+        conn.commit()
+        cur.close(); conn.close()
+        return {'success': True, 'inserted': len(data)}
+    except Exception as e:
+        return {'success': False, 'message': str(e)}
+
 # Función para obtener la fecha y hora actual en Bogotá
 def get_bogota_datetime():
     return datetime.now(TIMEZONE)
@@ -2607,171 +2718,57 @@ def api_riesgo_motos():
 
         puntos = []
 
-        socrata_url = os.getenv('BOGOTA_ACCIDENTS_API_URL')
-        resource_id = os.getenv('BOGOTA_ACCIDENTS_RESOURCE_ID')
-        lat_field = os.getenv('BOGOTA_ACCIDENTS_LAT_FIELD', 'latitud')
-        lon_field = os.getenv('BOGOTA_ACCIDENTS_LON_FIELD', 'longitud')
-        date_field = os.getenv('BOGOTA_ACCIDENTS_DATE_FIELD', 'fecha')
-        vehicle_field = os.getenv('BOGOTA_ACCIDENTS_VEHICLE_FIELD', 'clase_vehiculo')
-
-        if socrata_url and resource_id:
-            try:
-                where_parts = [f"lower({vehicle_field})='motocicleta'"]
-                if vehicle_in and vehicle_in not in ['todos', 'all']:
-                    where_parts = [f"lower({vehicle_field})='{vehicle_in}'"]
-                else:
-                    where_parts = []
-                if months and months > 0:
-                    where_parts.append(f"{date_field} >= date_trunc('month', now()) - interval '{months} month'")
+        # Preferir datos guardados en BD
+        try:
+            conn = get_db_connection()
+            if conn:
+                cur = conn.cursor()
+                cur.execute("""
+                            CREATE TABLE IF NOT EXISTS mpa_riesgo_accidentes (
+                                id INT AUTO_INCREMENT PRIMARY KEY,
+                                lat DOUBLE NOT NULL,
+                                lon DOUBLE NOT NULL,
+                                fecha DATE NULL,
+                                tipo_vehiculo VARCHAR(64) NULL,
+                                localidad VARCHAR(128) NULL,
+                                gravedad VARCHAR(64) NULL,
+                                fuente VARCHAR(64) NULL,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                INDEX idx_lat (lat),
+                                INDEX idx_lon (lon),
+                                INDEX idx_fecha (fecha),
+                                INDEX idx_tipo (tipo_vehiculo),
+                                INDEX idx_localidad (localidad)
+                            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                        """)
+                where_parts = []
+                params = []
                 if all(v is not None for v in [min_lat, min_lon, max_lat, max_lon]):
-                    where_parts.append(f"{lat_field} between {min_lat} and {max_lat}")
-                    where_parts.append(f"{lon_field} between {min_lon} and {max_lon}")
-                where_clause = ' AND '.join(where_parts)
-                params = {
-                    '$select': f"{lat_field} as lat, {lon_field} as lon",
-                    '$where': where_clause,
-                    '$limit': 5000
-                }
-                url = f"{socrata_url.rstrip('/')}/{resource_id}.json"
-                headers = {}
-                token = os.getenv('ANSV_APP_TOKEN')
-                if token:
-                    headers['X-App-Token'] = token
-                r = requests.get(url, params=params, headers=headers, timeout=10)
-                arr = r.json() if r.ok else []
-                for it in arr:
-                    try:
-                        lat = float(it.get('lat'))
-                        lon = float(it.get('lon'))
-                        if -90 <= lat <= 90 and -180 <= lon <= 180:
-                            puntos.append([lat, lon])
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-
-        # Fallback 2: ArcGIS FeatureServer con geometría
-        if not puntos:
-            arcgis_url = os.getenv('BOGOTA_ACCIDENTS_ARCGIS_URL')  # e.g. https://services.arcgis.com/<org>/ArcGIS/rest/services/<service>/FeatureServer
-            arcgis_layer = os.getenv('BOGOTA_ACCIDENTS_ARCGIS_LAYER', '0')
-            if arcgis_url:
-                try:
-                    geom = {
-                        'geometry': f"{min_lon},{min_lat},{max_lon},{max_lat}",
-                        'geometryType': 'esriGeometryEnvelope',
-                        'inSR': 4326,
-                        'spatialRel': 'esriSpatialRelIntersects',
-                        'where': '1=1',
-                        'outFields': '*',
-                        'returnGeometry': 'true',
-                        'outSR': 4326,
-                        'f': 'json'
-                    }
-                    url = arcgis_url.rstrip('/') + f"/{arcgis_layer}/query"
-                    r = requests.get(url, params=geom, timeout=10)
-                    data = r.json() if r.ok else {}
-                    feats = data.get('features') or []
-                    for ft in feats:
-                        g = ft.get('geometry') or {}
-                        lat = g.get('y')
-                        lon = g.get('x')
-                        if lat is None or lon is None:
-                            # algunos servicios entregan geometry como {rings} o {paths}
-                            if 'paths' in g and g['paths']:
-                                for seg in g['paths']:
-                                    for p in seg:
-                                        lon, lat = p[0], p[1]
-                                        if -90 <= lat <= 90 and -180 <= lon <= 180:
-                                            puntos.append([lat, lon])
-                            if 'rings' in g and g['rings']:
-                                for ring in g['rings']:
-                                    for p in ring:
-                                        lon, lat = p[0], p[1]
-                                        if -90 <= lat <= 90 and -180 <= lon <= 180:
-                                            puntos.append([lat, lon])
-                        else:
-                            if -90 <= lat <= 90 and -180 <= lon <= 180:
-                                puntos.append([lat, lon])
-                except Exception:
-                    pass
-
-        # Fallback 2.5: Shapefile local en carpeta Siniestros
-        if not puntos:
-            try:
-                import shapefile
-                shp_path = os.path.join(os.getcwd(), 'Siniestros', 'Hoja1_XYTableToPoint3.shp')
-                if os.path.isfile(shp_path):
-                    sf = shapefile.Reader(shp_path)
-                    lat_idx = None
-                    lon_idx = None
-                    date_idx = None
-                    veh_idx = None
-                    fields = [f[0] for f in sf.fields[1:]]
-                    for i, f in enumerate(fields):
-                        fn = f.lower()
-                        if fn == 'latitud': lat_idx = i
-                        if fn == 'longitud': lon_idx = i
-                        if fn in ('fechaacc', 'fecha_acc', 'fecha'): date_idx = i
-                        if fn in ('vehiculo_v', 'claseveh', 'clasevehiculo', 'clasenombr'): veh_idx = i
-                    for rec in sf.iterRecords():
-                        try:
-                            lat = float(rec[lat_idx]) if lat_idx is not None else None
-                            lon = float(rec[lon_idx]) if lon_idx is not None else None
-                            if lat is None or lon is None:
-                                continue
-                            if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-                                continue
-                            if all(v is not None for v in [min_lat, min_lon, max_lat, max_lon]):
-                                if not (min_lat <= lat <= max_lat and min_lon <= lon <= max_lon):
-                                    continue
-                            if date_idx is not None and months and months > 0:
-                                try:
-                                    d = rec[date_idx]
-                                    if hasattr(d, 'toordinal'):
-                                        from datetime import date as _date, timedelta as _td
-                                        cutoff = _date.today() - _td(days=months*30)
-                                        if d < cutoff:
-                                            continue
-                                except Exception:
-                                    pass
-                            if veh_idx is not None and vehicle_in and vehicle_in not in ('todos','all'):
-                                v = str(rec[veh_idx]).strip().lower()
-                                if v != vehicle_in:
-                                    continue
-                            puntos.append([lat, lon])
-                        except Exception:
-                            pass
-            except Exception:
-                pass
-
-        # Fallback 3: archivo local CSV
-        if not puntos:
-            local_csv = os.path.join(os.getcwd(), 'excel', 'accidentes_motos_bogota.csv')
-            if os.path.isfile(local_csv):
-                try:
-                    with open(local_csv, newline='', encoding='utf-8') as f:
-                        reader = csv.DictReader(f)
-                        lf = lat_field
-                        lo = lon_field
-                        for row in reader:
-                            try:
-                                lat = float(row.get(lf))
-                                lon = float(row.get(lo))
-                                if -90 <= lat <= 90 and -180 <= lon <= 180:
-                                    if all(v is not None for v in [min_lat, min_lon, max_lat, max_lon]):
-                                        if min_lat <= lat <= max_lat and min_lon <= lon <= max_lon:
-                                            puntos.append([lat, lon])
-                                    else:
-                                        puntos.append([lat, lon])
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
-
-        RISK_CACHE[key] = { 'points': puntos, 'ts': now }
-        if len(RISK_CACHE) > 50:
-            RISK_CACHE.clear()
-        return jsonify({'success': True, 'points': puntos, 'count': len(puntos), 'cached': False})
+                    where_parts.append("lat BETWEEN %s AND %s")
+                    where_parts.append("lon BETWEEN %s AND %s")
+                    params.extend([min_lat, max_lat, min_lon, max_lon])
+                if months and months > 0:
+                    where_parts.append("fecha >= DATE_SUB(CURDATE(), INTERVAL %s MONTH)")
+                    params.append(months)
+                if vehicle_in and vehicle_in not in ('todos','all'):
+                    where_parts.append("LOWER(tipo_vehiculo) = %s")
+                    params.append(vehicle_in)
+                sql = "SELECT lat, lon FROM mpa_riesgo_accidentes"
+                if where_parts:
+                    sql += " WHERE " + " AND ".join(where_parts)
+                sql += " LIMIT 8000"
+                cur.execute(sql, params)
+                for lat, lon in cur.fetchall():
+                    if -90 <= lat <= 90 and -180 <= lon <= 180:
+                        puntos.append([lat, lon])
+                cur.close()
+                conn.close()
+                RISK_CACHE[key] = { 'points': puntos, 'ts': now }
+                return jsonify({'success': True, 'points': puntos, 'count': len(puntos), 'cached': False, 'source': 'db'})
+        except Exception:
+            return jsonify({'success': False, 'message': 'Error consultando BD'})
+        RISK_CACHE[key] = { 'points': [], 'ts': now }
+        return jsonify({'success': True, 'points': [], 'count': 0, 'cached': False, 'source': 'db'})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
@@ -2781,47 +2778,28 @@ def api_riesgo_por_localidad():
     if not (current_user.has_role('administrativo') or current_user.has_role('operativo') or current_user.has_role('logistica')):
         return jsonify({'success': False, 'message': 'Sin permisos'}), 403
     try:
-        import os
-        import shapefile
-        from collections import defaultdict
         months = request.args.get('months', default=12, type=int)
         vehicle_in = (request.args.get('vehicle') or '').strip().lower()
-        shp_path = os.path.join(os.getcwd(), 'Siniestros', 'Hoja1_XYTableToPoint3.shp')
-        if not os.path.isfile(shp_path):
-            return jsonify({'success': False, 'message': 'Fuente local de siniestros no disponible'}), 200
-        sf = shapefile.Reader(shp_path)
-        fields = [f[0] for f in sf.fields[1:]]
-        idx_local = None
-        idx_date = None
-        idx_vehicle = None
-        for i, f in enumerate(fields):
-            fn = f.lower()
-            if fn == 'localidad': idx_local = i
-            if fn in ('fechaacc', 'fecha_acc', 'fecha'): idx_date = i
-            if fn in ('vehiculo_v', 'claseveh', 'clasevehiculo', 'clasenombr'): idx_vehicle = i
-        if idx_local is None:
-            return jsonify({'success': False, 'message': 'El shapefile no contiene campo Localidad'}), 200
-        from datetime import date as _date, timedelta as _td
-        cutoff = _date.today() - _td(days=(months or 12)*30)
-        counts = defaultdict(int)
-        for rec in sf.iterRecords():
-            try:
-                loc = str(rec[idx_local]).strip()
-                if not loc:
-                    continue
-                if idx_vehicle is not None and vehicle_in and vehicle_in not in ('todos','all'):
-                    v = str(rec[idx_vehicle]).strip().lower()
-                    if v != vehicle_in:
-                        continue
-                if idx_date is not None and months and months > 0:
-                    d = rec[idx_date]
-                    if hasattr(d, 'toordinal') and d < cutoff:
-                        continue
-                counts[loc] += 1
-            except Exception:
-                pass
-        result = [{'localidad': k, 'count': v} for k, v in counts.items()]
-        return jsonify({'success': True, 'data': sorted(result, key=lambda x: -x['count'])})
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'BD no disponible'}), 500
+        cur = conn.cursor()
+        where_parts = []
+        params = []
+        if months and months > 0:
+            where_parts.append("fecha >= DATE_SUB(CURDATE(), INTERVAL %s MONTH)")
+            params.append(months)
+        if vehicle_in and vehicle_in not in ('todos','all'):
+            where_parts.append("LOWER(tipo_vehiculo) = %s")
+            params.append(vehicle_in)
+        sql = "SELECT COALESCE(localidad,'Sin dato') AS localidad, COUNT(*) FROM mpa_riesgo_accidentes"
+        if where_parts:
+            sql += " WHERE " + " AND ".join(where_parts)
+        sql += " GROUP BY localidad ORDER BY COUNT(*) DESC"
+        cur.execute(sql, params)
+        result = [{'localidad': row[0], 'count': int(row[1])} for row in cur.fetchall()]
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'data': result})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
@@ -2876,6 +2854,86 @@ def api_localidades():
                 LOCALIDADES_CACHE = {'geojson': data, 'ts': now}
                 return jsonify({'success': True, 'geojson': data})
         return jsonify({'success': False, 'message': 'No hay fuente de localidades configurada'}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/mpa/rutas/riesgo-importar', methods=['POST'])
+@login_required
+def api_riesgo_importar():
+    if not (current_user.has_role('administrativo') or current_user.has_role('operativo') or current_user.has_role('logistica')):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+    try:
+        import os
+        import shapefile
+        from datetime import datetime
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'BD no disponible'}), 500
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS mpa_riesgo_accidentes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                lat DOUBLE NOT NULL,
+                lon DOUBLE NOT NULL,
+                fecha DATE NULL,
+                tipo_vehiculo VARCHAR(64) NULL,
+                localidad VARCHAR(128) NULL,
+                gravedad VARCHAR(64) NULL,
+                fuente VARCHAR(64) NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_lat (lat),
+                INDEX idx_lon (lon),
+                INDEX idx_fecha (fecha),
+                INDEX idx_tipo (tipo_vehiculo),
+                INDEX idx_localidad (localidad)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+        shp_path = os.path.join(os.getcwd(), 'Siniestros', 'Hoja1_XYTableToPoint3.shp')
+        if not os.path.isfile(shp_path):
+            return jsonify({'success': False, 'message': 'No existe shapefile local en Siniestros/'}), 200
+        sf = shapefile.Reader(shp_path)
+        fields = [f[0] for f in sf.fields[1:]]
+        idx_lat = next((i for i,f in enumerate(fields) if f.lower()=='latitud'), None)
+        idx_lon = next((i for i,f in enumerate(fields) if f.lower()=='longitud'), None)
+        idx_fecha = next((i for i,f in enumerate(fields) if f.lower() in ('fechaacc','fecha','fecha_acc')), None)
+        idx_veh = next((i for i,f in enumerate(fields) if f.lower() in ('vehiculo_v','clasenombr','claseveh','clasevehiculo')), None)
+        idx_loc = next((i for i,f in enumerate(fields) if f.lower()=='localidad'), None)
+        idx_grav = next((i for i,f in enumerate(fields) if 'gravedad' in f.lower()), None)
+        data = []
+        for rec in sf.iterRecords():
+            try:
+                lat = float(rec[idx_lat]) if idx_lat is not None else None
+                lon = float(rec[idx_lon]) if idx_lon is not None else None
+                if lat is None or lon is None:
+                    continue
+                if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                    continue
+                fecha_val = None
+                if idx_fecha is not None:
+                    d = rec[idx_fecha]
+                    if hasattr(d, 'year'):
+                        fecha_val = d
+                    else:
+                        try:
+                            fecha_val = datetime.strptime(str(d)[:10], '%Y-%m-%d').date()
+                        except Exception:
+                            fecha_val = None
+                tipo = str(rec[idx_veh]).strip() if idx_veh is not None else None
+                loc = str(rec[idx_loc]).strip() if idx_loc is not None else None
+                grav = str(rec[idx_grav]).strip() if idx_grav is not None else None
+                data.append((lat, lon, fecha_val, tipo, loc, grav, 'shapefile'))
+            except Exception:
+                pass
+        if not data:
+            return jsonify({'success': False, 'message': 'No se obtuvieron registros válidos'}), 200
+        cur.execute("DELETE FROM mpa_riesgo_accidentes WHERE fuente='shapefile'")
+        cur.executemany(
+            "INSERT INTO mpa_riesgo_accidentes (lat, lon, fecha, tipo_vehiculo, localidad, gravedad, fuente) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            data
+        )
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'inserted': len(data)})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 

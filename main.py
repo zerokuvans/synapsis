@@ -135,7 +135,7 @@ from app import api_get_soat, api_get_soat_by_id, api_create_soat, api_update_so
 from app import api_list_tecnico_mecanica, api_get_tecnico_mecanica, api_create_tecnico_mecanica, api_update_tecnico_mecanica, api_delete_tecnico_mecanica
 from app import api_list_licencias_conducir, api_get_licencia_conducir, api_create_licencia_conducir, api_update_licencia_conducir, api_delete_licencia_conducir
 from app import api_import_vehiculos_excel, api_import_tecnico_mecanica_excel, api_import_soat_excel, api_import_licencias_excel
-from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas_por_tecnico, api_google_directions_route, api_riesgo_motos, api_riesgo_por_localidad, api_localidades
+from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas_por_tecnico, api_google_directions_route, api_riesgo_motos, api_riesgo_por_localidad, api_localidades, api_riesgo_importar
 
 # Importar módulo de dotaciones
 from dotaciones_api import registrar_rutas_dotaciones
@@ -198,6 +198,7 @@ app.route('/api/mpa/rutas/google-directions', methods=['GET'])(api_google_direct
 app.route('/api/mpa/rutas/riesgo-motos', methods=['GET'])(api_riesgo_motos)
 app.route('/api/mpa/rutas/riesgo-por-localidad', methods=['GET'])(api_riesgo_por_localidad)
 app.route('/api/mpa/localidades', methods=['GET'])(api_localidades)
+app.route('/api/mpa/rutas/riesgo-importar', methods=['POST'])(api_riesgo_importar)
 
 # Registrar rutas de la API de SOAT MPA
 app.route('/api/mpa/soat', methods=['GET'])(api_get_soat)
