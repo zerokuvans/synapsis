@@ -273,12 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
   bordersBtn.style.marginLeft = '8px';
   bordersBtn.addEventListener('click', toggleLocalidadBorders);
   document.querySelector('.col-md-4.d-flex.align-items-end.gap-2').appendChild(bordersBtn);
-  const impBtn = document.createElement('button');
-  impBtn.className = 'btn btn-outline-dark';
-  impBtn.textContent = 'Cargar riesgo (local)';
-  impBtn.style.marginLeft = '8px';
-  impBtn.addEventListener('click', importarRiesgoLocal);
-  document.querySelector('.col-md-4.d-flex.align-items-end.gap-2').appendChild(impBtn);
 });
 
 let localidadLayer = null;
