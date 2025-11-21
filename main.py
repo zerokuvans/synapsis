@@ -129,7 +129,7 @@ from app import analistas_index, analistas_causas, analistas_dashboard, api_grup
 
 # Importar rutas del módulo MPA desde app.py
 from app import mpa_dashboard, mpa_dashboard_stats, mpa_vehiculos, mpa_soat, mpa_tecnico_mecanica, mpa_licencias, mpa_licencias_conducir, mpa_inspecciones, mpa_siniestros, mpa_mantenimientos
-from app import api_get_vehiculos, api_create_vehiculo, api_get_vehiculo, api_update_vehiculo, api_delete_vehiculo, api_get_tecnicos
+from app import api_get_vehiculos, api_create_vehiculo, api_get_vehiculo, api_update_vehiculo, api_delete_vehiculo, api_get_tecnicos, api_export_vehiculos
 from app import api_get_mantenimientos, api_create_mantenimiento, api_get_mantenimiento, api_update_mantenimiento, api_delete_mantenimiento, api_get_placas, api_get_categorias_mantenimiento, api_upload_mantenimiento_image
 from app import api_get_soat, api_get_soat_by_id, api_create_soat, api_update_soat, api_delete_soat
 from app import api_list_tecnico_mecanica, api_get_tecnico_mecanica, api_create_tecnico_mecanica, api_update_tecnico_mecanica, api_delete_tecnico_mecanica
@@ -172,6 +172,7 @@ app.route('/mpa/rutas')(mpa_rutas)
 
 # Registrar rutas de la API de vehículos MPA
 app.route('/api/mpa/vehiculos', methods=['GET'])(api_get_vehiculos)
+app.route('/api/mpa/vehiculos/export', methods=['GET'])(api_export_vehiculos)
 app.route('/api/mpa/vehiculos', methods=['POST'])(api_create_vehiculo)
 app.route('/api/mpa/vehiculos/<int:vehiculo_id>', methods=['GET'])(api_get_vehiculo)
 app.route('/api/mpa/vehiculos/<int:vehiculo_id>', methods=['PUT'])(api_update_vehiculo)

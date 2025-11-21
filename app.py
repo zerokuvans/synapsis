@@ -2952,6 +2952,9 @@ def api_get_vehiculos():
             
         cursor = connection.cursor(dictionary=True)
         
+        placa = (request.args.get('placa') or '').strip().upper()
+        where_parts = []
+        params = []
         # Consulta para obtener vehículos con información del técnico asignado
         query = """
         SELECT 
@@ -2975,10 +2978,15 @@ def api_get_vehiculos():
             ro.nombre as tecnico_nombre
         FROM mpa_vehiculos v
         LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+        {where_clause}
         ORDER BY v.fecha_creacion DESC
         """
-        
-        cursor.execute(query)
+        if placa:
+            where_parts.append("v.placa = %s")
+            params.append(placa)
+        where_clause = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
+        query = query.format(where_clause=where_clause)
+        cursor.execute(query, params)
         vehiculos = cursor.fetchall()
         
         # Formatear fechas para el frontend
@@ -3000,6 +3008,87 @@ def api_get_vehiculos():
             cursor.close()
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
+
+@app.route('/api/mpa/vehiculos/export', methods=['GET'])
+@login_required
+def api_export_vehiculos():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        from flask import Response
+        import io, csv
+        placa = (request.args.get('placa') or '').strip().upper()
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        where = []
+        params = []
+        where.append("v.estado = 'Activo'")
+        if placa:
+            where.append("v.placa = %s")
+            params.append(placa)
+        sql = f"""
+        SELECT 
+            v.placa,
+            v.tipo_vehiculo,
+            v.marca,
+            v.linea,
+            v.modelo,
+            v.color,
+            ro.nombre AS tecnico_nombre,
+            (
+                SELECT s.fecha_vencimiento
+                FROM mpa_soat s 
+                WHERE s.placa = v.placa AND s.estado='Activo' AND s.fecha_vencimiento IS NOT NULL AND s.fecha_vencimiento > '1900-01-01'
+                ORDER BY s.fecha_vencimiento DESC LIMIT 1
+            ) AS soat_vencimiento,
+            (
+                SELECT tm.fecha_vencimiento
+                FROM mpa_tecnico_mecanica tm 
+                WHERE tm.placa = v.placa AND tm.estado='Activo' AND tm.fecha_vencimiento IS NOT NULL AND tm.fecha_vencimiento > '1900-01-01'
+                ORDER BY tm.fecha_vencimiento DESC LIMIT 1
+            ) AS tecnomecanica_vencimiento,
+            (
+                SELECT lc.tipo_licencia
+                FROM mpa_licencia_conducir lc 
+                WHERE lc.tecnico = v.tecnico_asignado AND lc.fecha_vencimiento IS NOT NULL AND lc.fecha_vencimiento > '1900-01-01'
+                ORDER BY lc.fecha_vencimiento DESC LIMIT 1
+            ) AS licencia_tipo,
+            (
+                SELECT lc2.fecha_vencimiento
+                FROM mpa_licencia_conducir lc2 
+                WHERE lc2.tecnico = v.tecnico_asignado AND lc2.fecha_vencimiento IS NOT NULL AND lc2.fecha_vencimiento > '1900-01-01'
+                ORDER BY lc2.fecha_vencimiento DESC LIMIT 1
+            ) AS licencia_vencimiento
+        FROM mpa_vehiculos v
+        LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+        {('WHERE ' + ' AND '.join(where)) if where else ''}
+        ORDER BY v.placa ASC
+        """
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            'Placa','Tipo Vehículo','Marca','Línea','Modelo','Color','Técnico Asignado',
+            'Vencimiento SOAT','Vencimiento Tecnomecánica','Tipo Licencia','Vencimiento Licencia'
+        ])
+        for r in rows:
+            soat = r['soat_vencimiento'].strftime('%Y-%m-%d') if r['soat_vencimiento'] else ''
+            tm = r['tecnomecanica_vencimiento'].strftime('%Y-%m-%d') if r['tecnomecanica_vencimiento'] else ''
+            lic_v = r['licencia_vencimiento'].strftime('%Y-%m-%d') if r['licencia_vencimiento'] else ''
+            writer.writerow([
+                r['placa'] or '', r['tipo_vehiculo'] or '', r['marca'] or '', r['linea'] or '', r['modelo'] or '', r['color'] or '',
+                r['tecnico_nombre'] or '', soat, tm, r['licencia_tipo'] or '', lic_v
+            ])
+        cursor.close(); connection.close()
+        csv_data = output.getvalue()
+        resp = Response(csv_data, mimetype='text/csv')
+        resp.headers['Content-Disposition'] = f"attachment; filename=vehiculos_export{('_'+placa) if placa else ''}.csv"
+        return resp
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 # API para crear un nuevo vehículo
 @app.route('/api/mpa/vehiculos', methods=['POST'])

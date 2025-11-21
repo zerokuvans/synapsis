@@ -26,6 +26,10 @@
                             <button type="button" class="btn btn-success" onclick="document.getElementById('excelFileInput').click()">
                                 <i class="fas fa-file-upload me-2"></i>Cargar Excel
                             </button>
+                            <input type="text" id="exportPlaca" class="form-control" placeholder="Filtrar por placa" style="max-width:180px">
+                            <button type="button" class="btn btn-outline-secondary" onclick="exportVehiclesCSV()">
+                                <i class="fas fa-file-csv me-2"></i>Exportar CSV
+                            </button>
                         </div>
                     </div>
                     
@@ -203,6 +207,21 @@ document.addEventListener('DOMContentLoaded', function() {
     loadTechnicians();
 });
 
+document.addEventListener('DOMContentLoaded', function() {
+    const ep = document.getElementById('exportPlaca');
+    if (ep) {
+        ep.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { loadVehicles(); }
+        });
+    }
+});
+
+function exportVehiclesCSV() {
+    const placa = (document.getElementById('exportPlaca')?.value || '').trim().toUpperCase();
+    const url = placa ? `/api/mpa/vehiculos/export?placa=${encodeURIComponent(placa)}` : '/api/mpa/vehiculos/export';
+    window.location.href = url;
+}
+
 // Listener para cargar Excel
 document.addEventListener('DOMContentLoaded', function() {
     const excelInput = document.getElementById('excelFileInput');
@@ -248,7 +267,9 @@ function uploadVehiclesExcel(file) {
 
 // Cargar lista de vehículos
 function loadVehicles() {
-    fetch('/api/mpa/vehiculos')
+    const placa = (document.getElementById('exportPlaca')?.value || '').trim().toUpperCase();
+    const url = placa ? `/api/mpa/vehiculos?placa=${encodeURIComponent(placa)}` : '/api/mpa/vehiculos';
+    fetch(url)
         .then(response => response.json())
         .then(data => {
             if (data.success) {

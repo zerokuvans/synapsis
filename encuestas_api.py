@@ -3306,10 +3306,32 @@ def registrar_rutas_encuestas(app):
             if not encuesta:
                 return jsonify({'success': False, 'message': 'Encuesta no encontrada o no es de tipo votación'}), 400
 
-            # Validar que el usuario exista en tabla usuarios (para evitar violación de FK)
+            # Validar o garantizar existencia del usuario en tabla usuarios (para cumplir FK de votos)
             cursor.execute("SELECT idusuarios FROM usuarios WHERE idusuarios = %s", (user_id,))
-            if not cursor.fetchone():
-                return jsonify({'success': False, 'message': 'Usuario no válido para emitir voto'}), 401
+            existe_usuario = cursor.fetchone()
+            if not existe_usuario:
+                cursor.execute(
+                    "SELECT nombre, recurso_operativo_cedula FROM recurso_operativo WHERE id_codigo_consumidor = %s",
+                    (user_id,)
+                )
+                ro = cursor.fetchone() or {}
+                nombre = ro.get('nombre') or 'Usuario'
+                cedula_raw = ro.get('recurso_operativo_cedula')
+                try:
+                    cedula = int(str(cedula_raw)) if cedula_raw is not None else 0
+                except Exception:
+                    cedula = 0
+                try:
+                    cursor.execute(
+                        """
+                        INSERT INTO usuarios (idusuarios, usuario_nombre, usuario_cedula, usuario_contraseña)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (user_id, nombre, cedula, 0)
+                    )
+                    connection.commit()
+                except mysql.connector.Error:
+                    return jsonify({'success': False, 'message': 'Usuario no válido para emitir voto'}), 401
 
             # Validar ventana de votación
             def _parse_dt(val):
