@@ -339,6 +339,23 @@
     </div>
   </div>
 
+  <div class="modal fade" id="modal-resultados" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Resultados de la votación</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="resultados-modal-contenido">
+            <canvas id="grafico-resultados-modal" height="140"></canvas>
+            <div id="resumen-resultados-modal" class="mt-2"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Editar encuesta -->
   <div class="modal fade" id="modal-editar-encuesta" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -1061,7 +1078,7 @@
     const btnVerResultados = document.getElementById('btn-ver-resultados');
     const esVotacion = (encuestaSeleccionada.tipo_encuesta || 'encuesta') === 'votacion';
     if (votacionPanel) votacionPanel.style.display = esVotacion ? '' : 'none';
-    if (btnVerResultados) btnVerResultados.style.display = (esVotacion && encuestaSeleccionada.mostrar_resultados) ? '' : 'none';
+    if (btnVerResultados) btnVerResultados.style.display = '';
     if (esVotacion) {
       await cargarCandidatos();
       renderCandidatos();
@@ -2196,6 +2213,62 @@
       item.appendChild(actions);
       container.appendChild(item);
     });
+  }
+
+  const modalResultadosEl = document.getElementById('modal-resultados');
+  let modalResultados = null;
+  if (modalResultadosEl && window.bootstrap) {
+    modalResultados = new bootstrap.Modal(modalResultadosEl);
+  }
+  function ensureModalResultados() {
+    if (!modalResultados && modalResultadosEl && window.bootstrap) {
+      modalResultados = new bootstrap.Modal(modalResultadosEl);
+    }
+  }
+  async function dibujarResultadosEnModal() {
+    if (!encuestaSeleccionada) return;
+    const canvas = document.getElementById('grafico-resultados-modal');
+    const resumen = document.getElementById('resumen-resultados-modal');
+    const esVotacion = (encuestaSeleccionada.tipo_encuesta || 'encuesta') === 'votacion';
+    if (!esVotacion) {
+      if (resumen) resumen.innerHTML = '<div class="text-muted">Esta encuesta no es de tipo votación.<br/>Cámbiala a "Votación" y agrega candidatos para ver resultados.</div>';
+      return;
+    }
+    try {
+      const res = await fetch(`/api/votaciones/${encuestaSeleccionada.id_encuesta}/resultados?preview=1`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'No se pudieron obtener resultados');
+      const resultados = data.resultados || [];
+      const labels = resultados.map(r => r.nombre);
+      const valores = resultados.map(r => parseInt(r.votos || 0, 10));
+      if (window.Chart) {
+        const ctx = canvas.getContext('2d');
+        if (window.graficoResultadosModal) window.graficoResultadosModal.destroy();
+        window.graficoResultadosModal = new Chart(ctx, {
+          type: 'bar',
+          data: { labels, datasets: [{ label: 'Votos', data: valores, backgroundColor: '#2a6ef0' }] },
+          options: { responsive: true, plugins: { legend: { display: false }, tooltip: { enabled: true } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        });
+      }
+      const total = parseInt(data.total_votos || 0, 10);
+      const detalles = resultados.map(r => `${r.nombre}: ${r.votos} voto(s) • ${r.porcentaje}%`).join('<br/>');
+      resumen.innerHTML = `<div class="text-muted">Total de votos: <strong>${total}</strong></div><div class="mt-1">${detalles}</div>`;
+    } catch (e) {
+      const resumen = document.getElementById('resumen-resultados-modal');
+      if (resumen) resumen.innerHTML = `<div class="text-danger">${e.message || 'No se pudieron cargar resultados'}</div>`;
+    }
+  }
+  {
+    const btnVerResultadosEl = document.getElementById('btn-ver-resultados');
+    if (btnVerResultadosEl) {
+      btnVerResultadosEl.addEventListener('click', async () => {
+        ensureModalResultados();
+        const resumen = document.getElementById('resumen-resultados-modal');
+        if (resumen) resumen.innerHTML = '<div class="d-flex align-items-center gap-2 text-muted"><div class="spinner-border text-primary" style="width:1rem;height:1rem" role="status"></div><span>Cargando resultados…</span></div>';
+        await dibujarResultadosEnModal();
+        if (modalResultados) modalResultados.show();
+      });
+    }
   }
 
   function renderCandidatos() {

@@ -127,7 +127,7 @@
                     </li>
                     {% endif %}
 
-                    {% if session.get('user_role') in ['administrativo', 'sstt', 'preoperacional', 'indicadores', 'logistica'] %}
+                    {% if session.get('user_role') in ['administrativo', 'sstt', 'preoperacional', 'indicadores'] %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" id="ssttDropdown" role="button" 
                            data-bs-toggle="dropdown" aria-expanded="false">
@@ -185,7 +185,7 @@
                     </li>
                     {% endif %}
 
-                    {% if session.get('user_role') in ['administrativo', 'mpa', 'operativo', 'logistica'] %}
+                    {% if session.get('user_role') in ['administrativo', 'mpa'] %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" id="mpaDropdown" role="button" 
                            data-bs-toggle="dropdown" aria-expanded="false">
