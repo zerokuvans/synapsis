@@ -26,6 +26,10 @@
             <div class="col-md-2">
               <label class="form-label">Frecuencia (km)</label>
               <input id="cron-km-freq" type="number" class="form-control" min="500" value="2500" />
+              <div class="mt-1">
+                <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="setCronFrequency(10000)">10000</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setCronFrequency(20000)">20000</button>
+              </div>
             </div>
             <div class="col-md-2">
               <label class="form-label">Km/día promedio</label>
@@ -312,7 +316,41 @@
       `;
       const cont = document.getElementById('cron-tareas');
       cont.innerHTML = '';
-      (data.tareas || []).forEach(t => {
+      const baseTareas = Array.isArray(data.tareas) ? data.tareas : [];
+      const extras = [];
+      try {
+        const freqs = [10000, 20000];
+        freqs.forEach(f => {
+          const yaExiste = baseTareas.some(x => String(x.tipo||'').toLowerCase().includes('aceite') && Number(x.frecuencia_km) === f);
+          if (!yaExiste) {
+            const kmAct = Number(r.kilometraje_actual || 0);
+            const avg = Number(r.kilometraje_promedio_diario || 0);
+            const proxKm = kmAct > 0 ? Math.ceil(kmAct / f) * f : f;
+            const rest = Math.max(0, proxKm - kmAct);
+            let fechaTent = null;
+            if (avg && avg > 0 && rest) {
+              const d = Math.ceil(rest / avg);
+              const now = new Date();
+              now.setDate(now.getDate() + d);
+              const y = now.getFullYear();
+              const m = String(now.getMonth()+1).padStart(2,'0');
+              const da = String(now.getDate()).padStart(2,'0');
+              fechaTent = `${y}-${m}-${da}`;
+            }
+            extras.push({
+              tipo: 'Cambio de Aceite',
+              frecuencia_km: f,
+              proximo_kilometraje: proxKm,
+              kilometraje_restante: rest,
+              fecha_tentativa: fechaTent,
+              alerta: rest <= 200,
+              detalles: ['Frecuencia extendida']
+            });
+          }
+        });
+      } catch (e) {}
+      const tareasRender = baseTareas.concat(extras);
+      tareasRender.forEach(t => {
         const card = document.createElement('div');
         card.className = 'card mb-2';
         const body = document.createElement('div');
@@ -375,6 +413,15 @@
         } catch (e) { alert('Error'); }
       };
     } catch (e) { alert('Error al cargar cronograma'); }
+  }
+
+  function setCronFrequency(km) {
+    try {
+      const v = Number(km);
+      if (!isNaN(v) && v > 0) {
+        kmFreqInput.value = v;
+      }
+    } catch (e) {}
   }
 
   let debounceTimer = null;
