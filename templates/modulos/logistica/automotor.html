@@ -992,7 +992,27 @@ function initializeDataTables() {
         if ($('#tablaVehiculos').length > 0) {
             tablaVehiculos = $('#tablaVehiculos').DataTable({
                 language: {
-                    url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+                    decimal: ',',
+                    thousands: '.',
+                    processing: 'Procesando...',
+                    search: 'Buscar:',
+                    lengthMenu: 'Mostrar _MENU_ registros',
+                    info: 'Mostrando _START_ a _END_ de _TOTAL_ registros',
+                    infoEmpty: 'Mostrando 0 a 0 de 0 registros',
+                    infoFiltered: '(filtrado de _MAX_ registros en total)',
+                    loadingRecords: 'Cargando...',
+                    zeroRecords: 'No se encontraron resultados',
+                    emptyTable: 'No hay datos disponibles en la tabla',
+                    paginate: {
+                        first: 'Primero',
+                        previous: 'Anterior',
+                        next: 'Siguiente',
+                        last: 'Último'
+                    },
+                    aria: {
+                        sortAscending: ': activar para ordenar la columna ascendente',
+                        sortDescending: ': activar para ordenar la columna descendente'
+                    }
                 },
                 responsive: true,
                 pageLength: 10,
@@ -1035,9 +1055,27 @@ function initializeDataTables() {
                     try {
                         tablaVencimientos = table.DataTable({
                             language: {
-                                url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json',
+                                decimal: ',',
+                                thousands: '.',
+                                processing: 'Procesando...',
+                                search: 'Buscar:',
+                                lengthMenu: 'Mostrar _MENU_ registros',
+                                info: 'Mostrando _START_ a _END_ de _TOTAL_ registros',
+                                infoEmpty: 'Mostrando 0 a 0 de 0 registros',
+                                infoFiltered: '(filtrado de _MAX_ registros en total)',
+                                loadingRecords: 'Cargando...',
+                                zeroRecords: '<i class="fas fa-search"></i> No se encontraron registros que coincidan con los filtros',
                                 emptyTable: '<i class="fas fa-info-circle"></i> No hay vencimientos registrados',
-                                zeroRecords: '<i class="fas fa-search"></i> No se encontraron registros que coincidan con los filtros'
+                                paginate: {
+                                    first: 'Primero',
+                                    previous: 'Anterior',
+                                    next: 'Siguiente',
+                                    last: 'Último'
+                                },
+                                aria: {
+                                    sortAscending: ': activar para ordenar la columna ascendente',
+                                    sortDescending: ': activar para ordenar la columna descendente'
+                                }
                             },
                             responsive: true,
                             pageLength: 10,

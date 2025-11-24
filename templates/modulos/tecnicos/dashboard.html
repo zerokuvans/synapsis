@@ -14,6 +14,18 @@
                         <i class="fas fa-info-circle me-2"></i>
                         Bienvenido al panel de técnicos. Aquí podrás gestionar las órdenes de trabajo y reportes técnicos.
                     </div>
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-tools me-2"></i>Próximo mantenimiento de tu vehículo</h5>
+                                </div>
+                                <div class="card-body" id="alertas-mant-tecnicos">
+                                    <div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     
                     <!-- Contenido específico del módulo técnico -->
                     <div class="row mt-4">
@@ -1242,6 +1254,87 @@ document.addEventListener('DOMContentLoaded', function() {
             alertasDocumentos.style.display = 'block';
         }
     }
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/mpa/cronograma/alerts-my')
+        .then(async r => { try { const t = await r.text(); return JSON.parse(t); } catch(e){ return { success: false, data: [] }; } })
+        .then(data => {
+            const cont = document.getElementById('alertas-mant-tecnicos');
+            try {
+                if (!cont) return;
+                cont.innerHTML = '';
+                if (!data || data.success === false) { cont.innerHTML = '<div class="text-muted">Sin Próximos mantenimientos</div>'; return; }
+                const items = (data.data || []).sort((a,b) => (a.restante||0)-(b.restante||0));
+                if (!items.length) { cont.innerHTML = '<div class="text-muted">Sin Próximos mantenimientos</div>'; return; }
+                const list = document.createElement('div');
+                items.forEach(x => {
+                    const rest = parseInt(x.restante||0,10);
+                    const dias = parseInt(x.dias_estimados_restantes||0,10);
+                    const row = document.createElement('div');
+                    row.className = 'd-flex align-items-center justify-content-between mb-2';
+
+                    const left = document.createElement('div');
+                    const strong = document.createElement('strong');
+                    strong.textContent = x.placa;
+                    left.appendChild(strong);
+                    const spanFecha = document.createElement('span');
+                    spanFecha.className = 'text-muted small ms-2';
+                    spanFecha.textContent = 'Próxima fecha: ' + (x.fecha_proximo_mantenimiento || 'N/A');
+                    left.appendChild(spanFecha);
+
+                    const right = document.createElement('div');
+                    const kmBadge = document.createElement('span');
+                    kmBadge.className = rest <= 200 ? 'badge bg-danger' : 'badge bg-secondary';
+                    kmBadge.textContent = 'Faltan ' + rest + ' km';
+                    right.appendChild(kmBadge);
+
+                    const diasBadge = document.createElement('span');
+                    diasBadge.className = 'badge bg-info ms-2';
+                    diasBadge.textContent = '≈ ' + (isNaN(dias) ? 'N/A' : dias) + ' días';
+                    right.appendChild(diasBadge);
+
+                    const hastaFecha = document.createElement('span');
+                    hastaFecha.className = 'badge bg-warning text-dark ms-2';
+                    try {
+                        if (!x.fecha_proximo_mantenimiento) {
+                            hastaFecha.textContent = 'hasta fecha: N/A días';
+                        } else {
+                            const d = Math.ceil((new Date(x.fecha_proximo_mantenimiento) - new Date())/86400000);
+                            hastaFecha.textContent = 'hasta fecha: ' + (isNaN(d) ? 'N/A' : d) + ' días';
+                        }
+                    } catch(e) {
+                        hastaFecha.textContent = 'hasta fecha: N/A días';
+                    }
+                    right.appendChild(hastaFecha);
+
+                    try {
+                        if (x.fecha_proximo_mantenimiento) {
+                            const d = Math.ceil((new Date(x.fecha_proximo_mantenimiento) - new Date())/86400000);
+                            if (!isNaN(d) && d < 0) {
+                                const vencido = document.createElement('span');
+                                vencido.className = 'badge bg-dark ms-2';
+                                vencido.textContent = 'Vencido por ' + Math.abs(d) + ' días';
+                                right.appendChild(vencido);
+                            }
+                        }
+                    } catch(e) {}
+
+                    row.appendChild(left);
+                    row.appendChild(right);
+                    list.appendChild(row);
+                });
+                cont.appendChild(list);
+            } catch (e) {
+                console.error('Error renderizando alertas de mantenimiento', e);
+                cont.innerHTML = '<div class="text-muted">Error al renderizar alertas</div>';
+            }
+        })
+        .catch(() => {
+            const cont = document.getElementById('alertas-mant-tecnicos');
+            cont.innerHTML = '<div class="text-muted">No se pudieron cargar las alertas</div>';
+        });
 });
 </script>
 {% endblock %}

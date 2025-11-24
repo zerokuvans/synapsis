@@ -1,0 +1,545 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <h4 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Cronograma de Mantenimientos</h4>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 align-items-end mb-3">
+            <div class="col-md-3">
+              <label class="form-label">Placa</label>
+              <input id="cron-placa" class="form-control" list="lista-placas" placeholder="Ej: ABC123" />
+              <datalist id="lista-placas"></datalist>
+              <small id="cron-placa-info" class="text-muted d-block mt-1"></small>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Fecha último mantenimiento</label>
+              <input id="cron-fecha" type="date" class="form-control" />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Km actual</label>
+              <input id="cron-km-actual" type="number" class="form-control" min="0" />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Frecuencia (km)</label>
+              <input id="cron-km-freq" type="number" class="form-control" min="500" value="2500" />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Km/día promedio</label>
+              <input id="cron-km-dia" type="number" class="form-control" min="1" value="80" />
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Observaciones</label>
+              <textarea id="cron-obs" class="form-control" rows="2" placeholder="Notas opcionales"></textarea>
+            </div>
+            <div class="col-md-12 d-flex gap-2">
+              <button id="btn-guardar-cronograma" class="btn btn-primary"><i class="fas fa-save me-1"></i>Guardar/Actualizar</button>
+              <button id="btn-recargar" class="btn btn-outline-secondary"><i class="fas fa-sync me-1"></i>Recargar</button>
+            </div>
+          </div>
+
+          <hr/>
+
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h6 class="mb-0">Vehículos con cronograma activo</h6>
+            <div class="input-group" style="max-width:300px">
+              <input id="filtro-placa" class="form-control" placeholder="Filtrar por placa" />
+              <button id="btn-filtrar" class="btn btn-outline-primary"><i class="fas fa-search"></i></button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-sm align-middle" id="tabla-cronograma">
+              <thead>
+                <tr>
+                  <th>Placa</th>
+                  <th>Técnico</th>
+                  <th>Último mantenimiento</th>
+                  <th>Km actual</th>
+                  <th>Frecuencia (km)</th>
+                  <th>Próximo km</th>
+                  <th>Próxima fecha</th>
+                  <th>Estado</th>
+                  <th>Cumplimiento</th>
+                  <th>Mantenimiento</th>
+                  <th>Historial</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modal-historial" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Historial de cumplimientos <span id="hist-placa"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="historial-resumen" class="mb-2"></div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Km</th>
+                <th>Mantenimiento</th>
+                <th>Observaciones</th>
+              </tr>
+            </thead>
+            <tbody id="historial-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+ 
+<div class="modal fade" id="modal-detalle-cron" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Cronograma del vehículo <span id="modal-placa"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="cron-resumen" class="mb-3"></div>
+        <div class="border rounded p-3 mb-3">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+              <label class="form-label">Tipo realizado</label>
+              <select id="cron-ok-tipo" class="form-select">
+                <option value="Cambio de Aceite">Cambio de Aceite</option>
+                <option value="Preventivo Completo">Preventivo Completo</option>
+                <option value="Mantenimiento Mayor">Mantenimiento Mayor</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Fecha realizada</label>
+              <input id="cron-ok-fecha" type="date" class="form-control" />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Km realizado</label>
+              <input id="cron-ok-km" type="number" min="0" class="form-control" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Observaciones</label>
+              <input id="cron-ok-obs" type="text" class="form-control" placeholder="Opcional" />
+            </div>
+            <div class="col-md-12">
+              <button id="btn-cron-ok" class="btn btn-outline-success"><i class="fas fa-check me-1"></i>Marcar como realizado</button>
+            </div>
+          </div>
+        </div>
+        <div id="cron-tareas"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const dl = document.getElementById('lista-placas');
+  const placaInput = document.getElementById('cron-placa');
+  const fechaInput = document.getElementById('cron-fecha');
+  const kmActualInput = document.getElementById('cron-km-actual');
+  const kmFreqInput = document.getElementById('cron-km-freq');
+  const kmDiaInput = document.getElementById('cron-km-dia');
+  const obsInput = document.getElementById('cron-obs');
+  const btnGuardar = document.getElementById('btn-guardar-cronograma');
+  const btnRecargar = document.getElementById('btn-recargar');
+  const filtroPlaca = document.getElementById('filtro-placa');
+  const btnFiltrar = document.getElementById('btn-filtrar');
+  const tablaBody = document.querySelector('#tabla-cronograma tbody');
+
+  let allPlacas = [];
+  function fmtDate(d) {
+    if (!d) return '';
+    try {
+      const s = String(d).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      const part = s.includes('T') ? s.split('T')[0] : (s.includes(' ') ? s.split(' ')[0] : s);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(part)) return part;
+      const dt = new Date(s);
+      if (isNaN(dt.getTime())) return part;
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth()+1).padStart(2,'0');
+      const da = String(dt.getDate()).padStart(2,'0');
+      return `${y}-${m}-${da}`;
+    } catch { return ''; }
+  }
+  function renderPlacasSuggestions(q='') {
+    const term = String(q || '').toUpperCase();
+    dl.innerHTML = '';
+    const filtered = allPlacas.filter(p => !term || String(p.placa || '').toUpperCase().includes(term)).slice(0, 50);
+    filtered.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.placa;
+      try {
+        const label = `${String(p.placa||'').toUpperCase()} — ${p.tecnico_nombre || 'Sin técnico'} — ${p.tipo_vehiculo || ''}`;
+        opt.setAttribute('label', label);
+      } catch (e) {}
+      dl.appendChild(opt);
+    });
+  }
+  async function cargarPlacas() {
+    try {
+      const res = await fetch('/api/mpa/vehiculos/placas');
+      const data = await res.json();
+      allPlacas = Array.isArray(data.data) ? data.data : [];
+      renderPlacasSuggestions('');
+    } catch (e) { /* no-op */ }
+  }
+
+  async function listarCronograma(placa=null) {
+    try {
+      const url = placa ? `/api/mpa/cronograma?placa=${encodeURIComponent(placa)}` : '/api/mpa/cronograma';
+      const res = await fetch(url);
+      const data = await res.json();
+      tablaBody.innerHTML = '';
+      if (!data.success) { tablaBody.innerHTML = '<tr><td colspan="12" class="text-muted">Sin datos</td></tr>'; return; }
+      (data.data || []).forEach(r => {
+        const tr = document.createElement('tr');
+        const dias = (typeof r.dias_hasta_fecha === 'number') ? r.dias_hasta_fecha : null;
+        const vencido = !!r.vencido;
+        tr.innerHTML = `
+          <td><strong>${r.placa}</strong></td>
+          <td>${r.tecnico || r.tecnico_asignado || ''}</td>
+          <td>${fmtDate(r.fecha_mantenimiento) || ''}</td>
+          <td>${r.kilometraje_actual ?? ''}</td>
+          <td>${r.kilometraje_frecuencia ?? ''}</td>
+          <td>${r.proximo_kilometraje ?? ''}</td>
+          <td>${fmtDate(r.fecha_proximo_mantenimiento) || ''}</td>
+          <td>${r.estado || 'Activo'}</td>
+          <td>
+            ${vencido ? '<span class="badge bg-danger">Vencido ' + (dias!==null?('por ' + Math.abs(dias) + ' días'):'') + '</span>' : '<span class="badge bg-secondary">Faltan ' + (dias!==null?dias:'N/A') + ' días</span>'}
+          </td>
+          <td>
+            ${r.cumplido_mantenimiento_id ? '<button class="btn btn-sm btn-outline-success" onclick="verHistorial(\'' + r.placa + '\')"><i class="fas fa-tools"></i> Ver</button>' : '<span class="text-muted">N/A</span>'}
+          </td>
+          <td>
+            <button class="btn btn-sm btn-outline-secondary" onclick="verHistorial('${r.placa}')"><i class="fas fa-history"></i> Ver</button>
+          </td>
+          <td>
+            <button class="btn btn-sm btn-outline-primary" data-placa="${r.placa}" onclick="verCronograma('${r.placa}')">
+              <i class="fas fa-eye"></i> Ver cronograma
+            </button>
+          </td>
+        `;
+        if (vencido) { tr.classList.add('table-danger'); }
+        tablaBody.appendChild(tr);
+      });
+    } catch (e) {
+      tablaBody.innerHTML = '<tr><td colspan="12" class="text-muted">Error al cargar</td></tr>';
+    }
+  }
+
+  async function guardarCronograma() {
+    const payload = {
+      placa: (placaInput.value || '').toUpperCase().trim(),
+      fecha_mantenimiento: fechaInput.value || null,
+      kilometraje_actual: parseInt(kmActualInput.value || '0', 10),
+      kilometraje_frecuencia: parseInt(kmFreqInput.value || '2500', 10),
+      kilometraje_promedio_diario: parseInt(kmDiaInput.value || '80', 10),
+      tipo_mantenimiento: 'Cambio de Aceite',
+      estado: 'Activo',
+      observaciones: (obsInput.value || '').trim()
+    };
+    if (!payload.placa || payload.kilometraje_actual <= 0) {
+      alert('Ingresa placa y km actual (>0)');
+      return;
+    }
+    const res = await fetch('/api/mpa/cronograma', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.success) {
+      await listarCronograma();
+      alert('Cronograma guardado');
+    } else {
+      alert(data.message || 'Error al guardar');
+    }
+  }
+
+  async function verCronograma(placa) {
+    try {
+      const res = await fetch(`/api/mpa/cronograma/${encodeURIComponent(placa)}`);
+      const data = await res.json();
+      if (!data.success) { alert(data.message || 'Sin datos'); return; }
+      document.getElementById('modal-placa').textContent = placa;
+      const r = data.cronograma || {};
+      const diasBadge = (() => {
+        try {
+          const s = r.fecha_proximo_mantenimiento || '';
+          if (!s) return '<span class="badge bg-secondary">N/A</span>';
+          const parts = String(s).split('-');
+          const target = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          const now = new Date();
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const diff = Math.round((target.getTime() - today.getTime()) / 86400000);
+          if (diff < 0) return `<span class="badge bg-danger">Vencido por ${Math.abs(diff)} días</span>`;
+          if (diff <= 30) return `<span class="badge bg-warning">${diff} días</span>`;
+          return `<span class="badge bg-info">≈ ${diff} días</span>`;
+        } catch { return '<span class="badge bg-secondary">N/A</span>'; }
+      })();
+      const resumen = document.getElementById('cron-resumen');
+      resumen.innerHTML = `
+        <div class="row">
+          <div class="col-md-6">
+            <div class="border rounded p-2">
+              <div><strong>Último mantenimiento:</strong> ${fmtDate(r.fecha_mantenimiento) || ''}</div>
+              <div><strong>Km actual:</strong> ${r.kilometraje_actual ?? ''}</div>
+              <div><strong>Frecuencia aceite:</strong> ${r.kilometraje_frecuencia ?? ''} km</div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="border rounded p-2">
+              <div><strong>Próxima fecha:</strong> ${fmtDate(r.fecha_proximo_mantenimiento) || ''} ${diasBadge}</div>
+              <div><strong>Próximo km:</strong> ${r.proximo_kilometraje ?? ''}</div>
+              <div><strong>Estado:</strong> ${r.estado || 'Activo'}</div>
+            </div>
+          </div>
+        </div>
+      `;
+      const cont = document.getElementById('cron-tareas');
+      cont.innerHTML = '';
+      (data.tareas || []).forEach(t => {
+        const card = document.createElement('div');
+        card.className = 'card mb-2';
+        const body = document.createElement('div');
+        body.className = 'card-body';
+        let diasDesdeHoy;
+        try {
+          const s = t.fecha_tentativa || '';
+          if (!s) {
+            diasDesdeHoy = 'N/A';
+          } else {
+            const parts = String(s).split('-');
+            const target = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const ms = target.getTime() - today.getTime();
+            diasDesdeHoy = Math.round(ms / 86400000);
+          }
+        } catch (e) {
+          diasDesdeHoy = 'N/A';
+        }
+        let badgeClass = 'bg-secondary';
+        let badgeText = 'N/A';
+        if (typeof diasDesdeHoy === 'number') {
+          if (diasDesdeHoy < 0) { badgeClass = 'bg-danger'; badgeText = `Vencido por ${Math.abs(diasDesdeHoy)} días`; }
+          else if (diasDesdeHoy <= 30) { badgeClass = 'bg-warning'; badgeText = `${diasDesdeHoy} días`; }
+          else { badgeClass = 'bg-info'; badgeText = `≈ ${diasDesdeHoy} días`; }
+        }
+        body.innerHTML = `
+          <div class="d-flex justify-content-between align-items-center">
+            <h6 class="mb-1">${t.tipo}</h6>
+            ${t.alerta ? '<span class="badge bg-danger">Faltan ≤200 km</span>' : '<span class="badge bg-secondary">Programado</span>'}
+          </div>
+          <div class="text-muted small">Frecuencia: ${t.frecuencia_km} km</div>
+          <div class="mt-1">Próximo km: <strong>${t.proximo_kilometraje}</strong> • Restante: <strong>${t.kilometraje_restante}</strong> km • Fecha tentativa: <strong>${t.fecha_tentativa || 'N/A'}</strong> • <span class="badge ${badgeClass}">${badgeText}</span></div>
+        `;
+        const ul = document.createElement('ul');
+        ul.className = 'mt-2 mb-0';
+        (t.detalles || []).forEach(d => { const li = document.createElement('li'); li.textContent = d; ul.appendChild(li); });
+        body.appendChild(ul);
+        card.appendChild(body);
+        cont.appendChild(card);
+      });
+      const modalEl = document.getElementById('modal-detalle-cron');
+      if (modalEl && window.bootstrap) { new bootstrap.Modal(modalEl).show(); }
+      const btnOk = document.getElementById('btn-cron-ok');
+      btnOk.onclick = async () => {
+        const fecha = document.getElementById('cron-ok-fecha').value;
+        const km = parseInt(document.getElementById('cron-ok-km').value || '0', 10);
+        const obs = document.getElementById('cron-ok-obs').value || '';
+        const tipo = document.getElementById('cron-ok-tipo').value || 'Cambio de Aceite';
+        if (!km || km <= 0) { alert('Ingresa km realizado'); return; }
+        try {
+          const resOk = await fetch(`/api/mpa/cronograma/${encodeURIComponent(placa)}/cumplir`, {
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ fecha_real: fecha || null, kilometraje_real: km, observaciones: obs, tipo_cumplido: tipo })
+          });
+          const dataOk = await resOk.json();
+          if (!dataOk.success) { alert(dataOk.message || 'No se pudo marcar como realizado'); return; }
+          await verCronograma(placa);
+          alert('Marcado como realizado');
+        } catch (e) { alert('Error'); }
+      };
+    } catch (e) { alert('Error al cargar cronograma'); }
+  }
+
+  let debounceTimer = null;
+  function debounceListarByPlaca(value) {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      const v = String(value || '').trim().toUpperCase();
+      if (v.length >= 1) {
+        listarCronograma(v);
+      } else {
+        listarCronograma();
+      }
+    }, 300);
+  }
+
+  placaInput.addEventListener('input', (e) => {
+    const v = e.target.value || '';
+    renderPlacasSuggestions(v);
+    debounceListarByPlaca(v);
+    updatePlacaInfo(v);
+  });
+  placaInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const v = String(placaInput.value || '').trim().toUpperCase();
+      listarCronograma(v);
+      updatePlacaInfo(v);
+    }
+  });
+  placaInput.addEventListener('change', (e) => {
+    const v = String(e.target.value || '').trim().toUpperCase();
+    debounceListarByPlaca(v);
+    updatePlacaInfo(v);
+  });
+
+  btnGuardar.addEventListener('click', guardarCronograma);
+  btnRecargar.addEventListener('click', () => listarCronograma());
+  btnFiltrar.addEventListener('click', () => listarCronograma((filtroPlaca.value || '').trim().toUpperCase()));
+  filtroPlaca.addEventListener('keydown', (e) => { if (e.key === 'Enter') btnFiltrar.click(); });
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    await cargarPlacas();
+    const hashPlaca = (location.hash || '').replace('#','').trim().toUpperCase();
+    if (hashPlaca) {
+      filtroPlaca.value = hashPlaca;
+      await listarCronograma(hashPlaca);
+      verCronograma(hashPlaca);
+    } else {
+      await listarCronograma();
+    }
+  });
+
+  window.verHistorial = async function(placa) {
+    try {
+      const res = await fetch(`/api/mpa/cronograma/${encodeURIComponent(placa)}/historial`);
+      const body = document.getElementById('historial-body');
+      const resumenEl = document.getElementById('historial-resumen');
+      document.getElementById('hist-placa').textContent = placa;
+
+      if (!res.ok) {
+        if (res.status === 404) {
+          try {
+            const res2 = await fetch(`/api/mpa/cronograma/${encodeURIComponent(placa)}`);
+            if (res2.ok) {
+              const data2 = await res2.json();
+              const c = data2.cronograma || {};
+              const fecha = fmtDate(c.cumplido_fecha) || '';
+              const tipo = c.cumplido_tipo || '';
+              const km = c.kilometraje_actual ?? '';
+              const id = c.cumplido_mantenimiento_id;
+              const obs = c.cumplido_observaciones || '';
+              const idLink = id ? `<a href="/mpa/mantenimientos?id=${encodeURIComponent(id)}" class="text-decoration-none">ID ${id}</a>` : '';
+              resumenEl.innerHTML = `${fecha || tipo || idLink ? `<div class=\"small text-muted\">Último OK: ${fecha}${tipo ? ' • ' + tipo : ''}${idLink ? ' • ' + idLink : ''}</div>` : ''}`;
+              body.innerHTML = (fecha || tipo || km || id || obs) ? `
+                <tr>
+                  <td>${fecha}</td>
+                  <td>${tipo}</td>
+                  <td>${km}</td>
+                  <td>${id ? `<a href=\"/mpa/mantenimientos?id=${encodeURIComponent(id)}\" class=\"btn btn-sm btn-outline-success\">Ver</a>` : '<span class=\"text-muted\">N/A</span>'}</td>
+                  <td>${obs}</td>
+                </tr>
+              ` : '<tr><td colspan="5" class="text-muted">Sin datos</td></tr>';
+              const modalEl = document.getElementById('modal-historial');
+              if (modalEl && window.bootstrap) { new bootstrap.Modal(modalEl).show(); }
+              return;
+            }
+          } catch (e) {}
+          body.innerHTML = '<tr><td colspan="5" class="text-muted">Sin datos</td></tr>';
+          resumenEl.innerHTML = '';
+          const modalEl = document.getElementById('modal-historial');
+          if (modalEl && window.bootstrap) { new bootstrap.Modal(modalEl).show(); }
+          return;
+        }
+        if (res.status === 401 || res.status === 403) {
+          body.innerHTML = '<tr><td colspan="5" class="text-muted">Acceso no autorizado</td></tr>';
+          resumenEl.innerHTML = '';
+          const modalEl = document.getElementById('modal-historial');
+          if (modalEl && window.bootstrap) { new bootstrap.Modal(modalEl).show(); }
+          return;
+        }
+      }
+
+      const data = await res.json();
+      body.innerHTML = '';
+      if (!data.success) {
+        body.innerHTML = '<tr><td colspan="5" class="text-muted">Sin datos</td></tr>';
+        resumenEl.innerHTML = '';
+      } else {
+        const rows = Array.isArray(data.data) ? data.data : [];
+        if (!rows.length) {
+          body.innerHTML = '<tr><td colspan="5" class="text-muted">Sin registros</td></tr>';
+          resumenEl.innerHTML = '';
+        } else {
+          const last = rows[0];
+          const idLink = last.mantenimiento_id ? `<a href="/mpa/mantenimientos?id=${encodeURIComponent(last.mantenimiento_id)}" class="text-decoration-none">ID ${last.mantenimiento_id}</a>` : '';
+          resumenEl.innerHTML = `<div class="small text-muted">Último OK: ${fmtDate(last.fecha) || ''}${last.tipo_cumplido ? ' • ' + last.tipo_cumplido : ''}${idLink ? ' • ' + idLink : ''}</div>`;
+          body.innerHTML = rows.map(r => {
+            const id = r.mantenimiento_id;
+            const link = id ? `<a href="/mpa/mantenimientos?id=${encodeURIComponent(id)}" class="btn btn-sm btn-outline-success">Ver</a>` : '<span class="text-muted">N/A</span>';
+            return `
+              <tr>
+                <td>${fmtDate(r.fecha) || ''}</td>
+                <td>${r.tipo_cumplido || ''}</td>
+                <td>${r.kilometraje ?? ''}</td>
+                <td>${link}</td>
+                <td>${r.observaciones || ''}</td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
+      const modalEl = document.getElementById('modal-historial');
+      if (modalEl && window.bootstrap) { new bootstrap.Modal(modalEl).show(); }
+    } catch (e) {
+      const body = document.getElementById('historial-body');
+      body.innerHTML = '<tr><td colspan="5" class="text-muted">Error al cargar</td></tr>';
+      const resumenEl = document.getElementById('historial-resumen');
+      resumenEl.innerHTML = '';
+    }
+  };
+
+  function updatePlacaInfo(placa) {
+    const infoEl = document.getElementById('cron-placa-info');
+    const p = allPlacas.find(x => String(x.placa||'').toUpperCase() === String(placa||'').toUpperCase());
+    if (!p) { infoEl.textContent = ''; return; }
+    const tecnico = p.tecnico_nombre || 'Sin técnico';
+    const tipo = p.tipo_vehiculo || '';
+    infoEl.textContent = `${tecnico}${tipo ? ' • ' + tipo : ''}`;
+    try {
+      fetch(`/api/mpa/cronograma/${encodeURIComponent(p.placa)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (!data.success) return;
+          const c = data.cronograma || {};
+          const prox = c.proximo_kilometraje ?? '';
+          const km = c.kilometraje_actual ?? '';
+          const avg = parseInt(c.kilometraje_promedio_diario || 80, 10);
+          const rest = (parseInt(prox||0,10) - parseInt(km||0,10));
+          const dias = Math.ceil(Math.max(0, rest) / Math.max(1, avg));
+          const fechaUlt = fmtDate(c.fecha_mantenimiento) || '';
+          const fechaProx = fmtDate(c.fecha_proximo_mantenimiento) || '';
+          const extra = `${fechaUlt ? ' • Último: ' + fechaUlt : ''}${km ? ' • Km: ' + km : ''}${fechaProx ? ' • Próx: ' + fechaProx : ''}${prox ? ' (' + prox + ' km • ≈ ' + dias + ' días)' : ''}`;
+          infoEl.textContent = `${tecnico}${tipo ? ' • ' + tipo : ''}${extra}`;
+        })
+        .catch(() => {});
+    } catch (e) {}
+  }
+</script>
+{% endblock %}

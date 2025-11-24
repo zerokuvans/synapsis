@@ -944,7 +944,27 @@ function mostrarResultados(data, estadisticas) {
     if (typeof DataTable !== 'undefined' && !DataTable.isDataTable('#tablaHistorial')) {
         new DataTable('#tablaHistorial', {
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+                decimal: ',',
+                thousands: '.',
+                processing: 'Procesando...',
+                search: 'Buscar:',
+                lengthMenu: 'Mostrar _MENU_ registros',
+                info: 'Mostrando _START_ a _END_ de _TOTAL_ registros',
+                infoEmpty: 'Mostrando 0 a 0 de 0 registros',
+                infoFiltered: '(filtrado de _MAX_ registros en total)',
+                loadingRecords: 'Cargando...',
+                zeroRecords: 'No se encontraron resultados',
+                emptyTable: 'No hay datos disponibles en la tabla',
+                paginate: {
+                    first: 'Primero',
+                    previous: 'Anterior',
+                    next: 'Siguiente',
+                    last: 'Último'
+                },
+                aria: {
+                    sortAscending: ': activar para ordenar la columna ascendente',
+                    sortDescending: ': activar para ordenar la columna descendente'
+                }
             },
             order: [[0, 'desc']],
             pageLength: 25,

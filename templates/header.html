@@ -15,6 +15,15 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.6/dist/sweetalert2.all.min.js"></script>
     <!-- Utilidades globales disponibles en todas las páginas -->
     <script src="{{ url_for('static', filename='js/global-utils.js') }}"></script>
+    <script>
+    (function(){
+      var c = window.console || {};
+      var f = function(){};
+      var m = ['log','debug','info','warn','error','trace','group','groupCollapsed','groupEnd','table','time','timeEnd','timeLog','dir','dirxml','assert','count','countReset','profile','profileEnd','clear'];
+      for (var i=0;i<m.length;i++){ try{ c[m[i]] = f; }catch(e){} }
+      window.console = c;
+    })();
+    </script>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -44,12 +53,7 @@
                             <li><a class="dropdown-item" href="/admin/usuarios">
                                 <i class="fas fa-users me-2"></i>Usuarios
                             </a></li>
-                            <li><a class="dropdown-item" href="/admin/reportes">
-                                <i class="fas fa-chart-line me-2"></i>Reportes
-                            </a></li>
-                            <li><a class="dropdown-item" href="/estadisticas_inventario">
-                                <i class="fas fa-boxes me-2"></i>Estadísticas Inventario
-                            </a></li>
+                            
                             <li><a class="dropdown-item" href="/administrativo/asistencia">
                                 <i class="fas fa-clipboard-check me-2"></i>Control de Asistencia
                             </a></li>
@@ -218,6 +222,9 @@
                             </a></li>
                             <li><a class="dropdown-item" href="/mpa/mantenimientos">
                                 <i class="fas fa-wrench me-2"></i>Mantenimientos
+                            </a></li>
+                            <li><a class="dropdown-item" href="/mpa/cronograma">
+                                <i class="fas fa-calendar-check me-2"></i>Cronograma
                             </a></li>
                             <li><a class="dropdown-item" href="/mpa/rutas">
                                 <i class="fas fa-route me-2"></i>Rutas Frecuentes

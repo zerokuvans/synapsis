@@ -128,13 +128,14 @@ from app import administrativo_asistencia, obtener_supervisores, obtener_tecnico
 from app import analistas_index, analistas_causas, analistas_dashboard, api_grupos_causas_cierre, api_tecnologias_causas_cierre, api_agrupaciones_causas_cierre, api_estadisticas_causas_cierre
 
 # Importar rutas del módulo MPA desde app.py
-from app import mpa_dashboard, mpa_dashboard_stats, mpa_vehiculos, mpa_soat, mpa_tecnico_mecanica, mpa_licencias, mpa_licencias_conducir, mpa_inspecciones, mpa_siniestros, mpa_mantenimientos
+from app import mpa_dashboard, mpa_dashboard_stats, mpa_vehiculos, mpa_soat, mpa_tecnico_mecanica, mpa_licencias, mpa_licencias_conducir, mpa_inspecciones, mpa_siniestros, mpa_mantenimientos, mpa_cronograma
 from app import api_get_vehiculos, api_create_vehiculo, api_get_vehiculo, api_update_vehiculo, api_delete_vehiculo, api_get_tecnicos, api_export_vehiculos
-from app import api_get_mantenimientos, api_create_mantenimiento, api_get_mantenimiento, api_update_mantenimiento, api_delete_mantenimiento, api_get_placas, api_get_categorias_mantenimiento, api_upload_mantenimiento_image
+from app import api_get_mantenimientos, api_create_mantenimiento, api_get_mantenimiento, api_update_mantenimiento, api_delete_mantenimiento, api_get_placas, api_get_categorias_mantenimiento, api_upload_mantenimiento_image, api_cronograma_list_create, api_cronograma_detalle, api_cronograma_cumplir, api_cronograma_historial
 from app import api_get_soat, api_get_soat_by_id, api_create_soat, api_update_soat, api_delete_soat
 from app import api_list_tecnico_mecanica, api_get_tecnico_mecanica, api_create_tecnico_mecanica, api_update_tecnico_mecanica, api_delete_tecnico_mecanica
 from app import api_list_licencias_conducir, api_get_licencia_conducir, api_create_licencia_conducir, api_update_licencia_conducir, api_delete_licencia_conducir
 from app import api_import_vehiculos_excel, api_import_tecnico_mecanica_excel, api_import_soat_excel, api_import_licencias_excel
+from app import api_cronograma_alerts_my
 from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas_por_tecnico, api_google_directions_route, api_riesgo_motos, api_riesgo_por_localidad, api_localidades, api_riesgo_importar
 
 # Importar módulo de dotaciones
@@ -168,6 +169,7 @@ app.route('/mpa/licencias-conducir')(mpa_licencias_conducir)
 app.route('/mpa/inspecciones')(mpa_inspecciones)
 app.route('/mpa/siniestros')(mpa_siniestros)
 app.route('/mpa/mantenimientos')(mpa_mantenimientos)
+app.route('/mpa/cronograma')(mpa_cronograma)
 app.route('/mpa/rutas')(mpa_rutas)
 
 # Registrar rutas de la API de vehículos MPA
@@ -186,6 +188,11 @@ app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['GET'])(api
 app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['PUT'])(api_update_mantenimiento)
 app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['DELETE'])(api_delete_mantenimiento)
 app.route('/api/mpa/vehiculos/placas', methods=['GET'])(api_get_placas)
+app.route('/api/mpa/cronograma', methods=['GET','POST'])(api_cronograma_list_create)
+app.route('/api/mpa/cronograma/<placa>', methods=['GET'])(api_cronograma_detalle)
+app.route('/api/mpa/cronograma/<placa>/cumplir', methods=['POST'])(api_cronograma_cumplir)
+app.route('/api/mpa/cronograma/<placa>/historial', methods=['GET'])(api_cronograma_historial)
+app.route('/api/mpa/cronograma/alerts-my', methods=['GET'])(api_cronograma_alerts_my)
 app.route('/api/mpa/categorias-mantenimiento/<tipo_vehiculo>', methods=['GET'])(api_get_categorias_mantenimiento)
 app.route('/api/mpa/mantenimientos/upload-image', methods=['POST'])(api_upload_mantenimiento_image)
 app.route('/api/mpa/vehiculos/import-excel', methods=['POST'])(api_import_vehiculos_excel)

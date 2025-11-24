@@ -2730,6 +2730,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
+                <form id="formValidacionPIN" onsubmit="validarPIN(); return false;">
                 <div class="mb-3">
                     <i id="iconoPrincipalPIN" class="fas fa-lock text-warning" style="font-size: 3rem;"></i>
                 </div>
@@ -2738,7 +2739,7 @@
                 </p>
                 <div class="mb-3">
                     <label for="pinValidacion" class="form-label">Ingrese su PIN:</label>
-                    <input type="password" class="form-control text-center" id="pinValidacion" 
+                    <input type="password" class="form-control text-center" id="pinValidacion" autocomplete="one-time-code"
                            placeholder="••••" maxlength="4" style="font-size: 1.5rem; letter-spacing: 0.5rem;">
                 </div>
                 <div id="errorPIN" class="alert alert-danger d-none" role="alert">
@@ -2751,13 +2752,14 @@
                     </div>
                     Validando PIN...
                 </div>
+                </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="limpiarPIN()">
                     <i class="fas fa-times me-2"></i>
                     Cancelar
                 </button>
-                <button type="button" class="btn btn-warning" onclick="validarPIN()" id="btnConfirmarPIN">
+                <button type="submit" class="btn btn-warning" id="btnConfirmarPIN" form="formValidacionPIN">
                     <i class="fas fa-check me-2"></i>
                     Confirmar
                 </button>

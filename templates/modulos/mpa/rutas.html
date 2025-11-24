@@ -77,6 +77,9 @@ let map;
 let layers = [];
 let heatLayer = null;
 function initMap() {
+  if (map) return;
+  const container = document.getElementById('map');
+  if (!container) return;
   map = L.map('map').setView([4.65, -74.1], 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 }
@@ -251,14 +254,11 @@ document.addEventListener('DOMContentLoaded', () => {
   riesgoBtn.style.marginLeft = '8px';
   riesgoBtn.addEventListener('click', toggleHeatRisk);
   document.querySelector('.col-md-4.d-flex.align-items-end.gap-2').appendChild(riesgoBtn);
-  // activar por defecto
   toggleRiesgo();
   document.getElementById('riesgoBtn').className = 'btn btn-danger';
-  // cambio de meses reactiva capa
   document.getElementById('mesesSelect').addEventListener('change', () => { if (heatLayer) toggleRiesgo(); });
   document.getElementById('tipoAccSelect').addEventListener('change', () => { if (heatLayer) toggleRiesgo(); });
   document.getElementById('intensidadRange').addEventListener('input', () => { if (heatLayer) toggleRiesgo(); });
-  // botón por localidad
   const locBtn = document.createElement('button');
   locBtn.id = 'locBtn';
   locBtn.className = 'btn btn-outline-danger';
@@ -415,11 +415,6 @@ async function cargarRutas() {
     status.textContent = 'Error de red al cargar rutas';
   }
 }
-document.addEventListener('DOMContentLoaded', async () => {
-  initMap();
-  await loadTecnicos();
-  document.getElementById('verRutasBtn').addEventListener('click', verRutas);
-  document.getElementById('cargarRutasBtn').addEventListener('click', cargarRutas);
-});
+
 </script>
 {% endblock %}

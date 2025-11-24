@@ -78,8 +78,22 @@
                             </div>
                         </div>
                     </div>
+
                     
-                    <!-- Módulos principales -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-exclamation-circle text-danger me-2"></i>Alertas de mantenimiento (≤200 km)</h5>
+                                </div>
+                                <div class="card-body" id="alertas-mantenimiento">
+                                    <div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i> Cargando...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    
                     <div class="row mt-4">
                         <div class="col-md-3 mb-4">
                             <div class="card h-100">
@@ -187,10 +201,18 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Rutas frecuentes -->
-                    <div class="row mt-2">
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-calendar-check fa-3x text-primary mb-3"></i>
+                                    <h5 class="card-title">Cronograma</h5>
+                                    <p class="card-text">Planifica próximos mantenimientos por placa.</p>
+                                    <a href="/mpa/cronograma" class="btn btn-primary">
+                                        <i class="fas fa-calendar-alt me-2"></i>Ver Cronograma
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                         <div class="col-md-3 mb-4">
                             <div class="card h-100">
                                 <div class="card-body text-center">
@@ -204,6 +226,9 @@
                             </div>
                         </div>
                     </div>
+
+                    
+                    
                 </div>
             </div>
         </div>
@@ -225,6 +250,43 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error al cargar estadísticas MPA:', error);
+        });
+
+    // Cargar alertas (placas con ≤200 km restantes según cronograma)
+    fetch('/api/mpa/cronograma')
+        .then(r => r.json())
+        .then(data => {
+            const cont = document.getElementById('alertas-mantenimiento');
+            if (!data.success) { cont.innerHTML = '<div class="text-muted">No disponible</div>'; return; }
+            const items = (data.data || []).filter(x => {
+                const rest = (parseInt(x.proximo_kilometraje || 0, 10) - parseInt(x.kilometraje_actual || 0, 10));
+                return (x.estado || 'Activo') === 'Activo' && rest <= 200 && rest >= 0;
+            }).sort((a,b) => (
+                (parseInt(a.proximo_kilometraje||0,10) - parseInt(a.kilometraje_actual||0,10)) -
+                (parseInt(b.proximo_kilometraje||0,10) - parseInt(b.kilometraje_actual||0,10))
+            ));
+            if (!items.length) { cont.innerHTML = '<div class="text-success">Sin alertas de mantenimiento por ahora.</div>'; return; }
+            const wrap = document.createElement('div');
+            wrap.className = 'd-flex flex-wrap gap-2';
+            items.forEach(x => {
+                const rest = (parseInt(x.proximo_kilometraje || 0, 10) - parseInt(x.kilometraje_actual || 0, 10));
+                const avg = parseInt(x.kilometraje_promedio_diario || 80, 10);
+                const dias = Math.ceil(Math.max(0, rest) / Math.max(1, avg));
+                let diasFecha = 'N/A';
+                try { if (x.fecha_proximo_mantenimiento) { const d = Math.ceil((new Date(x.fecha_proximo_mantenimiento) - new Date())/86400000); diasFecha = isNaN(d)?'N/A':d; } } catch(e) {}
+                const a = document.createElement('a');
+                a.href = `/mpa/cronograma#${encodeURIComponent(x.placa)}`;
+                a.className = 'badge rounded-pill bg-danger text-decoration-none';
+                a.title = `Faltan ${rest} km • ≈ ${dias} días • hasta fecha: ${diasFecha} días`;
+                a.textContent = `${x.placa} (${rest} km)`;
+                wrap.appendChild(a);
+            });
+            cont.innerHTML = '';
+            cont.appendChild(wrap);
+        })
+        .catch(() => {
+            const cont = document.getElementById('alertas-mantenimiento');
+            cont.innerHTML = '<div class="text-muted">No se pudieron cargar alertas</div>';
         });
 });
 </script>

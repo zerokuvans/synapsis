@@ -7,6 +7,7 @@ import pytz
 import os
 from datetime import date, datetime
 import bcrypt
+import json
 
 app = Flask(__name__)
 app.secret_key = 'synapsis-secret-key-2024-production-secure-key-12345'
@@ -91,6 +92,61 @@ def get_db_connection():
     except mysql.connector.Error as e:
         print(f"Error al conectar a la base de datos: {e}")
         return None
+
+# Utilidades para columnas dinámicas en mpa_mantenimientos
+def ensure_mantenimiento_general_column(connection):
+    try:
+        cur = connection.cursor()
+        cur.execute("SHOW COLUMNS FROM mpa_mantenimientos LIKE 'tipo_general_mantenimiento'")
+        if not cur.fetchone():
+            try:
+                cur.execute("ALTER TABLE mpa_mantenimientos ADD COLUMN tipo_general_mantenimiento VARCHAR(64) NULL")
+                connection.commit()
+            except Exception:
+                pass
+        cur.close()
+    except Exception:
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+
+def has_mantenimiento_general_column(connection):
+    try:
+        cur = connection.cursor()
+        cur.execute("SHOW COLUMNS FROM mpa_mantenimientos LIKE 'tipo_general_mantenimiento'")
+        exists = bool(cur.fetchone())
+        cur.close()
+        return exists
+    except Exception:
+        return False
+
+def ensure_mantenimiento_subcats_column(connection):
+    try:
+        cur = connection.cursor()
+        cur.execute("SHOW COLUMNS FROM mpa_mantenimientos LIKE 'tipo_general_subcategorias'")
+        if not cur.fetchone():
+            try:
+                cur.execute("ALTER TABLE mpa_mantenimientos ADD COLUMN tipo_general_subcategorias TEXT NULL")
+                connection.commit()
+            except Exception:
+                pass
+        cur.close()
+    except Exception:
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+
+def has_mantenimiento_subcats_column(connection):
+    try:
+        cur = connection.cursor()
+        cur.execute("SHOW COLUMNS FROM mpa_mantenimientos LIKE 'tipo_general_subcategorias'")
+        exists = bool(cur.fetchone())
+        cur.close()
+        return exists
+    except Exception:
+        return False
 
 def ensure_riesgo_table():
     try:
@@ -1181,7 +1237,7 @@ def preoperacional_operativo():
                 datetime.now(bogota_tz),
                 request.form.get('vehiculo_asignado'),
                 request.form.get('placa_vehiculo'),
-                request.form.get('kilometraje'),
+                (lambda v: v if (v is not None and v != '') else request.form.get('kilometraje_actual'))(request.form.get('kilometraje')),
                 request.form.get('nivel_combustible'),
                 request.form.get('nivel_aceite'),
                 request.form.get('nivel_liquido_frenos'),
@@ -1373,6 +1429,86 @@ def api_operativo_datos_preoperacional():
         except Exception:
             pass
         return jsonify({'success': False, 'message': str(e)})
+
+# Validación de kilometraje en tiempo real para Operativo
+@app.route('/api/operativo/validar-kilometraje', methods=['POST'])
+@login_required
+def api_operativo_validar_kilometraje():
+    try:
+        if not (current_user.has_role('operativo') or current_user.has_role('administrativo')):
+            return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+
+        data = request.get_json() or {}
+        placa_raw = data.get('placa') or ''
+        km_prop = data.get('kilometraje_propuesto')
+
+        try:
+            km_prop = int(km_prop)
+        except Exception:
+            return jsonify({'success': False, 'message': 'El kilometraje debe ser un número entero'}), 400
+
+        if km_prop < 0:
+            return jsonify({'success': False, 'message': 'El kilometraje no puede ser negativo'}), 400
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        placa_norm = placa_raw.strip().upper().replace('-', '').replace(' ', '')
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT kilometraje, fecha
+            FROM preoperacional 
+            WHERE UPPER(REPLACE(REPLACE(TRIM(placa_vehiculo), '-', ''), ' ', '')) = %s
+            ORDER BY fecha DESC 
+            LIMIT 1
+            """,
+            (placa_norm,)
+        )
+        row = cursor.fetchone()
+        cursor.close(); connection.close()
+
+        if not row:
+            return jsonify({'success': True, 'valido': True, 'ultimo_kilometraje': 0, 'fecha_ultimo_registro': '', 'mensaje': 'Primer registro de kilometraje para este vehículo'})
+
+        ultimo_km = row.get('kilometraje') or 0
+        fecha_ult = row.get('fecha')
+
+        if km_prop < ultimo_km:
+            return jsonify({
+                'success': True,
+                'valido': False,
+                'ultimo_kilometraje': ultimo_km,
+                'fecha_ultimo_registro': fecha_ult.strftime('%d/%m/%Y') if fecha_ult else '',
+                'mensaje': f"El kilometraje no puede ser menor al último registrado: {ultimo_km} km en fecha {fecha_ult.strftime('%d/%m/%Y') if fecha_ult else 'N/A'}"
+            })
+
+        if km_prop > 1000000:
+            return jsonify({
+                'success': True,
+                'valido': False,
+                'ultimo_kilometraje': ultimo_km,
+                'fecha_ultimo_registro': fecha_ult.strftime('%d/%m/%Y') if fecha_ult else '',
+                'mensaje': 'El kilometraje no puede superar los 1,000,000 km.'
+            })
+
+        return jsonify({
+            'success': True,
+            'valido': True,
+            'ultimo_kilometraje': ultimo_km,
+            'fecha_ultimo_registro': fecha_ult.strftime('%d/%m/%Y') if fecha_ult else '',
+            'mensaje': 'Kilometraje válido'
+        })
+    except Exception as e:
+        try:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'connection' in locals() and connection and connection.is_connected():
+                connection.close()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': f'Error interno: {str(e)}'}), 500
 
 # ============================================================================
 # MÓDULO ANALISTAS - API ENDPOINTS
@@ -4104,9 +4240,15 @@ def api_get_mantenimientos():
             return jsonify({'error': 'Error de conexión a la base de datos'}), 500
             
         cursor = connection.cursor(dictionary=True)
+        ensure_mantenimiento_general_column(connection)
+        ensure_mantenimiento_subcats_column(connection)
+        has_general = has_mantenimiento_general_column(connection)
+        has_subcats = has_mantenimiento_subcats_column(connection)
         
         # Obtener mantenimientos con información del vehículo
-        query = """
+        general_sel = "m.tipo_general_mantenimiento" if has_general else "NULL AS tipo_general_mantenimiento"
+        subcats_sel = "m.tipo_general_subcategorias" if has_subcats else "NULL AS tipo_general_subcategorias"
+        query = f"""
         SELECT 
             m.id_mpa_mantenimientos,
             m.placa,
@@ -4118,6 +4260,8 @@ def api_get_mantenimientos():
             m.tipo_vehiculo,
             COALESCE(ro_v.nombre, ro_m.nombre, m.tecnico) AS tecnico_nombre,
             m.tipo_mantenimiento,
+            {general_sel},
+            {subcats_sel},
             m.estado
         FROM mpa_mantenimientos m
         LEFT JOIN mpa_vehiculos v ON v.placa = m.placa
@@ -4133,6 +4277,15 @@ def api_get_mantenimientos():
         for mantenimiento in mantenimientos:
             if mantenimiento['fecha_mantenimiento']:
                 mantenimiento['fecha_mantenimiento'] = mantenimiento['fecha_mantenimiento'].strftime('%Y-%m-%d %H:%M:%S')
+            try:
+                val = mantenimiento.get('tipo_general_subcategorias')
+                if isinstance(val, (bytes, bytearray)):
+                    val = val.decode('utf-8', errors='ignore')
+                if isinstance(val, str) and val:
+                    import json as _json
+                    mantenimiento['tipo_general_subcategorias'] = _json.loads(val)
+            except Exception:
+                pass
         
         return jsonify({
             'success': True,
@@ -4161,8 +4314,14 @@ def api_get_mantenimiento(mantenimiento_id):
             return jsonify({'error': 'Error de conexión a la base de datos'}), 500
             
         cursor = connection.cursor(dictionary=True)
+        ensure_mantenimiento_general_column(connection)
+        ensure_mantenimiento_subcats_column(connection)
+        has_general = has_mantenimiento_general_column(connection)
+        has_subcats = has_mantenimiento_subcats_column(connection)
         
-        query = """
+        general_sel = "m.tipo_general_mantenimiento" if has_general else "NULL AS tipo_general_mantenimiento"
+        subcats_sel = "m.tipo_general_subcategorias" if has_subcats else "NULL AS tipo_general_subcategorias"
+        query = f"""
         SELECT 
             m.id_mpa_mantenimientos,
             m.placa,
@@ -4174,6 +4333,8 @@ def api_get_mantenimiento(mantenimiento_id):
             m.tipo_vehiculo,
             COALESCE(ro_v.nombre, ro_m.nombre, m.tecnico) AS tecnico_nombre,
             m.tipo_mantenimiento,
+            {general_sel},
+            {subcats_sel},
             m.estado
         FROM mpa_mantenimientos m
         LEFT JOIN mpa_vehiculos v ON v.placa = m.placa
@@ -4191,6 +4352,15 @@ def api_get_mantenimiento(mantenimiento_id):
         # Formatear fecha
         if mantenimiento['fecha_mantenimiento']:
             mantenimiento['fecha_mantenimiento'] = mantenimiento['fecha_mantenimiento'].strftime('%Y-%m-%d %H:%M:%S')
+        try:
+            val = mantenimiento.get('tipo_general_subcategorias')
+            if isinstance(val, (bytes, bytearray)):
+                val = val.decode('utf-8', errors='ignore')
+            if isinstance(val, str) and val:
+                import json as _json
+                mantenimiento['tipo_general_subcategorias'] = _json.loads(val)
+        except Exception:
+            pass
         
         return jsonify({
             'success': True,
@@ -4257,29 +4427,145 @@ def api_create_mantenimiento():
             except Exception:
                 pass
 
+        ensure_mantenimiento_general_column(connection)
+        ensure_mantenimiento_subcats_column(connection)
+        has_general = has_mantenimiento_general_column(connection)
+        has_subcats = has_mantenimiento_subcats_column(connection)
+
         # Insertar nuevo mantenimiento
-        insert_query = """
-        INSERT INTO mpa_mantenimientos 
-        (placa, fecha_mantenimiento, kilometraje, tipo_vehiculo, tipo_mantenimiento, observacion, soporte_foto_geo, soporte_foto_factura, tecnico, estado)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
+        if has_general and has_subcats:
+            insert_query = """
+            INSERT INTO mpa_mantenimientos 
+            (placa, fecha_mantenimiento, kilometraje, tipo_vehiculo, tipo_mantenimiento, tipo_general_mantenimiento, tipo_general_subcategorias, observacion, soporte_foto_geo, soporte_foto_factura, tecnico, estado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+        elif has_general and not has_subcats:
+            insert_query = """
+            INSERT INTO mpa_mantenimientos 
+            (placa, fecha_mantenimiento, kilometraje, tipo_vehiculo, tipo_mantenimiento, tipo_general_mantenimiento, observacion, soporte_foto_geo, soporte_foto_factura, tecnico, estado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+        elif has_subcats and not has_general:
+            insert_query = """
+            INSERT INTO mpa_mantenimientos 
+            (placa, fecha_mantenimiento, kilometraje, tipo_vehiculo, tipo_mantenimiento, tipo_general_subcategorias, observacion, soporte_foto_geo, soporte_foto_factura, tecnico, estado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+        else:
+            insert_query = """
+            INSERT INTO mpa_mantenimientos 
+            (placa, fecha_mantenimiento, kilometraje, tipo_vehiculo, tipo_mantenimiento, observacion, soporte_foto_geo, soporte_foto_factura, tecnico, estado)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
         
-        cursor.execute(insert_query, (
-            data['placa'],
-            fecha_mantenimiento,
-            data['kilometraje'],
-            tipo_vehiculo,
-            data['tipo_mantenimiento'],
-            data['observacion'],
-            data.get('foto_taller', ''),
-            data.get('foto_factura', ''),
-            tecnico_guardar,
-            data.get('estado', 'Abierto')
-        ))
+        if has_general and has_subcats:
+            cursor.execute(insert_query, (
+                data['placa'],
+                fecha_mantenimiento,
+                data['kilometraje'],
+                tipo_vehiculo,
+                data['tipo_mantenimiento'],
+                (data.get('tipo_general') or None),
+                json.dumps(data.get('tipo_general_subcategorias') or []),
+                data['observacion'],
+                data.get('foto_taller', ''),
+                data.get('foto_factura', ''),
+                tecnico_guardar,
+                data.get('estado', 'Abierto')
+            ))
+        elif has_general and not has_subcats:
+            cursor.execute(insert_query, (
+                data['placa'],
+                fecha_mantenimiento,
+                data['kilometraje'],
+                tipo_vehiculo,
+                data['tipo_mantenimiento'],
+                (data.get('tipo_general') or None),
+                data['observacion'],
+                data.get('foto_taller', ''),
+                data.get('foto_factura', ''),
+                tecnico_guardar,
+                data.get('estado', 'Abierto')
+            ))
+        elif has_subcats and not has_general:
+            cursor.execute(insert_query, (
+                data['placa'],
+                fecha_mantenimiento,
+                data['kilometraje'],
+                tipo_vehiculo,
+                data['tipo_mantenimiento'],
+                json.dumps(data.get('tipo_general_subcategorias') or []),
+                data['observacion'],
+                data.get('foto_taller', ''),
+                data.get('foto_factura', ''),
+                tecnico_guardar,
+                data.get('estado', 'Abierto')
+            ))
+        else:
+            cursor.execute(insert_query, (
+                data['placa'],
+                fecha_mantenimiento,
+                data['kilometraje'],
+                tipo_vehiculo,
+                data['tipo_mantenimiento'],
+                data['observacion'],
+                data.get('foto_taller', ''),
+                data.get('foto_factura', ''),
+                tecnico_guardar,
+                data.get('estado', 'Abierto')
+            ))
         
         connection.commit()
         mantenimiento_id = cursor.lastrowid
-        
+
+        try:
+            ensure_cronograma_table()
+            cursor2 = connection.cursor(dictionary=True)
+            cursor2.execute("SELECT kilometraje_frecuencia, kilometraje_promedio_diario FROM cronograma_mantenimientos WHERE placa = %s", (data['placa'],))
+            row = cursor2.fetchone()
+            km_freq = int((row or {}).get('kilometraje_frecuencia') or 2500)
+            km_avg = int((row or {}).get('kilometraje_promedio_diario') or 80)
+            from datetime import timedelta
+            proximo_km = int(data['kilometraje']) + km_freq
+            dias = max(0, int(km_freq / max(1, km_avg)))
+            fecha_prox = fecha_mantenimiento + timedelta(days=dias)
+            cursor2.execute("SELECT id_cronograma FROM cronograma_mantenimientos WHERE placa = %s", (data['placa'],))
+            ex = cursor2.fetchone()
+            if ex:
+                cursor2.execute(
+                    """
+                    UPDATE cronograma_mantenimientos
+                    SET fecha_mantenimiento = %s,
+                        kilometraje_actual = %s,
+                        fecha_proximo_mantenimiento = %s,
+                        proximo_kilometraje = %s,
+                        cumplido = 1,
+                        cumplido_fecha = %s,
+                        cumplido_mantenimiento_id = %s
+                    WHERE placa = %s
+                    """,
+                    (fecha_mantenimiento, int(data['kilometraje']), fecha_prox, proximo_km, fecha_mantenimiento, mantenimiento_id, data['placa'])
+                )
+            else:
+                cursor2.execute(
+                    """
+                    INSERT INTO cronograma_mantenimientos
+                    (placa, fecha_mantenimiento, tipo_mantenimiento,
+                     kilometraje_actual, kilometraje_frecuencia, kilometraje_promedio_diario,
+                     estado, fecha_proximo_mantenimiento, proximo_kilometraje,
+                     observaciones, cumplido, cumplido_fecha, cumplido_mantenimiento_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, 'Activo', %s, %s, %s, 1, %s, %s)
+                    """,
+                    (data['placa'], fecha_mantenimiento, data['tipo_mantenimiento'], int(data['kilometraje']), km_freq, km_avg, fecha_prox, proximo_km, data.get('observacion',''), fecha_mantenimiento, mantenimiento_id)
+                )
+            connection.commit()
+            cursor2.close()
+        except Exception:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+
         return jsonify({
             'success': True,
             'message': 'Mantenimiento creado exitosamente',
@@ -4337,6 +4623,16 @@ def api_update_mantenimiento(mantenimiento_id):
         if 'tipo_mantenimiento' in data:
             update_fields.append("tipo_mantenimiento = %s")
             values.append(data['tipo_mantenimiento'])
+        if 'tipo_general' in data:
+            ensure_mantenimiento_general_column(connection)
+            if has_mantenimiento_general_column(connection):
+                update_fields.append("tipo_general_mantenimiento = %s")
+                values.append(data['tipo_general'])
+        if 'tipo_general_subcategorias' in data:
+            ensure_mantenimiento_subcats_column(connection)
+            if has_mantenimiento_subcats_column(connection):
+                update_fields.append("tipo_general_subcategorias = %s")
+                values.append(json.dumps(data['tipo_general_subcategorias']))
         
         if 'tecnico' in data:
             tecnico_input = (data.get('tecnico', '') or '').strip()
@@ -6024,6 +6320,552 @@ def mpa_mantenimientos():
     
     return render_template('modulos/mpa/maintenance.html')
 
+def ensure_cronograma_table():
+    connection = get_db_connection()
+    if not connection:
+        return False
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS cronograma_mantenimientos (
+                id_cronograma INT AUTO_INCREMENT PRIMARY KEY,
+                placa VARCHAR(20) NOT NULL,
+                tecnico VARCHAR(255) NULL,
+                fecha_mantenimiento DATETIME NULL,
+                tipo_mantenimiento VARCHAR(100) DEFAULT 'Cambio de Aceite',
+                kilometraje_actual INT NOT NULL,
+                kilometraje_frecuencia INT DEFAULT 2500,
+                kilometraje_promedio_diario INT DEFAULT 80,
+                estado ENUM('Activo','Inactivo') DEFAULT 'Activo',
+                fecha_proximo_mantenimiento DATETIME NULL,
+                proximo_kilometraje INT NULL,
+                observaciones TEXT NULL,
+                cumplido TINYINT(1) DEFAULT 0,
+                cumplido_fecha DATETIME NULL,
+                cumplido_mantenimiento_id INT NULL,
+                cumplido_observaciones TEXT NULL,
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_cronograma_placa (placa)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """
+        )
+        try:
+            cursor.execute("ALTER TABLE cronograma_mantenimientos ADD COLUMN cumplido TINYINT(1) DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE cronograma_mantenimientos ADD COLUMN cumplido_fecha DATETIME NULL")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE cronograma_mantenimientos ADD COLUMN cumplido_mantenimiento_id INT NULL")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE cronograma_mantenimientos ADD COLUMN cumplido_observaciones TEXT NULL")
+        except Exception:
+            pass
+        try:
+            cursor.execute("ALTER TABLE cronograma_mantenimientos ADD COLUMN cumplido_tipo VARCHAR(64) NULL")
+        except Exception:
+            pass
+        connection.commit()
+        cursor.close()
+        return True
+    except Exception:
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+        return False
+    finally:
+        try:
+            connection.close()
+        except Exception:
+            pass
+
+def ensure_cronograma_historial_table():
+    connection = get_db_connection()
+    if not connection:
+        return False
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS cronograma_cumplimientos_historial (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                placa VARCHAR(20) NOT NULL,
+                tipo_cumplido VARCHAR(64) NOT NULL,
+                fecha DATETIME NOT NULL,
+                kilometraje INT NOT NULL,
+                mantenimiento_id INT NULL,
+                observaciones TEXT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_placa (placa),
+                INDEX idx_fecha (fecha),
+                INDEX idx_tipo (tipo_cumplido)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """
+        )
+        connection.commit()
+        cursor.close()
+        return True
+    except Exception:
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+        return False
+    finally:
+        try:
+            connection.close()
+        except Exception:
+            pass
+
+@app.route('/mpa/cronograma')
+@login_required
+def mpa_cronograma():
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    ensure_cronograma_table()
+    return render_template('modulos/mpa/cronograma.html')
+
+def _cronograma_tasks(base_km, ultimo_fecha, freq_aceite=2500, avg_per_day=80):
+    import math
+    from datetime import timedelta
+    tasks = []
+    niveles = [
+        {
+            'tipo': 'Cambio de Aceite',
+            'frecuencia_km': freq_aceite,
+            'detalles': ['Cambio de aceite', 'Inspección/limpieza del filtro de aceite', 'Cadena: limpieza, lubricación y ajuste', 'Frenos: inspección de nivel y pastillas/bandas']
+        },
+        {
+            'tipo': 'Preventivo Completo',
+            'frecuencia_km': 5000,
+            'detalles': ['Filtro de aire: limpieza/reemplazo', 'Sistema de combustible: limpieza', 'Frenos: ajuste/cambio si >80% desgaste', 'Suspensión: revisión de fugas y estado', 'Tornillería: reapriete']
+        },
+        {
+            'tipo': 'Mantenimiento Mayor',
+            'frecuencia_km': 10000,
+            'detalles': ['Ajuste de válvulas', 'Reemplazo de bujías', 'Filtro de aire (si aplica)', 'Líquido de frenos (1–2 años o según km)']
+        }
+    ]
+    for niv in niveles:
+        freq = int(niv['frecuencia_km'])
+        # Calcular próximo km como múltiplo superior del base_km respecto a la frecuencia
+        mod = base_km % freq
+        proximo_km = (base_km + (freq - mod)) if mod != 0 else (base_km + freq)
+        restantes = max(0, proximo_km - base_km)
+        dias = math.ceil(restantes / max(1, int(avg_per_day)))
+        fecha_tentativa = (ultimo_fecha + timedelta(days=dias)) if ultimo_fecha else None
+        tasks.append({
+            'tipo': niv['tipo'],
+            'frecuencia_km': freq,
+            'proximo_kilometraje': proximo_km,
+            'kilometraje_restante': restantes,
+            'alerta': restantes <= 200,
+            'fecha_tentativa': (fecha_tentativa.strftime('%Y-%m-%d') if fecha_tentativa else None),
+            'dias_estimados': dias,
+            'detalles': niv['detalles']
+        })
+    return tasks
+
+@app.route('/api/mpa/cronograma', methods=['GET', 'POST'])
+@login_required
+def api_cronograma_list_create():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    ensure_cronograma_table()
+    if request.method == 'GET':
+        try:
+            connection = get_db_connection()
+            if not connection:
+                return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            cursor = connection.cursor(dictionary=True)
+            placa = (request.args.get('placa') or '').strip().upper()
+            sql = """
+                SELECT c.*, v.tipo_vehiculo, ro.nombre AS tecnico_asignado
+                FROM cronograma_mantenimientos c
+                LEFT JOIN mpa_vehiculos v ON v.placa = c.placa
+                LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+                {where}
+                ORDER BY c.fecha_actualizacion DESC
+            """
+            where = ""
+            params = []
+            if placa:
+                where = "WHERE c.placa LIKE %s"
+                params.append(f"%{placa}%")
+            cursor.execute(sql.format(where=where), params)
+            rows = cursor.fetchall()
+            from datetime import datetime
+            now = datetime.now()
+            for r in rows:
+                fm = r.get('fecha_mantenimiento')
+                fp = r.get('fecha_proximo_mantenimiento')
+                cf = r.get('cumplido_fecha')
+                if fm:
+                    r['fecha_mantenimiento'] = fm.strftime('%Y-%m-%d')
+                if fp:
+                    try:
+                        dias = (fp.date() - now.date()).days
+                    except Exception:
+                        dias = None
+                    r['dias_hasta_fecha'] = dias
+                    r['vencido'] = (dias is not None and dias < 0)
+                    r['fecha_proximo_mantenimiento'] = fp.strftime('%Y-%m-%d')
+                if cf:
+                    r['cumplido_fecha'] = cf.strftime('%Y-%m-%d')
+            return jsonify({'success': True, 'data': rows})
+        except Exception as e:
+            return jsonify({'success': False, 'message': str(e)}), 500
+        finally:
+            try:
+                cursor.close(); connection.close()
+            except Exception:
+                pass
+    else:
+        try:
+            data = request.get_json(silent=True) or {}
+            placa = (data.get('placa') or '').strip().upper()
+            if not placa:
+                return jsonify({'success': False, 'message': 'placa es obligatoria'}), 400
+            connection = get_db_connection()
+            if not connection:
+                return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute("SELECT tipo_vehiculo, tecnico_asignado FROM mpa_vehiculos WHERE placa = %s", (placa,))
+            v = cursor.fetchone()
+            if not v:
+                return jsonify({'success': False, 'message': 'Placa no existe'}), 404
+            tecnico_nombre = None
+            try:
+                if v.get('tecnico_asignado'):
+                    cursor.execute("SELECT nombre FROM recurso_operativo WHERE id_codigo_consumidor = %s", (v['tecnico_asignado'],))
+                    rn = cursor.fetchone()
+                    if rn and rn.get('nombre'): tecnico_nombre = rn['nombre']
+            except Exception:
+                pass
+            from datetime import datetime
+            fecha_mant = (data.get('fecha_mantenimiento') or '').strip()
+            try:
+                fecha_dt = datetime.strptime(fecha_mant, '%Y-%m-%d') if fecha_mant else datetime.now()
+            except Exception:
+                fecha_dt = datetime.now()
+            km_actual = int(data.get('kilometraje_actual') or 0)
+            km_freq = int(data.get('kilometraje_frecuencia') or 2500)
+            km_avg = int(data.get('kilometraje_promedio_diario') or 80)
+            # Calcular próximo mantenimiento tentativo y próximo km
+            proximo_km = km_actual + km_freq
+            from datetime import timedelta
+            dias = max(0, int((km_freq) / max(1, km_avg)))
+            fecha_prox = fecha_dt + timedelta(days=dias)
+            # Upsert por placa
+            cursor.execute("SELECT id_cronograma FROM cronograma_mantenimientos WHERE placa = %s", (placa,))
+            row = cursor.fetchone()
+            if row:
+                cursor.execute(
+                    """
+                    UPDATE cronograma_mantenimientos
+                    SET tecnico = %s, fecha_mantenimiento = %s, tipo_mantenimiento = %s,
+                        kilometraje_actual = %s, kilometraje_frecuencia = %s,
+                        kilometraje_promedio_diario = %s, estado = %s,
+                        fecha_proximo_mantenimiento = %s, proximo_kilometraje = %s,
+                        observaciones = %s
+                    WHERE placa = %s
+                    """,
+                    (
+                        data.get('tecnico') or tecnico_nombre,
+                        fecha_dt,
+                        (data.get('tipo_mantenimiento') or 'Cambio de Aceite'),
+                        km_actual, km_freq, km_avg,
+                        (data.get('estado') or 'Activo'),
+                        fecha_prox, proximo_km,
+                        data.get('observaciones'),
+                        placa,
+                    )
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO cronograma_mantenimientos
+                    (placa, tecnico, fecha_mantenimiento, tipo_mantenimiento,
+                     kilometraje_actual, kilometraje_frecuencia, kilometraje_promedio_diario,
+                     estado, fecha_proximo_mantenimiento, proximo_kilometraje, observaciones)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        placa,
+                        data.get('tecnico') or tecnico_nombre,
+                        fecha_dt,
+                        (data.get('tipo_mantenimiento') or 'Cambio de Aceite'),
+                        km_actual, km_freq, km_avg,
+                        (data.get('estado') or 'Activo'),
+                        fecha_prox, proximo_km,
+                        data.get('observaciones'),
+                    )
+                )
+            connection.commit()
+            return jsonify({'success': True})
+        except Exception as e:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+            return jsonify({'success': False, 'message': str(e)}), 500
+        finally:
+            try:
+                cursor.close(); connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/mpa/cronograma/<placa>', methods=['GET'])
+@login_required
+def api_cronograma_detalle(placa):
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    ensure_cronograma_table()
+    try:
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT c.*, v.tipo_vehiculo, ro.nombre AS tecnico_asignado
+            FROM cronograma_mantenimientos c
+            LEFT JOIN mpa_vehiculos v ON v.placa = c.placa
+            LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+            WHERE c.placa = %s
+            """,
+            (placa.upper(),)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'success': False, 'message': 'Placa sin cronograma'}), 404
+        from datetime import datetime
+        ultimo_fecha = row.get('fecha_mantenimiento') or datetime.now()
+        base_km = int(row.get('kilometraje_actual') or 0)
+        avg = int(row.get('kilometraje_promedio_diario') or 80)
+        freq_aceite = int(row.get('kilometraje_frecuencia') or 2500)
+        tasks = _cronograma_tasks(base_km, ultimo_fecha, freq_aceite=freq_aceite, avg_per_day=avg)
+        if row.get('fecha_mantenimiento'):
+            row['fecha_mantenimiento'] = row['fecha_mantenimiento'].strftime('%Y-%m-%d')
+        if row.get('fecha_proximo_mantenimiento'):
+            row['fecha_proximo_mantenimiento'] = row['fecha_proximo_mantenimiento'].strftime('%Y-%m-%d')
+        return jsonify({'success': True, 'cronograma': row, 'tareas': tasks})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cursor.close(); connection.close()
+        except Exception:
+            pass
+
+@app.route('/api/mpa/cronograma/<placa>/cumplir', methods=['POST'])
+@login_required
+def api_cronograma_cumplir(placa):
+    role = session.get('user_role') or getattr(current_user, 'role', None)
+    if role not in ['operativo', 'administrativo', 'tecnicos']:
+        return jsonify({'error': 'Sin permisos'}), 403
+    ensure_cronograma_table()
+    try:
+        data = request.get_json(silent=True) or {}
+        km_real = int(data.get('kilometraje_real') or 0)
+        fecha_real = (data.get('fecha_real') or '').strip()
+        obs = (data.get('observaciones') or '').strip()
+        tipo_cumplido = (data.get('tipo_cumplido') or 'Cambio de Aceite').strip()
+        mant_id = data.get('mantenimiento_id')
+        try:
+            mant_id = int(mant_id) if mant_id is not None and str(mant_id).isdigit() else None
+        except Exception:
+            mant_id = None
+        from datetime import datetime, timedelta
+        try:
+            fecha_dt = datetime.strptime(fecha_real, '%Y-%m-%d') if fecha_real else datetime.now()
+        except Exception:
+            fecha_dt = datetime.now()
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        ensure_cronograma_historial_table()
+        cursor.execute("SELECT kilometraje_frecuencia, kilometraje_promedio_diario FROM cronograma_mantenimientos WHERE placa = %s", (placa.upper(),))
+        row = cursor.fetchone()
+        if mant_id is None:
+            try:
+                cursor2 = connection.cursor()
+                cursor2.execute("SELECT id_mpa_mantenimientos FROM mpa_mantenimientos WHERE placa = %s ORDER BY fecha_mantenimiento DESC LIMIT 1", (placa.upper(),))
+                r2 = cursor2.fetchone()
+                if r2:
+                    try:
+                        mant_id = int(r2[0])
+                    except Exception:
+                        mant_id = r2[0]
+                cursor2.close()
+            except Exception:
+                pass
+        km_freq = int((row or {}).get('kilometraje_frecuencia') or 2500)
+        km_avg = int((row or {}).get('kilometraje_promedio_diario') or 80)
+        proximo_km = km_real + km_freq
+        dias = max(0, int(km_freq / max(1, km_avg)))
+        fecha_prox = fecha_dt + timedelta(days=dias)
+        if row:
+            cursor.execute(
+                """
+                UPDATE cronograma_mantenimientos
+                SET fecha_mantenimiento = %s,
+                    kilometraje_actual = %s,
+                    fecha_proximo_mantenimiento = %s,
+                    proximo_kilometraje = %s,
+                    cumplido = 1,
+                    cumplido_fecha = %s,
+                    cumplido_mantenimiento_id = %s,
+                    cumplido_observaciones = %s,
+                    cumplido_tipo = %s
+                WHERE placa = %s
+                """,
+                (fecha_dt, km_real, fecha_prox, proximo_km, fecha_dt, mant_id, obs, tipo_cumplido, placa.upper())
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO cronograma_mantenimientos
+                (placa, fecha_mantenimiento, tipo_mantenimiento,
+                 kilometraje_actual, kilometraje_frecuencia, kilometraje_promedio_diario,
+                 estado, fecha_proximo_mantenimiento, proximo_kilometraje,
+                 observaciones, cumplido, cumplido_fecha, cumplido_mantenimiento_id, cumplido_observaciones, cumplido_tipo)
+                VALUES (%s, %s, %s, %s, %s, %s, 'Activo', %s, %s, %s, 1, %s, %s, %s, %s)
+                """,
+                (placa.upper(), fecha_dt, 'Cambio de Aceite', km_real, km_freq, km_avg, fecha_prox, proximo_km, obs, fecha_dt, mant_id, obs, tipo_cumplido)
+            )
+        try:
+            cursor.execute(
+                """
+                INSERT INTO cronograma_cumplimientos_historial
+                (placa, tipo_cumplido, fecha, kilometraje, mantenimiento_id, observaciones)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (placa.upper(), tipo_cumplido, fecha_dt, km_real, mant_id, obs)
+            )
+        except Exception:
+            pass
+        connection.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cursor.close(); connection.close()
+        except Exception:
+            pass
+
+@app.route('/api/mpa/cronograma/<placa>/historial', methods=['GET'])
+@login_required
+def api_cronograma_historial(placa):
+    role = session.get('user_role') or getattr(current_user, 'role', None)
+    if role not in ['operativo', 'administrativo', 'tecnicos']:
+        return jsonify({'error': 'Sin permisos'}), 403
+    ensure_cronograma_historial_table()
+    try:
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT placa, tipo_cumplido, fecha, kilometraje, mantenimiento_id, observaciones
+            FROM cronograma_cumplimientos_historial
+            WHERE placa = %s
+            ORDER BY fecha DESC
+            """,
+            (placa.upper(),)
+        )
+        rows = cursor.fetchall()
+        for r in rows:
+            try:
+                if r.get('fecha'):
+                    r['fecha'] = r['fecha'].strftime('%Y-%m-%d')
+            except Exception:
+                pass
+        return jsonify({'success': True, 'data': rows})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cursor.close(); connection.close()
+        except Exception:
+            pass
+
+@app.route('/api/mpa/cronograma/alerts-my', methods=['GET'])
+@login_required
+def api_cronograma_alerts_my():
+    role = session.get('user_role') or getattr(current_user, 'role', None)
+    if role not in ['operativo', 'administrativo', 'tecnicos']:
+        return jsonify({'error': 'Sin permisos'}), 403
+    ensure_cronograma_table()
+    try:
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        uid = str(getattr(current_user, 'id', session.get('id_codigo_consumidor') or '0')).strip()
+        cursor.execute(
+            """
+            SELECT c.placa, c.kilometraje_actual, c.proximo_kilometraje,
+                   c.fecha_proximo_mantenimiento, c.estado, c.kilometraje_promedio_diario
+            FROM cronograma_mantenimientos c
+            INNER JOIN mpa_vehiculos v ON v.placa = c.placa
+            WHERE CAST(TRIM(v.tecnico_asignado) AS UNSIGNED) = CAST(%s AS UNSIGNED)
+              AND (c.estado = 'Activo')
+            ORDER BY c.fecha_proximo_mantenimiento ASC
+            """,
+            (uid,)
+        )
+        rows = cursor.fetchall()
+        res = []
+        for r in rows:
+            try:
+                restante = int(r.get('proximo_kilometraje') or 0) - int(r.get('kilometraje_actual') or 0)
+            except Exception:
+                restante = 0
+            try:
+                km_avg = int(r.get('kilometraje_promedio_diario') or 80)
+            except Exception:
+                km_avg = 80
+            try:
+                import math
+                dias = math.ceil(max(0, restante) / max(1, km_avg))
+            except Exception:
+                dias = None
+            item = {
+                'placa': r.get('placa'),
+                'kilometraje_actual': r.get('kilometraje_actual'),
+                'proximo_kilometraje': r.get('proximo_kilometraje'),
+                'restante': max(-999999, restante),
+                'alerta': restante <= 200,
+                'estado': r.get('estado'),
+                'fecha_proximo_mantenimiento': (r.get('fecha_proximo_mantenimiento').strftime('%Y-%m-%d') if r.get('fecha_proximo_mantenimiento') else None),
+                'kilometraje_promedio_diario': km_avg,
+                'dias_estimados_restantes': dias
+            }
+            res.append(item)
+        return jsonify({'success': True, 'data': res})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cursor.close(); connection.close()
+        except Exception:
+            pass
 
 
 class Asignacion(db.Model):

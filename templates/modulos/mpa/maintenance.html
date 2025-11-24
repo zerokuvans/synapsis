@@ -32,6 +32,7 @@
                                     <th>Técnico</th>
                                     <th>Fecha Mantenimiento</th>
                                     <th>Tipo</th>
+                                    <th>Tipo General</th>
                                     <th>Estado</th>
                                     <th>Acciones</th>
                                 </tr>
@@ -99,6 +100,21 @@
                                 <option value="">Seleccionar tipo de mantenimiento</option>
                                 <!-- Las categorías se cargarán dinámicamente según el tipo de vehículo -->
                             </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="tipoGeneralMantenimiento" class="form-label">Tipo general de mantenimiento <span class="text-danger">*</span></label>
+                            <select class="form-select" id="tipoGeneralMantenimiento" name="tipoGeneralMantenimiento" required>
+                                <option value="Cambio de Aceite">Cambio de Aceite</option>
+                                <option value="Preventivo Completo">Preventivo Completo</option>
+                                <option value="Mantenimiento Mayor">Mantenimiento Mayor</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <div id="tipoGeneralSubcats" class="border rounded p-2"></div>
                         </div>
                     </div>
                     
@@ -184,6 +200,19 @@
     </div>
 </div>
 
+<div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body p-0">
+                <img id="imagePreview" src="" alt="Imagen" style="width: 100%; height: auto; display: block;">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 let currentMaintenanceId = null;
 let vehiclePlates = [];
@@ -191,8 +220,27 @@ let maintenanceCategories = [];
 
 // Cargar datos al inicializar la página
 document.addEventListener('DOMContentLoaded', function() {
-    loadMaintenances();
+    const qid = new URLSearchParams(location.search).get('id');
+    if (qid) {
+        loadMaintenanceById(qid);
+    } else {
+        loadMaintenances();
+    }
     loadVehiclePlates();
+    try {
+        const tgSel = document.getElementById('tipoGeneralMantenimiento');
+        renderGeneralSubcatsUI(tgSel.value || 'Cambio de Aceite', []);
+        tgSel.addEventListener('change', function(){ renderGeneralSubcatsUI(this.value, []); });
+    } catch (e) {}
+    try {
+        const imgModal = document.getElementById('imagePreviewModal');
+        if (imgModal) {
+            imgModal.addEventListener('hidden.bs.modal', function(){
+                const img = document.getElementById('imagePreview');
+                if (img) img.src = '';
+            });
+        }
+    } catch (e) {}
 });
 
 // Cargar lista de mantenimientos
@@ -214,6 +262,29 @@ function loadMaintenances() {
         .catch(error => {
             console.error('Error:', error);
             showAlert('Error al cargar mantenimientos: ' + error.message, 'danger');
+        });
+}
+
+function loadMaintenanceById(id) {
+    fetch(`/api/mpa/mantenimientos/${encodeURIComponent(id)}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success && data.data) {
+                displayMaintenances([data.data]);
+                setTimeout(() => { try { viewMaintenance(data.data.id_mpa_mantenimientos); } catch (e) {} }, 0);
+            } else {
+                displayMaintenances([]);
+                showAlert('No se encontró el mantenimiento', 'warning');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error al cargar mantenimiento', 'danger');
         });
 }
 
@@ -245,6 +316,10 @@ function displayMaintenances(maintenances) {
             <td>
                 <span class="badge bg-primary">${maintenance.tipo_mantenimiento || 'Sin especificar'}</span><br>
                 <small class="text-muted">Mantenimiento</small>
+            </td>
+            <td>
+                <span class="badge bg-info">${maintenance.tipo_general_mantenimiento || 'N/A'}</span><br>
+                <small class="text-muted">General</small>
             </td>
             <td>${estadoBadge}</td>
             <td>
@@ -395,11 +470,16 @@ function viewMaintenance(maintenanceId) {
                             <h6 class="text-success">Información del Mantenimiento</h6>
                             <p><strong>Fecha:</strong> ${formatDateTime(maintenance.fecha_mantenimiento)}</p>
                             <p><strong>Kilometraje:</strong> ${maintenance.kilometraje} km</p>
+                            <p><strong>Tipo General:</strong> <span class="badge bg-info">${maintenance.tipo_general_mantenimiento || 'N/A'}</span></p>
+                            <p><strong>Subcategorías:</strong> ${renderSubcats(maintenance.tipo_general_subcategorias)}</p>
                             <p><strong>Tipo de Mantenimiento:</strong> <span class="badge bg-primary">${maintenance.tipo_mantenimiento || 'Sin especificar'}</span></p>
                             <p><strong>Estado:</strong> ${maintenance.estado === 'Finalizado' 
                                 ? '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Finalizado</span>'
                                 : '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Abierto</span>'}</p>
                         </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-md-12" id="complianceContainer"></div>
                     </div>
                     <div class="row mt-3">
                         <div class="col-md-12">
@@ -415,13 +495,13 @@ function viewMaintenance(maintenanceId) {
                                 ${maintenance.foto_taller ? `
                                 <div class="col-md-6">
                                     <p><strong>Foto del Taller:</strong></p>
-                                    <img src="/static/${maintenance.foto_taller}" alt="Foto del taller" class="img-fluid img-thumbnail" style="max-height: 300px;">
+                                    <img src="/static/${maintenance.foto_taller}" alt="Foto del taller" class="img-fluid img-thumbnail" style="max-height: 300px; cursor: zoom-in;" onclick="openImagePreview('/static/${maintenance.foto_taller}')">
                                 </div>
                                 ` : ''}
                                 ${maintenance.foto_factura ? `
                                 <div class="col-md-6">
                                     <p><strong>Foto de la Factura:</strong></p>
-                                    <img src="/static/${maintenance.foto_factura}" alt="Foto de la factura" class="img-fluid img-thumbnail" style="max-height: 300px;">
+                                    <img src="/static/${maintenance.foto_factura}" alt="Foto de la factura" class="img-fluid img-thumbnail" style="max-height: 300px; cursor: zoom-in;" onclick="openImagePreview('/static/${maintenance.foto_factura}')">
                                 </div>
                                 ` : ''}
                             </div>
@@ -430,6 +510,11 @@ function viewMaintenance(maintenanceId) {
                     ` : ''}
                 `;
                 document.getElementById('viewMaintenanceContent').innerHTML = content;
+                try {
+                    const html = renderCompliance(maintenance.tipo_general_subcategorias || [], maintenance.tipo_general_mantenimiento || '');
+                    const cont = document.getElementById('complianceContainer');
+                    if (cont) cont.innerHTML = html;
+                } catch (e) {}
                 new bootstrap.Modal(document.getElementById('viewMaintenanceModal')).show();
             } else {
                 showAlert('Error al cargar detalles del mantenimiento: ' + data.message, 'danger');
@@ -439,6 +524,12 @@ function viewMaintenance(maintenanceId) {
             console.error('Error:', error);
             showAlert('Error al cargar detalles del mantenimiento', 'danger');
         });
+}
+
+function openImagePreview(src) {
+    const img = document.getElementById('imagePreview');
+    if (img) img.src = src;
+    new bootstrap.Modal(document.getElementById('imagePreviewModal')).show();
 }
 
 // Editar mantenimiento
@@ -459,7 +550,14 @@ function editMaintenance(maintenanceId) {
                 document.getElementById('kilometraje').value = maintenance.kilometraje;
                 document.getElementById('observaciones').value = maintenance.observacion || '';
                 document.getElementById('estadoMantenimiento').value = maintenance.estado || 'Abierto';
-                
+                const tgSel = document.getElementById('tipoGeneralMantenimiento');
+                if (tgSel) tgSel.value = maintenance.tipo_general_mantenimiento || 'Cambio de Aceite';
+                let pre = maintenance.tipo_general_subcategorias;
+                if (typeof pre === 'string') {
+                    try { pre = JSON.parse(pre); } catch (e) { pre = (pre || '').split(',').map(s=>s.trim()).filter(Boolean); }
+                }
+                renderGeneralSubcatsUI(tgSel.value || 'Cambio de Aceite', Array.isArray(pre)?pre:[]);
+
                 // Cargar categorías y seleccionar la actual
                 loadMaintenanceCategories(maintenance.tipo_vehiculo);
                 setTimeout(() => {
@@ -524,12 +622,15 @@ async function saveMaintenance() {
         // Obtener el texto seleccionado de la categoría de mantenimiento
         const categoriaSelect = document.getElementById('categoriaMantenimiento');
         const tipoMantenimiento = categoriaSelect.options[categoriaSelect.selectedIndex].text;
+        const selectedSubcats = Array.from(document.querySelectorAll('#tipoGeneralSubcats input[type="checkbox"]:checked')).map(i => i.value);
         
         // Preparar datos del mantenimiento
         const maintenanceData = {
             placa: document.getElementById('placa').value,
             kilometraje: document.getElementById('kilometraje').value,
             tipo_mantenimiento: tipoMantenimiento,
+            tipo_general: document.getElementById('tipoGeneralMantenimiento').value,
+            tipo_general_subcategorias: selectedSubcats,
             observacion: document.getElementById('observaciones').value,
             foto_taller: fotoTallerPath,
             foto_factura: fotoFacturaPath,
@@ -644,6 +745,71 @@ function showAlert(message, type) {
             alertDiv.remove();
         }
     }, 5000);
+}
+
+const GENERAL_SUBCATS = {
+    'Cambio de Aceite': ['Aceite', 'Filtro de Aceite', 'Cadena', 'Frenos'],
+    'Preventivo Completo': ['Filtro de Aire', 'Combustible', 'Frenos', 'Suspensión', 'Tornillería'],
+    'Mantenimiento Mayor': ['Válvulas', 'Bujías', 'Filtro de Aire', 'Líquido de Frenos']
+};
+
+function renderGeneralSubcatsUI(tipo, preselected) {
+    const cont = document.getElementById('tipoGeneralSubcats');
+    if (!cont) return;
+    const items = GENERAL_SUBCATS[tipo] || [];
+    const set = new Set((preselected || []).map(String));
+    cont.innerHTML = items.length ? (
+        '<div class="small text-muted mb-1">Selecciona las subcategorías realizadas</div>' +
+        items.map(it => {
+            const checked = set.has(it) ? 'checked' : '';
+            const id = 'subcat_' + it.replace(/\s+/g,'_');
+            return `
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="${id}" value="${it}" ${checked}>
+                <label class="form-check-label" for="${id}">${it}</label>
+              </div>
+            `;
+        }).join('')
+    ) : '<div class="text-muted">No hay subcategorías para este tipo</div>';
+}
+
+function renderSubcats(subcats) {
+    let arr = subcats;
+    if (typeof arr === 'string') {
+        try { arr = JSON.parse(arr); } catch (e) { arr = (arr || '').split(',').map(s=>s.trim()).filter(Boolean); }
+    }
+    if (!Array.isArray(arr) || arr.length === 0) return '<span class="text-muted">N/A</span>';
+    return arr.map(s => `<span class="badge bg-secondary me-1">${s}</span>`).join('');
+}
+
+function renderCompliance(subcats, tipoGeneral) {
+    const t = String(tipoGeneral || '').toLowerCase();
+    const standards = {
+        'cambio de aceite': ['Aceite', 'Filtro de Aceite', 'Cadena', 'Frenos'],
+        'preventivo completo': ['Filtro de Aire', 'Combustible', 'Frenos', 'Suspensión', 'Tornillería'],
+        'mantenimiento mayor': ['Válvulas', 'Bujías', 'Filtro de Aire', 'Líquido de Frenos']
+    };
+    if (!t || !standards[t]) {
+        return '<div class="alert alert-secondary">Tipo general no especificado para validar estándar</div>';
+    }
+    let arr = subcats;
+    if (typeof arr === 'string') {
+        try { arr = JSON.parse(arr); } catch (e) { arr = (arr || '').split(',').map(s=>s.trim()).filter(Boolean); }
+    }
+    const set = new Set((Array.isArray(arr) ? arr : []).map(s => String(s).trim().toLowerCase()));
+    const req = standards[t].map(s => String(s));
+    const matched = req.filter(k => set.has(k.toLowerCase()));
+    const missing = req.filter(k => !set.has(k.toLowerCase()));
+    const ratio = `${matched.length}/${req.length}`;
+    const badge = matched.length === req.length ? 'success' : (matched.length ? 'warning' : 'danger');
+    const items = missing.length ? `<ul class="mt-1">${missing.map(m => `<li>${m}</li>`).join('')}</ul>` : '';
+    return `
+      <div class="border rounded p-2">
+        <div><strong>Cumplimiento estándar (${ratio}):</strong> <span class="badge bg-${badge}">${matched.length === req.length ? 'Completo' : (matched.length ? 'Parcial' : 'No cumple')}</span></div>
+        ${missing.length ? '<div class="small text-muted">Faltantes:</div>' : ''}
+        ${items}
+      </div>
+    `;
 }
 </script>
 {% endblock %}
