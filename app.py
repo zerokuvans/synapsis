@@ -1029,11 +1029,22 @@ def preoperacional():
                     'mantenimientos_abiertos': mantenimientos_abiertos
                 }), 400
 
-        # Insertar el nuevo registro
-        insert_query = """
+        # Insertar el nuevo registro seleccionando la columna de kilometraje existente
+        km_col = None
+        try:
+            cursor.execute("SHOW COLUMNS FROM preoperacional LIKE 'kilometraje'")
+            if cursor.fetchone():
+                km_col = 'kilometraje'
+            else:
+                cursor.execute("SHOW COLUMNS FROM preoperacional LIKE 'kilometraje_actual'")
+                if cursor.fetchone():
+                    km_col = 'kilometraje_actual'
+        except Exception:
+            km_col = 'kilometraje'
+        insert_query = f"""
             INSERT INTO preoperacional (
                 id_codigo_consumidor, fecha, vehiculo_asignado, placa_vehiculo,
-                kilometraje, nivel_combustible, nivel_aceite, nivel_liquido_frenos,
+                {km_col}, nivel_combustible, nivel_aceite, nivel_liquido_frenos,
                 nivel_refrigerante, presion_llantas, luces_funcionando, espejos_estado,
                 cinturon_seguridad, extintor_presente, botiquin_presente, triangulos_seguridad,
                 chaleco_reflectivo, casco_presente, guantes_presente, rodilleras_presente,
@@ -1216,11 +1227,22 @@ def preoperacional_operativo():
                     'mantenimientos_abiertos': abiertos
                 }), 400
 
-        # Insertar registro tomando campos del formulario (alineados con /preoperacional)
-        insert_query = """
+        # Insertar registro tomando campos del formulario (detectar columna de kilometraje)
+        km_col = None
+        try:
+            cursor.execute("SHOW COLUMNS FROM preoperacional LIKE 'kilometraje'")
+            if cursor.fetchone():
+                km_col = 'kilometraje'
+            else:
+                cursor.execute("SHOW COLUMNS FROM preoperacional LIKE 'kilometraje_actual'")
+                if cursor.fetchone():
+                    km_col = 'kilometraje_actual'
+        except Exception:
+            km_col = 'kilometraje'
+        insert_query = f"""
             INSERT INTO preoperacional (
                 id_codigo_consumidor, fecha, vehiculo_asignado, placa_vehiculo,
-                kilometraje, nivel_combustible, nivel_aceite, nivel_liquido_frenos,
+                {km_col}, nivel_combustible, nivel_aceite, nivel_liquido_frenos,
                 nivel_refrigerante, presion_llantas, luces_funcionando, espejos_estado,
                 cinturon_seguridad, extintor_presente, botiquin_presente, triangulos_seguridad,
                 chaleco_reflectivo, casco_presente, guantes_presente, rodilleras_presente,
@@ -3089,6 +3111,8 @@ def api_get_vehiculos():
         cursor = connection.cursor(dictionary=True)
         
         placa = (request.args.get('placa') or '').strip().upper()
+        tecnico = (request.args.get('tecnico') or '').strip()
+        tecnico = (request.args.get('tecnico') or '').strip()
         where_parts = []
         params = []
         # Consulta para obtener vehículos con información del técnico asignado
@@ -3120,6 +3144,9 @@ def api_get_vehiculos():
         if placa:
             where_parts.append("v.placa = %s")
             params.append(placa)
+        if tecnico:
+            where_parts.append("v.tecnico_asignado = %s")
+            params.append(tecnico)
         where_clause = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
         query = query.format(where_clause=where_clause)
         cursor.execute(query, params)
@@ -3164,6 +3191,9 @@ def api_export_vehiculos():
         if placa:
             where.append("v.placa = %s")
             params.append(placa)
+        if tecnico:
+            where.append("v.tecnico_asignado = %s")
+            params.append(tecnico)
         sql = f"""
         SELECT 
             v.placa,
@@ -3336,6 +3366,40 @@ def api_get_vehiculo(vehiculo_id):
         if not vehiculo:
             return jsonify({'success': False, 'error': 'Vehículo no encontrado'}), 404
         
+        # Consultar dinámicamente el último kilometraje desde preoperacional según columna existente
+        try:
+            km_col = None
+            cursor2 = connection.cursor()
+            try:
+                cursor2.execute("SHOW COLUMNS FROM preoperacional LIKE 'kilometraje'")
+                if cursor2.fetchone():
+                    km_col = 'kilometraje'
+                else:
+                    cursor2.execute("SHOW COLUMNS FROM preoperacional LIKE 'kilometraje_actual'")
+                    if cursor2.fetchone():
+                        km_col = 'kilometraje_actual'
+            except Exception:
+                km_col = None
+            if km_col:
+                cursor2.execute(
+                    f"""
+                    SELECT p.{km_col} AS km
+                    FROM preoperacional p
+                    WHERE p.placa_vehiculo = %s
+                    ORDER BY p.fecha DESC
+                    LIMIT 1
+                    """,
+                    (vehiculo['placa'],)
+                )
+                row = cursor2.fetchone()
+                if row and row[0] is not None:
+                    vehiculo['kilometraje_actual'] = row[0]
+            cursor2.close()
+        except Exception:
+            try:
+                cursor2.close()
+            except Exception:
+                pass
         # Formatear fechas
         if vehiculo['fecha_de_matricula']:
             vehiculo['fecha_de_matricula'] = vehiculo['fecha_de_matricula'].strftime('%Y-%m-%d')
@@ -4760,7 +4824,45 @@ def api_get_placas():
         
         cursor.execute(query)
         placas = cursor.fetchall()
-        
+
+        # Resolver el último km de preoperacional por placa, detectando columna
+        try:
+            km_col = None
+            cursor2 = connection.cursor(dictionary=True)
+            try:
+                cursor2.execute("SHOW COLUMNS FROM preoperacional LIKE 'kilometraje'")
+                if cursor2.fetchone():
+                    km_col = 'kilometraje'
+                else:
+                    cursor2.execute("SHOW COLUMNS FROM preoperacional LIKE 'kilometraje_actual'")
+                    if cursor2.fetchone():
+                        km_col = 'kilometraje_actual'
+            except Exception:
+                km_col = None
+            km_map = {}
+            if km_col:
+                cursor2.execute(
+                    f"""
+                    SELECT p.placa_vehiculo, p.{km_col} AS km
+                    FROM preoperacional p
+                    INNER JOIN (
+                        SELECT placa_vehiculo, MAX(fecha) AS last_fecha
+                        FROM preoperacional
+                        GROUP BY placa_vehiculo
+                    ) t ON t.placa_vehiculo = p.placa_vehiculo AND t.last_fecha = p.fecha
+                    """
+                )
+                for row in cursor2.fetchall():
+                    km_map[row['placa_vehiculo']] = row['km']
+            cursor2.close()
+            for v in placas:
+                v['ultimo_km_preoperacional'] = km_map.get(v['placa'])
+        except Exception:
+            try:
+                cursor2.close()
+            except Exception:
+                pass
+
         return jsonify({
             'success': True,
             'data': placas

@@ -26,6 +26,7 @@
                             <button type="button" class="btn btn-success" onclick="document.getElementById('excelFileInput').click()">
                                 <i class="fas fa-file-upload me-2"></i>Cargar Excel
                             </button>
+                            <select id="filterTechnician" class="form-select" style="max-width:220px"></select>
                             <input type="text" id="exportPlaca" class="form-control" placeholder="Filtrar por placa" style="max-width:180px">
                             <button type="button" class="btn btn-outline-secondary" onclick="exportVehiclesCSV()">
                                 <i class="fas fa-file-csv me-2"></i>Exportar CSV
@@ -200,6 +201,8 @@
 <script>
 let currentVehicleId = null;
 let technicians = [];
+let currentCronogramaData = null;
+let currentCronogramaPlaca = null;
 
 // Cargar datos al inicializar la página
 document.addEventListener('DOMContentLoaded', function() {
@@ -209,16 +212,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
 document.addEventListener('DOMContentLoaded', function() {
     const ep = document.getElementById('exportPlaca');
+    const ft = document.getElementById('filterTechnician');
     if (ep) {
         ep.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') { loadVehicles(); }
         });
     }
+    if (ft) {
+        ft.addEventListener('change', function() { loadVehicles(); });
+    }
 });
 
 function exportVehiclesCSV() {
     const placa = (document.getElementById('exportPlaca')?.value || '').trim().toUpperCase();
-    const url = placa ? `/api/mpa/vehiculos/export?placa=${encodeURIComponent(placa)}` : '/api/mpa/vehiculos/export';
+    const tecnico = (document.getElementById('filterTechnician')?.value || '').trim();
+    let url = '/api/mpa/vehiculos/export';
+    const params = [];
+    if (placa) params.push(`placa=${encodeURIComponent(placa)}`);
+    if (tecnico) params.push(`tecnico=${encodeURIComponent(tecnico)}`);
+    if (params.length) url += `?${params.join('&')}`;
     window.location.href = url;
 }
 
@@ -268,7 +280,12 @@ function uploadVehiclesExcel(file) {
 // Cargar lista de vehículos
 function loadVehicles() {
     const placa = (document.getElementById('exportPlaca')?.value || '').trim().toUpperCase();
-    const url = placa ? `/api/mpa/vehiculos?placa=${encodeURIComponent(placa)}` : '/api/mpa/vehiculos';
+    const tecnico = (document.getElementById('filterTechnician')?.value || '').trim();
+    let url = '/api/mpa/vehiculos';
+    const params = [];
+    if (placa) params.push(`placa=${encodeURIComponent(placa)}`);
+    if (tecnico) params.push(`tecnico=${encodeURIComponent(tecnico)}`);
+    if (params.length) url += `?${params.join('&')}`;
     fetch(url)
         .then(response => response.json())
         .then(data => {
@@ -311,6 +328,9 @@ function displayVehicles(vehicles) {
                     <button type="button" class="btn btn-sm btn-warning" onclick="editVehicle(${vehicle.id_mpa_vehiculos})" title="Editar">
                         <i class="fas fa-edit"></i>
                     </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="openCronograma('${vehicle.placa}')" title="Cronograma">
+                        <i class="fas fa-calendar"></i>
+                    </button>
                     <button type="button" class="btn btn-sm btn-danger" onclick="deleteVehicle(${vehicle.id_mpa_vehiculos}, '${vehicle.placa}')" title="Eliminar">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -330,6 +350,13 @@ function loadTechnicians() {
                 const select = document.getElementById('tecnicoAsignado');
                 select.innerHTML = '<option value="">Seleccionar técnico</option>' +
                     technicians.map(tech => `<option value="${tech.id_codigo_consumidor}">${tech.nombre}</option>`).join('');
+                const filter = document.getElementById('filterTechnician');
+                if (filter) {
+                    const opts = [{ value: '', text: 'Todos los técnicos' }].concat(
+                        technicians.map(tech => ({ value: String(tech.id_codigo_consumidor), text: tech.nombre }))
+                    );
+                    filter.innerHTML = opts.map(o => `<option value="${o.value}">${o.text}</option>`).join('');
+                }
             } else {
                 showAlert('Error al cargar técnicos: ' + data.message, 'warning');
             }
@@ -540,5 +567,142 @@ function showAlert(message, type) {
 document.getElementById('placa').addEventListener('input', function() {
     this.value = this.value.toUpperCase();
 });
+
+function openCronograma(placa) {
+    currentCronogramaPlaca = placa;
+    const placaInput = document.getElementById('cronogramaPlaca');
+    if (placaInput) placaInput.value = placa;
+    currentCronogramaData = null;
+    fetch(`/api/mpa/cronograma/${placa}`)
+        .then(r => r.json())
+        .then(data => {
+            const freqInput = document.getElementById('cronogramaFrecuencia');
+            const avgInput = document.getElementById('cronogramaPromedioDiario');
+            if (data.success) {
+                currentCronogramaData = data.cronograma;
+                const freq = parseInt(currentCronogramaData.kilometraje_frecuencia || 2500, 10);
+                if (freqInput) freqInput.value = isNaN(freq) ? 2500 : freq;
+                const avg = parseInt(currentCronogramaData.kilometraje_promedio_diario || 80, 10);
+                if (avgInput) avgInput.value = isNaN(avg) ? 80 : avg;
+            } else {
+                if (freqInput) freqInput.value = 2500;
+                if (avgInput) avgInput.value = 80;
+            }
+            if (freqInput) freqInput.addEventListener('input', updateCronogramaPreview);
+            if (avgInput) avgInput.addEventListener('input', updateCronogramaPreview);
+            updateCronogramaPreview();
+            const modalEl = document.getElementById('cronogramaModal');
+            if (modalEl) new bootstrap.Modal(modalEl).show();
+        })
+        .catch(() => {
+            const freqInput = document.getElementById('cronogramaFrecuencia');
+            const avgInput = document.getElementById('cronogramaPromedioDiario');
+            if (freqInput) freqInput.value = 2500;
+            if (avgInput) avgInput.value = 80;
+            const modalEl = document.getElementById('cronogramaModal');
+            if (modalEl) new bootstrap.Modal(modalEl).show();
+        });
+}
+
+function saveCronograma() {
+    const form = document.getElementById('cronogramaForm');
+    if (form && !form.checkValidity()) { form.reportValidity(); return; }
+    const frecuencia = parseInt(document.getElementById('cronogramaFrecuencia')?.value || '0', 10);
+    const payload = {
+        placa: currentCronogramaPlaca,
+        kilometraje_frecuencia: frecuencia,
+        kilometraje_promedio_diario: parseInt(document.getElementById('cronogramaPromedioDiario')?.value || '80', 10)
+    };
+    if (currentCronogramaData) {
+        payload.kilometraje_actual = currentCronogramaData.kilometraje_actual || 0;
+        payload.kilometraje_promedio_diario = currentCronogramaData.kilometraje_promedio_diario || 80;
+        payload.fecha_mantenimiento = currentCronogramaData.fecha_mantenimiento || null;
+        payload.estado = currentCronogramaData.estado || 'Activo';
+        payload.observaciones = currentCronogramaData.observaciones || null;
+    } else {
+        payload.kilometraje_promedio_diario = 80;
+        payload.estado = 'Activo';
+    }
+    fetch('/api/mpa/cronograma', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Frecuencia actualizada', 'success');
+            const modalEl = document.getElementById('cronogramaModal');
+            if (modalEl) bootstrap.Modal.getInstance(modalEl).hide();
+        } else {
+            showAlert('Error: ' + (data.message || 'No se pudo guardar'), 'danger');
+        }
+    })
+    .catch(() => {
+        showAlert('Error al guardar', 'danger');
+    });
+}
+
+function updateCronogramaPreview() {
+    const freq = parseInt(document.getElementById('cronogramaFrecuencia')?.value || '0', 10);
+    const avg = parseInt(document.getElementById('cronogramaPromedioDiario')?.value || '0', 10);
+    const kmAct = parseInt(String((currentCronogramaData && currentCronogramaData.kilometraje_actual) || 0), 10);
+    const nextKm = (isNaN(kmAct) ? 0 : kmAct) + (isNaN(freq) ? 0 : freq);
+    const kmEl = document.getElementById('cronogramaPreviewKm');
+    const fechaEl = document.getElementById('cronogramaPreviewFecha');
+    const diasEl = document.getElementById('cronogramaPreviewDias');
+    if (kmEl) kmEl.textContent = `Próximo km: ${nextKm}`;
+    let base = null;
+    try {
+        const s = (currentCronogramaData && currentCronogramaData.fecha_mantenimiento) || '';
+        base = s ? new Date(s) : new Date();
+    } catch (e) {
+        base = new Date();
+    }
+    const days = Math.max(0, Math.floor((isNaN(freq) ? 0 : freq) / Math.max(1, (isNaN(avg) ? 0 : avg))));
+    const d2 = new Date(base.getTime());
+    d2.setDate(d2.getDate() + days);
+    const yyyy = d2.getFullYear();
+    const mm = String(d2.getMonth() + 1).padStart(2, '0');
+    const dd = String(d2.getDate()).padStart(2, '0');
+    const fstr = `${yyyy}-${mm}-${dd}`;
+    if (fechaEl) fechaEl.textContent = `Fecha estimada: ${fstr}`;
+    if (diasEl) diasEl.textContent = `≈ ${days} días`;
+}
 </script>
+<div class="modal fade" id="cronogramaModal" tabindex="-1" aria-labelledby="cronogramaModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cronogramaModalLabel">Frecuencia cambio de aceite</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="cronogramaForm">
+                    <div class="mb-3">
+                        <label class="form-label">Placa</label>
+                        <input type="text" class="form-control" id="cronogramaPlaca" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Frecuencia (km)</label>
+                        <input type="number" class="form-control" id="cronogramaFrecuencia" min="500" step="100" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Promedio diario (km)</label>
+                        <input type="number" class="form-control" id="cronogramaPromedioDiario" min="1" step="1" required>
+                    </div>
+                </form>
+                <div id="cronogramaPreview" class="border rounded p-2">
+                    <div id="cronogramaPreviewKm"></div>
+                    <div id="cronogramaPreviewFecha"></div>
+                    <div id="cronogramaPreviewDias"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveCronograma()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

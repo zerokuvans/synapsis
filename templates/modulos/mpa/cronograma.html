@@ -119,6 +119,20 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
+        <div class="row g-2 mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Frecuencia (km)</label>
+            <input id="det-km-freq" type="number" class="form-control" min="500" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Km/día promedio</label>
+            <input id="det-km-dia" type="number" class="form-control" min="1" />
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <button id="btn-guardar-det-cron" class="btn btn-primary w-100"><i class="fas fa-save me-1"></i>Guardar cambios</button>
+          </div>
+        </div>
+        <div id="det-preview" class="border rounded p-2 mb-3"></div>
         <div id="cron-resumen" class="mb-3"></div>
         <div class="border rounded p-3 mb-3">
           <div class="row g-2 align-items-end">
@@ -296,6 +310,9 @@
         } catch { return '<span class="badge bg-secondary">N/A</span>'; }
       })();
       const resumen = document.getElementById('cron-resumen');
+      const detFreq = document.getElementById('det-km-freq');
+      const detDia = document.getElementById('det-km-dia');
+      const detPrev = document.getElementById('det-preview');
       resumen.innerHTML = `
         <div class="row">
           <div class="col-md-6">
@@ -314,6 +331,34 @@
           </div>
         </div>
       `;
+      if (detFreq) detFreq.value = parseInt(r.kilometraje_frecuencia || 2500, 10);
+      if (detDia) detDia.value = parseInt(r.kilometraje_promedio_diario || 80, 10);
+      function recalcDetPreview() {
+        try {
+          const kmAct = parseInt(String(r.kilometraje_actual || '0'), 10);
+          const f = parseInt(String(detFreq.value || '0'), 10);
+          const a = parseInt(String(detDia.value || '0'), 10);
+          const nextKm = (isNaN(kmAct) ? 0 : kmAct) + (isNaN(f) ? 0 : f);
+          let base = null;
+          try {
+            const s = r.fecha_mantenimiento || '';
+            base = s ? new Date(s) : new Date();
+          } catch (e) { base = new Date(); }
+          const days = Math.max(0, Math.floor((isNaN(f) ? 0 : f) / Math.max(1, (isNaN(a) ? 0 : a))));
+          const d2 = new Date(base.getTime());
+          d2.setDate(d2.getDate() + days);
+          const yyyy = d2.getFullYear();
+          const mm = String(d2.getMonth() + 1).padStart(2, '0');
+          const dd = String(d2.getDate()).padStart(2, '0');
+          const fstr = `${yyyy}-${mm}-${dd}`;
+          if (detPrev) detPrev.innerHTML = `<div><strong>Próximo km:</strong> ${nextKm}</div><div><strong>Fecha estimada:</strong> ${fstr}</div><div><span class="badge bg-info">≈ ${days} días</span></div>`;
+        } catch (e) {
+          if (detPrev) detPrev.textContent = '';
+        }
+      }
+      if (detFreq) detFreq.addEventListener('input', recalcDetPreview);
+      if (detDia) detDia.addEventListener('input', recalcDetPreview);
+      recalcDetPreview();
       const cont = document.getElementById('cron-tareas');
       cont.innerHTML = '';
       const baseTareas = Array.isArray(data.tareas) ? data.tareas : [];
@@ -411,6 +456,28 @@
           await verCronograma(placa);
           alert('Marcado como realizado');
         } catch (e) { alert('Error'); }
+      };
+      const btnGuardarDet = document.getElementById('btn-guardar-det-cron');
+      btnGuardarDet.onclick = async () => {
+        try {
+          const payload = {
+            placa: placa.toUpperCase(),
+            kilometraje_frecuencia: parseInt(detFreq.value || '2500', 10),
+            kilometraje_promedio_diario: parseInt(detDia.value || '80', 10),
+            fecha_mantenimiento: r.fecha_mantenimiento || null,
+            kilometraje_actual: parseInt(r.kilometraje_actual || '0', 10),
+            tipo_mantenimiento: 'Cambio de Aceite',
+            estado: r.estado || 'Activo',
+            observaciones: r.observaciones || ''
+          };
+          const resSave = await fetch('/api/mpa/cronograma', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+          });
+          const dataSave = await resSave.json();
+          if (!dataSave.success) { alert(dataSave.message || 'No se pudo guardar'); return; }
+          await verCronograma(placa);
+          alert('Cambios guardados');
+        } catch (e) { alert('Error al guardar'); }
       };
     } catch (e) { alert('Error al cargar cronograma'); }
   }

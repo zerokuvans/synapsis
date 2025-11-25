@@ -354,7 +354,14 @@ function loadVehiclePlates() {
                 vehiclePlates = data.data;
                 const select = document.getElementById('placa');
                 select.innerHTML = '<option value="">Seleccionar placa</option>' +
-                    vehiclePlates.map(vehicle => `<option value="${vehicle.placa}" data-tecnico="${vehicle.tecnico_nombre || ''}" data-tipo="${vehicle.tipo_vehiculo}">${vehicle.placa}</option>`).join('');
+                    vehiclePlates.map(vehicle => `
+                        <option 
+                            value="${vehicle.placa}"
+                            data-tecnico="${vehicle.tecnico_nombre || ''}"
+                            data-tipo="${vehicle.tipo_vehiculo}"
+                            data-km="${vehicle.ultimo_km_preoperacional ?? ''}"
+                        >${vehicle.placa}</option>
+                    `).join('');
             } else {
                 showAlert('Error al cargar placas: ' + (data.message || 'Error desconocido'), 'warning');
             }
@@ -406,6 +413,10 @@ function onPlacaChange() {
         
         document.getElementById('tecnicoAsignado').value = tecnico;
         document.getElementById('tipoVehiculo').value = tipoVehiculo;
+        const km = selectedOption.getAttribute('data-km');
+        if (km && km !== 'null' && km !== 'undefined') {
+            document.getElementById('kilometraje').value = km;
+        }
         
         // Cargar categorías de mantenimiento para este tipo de vehículo
         loadMaintenanceCategories(tipoVehiculo);
