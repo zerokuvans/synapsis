@@ -17,7 +17,9 @@
     <script src="{{ url_for('static', filename='js/global-utils.js') }}"></script>
     <script>
     (function(){
-      var c = window.console || {};
+      var oc = window.console || {};
+      window.__originalConsole = oc;
+      var c = oc || {};
       var f = function(){};
       var m = ['log','debug','info','warn','error','trace','group','groupCollapsed','groupEnd','table','time','timeEnd','timeLog','dir','dirxml','assert','count','countReset','profile','profileEnd','clear'];
       for (var i=0;i<m.length;i++){ try{ c[m[i]] = f; }catch(e){} }

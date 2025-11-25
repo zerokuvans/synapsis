@@ -1383,7 +1383,7 @@ def api_operativo_datos_preoperacional():
 
         cursor.execute(
             """
-            SELECT fecha_vencimiento
+            SELECT tipo_licencia, fecha_vencimiento
             FROM mpa_licencia_conducir
             WHERE tecnico = %s AND estado = 'Activo' AND fecha_vencimiento IS NOT NULL AND fecha_vencimiento > '1900-01-01'
             ORDER BY fecha_vencimiento DESC
@@ -1409,7 +1409,7 @@ def api_operativo_datos_preoperacional():
             'placa': placa,
             'modelo': veh.get('modelo'),
             'marca': veh.get('marca'),
-            'tipo_licencia': None,
+            'tipo_licencia': (r3.get('tipo_licencia') if r3 else None),
             'fecha_venc_licencia': fecha_venc_lic,
             'fecha_venc_soat': fecha_venc_soat,
             'fecha_venc_tecnico_mecanica': fecha_venc_tm,

@@ -2215,11 +2215,49 @@ def obtener_datos_preoperacional_operativo():
             SELECT 
                 ro.ciudad,
                 ro.super AS supervisor,
-                mv.placa,
-                mv.modelo,
-                mv.marca,
-                mv.tipo_vehiculo,
-                -- Licencia activa más reciente del operativo
+                COALESCE(
+                    (
+                        SELECT mv1.placa 
+                        FROM capired.mpa_vehiculos mv1 
+                        WHERE mv1.tecnico_asignado = ro.id_codigo_consumidor AND mv1.estado = 'Activo' 
+                        ORDER BY mv1.id_mpa_vehiculos DESC 
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT p1.placa_vehiculo 
+                        FROM capired.preoperacional p1 
+                        WHERE p1.id_codigo_consumidor = ro.id_codigo_consumidor 
+                        ORDER BY p1.fecha DESC 
+                        LIMIT 1
+                    )
+                ) AS placa,
+                (
+                    SELECT v1.modelo 
+                    FROM capired.mpa_vehiculos v1 
+                    WHERE v1.placa = COALESCE(
+                        (SELECT mv2.placa FROM capired.mpa_vehiculos mv2 WHERE mv2.tecnico_asignado = ro.id_codigo_consumidor AND mv2.estado = 'Activo' ORDER BY mv2.id_mpa_vehiculos DESC LIMIT 1),
+                        (SELECT p2.placa_vehiculo FROM capired.preoperacional p2 WHERE p2.id_codigo_consumidor = ro.id_codigo_consumidor ORDER BY p2.fecha DESC LIMIT 1)
+                    )
+                    LIMIT 1
+                ) AS modelo,
+                (
+                    SELECT v2.marca 
+                    FROM capired.mpa_vehiculos v2 
+                    WHERE v2.placa = COALESCE(
+                        (SELECT mv3.placa FROM capired.mpa_vehiculos mv3 WHERE mv3.tecnico_asignado = ro.id_codigo_consumidor AND mv3.estado = 'Activo' ORDER BY mv3.id_mpa_vehiculos DESC LIMIT 1),
+                        (SELECT p3.placa_vehiculo FROM capired.preoperacional p3 WHERE p3.id_codigo_consumidor = ro.id_codigo_consumidor ORDER BY p3.fecha DESC LIMIT 1)
+                    )
+                    LIMIT 1
+                ) AS marca,
+                (
+                    SELECT v3.tipo_vehiculo 
+                    FROM capired.mpa_vehiculos v3 
+                    WHERE v3.placa = COALESCE(
+                        (SELECT mv4.placa FROM capired.mpa_vehiculos mv4 WHERE mv4.tecnico_asignado = ro.id_codigo_consumidor AND mv4.estado = 'Activo' ORDER BY mv4.id_mpa_vehiculos DESC LIMIT 1),
+                        (SELECT p4.placa_vehiculo FROM capired.preoperacional p4 WHERE p4.id_codigo_consumidor = ro.id_codigo_consumidor ORDER BY p4.fecha DESC LIMIT 1)
+                    )
+                    LIMIT 1
+                ) AS tipo_vehiculo,
                 (
                     SELECT sub.tipo_licencia
                     FROM capired.mpa_licencia_conducir sub
@@ -2240,33 +2278,47 @@ def obtener_datos_preoperacional_operativo():
                     ORDER BY sub.fecha_vencimiento DESC
                     LIMIT 1
                 ) AS fecha_venc_licencia,
-                -- SOAT activo más reciente por placa del vehículo asignado
                 (
                     SELECT s.fecha_vencimiento
                     FROM capired.mpa_soat s
-                    WHERE s.placa = mv.placa
+                    WHERE s.placa = COALESCE(
+                        (SELECT mv5.placa FROM capired.mpa_vehiculos mv5 WHERE mv5.tecnico_asignado = ro.id_codigo_consumidor AND mv5.estado = 'Activo' ORDER BY mv5.id_mpa_vehiculos DESC LIMIT 1),
+                        (SELECT p5.placa_vehiculo FROM capired.preoperacional p5 WHERE p5.id_codigo_consumidor = ro.id_codigo_consumidor ORDER BY p5.fecha DESC LIMIT 1)
+                    )
                       AND s.estado = 'Activo'
                       AND s.fecha_vencimiento IS NOT NULL
                       AND s.fecha_vencimiento > '1900-01-01'
                     ORDER BY s.fecha_vencimiento DESC
                     LIMIT 1
                 ) AS fecha_venc_soat,
-                -- Tecnomecánica activa más reciente por placa del vehículo asignado
                 (
                     SELECT t.fecha_vencimiento
                     FROM capired.mpa_tecnico_mecanica t
-                    WHERE t.placa = mv.placa
+                    WHERE t.placa = COALESCE(
+                        (SELECT mv6.placa FROM capired.mpa_vehiculos mv6 WHERE mv6.tecnico_asignado = ro.id_codigo_consumidor AND mv6.estado = 'Activo' ORDER BY mv6.id_mpa_vehiculos DESC LIMIT 1),
+                        (SELECT p6.placa_vehiculo FROM capired.preoperacional p6 WHERE p6.id_codigo_consumidor = ro.id_codigo_consumidor ORDER BY p6.fecha DESC LIMIT 1)
+                    )
                       AND t.estado = 'Activo'
                       AND t.fecha_vencimiento IS NOT NULL
                       AND t.fecha_vencimiento > '1900-01-01'
                     ORDER BY t.fecha_vencimiento DESC
                     LIMIT 1
                 ) AS fecha_venc_tecnico_mecanica,
-                0 AS ultimo_kilometraje,
-                NULL AS fecha_ultimo_kilometraje
+                (
+                    SELECT p7.kilometraje_actual 
+                    FROM capired.preoperacional p7 
+                    WHERE p7.id_codigo_consumidor = ro.id_codigo_consumidor 
+                    ORDER BY p7.fecha DESC 
+                    LIMIT 1
+                ) AS ultimo_kilometraje,
+                (
+                    SELECT p8.fecha 
+                    FROM capired.preoperacional p8 
+                    WHERE p8.id_codigo_consumidor = ro.id_codigo_consumidor 
+                    ORDER BY p8.fecha DESC 
+                    LIMIT 1
+                ) AS fecha_ultimo_kilometraje
             FROM capired.recurso_operativo ro
-            LEFT JOIN capired.mpa_vehiculos mv ON ro.id_codigo_consumidor = mv.tecnico_asignado
-            -- Se reemplazan joins directos por subconsultas para evitar múltiples resultados y fechas inválidas
             WHERE ro.id_codigo_consumidor = %s
             """,
             (session['id_codigo_consumidor'],)
