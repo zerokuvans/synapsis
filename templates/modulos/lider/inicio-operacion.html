@@ -184,6 +184,14 @@
                     </div>
                 </div>
                 <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="filtroEstado" class="form-label">Estado</label>
+                        <select class="form-select" id="filtroEstado">
+                            <option value="">Todos los estados</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
                     <div class="col-12">
                         <button type="button" class="btn btn-primary me-2" onclick="aplicarFiltros()">
                             <i class="fas fa-search me-2"></i>Aplicar Filtros
@@ -483,6 +491,7 @@
 let supervisoresData = [];
 let analistasData = [];
 let graficoMensual = null;
+let estadosData = [];
 
 // Inicializar página
 document.addEventListener('DOMContentLoaded', function() {
@@ -562,11 +571,15 @@ async function cargarDatos() {
         const analista = document.getElementById('filtroAnalistas').value;
         if (analista) params.append('analistas[]', analista);
         
+        const estado = document.getElementById('filtroEstado').value;
+        if (estado) params.append('estado', estado);
+        
         const response = await fetch(`/api/lider/inicio-operacion/datos?${params}`);
         const result = await response.json();
         
         if (result.success) {
             actualizarMetricas(result.data);
+            poblarEstados(result.data.tabla_asistencia);
             actualizarTabla(result.data.tabla_asistencia);
         } else {
             mostrarError(result.error || 'Error cargando datos');
@@ -612,8 +625,9 @@ function actualizarMetricas(data) {
 function actualizarTabla(asistenciaData) {
     const tbody = document.getElementById('tablaAsistenciaBody');
     tbody.innerHTML = '';
-    
-    asistenciaData.forEach(registro => {
+    const estadoFiltro = document.getElementById('filtroEstado').value;
+    const datos = estadoFiltro ? (asistenciaData || []).filter(r => String(r.estado || '').trim().toLowerCase() === String(estadoFiltro).trim().toLowerCase()) : (asistenciaData || []);
+    datos.forEach(registro => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${registro.cedula || ''}</td>
@@ -710,6 +724,7 @@ function limpiarFiltros() {
     document.getElementById('filtroFecha').value = new Date().toISOString().split('T')[0];
     document.getElementById('filtroSupervisores').selectedIndex = 0; // Seleccionar "Todos los supervisores"
     document.getElementById('filtroAnalistas').selectedIndex = 0; // Seleccionar "Todos los analistas"
+    document.getElementById('filtroEstado').selectedIndex = 0; // Seleccionar "Todos los estados"
     cargarDatos();
 }
 
@@ -723,6 +738,8 @@ async function abrirIndicadorDiario() {
     if (supervisor) params.append('supervisores[]', supervisor);
     const analista = document.getElementById('filtroAnalistas').value;
     if (analista) params.append('analistas[]', analista);
+    const estado = document.getElementById('filtroEstado').value;
+    if (estado) params.append('estado', estado);
 
     try {
         const resp = await fetch(`/api/lider/inicio-operacion/indicador-diario?${params}`);
@@ -883,6 +900,22 @@ async function abrirIndicadorDiario() {
 <script>
 // Renderiza la lista de cumplimiento mensual como barras de progreso
 // Gráfica mensual: se dibuja con Chart.js en el canvas 'graficaMensualCumplimiento'
+</script>
+
+<script>
+function poblarEstados(asistenciaData) {
+    const select = document.getElementById('filtroEstado');
+    if (!select) return;
+    const estados = Array.from(new Set((asistenciaData || []).map(r => String(r.estado || '').trim()).filter(s => s)));
+    estadosData = estados;
+    select.innerHTML = '<option value="">Todos los estados</option>';
+    estados.forEach(e => {
+        const option = document.createElement('option');
+        option.value = e;
+        option.textContent = e;
+        select.appendChild(option);
+    });
+}
 </script>
 
 {% endblock %}

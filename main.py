@@ -2781,6 +2781,7 @@ def api_inicio_operacion_datos():
         fecha = request.args.get('fecha')
         supervisores = request.args.getlist('supervisores[]')
         analistas = request.args.getlist('analistas[]')
+        estado = request.args.get('estado')
         
         # Debug: Imprimir parámetros recibidos
         print(f"DEBUG - Parámetros recibidos:")
@@ -2817,6 +2818,10 @@ def api_inicio_operacion_datos():
             placeholders = ','.join(['%s'] * len(analistas))
             where_conditions.append(f"ro.analista IN ({placeholders})")
             params.extend(analistas)
+        
+        if estado:
+            where_conditions.append("LOWER(TRIM(a.estado)) = %s")
+            params.append((estado or '').strip().lower())
         
         where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
         
@@ -3007,6 +3012,7 @@ def api_inicio_operacion_datos():
                 AND a.valor > 0
                 {' AND ro.analista IN (' + ','.join(['%s'] * len(analistas)) + ')' if analistas else ''}
                 {' AND a.super IN (' + ','.join(['%s'] * len(supervisores)) + ')' if supervisores else ''}
+                {' AND LOWER(TRIM(a.estado)) = %s' if estado else ''}
                 AND DATE(a.fecha_asistencia) = (
                     SELECT MIN(DATE(a2.fecha_asistencia))
                     FROM asistencia a2
@@ -3017,6 +3023,7 @@ def api_inicio_operacion_datos():
                     AND a2.valor > 0
                     {' AND ro2.analista IN (' + ','.join(['%s'] * len(analistas)) + ')' if analistas else ''}
                     {' AND a2.super IN (' + ','.join(['%s'] * len(supervisores)) + ')' if supervisores else ''}
+                    {' AND LOWER(TRIM(a2.estado)) = %s' if estado else ''}
                 )
             """
             
@@ -3026,11 +3033,15 @@ def api_inicio_operacion_datos():
                 params_presupuesto.extend(analistas)
             if supervisores:
                 params_presupuesto.extend(supervisores)
+            if estado:
+                params_presupuesto.append((estado or '').strip().lower())
             params_presupuesto.extend([anio, mes])  # Para la subconsulta
             if analistas:
                 params_presupuesto.extend(analistas)
             if supervisores:
                 params_presupuesto.extend(supervisores)
+            if estado:
+                params_presupuesto.append((estado or '').strip().lower())
             
             cursor.execute(query_presupuesto_mes, params_presupuesto)
             resultado_presupuesto = cursor.fetchone()
@@ -3083,6 +3094,10 @@ def api_inicio_operacion_datos():
                 placeholders = ','.join(['%s'] * len(analistas))
                 query_mes += f" AND ro.analista IN ({placeholders})"
                 params_mes.extend(analistas)
+            
+            if estado:
+                query_mes += " AND LOWER(TRIM(a.estado)) = %s"
+                params_mes.append((estado or '').strip().lower())
             
             cursor.execute(query_mes, params_mes)
             registros_mes = cursor.fetchall()
@@ -3203,6 +3218,7 @@ def api_inicio_operacion_indicador_diario():
         fecha = request.args.get('fecha')
         supervisores = request.args.getlist('supervisores[]')
         analistas = request.args.getlist('analistas[]')
+        estado = request.args.get('estado')
 
         # Conectar DB
         connection = mysql.connector.connect(
@@ -3237,6 +3253,9 @@ def api_inicio_operacion_indicador_diario():
         if analistas:
             query_diario += f" AND ro.analista IN ({','.join(['%s']*len(analistas))})"
             params_diario.extend(analistas)
+        if estado:
+            query_diario += " AND LOWER(TRIM(a.estado)) = %s"
+            params_diario.append((estado or '').strip().lower())
         query_diario += " GROUP BY a.super ORDER BY a.super"
 
         cursor.execute(query_diario, params_diario)
@@ -3276,6 +3295,9 @@ def api_inicio_operacion_indicador_diario():
         if analistas:
             query_mensual += f" AND ro.analista IN ({','.join(['%s']*len(analistas))})"
             params_mensual.extend(analistas)
+        if estado:
+            query_mensual += " AND LOWER(TRIM(a.estado)) = %s"
+            params_mensual.append((estado or '').strip().lower())
         query_mensual += " GROUP BY a.super ORDER BY a.super"
 
         cursor.execute(query_mensual, params_mensual)
