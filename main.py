@@ -6837,51 +6837,39 @@ def ver_asignaciones_ferretero():
                 'grapas_negras': 0
             }
             
-            # Calcular consumo previo en los periodos correspondientes
+            lim_area = limites.get(area_trabajo, {})
             for asignacion in asignaciones_tecnico:
                 fecha_asignacion = asignacion['fecha_asignacion']
                 diferencia_dias = (fecha_actual - fecha_asignacion).days
-                
-                # Verificar límite de cintas
-                if diferencia_dias <= limites[area_trabajo]['cinta_aislante']['periodo']:
+                if diferencia_dias <= lim_area.get('cinta_aislante', {}).get('periodo', 0):
                     contadores['cinta_aislante'] += int(asignacion.get('cinta_aislante', 0) or 0)
-                    
-                # Verificar límite de siliconas
-                if diferencia_dias <= limites[area_trabajo]['silicona']['periodo']:
+                if diferencia_dias <= lim_area.get('silicona', {}).get('periodo', 0):
                     contadores['silicona'] += int(asignacion.get('silicona', 0) or 0)
-                    
-                # Verificar límite de amarres negros
-                if diferencia_dias <= limites[area_trabajo]['amarres_negros']['periodo']:
+                if diferencia_dias <= lim_area.get('amarres_negros', {}).get('periodo', 0):
                     contadores['amarres_negros'] += int(asignacion.get('amarres_negros', 0) or 0)
-                    
-                # Verificar límite de amarres blancos
-                if diferencia_dias <= limites[area_trabajo]['amarres_blancos']['periodo']:
+                if diferencia_dias <= lim_area.get('amarres_blancos', {}).get('periodo', 0):
                     contadores['amarres_blancos'] += int(asignacion.get('amarres_blancos', 0) or 0)
-                    
-                # Verificar límite de grapas blancas
-                if diferencia_dias <= limites[area_trabajo]['grapas_blancas']['periodo']:
+                if diferencia_dias <= lim_area.get('grapas_blancas', {}).get('periodo', 0):
                     contadores['grapas_blancas'] += int(asignacion.get('grapas_blancas', 0) or 0)
-                    
-                # Verificar límite de grapas negras
-                if diferencia_dias <= limites[area_trabajo]['grapas_negras']['periodo']:
+                if diferencia_dias <= lim_area.get('grapas_negras', {}).get('periodo', 0):
                     contadores['grapas_negras'] += int(asignacion.get('grapas_negras', 0) or 0)
             
             # Calcular límites disponibles
             limites_disponibles = {
                 'area': area_trabajo,
-                'cinta_aislante': max(0, limites[area_trabajo]['cinta_aislante']['cantidad'] - contadores['cinta_aislante']),
-                'silicona': max(0, limites[area_trabajo]['silicona']['cantidad'] - contadores['silicona']),
-                'amarres_negros': max(0, limites[area_trabajo]['amarres_negros']['cantidad'] - contadores['amarres_negros']),
-                'amarres_blancos': max(0, limites[area_trabajo]['amarres_blancos']['cantidad'] - contadores['amarres_blancos']),
-                'grapas_blancas': max(0, limites[area_trabajo]['grapas_blancas']['cantidad'] - contadores['grapas_blancas']),
-                'grapas_negras': max(0, limites[area_trabajo]['grapas_negras']['cantidad'] - contadores['grapas_negras']),
+                'cinta_aislante': max(0, lim_area.get('cinta_aislante', {}).get('cantidad', 0) - contadores['cinta_aislante']),
+                'silicona': max(0, lim_area.get('silicona', {}).get('cantidad', 0) - contadores['silicona']),
+                'amarres_negros': max(0, lim_area.get('amarres_negros', {}).get('cantidad', 0) - contadores['amarres_negros']),
+                'amarres_blancos': max(0, lim_area.get('amarres_blancos', {}).get('cantidad', 0) - contadores['amarres_blancos']),
+                'grapas_blancas': max(0, lim_area.get('grapas_blancas', {}).get('cantidad', 0) - contadores['grapas_blancas']),
+                'grapas_negras': max(0, lim_area.get('grapas_negras', {}).get('cantidad', 0) - contadores['grapas_negras']),
                 'periodos': {
-                    'cinta_aislante': f"{limites[area_trabajo]['cinta_aislante']['periodo']} {limites[area_trabajo]['cinta_aislante']['unidad']}",
-                    'silicona': f"{limites[area_trabajo]['silicona']['periodo']} {limites[area_trabajo]['silicona']['unidad']}",
-                    'amarres_negros': f"{limites[area_trabajo]['amarres_negros']['periodo']} {limites[area_trabajo]['amarres_negros']['unidad']}",
-                    'amarres_blancos': f"{limites[area_trabajo]['amarres_blancos']['periodo']} {limites[area_trabajo]['amarres_blancos']['unidad']}",
-                    'grapas_blancas': f"{limites[area_trabajo]['grapas_blancas']['periodo']} {limites[area_trabajo]['grapas_blancas']['unidad']}",
-                    'grapas_negras': f"{limites[area_trabajo]['grapas_negras']['periodo']} {limites[area_trabajo]['grapas_negras']['unidad']}"
+                    'cinta_aislante': f"{lim_area.get('cinta_aislante', {}).get('periodo', 0)} {lim_area.get('cinta_aislante', {}).get('unidad', 'días')}",
+                    'silicona': f"{lim_area.get('silicona', {}).get('periodo', 0)} {lim_area.get('silicona', {}).get('unidad', 'días')}",
+                    'amarres_negros': f"{lim_area.get('amarres_negros', {}).get('periodo', 0)} {lim_area.get('amarres_negros', {}).get('unidad', 'días')}",
+                    'amarres_blancos': f"{lim_area.get('amarres_blancos', {}).get('periodo', 0)} {lim_area.get('amarres_blancos', {}).get('unidad', 'días')}",
+                    'grapas_blancas': f"{lim_area.get('grapas_blancas', {}).get('periodo', 0)} {lim_area.get('grapas_blancas', {}).get('unidad', 'días')}",
+                    'grapas_negras': f"{lim_area.get('grapas_negras', {}).get('periodo', 0)} {lim_area.get('grapas_negras', {}).get('unidad', 'días')}",
                 }
             }
             
@@ -7042,7 +7030,6 @@ def registrar_ferretero():
                 'message': error_msg
             }), 400
         
-        # Inicializar contadores para materiales en los períodos correspondientes
         contadores = {
             'cinta_aislante': 0,
             'silicona': 0,
@@ -7051,34 +7038,21 @@ def registrar_ferretero():
             'grapas_blancas': 0,
             'grapas_negras': 0
         }
-        
-        # Calcular consumo previo en los periodos correspondientes
+        lim_area = limites.get(area_trabajo, {})
         for asignacion in asignaciones_previas:
             fecha_asignacion = asignacion['fecha_asignacion']
             diferencia_dias = (fecha_actual - fecha_asignacion).days
-            
-            # Verificar límite de cintas
-            if diferencia_dias <= limites[area_trabajo]['cinta_aislante']['periodo']:
+            if diferencia_dias <= lim_area.get('cinta_aislante', {}).get('periodo', 0):
                 contadores['cinta_aislante'] += int(asignacion.get('cinta_aislante', 0) or 0)
-                
-            # Verificar límite de siliconas
-            if diferencia_dias <= limites[area_trabajo]['silicona']['periodo']:
+            if diferencia_dias <= lim_area.get('silicona', {}).get('periodo', 0):
                 contadores['silicona'] += int(asignacion.get('silicona', 0) or 0)
-                
-            # Verificar límite de amarres negros
-            if diferencia_dias <= limites[area_trabajo]['amarres_negros']['periodo']:
+            if diferencia_dias <= lim_area.get('amarres_negros', {}).get('periodo', 0):
                 contadores['amarres_negros'] += int(asignacion.get('amarres_negros', 0) or 0)
-                
-            # Verificar límite de amarres blancos
-            if diferencia_dias <= limites[area_trabajo]['amarres_blancos']['periodo']:
+            if diferencia_dias <= lim_area.get('amarres_blancos', {}).get('periodo', 0):
                 contadores['amarres_blancos'] += int(asignacion.get('amarres_blancos', 0) or 0)
-                
-            # Verificar límite de grapas blancas
-            if diferencia_dias <= limites[area_trabajo]['grapas_blancas']['periodo']:
+            if diferencia_dias <= lim_area.get('grapas_blancas', {}).get('periodo', 0):
                 contadores['grapas_blancas'] += int(asignacion.get('grapas_blancas', 0) or 0)
-                
-            # Verificar límite de grapas negras
-            if diferencia_dias <= limites[area_trabajo]['grapas_negras']['periodo']:
+            if diferencia_dias <= lim_area.get('grapas_negras', {}).get('periodo', 0):
                 contadores['grapas_negras'] += int(asignacion.get('grapas_negras', 0) or 0)
         
         # Calcular cantidades de la asignación actual
@@ -7094,8 +7068,8 @@ def registrar_ferretero():
         materiales_asignados = []
         
         # Validar cintas
-        if contadores['cinta_aislante'] + cintas_solicitadas > limites[area_trabajo]['cinta_aislante']['cantidad']:
-            limite = limites[area_trabajo]['cinta_aislante']
+        if contadores['cinta_aislante'] + cintas_solicitadas > lim_area.get('cinta_aislante', {}).get('cantidad', 0):
+            limite = lim_area.get('cinta_aislante', {'cantidad': 0, 'periodo': 0, 'unidad': 'días'})
             materiales_rechazados.append(f"Cinta aislante: excede el límite de {limite['cantidad']} cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['cinta_aislante']}.")
             cintas_solicitadas = 0
             cinta_aislante = 0
@@ -7103,8 +7077,8 @@ def registrar_ferretero():
             materiales_asignados.append(f"Cinta aislante: {cintas_solicitadas} unidades")
         
         # Validar siliconas
-        if contadores['silicona'] + siliconas_solicitadas > limites[area_trabajo]['silicona']['cantidad']:
-            limite = limites[area_trabajo]['silicona']
+        if contadores['silicona'] + siliconas_solicitadas > lim_area.get('silicona', {}).get('cantidad', 0):
+            limite = lim_area.get('silicona', {'cantidad': 0, 'periodo': 0, 'unidad': 'días'})
             materiales_rechazados.append(f"Silicona: excede el límite de {limite['cantidad']} cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['silicona']}.")
             siliconas_solicitadas = 0
             silicona = 0
@@ -7112,8 +7086,8 @@ def registrar_ferretero():
             materiales_asignados.append(f"Silicona: {siliconas_solicitadas} unidades")
         
         # Validar amarres negros
-        if contadores['amarres_negros'] + amarres_negros_solicitados > limites[area_trabajo]['amarres_negros']['cantidad']:
-            limite = limites[area_trabajo]['amarres_negros']
+        if contadores['amarres_negros'] + amarres_negros_solicitados > lim_area.get('amarres_negros', {}).get('cantidad', 0):
+            limite = lim_area.get('amarres_negros', {'cantidad': 0, 'periodo': 0, 'unidad': 'días'})
             materiales_rechazados.append(f"Amarres negros: excede el límite de {limite['cantidad']} cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['amarres_negros']}.")
             amarres_negros_solicitados = 0
             amarres_negros = 0
@@ -7121,8 +7095,8 @@ def registrar_ferretero():
             materiales_asignados.append(f"Amarres negros: {amarres_negros_solicitados} unidades")
         
         # Validar amarres blancos
-        if contadores['amarres_blancos'] + amarres_blancos_solicitados > limites[area_trabajo]['amarres_blancos']['cantidad']:
-            limite = limites[area_trabajo]['amarres_blancos']
+        if contadores['amarres_blancos'] + amarres_blancos_solicitados > lim_area.get('amarres_blancos', {}).get('cantidad', 0):
+            limite = lim_area.get('amarres_blancos', {'cantidad': 0, 'periodo': 0, 'unidad': 'días'})
             materiales_rechazados.append(f"Amarres blancos: excede el límite de {limite['cantidad']} cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['amarres_blancos']}.")
             amarres_blancos_solicitados = 0
             amarres_blancos = 0
@@ -7130,8 +7104,8 @@ def registrar_ferretero():
             materiales_asignados.append(f"Amarres blancos: {amarres_blancos_solicitados} unidades")
         
         # Validar grapas blancas
-        if contadores['grapas_blancas'] + grapas_blancas_solicitadas > limites[area_trabajo]['grapas_blancas']['cantidad']:
-            limite = limites[area_trabajo]['grapas_blancas']
+        if contadores['grapas_blancas'] + grapas_blancas_solicitadas > lim_area.get('grapas_blancas', {}).get('cantidad', 0):
+            limite = lim_area.get('grapas_blancas', {'cantidad': 0, 'periodo': 0, 'unidad': 'días'})
             materiales_rechazados.append(f"Grapas blancas: excede el límite de {limite['cantidad']} cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['grapas_blancas']}.")
             grapas_blancas_solicitadas = 0
             grapas_blancas = 0
@@ -7139,8 +7113,8 @@ def registrar_ferretero():
             materiales_asignados.append(f"Grapas blancas: {grapas_blancas_solicitadas} unidades")
         
         # Validar grapas negras
-        if contadores['grapas_negras'] + grapas_negras_solicitadas > limites[area_trabajo]['grapas_negras']['cantidad']:
-            limite = limites[area_trabajo]['grapas_negras']
+        if contadores['grapas_negras'] + grapas_negras_solicitadas > lim_area.get('grapas_negras', {}).get('cantidad', 0):
+            limite = lim_area.get('grapas_negras', {'cantidad': 0, 'periodo': 0, 'unidad': 'días'})
             materiales_rechazados.append(f"Grapas negras: excede el límite de {limite['cantidad']} cada {limite['periodo']} {limite['unidad']} para {area_trabajo}. Ya se han asignado {contadores['grapas_negras']}.")
             grapas_negras_solicitadas = 0
             grapas_negras = 0
