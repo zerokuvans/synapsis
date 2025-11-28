@@ -718,6 +718,15 @@ def main_inicio_operacion_tecnicos():
     """Renderizar la página de inicio de operación para técnicos"""
     return render_template('inicio_operacion_tecnicos.html')
 
+@app.route('/analistas/actividades-diarias')
+@login_required()
+def analistas_actividades_diarias():
+    try:
+        return render_template('modulos/lider/actividades-diarias.html', api_endpoint='/api/analistas/cargar-actividades', list_endpoint='/api/analistas/actividades-diarias')
+    except Exception as e:
+        flash(f'Error al cargar actividades diarias: {str(e)}', 'danger')
+        return redirect(url_for('main_analistas_dashboard'))
+
 # ============================================================================
 # MÓDULO ANALISTAS - API ENDPOINTS Códigos de Facturación
 # ============================================================================
@@ -2661,6 +2670,262 @@ def lider_presupuesto():
     except Exception as e:
         flash(f'Error al cargar presupuesto: {str(e)}', 'danger')
         return redirect(url_for('lider_indicadores_operaciones'))
+
+@app.route('/lider/actividades-diarias')
+@login_required_lider()
+def lider_actividades_diarias():
+    try:
+        return render_template('modulos/lider/actividades-diarias.html')
+    except Exception as e:
+        flash(f'Error al cargar actividades diarias: {str(e)}', 'danger')
+        return redirect(url_for('lider_dashboard'))
+
+@app.route('/api/lider/cargar-actividades', methods=['POST'])
+@login_required_lider_api()
+def api_lider_cargar_actividades():
+    file = request.files.get('file')
+    if not file or not file.filename:
+        return jsonify({'success': False, 'message': 'Archivo no proporcionado'}), 400
+    name = file.filename.lower()
+    data = file.read()
+    try:
+        if name.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(data))
+        elif name.endswith('.xlsx') or name.endswith('.xls'):
+            df = pd.read_excel(io.BytesIO(data))
+        else:
+            return jsonify({'success': False, 'message': 'Formato no soportado'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+    import re
+    orig_cols = list(df.columns)
+    def sanitize_name(name):
+        n = re.sub(r"\s+", "_", str(name).strip())
+        n = re.sub(r"[^A-Za-z0-9_]", "_", n)
+        if not n or re.match(r"^[0-9]", n):
+            n = f"col_{n}"
+        n = re.sub(r"_+", "_", n)
+        return n[:64]
+    used = {}
+    safe_cols = []
+    for c in orig_cols:
+        s = sanitize_name(c)
+        base = s
+        idx = 2
+        while s in used:
+            suffix = f"_{idx}"
+            s = (base[:64 - len(suffix)]) + suffix
+            idx += 1
+        used[s] = True
+        safe_cols.append(s)
+    def sql_type(dt):
+        k = getattr(dt, 'kind', 'O')
+        if k in ('i', 'u'):
+            return 'BIGINT'
+        if k == 'f':
+            return 'DECIMAL(20,6)'
+        if k == 'b':
+            return 'TINYINT(1)'
+        if k == 'M':
+            return 'DATETIME'
+        return 'TEXT'
+    column_defs = ', '.join([f"`{safe_cols[i]}` {sql_type(df[orig_cols[i]].dtype)} NULL" for i in range(len(orig_cols))])
+    create_sql = f"CREATE TABLE IF NOT EXISTS `operaciones_actividades_diarias` ({column_defs}) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=%s AND table_name=%s",
+            (db_config.get('database'), 'operaciones_actividades_diarias')
+        )
+        exists = cursor.fetchone()[0] > 0
+        if not exists:
+            cursor.execute(create_sql)
+        else:
+            cursor.execute(
+                "SELECT COLUMN_NAME FROM information_schema.columns WHERE table_schema=%s AND table_name=%s",
+                (db_config.get('database'), 'operaciones_actividades_diarias')
+            )
+            existing_cols = {row[0] for row in cursor.fetchall()}
+            for i, col in enumerate(safe_cols):
+                if col not in existing_cols:
+                    cursor.execute(
+                        f"ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `{col}` {sql_type(df[orig_cols[i]].dtype)} NULL"
+                    )
+        placeholders = ','.join(['%s'] * len(safe_cols))
+        insert_sql = f"INSERT INTO `operaciones_actividades_diarias` ({', '.join([f'`{c}`' for c in safe_cols])}) VALUES ({placeholders})"
+        def conv(v):
+            try:
+                if pd.isna(v):
+                    return None
+            except Exception:
+                pass
+            try:
+                import numpy as np
+                if isinstance(v, np.integer):
+                    return int(v)
+                if isinstance(v, np.floating):
+                    return float(v)
+                if isinstance(v, np.bool_):
+                    return bool(v)
+            except Exception:
+                pass
+            try:
+                if isinstance(v, pd.Timestamp):
+                    return v.to_pydatetime()
+            except Exception:
+                pass
+            return v
+        rows = [tuple(conv(df.iloc[r, i]) for i in range(len(orig_cols))) for r in range(len(df))]
+        if rows:
+            cursor.executemany(insert_sql, rows)
+            connection.commit()
+        cursor.close()
+        connection.close()
+        return jsonify({'success': True, 'rows_inserted': len(rows)})
+    except Error as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/analistas/cargar-actividades', methods=['POST'])
+@login_required_api(role='analista')
+def api_analistas_cargar_actividades():
+    return api_lider_cargar_actividades()
+
+@app.route('/api/analistas/actividades-diarias', methods=['GET'])
+@login_required_api(role='analista')
+def api_analistas_actividades_diarias_list():
+    user_name = session.get('user_name', '')
+    fecha = request.args.get('fecha', '').strip()
+    fecha_norm = fecha
+    if fecha:
+        for fmt in ('%Y-%m-%d','%d/%m/%Y','%d-%m-%Y','%Y/%m/%d'):
+            try:
+                fecha_norm = datetime.strptime(fecha, fmt).strftime('%Y-%m-%d')
+                break
+            except Exception:
+                pass
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cursor.fetchall()}
+        def norm(s):
+            return re.sub(r"[^a-z0-9]", "", s.lower())
+        def pick(names, approx=None):
+            if approx is None:
+                approx = []
+            for n in names:
+                k = n.lower()
+                if k in cols:
+                    return cols[k]
+            for k0,v0 in cols.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            if approx:
+                nset = {norm(x) for x in approx}
+                for k0,v0 in cols.items():
+                    if norm(k0) in nset:
+                        return v0
+            return None
+        col_ot = pick(['orden_de_trabajo','ot','orden_trabajo','orden','orden_de_servicio'], approx=['orden_de_trabajo','ordentrabajo','ot'])
+        col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'], approx=['numerodecuenta','cuenta'])
+        col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'], approx=['fechaactividad','fechaorden'])
+        col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'], approx=['external_id','exetrnal_id','idexterno','id_externo','cedula'])
+        if not col_ot or not col_cuenta or not col_fecha or not col_ext:
+            return jsonify({'success': False, 'items': [], 'message': 'Columnas requeridas no encontradas'}), 200
+        tipo_fecha = None
+        try:
+            cursor.execute(
+                """
+                SELECT DATA_TYPE FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='operaciones_actividades_diarias' AND column_name=%s
+                """,
+                (db_config.get('database'), col_fecha)
+            )
+            row = cursor.fetchone()
+            if row:
+                tipo_fecha = str(row[0]).lower()
+        except Exception:
+            tipo_fecha = None
+
+        cursor.execute(
+            """
+            SELECT COLLATION_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='recurso_operativo' AND column_name='analista'
+            """,
+            (db_config.get('database'),)
+        )
+        collation_row = cursor.fetchone()
+        coll = collation_row[0] if collation_row and collation_row[0] else 'utf8mb4_0900_ai_ci'
+        cursor.execute(
+            f"""
+            SELECT recurso_operativo_cedula, nombre
+            FROM recurso_operativo
+            WHERE LOWER(TRIM(analista)) COLLATE {coll} = LOWER(TRIM(CAST(%s AS CHAR CHARACTER SET utf8mb4))) COLLATE {coll}
+            """,
+            (user_name,)
+        )
+        tecnicos = cursor.fetchall()
+        cedulas = [t[0] for t in tecnicos]
+        nombres_map = {str(t[0]): t[1] for t in tecnicos}
+        filtro_fecha_sql = ''
+        params = []
+        if fecha:
+            if tipo_fecha in ('datetime','timestamp','date'):
+                filtro_fecha_sql = f" AND DATE(o.`{col_fecha}`) = %s"
+                params.append(fecha_norm)
+            else:
+                filtro_fecha_sql = f" AND o.`{col_fecha}` LIKE %s"
+                params.append(fecha_norm + '%')
+        rows = []
+        if cedulas:
+            placeholders = ','.join(['%s'] * len(cedulas))
+            sql = f"""
+                SELECT 
+                  o.`{col_ot}` AS orden_de_trabajo,
+                  o.`{col_cuenta}` AS numero_de_cuenta,
+                  o.`{col_ext}` AS external_id,
+                  o.`{col_fecha}` AS fecha
+                FROM operaciones_actividades_diarias o
+                WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_fecha_sql}
+                  AND o.`{col_cuenta}` IS NOT NULL
+                  AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
+                  AND o.`{col_cuenta}` REGEXP '^[0-9]+' 
+                  AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
+                  AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
+                ORDER BY o.`{col_fecha}` DESC
+                LIMIT 500
+            """
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(sql, tuple(cedulas) + tuple(params))
+            base_rows = cursor.fetchall()
+            for r in base_rows:
+                cid = str(r.get('external_id')) if r.get('external_id') is not None else ''
+                r['tecnico'] = nombres_map.get(cid, '')
+                rows.append({
+                    'orden_de_trabajo': r.get('orden_de_trabajo'),
+                    'numero_de_cuenta': r.get('numero_de_cuenta'),
+                    'tecnico': r.get('tecnico'),
+                    'fecha': r.get('fecha'),
+                })
+        cursor.close()
+        connection.close()
+        return jsonify({'success': True, 'items': rows})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 # APIs para Inicio de Operación
 @app.route('/api/lider/inicio-operacion/supervisores', methods=['GET'])

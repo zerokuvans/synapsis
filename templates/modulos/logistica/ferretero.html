@@ -270,8 +270,14 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="id_codigo_consumidor" class="form-label">Técnico</label>
-                        <select class="form-select" id="id_codigo_consumidor" name="id_codigo_consumidor" required onchange="mostrarLimites()">
+                        <label class="form-label">Técnico</label>
+                        <input type="text" class="form-control" id="buscarTecnico" list="listaTecnicos" placeholder="Escriba nombre o cédula...">
+                        <datalist id="listaTecnicos">
+                            {% for tecnico in tecnicos %}
+                            <option data-id="{{ tecnico.id_codigo_consumidor }}" value="{{ tecnico.nombre }} - {{ tecnico.recurso_operativo_cedula }}"></option>
+                            {% endfor %}
+                        </datalist>
+                        <select class="form-select mt-2 d-none" id="id_codigo_consumidor" name="id_codigo_consumidor" required onchange="mostrarLimites()">
                             <option value="">Seleccione un técnico</option>
                             {% for tecnico in tecnicos %}
                             <option value="{{ tecnico.id_codigo_consumidor }}" 
@@ -459,6 +465,70 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 btnBuscar.click();
+            }
+        });
+    })();
+    (function conectarDatalistConSelect(){
+        const input = document.getElementById('buscarTecnico');
+        const select = document.getElementById('id_codigo_consumidor');
+        const lista = document.getElementById('listaTecnicos');
+        if(!input || !select || !lista) return;
+        function seleccionarPorTexto(txt){
+            const opt = Array.from(lista.options).find(o => (o.value || '').toLowerCase() === (txt || '').toLowerCase());
+            if(opt){
+                select.value = opt.dataset.id || '';
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+        input.addEventListener('change', ()=> seleccionarPorTexto(input.value));
+        input.addEventListener('input', (e)=>{
+            // Si el valor coincide con una opción, selecciona
+            seleccionarPorTexto(input.value);
+        });
+        input.addEventListener('keydown', (e)=>{
+            if(e.key === 'Enter'){
+                e.preventDefault();
+                seleccionarPorTexto(input.value);
+            }
+        });
+    })();
+    (function initBusquedaTecnicoEnSelect(){
+        const select = document.getElementById('id_codigo_consumidor');
+        if(!select) return;
+        const options = Array.from(select.querySelectorAll('option'));
+        const baseOptions = options.map(opt => ({
+            node: opt,
+            text: (opt.textContent || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),
+            value: (opt.value || '').toLowerCase()
+        }));
+        let buffer = '';
+        let timer;
+        const filtrar = () => {
+            let first = null;
+            baseOptions.forEach((bo, idx) => {
+                const isPh = idx === 0 && bo.node.value === '';
+                if(isPh){ bo.node.hidden = false; return; }
+                const match = buffer === '' || bo.text.includes(buffer) || bo.value.includes(buffer);
+                bo.node.hidden = !match;
+                if(match && !first) first = bo.node;
+            });
+            if(first){
+                select.value = first.value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        };
+        select.addEventListener('keydown', (e) => {
+            if(e.key.length === 1){
+                buffer += e.key.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+                clearTimeout(timer);
+                timer = setTimeout(()=>{ buffer = ''; }, 1000);
+                filtrar();
+            } else if(e.key === 'Backspace'){
+                buffer = buffer.slice(0, -1);
+                filtrar();
+            } else if(e.key === 'Escape'){
+                buffer = '';
+                filtrar();
             }
         });
     })();

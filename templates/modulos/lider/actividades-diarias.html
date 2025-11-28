@@ -1,0 +1,116 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <h3 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Actividades Diarias</h3>
+        </div>
+        <div class="card-body">
+          <p class="text-muted mb-3">Cargar actividades desde Excel para registrar en la base de datos.</p>
+          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCargarActividades">
+            <i class="fas fa-upload me-2"></i>Cargue de actividades
+          </button>
+          <div class="row mt-3">
+            <div class="col-md-4">
+              <label class="form-label">Fecha</label>
+              <input type="date" class="form-control" id="filtroFecha" />
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <button class="btn btn-outline-primary w-100" id="btnFiltrarFecha"><i class="fas fa-filter me-2"></i>Filtrar</button>
+            </div>
+          </div>
+          <div class="table-responsive mt-4">
+            <table class="table table-striped table-hover" id="tablaActividades">
+              <thead>
+                <tr>
+                  <th>OT</th>
+                  <th>Cuenta</th>
+                  <th>Técnico</th>
+                  <th>Fecha</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalCargarActividades" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fas fa-file-excel me-2"></i>Subir archivo de actividades</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formCargarActividades">
+            <div class="mb-3">
+              <label class="form-label">Archivo</label>
+              <input type="file" class="form-control" id="archivoActividades" accept=".xlsx,.xls,.csv" required />
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+          <button type="button" class="btn btn-primary" id="btnSubirActividades">Subir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('btnSubirActividades').addEventListener('click', async function(){
+  const input = document.getElementById('archivoActividades');
+  if (!input.files || !input.files[0]) {
+    Swal.fire({icon:'warning', title:'Seleccione un archivo'});
+    return;
+  }
+  const formData = new FormData();
+  formData.append('file', input.files[0]);
+  try {
+    const endpoint = "{{ api_endpoint or '/api/lider/cargar-actividades' }}";
+    const res = await fetch(endpoint, { method:'POST', body: formData });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      Swal.fire({icon:'success', title:'Cargado', text:`Filas insertadas: ${data.rows_inserted}`});
+      const modal = bootstrap.Modal.getInstance(document.getElementById('modalCargarActividades'));
+      modal && modal.hide();
+      document.getElementById('formCargarActividades').reset();
+      await cargarLista();
+    } else {
+      Swal.fire({icon:'error', title:'Error', text:data.message || 'Error al cargar'});
+    }
+  } catch (e) {
+    Swal.fire({icon:'error', title:'Error de red'});
+  }
+});
+
+async function cargarLista(){
+  const listEndpoint = "{{ list_endpoint or '/api/analistas/actividades-diarias' }}";
+  try{
+    const fecha = document.getElementById('filtroFecha').value;
+    const url = fecha ? `${listEndpoint}?fecha=${encodeURIComponent(fecha)}` : listEndpoint;
+    const res = await fetch(url);
+    const data = await res.json();
+    const tbody = document.querySelector('#tablaActividades tbody');
+    tbody.innerHTML = '';
+    if(Array.isArray(data.items)){
+      data.items.forEach(item=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${item.orden_de_trabajo ?? ''}</td><td>${item.numero_de_cuenta ?? ''}</td><td>${item.tecnico ?? ''}</td><td>${item.fecha ?? ''}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+  }catch(e){
+  }
+}
+
+document.addEventListener('DOMContentLoaded', cargarLista);
+document.getElementById('btnFiltrarFecha').addEventListener('click', cargarLista);
+</script>
+{% endblock %}
