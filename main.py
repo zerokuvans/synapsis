@@ -2774,6 +2774,21 @@ def api_lider_cargar_actividades():
                     cursor.execute(
                         f"ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `{col}` {sql_type(df[orig_cols[i]].dtype)} NULL"
                     )
+        actividad_col = None
+        actividad_idx = None
+        for i, c in enumerate(orig_cols):
+            k = re.sub(r"[^a-z0-9]", "", str(c).lower())
+            if k in ("actividadid", "idactividad", "actividad_id", "id_actividad"):
+                actividad_col = safe_cols[i]
+                actividad_idx = i
+                break
+        if actividad_col is None:
+            for i, c in enumerate(orig_cols):
+                k = re.sub(r"[^a-z0-9]", "", str(c).lower())
+                if ("actividad" in k) and ("id" in k):
+                    actividad_col = safe_cols[i]
+                    actividad_idx = i
+                    break
         placeholders = ','.join(['%s'] * len(safe_cols))
         insert_sql = f"INSERT INTO `operaciones_actividades_diarias` ({', '.join([f'`{c}`' for c in safe_cols])}) VALUES ({placeholders})"
         def conv(v):
@@ -2798,13 +2813,43 @@ def api_lider_cargar_actividades():
             except Exception:
                 pass
             return v
-        rows = [tuple(conv(df.iloc[r, i]) for i in range(len(orig_cols))) for r in range(len(df))]
+        duplicates_skipped = 0
+        rows = []
+        if actividad_col is not None and actividad_idx is not None:
+            ids = []
+            for r in range(len(df)):
+                v = conv(df.iloc[r, actividad_idx])
+                if v is not None and str(v).strip() != "":
+                    ids.append(str(v).strip())
+            existing_ids = set()
+            if ids:
+                ph = ','.join(['%s'] * len(ids))
+                cursor.execute(f"SELECT CAST(`{actividad_col}` AS CHAR) FROM `operaciones_actividades_diarias` WHERE CAST(`{actividad_col}` AS CHAR) IN ({ph})", tuple(ids))
+                existing_ids = {str(row[0]) for row in cursor.fetchall()}
+                try:
+                    cursor.execute("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=%s AND table_name=%s AND column_name=%s AND non_unique = 0", (db_config.get('database'), 'operaciones_actividades_diarias', actividad_col))
+                    has_unique = cursor.fetchone()[0] > 0
+                    if not has_unique:
+                        cursor.execute(f"ALTER TABLE `operaciones_actividades_diarias` ADD UNIQUE KEY `uniq_actividad_id` (`{actividad_col}`)")
+                except Exception:
+                    pass
+            for r in range(len(df)):
+                v = conv(df.iloc[r, actividad_idx])
+                key = str(v).strip() if v is not None else None
+                if key and key in existing_ids:
+                    duplicates_skipped += 1
+                    continue
+                rows.append(tuple(conv(df.iloc[r, i]) for i in range(len(orig_cols))) )
+        else:
+            rows = [tuple(conv(df.iloc[r, i]) for i in range(len(orig_cols))) for r in range(len(df))]
+        inserted = 0
         if rows:
             cursor.executemany(insert_sql, rows)
             connection.commit()
+            inserted = len(rows)
         cursor.close()
         connection.close()
-        return jsonify({'success': True, 'rows_inserted': len(rows)})
+        return jsonify({'success': True, 'rows_inserted': inserted, 'duplicates_skipped': duplicates_skipped, 'total_rows': len(df), 'message': f"{inserted} ok, {duplicates_skipped} ya existen"})
     except Error as e:
         return jsonify({'success': False, 'message': str(e)}), 500
     except Exception as e:

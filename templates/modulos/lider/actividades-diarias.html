@@ -93,7 +93,8 @@ __btnSubir.addEventListener('click', async function(){
     const res = await fetch(endpoint, { method:'POST', body: formData });
     const data = await res.json();
     if (res.ok && data.success) {
-      Swal.fire({icon:'success', title:'Cargado', text:`Filas insertadas: ${data.rows_inserted}`});
+      const msg = data.message || `Filas insertadas: ${data.rows_inserted}`;
+      Swal.fire({icon:'success', title:'Cargado', text: msg});
       const modal = bootstrap.Modal.getInstance(document.getElementById('modalCargarActividades'));
       modal && modal.hide();
       document.getElementById('formCargarActividades').reset();
