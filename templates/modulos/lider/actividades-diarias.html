@@ -8,15 +8,24 @@
           <h3 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Actividades Diarias</h3>
         </div>
         <div class="card-body">
+          {% if mostrar_cargue %}
           <p class="text-muted mb-3">Cargar actividades desde Excel para registrar en la base de datos.</p>
           <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCargarActividades">
             <i class="fas fa-upload me-2"></i>Cargue de actividades
           </button>
+          {% endif %}
           <div class="row mt-3">
             <div class="col-md-4">
               <label class="form-label">Fecha</label>
               <input type="date" class="form-control" id="filtroFecha" />
             </div>
+            {% if session.get('user_role') in ['administrativo','lider'] or session.get('id_codigo_consumidor')|int == 26 %}
+            <div class="col-md-4">
+              <label class="form-label">Analista</label>
+              <input type="text" class="form-control" id="filtroAnalista" list="listaAnalistas" placeholder="Escriba nombre del analista" />
+              <datalist id="listaAnalistas"></datalist>
+            </div>
+            {% endif %}
             <div class="col-md-2 d-flex align-items-end">
               <button class="btn btn-outline-primary w-100" id="btnFiltrarFecha"><i class="fas fa-filter me-2"></i>Filtrar</button>
             </div>
@@ -25,20 +34,24 @@
             <table class="table table-striped table-hover" id="tablaActividades">
               <thead>
                 <tr>
-                  <th>OT</th>
                   <th>Cuenta</th>
+                  <th>OT</th>
                   <th>Técnico</th>
-                  <th>Fecha</th>
                 </tr>
               </thead>
               <tbody></tbody>
             </table>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mt-2" id="paginadorActividades">
+            <div class="small text-muted" id="paginadorInfo"></div>
+            <ul class="pagination pagination-sm mb-0" id="paginadorControles"></ul>
           </div>
         </div>
       </div>
     </div>
   </div>
 
+  {% if mostrar_cargue %}
   <div class="modal fade" id="modalCargarActividades" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -61,10 +74,13 @@
       </div>
     </div>
   </div>
+  {% endif %}
 </div>
 
 <script>
-document.getElementById('btnSubirActividades').addEventListener('click', async function(){
+const __btnSubir = document.getElementById('btnSubirActividades');
+if(__btnSubir){
+__btnSubir.addEventListener('click', async function(){
   const input = document.getElementById('archivoActividades');
   if (!input.files || !input.files[0]) {
     Swal.fire({icon:'warning', title:'Seleccione un archivo'});
@@ -89,28 +105,157 @@ document.getElementById('btnSubirActividades').addEventListener('click', async f
     Swal.fire({icon:'error', title:'Error de red'});
   }
 });
+}
 
 async function cargarLista(){
   const listEndpoint = "{{ list_endpoint or '/api/analistas/actividades-diarias' }}";
   try{
     const fecha = document.getElementById('filtroFecha').value;
-    const url = fecha ? `${listEndpoint}?fecha=${encodeURIComponent(fecha)}` : listEndpoint;
+    let url = fecha ? `${listEndpoint}?fecha=${encodeURIComponent(fecha)}` : listEndpoint;
+    const analistaInput = document.getElementById('filtroAnalista');
+    const analista = analistaInput ? analistaInput.value.trim() : '';
+    if(analista){
+      url += (url.includes('?') ? '&' : '?') + `analista=${encodeURIComponent(analista)}`;
+    }
     const res = await fetch(url);
     const data = await res.json();
-    const tbody = document.querySelector('#tablaActividades tbody');
-    tbody.innerHTML = '';
-    if(Array.isArray(data.items)){
-      data.items.forEach(item=>{
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${item.orden_de_trabajo ?? ''}</td><td>${item.numero_de_cuenta ?? ''}</td><td>${item.tecnico ?? ''}</td><td>${item.fecha ?? ''}</td>`;
-        tbody.appendChild(tr);
-      });
-    }
+    __items = Array.isArray(data.items) ? data.items : [];
+    __page = 1;
+    renderTabla();
+    renderPaginador();
   }catch(e){
   }
 }
 
-document.addEventListener('DOMContentLoaded', cargarLista);
-document.getElementById('btnFiltrarFecha').addEventListener('click', cargarLista);
+document.addEventListener('DOMContentLoaded', () => {
+  const inputFecha = document.getElementById('filtroFecha');
+  try{
+    if(inputFecha && !inputFecha.value){
+      const nowStr = new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' });
+      const now = new Date(nowStr);
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth()+1).padStart(2,'0');
+      const dd = String(now.getDate()).padStart(2,'0');
+      inputFecha.value = `${yyyy}-${mm}-${dd}`;
+    }
+  }catch(_){}
+  cargarLista();
+});
+const __btnFiltro = document.getElementById('btnFiltrarFecha');
+if(__btnFiltro){ __btnFiltro.addEventListener('click', cargarLista); }
+
+let __items = [];
+let __page = 1;
+const __pageSize = 10;
+
+function renderTabla(){
+  const tbody = document.querySelector('#tablaActividades tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+  const start = (__page - 1) * __pageSize;
+  const end = start + __pageSize;
+  const pageItems = __items.slice(start, end);
+  pageItems.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${formatCuenta(item.numero_de_cuenta)}</td><td>${formatOT(item.orden_de_trabajo)}</td><td>${item.tecnico ?? ''}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderPaginador(){
+  const info = document.getElementById('paginadorInfo');
+  const ctrls = document.getElementById('paginadorControles');
+  if(!info || !ctrls) return;
+  const total = __items.length;
+  const totalPages = Math.max(1, Math.ceil(total / __pageSize));
+  const start = total === 0 ? 0 : (__page - 1) * __pageSize + 1;
+  const end = Math.min(total, __page * __pageSize);
+  info.textContent = `Mostrando ${start}–${end} de ${total}`;
+  let html = '';
+  const prevDisabled = __page <= 1 ? ' disabled' : '';
+  html += `<li class="page-item${prevDisabled}"><a class="page-link" href="#" data-page="prev">Anterior</a></li>`;
+  const windowSize = 5;
+  let startPage = Math.max(1, __page - Math.floor(windowSize/2));
+  let endPage = Math.min(totalPages, startPage + windowSize - 1);
+  startPage = Math.max(1, endPage - windowSize + 1);
+  for(let p = startPage; p <= endPage; p++){
+    const active = p === __page ? ' active' : '';
+    html += `<li class="page-item${active}"><a class="page-link" href="#" data-page="${p}">${p}</a></li>`;
+  }
+  const nextDisabled = __page >= totalPages ? ' disabled' : '';
+  html += `<li class="page-item${nextDisabled}"><a class="page-link" href="#" data-page="next">Siguiente</a></li>`;
+  ctrls.innerHTML = html;
+}
+
+document.getElementById('paginadorActividades').addEventListener('click', (e) => {
+  const a = e.target.closest('[data-page]');
+  if(!a) return;
+  e.preventDefault();
+  const totalPages = Math.max(1, Math.ceil(__items.length / __pageSize));
+  const dp = a.getAttribute('data-page');
+  if(dp === 'prev'){ if(__page > 1) __page--; }
+  else if(dp === 'next'){ if(__page < totalPages) __page++; }
+  else { const np = parseInt(dp, 10); if(!isNaN(np)) __page = Math.min(Math.max(1, np), totalPages); }
+  renderTabla();
+  renderPaginador();
+});
+
+async function initAnalistas(){
+  const dl = document.getElementById('listaAnalistas');
+  const input = document.getElementById('filtroAnalista');
+  if(!dl || !input) return;
+  try{
+    const res = await fetch('/api/lider/inicio-operacion/analistas');
+    if(res.ok){
+      const data = await res.json();
+      const arr = data && data.analistas ? data.analistas : [];
+      dl.innerHTML = '';
+      arr.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        dl.appendChild(opt);
+      });
+    }
+  }catch(_){}
+}
+document.addEventListener('DOMContentLoaded', initAnalistas);
+
+function formatCuenta(v){
+  try{
+    const s = String(v ?? '').trim();
+    if(!s) return '';
+    const i = parseInt(s.split('.')[0], 10);
+    return isNaN(i) ? s : i.toString();
+  }catch(_){ return v ?? ''; }
+}
+function formatFecha(v){
+  try{
+    if(!v) return '';
+    const s = String(v).trim();
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s|T|$)/);
+    if(m){
+      return `${m[3]}/${m[2]}/${m[1]}`;
+    }
+    const d = new Date(s);
+    if(!isNaN(d.getTime())){
+      const parts = new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d);
+      const day = parts.find(p=>p.type==='day').value;
+      const month = parts.find(p=>p.type==='month').value;
+      const year = parts.find(p=>p.type==='year').value;
+      return `${day}/${month}/${year}`;
+    }
+    return s;
+  }catch(_){ return v; }
+}
+function formatOT(v){
+  try{
+    const s = String(v ?? '').trim();
+    if(!s) return '';
+    const m = s.match(/^(\d+)/);
+    const base = m ? m[1] : s.split('.')[0];
+    const i = parseInt(base, 10);
+    return isNaN(i) ? s : i.toString();
+  }catch(_){ return v ?? ''; }
+}
 </script>
 {% endblock %}

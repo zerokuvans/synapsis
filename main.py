@@ -368,8 +368,14 @@ def login_required_api(role=None):
             if 'user_id' not in session:
                 return jsonify({'error': 'Autenticación requerida', 'code': 'AUTH_REQUIRED'}), 401
             
-            if role and session.get('user_role') != role and session.get('user_role') != 'administrativo':
-                return jsonify({'error': 'Permisos insuficientes', 'code': 'INSUFFICIENT_PERMISSIONS'}), 403
+            if role:
+                user_role = session.get('user_role')
+                if isinstance(role, (list, tuple, set)):
+                    if user_role not in role and user_role != 'administrativo':
+                        return jsonify({'error': 'Permisos insuficientes', 'code': 'INSUFFICIENT_PERMISSIONS'}), 403
+                else:
+                    if user_role != role and user_role != 'administrativo':
+                        return jsonify({'error': 'Permisos insuficientes', 'code': 'INSUFFICIENT_PERMISSIONS'}), 403
             
             return f(*args, **kwargs)
         return decorated_function
@@ -426,6 +432,20 @@ def login_required_lider_api():
         
         return decorated_function
     return lider_api_decorator
+
+def login_required_analistas_or_lider_api():
+    def dec(f):
+        @wraps(f)
+        def inner(*args, **kwargs):
+            if 'user_id' not in session:
+                return jsonify({'error': 'Autenticación requerida', 'code': 'AUTH_REQUIRED'}), 401
+            ur = session.get('user_role')
+            uc = session.get('user_cedula', '')
+            if (ur in ('analistas', 'analista', 'lider') or ur == 'administrativo' or uc == '52912112'):
+                return f(*args, **kwargs)
+            return jsonify({'error': 'Permisos insuficientes', 'code': 'INSUFFICIENT_PERMISSIONS'}), 403
+        return inner
+    return dec
 
 @app.route('/register', methods=['GET', 'POST'])
 @login_required(role='administrativo')  # Solo los administrativos pueden registrar usuarios
@@ -722,7 +742,7 @@ def main_inicio_operacion_tecnicos():
 @login_required()
 def analistas_actividades_diarias():
     try:
-        return render_template('modulos/lider/actividades-diarias.html', api_endpoint='/api/analistas/cargar-actividades', list_endpoint='/api/analistas/actividades-diarias')
+        return render_template('modulos/lider/actividades-diarias.html', api_endpoint='/api/analistas/cargar-actividades', list_endpoint='/api/analistas/actividades-diarias', mostrar_cargue=False)
     except Exception as e:
         flash(f'Error al cargar actividades diarias: {str(e)}', 'danger')
         return redirect(url_for('main_analistas_dashboard'))
@@ -2675,7 +2695,7 @@ def lider_presupuesto():
 @login_required_lider()
 def lider_actividades_diarias():
     try:
-        return render_template('modulos/lider/actividades-diarias.html')
+        return render_template('modulos/lider/actividades-diarias.html', mostrar_cargue=True, list_endpoint='/api/analistas/actividades-diarias')
     except Exception as e:
         flash(f'Error al cargar actividades diarias: {str(e)}', 'danger')
         return redirect(url_for('lider_dashboard'))
@@ -2791,14 +2811,21 @@ def api_lider_cargar_actividades():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/analistas/cargar-actividades', methods=['POST'])
-@login_required_api(role='analista')
+@login_required_api(role=['analistas','analista','lider'])
 def api_analistas_cargar_actividades():
     return api_lider_cargar_actividades()
 
 @app.route('/api/analistas/actividades-diarias', methods=['GET'])
-@login_required_api(role='analista')
+@login_required_analistas_or_lider_api()
 def api_analistas_actividades_diarias_list():
     user_name = session.get('user_name', '')
+    analista_override = request.args.get('analista', '').strip()
+    if analista_override:
+        ur = session.get('user_role')
+        uid = str(session.get('id_codigo_consumidor', ''))
+        uc = str(session.get('user_cedula', ''))
+        if (ur in ('administrativo','lider')) or uid == '26' or uc == '52912112':
+            user_name = analista_override
     fecha = request.args.get('fecha', '').strip()
     fecha_norm = fecha
     if fecha:
