@@ -37,6 +37,7 @@
                   <th>Cuenta</th>
                   <th>OT</th>
                   <th>Técnico</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -120,7 +121,12 @@ async function cargarLista(){
     }
     const res = await fetch(url);
     const data = await res.json();
-    __items = Array.isArray(data.items) ? data.items : [];
+    // Filtro interno de estados permitidos: completado y no completado
+    const rawItems = Array.isArray(data.items) ? data.items : [];
+    __items = rawItems.filter(it => {
+      const e = (it.estado || '').toString().toLowerCase().trim();
+      return e === 'completado' || e === 'no completado';
+    });
     __page = 1;
     renderTabla();
     renderPaginador();
@@ -158,7 +164,18 @@ function renderTabla(){
   const pageItems = __items.slice(start, end);
   pageItems.forEach(item => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${formatCuenta(item.numero_de_cuenta)}</td><td>${formatOT(item.orden_de_trabajo)}</td><td>${item.tecnico ?? ''}</td>`;
+    const cuenta = formatCuenta(item.numero_de_cuenta);
+    const ot = formatOT(item.orden_de_trabajo);
+    const tecnico = item.tecnico ?? '';
+    tr.innerHTML = `
+      <td>${cuenta}</td>
+      <td>${ot}</td>
+      <td>${tecnico}</td>
+      <td>
+        <button class="btn btn-sm btn-primary" onclick="abrirGestionActividad('${ot}','${cuenta}','${tecnico}')">
+          <i class="fas fa-tools me-1"></i>Gestionar
+        </button>
+      </td>`;
     tbody.appendChild(tr);
   });
 }
@@ -257,6 +274,380 @@ function formatOT(v){
     const i = parseInt(base, 10);
     return isNaN(i) ? s : i.toString();
   }catch(_){ return v ?? ''; }
+}
+
+// Modal de gestión de actividad
+</script>
+
+<!-- Modal Gestión de Actividad -->
+<div class="modal fade" id="modalGestionActividad" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="fas fa-clipboard-check me-2"></i>Gestión de Actividad</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="container-fluid">
+          <!-- Datos Actividad -->
+          <div class="card mb-3">
+            <div class="card-header fw-bold">Datos Actividad</div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <label class="form-label">Cuenta</label>
+                  <input type="text" class="form-control" id="gaCuenta" readonly>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">OT</label>
+                  <input type="text" class="form-control" id="gaOT" readonly>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Estado</label>
+                  <input type="text" class="form-control" id="gaEstado" readonly>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label">Técnico</label>
+                  <input type="text" class="form-control" id="gaTecnico" readonly>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Datos Gestión -->
+          <div class="card mb-3">
+            <div class="card-header fw-bold">Datos Gestión</div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Nombre</label>
+                  <input type="text" class="form-control" id="gaNombre" readonly>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Tipo de Actividad</label>
+                  <input type="text" class="form-control" id="gaTipoActividad" readonly>
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Dirección</label>
+                  <input type="text" class="form-control" id="gaDireccion" readonly>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Tiempo Gestión (Inicio–Fin)</label>
+                  <input type="text" class="form-control" id="gaTiempoGestion" readonly>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Duración</label>
+                  <input type="text" class="form-control" id="gaDuracion" readonly>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gestión -->
+          <div class="card">
+            <div class="card-header fw-bold">Gestión</div>
+            <div class="card-body">
+              <!-- Sección OK -->
+              <div id="seccionOk" style="display:none;">
+                <div class="alert alert-success mb-3"><i class="fas fa-check-circle me-2"></i>Estado: Completado</div>
+                <div class="row g-3 align-items-end">
+                  <div class="col-md-6">
+                    <label class="form-label">Facturación</label><br>
+                    <button class="btn btn-outline-success" id="btnFacturar">
+                      <i class="fas fa-file-invoice-dollar me-2"></i>Facturar
+                    </button>
+                    <div id="facturarInfo" class="d-none"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Cierre de ciclo</label>
+                    <div class="d-flex gap-3">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gaCierreCiclo" id="gaCierreNo" value="no" checked>
+                        <label class="form-check-label" for="gaCierreNo">No</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gaCierreCiclo" id="gaCierreSi" value="si">
+                        <label class="form-check-label" for="gaCierreSi">Sí</label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div id="subseccionCierre" class="mt-3" style="display:none;">
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label">Tipificación OK</label>
+                      <select class="form-select" id="gaTipificacionOk">
+                        <option value="">Seleccione...</option>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Tipificación Novedad</label>
+                      <select class="form-select" id="gaTipificacionNovedad">
+                        <option value="">Seleccione...</option>
+                      </select>
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label">Observación</label>
+                      <input type="text" class="form-control" id="gaObservacionNovedad" placeholder="Observaciones...">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sección Razón -->
+              <div id="seccionRazon" style="display:none;">
+                <div class="alert alert-warning mb-3"><i class="fas fa-exclamation-circle me-2"></i>Estado: No Completado</div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Tipo Razón (de la actividad)</label>
+                    <input type="text" class="form-control" id="gaTipoRazon" readonly>
+                    <div class="form-text">Seleccione si aplica o no</div>
+                    <div class="d-flex gap-3 mt-2">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gaTipoRazonAplica" id="gaTRNo" value="no" checked>
+                        <label class="form-check-label" for="gaTRNo">No</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gaTipoRazonAplica" id="gaTRSi" value="si">
+                        <label class="form-check-label" for="gaTRSi">Sí</label>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Razón Real</label>
+                    <select class="form-select" id="gaRazonReal">
+                      <option value="">Seleccione...</option>
+                    </select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Observaciones</label>
+                    <input type="text" class="form-control" id="gaObservacionesRazon" placeholder="Observaciones...">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Facturar (iframe del formulario de OT) -->
+<div class="modal fade" id="modalFacturarOT" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-file-invoice-dollar me-2"></i>Nueva Orden de Trabajo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" style="height: 80vh;">
+        <iframe id="facturarFrame" src="" style="width:100%; height:100%; border:0;"></iframe>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let __gaContext = { ot: '', cuenta: '', tecnico: '' };
+
+async function abrirGestionActividad(ot, cuenta, tecnico){
+  __gaContext = { ot, cuenta, tecnico };
+  document.getElementById('gaOT').value = ot || '';
+  document.getElementById('gaCuenta').value = cuenta || '';
+  document.getElementById('gaTecnico').value = tecnico || '';
+  try{
+    const fecha = (document.getElementById('filtroFecha')?.value || '').trim();
+    const qs = new URLSearchParams({ ot, cuenta });
+    if(fecha) qs.append('fecha', fecha);
+    const res = await fetch(`/api/analistas/actividad-detalle?${qs.toString()}`);
+    const data = await res.json();
+    const d = data && data.data ? data.data : {};
+    document.getElementById('gaEstado').value = d.estado || '';
+    document.getElementById('gaNombre').value = d.nombre_completo || '';
+    document.getElementById('gaTipoActividad').value = d.tipo_de_actividad || '';
+    document.getElementById('gaDireccion').value = d.direccion_campo_1 || d.direccion || '';
+    document.getElementById('gaTiempoGestion').value = d.inicio_fin || '';
+    document.getElementById('gaDuracion').value = d.duracion || d.duración || '';
+    document.getElementById('gaTipoRazon').value = d.razon || d.razón || '';
+    mostrarSeccionesPorEstado((d.estado || '').toLowerCase());
+    await actualizarEstadoFacturar(ot, cuenta);
+  }catch(e){
+    mostrarSeccionesPorEstado('');
+  }
+  const m = new bootstrap.Modal(document.getElementById('modalGestionActividad'));
+  m.show();
+}
+
+function mostrarSeccionesPorEstado(estado){
+  const ok = document.getElementById('seccionOk');
+  const rz = document.getElementById('seccionRazon');
+  ok.style.display = estado === 'completado' ? 'block' : 'none';
+  rz.style.display = estado === 'no completado' ? 'block' : 'none';
+}
+
+document.getElementById('gaCierreSi').addEventListener('change', () => {
+  document.getElementById('subseccionCierre').style.display = 'block';
+});
+document.getElementById('gaCierreNo').addEventListener('change', () => {
+  document.getElementById('subseccionCierre').style.display = 'none';
+});
+
+document.getElementById('btnFacturar').addEventListener('click', () => abrirFacturar());
+
+function abrirFacturar(){
+  const bf = document.getElementById('btnFacturar');
+  if (bf && bf.disabled) return;
+  const frame = document.getElementById('facturarFrame');
+  frame.src = '/analistas/ordenes_trabajo_preview';
+  const modal = new bootstrap.Modal(document.getElementById('modalFacturarOT'));
+  modal.show();
+  frame.addEventListener('load', () => {
+    try{
+      const w = frame.contentWindow;
+      const d = w.document;
+      const btn = d.getElementById('btnNuevaOT');
+      btn && btn.click();
+          setTimeout(async () => {
+            try{
+              d.getElementById('inputOT').value = __gaContext.ot || '';
+              d.getElementById('inputCuenta').value = __gaContext.cuenta || '';
+              if (w && w.validarFormularioOT) { try { w.validarFormularioOT(); } catch(_){} }
+              const tipo = (document.getElementById('gaTipoActividad')?.value || '').trim();
+          if (tipo) {
+            const resSug = await fetch(`/api/analistas/sugerir-tecnologia-categoria?tipo=${encodeURIComponent(tipo)}`);
+            const sugJson = await resSug.json();
+            const sug = sugJson && sugJson.sugerencia ? sugJson.sugerencia : {};
+            const tec = sug.tecnologia || '';
+            const cat = sug.categoria || '';
+            const normalize = (s) => (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+            const waitFor = async (fn, tries=20, delay=200) => {
+              for(let i=0;i<tries;i++){ const v = fn(); if(v) return v; await new Promise(r=>setTimeout(r,delay)); }
+              return null;
+            };
+            const selTec = await waitFor(() => d.getElementById('selectTecnologia'));
+            if(selTec){
+              await waitFor(() => selTec.options && selTec.options.length > 1);
+              if (tec){
+                let matched = false;
+                for(const opt of selTec.options){
+                  if(opt.value === tec || normalize(opt.textContent) === normalize(tec)) { selTec.value = opt.value; matched = true; break; }
+                }
+                if(!matched){
+                  for(const opt of selTec.options){
+                    if(normalize(opt.textContent).includes(normalize(tec))) { selTec.value = opt.value; matched = true; break; }
+                  }
+                }
+                if(matched){
+                  selTec.dispatchEvent(new Event('change'));
+                  if (w.cargarCategorias) {
+                    try { await w.cargarCategorias(selTec.value, 'selectCategoria'); } catch(_){ }
+                  }
+                  const infoId = 'sugerenciaInfo';
+                  let infoEl = d.getElementById(infoId);
+                  if(!infoEl){
+                    infoEl = d.createElement('div');
+                    infoEl.id = infoId;
+                    infoEl.className = 'text-success small mt-1';
+                    selTec.closest('.col-md-6')?.appendChild(infoEl);
+                  }
+                  infoEl.textContent = `Tecnología sugerida: ${selTec.value}`;
+                  // categoría
+                  if(cat){
+                    const selCat = await waitFor(() => d.getElementById('selectCategoria'));
+                    if(selCat){
+                      await waitFor(() => !selCat.disabled && selCat.options && selCat.options.length > 1);
+                      let cm = false;
+                      for(const opt of selCat.options){
+                        if(opt.value === cat || normalize(opt.textContent) === normalize(cat)) { selCat.value = opt.value; cm = true; break; }
+                      }
+                      if(!cm){
+                        for(const opt of selCat.options){
+                          if(normalize(opt.textContent).includes(normalize(cat))) { selCat.value = opt.value; cm = true; break; }
+                        }
+                      }
+                      if(cm){ selCat.dispatchEvent(new Event('change')); }
+                      const infoCatId = 'sugerenciaInfoCat';
+                      let infoCatEl = d.getElementById(infoCatId);
+                      if(!infoCatEl){
+                        infoCatEl = d.createElement('div');
+                        infoCatEl.id = infoCatId;
+                        infoCatEl.className = cm ? 'text-success small mt-1' : 'text-warning small mt-1';
+                        selCat.closest('.col-md-6')?.appendChild(infoCatEl);
+                      }
+                      infoCatEl.textContent = cm ? `Categoría sugerida: ${selCat.value}` : 'No se detectó categoría; seleccione manualmente.';
+                    }
+                  }
+                } else {
+                  const warnId = 'sugerenciaWarn';
+                  let wEl = d.getElementById(warnId);
+                  if(!wEl){
+                    wEl = d.createElement('div');
+                    wEl.id = warnId;
+                    wEl.className = 'text-warning small mt-1';
+                    selTec.closest('.col-md-6')?.appendChild(wEl);
+                  }
+                  wEl.textContent = 'No se detectó tecnología; seleccione manualmente.';
+                }
+              }
+            }
+          }
+        }catch(_){}
+      }, 400);
+    }catch(_){}
+  }, { once: true });
+
+  // Al cerrar modal, verificar facturación
+  document.getElementById('modalFacturarOT').addEventListener('hidden.bs.modal', () => {
+    verificarFacturacion(__gaContext.ot, __gaContext.cuenta);
+    actualizarEstadoFacturar(__gaContext.ot, __gaContext.cuenta);
+  }, { once: true });
+}
+
+async function verificarFacturacion(ot, cuenta){
+  try{
+    const qs = new URLSearchParams({ ot, cuenta });
+    const res = await fetch(`/api/analistas/ot-existe?${qs.toString()}`);
+    const data = await res.json();
+    if(data && data.exists){
+      await fetch('/api/analistas/actividad-marcar-facturada', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ot, cuenta })
+      });
+    }
+  }catch(_){}
+}
+
+async function actualizarEstadoFacturar(ot, cuenta){
+  const btn = document.getElementById('btnFacturar');
+  const info = document.getElementById('facturarInfo');
+  if(!btn) return;
+  try{
+    const qs = new URLSearchParams({ ot, cuenta });
+    const res = await fetch(`/api/analistas/ot-existe?${qs.toString()}`);
+    const data = await res.json();
+    const exists = !!(data && data.exists);
+    btn.disabled = exists;
+    if(info){
+      if(exists){
+        info.className = 'text-warning small mt-2';
+        info.textContent = 'OT ya registrada para esta actividad';
+      }else{
+        info.className = 'd-none';
+        info.textContent = '';
+      }
+    }
+  }catch(_){
+    btn.disabled = false;
+    if(info){ info.className = 'd-none'; info.textContent = ''; }
+  }
 }
 </script>
 {% endblock %}

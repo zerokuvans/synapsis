@@ -1203,12 +1203,22 @@ def tecnicos_ordenes_trabajo_preview():
         flash(f'Error al cargar Órdenes de Trabajo (preview): {str(e)}', 'danger')
         return render_template('modulos/tecnicos/ordenes_trabajo.html')
 
+# Vista de preview de Órdenes de Trabajo para analistas
+@app.route('/analistas/ordenes_trabajo_preview')
+@login_required(role=['analista','analistas'])
+def analistas_ordenes_trabajo_preview():
+    try:
+        return render_template('modulos/tecnicos/ordenes_trabajo.html', modal_only=True)
+    except Exception as e:
+        flash(f'Error al cargar Órdenes de Trabajo (analistas): {str(e)}', 'danger')
+        return render_template('modulos/tecnicos/ordenes_trabajo.html', modal_only=True)
+
 # ==================== APIs ÓRDENES DE TRABAJO - TÉCNICOS ====================
 
 # Listar órdenes del técnico logueado
 @app.route('/tecnicos/ordenes', methods=['GET'])
 @app.route('/api/tecnicos/ordenes', methods=['GET'])
-@login_required_api(role='tecnicos')
+@login_required_api(role=['tecnicos','analista','analistas'])
 def api_tecnicos_list_ordenes():
     try:
         connection = get_db_connection()
@@ -1288,7 +1298,7 @@ def api_tecnicos_list_ordenes():
 # Ver detalle de una orden por OT desde tabla historial
 @app.route('/tecnicos/ordenes/detalle/<ot>', methods=['GET'])
 @app.route('/api/tecnicos/ordenes/detalle/<ot>', methods=['GET'])
-@login_required_api(role='tecnicos')
+@login_required_api(role=['tecnicos','analista','analistas'])
 def api_tecnicos_get_orden_detalle(ot):
     try:
         connection = get_db_connection()
@@ -1393,13 +1403,13 @@ def api_tecnicos_get_orden_detalle(ot):
 # Crear nueva orden (guarda resumen en principal y detalles en historial)
 @app.route('/tecnicos/ordenes', methods=['POST'])
 @app.route('/api/tecnicos/ordenes', methods=['POST'])
-@login_required_api(role='tecnicos')
+@login_required_api(role=['tecnicos','analista','analistas'])
 def api_tecnicos_create_orden():
     import traceback
     try:
         data = request.get_json() or {}
         app.logger.info('[api_tecnicos_create_orden] payload recibido: %s', data)
-        required = ['ot', 'cuenta', 'servicio', 'tecnologia', 'codigos']
+        required = ['ot', 'cuenta', 'tecnologia', 'codigos']
         for field in required:
             if field not in data or (field == 'codigos' and not isinstance(data['codigos'], list)):
                 app.logger.warning('[api_tecnicos_create_orden] faltante/invalid: %s', field)
@@ -1409,10 +1419,14 @@ def api_tecnicos_create_orden():
         try:
             ot = int(str(data.get('ot', '')).strip())
             cuenta = int(str(data.get('cuenta', '')).strip())
-            servicio = int(str(data.get('servicio', '')).strip())
         except Exception:
-            app.logger.error('[api_tecnicos_create_orden] tipos inválidos para ot/cuenta/servicio', exc_info=True)
-            return jsonify({'success': False, 'error': 'OT/Cuenta/Servicio deben ser numéricos'}), 400
+            app.logger.error('[api_tecnicos_create_orden] tipos inválidos para ot/cuenta', exc_info=True)
+            return jsonify({'success': False, 'error': 'OT/Cuenta deben ser numéricos'}), 400
+        # Servicio ya no es requerido: default 0 si no viene
+        try:
+            servicio = int(str(data.get('servicio', '0')).strip() or '0')
+        except Exception:
+            servicio = 0
 
         tecnologia = data.get('tecnologia')
         if not tecnologia:
@@ -1624,7 +1638,7 @@ def api_tecnicos_create_orden():
 # Obtener lista de tecnologías disponibles
 @app.route('/tecnicos/tecnologias', methods=['GET'])
 @app.route('/api/tecnicos/tecnologias', methods=['GET'])
-@login_required_api(role='tecnicos')
+@login_required_api(role=['tecnicos','analista','analistas'])
 def api_tecnicos_list_tecnologias():
     try:
         connection = get_db_connection()
@@ -1655,7 +1669,7 @@ def api_tecnicos_list_tecnologias():
 # Obtener categorías por tecnología
 @app.route('/tecnicos/categorias/<string:tecnologia>', methods=['GET'])
 @app.route('/api/tecnicos/categorias/<string:tecnologia>', methods=['GET'])
-@login_required_api(role='tecnicos')
+@login_required_api(role=['tecnicos','analista','analistas'])
 def api_tecnicos_list_categorias(tecnologia):
     try:
         connection = get_db_connection()
@@ -1688,9 +1702,9 @@ def api_tecnicos_list_categorias(tecnologia):
 
 # Obtener códigos filtrados por tecnología y categoría
 @app.route('/tecnicos/codigos/tecnologia/<string:tecnologia>', methods=['GET'])
-@app.route('/tecnicos/codigos/tecnologia/<string:tecnologia>/categoria/<string:categoria>', methods=['GET'])
+@app.route('/tecnicos/codigos/tecnologia/<string:tecnologia>/categoria/<path:categoria>', methods=['GET'])
 @app.route('/api/tecnicos/codigos', methods=['GET'])
-@login_required_api(role='tecnicos')
+@login_required_api(role=['tecnicos','analista','analistas'])
 def api_tecnicos_list_codigos(tecnologia=None, categoria=None):
     try:
         # Permitir también /api/tecnicos/codigos?tecnologia=...&categoria=...
@@ -2916,6 +2930,7 @@ def api_analistas_actividades_diarias_list():
         col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'], approx=['numerodecuenta','cuenta'])
         col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'], approx=['fechaactividad','fechaorden'])
         col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'], approx=['external_id','exetrnal_id','idexterno','id_externo','cedula'])
+        col_estado = pick(['estado'])
         if not col_ot or not col_cuenta or not col_fecha or not col_ext:
             return jsonify({'success': False, 'items': [], 'message': 'Columnas requeridas no encontradas'}), 200
         tipo_fecha = None
@@ -2971,6 +2986,7 @@ def api_analistas_actividades_diarias_list():
                   o.`{col_cuenta}` AS numero_de_cuenta,
                   o.`{col_ext}` AS external_id,
                   o.`{col_fecha}` AS fecha
+                  {', o.`' + col_estado + '` AS estado' if col_estado else ''}
                 FROM operaciones_actividades_diarias o
                 WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_fecha_sql}
                   AND o.`{col_cuenta}` IS NOT NULL
@@ -2978,6 +2994,7 @@ def api_analistas_actividades_diarias_list():
                   AND o.`{col_cuenta}` REGEXP '^[0-9]+' 
                   AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
                   AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
+                  {" AND LOWER(TRIM(o.`" + col_estado + "`)) IN ('completado','no completado')" if col_estado else ''}
                 ORDER BY o.`{col_fecha}` DESC
                 LIMIT 500
             """
@@ -2992,6 +3009,7 @@ def api_analistas_actividades_diarias_list():
                     'numero_de_cuenta': r.get('numero_de_cuenta'),
                     'tecnico': r.get('tecnico'),
                     'fecha': r.get('fecha'),
+                    'estado': (r.get('estado') or '').strip() if col_estado else ''
                 })
         cursor.close()
         connection.close()
@@ -2999,6 +3017,312 @@ def api_analistas_actividades_diarias_list():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+# Detalle de actividad por OT y cuenta
+@app.route('/api/analistas/actividad-detalle', methods=['GET'])
+@login_required_analistas_or_lider_api()
+def api_analistas_actividad_detalle():
+    ot = request.args.get('ot', '').strip()
+    cuenta = request.args.get('cuenta', '').strip()
+    fecha = request.args.get('fecha', '').strip()
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        c = connection.cursor()
+        c.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in c.fetchall()}
+        def pick(names, approx=None):
+            if approx is None:
+                approx = []
+            for n in names:
+                k = n.lower()
+                if k in cols:
+                    return cols[k]
+            for k0,v0 in cols.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            if approx:
+                def norm(s):
+                    import re
+                    return re.sub(r"[^a-z0-9]", "", s.lower())
+                aset = {norm(x) for x in approx}
+                for k0,v0 in cols.items():
+                    if norm(k0) in aset:
+                        return v0
+            return None
+        col_ot = pick(['orden_de_trabajo','ot','orden','orden_trabajo'], approx=['ordentrabajo','ot'])
+        col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'], approx=['numerodecuenta','cuenta'])
+        col_estado = pick(['estado'])
+        col_nombre = pick(['nombre_completo','nombre'])
+        col_tipo = pick(['tipo_de_actividad','tipo','actividad'])
+        col_dir = pick(['direccion_campo_1','direccion'])
+        col_tiempos = pick(['inicio_fin','tiempos','tiempo_gestion'])
+        col_duracion = pick(['duracion','duración'])
+        col_razon = pick(['razon','razón'])
+        col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+        if not col_ot or not col_cuenta:
+            return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
+        params = []
+        where = []
+        if ot:
+            where.append(f"CAST(o.`{col_ot}` AS CHAR) = %s")
+            params.append(str(int(str(ot).split('.')[0])) if str(ot).strip() else ot)
+        if cuenta:
+            where.append(f"CAST(o.`{col_cuenta}` AS CHAR) = %s")
+            params.append(str(int(str(cuenta).split('.')[0])) if str(cuenta).strip() else cuenta)
+        sql = f"SELECT o.`{col_ot}` AS ot, o.`{col_cuenta}` AS cuenta"
+        if col_estado: sql += f", o.`{col_estado}` AS estado"
+        if col_nombre: sql += f", o.`{col_nombre}` AS nombre_completo"
+        if col_tipo: sql += f", o.`{col_tipo}` AS tipo_de_actividad"
+        if col_dir: sql += f", o.`{col_dir}` AS direccion_campo_1"
+        if col_tiempos: sql += f", o.`{col_tiempos}` AS inicio_fin"
+        if col_duracion: sql += f", o.`{col_duracion}` AS duracion"
+        if col_razon: sql += f", o.`{col_razon}` AS razon"
+        sql += " FROM operaciones_actividades_diarias o"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        # Filtro por fecha si se detecta columna y viene parámetro
+        if fecha and col_fecha:
+            # Detectar tipo de columna
+            tipo_fecha = None
+            try:
+                c.execute(
+                    """
+                    SELECT DATA_TYPE FROM information_schema.columns
+                    WHERE table_schema=%s AND table_name='operaciones_actividades_diarias' AND column_name=%s
+                    """,
+                    (db_config.get('database'), col_fecha)
+                )
+                rtf = c.fetchone()
+                tipo_fecha = str(rtf[0]).lower() if rtf else None
+            except Exception:
+                tipo_fecha = None
+            # Normalizar fecha
+            fecha_norm = fecha
+            for fmt in ('%Y-%m-%d','%d/%m/%Y','%d-%m-%Y','%Y/%m/%d'):
+                try:
+                    from datetime import datetime
+                    fecha_norm = datetime.strptime(fecha, fmt).strftime('%Y-%m-%d')
+                    break
+                except Exception:
+                    pass
+            if ' WHERE ' in sql:
+                sql += " AND "
+            else:
+                sql += " WHERE "
+            if tipo_fecha in ('datetime','timestamp','date'):
+                sql += f"DATE(o.`{col_fecha}`) = %s"
+                params.append(fecha_norm)
+            else:
+                sql += f"o.`{col_fecha}` LIKE %s"
+                params.append(fecha_norm + '%')
+        # Ordenar por fecha si existe, si no por OT
+        if col_fecha:
+            sql += f" ORDER BY o.`{col_fecha}` DESC LIMIT 1"
+        else:
+            sql += " ORDER BY 1 DESC LIMIT 1"
+        c = connection.cursor(dictionary=True)
+        c.execute(sql, tuple(params))
+        row = c.fetchone() or {}
+        c.close(); connection.close()
+        return jsonify({'success': True, 'data': row})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Verificar existencia de OT en la gestión de técnicos
+@app.route('/api/analistas/ot-existe', methods=['GET'])
+@login_required_analistas_or_lider_api()
+def api_analistas_ot_existe():
+    ot = request.args.get('ot', '').strip()
+    cuenta = request.args.get('cuenta', '').strip()
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        where = []
+        params = []
+        if ot:
+            where.append("ot = %s")
+            params.append(int(str(ot).split('.')[0]))
+        if cuenta:
+            where.append("cuenta = %s")
+            params.append(int(str(cuenta).split('.')[0]))
+        sql = "SELECT COUNT(*) FROM gestion_ot_tecnicos"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        cur.execute(sql, tuple(params))
+        exists = (cur.fetchone()[0] or 0) > 0
+        cur.close(); connection.close()
+        return jsonify({'success': True, 'exists': exists})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Marcar actividad como facturada por analista
+@app.route('/api/analistas/actividad-marcar-facturada', methods=['POST'])
+@login_required_analistas_or_lider_api()
+def api_analistas_actividad_marcar_facturada():
+    data = request.get_json() or {}
+    ot = str(data.get('ot') or '').strip()
+    cuenta = str(data.get('cuenta') or '').strip()
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        # Asegurar columna facturado_analista
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias' AND column_name='facturado_analista'
+            """,
+            (db_config.get('database'),)
+        )
+        has_col = cur.fetchone()[0] > 0
+        if not has_col:
+            cur.execute("ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `facturado_analista` TINYINT(1) NULL DEFAULT NULL")
+        # Detectar nombres de columnas ot/cuenta
+        cur.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cur.fetchall()}
+        def pick(names):
+            for n in names:
+                if n.lower() in cols:
+                    return cols[n.lower()]
+            for k0,v0 in cols.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            return None
+        col_ot = pick(['orden_de_trabajo','ot','orden','orden_trabajo'])
+        col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
+        if not col_ot or not col_cuenta:
+            return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
+        where = []
+        params = []
+        if ot:
+            where.append(f"CAST(`{col_ot}` AS CHAR) = %s")
+            params.append(str(int(str(ot).split('.')[0])) if str(ot).strip() else ot)
+        if cuenta:
+            where.append(f"CAST(`{col_cuenta}` AS CHAR) = %s")
+            params.append(str(int(str(cuenta).split('.')[0])) if str(cuenta).strip() else cuenta)
+        if not where:
+            return jsonify({'success': False, 'error': 'Faltan OT/Cuenta'}), 400
+        sql = f"UPDATE `operaciones_actividades_diarias` SET `facturado_analista`=1 WHERE " + " AND ".join(where)
+        cur.execute(sql, tuple(params))
+        connection.commit()
+        cur.close(); connection.close()
+        return jsonify({'success': True, 'updated': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Sugerir tecnología y categoría desde tipo de actividad
+@app.route('/api/analistas/sugerir-tecnologia-categoria', methods=['GET'])
+@login_required_analistas_or_lider_api()
+def api_analistas_sugerir_tecnologia_categoria():
+    tipo = (request.args.get('tipo') or '').strip()
+    if not tipo:
+        return jsonify({'success': False, 'error': 'tipo requerido'}), 400
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+
+        # Obtener tecnologías disponibles
+        cur.execute("""
+            SELECT DISTINCT tecnologia 
+            FROM base_codigos_facturacion 
+            WHERE tecnologia IS NOT NULL AND tecnologia <> ''
+        """)
+        tecnologias_rows = cur.fetchall() or []
+        tecnologias = [str(r[0]) for r in tecnologias_rows]
+
+        # Normalizador
+        import unicodedata, re
+        def norm(s:str):
+            s = unicodedata.normalize('NFKD', s)
+            s = ''.join([c for c in s if not unicodedata.combining(c)])
+            s = s.lower()
+            s = re.sub(r"[^a-z0-9]+"," ", s).strip()
+            return s
+        tipo_n = norm(tipo)
+        tokens = set(tipo_n.split())
+
+        # Heurísticos
+        heur_map = [
+            (['ftth','gpon','fibra'], 'FTTH'),
+            (['hfc','coax','docsis'], 'HFC'),
+            (['adsl','xdsl','cobre'], 'XDSL'),
+            (['fwa','radio'], 'FWA'),
+        ]
+        suger_tecnologia = None
+        for keys, tech in heur_map:
+            if any(k in tokens for k in keys):
+                if tech in tecnologias:
+                    suger_tecnologia = tech
+                    break
+
+        # Si no por heurística, tratar de encontrar por categorías con LIKE
+        suger_categoria = None
+        cur = connection.cursor(dictionary=True)
+        # Buscar categorías que contengan parte del tipo
+        like = f"%{tipo_n.split()[0]}%" if tipo_n else '%'
+        cur.execute("""
+            SELECT DISTINCT tecnologia, categoria 
+            FROM base_codigos_facturacion
+            WHERE categoria IS NOT NULL AND categoria <> ''
+        """)
+        best_score = 0
+        best_pair = None
+        for r in cur.fetchall() or []:
+            cat = str(r.get('categoria') or '')
+            cat_n = norm(cat)
+            score = 0
+            if cat_n and tipo_n:
+                if cat_n in tipo_n or tipo_n in cat_n:
+                    score = min(len(cat_n), len(tipo_n))
+                else:
+                    # intersección de palabras
+                    score = len(set(cat_n.split()) & set(tipo_n.split()))
+            if score > best_score:
+                best_score = score
+                best_pair = (str(r.get('tecnologia') or ''), str(r.get('categoria') or ''))
+
+        if best_pair:
+            tech_candidate, cat_candidate = best_pair
+            if tech_candidate:
+                suger_tecnologia = tech_candidate
+            suger_categoria = cat_candidate
+
+        # Si sigue sin tecnología y hay tokens que coinciden exactamente con tecnologías
+        if not suger_tecnologia:
+            for tech in tecnologias:
+                if norm(tech) in tokens or any(norm(tech) in w for w in tokens):
+                    suger_tecnologia = tech
+                    break
+
+        return jsonify({
+            'success': True,
+            'sugerencia': {
+                'tecnologia': suger_tecnologia,
+                'categoria': suger_categoria
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 # APIs para Inicio de Operación
 @app.route('/api/lider/inicio-operacion/supervisores', methods=['GET'])
 @login_required_lider_api()
@@ -23032,3 +23356,40 @@ if __name__ == '__main__':
     import os
     debug_mode = os.environ.get('FLASK_DEBUG', '0') == '1'
     app.run(debug=debug_mode, host='0.0.0.0', port=8080)
+# Alias para analistas (mismo comportamiento)
+@app.route('/analistas/ordenes', methods=['GET'])
+@app.route('/api/analistas/ordenes', methods=['GET'])
+@login_required_api(role=['analista','analistas'])
+def api_analistas_list_ordenes_alias():
+    return api_tecnicos_list_ordenes()
+# Alias detalle para analistas
+@app.route('/analistas/ordenes/detalle/<ot>', methods=['GET'])
+@app.route('/api/analistas/ordenes/detalle/<ot>', methods=['GET'])
+@login_required_api(role=['analista','analistas'])
+def api_analistas_get_orden_detalle_alias(ot):
+    return api_tecnicos_get_orden_detalle(ot)
+# Alias creación para analistas
+@app.route('/analistas/ordenes', methods=['POST'])
+@app.route('/api/analistas/ordenes', methods=['POST'])
+@login_required_api(role=['analista','analistas'])
+def api_analistas_create_orden_alias():
+    return api_tecnicos_create_orden()
+# Alias tecnologías para analistas
+@app.route('/analistas/tecnologias', methods=['GET'])
+@app.route('/api/analistas/tecnologias', methods=['GET'])
+@login_required_api(role=['analista','analistas'])
+def api_analistas_list_tecnologias_alias():
+    return api_tecnicos_list_tecnologias()
+# Alias categorías para analistas
+@app.route('/analistas/categorias/<string:tecnologia>', methods=['GET'])
+@app.route('/api/analistas/categorias/<string:tecnologia>', methods=['GET'])
+@login_required_api(role=['analista','analistas'])
+def api_analistas_list_categorias_alias(tecnologia):
+    return api_tecnicos_list_categorias(tecnologia)
+# Alias códigos para analistas
+@app.route('/analistas/codigos/tecnologia/<string:tecnologia>', methods=['GET'])
+@app.route('/analistas/codigos/tecnologia/<string:tecnologia>/categoria/<path:categoria>', methods=['GET'])
+@app.route('/api/analistas/codigos', methods=['GET'])
+@login_required_api(role=['analista','analistas'])
+def api_analistas_list_codigos_alias(tecnologia=None, categoria=None):
+    return api_tecnicos_list_codigos(tecnologia, categoria)

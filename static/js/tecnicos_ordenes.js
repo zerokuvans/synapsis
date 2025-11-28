@@ -8,25 +8,34 @@ let paginaActual = 1;
 const registrosPorPagina = 10;
 
 // Configuración de API
-const API_BASE_URL = '/tecnicos';
+let API_BASE_URL = window.TECNICOS_API_PREFIX || '/tecnicos';
 
 // Inicialización
 document.addEventListener('DOMContentLoaded', function() {
     inicializarEventos();
     cargarTecnologias();
-    cargarOrdenesTrabajo();
+    if (window.MODAL_ONLY) {
+        abrirModalNuevaOT();
+    } else {
+        cargarOrdenesTrabajo();
+    }
 });
 
 // Función para inicializar eventos
 function inicializarEventos() {
     // Botones principales
-    document.getElementById('btnNuevaOT').addEventListener('click', abrirModalNuevaOT);
-    document.getElementById('btnAplicarFiltros').addEventListener('click', aplicarFiltros);
-    document.getElementById('btnLimpiarFiltros').addEventListener('click', limpiarFiltros);
+    const btnNuevaOT = document.getElementById('btnNuevaOT');
+    if (btnNuevaOT) btnNuevaOT.addEventListener('click', abrirModalNuevaOT);
+    const btnAplicar = document.getElementById('btnAplicarFiltros');
+    if (btnAplicar) btnAplicar.addEventListener('click', aplicarFiltros);
+    const btnLimpiar = document.getElementById('btnLimpiarFiltros');
+    if (btnLimpiar) btnLimpiar.addEventListener('click', limpiarFiltros);
     
     // Botones de vista
-    document.getElementById('btnVistaTabla').addEventListener('click', cambiarVistaTabla);
-    document.getElementById('btnVistaTarjetas').addEventListener('click', cambiarVistaTarjetas);
+    const btnTabla = document.getElementById('btnVistaTabla');
+    if (btnTabla) btnTabla.addEventListener('click', cambiarVistaTabla);
+    const btnTarjetas = document.getElementById('btnVistaTarjetas');
+    if (btnTarjetas) btnTarjetas.addEventListener('click', cambiarVistaTarjetas);
     
     // Filtros en cascada (solo si existen en la vista)
     const filtroTecnologiaEl = document.getElementById('filtroTecnologia');
@@ -63,16 +72,19 @@ function inicializarEventos() {
     
     // Validación de campos numéricos en tiempo real
     document.getElementById('inputOT').addEventListener('input', function() {
-        validarCampoNumerico(this, 7);
+        validarCampoNumerico(this, [7,12]);
     });
     
     document.getElementById('inputCuenta').addEventListener('input', function() {
         validarCampoNumerico(this, 8);
     });
     
-    document.getElementById('inputServicio').addEventListener('input', function() {
-        validarCampoNumerico(this, 7);
-    });
+    const inputServicioEl = document.getElementById('inputServicio');
+    if (inputServicioEl) {
+        inputServicioEl.addEventListener('input', function() {
+            validarCampoNumerico(this, 7);
+        });
+    }
     
     // Botón guardar OT
     document.getElementById('btnGuardarOT').addEventListener('click', guardarOT);
@@ -84,6 +96,8 @@ function inicializarEventos() {
 // Funciones de carga de datos
 async function cargarOrdenesTrabajo() {
     try {
+        const cuerpoTabla = document.getElementById('cuerpoTabla');
+        if (!cuerpoTabla) return;
         mostrarCargandoTabla();
         
         const response = await fetch(`${API_BASE_URL}/ordenes`);
@@ -105,41 +119,105 @@ async function cargarOrdenesTrabajo() {
 
 async function cargarTecnologias() {
     try {
-        const response = await fetch(`${API_BASE_URL}/tecnologias`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        let ok = false;
+        let data = null;
+        try {
+            const response = await fetch(`${API_BASE_URL}/tecnologias`);
+            if (response.ok) {
+                data = await response.json();
+                ok = true;
+            }
+        } catch (e) {
+            ok = false;
         }
-        
-        const data = await response.json();
-        tecnologias = data.tecnologias || data;
-        
+
+        if (!ok) {
+            try {
+                const resp2 = await fetch(`/tecnicos/tecnologias`);
+                if (resp2.ok) {
+                    data = await resp2.json();
+                    ok = true;
+                }
+            } catch (e2) {
+                ok = false;
+            }
+        }
+
+        tecnologias = (data && (data.tecnologias || data)) || [];
+
         // Llenar selects de tecnología
         const filtroEl = document.getElementById('filtroTecnologia');
         if (filtroEl) {
             llenarSelect('filtroTecnologia', tecnologias, 'Seleccione tecnología');
         }
-        // Mantener el modal
         llenarSelect('selectTecnologia', tecnologias, 'Seleccione tecnología');
-        
+
+        if (!tecnologias.length) {
+            const selTec = document.getElementById('selectTecnologia');
+            const warnId = 'sugerenciaWarn';
+            let wEl = document.getElementById(warnId);
+            if(!wEl){
+                wEl = document.createElement('div');
+                wEl.id = warnId;
+                wEl.className = 'text-warning small mt-1';
+                selTec.closest('.col-md-6')?.appendChild(wEl);
+            }
+            wEl.textContent = 'No se encontraron tecnologías; verifique permisos o catálogos.';
+        }
     } catch (error) {
         console.error('Error al cargar tecnologías:', error);
+        const selTec = document.getElementById('selectTecnologia');
+        if (selTec) {
+            const warnId = 'sugerenciaWarn';
+            let wEl = document.getElementById(warnId);
+            if(!wEl){
+                wEl = document.createElement('div');
+                wEl.id = warnId;
+                wEl.className = 'text-warning small mt-1';
+                selTec.closest('.col-md-6')?.appendChild(wEl);
+            }
+            wEl.textContent = 'Error cargando tecnologías; intente nuevamente.';
+        }
     }
 }
 
 async function cargarCategorias(tecnologia, selectId) {
     try {
-        const response = await fetch(`${API_BASE_URL}/categorias/${tecnologia}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        let ok = false;
+        let data = null;
+        const tecEnc = encodeURIComponent(tecnologia);
+        try {
+            const response = await fetch(`${API_BASE_URL}/categorias/${tecEnc}`);
+            if (response.ok) {
+                data = await response.json();
+                ok = true;
+            }
+        } catch (e) {
+            ok = false;
         }
-        
-        const data = await response.json();
-        categorias = data.categorias || data;
-        
+
+        if (!ok) {
+            try {
+                const resp2 = await fetch(`/tecnicos/categorias/${tecEnc}`);
+                if (resp2.ok) {
+                    data = await resp2.json();
+                    ok = true;
+                }
+            } catch (e2) {
+                ok = false;
+            }
+        }
+
+        categorias = (data && (data.categorias || data)) || [];
+
         // Habilitar select y llenar opciones
         const select = document.getElementById(selectId);
         select.disabled = false;
         llenarSelect(selectId, categorias, 'Seleccione categoría');
+
+        if (!categorias.length) {
+            limpiarSelect(selectId, 'No hay categorías para la tecnología', false);
+        }
         
     } catch (error) {
         console.error('Error al cargar categorías:', error);
@@ -149,19 +227,37 @@ async function cargarCategorias(tecnologia, selectId) {
 
 async function cargarCodigosPorTecnologiaCategoria(tecnologia, categoria) {
     try {
-        let url = `${API_BASE_URL}/codigos/tecnologia/${tecnologia}`;
-        if (categoria) {
-            url += `/categoria/${categoria}`;
+        const tecnologiaEnc = encodeURIComponent(tecnologia);
+        const categoriaEnc = categoria ? encodeURIComponent(categoria) : '';
+        let url = `${API_BASE_URL}/codigos/tecnologia/${tecnologiaEnc}`;
+        if (categoriaEnc) {
+            url += `/categoria/${categoriaEnc}`;
         }
-        
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        let ok = false;
+        let data = null;
+        try {
+            const response = await fetch(url);
+            if (response.ok) {
+                data = await response.json();
+                ok = true;
+            }
+        } catch (e) {
+            ok = false;
         }
-        
-        const data = await response.json();
-        codigosDisponibles = data.codigos || data;
-        
+        if (!ok) {
+            url = `/tecnicos/codigos/tecnologia/${tecnologiaEnc}`;
+            if (categoriaEnc) url += `/categoria/${categoriaEnc}`;
+            try {
+                const resp2 = await fetch(url);
+                if (resp2.ok) {
+                    data = await resp2.json();
+                    ok = true;
+                }
+            } catch (e2) {
+                ok = false;
+            }
+        }
+        codigosDisponibles = (data && (data.codigos || data)) || [];
         actualizarTablaCodigosDisponibles();
         
     } catch (error) {
@@ -192,7 +288,6 @@ function actualizarTabla() {
         <tr>
             <td><strong>${orden.ot || 'N/A'}</strong></td>
             <td>${orden.cuenta || 'N/A'}</td>
-            <td>${orden.servicio || 'N/A'}</td>
             <td><span class="badge bg-info">${orden.cantidad_codigos || 0} códigos</span></td>
             <td><strong>$${formatoMoneda(orden.total_valor || 0)}</strong></td>
             <td>
@@ -244,10 +339,7 @@ function actualizarVistaTarjetas() {
                             <small class="text-muted">Cuenta:</small>
                             <div>${orden.cuenta || 'N/A'}</div>
                         </div>
-                        <div class="col-6">
-                            <small class="text-muted">Servicio:</small>
-                            <div>${orden.servicio || 'N/A'}</div>
-                        </div>
+                        
                     </div>
                     <hr>
                     <div class="row">
@@ -369,35 +461,31 @@ function limpiarFormularioOT() {
 }
 
 function validarCampoNumerico(input, longitud) {
-    // Remover caracteres no numéricos
     input.value = input.value.replace(/\D/g, '');
-    
-    // Limitar longitud
-    if (input.value.length > longitud) {
-        input.value = input.value.slice(0, longitud);
+    const len = input.value.length;
+    let maxLen = Array.isArray(longitud) ? longitud[1] : longitud;
+    if (len > maxLen) {
+        input.value = input.value.slice(0, maxLen);
     }
-    
-    // Validar longitud exacta
-    if (input.value.length !== longitud) {
-        input.classList.add('is-invalid');
+    let invalido;
+    if (Array.isArray(longitud)) {
+        invalido = (len < longitud[0] || len > longitud[1]);
     } else {
-        input.classList.remove('is-invalid');
+        invalido = (len !== longitud);
     }
-    
+    if (invalido) { input.classList.add('is-invalid'); } else { input.classList.remove('is-invalid'); }
     validarFormularioOT();
 }
 
 function validarFormularioOT() {
     const ot = document.getElementById('inputOT');
     const cuenta = document.getElementById('inputCuenta');
-    const servicio = document.getElementById('inputServicio');
     const tecnologia = document.getElementById('selectTecnologia');
     const categoria = document.getElementById('selectCategoria');
     
     const esValido = 
-        ot.value.length === 7 &&
+        ot.value.length >= 7 && ot.value.length <= 12 &&
         cuenta.value.length === 8 &&
-        servicio.value.length === 7 &&
         tecnologia.value &&
         categoria.value &&
         codigosSeleccionados.length > 0;
@@ -618,7 +706,6 @@ async function guardarOT() {
         const formData = {
             ot: document.getElementById('inputOT').value,
             cuenta: document.getElementById('inputCuenta').value,
-            servicio: document.getElementById('inputServicio').value,
             tecnologia: document.getElementById('selectTecnologia').value,
             categoria: document.getElementById('selectCategoria').value,
             codigos: codigosSeleccionados.map(codigo => ({
@@ -634,28 +721,42 @@ async function guardarOT() {
             }, 0)
         };
         
-        const response = await fetch(`${API_BASE_URL}/ordenes`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-        });
-        
-        if (!response.ok) {
-            // Intentar leer mensaje del backend
+        const urls = [
+            `${API_BASE_URL}/ordenes`,
+            `/api${API_BASE_URL}/ordenes`,
+            `/tecnicos/ordenes`,
+            `/api/tecnicos/ordenes`
+        ];
+        let response = null;
+        let lastErr = null;
+        for (const url of urls) {
+            try {
+                response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                if (response.ok) break;
+                lastErr = response;
+            } catch (e) {
+                lastErr = e;
+            }
+        }
+        if (!response || !response.ok) {
             let backendMsg = null;
             try {
-                const errJson = await response.json();
+                const errJson = await lastErr.json();
                 backendMsg = errJson?.message || errJson?.error || null;
             } catch {}
-            
-            if (response.status === 409) {
-                // OT ya creada por otro técnico: mostrar advertencia y no cerrar el modal
+            if (lastErr && lastErr.status === 409) {
                 mostrarMensaje('warning', backendMsg || 'La OT ya fue registrada por otro técnico y no puede duplicarse');
-                return; // No continuar con cierre ni recarga
+                return;
             }
-            throw new Error(`HTTP error! status: ${response.status}`);
+            if (lastErr && lastErr.status === 403) {
+                mostrarMensaje('error', backendMsg || 'Permisos insuficientes para crear la OT');
+                return;
+            }
+            throw new Error(`Error al guardar OT (${lastErr && lastErr.status ? lastErr.status : 'desconocido'})`);
         }
         
         const result = await response.json();
@@ -666,8 +767,10 @@ async function guardarOT() {
         // Mostrar mensaje de éxito
         mostrarMensaje('success', 'Orden de trabajo creada exitosamente');
         
-        // Recargar órdenes
-        cargarOrdenesTrabajo();
+        // Recargar órdenes si existe vista tabla
+        if (!window.MODAL_ONLY) {
+            cargarOrdenesTrabajo();
+        }
         
     } catch (error) {
         console.error('Error al guardar OT:', error);
@@ -710,9 +813,10 @@ function limpiarSelect(selectId, mensaje, disabled = false) {
 
 function mostrarCargandoTabla() {
     const cuerpoTabla = document.getElementById('cuerpoTabla');
+    if (!cuerpoTabla) return;
     cuerpoTabla.innerHTML = `
         <tr>
-            <td colspan="8" class="text-center text-muted">
+            <td colspan="6" class="text-center text-muted">
                 <i class="fas fa-spinner fa-spin me-2"></i>Cargando órdenes...
             </td>
         </tr>
@@ -721,9 +825,10 @@ function mostrarCargandoTabla() {
 
 function mostrarErrorTabla(mensaje) {
     const cuerpoTabla = document.getElementById('cuerpoTabla');
+    if (!cuerpoTabla) return;
     cuerpoTabla.innerHTML = `
         <tr>
-            <td colspan="8" class="text-center text-danger">
+            <td colspan="6" class="text-center text-danger">
                 <i class="fas fa-exclamation-triangle me-2"></i>${mensaje}
             </td>
         </tr>
@@ -904,7 +1009,7 @@ function mostrarDetallesOT(orden) {
     document.getElementById('modalDetallesOTLabel').textContent = `Detalles OT: ${orden.ot}`;
     document.getElementById('detalleOT').textContent = orden.ot || 'N/A';
     document.getElementById('detalleCuenta').textContent = orden.cuenta || 'N/A';
-    document.getElementById('detalleServicio').textContent = orden.servicio || 'N/A';
+    document.getElementById('detalleServicio').textContent = (orden.servicio && parseInt(orden.servicio) > 0) ? orden.servicio : 'N/A';
     document.getElementById('detalleTecnico').textContent = orden.tecnico_nombre || 'N/A';
     document.getElementById('detalleTecnologia').textContent = orden.tecnologia || 'N/A';
     document.getElementById('detalleCategoria').textContent = orden.categoria || 'N/A';

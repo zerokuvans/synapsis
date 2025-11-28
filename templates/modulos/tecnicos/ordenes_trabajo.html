@@ -6,6 +6,7 @@
 <div class="d-flex justify-content-center w-100">
   <div class="w-100" style="max-width: 1800px;">
     <div class="container-1800 mt-4">
+    {% if not modal_only %}
     <!-- Encabezado -->
     <div class="row mb-4">
         <div class="col-12">
@@ -83,7 +84,6 @@
                                 <tr>
                                     <th>OT</th>
                                     <th>Cuenta</th>
-                                    <th>Servicio</th>
                                     <th>Código</th>
                                     
                                     <th>Valor Total</th>
@@ -93,7 +93,7 @@
                             </thead>
                             <tbody id="cuerpoTabla">
                                 <tr>
-                                    <td colspan="8" class="text-center text-muted">
+                                    <td colspan="6" class="text-center text-muted">
                                         <i class="fas fa-spinner fa-spin me-2"></i>Cargando órdenes...
                                     </td>
                                 </tr>
@@ -116,6 +116,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <!-- Modal Nueva OT -->
@@ -139,19 +140,15 @@
                         </div>
                         <div class="col-md-4">
                             <label for="inputOT" class="form-label">OT <span class="text-danger">*</span></label>
-                            <input type="text" id="inputOT" name="ot" class="form-control" maxlength="7" pattern="[0-9]{7}" required>
-                            <div class="invalid-feedback">La OT debe tener exactamente 7 dígitos numéricos</div>
+                            <input type="text" id="inputOT" name="ot" class="form-control" maxlength="12" pattern="[0-9]{7,12}" required>
+                            <div class="invalid-feedback">La OT debe tener entre 7 y 12 dígitos numéricos</div>
                         </div>
                         <div class="col-md-4">
                             <label for="inputCuenta" class="form-label">Cuenta <span class="text-danger">*</span></label>
                             <input type="text" id="inputCuenta" name="cuenta" class="form-control" maxlength="8" pattern="[0-9]{8}" required>
                             <div class="invalid-feedback">La cuenta debe tener exactamente 8 dígitos numéricos</div>
                         </div>
-                        <div class="col-md-4">
-                            <label for="inputServicio" class="form-label">Servicio <span class="text-danger">*</span></label>
-                            <input type="text" id="inputServicio" name="servicio" class="form-control" maxlength="7" pattern="[0-9]{7}" required>
-                            <div class="invalid-feedback">El servicio debe tener exactamente 7 dígitos numéricos</div>
-                        </div>
+                        
                     </div>
 
                     <!-- Filtros de Códigos -->
@@ -307,10 +304,7 @@
                         <small class="text-muted">Cuenta:</small>
                         <div class="fw-bold" id="detalleCuenta">-</div>
                     </div>
-                    <div class="col-md-3">
-                        <small class="text-muted">Servicio:</small>
-                        <div class="fw-bold" id="detalleServicio">-</div>
-                    </div>
+                    
                     <div class="col-md-3">
                         <small class="text-muted">Técnico:</small>
                         <div class="fw-bold" id="detalleTecnico">-</div>
@@ -407,5 +401,9 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+  window.TECNICOS_API_PREFIX = '/tecnicos';
+  window.MODAL_ONLY = {{ 'true' if modal_only else 'false' }};
+</script>
 <script src="{{ url_for('static', filename='js/tecnicos_ordenes.js') }}"></script>
 {% endblock %}
