@@ -37,6 +37,7 @@
                   <th>Cuenta</th>
                   <th>OT</th>
                   <th>Técnico</th>
+                  <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -169,10 +170,13 @@ function renderTabla(){
     const tecnico = item.tecnico ?? '';
     const fin = String(item.estado_final ?? '').trim();
     const isFin = fin === '1' || fin.toLowerCase() === 'true';
+    const estado = (item.estado || '').toLowerCase();
+    const estadoBadge = estado === 'completado' ? '<span class="badge bg-success">Completado</span>' : (estado === 'no completado' ? '<span class="badge bg-warning text-dark">No completado</span>' : '<span class="badge bg-secondary">N/A</span>');
     tr.innerHTML = `
       <td>${cuenta}</td>
       <td>${ot}</td>
       <td>${tecnico}</td>
+      <td>${estadoBadge}</td>
       <td>
         <button class="btn btn-sm btn-primary" onclick="abrirGestionActividad('${ot}','${cuenta}','${tecnico}')">
           <i class="fas fa-tools me-1"></i>Gestionar
@@ -395,12 +399,6 @@ function formatOT(v){
                     <div class="col-md-6">
                       <label class="form-label">Tipificación OK</label>
                       <select class="form-select" id="gaTipificacionOk">
-                        <option value="">Seleccione...</option>
-                      </select>
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Tipificación Novedad</label>
-                      <select class="form-select" id="gaTipificacionNovedad">
                         <option value="">Seleccione...</option>
                       </select>
                     </div>
@@ -704,21 +702,7 @@ async function actualizarEstadoFacturar(ot, cuenta){
 function inicializarTipificaciones(){
   const okOpts = [
     'CLIENTE INCONFORME',
-    'CLIENTE CONFIRMA SERVICIOS OK',
-    'NO CONTACTO',
-    'SIN GESTIONAR',
-    'LLAMAR DESPUES',
-    'CLEINTE YA GENERO LLS',
-    'NUMERO ERRADO'
-  ];
-  const novOpts = [
-    'MALOS_PROCEDEMIENTOS_TECNICOS',
-    'RESPONSABILIDAD_CLIENTE',
-    'TERCEROS',
-    'FALLA_PLATAFORMAS',
-    'PROBLEMAS_EN_LA_RED_EXTERNA',
-    'FALLA_EQUIPOS_Y_CPES',
-    'CAUSAS_COMERCIALES'
+    'CLIENTE CONFIRMA SERVICIOS OK'
   ];
   const razonRealOpts = [
     'CLIENTE AUN NO DESEA EL TRABAJO',
@@ -743,19 +727,13 @@ function inicializarTipificaciones(){
     'SUSCRIPTOR NO ESTA EN CONDICION DE ATENDER'
   ];
   const selOk = document.getElementById('gaTipificacionOk');
-  const selNov = document.getElementById('gaTipificacionNovedad');
+  
   const selRz = document.getElementById('gaRazonReal');
   if(selOk){
     const current = selOk.value;
     selOk.innerHTML = '<option value="">Seleccione...</option>';
     okOpts.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; selOk.appendChild(o); });
     if(current && okOpts.includes(current)) selOk.value = current;
-  }
-  if(selNov){
-    const currentN = selNov.value;
-    selNov.innerHTML = '<option value="">Seleccione...</option>';
-    novOpts.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; selNov.appendChild(o); });
-    if(currentN && novOpts.includes(currentN)) selNov.value = currentN;
   }
   if(selRz){
     const currentR = selRz.value;
@@ -783,11 +761,10 @@ function inicializarTipificaciones(){
 async function finalizarCierre(){
   try{
     const ok = document.getElementById('gaTipificacionOk').value;
-    const nov = document.getElementById('gaTipificacionNovedad').value;
     const obs = document.getElementById('gaObservacionNovedad').value.trim();
     const confValOk = (document.querySelector('input[name="gaConfirmEventoOk"]:checked') || {}).value || 'no';
     const confirmacion_evento = confValOk.toLowerCase() === 'si' ? 1 : 0;
-    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, tipificacion_ok: ok || null, tipificacion_novedad: nov || null, observacion: obs || null, confirmacion_evento };
+    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, tipificacion_ok: ok || null, tipificacion_novedad: null, observacion: obs || null, confirmacion_evento };
     const res = await fetch('/api/analistas/actividad-cierre', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){
