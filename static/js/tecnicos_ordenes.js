@@ -628,13 +628,15 @@ function agregarCodigoSeleccionado(evt, idCodigo) {
 
 function eliminarCodigoSeleccionado(evt, idCodigo) {
     if (evt) { evt.preventDefault(); evt.stopPropagation(); }
-    codigosSeleccionados = codigosSeleccionados.filter(c => (c.id || c.id_base_codigos_facturacion) !== idCodigo);
+    const idNorm = String(idCodigo);
+    codigosSeleccionados = codigosSeleccionados.filter(c => String(c.id ?? c.id_base_codigos_facturacion) !== idNorm);
     actualizarTablaCodigosSeleccionados();
 }
 
 function actualizarCantidadDisponible(idCodigo, cantidad) {
     // Actualizar cantidad en códigos disponibles
-    const codigo = codigosDisponibles.find(c => (c.id || c.id_base_codigos_facturacion) === idCodigo);
+    const idNorm = String(idCodigo);
+    const codigo = codigosDisponibles.find(c => String(c.id ?? c.id_base_codigos_facturacion) === idNorm);
     if (codigo) {
         const subtotal = (codigo.valor || 0) * parseInt(cantidad || 1);
         const fila = document.querySelector(`tr:has(input[onchange*="${idCodigo}"])`);
@@ -645,7 +647,8 @@ function actualizarCantidadDisponible(idCodigo, cantidad) {
 }
 
 function actualizarCantidadSeleccionado(idCodigo, cantidad) {
-    const codigo = codigosSeleccionados.find(c => (c.id || c.id_base_codigos_facturacion) === idCodigo);
+    const idNorm = String(idCodigo);
+    const codigo = codigosSeleccionados.find(c => String(c.id ?? c.id_base_codigos_facturacion) === idNorm);
     if (codigo) {
         codigo.cantidad = parseInt(cantidad || 1);
         actualizarTablaCodigosSeleccionados();
