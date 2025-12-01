@@ -167,6 +167,8 @@ function renderTabla(){
     const cuenta = formatCuenta(item.numero_de_cuenta);
     const ot = formatOT(item.orden_de_trabajo);
     const tecnico = item.tecnico ?? '';
+    const fin = String(item.estado_final ?? '').trim();
+    const isFin = fin === '1' || fin.toLowerCase() === 'true';
     tr.innerHTML = `
       <td>${cuenta}</td>
       <td>${ot}</td>
@@ -175,6 +177,7 @@ function renderTabla(){
         <button class="btn btn-sm btn-primary" onclick="abrirGestionActividad('${ot}','${cuenta}','${tecnico}')">
           <i class="fas fa-tools me-1"></i>Gestionar
         </button>
+        ${isFin ? '<span class="badge bg-success ms-2">Finalizado</span>' : ''}
       </td>`;
     tbody.appendChild(tr);
   });
@@ -369,6 +372,21 @@ function formatOT(v){
                         <input class="form-check-input" type="radio" name="gaCierreCiclo" id="gaCierreSi" value="si">
                         <label class="form-check-label" for="gaCierreSi">Sí</label>
                       </div>
+                     </div>
+                  </div>
+                </div>
+                <div class="row g-3 mt-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Confirmación de evento</label>
+                    <div class="d-flex gap-3">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gaConfirmEventoOk" id="gaConfirmEventoOkNo" value="no" checked>
+                        <label class="form-check-label" for="gaConfirmEventoOkNo">No</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gaConfirmEventoOk" id="gaConfirmEventoOkSi" value="si">
+                        <label class="form-check-label" for="gaConfirmEventoOkSi">Sí</label>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -391,6 +409,11 @@ function formatOT(v){
                       <input type="text" class="form-control" id="gaObservacionNovedad" placeholder="Observaciones...">
                     </div>
                   </div>
+                </div>
+                <div class="mt-3 d-flex justify-content-end">
+                  <button type="button" class="btn btn-warning" id="btnFinalizarOk">
+                    <i class="fas fa-save me-2"></i>Finalizar
+                  </button>
                 </div>
               </div>
 
@@ -419,9 +442,27 @@ function formatOT(v){
                       <option value="">Seleccione...</option>
                     </select>
                   </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Confirmación de evento</label>
+                    <div class="d-flex gap-3">
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gaConfirmEvento" id="gaConfirmEventoNo" value="no" checked>
+                        <label class="form-check-label" for="gaConfirmEventoNo">No</label>
+                      </div>
+                      <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gaConfirmEvento" id="gaConfirmEventoSi" value="si">
+                        <label class="form-check-label" for="gaConfirmEventoSi">Sí</label>
+                      </div>
+                    </div>
+                  </div>
                   <div class="col-12">
                     <label class="form-label">Observaciones</label>
                     <input type="text" class="form-control" id="gaObservacionesRazon" placeholder="Observaciones...">
+                  </div>
+                  <div class="col-12 d-flex justify-content-end">
+                    <button type="button" class="btn btn-warning" id="btnFinalizarRazon">
+                      <i class="fas fa-save me-2"></i>Finalizar
+                    </button>
                   </div>
                 </div>
               </div>
@@ -476,8 +517,18 @@ async function abrirGestionActividad(ot, cuenta, tecnico){
     document.getElementById('gaTiempoGestion').value = d.inicio_fin || '';
     document.getElementById('gaDuracion').value = d.duracion || d.duración || '';
     document.getElementById('gaTipoRazon').value = d.razon || d.razón || '';
+    try{
+      const confVal = (d.confirmacion_evento === 1 || String(d.confirmacion_evento).toLowerCase() === 'true') ? 'si' : 'no';
+      const okSi = document.getElementById('gaConfirmEventoOkSi');
+      const okNo = document.getElementById('gaConfirmEventoOkNo');
+      if(confVal === 'si'){ if(okSi) okSi.checked = true; } else { if(okNo) okNo.checked = true; }
+      const rzSi = document.getElementById('gaConfirmEventoSi');
+      const rzNo = document.getElementById('gaConfirmEventoNo');
+      if(confVal === 'si'){ if(rzSi) rzSi.checked = true; } else { if(rzNo) rzNo.checked = true; }
+    }catch(_){}
     mostrarSeccionesPorEstado((d.estado || '').toLowerCase());
     await actualizarEstadoFacturar(ot, cuenta);
+    inicializarTipificaciones();
   }catch(e){
     mostrarSeccionesPorEstado('');
   }
@@ -647,6 +698,152 @@ async function actualizarEstadoFacturar(ot, cuenta){
   }catch(_){
     btn.disabled = false;
     if(info){ info.className = 'd-none'; info.textContent = ''; }
+  }
+}
+
+function inicializarTipificaciones(){
+  const okOpts = [
+    'CLIENTE INCONFORME',
+    'CLIENTE CONFIRMA SERVICIOS OK',
+    'NO CONTACTO',
+    'SIN GESTIONAR',
+    'LLAMAR DESPUES',
+    'CLEINTE YA GENERO LLS',
+    'NUMERO ERRADO'
+  ];
+  const novOpts = [
+    'MALOS_PROCEDEMIENTOS_TECNICOS',
+    'RESPONSABILIDAD_CLIENTE',
+    'TERCEROS',
+    'FALLA_PLATAFORMAS',
+    'PROBLEMAS_EN_LA_RED_EXTERNA',
+    'FALLA_EQUIPOS_Y_CPES',
+    'CAUSAS_COMERCIALES'
+  ];
+  const razonRealOpts = [
+    'CLIENTE AUN NO DESEA EL TRABAJO',
+    'PROBLEMAS EN LA RED EXTERNA',
+    'REQUIERE MOVIL ELITE',
+    'DUCTOS INFRAESTRUCTURA PREDIO NO APTA',
+    'PROBLEMAS EN SISTEMAS DE INFORMACION/APLICATIVOS CLARO',
+    'SUSCRIPTOR YA NO DESEA EL SERVICIO',
+    'NO CONTACTO CON EL CLIENTE',
+    'REQUIERE AMPLIACION DE PUERTOS',
+    'REPLANTEAMIENTO VT',
+    'MAL AGENDADO/MAL PROGRAMADO',
+    'FUERA ZONA/ SIN COBERTURA RED',
+    'PERMISOS DE ADMINISTRACION',
+    'VENTA DEVUELTA AL ASESOR',
+    'EQUIPOS CLIENTE NO APTOS/NO DISPONIBLES',
+    'CLIENTE SOLICITA REPROGRAMAR',
+    'NO INGRESO/CLIENTE CONFIRMA SERVICIO OK',
+    'DIRECCION Y/O DATOS ERRADOS',
+    'INCUMPLIMIENTO ALIADO',
+    'PROBLEMA ORDEN PUBLICO/ZONA ROJA',
+    'SUSCRIPTOR NO ESTA EN CONDICION DE ATENDER'
+  ];
+  const selOk = document.getElementById('gaTipificacionOk');
+  const selNov = document.getElementById('gaTipificacionNovedad');
+  const selRz = document.getElementById('gaRazonReal');
+  if(selOk){
+    const current = selOk.value;
+    selOk.innerHTML = '<option value="">Seleccione...</option>';
+    okOpts.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; selOk.appendChild(o); });
+    if(current && okOpts.includes(current)) selOk.value = current;
+  }
+  if(selNov){
+    const currentN = selNov.value;
+    selNov.innerHTML = '<option value="">Seleccione...</option>';
+    novOpts.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; selNov.appendChild(o); });
+    if(currentN && novOpts.includes(currentN)) selNov.value = currentN;
+  }
+  if(selRz){
+    const currentR = selRz.value;
+    selRz.innerHTML = '<option value="">Seleccione...</option>';
+    razonRealOpts.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; selRz.appendChild(o); });
+    if(currentR && razonRealOpts.includes(currentR)) selRz.value = currentR;
+  }
+  const btnFin = document.getElementById('btnFinalizarCierre');
+  if(btnFin){
+    btnFin.onclick = finalizarCierre;
+  }
+  const btnFinalizarOk = document.getElementById('btnFinalizarOk');
+  if(btnFinalizarOk){
+    btnFinalizarOk.onclick = () => {
+      const cierreSi = !!document.getElementById('gaCierreSi')?.checked;
+      if(cierreSi) finalizarCierre(); else finalizarSinCierre();
+    };
+  }
+  const btnFinR = document.getElementById('btnFinalizarRazon');
+  if(btnFinR){
+    btnFinR.onclick = finalizarRazon;
+  }
+}
+
+async function finalizarCierre(){
+  try{
+    const ok = document.getElementById('gaTipificacionOk').value;
+    const nov = document.getElementById('gaTipificacionNovedad').value;
+    const obs = document.getElementById('gaObservacionNovedad').value.trim();
+    const confValOk = (document.querySelector('input[name="gaConfirmEventoOk"]:checked') || {}).value || 'no';
+    const confirmacion_evento = confValOk.toLowerCase() === 'si' ? 1 : 0;
+    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, tipificacion_ok: ok || null, tipificacion_novedad: nov || null, observacion: obs || null, confirmacion_evento };
+    const res = await fetch('/api/analistas/actividad-cierre', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if(res.ok && data && data.success){
+      if(window.Swal){ Swal.fire({icon:'success', title:'Guardado', text:'Cierre de ciclo actualizado'}); }
+      const mm = bootstrap.Modal.getInstance(document.getElementById('modalGestionActividad'));
+      mm && mm.hide();
+      try{ await cargarLista(); }catch(_){}
+    }else{
+      if(window.Swal){ Swal.fire({icon:'warning', title:'No guardado', text: data && data.error ? String(data.error) : 'Error al guardar'}); }
+    }
+  }catch(e){
+    if(window.Swal){ Swal.fire({icon:'error', title:'Error', text:'Error al guardar cierre de ciclo'}); }
+  }
+}
+
+async function finalizarSinCierre(){
+  try{
+    const confValOk = (document.querySelector('input[name="gaConfirmEventoOk"]:checked') || {}).value || 'no';
+    const confirmacion_evento = confValOk.toLowerCase() === 'si' ? 1 : 0;
+    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, confirmacion_evento };
+    const res = await fetch('/api/analistas/actividad-cierre', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if(res.ok && data && data.success){
+      if(window.Swal){ Swal.fire({icon:'success', title:'Finalizado', text:'Actividad marcada como finalizada'}); }
+      const mm = bootstrap.Modal.getInstance(document.getElementById('modalGestionActividad'));
+      mm && mm.hide();
+      try{ await cargarLista(); }catch(_){}
+    }else{
+      if(window.Swal){ Swal.fire({icon:'warning', title:'No guardado', text: data && data.error ? String(data.error) : 'Error al finalizar'}); }
+    }
+  }catch(e){
+    if(window.Swal){ Swal.fire({icon:'error', title:'Error', text:'Error al finalizar actividad'}); }
+  }
+}
+
+async function finalizarRazon(){
+  try{
+    const razonReal = document.getElementById('gaRazonReal').value;
+    const aplicaVal = (document.querySelector('input[name="gaTipoRazonAplica"]:checked') || {}).value || 'no';
+    const aplica = aplicaVal.toLowerCase() === 'si' ? 1 : 0;
+    const obs = document.getElementById('gaObservacionesRazon').value.trim();
+    const confVal = (document.querySelector('input[name="gaConfirmEvento"]:checked') || {}).value || 'no';
+    const confirmacion_evento = confVal.toLowerCase() === 'si' ? 1 : 0;
+    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, tipificacion_razon: razonReal || null, tipo_razon_aplica: aplica, observacion_razon: obs || null, confirmacion_evento };
+    const res = await fetch('/api/analistas/actividad-razon', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if(res.ok && data && data.success){
+      if(window.Swal){ Swal.fire({icon:'success', title:'Guardado', text:'Razón guardada y actividad finalizada'}); }
+      const mm = bootstrap.Modal.getInstance(document.getElementById('modalGestionActividad'));
+      mm && mm.hide();
+      try{ await cargarLista(); }catch(_){}
+    }else{
+      if(window.Swal){ Swal.fire({icon:'warning', title:'No guardado', text: data && data.error ? String(data.error) : 'Error al guardar'}); }
+    }
+  }catch(e){
+    if(window.Swal){ Swal.fire({icon:'error', title:'Error', text:'Error al guardar razón'}); }
   }
 }
 </script>

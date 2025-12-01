@@ -2878,6 +2878,7 @@ def api_analistas_cargar_actividades():
 @login_required_analistas_or_lider_api()
 def api_analistas_actividades_diarias_list():
     user_name = session.get('user_name', '')
+    user_role = session.get('user_role')
     analista_override = request.args.get('analista', '').strip()
     if analista_override:
         ur = session.get('user_role')
@@ -2931,6 +2932,7 @@ def api_analistas_actividades_diarias_list():
         col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'], approx=['fechaactividad','fechaorden'])
         col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'], approx=['external_id','exetrnal_id','idexterno','id_externo','cedula'])
         col_estado = pick(['estado'])
+        col_final = pick(['estado_final','finalizado','final'])
         if not col_ot or not col_cuenta or not col_fecha or not col_ext:
             return jsonify({'success': False, 'items': [], 'message': 'Columnas requeridas no encontradas'}), 200
         tipo_fecha = None
@@ -2980,6 +2982,10 @@ def api_analistas_actividades_diarias_list():
         rows = []
         if cedulas:
             placeholders = ','.join(['%s'] * len(cedulas))
+            # Filtro para ocultar finalizados a analistas
+            filtro_final_sql = ''
+            if col_final and (user_role in ('analista','analistas')):
+                filtro_final_sql = f" AND (o.`{col_final}` IS NULL OR o.`{col_final}` = 0)"
             sql = f"""
                 SELECT 
                   o.`{col_ot}` AS orden_de_trabajo,
@@ -2987,8 +2993,9 @@ def api_analistas_actividades_diarias_list():
                   o.`{col_ext}` AS external_id,
                   o.`{col_fecha}` AS fecha
                   {', o.`' + col_estado + '` AS estado' if col_estado else ''}
+                  {', o.`' + col_final + '` AS estado_final' if col_final else ''}
                 FROM operaciones_actividades_diarias o
-                WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_fecha_sql}
+                WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_fecha_sql}{filtro_final_sql}
                   AND o.`{col_cuenta}` IS NOT NULL
                   AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
                   AND o.`{col_cuenta}` REGEXP '^[0-9]+' 
@@ -3009,7 +3016,8 @@ def api_analistas_actividades_diarias_list():
                     'numero_de_cuenta': r.get('numero_de_cuenta'),
                     'tecnico': r.get('tecnico'),
                     'fecha': r.get('fecha'),
-                    'estado': (r.get('estado') or '').strip() if col_estado else ''
+                    'estado': (r.get('estado') or '').strip() if col_estado else '',
+                    'estado_final': r.get('estado_final') if col_final else None
                 })
         cursor.close()
         connection.close()
@@ -3066,6 +3074,7 @@ def api_analistas_actividad_detalle():
         col_tiempos = pick(['inicio_fin','tiempos','tiempo_gestion'])
         col_duracion = pick(['duracion','duración'])
         col_razon = pick(['razon','razón'])
+        col_conf_evento = pick(['confirmacion_evento'])
         col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
@@ -3085,6 +3094,7 @@ def api_analistas_actividad_detalle():
         if col_tiempos: sql += f", o.`{col_tiempos}` AS inicio_fin"
         if col_duracion: sql += f", o.`{col_duracion}` AS duracion"
         if col_razon: sql += f", o.`{col_razon}` AS razon"
+        if col_conf_evento: sql += f", o.`{col_conf_evento}` AS confirmacion_evento"
         sql += " FROM operaciones_actividades_diarias o"
         if where:
             sql += " WHERE " + " AND ".join(where)
@@ -3228,6 +3238,194 @@ def api_analistas_actividad_marcar_facturada():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/analistas/actividad-cierre', methods=['POST'])
+@login_required_analistas_or_lider_api()
+def api_analistas_actividad_cierre():
+    data = request.get_json() or {}
+    ot = str(data.get('ot') or '').strip()
+    cuenta = str(data.get('cuenta') or '').strip()
+    tip_ok = str(data.get('tipificacion_ok') or '').strip()
+    tip_nov = str(data.get('tipificacion_novedad') or '').strip()
+    observ = str(data.get('observacion') or '').strip()
+    conf_evento = data.get('confirmacion_evento')
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        # Asegurar columnas
+        cur.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cur.fetchall()}
+        def ensure_col(name, ddl):
+            if name.lower() not in cols:
+                cur.execute(ddl)
+        ensure_col('tipificacion_ok', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tipificacion_ok` VARCHAR(255) NULL")
+        ensure_col('tipificacion_novedad', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tipificacion_novedad` VARCHAR(255) NULL")
+        ensure_col('observacion_cierre', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `observacion_cierre` TEXT NULL")
+        ensure_col('estado_final', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `estado_final` TINYINT(1) NULL DEFAULT 0")
+        ensure_col('confirmacion_evento', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `confirmacion_evento` TINYINT(1) NULL")
+        # Detectar columnas ot/cuenta
+        cur.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cur.fetchall()}
+        def pick(names):
+            for n in names:
+                if n.lower() in cols:
+                    return cols[n.lower()]
+            for k0,v0 in cols.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            return None
+        col_ot = pick(['orden_de_trabajo','ot','orden','orden_trabajo'])
+        col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
+        if not col_ot or not col_cuenta:
+            return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
+        where = []
+        params = []
+        if ot:
+            where.append(f"CAST(`{col_ot}` AS CHAR) = %s")
+            params.append(str(int(str(ot).split('.')[0])) if str(ot).strip() else ot)
+        if cuenta:
+            where.append(f"CAST(`{col_cuenta}` AS CHAR) = %s")
+            params.append(str(int(str(cuenta).split('.')[0])) if str(cuenta).strip() else cuenta)
+        if not where:
+            return jsonify({'success': False, 'error': 'Faltan OT/Cuenta'}), 400
+        set_parts = []
+        set_vals = []
+        if tip_ok:
+            set_parts.append("`tipificacion_ok`=%s")
+            set_vals.append(tip_ok)
+        else:
+            set_parts.append("`tipificacion_ok`=NULL")
+        if tip_nov:
+            set_parts.append("`tipificacion_novedad`=%s")
+            set_vals.append(tip_nov)
+        else:
+            set_parts.append("`tipificacion_novedad`=NULL")
+        if observ:
+            set_parts.append("`observacion_cierre`=%s")
+            set_vals.append(observ)
+        else:
+            set_parts.append("`observacion_cierre`=NULL")
+        if conf_evento is not None:
+            set_parts.append("`confirmacion_evento`=%s")
+            set_vals.append(1 if str(conf_evento).strip() in ('1','true','si','Sí') else 0)
+        # Marcar finalizado al concluir
+        set_parts.append("`estado_final`=1")
+        sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where)
+        cur.execute(sql, tuple(set_vals + params))
+        connection.commit()
+        cur.close(); connection.close()
+        return jsonify({'success': True, 'updated': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/analistas/actividad-razon', methods=['POST'])
+@login_required_analistas_or_lider_api()
+def api_analistas_actividad_razon():
+    data = request.get_json() or {}
+    ot = str(data.get('ot') or '').strip()
+    cuenta = str(data.get('cuenta') or '').strip()
+    tip_razon = str(data.get('tipificacion_razon') or '').strip()
+    aplica = data.get('tipo_razon_aplica')
+    observ = str(data.get('observacion_razon') or '').strip()
+    conf_evento = data.get('confirmacion_evento')
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        # Asegurar columnas requeridas
+        cur.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cur.fetchall()}
+        def ensure_col(name, ddl):
+            if name.lower() not in cols:
+                cur.execute(ddl)
+        ensure_col('tipificacion_razon', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tipificacion_razon` VARCHAR(255) NULL")
+        ensure_col('tipo_razon_aplica', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tipo_razon_aplica` TINYINT(1) NULL")
+        ensure_col('observacion_razon', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `observacion_razon` TEXT NULL")
+        ensure_col('confirmacion_evento', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `confirmacion_evento` TINYINT(1) NULL")
+        ensure_col('estado_final', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `estado_final` TINYINT(1) NULL DEFAULT 0")
+        # Detectar columnas ot/cuenta
+        cur.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cur.fetchall()}
+        def pick(names):
+            for n in names:
+                if n.lower() in cols:
+                    return cols[n.lower()]
+            for k0,v0 in cols.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            return None
+        col_ot = pick(['orden_de_trabajo','ot','orden','orden_trabajo'])
+        col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
+        if not col_ot or not col_cuenta:
+            return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
+        where = []
+        params = []
+        if ot:
+            where.append(f"CAST(`{col_ot}` AS CHAR) = %s")
+            params.append(str(int(str(ot).split('.')[0])) if str(ot).strip() else ot)
+        if cuenta:
+            where.append(f"CAST(`{col_cuenta}` AS CHAR) = %s")
+            params.append(str(int(str(cuenta).split('.')[0])) if str(cuenta).strip() else cuenta)
+        if not where:
+            return jsonify({'success': False, 'error': 'Faltan OT/Cuenta'}), 400
+        set_parts = []
+        set_vals = []
+        if tip_razon:
+            set_parts.append("`tipificacion_razon`=%s")
+            set_vals.append(tip_razon)
+        else:
+            set_parts.append("`tipificacion_razon`=NULL")
+        if aplica is not None:
+            set_parts.append("`tipo_razon_aplica`=%s")
+            set_vals.append(1 if str(aplica).strip() in ('1','true','si','Sí') else 0)
+        else:
+            set_parts.append("`tipo_razon_aplica`=NULL")
+        if observ:
+            set_parts.append("`observacion_razon`=%s")
+            set_vals.append(observ)
+        else:
+            set_parts.append("`observacion_razon`=NULL")
+        if conf_evento is not None:
+            set_parts.append("`confirmacion_evento`=%s")
+            set_vals.append(1 if str(conf_evento).strip() in ('1','true','si','Sí') else 0)
+        else:
+            set_parts.append("`confirmacion_evento`=NULL")
+        set_parts.append("`estado_final`=1")
+        sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where)
+        cur.execute(sql, tuple(set_vals + params))
+        connection.commit()
+        cur.close(); connection.close()
+        return jsonify({'success': True, 'updated': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 # Sugerir tecnología y categoría desde tipo de actividad
 @app.route('/api/analistas/sugerir-tecnologia-categoria', methods=['GET'])
 @login_required_analistas_or_lider_api()
