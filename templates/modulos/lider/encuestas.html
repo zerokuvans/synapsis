@@ -711,6 +711,22 @@
     } catch (_) { return ''; }
   }
 
+  function toYMD(v) {
+    if (!v) return '';
+    try {
+      const s = String(v).trim();
+      const d = new Date(s.replace(' ', 'T'));
+      if (isNaN(d.getTime())) {
+        const m = s.match(/^\d{4}-\d{2}-\d{2}/);
+        return m ? m[0] : s.slice(0,10);
+      }
+      const y = d.getFullYear();
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      return `${y}-${mm}-${dd}`;
+    } catch (_) { return String(v).slice(0,10); }
+  }
+
   function showToast(title, text, icon='success') {
     if (window.Swal) {
       Swal.fire({ title, text, icon, timer: 1500, showConfirmButton: false });
@@ -2252,7 +2268,11 @@
       }
       const total = parseInt(data.total_votos || 0, 10);
       const detalles = resultados.map(r => `${r.nombre}: ${r.votos} voto(s) • ${r.porcentaje}%`).join('<br/>');
-      resumen.innerHTML = `<div class="text-muted">Total de votos: <strong>${total}</strong></div><div class="mt-1">${detalles}</div>`;
+      const dv = Array.isArray(data.daily_votes) ? data.daily_votes : [];
+      const fechasHtml = dv.length > 0
+        ? `<div class="mt-2"><span class="text-muted">Fechas con votos:</span><br/>${dv.map(d => `${d.vote_date}: ${d.daily_count} voto(s)`).join('<br/>')}</div>`
+        : '';
+      resumen.innerHTML = `<div class="text-muted">Total de votos: <strong>${total}</strong></div><div class="mt-1">${detalles}</div>${fechasHtml}`;
     } catch (e) {
       const resumen = document.getElementById('resumen-resultados-modal');
       if (resumen) resumen.innerHTML = `<div class="text-danger">${e.message || 'No se pudieron cargar resultados'}</div>`;
@@ -2281,9 +2301,15 @@
     }
     if (!Array.isArray(candidatosCache)) candidatosCache = [];
     if (candidatosCache.length === 0) {
-      info.textContent = 'No hay candidatos aún. Agrega algunos para iniciar la votación.';
+      const rIni = toYMD(encuestaSeleccionada.fecha_inicio);
+      const rFin = toYMD(encuestaSeleccionada.fecha_fin);
+      const rango = (rIni || rFin) ? ` • Rango: ${rIni || '—'} a ${rFin || '—'}` : '';
+      info.textContent = 'No hay candidatos aún. Agrega algunos para iniciar la votación.' + rango;
     } else {
-      info.textContent = `${candidatosCache.length} candidato(s).`;
+      const rIni = toYMD(encuestaSeleccionada.fecha_inicio);
+      const rFin = toYMD(encuestaSeleccionada.fecha_fin);
+      const rango = (rIni || rFin) ? ` • Rango: ${rIni || '—'} a ${rFin || '—'}` : '';
+      info.textContent = `${candidatosCache.length} candidato(s).` + rango;
     }
 
     candidatosCache.forEach(c => {
@@ -2420,7 +2446,11 @@
 
       const total = parseInt(data.total_votos || 0, 10);
       const detalles = resultados.map(r => `${r.nombre}: ${r.votos} voto(s) • ${r.porcentaje}%`).join('<br/>');
-      resumen.innerHTML = `<div class="text-muted">Total de votos: <strong>${total}</strong></div><div class="mt-1">${detalles}</div>`;
+      const dv = Array.isArray(data.daily_votes) ? data.daily_votes : [];
+      const fechasHtml = dv.length > 0
+        ? `<div class="mt-2"><span class="text-muted">Fechas con votos:</span><br/>${dv.map(d => `${d.vote_date}: ${d.daily_count} voto(s)`).join('<br/>')}</div>`
+        : '';
+      resumen.innerHTML = `<div class="text-muted">Total de votos: <strong>${total}</strong></div><div class="mt-1">${detalles}</div>${fechasHtml}`;
       document.getElementById('resultados-panel').style.display = '';
     } catch (e) {
       showToast('Error', e.message || 'No se pudieron cargar resultados', 'error');

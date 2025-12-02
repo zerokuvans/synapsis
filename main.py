@@ -21199,6 +21199,232 @@ def ver_limites_ferretero():
                            mensaje='Error al cargar los límites de ferretero',
                            error=str(e))
 
+@app.route('/logistica/computadores')
+@login_required()
+@role_required('logistica')
+def logistica_computadores_view():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return render_template('error.html', 
+                mensaje='Error de conexión a la base de datos',
+                error='No se pudo establecer conexión con la base de datos')
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS `log_computadores` (
+              `id` INT AUTO_INCREMENT PRIMARY KEY,
+              `marca` VARCHAR(120) NOT NULL,
+              `modelo` VARCHAR(120) NULL,
+              `descripcion` TEXT,
+              `cantidad` INT DEFAULT 1,
+              `serial` VARCHAR(120) UNIQUE,
+              `costo` DECIMAL(12,2) DEFAULT 0,
+              `observacion` TEXT,
+              `responsable_id` INT NULL,
+              `fecha_creacion` DATETIME DEFAULT CURRENT_TIMESTAMP,
+              INDEX (`responsable_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """)
+        # asegurar columna modelo si tabla ya existía
+        cursor.execute("""
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='log_computadores'
+        """, (db_config.get('database'),))
+        cols = {r['COLUMN_NAME'].lower(): r['COLUMN_NAME'] for r in cursor.fetchall()}
+        if 'modelo' not in cols:
+            cursor.execute("ALTER TABLE `log_computadores` ADD COLUMN `modelo` VARCHAR(120) NULL")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS `log_computadores_asignaciones` (
+              `id` INT AUTO_INCREMENT PRIMARY KEY,
+              `computador_id` INT NOT NULL,
+              `usuario_id` INT NOT NULL,
+              `fecha_asignacion` DATETIME DEFAULT CURRENT_TIMESTAMP,
+              `fecha_desasignacion` DATETIME NULL,
+              INDEX (`computador_id`),
+              INDEX (`usuario_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """)
+        cursor.close(); connection.close()
+        return render_template('modulos/logistica/computadores.html')
+    except Exception as e:
+        return render_template('error.html', mensaje='Error al cargar módulo de computadores', error=str(e))
+
+@app.route('/api/logistica/computadores', methods=['GET'])
+@login_required_api(role=['logistica','administrativo'])
+def api_log_computadores_list():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT c.*, ro.nombre AS responsable_nombre, ro.recurso_operativo_cedula AS responsable_documento
+            FROM log_computadores c
+            LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = c.responsable_id
+            ORDER BY c.id DESC
+        """)
+        rows = cursor.fetchall()
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'items': rows})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/logistica/computadores', methods=['POST'])
+@login_required_api(role=['logistica','administrativo'])
+def api_log_computadores_create():
+    data = request.get_json() or {}
+    cid = int(data.get('id') or 0)
+    marca = (data.get('marca') or '').strip()
+    modelo = (data.get('modelo') or '').strip()
+    descripcion = (data.get('descripcion') or '').strip()
+    cantidad = int(data.get('cantidad') or 1)
+    serial = (data.get('serial') or '').strip()
+    costo = float(data.get('costo') or 0)
+    observacion = (data.get('observacion') or '').strip()
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        if cid > 0:
+            cursor.execute(
+                "UPDATE log_computadores SET marca=%s, modelo=%s, descripcion=%s, cantidad=%s, serial=%s, costo=%s, observacion=%s WHERE id=%s",
+                (marca, modelo, descripcion, cantidad, serial, costo, observacion, cid)
+            )
+        else:
+            cursor.execute("""
+                INSERT INTO log_computadores (marca, modelo, descripcion, cantidad, serial, costo)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (marca, modelo, descripcion, cantidad, serial, costo))
+        connection.commit()
+        cursor.close(); connection.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/logistica/computadores/asignaciones', methods=['GET'])
+@login_required_api(role=['logistica','administrativo'])
+def api_log_computadores_asignaciones_list():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT 
+              a.id,
+              c.marca,
+              c.serial,
+              ro.nombre AS responsable_nombre,
+              ro.recurso_operativo_cedula AS responsable_documento,
+              DATE_FORMAT(a.fecha_asignacion, '%Y-%m-%d') AS fecha_asignacion
+            FROM log_computadores_asignaciones a
+            JOIN log_computadores c ON c.id = a.computador_id
+            LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = a.usuario_id
+            WHERE a.fecha_desasignacion IS NULL
+            ORDER BY a.id DESC
+        """)
+        rows = cursor.fetchall()
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'items': rows})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/logistica/computadores/historial', methods=['GET'])
+@login_required_api(role=['logistica','administrativo'])
+def api_log_computadores_historial_list():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT 
+              a.id,
+              c.marca,
+              c.serial,
+              ro.nombre AS responsable_nombre,
+              ro.recurso_operativo_cedula AS responsable_documento,
+              DATE_FORMAT(a.fecha_asignacion, '%Y-%m-%d') AS fecha_asignacion,
+              DATE_FORMAT(a.fecha_desasignacion, '%Y-%m-%d') AS fecha_desasignacion
+            FROM log_computadores_asignaciones a
+            JOIN log_computadores c ON c.id = a.computador_id
+            LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = a.usuario_id
+            WHERE a.fecha_desasignacion IS NOT NULL
+            ORDER BY a.fecha_desasignacion DESC
+        """)
+        rows = cursor.fetchall()
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'items': rows})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/logistica/computadores/asignar', methods=['POST'])
+@login_required_api(role=['logistica','administrativo'])
+def api_log_computadores_asignar():
+    data = request.get_json() or {}
+    computador_id = int(data.get('computador_id') or 0)
+    usuario_id = int(data.get('usuario_id') or 0)
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        cur.execute("UPDATE log_computadores SET responsable_id=%s WHERE id=%s", (usuario_id, computador_id))
+        cur.execute("UPDATE log_computadores_asignaciones SET fecha_desasignacion=NOW() WHERE computador_id=%s AND fecha_desasignacion IS NULL", (computador_id,))
+        cur.execute("INSERT INTO log_computadores_asignaciones (computador_id, usuario_id) VALUES (%s, %s)", (computador_id, usuario_id))
+        connection.commit()
+        cur.close(); connection.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/logistica/computadores/desasignar', methods=['POST'])
+@login_required_api(role=['logistica','administrativo'])
+def api_log_computadores_desasignar():
+    data = request.get_json() or {}
+    computador_id = int(data.get('computador_id') or 0)
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        cur.execute("UPDATE log_computadores SET responsable_id=NULL WHERE id=%s", (computador_id,))
+        cur.execute("UPDATE log_computadores_asignaciones SET fecha_desasignacion=NOW() WHERE computador_id=%s AND fecha_desasignacion IS NULL", (computador_id,))
+        connection.commit()
+        cur.close(); connection.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/logistica/usuarios', methods=['GET'])
+@login_required_api(role=['logistica','administrativo'])
+def api_log_usuarios_search():
+    q = (request.args.get('q') or '').strip()
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        if q:
+            cursor.execute("""
+                SELECT id_codigo_consumidor AS id, nombre, recurso_operativo_cedula AS documento
+                FROM recurso_operativo
+                WHERE nombre LIKE %s OR recurso_operativo_cedula LIKE %s
+                ORDER BY nombre LIMIT 50
+            """, (f"%{q}%", f"%{q}%"))
+        else:
+            cursor.execute("""
+                SELECT id_codigo_consumidor AS id, nombre, recurso_operativo_cedula AS documento
+                FROM recurso_operativo
+                ORDER BY nombre LIMIT 50
+            """)
+        rows = cursor.fetchall()
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'items': rows})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/limites_ferretero', methods=['GET'])
 @login_required()
 @role_required('logistica')
@@ -23591,3 +23817,49 @@ def api_analistas_list_categorias_alias(tecnologia):
 @login_required_api(role=['analista','analistas'])
 def api_analistas_list_codigos_alias(tecnologia=None, categoria=None):
     return api_tecnicos_list_codigos(tecnologia, categoria)
+@app.route('/api/logistica/computadores/update-modelo', methods=['POST'])
+@app.route('/logistica/computadores/update-modelo', methods=['POST'])
+@login_required_api(role=['logistica','administrativo'])
+def api_log_computadores_update_modelo():
+    data = request.get_json() or {}
+    cid = int(data.get('id') or 0)
+    modelo = (data.get('modelo') or '').strip()
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        cur.execute("UPDATE log_computadores SET modelo=%s WHERE id=%s", (modelo, cid))
+        connection.commit()
+        cur.close(); connection.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/logistica/computadores/update', methods=['POST'])
+@app.route('/logistica/computadores/update', methods=['POST'])
+@login_required_api(role=['logistica','administrativo'])
+def api_log_computadores_update():
+    data = request.get_json() or {}
+    cid = int(data.get('id') or 0)
+    marca = (data.get('marca') or '').strip()
+    modelo = (data.get('modelo') or '').strip()
+    descripcion = (data.get('descripcion') or '').strip()
+    cantidad = int(data.get('cantidad') or 1)
+    serial = (data.get('serial') or '').strip()
+    costo = float(data.get('costo') or 0)
+    observacion = (data.get('observacion') or '').strip()
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        cur.execute(
+            "UPDATE log_computadores SET marca=%s, modelo=%s, descripcion=%s, cantidad=%s, serial=%s, costo=%s, observacion=%s WHERE id=%s",
+            (marca, modelo, descripcion, cantidad, serial, costo, observacion, cid)
+        )
+        connection.commit()
+        cur.close(); connection.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500

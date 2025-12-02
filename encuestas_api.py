@@ -3422,7 +3422,19 @@ def registrar_rutas_encuestas(app):
             for r in resultados:
                 votos = int(r.get('votos') or 0)
                 r['porcentaje'] = (round((votos * 100.0 / total_votos), 2) if total_votos > 0 else 0.0)
-            return jsonify({'success': True, 'encuesta_id': encuesta_id, 'total_votos': total_votos, 'resultados': resultados})
+            cursor.execute(
+                """
+                SELECT DATE_FORMAT(v.fecha_voto, %s) AS vote_date,
+                       COUNT(v.id_voto) AS daily_count
+                FROM votos v
+                WHERE v.id_encuesta = %s
+                GROUP BY DATE_FORMAT(v.fecha_voto, %s)
+                ORDER BY vote_date ASC
+                """,
+                ('%Y-%m-%d', encuesta_id, '%Y-%m-%d')
+            )
+            daily_votes = cursor.fetchall() or []
+            return jsonify({'success': True, 'encuesta_id': encuesta_id, 'total_votos': total_votos, 'resultados': resultados, 'daily_votes': daily_votes})
         except mysql.connector.Error as e:
             logger.error(f"Error obteniendo resultados de encuesta {encuesta_id}: {e}")
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500

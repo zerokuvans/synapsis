@@ -1,0 +1,401 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="card">
+    <div class="card-header bg-primary text-white">
+      <h3 class="mb-0"><i class="fas fa-laptop me-2"></i>Computadores</h3>
+    </div>
+    <div class="card-body">
+      <div class="row g-2 align-items-end mb-3">
+        <div class="col-auto">
+          <button class="btn btn-success" id="btnNuevo">
+            <i class="fas fa-plus me-2"></i>Nuevo
+          </button>
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-warning" id="btnAsignar">
+            <i class="fas fa-user-check me-2"></i>Asignación
+          </button>
+        </div>
+        <div class="col-md-4 ms-auto">
+          <input type="text" id="buscar" class="form-control" placeholder="Buscar por marca, serial o responsable">
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-striped table-hover">
+          <thead class="table-dark">
+              <tr>
+              <th>ID</th>
+              <th>Marca</th>
+              <th>Modelo</th>
+              <th>Descripción</th>
+              <th>Cantidad</th>
+              <th>Serial</th>
+              <th>Observación</th>
+              <th>Responsable</th>
+              <th>Acciones</th>
+              </tr>
+          </thead>
+          <tbody id="tablaBody">
+            <tr>
+              <td colspan="9" class="text-center text-muted">
+                <i class="fas fa-spinner fa-spin me-2"></i>Cargando...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <ul class="nav nav-tabs mt-4" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabAsignaciones" type="button" role="tab">Asignaciones</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabHistorial" type="button" role="tab">Historial</button>
+        </li>
+      </ul>
+      <div class="tab-content border border-top-0 p-3">
+        <div class="tab-pane fade show active" id="tabAsignaciones" role="tabpanel">
+          <div class="table-responsive">
+            <table class="table table-sm table-striped">
+              <thead class="table-primary">
+                <tr>
+                  <th>ID</th>
+                  <th>Computador</th>
+                  <th>Serial</th>
+                  <th>Responsable</th>
+                  <th>Fecha Asignación</th>
+                </tr>
+              </thead>
+              <tbody id="asignacionesBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="tabHistorial" role="tabpanel">
+          <div class="table-responsive">
+            <table class="table table-sm table-striped">
+              <thead class="table-secondary">
+                <tr>
+                  <th>ID</th>
+                  <th>Computador</th>
+                  <th>Serial</th>
+                  <th>Responsable</th>
+                  <th>Asignación</th>
+                  <th>Desasignación</th>
+                </tr>
+              </thead>
+              <tbody id="historialBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalNuevo" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Nuevo Computador</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label">Marca</label>
+          <input type="text" id="nMarca" class="form-control" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Modelo</label>
+          <input type="text" id="nModelo" class="form-control">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Descripción</label>
+          <input type="text" id="nDescripcion" class="form-control">
+        </div>
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label class="form-label">Cantidad</label>
+            <input type="number" id="nCantidad" class="form-control" value="1" min="1">
+          </div>
+          <div class="col-md-8">
+            <label class="form-label">Serial</label>
+            <input type="text" id="nSerial" class="form-control">
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Costo</label>
+          <input type="number" id="nCosto" class="form-control" step="0.01" min="0">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" id="btnGuardarNuevo">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalAsignar" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Asignación de Computadores</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Buscar Usuario</label>
+            <input type="text" id="buscarUsuario" class="form-control" placeholder="Nombre o documento">
+            <div class="list-group mt-2" id="usuariosList" style="max-height:260px;overflow:auto"></div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Computadores</label>
+            <div class="list-group" id="computadoresList" style="max-height:320px;overflow:auto"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalEditar" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Computador</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label">Marca</label>
+          <input type="text" id="eMarca" class="form-control" required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Modelo</label>
+          <input type="text" id="eModelo" class="form-control">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Descripción</label>
+          <input type="text" id="eDescripcion" class="form-control">
+        </div>
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label class="form-label">Cantidad</label>
+            <input type="number" id="eCantidad" class="form-control" min="1">
+          </div>
+          <div class="col-md-8">
+            <label class="form-label">Serial</label>
+            <input type="text" id="eSerial" class="form-control">
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Costo</label>
+          <input type="number" id="eCosto" class="form-control" step="0.01" min="0">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Observación</label>
+          <input type="text" id="eObservacion" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnGuardarEditar">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let items = [];
+let asignaciones = [];
+let historial = [];
+let usuarioSeleccionado = null;
+let editId = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btnNuevo').onclick = () => new bootstrap.Modal(document.getElementById('modalNuevo')).show();
+  document.getElementById('btnAsignar').onclick = abrirAsignar;
+  document.getElementById('btnGuardarNuevo').onclick = guardarNuevo;
+  document.getElementById('btnGuardarEditar').onclick = guardarEditar;
+  document.getElementById('buscar').addEventListener('input', renderTabla);
+  document.getElementById('buscarUsuario').addEventListener('input', cargarUsuarios);
+  cargarLista();
+  cargarAsignaciones();
+  cargarHistorial();
+});
+
+async function cargarLista(){
+  const r = await fetch('/api/logistica/computadores');
+  const d = await r.json();
+  items = (d && d.items) || [];
+  renderTabla();
+}
+function renderTabla(){
+  const tbody = document.getElementById('tablaBody');
+  const q = (document.getElementById('buscar').value||'').toLowerCase();
+  const data = items.filter(i => {
+    const resp = (i.responsable_nombre||'') + ' ' + (i.responsable_documento||'');
+    return String(i.marca||'').toLowerCase().includes(q) || String(i.serial||'').toLowerCase().includes(q) || resp.toLowerCase().includes(q);
+  });
+  if(!data.length){ tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Sin registros</td></tr>'; return; }
+  tbody.innerHTML = data.map(i => {
+    const libre = !i.responsable_id;
+    const resp = libre ? '<span class="badge bg-secondary">Libre</span>' : `<span class="badge bg-info">${i.responsable_nombre||''}</span>`;
+    return `<tr>
+      <td>${i.id}</td>
+      <td>${i.marca||''}</td>
+      <td>${i.modelo||''}</td>
+      <td>${i.descripcion||''}</td>
+      <td>${i.cantidad||1}</td>
+      <td>${i.serial||''}</td>
+      <td>${i.observacion||''}</td>
+      <td>${resp}</td>
+      <td>
+        <button class="btn btn-sm btn-outline-primary" onclick="abrirEditar(${i.id})"><i class="fas fa-pen"></i></button>
+        <button class="btn btn-sm btn-outline-warning" onclick="abrirAsignar(${i.id})"><i class="fas fa-user-check"></i></button>
+        <button class="btn btn-sm btn-outline-danger" ${libre?'disabled':''} onclick="desasignar(${i.id})"><i class="fas fa-user-times"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function guardarNuevo(){
+  const payload = {
+    marca: document.getElementById('nMarca').value.trim(),
+    modelo: document.getElementById('nModelo').value.trim(),
+    descripcion: document.getElementById('nDescripcion').value.trim(),
+    cantidad: parseInt(document.getElementById('nCantidad').value||'1'),
+    serial: document.getElementById('nSerial').value.trim(),
+    costo: parseFloat(document.getElementById('nCosto').value||'0')
+  };
+  const r = await fetch('/api/logistica/computadores', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  const d = await r.json();
+  if(r.ok && d && d.success){
+    bootstrap.Modal.getInstance(document.getElementById('modalNuevo')).hide();
+    await cargarLista();
+  }
+}
+
+async function abrirAsignar(id){
+  usuarioSeleccionado = null;
+  const m = new bootstrap.Modal(document.getElementById('modalAsignar'));
+  m.show();
+  await cargarUsuarios();
+  renderComputadoresAsignar(id||null);
+}
+
+async function cargarUsuarios(){
+  const q = document.getElementById('buscarUsuario').value||'';
+  const r = await fetch(`/api/logistica/usuarios?q=${encodeURIComponent(q)}`);
+  const d = await r.json();
+  const list = document.getElementById('usuariosList');
+  const itemsU = (d && d.items) || [];
+  list.innerHTML = itemsU.map(u => `<button class="list-group-item list-group-item-action ${usuarioSeleccionado && usuarioSeleccionado.id===u.id?'active':''}" data-id="${u.id}" onclick="seleccionarUsuario(${u.id}, '${u.nombre.replace(/'/g,"\'")}', '${u.documento}')">${u.nombre} <small class="text-muted">${u.documento}</small></button>`).join('');
+}
+function seleccionarUsuario(id, nombre, doc){
+  usuarioSeleccionado = { id, nombre, doc };
+  const items = document.querySelectorAll('#usuariosList .list-group-item');
+  items.forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`#usuariosList .list-group-item[data-id="${id}"]`);
+  if(el) el.classList.add('active');
+  renderComputadoresAsignar();
+}
+function renderComputadoresAsignar(preselectId){
+  const cont = document.getElementById('computadoresList');
+  cont.innerHTML = items.map(i => {
+    const libre = !i.responsable_id;
+    const checked = preselectId && preselectId===i.id;
+    return `<div class="d-flex align-items-center justify-content-between list-group-item">
+      <div>
+        <div class="fw-bold">${i.marca||''} - ${i.serial||''}</div>
+        <small class="text-muted">${libre?'Libre':(i.responsable_nombre||'')}</small>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-sm btn-outline-success" ${!usuarioSeleccionado?'disabled':''} onclick="asignar(${i.id})"><i class="fas fa-check"></i></button>
+        <button class="btn btn-sm btn-outline-danger" ${libre?'disabled':''} onclick="desasignar(${i.id})"><i class="fas fa-times"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function asignar(id){
+  if(!usuarioSeleccionado) return;
+  const payload = { computador_id: id, usuario_id: usuarioSeleccionado.id };
+  const r = await fetch('/api/logistica/computadores/asignar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  const d = await r.json();
+  if(r.ok && d && d.success){ await cargarLista(); await cargarAsignaciones(); await cargarHistorial(); renderComputadoresAsignar(id); }
+}
+async function desasignar(id){
+  const payload = { computador_id: id };
+  const r = await fetch('/api/logistica/computadores/desasignar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  const d = await r.json();
+  if(r.ok && d && d.success){ await cargarLista(); await cargarAsignaciones(); await cargarHistorial(); }
+}
+
+async function cargarAsignaciones(){
+  const r = await fetch('/api/logistica/computadores/asignaciones');
+  const d = await r.json();
+  asignaciones = (d && d.items) || [];
+  const tbody = document.getElementById('asignacionesBody');
+  if(!asignaciones.length){ tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin asignaciones</td></tr>'; return; }
+  tbody.innerHTML = asignaciones.map(a => `<tr><td>${a.id}</td><td>${a.marca||''}</td><td>${a.serial||''}</td><td>${a.responsable_nombre||''}</td><td>${a.fecha_asignacion||''}</td></tr>`).join('');
+}
+async function cargarHistorial(){
+  const r = await fetch('/api/logistica/computadores/historial');
+  const d = await r.json();
+  historial = (d && d.items) || [];
+  const tbody = document.getElementById('historialBody');
+  if(!historial.length){ tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin historial</td></tr>'; return; }
+  tbody.innerHTML = historial.map(a => `<tr><td>${a.id}</td><td>${a.marca||''}</td><td>${a.serial||''}</td><td>${a.responsable_nombre||''}</td><td>${a.fecha_asignacion||''}</td><td>${a.fecha_desasignacion||''}</td></tr>`).join('');
+}
+
+// Eliminado editor inline de modelo; edición ahora solo vía modal general
+
+function abrirEditar(id){
+  const item = items.find(x => x.id === id);
+  if(!item) return;
+  editId = id;
+  document.getElementById('eMarca').value = item.marca||'';
+  document.getElementById('eModelo').value = item.modelo||'';
+  document.getElementById('eDescripcion').value = item.descripcion||'';
+  document.getElementById('eCantidad').value = item.cantidad||1;
+  document.getElementById('eSerial').value = item.serial||'';
+  document.getElementById('eCosto').value = item.costo||0;
+  document.getElementById('eObservacion').value = item.observacion||'';
+  new bootstrap.Modal(document.getElementById('modalEditar')).show();
+}
+
+async function guardarEditar(){
+  if(!editId) return;
+  const payload = {
+    id: editId,
+    marca: document.getElementById('eMarca').value.trim(),
+    modelo: document.getElementById('eModelo').value.trim(),
+    descripcion: document.getElementById('eDescripcion').value.trim(),
+    cantidad: parseInt(document.getElementById('eCantidad').value||'1'),
+    serial: document.getElementById('eSerial').value.trim(),
+    costo: parseFloat(document.getElementById('eCosto').value||'0'),
+    observacion: document.getElementById('eObservacion').value.trim()
+  };
+  let r = await fetch('/api/logistica/computadores', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  let d;
+  try{ d = await r.json(); }catch(e){ d = null; }
+  if(!(r && r.ok)){
+    r = await fetch('/logistica/computadores', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    try{ d = await r.json(); }catch(e){ d = null; }
+  }
+  if(r.ok && d && d.success){
+    bootstrap.Modal.getInstance(document.getElementById('modalEditar')).hide();
+    editId = null;
+    await cargarLista();
+  } else {
+    if(window.Swal){ Swal.fire({icon:'warning', title:'No guardado', text: d && d.error ? String(d.error) : 'Error al actualizar'}); }
+  }
+}
+</script>
+{% endblock %}
