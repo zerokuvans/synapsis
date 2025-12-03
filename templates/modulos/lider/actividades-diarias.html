@@ -416,6 +416,10 @@ function formatOT(v){
 
 function debeBloquearGestion(fechaRaw){
   try{
+    const nowStr = new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' });
+    const now = new Date(nowStr);
+    const bloqueoInicio = new Date('2025-12-04T12:00:00-05:00');
+    if (now.getTime() < bloqueoInicio.getTime()) { return false; }
     const s = String(fechaRaw ?? '').trim();
     let y = null, m = null, d = null;
     const rx = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -426,8 +430,6 @@ function debeBloquearGestion(fechaRaw){
       if(!r2) return false;
       y = parseInt(r2[1],10); m = parseInt(r2[2],10); d = parseInt(r2[3],10);
     }
-    const nowStr = new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' });
-    const now = new Date(nowStr);
     const deadline = new Date(y, m-1, d+1, 12, 0, 0);
     return now.getTime() >= deadline.getTime();
   }catch(_){ return false; }
