@@ -2776,94 +2776,145 @@ def api_lider_cargar_actividades():
         )
         exists = cursor.fetchone()[0] > 0
         if not exists:
-            cursor.execute(create_sql)
-        else:
-            cursor.execute(
-                "SELECT COLUMN_NAME FROM information_schema.columns WHERE table_schema=%s AND table_name=%s",
-                (db_config.get('database'), 'operaciones_actividades_diarias')
-            )
-            existing_cols = {row[0] for row in cursor.fetchall()}
-            for i, col in enumerate(safe_cols):
-                if col not in existing_cols:
-                    cursor.execute(
-                        f"ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `{col}` {sql_type(df[orig_cols[i]].dtype)} NULL"
-                    )
-        actividad_col = None
-        actividad_idx = None
+            return jsonify({'success': False, 'message': 'La tabla operaciones_actividades_diarias no existe'}), 400
+
+        cursor.execute(
+            """
+            SELECT COLUMN_NAME, DATA_TYPE
+            FROM information_schema.columns
+            WHERE table_schema=%s AND table_name=%s
+            """,
+            (db_config.get('database'), 'operaciones_actividades_diarias')
+        )
+        db_cols_rows = cursor.fetchall() or []
+        db_cols = [r[0] for r in db_cols_rows]
+        db_types = {r[0]: str(r[1]).lower() for r in db_cols_rows}
+
+        def norm_name(s:str):
+            import re
+            s = re.sub(r"\s+", "_", str(s).strip())
+            s = re.sub(r"[^A-Za-z0-9_]", "_", s)
+            s = re.sub(r"_+", "_", s)
+            return s.lower()
+
+        norm_db_map = {norm_name(c): c for c in db_cols}
+
+        mapped_cols = []
+        mapped_idx = []
         for i, c in enumerate(orig_cols):
-            k = re.sub(r"[^a-z0-9]", "", str(c).lower())
-            if k in ("actividadid", "idactividad", "actividad_id", "id_actividad"):
-                actividad_col = safe_cols[i]
-                actividad_idx = i
+            ce = c
+            n_excel = norm_name(ce)
+            db_col = norm_db_map.get(n_excel)
+            if not db_col:
+                for dc in db_cols:
+                    if dc.lower() == str(ce).lower():
+                        db_col = dc
+                        break
+            if db_col:
+                mapped_cols.append(db_col)
+                mapped_idx.append(i)
+
+        actividad_db_col = None
+        actividad_idx = None
+        for dc in db_cols:
+            ndc = norm_name(dc)
+            if ndc in ("actividad_id","id_actividad","idactividad","actividadid") or ("actividad" in ndc and "id" in ndc):
+                actividad_db_col = dc
                 break
-        if actividad_col is None:
+        if actividad_db_col is None:
             for i, c in enumerate(orig_cols):
                 k = re.sub(r"[^a-z0-9]", "", str(c).lower())
-                if ("actividad" in k) and ("id" in k):
-                    actividad_col = safe_cols[i]
+                if k in ("actividadid", "idactividad", "actividad_id", "id_actividad") or ("actividad" in k and "id" in k):
+                    db_col = norm_db_map.get(norm_name(c))
+                    if db_col:
+                        actividad_db_col = db_col
+                        actividad_idx = i
+                        break
+        else:
+            for i, c in enumerate(orig_cols):
+                if norm_name(c) == norm_name(actividad_db_col):
                     actividad_idx = i
                     break
-        placeholders = ','.join(['%s'] * len(safe_cols))
-        insert_sql = f"INSERT INTO `operaciones_actividades_diarias` ({', '.join([f'`{c}`' for c in safe_cols])}) VALUES ({placeholders})"
-        def conv(v):
-            try:
-                if pd.isna(v):
-                    return None
-            except Exception:
-                pass
+
+        def convert_by_type(val, tname:str):
             try:
                 import numpy as np
-                if isinstance(v, np.integer):
-                    return int(v)
-                if isinstance(v, np.floating):
-                    return float(v)
-                if isinstance(v, np.bool_):
-                    return bool(v)
+                if pd.isna(val):
+                    return None
+                if isinstance(val, pd.Timestamp):
+                    if tname in ("date",):
+                        return val.to_pydatetime().date()
+                    return val.to_pydatetime()
+                if tname in ("int","bigint","smallint","mediumint"):
+                    if isinstance(val, (int,)):
+                        return int(val)
+                    if isinstance(val, (float,)):
+                        return int(val)
+                    v = str(val).strip()
+                    return int(v) if v and v.isdigit() else None
+                if tname in ("decimal","numeric","float","double"):
+                    from decimal import Decimal as D
+                    if isinstance(val, (int,float)):
+                        return D(str(val))
+                    v = str(val).strip()
+                    return D(v) if v else None
+                if tname in ("tinyint"):
+                    v = str(val).strip().lower()
+                    return 1 if v in ("1","true","si","sí","yes") else 0 if v in ("0","false","no") else None
+                if tname in ("datetime","timestamp"):
+                    if isinstance(val, str):
+                        try:
+                            return pd.to_datetime(val).to_pydatetime()
+                        except Exception:
+                            return val
+                    return val
+                if tname in ("date",):
+                    if isinstance(val, str):
+                        try:
+                            return pd.to_datetime(val).date()
+                        except Exception:
+                            return val
+                    return val
+                return val if val is None or isinstance(val, (str,bytes)) else str(val)
             except Exception:
-                pass
-            try:
-                if isinstance(v, pd.Timestamp):
-                    return v.to_pydatetime()
-            except Exception:
-                pass
-            return v
-        duplicates_skipped = 0
-        rows = []
-        if actividad_col is not None and actividad_idx is not None:
-            ids = []
-            for r in range(len(df)):
-                v = conv(df.iloc[r, actividad_idx])
-                if v is not None and str(v).strip() != "":
-                    ids.append(str(v).strip())
-            existing_ids = set()
-            if ids:
-                ph = ','.join(['%s'] * len(ids))
-                cursor.execute(f"SELECT CAST(`{actividad_col}` AS CHAR) FROM `operaciones_actividades_diarias` WHERE CAST(`{actividad_col}` AS CHAR) IN ({ph})", tuple(ids))
-                existing_ids = {str(row[0]) for row in cursor.fetchall()}
-                try:
-                    cursor.execute("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=%s AND table_name=%s AND column_name=%s AND non_unique = 0", (db_config.get('database'), 'operaciones_actividades_diarias', actividad_col))
-                    has_unique = cursor.fetchone()[0] > 0
-                    if not has_unique:
-                        cursor.execute(f"ALTER TABLE `operaciones_actividades_diarias` ADD UNIQUE KEY `uniq_actividad_id` (`{actividad_col}`)")
-                except Exception:
-                    pass
-            for r in range(len(df)):
-                v = conv(df.iloc[r, actividad_idx])
-                key = str(v).strip() if v is not None else None
-                if key and key in existing_ids:
-                    duplicates_skipped += 1
-                    continue
-                rows.append(tuple(conv(df.iloc[r, i]) for i in range(len(orig_cols))) )
-        else:
-            rows = [tuple(conv(df.iloc[r, i]) for i in range(len(orig_cols))) for r in range(len(df))]
+                return val
+
+        if not mapped_cols:
+            cursor.close(); connection.close()
+            return jsonify({'success': False, 'message': 'No se encontraron columnas del archivo que coincidan con la tabla'}), 400
+
+        insert_sql = f"INSERT INTO `operaciones_actividades_diarias` ({', '.join([f'`{c}`' for c in mapped_cols])}) VALUES ({','.join(['%s']*len(mapped_cols))})"
+        update_cols = [c for c in mapped_cols if c != actividad_db_col]
+        insert_upsert_sql = None
+        if actividad_db_col and update_cols:
+            insert_upsert_sql = (
+                f"INSERT INTO `operaciones_actividades_diarias` ({', '.join([f'`{c}`' for c in mapped_cols])}) "
+                f"VALUES ({','.join(['%s']*len(mapped_cols))}) "
+                f"ON DUPLICATE KEY UPDATE {', '.join([f'`{c}`=%s' for c in update_cols])}"
+            )
+
         inserted = 0
-        if rows:
-            cursor.executemany(insert_sql, rows)
-            connection.commit()
-            inserted = len(rows)
-        cursor.close()
-        connection.close()
-        return jsonify({'success': True, 'rows_inserted': inserted, 'duplicates_skipped': duplicates_skipped, 'total_rows': len(df), 'message': f"{inserted} ok, {duplicates_skipped} ya existen"})
+        updated = 0
+        for r in range(len(df)):
+            values = []
+            for j, db_col in enumerate(mapped_cols):
+                raw = df.iloc[r, mapped_idx[j]]
+                values.append(convert_by_type(raw, db_types.get(db_col, '')))
+            if insert_upsert_sql:
+                upd_vals = [values[mapped_cols.index(c)] for c in update_cols]
+                cursor.execute(insert_upsert_sql, tuple(values + upd_vals))
+                rc = cursor.rowcount or 0
+                if rc == 2:
+                    updated += 1
+                else:
+                    inserted += 1
+            else:
+                cursor.execute(insert_sql, tuple(values))
+                inserted += 1
+
+        connection.commit()
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'rows_inserted': inserted, 'rows_updated': updated, 'total_rows': len(df), 'message': f"{inserted} insertadas, {updated} actualizadas"})
     except Error as e:
         return jsonify({'success': False, 'message': str(e)}), 500
     except Exception as e:
