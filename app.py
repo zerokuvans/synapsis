@@ -3289,7 +3289,6 @@ def api_create_vehiculo():
         bogota_tz = timezone('America/Bogota')
         fecha_creacion = datetime.now(bogota_tz).strftime('%Y-%m-%d %H:%M:%S')
         
-        # Insertar nuevo vehículo
         insert_query = """
         INSERT INTO mpa_vehiculos (
             cedula_propietario, nombre_propietario, placa, tipo_vehiculo, vin,
@@ -3297,7 +3296,6 @@ def api_create_vehiculo():
             color, kilometraje_actual, fecha_creacion, tecnico_asignado, observaciones
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        
         values = (
             data.get('cedula_propietario'),
             data.get('nombre_propietario'),
@@ -3316,14 +3314,93 @@ def api_create_vehiculo():
             data.get('tecnico_asignado'),
             data.get('observaciones')
         )
-        
         cursor.execute(insert_query, values)
+        vehiculo_id = cursor.lastrowid
+        created = {'vehiculo_id': vehiculo_id}
+
+        s = data.get('soat')
+        if isinstance(s, dict):
+            sp = s.get('numero_poliza')
+            sa = s.get('aseguradora')
+            sv = s.get('valor_prima')
+            sfi = s.get('fecha_inicio')
+            sfv = s.get('fecha_vencimiento')
+            if sp and sa and sv and sfi and sfv:
+                cursor.execute("SELECT id_mpa_soat FROM mpa_soat WHERE placa = %s AND estado = 'Activo' AND fecha_vencimiento >= CURDATE()", (data.get('placa'),))
+                if cursor.fetchone():
+                    created['soat_skipped'] = 'Ya existe SOAT activo'
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO mpa_soat (
+                            placa, numero_poliza, aseguradora, fecha_inicio, fecha_vencimiento,
+                            valor_prima, tecnico_asignado, estado, observaciones, fecha_creacion
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            data.get('placa'), sp, sa, sfi, sfv,
+                            sv, data.get('tecnico_asignado'), s.get('estado', 'Activo'), s.get('observaciones', ''), fecha_creacion
+                        )
+                    )
+                    created['soat_id'] = cursor.lastrowid
+            else:
+                created['soat_skipped'] = 'Campos incompletos'
+
+        tm = data.get('tecnico_mecanica')
+        if isinstance(tm, dict):
+            tfi = tm.get('fecha_inicio')
+            tfv = tm.get('fecha_vencimiento')
+            if tfi and tfv:
+                cursor.execute("SELECT id_mpa_tecnico_mecanica FROM mpa_tecnico_mecanica WHERE placa = %s AND estado = 'Activo'", (data.get('placa'),))
+                if cursor.fetchone():
+                    created['tm_skipped'] = 'Ya existe revisión activa'
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO mpa_tecnico_mecanica (
+                            placa, fecha_inicio, fecha_vencimiento, tecnico_asignado, tipo_vehiculo, estado, observaciones, fecha_creacion
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            data.get('placa'), tfi, tfv, data.get('tecnico_asignado'), data.get('tipo_vehiculo'), tm.get('estado', 'Activo'), tm.get('observaciones', ''), fecha_creacion
+                        )
+                    )
+                    created['tm_id'] = cursor.lastrowid
+            else:
+                created['tm_skipped'] = 'Campos incompletos'
+
+        lic = data.get('licencia')
+        if isinstance(lic, dict):
+            tl = lic.get('tipo_licencia')
+            lfi = lic.get('fecha_inicial')
+            lfv = lic.get('fecha_vencimiento')
+            tech_id = lic.get('tecnico_id') or data.get('tecnico_asignado')
+            if tl and lfi and lfv and tech_id:
+                cursor.execute("SELECT id_mpa_licencia_conducir FROM mpa_licencia_conducir WHERE tecnico = %s AND fecha_vencimiento > CURDATE()", (tech_id,))
+                if cursor.fetchone():
+                    created['licencia_skipped'] = 'Ya existe licencia vigente'
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO mpa_licencia_conducir (
+                            tecnico, tipo_licencia, fecha_inicio, fecha_vencimiento, observacion, fecha_creacion
+                        ) VALUES (%s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            tech_id, tl, lfi, lfv, lic.get('observacion', ''), fecha_creacion
+                        )
+                    )
+                    created['licencia_id'] = cursor.lastrowid
+            else:
+                created['licencia_skipped'] = 'Campos incompletos'
+
         connection.commit()
-        
+
         return jsonify({
             'success': True,
             'message': 'Vehículo creado exitosamente',
-            'id': cursor.lastrowid
+            'id': vehiculo_id,
+            'created': created
         })
         
     except Exception as e:
@@ -3423,7 +3500,7 @@ def api_get_vehiculo(vehiculo_id):
 @app.route('/api/mpa/vehiculos/<int:vehiculo_id>', methods=['PUT'])
 @login_required
 def api_update_vehiculo(vehiculo_id):
-    """API para actualizar un vehículo"""
+    """API para actualizar un vehículo y opcionalmente sus registros relacionados (SOAT, Técnico Mecánica y Licencia)"""
     if not current_user.has_role('administrativo'):
         return jsonify({'error': 'Sin permisos'}), 403
     
@@ -3472,11 +3549,142 @@ def api_update_vehiculo(vehiculo_id):
         update_query = f"UPDATE mpa_vehiculos SET {', '.join(update_fields)} WHERE id_mpa_vehiculos = %s"
         
         cursor.execute(update_query, values)
+        updated = {'vehiculo_id': vehiculo_id}
+
+        s = data.get('soat')
+        if isinstance(s, dict):
+            try:
+                sp = s.get('numero_poliza')
+                sa = s.get('aseguradora')
+                sv = s.get('valor_prima')
+                sfi = s.get('fecha_inicio')
+                sfv = s.get('fecha_vencimiento')
+                fecha_actual = get_bogota_datetime().strftime('%Y-%m-%d %H:%M:%S')
+                cursor.execute("SELECT id_mpa_soat FROM mpa_soat WHERE placa = (SELECT placa FROM mpa_vehiculos WHERE id_mpa_vehiculos=%s) AND estado='Activo'", (vehiculo_id,))
+                row = cursor.fetchone()
+                if row:
+                    soat_id = row[0]
+                    up_fields = []
+                    vals = []
+                    if sp: up_fields.append("numero_poliza=%s"); vals.append(sp)
+                    if sa: up_fields.append("aseguradora=%s"); vals.append(sa)
+                    if sv: up_fields.append("valor_prima=%s"); vals.append(sv)
+                    if sfi: up_fields.append("fecha_inicio=%s"); vals.append(sfi)
+                    if sfv: up_fields.append("fecha_vencimiento=%s"); vals.append(sfv)
+                    if 'observaciones' in s: up_fields.append("observaciones=%s"); vals.append(s.get('observaciones',''))
+                    if 'estado' in s: up_fields.append("estado=%s"); vals.append(s.get('estado','Activo'))
+                    if 'tecnico_asignado' in s: up_fields.append("tecnico_asignado=%s"); vals.append(s.get('tecnico_asignado'))
+                    if up_fields:
+                        up_fields.append("fecha_actualizacion=%s"); vals.append(fecha_actual)
+                        vals.append(soat_id)
+                        cursor.execute(f"UPDATE mpa_soat SET {', '.join(up_fields)} WHERE id_mpa_soat=%s", tuple(vals))
+                        updated['soat_id'] = soat_id
+                else:
+                    placa = data.get('placa')
+                    if placa and sp and sa and sv and sfi and sfv:
+                        cursor.execute(
+                            """
+                            INSERT INTO mpa_soat (
+                                placa, numero_poliza, aseguradora, fecha_inicio, fecha_vencimiento,
+                                valor_prima, tecnico_asignado, estado, observaciones, fecha_creacion
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                placa, sp, sa, sfi, sfv,
+                                s.get('tecnico_asignado', data.get('tecnico_asignado')), s.get('estado','Activo'), s.get('observaciones',''), fecha_actual
+                            )
+                        )
+                        updated['soat_id'] = cursor.lastrowid
+            except Exception as e:
+                updated['soat_error'] = str(e)
+
+        tm = data.get('tecnico_mecanica')
+        if isinstance(tm, dict):
+            try:
+                tfi = tm.get('fecha_inicio')
+                tfv = tm.get('fecha_vencimiento')
+                cursor.execute("SELECT placa, tipo_vehiculo FROM mpa_vehiculos WHERE id_mpa_vehiculos=%s", (vehiculo_id,))
+                vr = cursor.fetchone()
+                placa = data.get('placa') or (vr[0] if vr else None)
+                tipo_v = data.get('tipo_vehiculo') or (vr[1] if vr else None)
+                cursor.execute("SELECT id_mpa_tecnico_mecanica FROM mpa_tecnico_mecanica WHERE placa=%s AND estado='Activo'", (placa,))
+                row = cursor.fetchone()
+                if row:
+                    tm_id = row[0]
+                    up_fields = []
+                    vals = []
+                    if tfi: up_fields.append("fecha_inicio=%s"); vals.append(tfi)
+                    if tfv: up_fields.append("fecha_vencimiento=%s"); vals.append(tfv)
+                    if 'observaciones' in tm: up_fields.append("observaciones=%s"); vals.append(tm.get('observaciones',''))
+                    if 'estado' in tm: up_fields.append("estado=%s"); vals.append(tm.get('estado','Activo'))
+                    if 'tecnico_asignado' in data: up_fields.append("tecnico_asignado=%s"); vals.append(data.get('tecnico_asignado'))
+                    if 'tipo_vehiculo' in data or tipo_v: up_fields.append("tipo_vehiculo=%s"); vals.append(data.get('tipo_vehiculo', tipo_v))
+                    if up_fields:
+                        up_fields.append("fecha_actualizacion=NOW()")
+                        vals.append(tm_id)
+                        cursor.execute(f"UPDATE mpa_tecnico_mecanica SET {', '.join(up_fields)} WHERE id_mpa_tecnico_mecanica=%s", tuple(vals))
+                        updated['tm_id'] = tm_id
+                else:
+                    if placa and tfi and tfv:
+                        cursor.execute(
+                            """
+                            INSERT INTO mpa_tecnico_mecanica (
+                                placa, fecha_inicio, fecha_vencimiento, tecnico_asignado, tipo_vehiculo, estado, observaciones, fecha_creacion
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                            """,
+                            (
+                                placa, tfi, tfv, data.get('tecnico_asignado'), data.get('tipo_vehiculo', tipo_v), tm.get('estado','Activo'), tm.get('observaciones','')
+                            )
+                        )
+                        updated['tm_id'] = cursor.lastrowid
+            except Exception as e:
+                updated['tm_error'] = str(e)
+
+        lic = data.get('licencia')
+        if isinstance(lic, dict):
+            try:
+                tl = lic.get('tipo_licencia')
+                lfi = lic.get('fecha_inicial')
+                lfv = lic.get('fecha_vencimiento')
+                tech_id = lic.get('tecnico_id') or data.get('tecnico_asignado')
+                if tech_id:
+                    cursor.execute("SELECT id_mpa_licencia_conducir FROM mpa_licencia_conducir WHERE tecnico=%s AND fecha_vencimiento>CURDATE()", (tech_id,))
+                    row = cursor.fetchone()
+                    if row:
+                        lic_id = row[0]
+                        up_fields = []
+                        vals = []
+                        if tl: up_fields.append("tipo_licencia=%s"); vals.append(tl)
+                        if lfi: up_fields.append("fecha_inicio=%s"); vals.append(lfi)
+                        if lfv: up_fields.append("fecha_vencimiento=%s"); vals.append(lfv)
+                        if 'observacion' in lic or 'observaciones' in lic:
+                            up_fields.append("observacion=%s"); vals.append(lic.get('observacion', lic.get('observaciones','')))
+                        up_fields.append("fecha_actualizacion=NOW()")
+                        vals.append(lic_id)
+                        cursor.execute(f"UPDATE mpa_licencia_conducir SET {', '.join(up_fields)} WHERE id_mpa_licencia_conducir=%s", tuple(vals))
+                        updated['licencia_id'] = lic_id
+                    else:
+                        if tl and lfi and lfv:
+                            cursor.execute(
+                                """
+                                INSERT INTO mpa_licencia_conducir (
+                                    tecnico, tipo_licencia, fecha_inicio, fecha_vencimiento, observacion, fecha_creacion
+                                ) VALUES (%s, %s, %s, %s, %s, NOW())
+                                """,
+                                (
+                                    tech_id, tl, lfi, lfv, lic.get('observacion', lic.get('observaciones',''))
+                                )
+                            )
+                            updated['licencia_id'] = cursor.lastrowid
+            except Exception as e:
+                updated['licencia_error'] = str(e)
+
         connection.commit()
         
         return jsonify({
             'success': True,
-            'message': 'Vehículo actualizado exitosamente'
+            'message': 'Vehículo actualizado exitosamente',
+            'updated': updated
         })
         
     except Exception as e:
@@ -4974,7 +5182,7 @@ def api_upload_mantenimiento_image():
 @app.route('/api/mpa/soat', methods=['GET'])
 @login_required
 def api_get_soat():
-    """API para obtener lista de SOATs"""
+    """API para obtener lista de SOATs (soporta filtros opcionales por placa y estado)"""
     if not current_user.has_role('administrativo'):
         return jsonify({'error': 'Sin permisos'}), 403
     
@@ -4988,7 +5196,19 @@ def api_get_soat():
         # Obtener fecha actual de Bogotá
         fecha_bogota = get_bogota_datetime().date()
         
-        query = """
+        placa = request.args.get('placa')
+        estado = request.args.get('estado')
+        where = []
+        params = [fecha_bogota]
+
+        if placa:
+            where.append("s.placa = %s")
+            params.append(placa)
+        if estado:
+            where.append("s.estado = %s")
+            params.append(estado)
+
+        query = f"""
         SELECT 
             s.id_mpa_soat,
             s.placa,
@@ -5008,10 +5228,11 @@ def api_get_soat():
         FROM mpa_soat s
         LEFT JOIN mpa_vehiculos v ON s.placa = v.placa
         LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor
-        ORDER BY s.fecha_vencimiento ASC
+        {('WHERE ' + ' AND '.join(where)) if where else ''}
+        ORDER BY s.fecha_vencimiento DESC
         """
         
-        cursor.execute(query, (fecha_bogota,))
+        cursor.execute(query, tuple(params))
         soats = cursor.fetchall()
         
         # Convertir fechas a string para JSON
@@ -5141,10 +5362,10 @@ def api_create_soat():
         # Usar el técnico asignado del vehículo si no se especifica
         tecnico_asignado = data.get('tecnico_asignado', vehiculo[1])
         
-        # Verificar si ya existe un SOAT activo para esta placa
+        # Verificar si ya existe un SOAT activo y vigente para esta placa
         cursor.execute("""
             SELECT id_mpa_soat FROM mpa_soat 
-            WHERE placa = %s AND estado = 'Activo'
+            WHERE placa = %s AND estado = 'Activo' AND fecha_vencimiento >= CURDATE()
         """, (data['placa'],))
         
         if cursor.fetchone():
@@ -5628,7 +5849,7 @@ def api_test_vencimientos():
 @app.route('/api/mpa/tecnico_mecanica', methods=['GET'])
 @login_required
 def api_list_tecnico_mecanica():
-    """API para obtener todas las técnico mecánicas"""
+    """API para obtener todas las técnico mecánicas (filtros opcionales por placa y estado)"""
     if not current_user.has_role('administrativo'):
         return jsonify({'error': 'Sin permisos'}), 403
     
@@ -5639,7 +5860,19 @@ def api_list_tecnico_mecanica():
             
         cursor = connection.cursor(dictionary=True)
         
-        query = """
+        placa = request.args.get('placa')
+        estado = request.args.get('estado')
+        where = []
+        params = []
+
+        if placa:
+            where.append("tm.placa = %s")
+            params.append(placa)
+        if estado:
+            where.append("tm.estado = %s")
+            params.append(estado)
+
+        query = f"""
         SELECT 
             tm.id_mpa_tecnico_mecanica,
             tm.placa,
@@ -5657,10 +5890,11 @@ def api_list_tecnico_mecanica():
         FROM mpa_tecnico_mecanica tm
         LEFT JOIN mpa_vehiculos v ON tm.placa = v.placa
         LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor
+        {('WHERE ' + ' AND '.join(where)) if where else ''}
         ORDER BY tm.fecha_creacion DESC
         """
         
-        cursor.execute(query)
+        cursor.execute(query, tuple(params))
         tecnico_mecanicas = cursor.fetchall()
         
         # Formatear fechas y calcular días restantes
@@ -6017,7 +6251,7 @@ def api_delete_tecnico_mecanica(tm_id):
 @app.route('/api/mpa/licencias-conducir', methods=['GET'])
 @login_required
 def api_list_licencias_conducir():
-    """API para obtener todas las licencias de conducir"""
+    """API para obtener todas las licencias de conducir (filtros opcionales por tecnico_id)"""
     allowed_roles = ('administrativo', 'sstt', 'tecnicos')
     if not any(current_user.has_role(r) for r in allowed_roles):
         return jsonify({'success': False, 'message': 'Sin permisos'}), 403
@@ -6032,7 +6266,13 @@ def api_list_licencias_conducir():
         # Obtener fecha actual de Bogotá
         fecha_bogota = get_bogota_datetime().date()
         
-        query = """
+        tecnico_id = request.args.get('tecnico_id')
+        where = []
+        params = [fecha_bogota]
+        if tecnico_id:
+            where.append("lc.tecnico = %s")
+            params.append(tecnico_id)
+        query = f"""
         SELECT 
             lc.id_mpa_licencia_conducir as id,
             lc.tecnico as tecnico_id,
@@ -6046,10 +6286,11 @@ def api_list_licencias_conducir():
             DATEDIFF(lc.fecha_vencimiento, %s) as dias_vencimiento
         FROM mpa_licencia_conducir lc
         LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor
-        ORDER BY lc.fecha_vencimiento ASC
+        {('WHERE ' + ' AND '.join(where)) if where else ''}
+        ORDER BY lc.fecha_vencimiento DESC
         """
         
-        cursor.execute(query, (fecha_bogota,))
+        cursor.execute(query, tuple(params))
         licencias = cursor.fetchall()
         
         # Formatear fechas y calcular estado

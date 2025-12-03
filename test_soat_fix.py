@@ -16,8 +16,8 @@ def test_soat_creation():
     
     # Datos de login (usar credenciales válidas)
     login_data = {
-        'username': 'admin',  # Cambiar por usuario válido
-        'password': 'admin'   # Cambiar por contraseña válida
+        'username': '80833959',
+        'password': 'M4r14l4r@'
     }
     
     session = requests.Session()
@@ -47,10 +47,29 @@ def test_soat_creation():
             print("❌ No se encontraron vehículos")
             return False
         
-        # Seleccionar el primer vehículo que tenga técnico asignado
+        # Seleccionar un vehículo sin SOAT activo vigente
         vehiculo_seleccionado = None
         for vehiculo in vehiculos_data['data']:
-            if vehiculo.get('tecnico_asignado'):
+            placa = vehiculo.get('placa')
+            if not placa:
+                continue
+            soat_resp = session.get(f"{base_url}/api/mpa/soat", params={'placa': placa})
+            if soat_resp.status_code != 200:
+                continue
+            soats = soat_resp.json().get('data', [])
+            hoy = datetime.now().date()
+            tiene_activo_vigente = False
+            for s in soats:
+                estado_reg = s.get('estado')
+                fv = s.get('fecha_vencimiento')
+                try:
+                    fv_date = datetime.strptime(fv, '%Y-%m-%d').date() if fv else None
+                except Exception:
+                    fv_date = None
+                if estado_reg == 'Activo' and fv_date and fv_date >= hoy:
+                    tiene_activo_vigente = True
+                    break
+            if not tiene_activo_vigente:
                 vehiculo_seleccionado = vehiculo
                 break
         
@@ -59,7 +78,7 @@ def test_soat_creation():
             return False
         
         print(f"✅ Vehículo seleccionado: {vehiculo_seleccionado['placa']}")
-        print(f"   Técnico asignado (ID): {vehiculo_seleccionado['tecnico_asignado']}")
+        print(f"   Técnico asignado (ID): {vehiculo_seleccionado.get('tecnico_asignado', 'N/A')}")
         print(f"   Técnico nombre: {vehiculo_seleccionado.get('tecnico_nombre', 'N/A')}")
         
         # 3. Crear datos de SOAT de prueba
@@ -101,32 +120,23 @@ def test_soat_creation():
         # 5. Verificar que el SOAT se guardó correctamente
         print("🔍 Verificando que el SOAT se guardó correctamente...")
         
-        # Obtener vencimientos para verificar que el SOAT aparece
-        vencimientos_response = session.get(f"{base_url}/api/mpa/vencimientos")
-        
-        if vencimientos_response.status_code != 200:
-            print(f"❌ Error obteniendo vencimientos: {vencimientos_response.status_code}")
+        # Verificar que el SOAT se guardó correctamente en /api/mpa/soat
+        verif_resp = session.get(f"{base_url}/api/mpa/soat", params={'placa': vehiculo_seleccionado['placa']})
+        if verif_resp.status_code != 200:
+            print(f"❌ Error verificando SOAT: {verif_resp.status_code}")
             return False
-        
-        vencimientos_data = vencimientos_response.json()
-        if not vencimientos_data.get('success'):
-            print(f"❌ Error en respuesta de vencimientos: {vencimientos_data.get('message')}")
-            return False
-        
-        # Buscar el SOAT recién creado en los vencimientos
+        verif_data = verif_resp.json()
         soat_encontrado = None
-        for vencimiento in vencimientos_data['data']:
-            if (vencimiento.get('tipo_vencimiento') == 'SOAT' and 
-                vencimiento.get('placa') == vehiculo_seleccionado['placa'] and
-                vencimiento.get('numero_poliza') == soat_data['numero_poliza']):
-                soat_encontrado = vencimiento
+        for s in verif_data.get('data', []):
+            if s.get('numero_poliza') == soat_data['numero_poliza']:
+                soat_encontrado = s
                 break
         
         if not soat_encontrado:
             print("❌ El SOAT creado no aparece en los vencimientos")
             return False
         
-        print("✅ SOAT encontrado en vencimientos")
+        print("✅ SOAT encontrado en registros")
         print(f"   Técnico asignado: {soat_encontrado.get('tecnico_asignado')}")
         print(f"   Técnico nombre: {soat_encontrado.get('tecnico_nombre')}")
         

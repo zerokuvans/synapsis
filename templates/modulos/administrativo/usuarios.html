@@ -981,12 +981,12 @@
         });
         
         // Función para exportar tabla a Excel
-        document.getElementById('btnExportarExcel').addEventListener('click', function() {
+        document.getElementById('btnExportarExcel').addEventListener('click', async function() {
             // Mostrar indicador de carga
             this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Exportando...';
             this.disabled = true;
             
-            setTimeout(() => {
+            setTimeout(async () => {
                 try {
                     // Crear un nuevo libro de trabajo
                     const wb = XLSX.utils.book_new();
@@ -995,17 +995,22 @@
                     // Obtener la tabla
                     const tabla = document.getElementById('tablaUsuarios');
                     
-                    // Agregar encabezados
+                    // Agregar encabezados (incluyendo columnas adicionales solicitadas)
                     const encabezados = [];
                     tabla.querySelectorAll('thead th').forEach((th, index) => {
                         if (index !== 6) { // Excluir la columna de acciones
                             encabezados.push(th.textContent.trim());
                         }
                     });
+                    encabezados.push('Carpeta');
+                    encabezados.push('Fecha Ingreso');
+                    encabezados.push('Fecha Retiro');
+                    encabezados.push('Supervisor');
+                    encabezados.push('Analista');
                     datos.push(encabezados);
                     
                     // Agregar datos de todas las filas filtradas (no solo las visibles en la página actual)
-                    filasFiltradas.forEach(fila => {
+                    for (const fila of filasFiltradas) {
                         if (fila.id !== 'mensajeNoResultados') {
                             const filaDatos = [];
                             fila.querySelectorAll('td').forEach((celda, index) => {
@@ -1017,9 +1022,37 @@
                                     filaDatos.push(celda.textContent.trim());
                                 }
                             });
+                            let d = fila.dataset || {};
+                            let carpeta = d.carpeta || '';
+                            let fechaIngreso = d.fechaIngreso || '';
+                            let fechaRetiro = d.fechaRetiro || '';
+                            let supervisor = d.supervisor || '';
+                            let analista = d.analista || '';
+                            if (!carpeta && !fechaIngreso && !fechaRetiro && !supervisor && !analista) {
+                                const idCell = fila.querySelector('td');
+                                const idVal = idCell ? idCell.textContent.trim() : '';
+                                if (idVal) {
+                                    try {
+                                        const resp = await fetch(`/obtener_usuario/${idVal}`);
+                                        if (resp.ok) {
+                                            const u = await resp.json();
+                                            carpeta = u.carpeta || '';
+                                            fechaIngreso = u.fecha_ingreso || '';
+                                            fechaRetiro = u.fecha_retiro || '';
+                                            supervisor = u.super || '';
+                                            analista = u.analista || '';
+                                        }
+                                    } catch (e) {}
+                                }
+                            }
+                            filaDatos.push(carpeta);
+                            filaDatos.push(fechaIngreso);
+                            filaDatos.push(fechaRetiro);
+                            filaDatos.push(supervisor);
+                            filaDatos.push(analista);
                             datos.push(filaDatos);
                         }
-                    });
+                    }
                     
                     // Crear hoja de cálculo
                     const ws = XLSX.utils.aoa_to_sheet(datos);

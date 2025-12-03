@@ -168,6 +168,101 @@
                             <textarea class="form-control" id="observaciones" name="observaciones" rows="3"></textarea>
                         </div>
                     </div>
+
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="border rounded p-3">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="crearSoat">
+                                    <label class="form-check-label" for="crearSoat">Crear SOAT junto con el vehículo</label>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="soatNumeroPoliza">Número de Póliza</label>
+                                        <input type="text" class="form-control" id="soatNumeroPoliza">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="soatAseguradora">Aseguradora</label>
+                                        <input type="text" class="form-control" id="soatAseguradora">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="soatValorPrima">Valor Prima</label>
+                                        <input type="number" step="0.01" class="form-control" id="soatValorPrima">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="soatFechaInicio">Fecha Inicio</label>
+                                        <input type="date" class="form-control" id="soatFechaInicio">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="soatFechaVencimiento">Fecha Vencimiento</label>
+                                        <input type="date" class="form-control" id="soatFechaVencimiento">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="border rounded p-3">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="crearTm">
+                                    <label class="form-check-label" for="crearTm">Crear Técnico Mecánica junto con el vehículo</label>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="tmFechaInicio">Fecha Inicial</label>
+                                        <input type="date" class="form-control" id="tmFechaInicio">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="tmFechaVencimiento">Fecha Vencimiento</label>
+                                        <input type="date" class="form-control" id="tmFechaVencimiento">
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label" for="tmObservaciones">Observaciones</label>
+                                        <textarea class="form-control" id="tmObservaciones" rows="2"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="border rounded p-3">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="crearLic">
+                                    <label class="form-check-label" for="crearLic">Crear Licencia de Conducir del técnico asignado</label>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="licTipo">Tipo de Licencia</label>
+                                        <select class="form-select" id="licTipo">
+                                            <option value="">Seleccionar tipo</option>
+                                            <option value="A1">A1</option>
+                                            <option value="A2">A2</option>
+                                            <option value="B1">B1</option>
+                                            <option value="B2">B2</option>
+                                            <option value="C1">C1</option>
+                                            <option value="C2">C2</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="licFechaInicial">Fecha Inicial</label>
+                                        <input type="date" class="form-control" id="licFechaInicial">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="licFechaVencimiento">Fecha Vencimiento</label>
+                                        <input type="date" class="form-control" id="licFechaVencimiento">
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label" for="licObservaciones">Observaciones</label>
+                                        <textarea class="form-control" id="licObservaciones" rows="2"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -292,7 +387,7 @@ function loadVehicles() {
             if (data.success) {
                 displayVehicles(data.data);
             } else {
-                showAlert('Error al cargar vehículos: ' + data.message, 'danger');
+                showAlert('Error al cargar vehículos: ' + (data.error || data.message || 'Error no especificado'), 'danger');
             }
         })
         .catch(error => {
@@ -455,9 +550,102 @@ function editVehicle(vehicleId) {
                 document.getElementById('tecnicoAsignado').value = vehicle.tecnico_asignado;
                 document.getElementById('observaciones').value = vehicle.observaciones || '';
                 
-                new bootstrap.Modal(document.getElementById('vehicleModal')).show();
+                const setChecked = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+                const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+
+                Promise.all([
+                    fetch(`/api/mpa/soat?placa=${encodeURIComponent(vehicle.placa)}&estado=Activo`).then(r=>r.json()).catch(()=>({success:false})),
+                    fetch(`/api/mpa/tecnico_mecanica?placa=${encodeURIComponent(vehicle.placa)}&estado=Activo`).then(r=>r.json()).catch(()=>({success:false})),
+                    fetch(`/api/mpa/licencias-conducir?tecnico_id=${encodeURIComponent(vehicle.tecnico_asignado||'')}`).then(r=>r.json()).catch(()=>({success:false}))
+                ]).then(([soatRes, tmRes, licRes]) => {
+                    const fillSoat = (s) => {
+                        setChecked('crearSoat', true);
+                        setVal('soatNumeroPoliza', s.numero_poliza);
+                        setVal('soatAseguradora', s.aseguradora);
+                        setVal('soatValorPrima', s.valor_prima);
+                        setVal('soatFechaInicio', s.fecha_inicio);
+                        setVal('soatFechaVencimiento', s.fecha_vencimiento);
+                    };
+                    if (soatRes && soatRes.success && Array.isArray(soatRes.data) && soatRes.data.length) {
+                        const s = soatRes.data[0];
+                        fillSoat(s);
+                    } else {
+                        fetch(`/api/mpa/soat?placa=${encodeURIComponent(vehicle.placa)}`)
+                            .then(r=>r.json())
+                            .then(res => {
+                                if (res && res.success && Array.isArray(res.data) && res.data.length) {
+                                    fillSoat(res.data[0]);
+                                } else {
+                                    setChecked('crearSoat', false);
+                                    setVal('soatNumeroPoliza', '');
+                                    setVal('soatAseguradora', '');
+                                    setVal('soatValorPrima', '');
+                                    setVal('soatFechaInicio', '');
+                                    setVal('soatFechaVencimiento', '');
+                                }
+                            })
+                            .catch(() => {
+                                setChecked('crearSoat', false);
+                                setVal('soatNumeroPoliza', '');
+                                setVal('soatAseguradora', '');
+                                setVal('soatValorPrima', '');
+                                setVal('soatFechaInicio', '');
+                                setVal('soatFechaVencimiento', '');
+                            });
+                    }
+
+                    const fillTm = (tm) => {
+                        setChecked('crearTm', true);
+                        setVal('tmFechaInicio', tm.fecha_inicio);
+                        setVal('tmFechaVencimiento', tm.fecha_vencimiento);
+                        setVal('tmObservaciones', tm.observaciones);
+                    };
+                    if (tmRes && tmRes.success && Array.isArray(tmRes.data) && tmRes.data.length) {
+                        const tm = tmRes.data[0];
+                        fillTm(tm);
+                    } else {
+                        fetch(`/api/mpa/tecnico_mecanica?placa=${encodeURIComponent(vehicle.placa)}`)
+                            .then(r=>r.json())
+                            .then(res => {
+                                if (res && res.success && Array.isArray(res.data) && res.data.length) {
+                                    fillTm(res.data[0]);
+                                } else {
+                                    setChecked('crearTm', false);
+                                    setVal('tmFechaInicio', '');
+                                    setVal('tmFechaVencimiento', '');
+                                    setVal('tmObservaciones', '');
+                                }
+                            })
+                            .catch(() => {
+                                setChecked('crearTm', false);
+                                setVal('tmFechaInicio', '');
+                                setVal('tmFechaVencimiento', '');
+                                setVal('tmObservaciones', '');
+                            });
+                    }
+
+                    if (licRes && licRes.success && Array.isArray(licRes.data) && licRes.data.length) {
+                        // Elegir la licencia vigente más nueva
+                        const lic = licRes.data[0];
+                        setChecked('crearLic', true);
+                        setVal('licTipo', lic.tipo_licencia);
+                        setVal('licFechaInicial', lic.fecha_inicial);
+                        setVal('licFechaVencimiento', lic.fecha_vencimiento);
+                        setVal('licObservaciones', lic.observaciones);
+                    } else {
+                        setChecked('crearLic', false);
+                        setVal('licTipo', '');
+                        setVal('licFechaInicial', '');
+                        setVal('licFechaVencimiento', '');
+                        setVal('licObservaciones', '');
+                    }
+                }).finally(() => {
+                    new bootstrap.Modal(document.getElementById('vehicleModal')).show();
+                });
+
+                
             } else {
-                showAlert('Error al cargar datos del vehículo: ' + data.message, 'danger');
+                showAlert('Error al cargar datos del vehículo: ' + (data.error || data.message || 'Error no especificado'), 'danger');
             }
         })
         .catch(error => {
@@ -494,6 +682,60 @@ function saveVehicle() {
         tecnico_asignado: formData.get('tecnicoAsignado'),
         observaciones: formData.get('observaciones')
     };
+
+    const crearSoat = document.getElementById('crearSoat')?.checked;
+    const crearTm = document.getElementById('crearTm')?.checked;
+    const crearLic = document.getElementById('crearLic')?.checked;
+
+    if (crearSoat) {
+        const numero_poliza = document.getElementById('soatNumeroPoliza')?.value || '';
+        const aseguradora = document.getElementById('soatAseguradora')?.value || '';
+        const valor_prima = document.getElementById('soatValorPrima')?.value || '';
+        const fecha_inicio = document.getElementById('soatFechaInicio')?.value || '';
+        const fecha_vencimiento = document.getElementById('soatFechaVencimiento')?.value || '';
+        if (!currentVehicleId && (!numero_poliza || !aseguradora || !fecha_inicio || !fecha_vencimiento || !valor_prima)) {
+            showAlert('Completa los campos requeridos de SOAT antes de guardar.', 'warning');
+            return;
+        }
+        const soatObj = {};
+        if (numero_poliza) soatObj.numero_poliza = numero_poliza;
+        if (aseguradora) soatObj.aseguradora = aseguradora;
+        if (valor_prima) soatObj.valor_prima = valor_prima;
+        if (fecha_inicio) soatObj.fecha_inicio = fecha_inicio;
+        if (fecha_vencimiento) soatObj.fecha_vencimiento = fecha_vencimiento;
+        soatObj.tecnico_asignado = vehicleData.tecnico_asignado;
+        if (Object.keys(soatObj).length > 1) {
+            vehicleData.soat = soatObj;
+        }
+    }
+
+    if (crearTm) {
+        const fecha_inicio_tm = document.getElementById('tmFechaInicio')?.value || '';
+        const fecha_vencimiento_tm = document.getElementById('tmFechaVencimiento')?.value || '';
+        const observaciones_tm = document.getElementById('tmObservaciones')?.value || '';
+        const tmObj = {};
+        if (fecha_inicio_tm) tmObj.fecha_inicio = fecha_inicio_tm;
+        if (fecha_vencimiento_tm) tmObj.fecha_vencimiento = fecha_vencimiento_tm;
+        if (observaciones_tm) tmObj.observaciones = observaciones_tm;
+        if (Object.keys(tmObj).length) {
+            vehicleData.tecnico_mecanica = tmObj;
+        }
+    }
+
+    if (crearLic) {
+        const tipo_licencia = document.getElementById('licTipo')?.value || '';
+        const fecha_inicial = document.getElementById('licFechaInicial')?.value || '';
+        const fecha_vencimiento = document.getElementById('licFechaVencimiento')?.value || '';
+        const observacion = document.getElementById('licObservaciones')?.value || '';
+        const licObj = { tecnico_id: vehicleData.tecnico_asignado };
+        if (tipo_licencia) licObj.tipo_licencia = tipo_licencia;
+        if (fecha_inicial) licObj.fecha_inicial = fecha_inicial;
+        if (fecha_vencimiento) licObj.fecha_vencimiento = fecha_vencimiento;
+        if (observacion) licObj.observacion = observacion;
+        if (Object.keys(licObj).length > 1) {
+            vehicleData.licencia = licObj;
+        }
+    }
     
     const url = currentVehicleId ? `/api/mpa/vehiculos/${currentVehicleId}` : '/api/mpa/vehiculos';
     const method = currentVehicleId ? 'PUT' : 'POST';
@@ -508,11 +750,30 @@ function saveVehicle() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showAlert(currentVehicleId ? 'Vehículo actualizado exitosamente' : 'Vehículo creado exitosamente', 'success');
+            let msg = currentVehicleId ? 'Vehículo actualizado exitosamente' : 'Vehículo creado exitosamente';
+            if (!currentVehicleId && data.created) {
+                const parts = [];
+                if (data.created.soat_id) parts.push('SOAT creado');
+                if (data.created.tm_id) parts.push('Técnico Mecánica creada');
+                if (data.created.licencia_id) parts.push('Licencia registrada');
+                if (data.created.soat_skipped) parts.push(`SOAT omitido: ${data.created.soat_skipped}`);
+                if (data.created.tm_skipped) parts.push(`Téc. Mecánica omitida: ${data.created.tm_skipped}`);
+                if (data.created.licencia_skipped) parts.push(`Licencia omitida: ${data.created.licencia_skipped}`);
+                if (parts.length) msg += ` (${parts.join(', ')})`;
+            }
+            if (currentVehicleId && data.updated) {
+                const parts = [];
+                if (data.updated.soat_id) parts.push('SOAT actualizado');
+                if (data.updated.tm_id) parts.push('Téc. Mecánica actualizada');
+                if (data.updated.licencia_id) parts.push('Licencia actualizada');
+                if (parts.length) msg += ` (${parts.join(', ')})`;
+            }
+            showAlert(msg, 'success');
             bootstrap.Modal.getInstance(document.getElementById('vehicleModal')).hide();
             loadVehicles();
         } else {
-            showAlert('Error: ' + data.message, 'danger');
+            const err = data.error || data.message || 'Error no especificado';
+            showAlert('Error: ' + err, 'danger');
         }
     })
     .catch(error => {
@@ -533,7 +794,7 @@ function deleteVehicle(vehicleId, placa) {
                 showAlert('Vehículo eliminado exitosamente', 'success');
                 loadVehicles();
             } else {
-                showAlert('Error al eliminar vehículo: ' + data.message, 'danger');
+                showAlert('Error al eliminar vehículo: ' + (data.error || data.message || 'Error no especificado'), 'danger');
             }
         })
         .catch(error => {
