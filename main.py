@@ -3076,6 +3076,266 @@ def api_analistas_actividades_diarias_list():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/analistas/actividades-diarias/resumen', methods=['GET'])
+@login_required_analistas_or_lider_api()
+def api_analistas_actividades_diarias_resumen():
+    user_name = session.get('user_name', '')
+    user_role = session.get('user_role')
+    analista_override = request.args.get('analista', '').strip()
+    if analista_override:
+        ur = session.get('user_role')
+        uid = str(session.get('id_codigo_consumidor', ''))
+        uc = str(session.get('user_cedula', ''))
+        if (ur in ('administrativo','lider')) or uid == '26' or uc == '52912112':
+            user_name = analista_override
+    fecha = request.args.get('fecha', '').strip()
+    fecha_norm = fecha
+    if fecha:
+        for fmt in ('%Y-%m-%d','%d/%m/%Y','%d-%m-%Y','%Y/%m/%d'):
+            try:
+                fecha_norm = datetime.strptime(fecha, fmt).strftime('%Y-%m-%d')
+                break
+            except Exception:
+                pass
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cursor.fetchall()}
+        def pick(names, approx=None):
+            if approx is None:
+                approx = []
+            for n in names:
+                k = n.lower()
+                if k in cols:
+                    return cols[k]
+            for k0,v0 in cols.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            if approx:
+                def norm(s):
+                    import re
+                    return re.sub(r"[^a-z0-9]", "", s.lower())
+                aset = {norm(x) for x in approx}
+                for k0,v0 in cols.items():
+                    if norm(k0) in aset:
+                        return v0
+            return None
+        col_ot = pick(['orden_de_trabajo','ot','orden_trabajo','orden','orden_de_servicio'], approx=['orden_de_trabajo','ordentrabajo','ot'])
+        col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'], approx=['numerodecuenta','cuenta'])
+        col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'], approx=['fechaactividad','fechaorden'])
+        col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'], approx=['external_id','exetrnal_id','idexterno','id_externo','cedula'])
+        col_estado = pick(['estado'])
+        col_final = pick(['estado_final','finalizado','final'])
+        col_cierre = pick(['cierre_ciclo'])
+        if not col_ot or not col_cuenta or not col_fecha or not col_ext:
+            return jsonify({'success': False, 'resumen': {'completado': {'cantidad': 0, 'gestionada': 0}, 'no_completado': {'cantidad': 0, 'gestionada': 0}}}), 200
+        cursor.execute(
+            """
+            SELECT COLLATION_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='recurso_operativo' AND column_name='analista'
+            """,
+            (db_config.get('database'),)
+        )
+        row = cursor.fetchone()
+        coll = row[0] if row and row[0] else 'utf8mb4_0900_ai_ci'
+        cursor.execute(
+            f"""
+            SELECT recurso_operativo_cedula, nombre
+            FROM recurso_operativo
+            WHERE LOWER(TRIM(analista)) COLLATE {coll} = LOWER(TRIM(CAST(%s AS CHAR CHARACTER SET utf8mb4))) COLLATE {coll}
+            """,
+            (user_name,)
+        )
+        tecnicos = cursor.fetchall()
+        cedulas = [t[0] for t in tecnicos]
+        filtro_fecha_sql = ''
+        params = []
+        if fecha:
+            cursor.execute(
+                """
+                SELECT DATA_TYPE FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='operaciones_actividades_diarias' AND column_name=%s
+                """,
+                (db_config.get('database'), col_fecha)
+            )
+            rt = cursor.fetchone()
+            tipo_fecha = str(rt[0]).lower() if rt else None
+            if tipo_fecha in ('datetime','timestamp','date'):
+                filtro_fecha_sql = f" AND DATE(o.`{col_fecha}`) = %s"
+                params.append(fecha_norm)
+            else:
+                filtro_fecha_sql = f" AND o.`{col_fecha}` LIKE %s"
+                params.append(fecha_norm + '%')
+        comp_total = 0
+        comp_gest = 0
+        ncomp_total = 0
+        ncomp_gest = 0
+        m_comp_total = 0
+        m_comp_gest = 0
+        m_ncomp_total = 0
+        m_ncomp_gest = 0
+        if cedulas and col_estado:
+            placeholders = ','.join(['%s'] * len(cedulas))
+            final_cond = ''
+            if col_final:
+                final_cond = f" AND CAST(o.`{col_final}` AS SIGNED) = 1"
+            sql = f"""
+                SELECT
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'completado' THEN 1 ELSE 0 END) AS comp_total,
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'completado' {(' AND CAST(o.`' + col_final + '` AS SIGNED) = 1') if col_final else ''} THEN 1 ELSE 0 END) AS comp_gest,
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'no completado' THEN 1 ELSE 0 END) AS ncomp_total,
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'no completado' {(' AND CAST(o.`' + col_final + '` AS SIGNED) = 1') if col_final else ''} THEN 1 ELSE 0 END) AS ncomp_gest
+                FROM operaciones_actividades_diarias o
+                WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_fecha_sql}
+                  AND o.`{col_cuenta}` IS NOT NULL
+                  AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
+                  AND o.`{col_cuenta}` REGEXP '^[0-9]+'
+                  AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
+                  AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
+            """
+            c2 = connection.cursor()
+            c2.execute(sql, tuple(cedulas) + tuple(params))
+            rr = c2.fetchone() or (0,0,0,0)
+            try:
+                comp_total = int(rr[0] or 0)
+                comp_gest = int(rr[1] or 0)
+                ncomp_total = int(rr[2] or 0)
+                ncomp_gest = int(rr[3] or 0)
+            except Exception:
+                comp_total = comp_total or 0
+                comp_gest = comp_gest or 0
+                ncomp_total = ncomp_total or 0
+                ncomp_gest = ncomp_gest or 0
+            c2.close()
+
+            # Cálculo mensual acumulado
+            # Determinar mes base usando fecha_norm o fecha actual
+            base_date = None
+            try:
+                base_date = datetime.strptime(fecha_norm or '', '%Y-%m-%d') if fecha_norm else None
+            except Exception:
+                base_date = None
+            if base_date is None:
+                try:
+                    now_str = datetime.now(TIMEZONE).strftime('%Y-%m-%d')
+                    base_date = datetime.strptime(now_str, '%Y-%m-%d')
+                except Exception:
+                    base_date = datetime.now()
+            month_start = base_date.replace(day=1).strftime('%Y-%m-%d')
+            import calendar as _cal
+            last_day = _cal.monthrange(base_date.year, base_date.month)[1]
+            month_end = base_date.replace(day=last_day).strftime('%Y-%m-%d')
+            # Detectar tipo de columna fecha para filtrar por mes
+            filtro_mes_sql = ''
+            mes_params = []
+            try:
+                cursor = connection.cursor()
+                cursor.execute(
+                    """
+                    SELECT DATA_TYPE FROM information_schema.columns
+                    WHERE table_schema=%s AND table_name='operaciones_actividades_diarias' AND column_name=%s
+                    """,
+                    (db_config.get('database'), col_fecha)
+                )
+                rowt = cursor.fetchone()
+                tipo_fecha2 = str(rowt[0]).lower() if rowt else None
+                cursor.close()
+            except Exception:
+                tipo_fecha2 = None
+            if tipo_fecha2 in ('datetime','timestamp','date'):
+                filtro_mes_sql = f" AND DATE(o.`{col_fecha}`) BETWEEN %s AND %s"
+                mes_params.extend([month_start, month_end])
+            else:
+                # Asumir formato textual 'YYYY-MM-...'
+                pref = base_date.strftime('%Y-%m-')
+                filtro_mes_sql = f" AND o.`{col_fecha}` LIKE %s"
+                mes_params.append(pref + '%')
+            sqlm = f"""
+                SELECT
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'completado' THEN 1 ELSE 0 END) AS comp_total,
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'completado' {(' AND CAST(o.`' + col_final + '` AS SIGNED) = 1') if col_final else ''} THEN 1 ELSE 0 END) AS comp_gest,
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'no completado' THEN 1 ELSE 0 END) AS ncomp_total,
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'no completado' {(' AND CAST(o.`' + col_final + '` AS SIGNED) = 1') if col_final else ''} THEN 1 ELSE 0 END) AS ncomp_gest
+                FROM operaciones_actividades_diarias o
+                WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_mes_sql}
+                  AND o.`{col_cuenta}` IS NOT NULL
+                  AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
+                  AND o.`{col_cuenta}` REGEXP '^[0-9]+'
+                  AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
+                  AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
+            """
+            c3 = connection.cursor()
+            c3.execute(sqlm, tuple(cedulas) + tuple(mes_params))
+            rrm = c3.fetchone() or (0,0,0,0)
+            try:
+                m_comp_total = int(rrm[0] or 0)
+                m_comp_gest = int(rrm[1] or 0)
+                m_ncomp_total = int(rrm[2] or 0)
+                m_ncomp_gest = int(rrm[3] or 0)
+            except Exception:
+                m_comp_total = m_comp_total or 0
+                m_comp_gest = m_comp_gest or 0
+                m_ncomp_total = m_ncomp_total or 0
+                m_ncomp_gest = m_ncomp_gest or 0
+            c3.close()
+            cc_gestionada = 0
+            if col_cierre:
+                sql_cc = f"""
+                    SELECT COUNT(*)
+                    FROM operaciones_actividades_diarias o
+                    WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_mes_sql}
+                      AND o.`{col_cuenta}` IS NOT NULL
+                      AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
+                      AND o.`{col_cuenta}` REGEXP '^[0-9]+'
+                      AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
+                      AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
+                      AND LOWER(TRIM(o.`{col_estado}`)) = 'completado'
+                      AND CAST(o.`{col_cierre}` AS SIGNED) = 1
+                """
+                c4 = connection.cursor()
+                c4.execute(sql_cc, tuple(cedulas) + tuple(mes_params))
+                rrc = c4.fetchone()
+                try:
+                    cc_gestionada = int(rrc[0] or 0)
+                except Exception:
+                    cc_gestionada = 0
+                c4.close()
+        cursor.close()
+        connection.close()
+        return jsonify({
+            'success': True,
+            'resumen': {
+                'completado': {
+                    'cantidad': comp_total,
+                    'gestionada': comp_gest
+                },
+                'no_completado': {
+                    'cantidad': ncomp_total,
+                    'gestionada': ncomp_gest
+                }
+            },
+            'mensual': {
+                'cantidad': (m_comp_total + m_ncomp_total),
+                'gestionada': (m_comp_gest + m_ncomp_gest)
+            },
+            'cierre_ciclo': {
+                'meta_mensual': 260,
+                'gestionada': cc_gestionada,
+                'porcentaje_meta': round((cc_gestionada/260*100), 1) if 260 > 0 else 0
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 # Detalle de actividad por OT y cuenta
 @app.route('/api/analistas/actividad-detalle', methods=['GET'])
 @login_required_analistas_or_lider_api()
@@ -3321,6 +3581,7 @@ def api_analistas_actividad_cierre():
         ensure_col('observacion_cierre', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `observacion_cierre` TEXT NULL")
         ensure_col('estado_final', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `estado_final` TINYINT(1) NULL DEFAULT 0")
         ensure_col('confirmacion_evento', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `confirmacion_evento` TINYINT(1) NULL")
+        ensure_col('cierre_ciclo', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `cierre_ciclo` TINYINT(1) NULL DEFAULT 0")
         # Detectar columnas ot/cuenta
         cur.execute(
             """
@@ -3341,6 +3602,7 @@ def api_analistas_actividad_cierre():
             return None
         col_ot = pick(['orden_de_trabajo','ot','orden','orden_trabajo'])
         col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
+        col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
         where = []
@@ -3353,6 +3615,30 @@ def api_analistas_actividad_cierre():
             params.append(str(int(str(cuenta).split('.')[0])) if str(cuenta).strip() else cuenta)
         if not where:
             return jsonify({'success': False, 'error': 'Faltan OT/Cuenta'}), 400
+        if col_fecha:
+            c2 = connection.cursor()
+            c2.execute(f"SELECT o.`{col_fecha}` FROM operaciones_actividades_diarias o WHERE " + " AND ".join(where) + " LIMIT 1", tuple(params))
+            rdt = c2.fetchone()
+            c2.close()
+            if rdt:
+                v = rdt[0]
+                act_date = None
+                try:
+                    if isinstance(v, datetime):
+                        act_date = v.date()
+                    else:
+                        s = str(v).strip()
+                        m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", s)
+                        if m:
+                            act_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
+                except Exception:
+                    act_date = None
+                if act_date:
+                    dnext = act_date + timedelta(days=1)
+                    cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
+                    now = datetime.now(TIMEZONE)
+                    if now >= cutoff:
+                        return jsonify({'success': False, 'code': 'BLOCKED_BY_CUTOFF'}), 403
         set_parts = []
         set_vals = []
         if tip_ok:
@@ -3373,6 +3659,10 @@ def api_analistas_actividad_cierre():
         if conf_evento is not None:
             set_parts.append("`confirmacion_evento`=%s")
             set_vals.append(1 if str(conf_evento).strip() in ('1','true','si','Sí') else 0)
+        cierre_ciclo = data.get('cierre_ciclo')
+        if cierre_ciclo is not None:
+            set_parts.append("`cierre_ciclo`=%s")
+            set_vals.append(1 if str(cierre_ciclo).strip() in ('1','true','si','Sí') else 0)
         # Marcar finalizado al concluir
         set_parts.append("`estado_final`=1")
         sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where)
@@ -3435,6 +3725,7 @@ def api_analistas_actividad_razon():
             return None
         col_ot = pick(['orden_de_trabajo','ot','orden','orden_trabajo'])
         col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
+        col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
         where = []
@@ -3447,6 +3738,30 @@ def api_analistas_actividad_razon():
             params.append(str(int(str(cuenta).split('.')[0])) if str(cuenta).strip() else cuenta)
         if not where:
             return jsonify({'success': False, 'error': 'Faltan OT/Cuenta'}), 400
+        if col_fecha:
+            c2 = connection.cursor()
+            c2.execute(f"SELECT o.`{col_fecha}` FROM operaciones_actividades_diarias o WHERE " + " AND ".join(where) + " LIMIT 1", tuple(params))
+            rdt = c2.fetchone()
+            c2.close()
+            if rdt:
+                v = rdt[0]
+                act_date = None
+                try:
+                    if isinstance(v, datetime):
+                        act_date = v.date()
+                    else:
+                        s = str(v).strip()
+                        m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", s)
+                        if m:
+                            act_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
+                except Exception:
+                    act_date = None
+                if act_date:
+                    dnext = act_date + timedelta(days=1)
+                    cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
+                    now = datetime.now(TIMEZONE)
+                    if now >= cutoff:
+                        return jsonify({'success': False, 'code': 'BLOCKED_BY_CUTOFF'}), 403
         set_parts = []
         set_vals = []
         if tip_razon:
@@ -4053,7 +4368,74 @@ def api_inicio_operacion_datos():
         print(f"  - AUXILIARES con asistencia: nombre_tipificacion en {tipificaciones_auxiliares}")
         print(f"  - AUXILIARES sin asistencia: carpeta en auxiliares PERO nombre_tipificacion NO en auxiliares")
         print(f"DEBUG - JOIN con tipificacion_asistencia: carpeta_dia -> codigo_tipificacion -> nombre_tipificacion")
-        
+
+        cierre_ciclo_meta = 260
+        cierre_ciclo_gestionado_mes = 0
+        cierre_ciclo_porcentaje_mes = 0.0
+        try:
+            c2 = connection.cursor()
+            c2.execute(
+                """
+                SELECT COLUMN_NAME FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+                """,
+                ('capired',)
+            )
+            cols = {r[0].lower(): r[0] for r in (c2.fetchall() or [])}
+            def pick(options):
+                for opt in options:
+                    if opt.lower() in cols:
+                        return cols[opt.lower()]
+                return None
+            col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+            col_estado = pick(['estado'])
+            col_cierre = pick(['cierre_ciclo'])
+            where_parts = []
+            params_cc = []
+            if col_estado:
+                where_parts.append(f"LOWER(TRIM(o.`{col_estado}`)) = 'completado'")
+            if col_cierre:
+                where_parts.append(f"CAST(o.`{col_cierre}` AS SIGNED) = 1")
+            from datetime import datetime
+            base_dt = None
+            if fecha:
+                try:
+                    base_dt = datetime.strptime(fecha, '%Y-%m-%d')
+                except Exception:
+                    base_dt = datetime.now()
+            else:
+                base_dt = datetime.now()
+            if col_fecha:
+                c2.execute(
+                    """
+                    SELECT DATA_TYPE FROM information_schema.columns
+                    WHERE table_schema=%s AND table_name='operaciones_actividades_diarias' AND column_name=%s
+                    """,
+                    ('capired', col_fecha)
+                )
+                row_t = c2.fetchone()
+                tipo_fecha = str(row_t[0]).lower() if row_t and row_t[0] else None
+                if tipo_fecha in ('datetime','timestamp','date'):
+                    where_parts.append(f"YEAR(o.`{col_fecha}`) = %s AND MONTH(o.`{col_fecha}`) = %s")
+                    params_cc.extend([base_dt.year, base_dt.month])
+                else:
+                    pref = base_dt.strftime('%Y-%m-')
+                    where_parts.append(f"o.`{col_fecha}` LIKE %s")
+                    params_cc.append(pref + '%')
+            sql_cc = "SELECT COUNT(*) FROM operaciones_actividades_diarias o"
+            if where_parts:
+                sql_cc += " WHERE " + " AND ".join(where_parts)
+            c2.execute(sql_cc, tuple(params_cc))
+            row_cnt = c2.fetchone()
+            cierre_ciclo_gestionado_mes = int(row_cnt[0]) if row_cnt and row_cnt[0] is not None else 0
+            cierre_ciclo_porcentaje_mes = round((cierre_ciclo_gestionado_mes / cierre_ciclo_meta * 100), 1) if cierre_ciclo_meta > 0 else 0.0
+            c2.close()
+        except Exception as e:
+            try:
+                c2.close()
+            except Exception:
+                pass
+
         return jsonify({
             'success': True,
             'data': {
@@ -4087,6 +4469,11 @@ def api_inicio_operacion_datos():
                     'no_cumple_mes': no_cumple_mes,
                     'no_aplica_mes': no_aplica_mes,
                     'total_mes': cumple_mes + novedad_mes + no_cumple_mes + no_aplica_mes
+                },
+                'cierre_ciclo': {
+                    'meta_mensual': cierre_ciclo_meta,
+                    'gestionado_mes': cierre_ciclo_gestionado_mes,
+                    'porcentaje_mensual': cierre_ciclo_porcentaje_mes
                 },
                 'tabla_asistencia': asistencia_data,
                 'debug_info': {
@@ -11599,6 +11986,55 @@ def obtener_opciones_usuario():
     except mysql.connector.Error as e:
         return jsonify({'error': str(e)}), 500
     
+    finally:
+        if cursor:
+            cursor.close()
+        if connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/admin/usuarios/export', methods=['GET'])
+@login_required_api(role='administrativo')
+def api_admin_usuarios_export():
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT 
+                id_codigo_consumidor,
+                recurso_operativo_cedula,
+                nombre,
+                id_roles,
+                estado,
+                cargo,
+                carpeta,
+                super,
+                analista,
+                fecha_ingreso,
+                fecha_retiro
+            FROM recurso_operativo
+            ORDER BY id_codigo_consumidor
+            """
+        )
+        usuarios = cursor.fetchall()
+
+        for u in usuarios:
+            u['role'] = ROLES.get(str(u['id_roles']), 'Desconocido')
+            fi = u.get('fecha_ingreso')
+            fr = u.get('fecha_retiro')
+            if fi and isinstance(fi, datetime):
+                u['fecha_ingreso'] = fi.strftime('%Y-%m-%d')
+            if fr and isinstance(fr, datetime):
+                u['fecha_retiro'] = fr.strftime('%Y-%m-%d')
+
+        return jsonify({'success': True, 'data': usuarios})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
     finally:
         if cursor:
             cursor.close()

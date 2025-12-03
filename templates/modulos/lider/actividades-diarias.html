@@ -29,7 +29,11 @@
             <div class="col-md-2 d-flex align-items-end">
               <button class="btn btn-outline-primary w-100" id="btnFiltrarFecha"><i class="fas fa-filter me-2"></i>Filtrar</button>
             </div>
+            <div class="col d-flex align-items-end justify-content-end">
+              <div id="resumenTop" class="d-flex gap-2"></div>
+            </div>
           </div>
+          <div class="table-responsive mt-3" id="resumenEstado"></div>
           <div class="table-responsive mt-4">
             <table class="table table-striped table-hover" id="tablaActividades">
               <thead>
@@ -122,7 +126,6 @@ async function cargarLista(){
     }
     const res = await fetch(url);
     const data = await res.json();
-    // Filtro interno de estados permitidos: completado y no completado
     const rawItems = Array.isArray(data.items) ? data.items : [];
     __items = rawItems.filter(it => {
       const e = (it.estado || '').toString().toLowerCase().trim();
@@ -131,6 +134,7 @@ async function cargarLista(){
     __page = 1;
     renderTabla();
     renderPaginador();
+    renderResumen();
   }catch(e){
   }
 }
@@ -155,6 +159,7 @@ if(__btnFiltro){ __btnFiltro.addEventListener('click', cargarLista); }
 let __items = [];
 let __page = 1;
 const __pageSize = 10;
+let __baseResumen = {};
 
 function renderTabla(){
   const tbody = document.querySelector('#tablaActividades tbody');
@@ -171,6 +176,8 @@ function renderTabla(){
     const fin = String(item.estado_final ?? '').trim();
     const isFin = fin === '1' || fin.toLowerCase() === 'true';
     const estado = (item.estado || '').toLowerCase();
+    const fechaRaw = item.fecha;
+    const bloqueado = debeBloquearGestion(fechaRaw);
     const estadoBadge = estado === 'completado' ? '<span class="badge bg-success">Completado</span>' : (estado === 'no completado' ? '<span class="badge bg-warning text-dark">No completado</span>' : '<span class="badge bg-secondary">N/A</span>');
     tr.innerHTML = `
       <td>${cuenta}</td>
@@ -178,7 +185,7 @@ function renderTabla(){
       <td>${tecnico}</td>
       <td>${estadoBadge}</td>
       <td>
-        <button class="btn btn-sm btn-primary" onclick="abrirGestionActividad('${ot}','${cuenta}','${tecnico}')">
+        <button class="btn btn-sm btn-primary" ${isFin || bloqueado ? 'disabled' : ''} title="${bloqueado ? 'Bloqueado por corte de medio día' : ''}" onclick="abrirGestionActividad('${ot}','${cuenta}','${tecnico}')">
           <i class="fas fa-tools me-1"></i>Gestionar
         </button>
         ${isFin ? '<span class="badge bg-success ms-2">Finalizado</span>' : ''}
@@ -210,6 +217,130 @@ function renderPaginador(){
   const nextDisabled = __page >= totalPages ? ' disabled' : '';
   html += `<li class="page-item${nextDisabled}"><a class="page-link" href="#" data-page="next">Siguiente</a></li>`;
   ctrls.innerHTML = html;
+}
+
+async function renderResumen(){
+  const cont = document.getElementById('resumenEstado');
+  if(!cont) return;
+  const fecha = document.getElementById('filtroFecha')?.value || '';
+  const analista = (document.getElementById('filtroAnalista')?.value || '').trim();
+  let url = '/api/analistas/actividades-diarias/resumen';
+  const params = [];
+  if(fecha) params.push(`fecha=${encodeURIComponent(fecha)}`);
+  if(analista) params.push(`analista=${encodeURIComponent(analista)}`);
+  if(params.length){ url += `?${params.join('&')}`; }
+  try{
+    const res = await fetch(url);
+    if(res.ok){
+      const data = await res.json();
+      if(data && data.success){
+        const r = data.resumen || {};
+        const c = r.completado || { cantidad: 0, gestionada: 0 };
+        const n = r.no_completado || { cantidad: 0, gestionada: 0 };
+        const pComp = c.cantidad ? (c.gestionada * 100) / c.cantidad : 0;
+        const pNComp = n.cantidad ? (n.gestionada * 100) / n.cantidad : 0;
+        const fmt = (v) => `${v.toFixed(1)}%`;
+        const m = data.mensual || { cantidad: 0, gestionada: 0 };
+        const totalCant = m.cantidad || 0;
+        const totalGest = m.gestionada || 0;
+        const totalPct = m.cantidad ? (m.gestionada * 100) / m.cantidad : 0;
+        const cc = data.cierre_ciclo || { meta_mensual: 260, gestionada: 0, porcentaje_meta: 0 };
+        const ccMeta = typeof cc.meta_mensual === 'number' ? cc.meta_mensual : (Number(cc.meta_mensual) || 260);
+        const ccGest = typeof cc.gestionada === 'number' ? cc.gestionada : (Number(cc.gestionada) || 0);
+        const ccPct = typeof cc.porcentaje_meta === 'number' ? cc.porcentaje_meta : (Number(cc.porcentaje_meta) || 0);
+        const top = document.getElementById('resumenTop');
+        if(top){
+          top.classList.add('flex-column');
+          top.innerHTML = `
+            <div class="d-flex gap-2 justify-content-end mb-1">
+              <div class="badge bg-secondary p-2">Cantidad (mes): <span class="fw-bold">${totalCant}</span></div>
+              <div class="badge bg-info p-2">Gestionada (mes): <span class="fw-bold">${totalGest}</span></div>
+              <div class="badge bg-success p-2">Finalizado (mes): <span class="fw-bold">${fmt(totalPct)}</span></div>
+            </div>
+            <div class="d-flex gap-2 justify-content-end">
+              <div class="badge bg-warning p-2">Cierre Ciclo (mes): <span class="fw-bold">${ccGest}</span></div>
+              <div class="badge bg-dark p-2">Meta Cierre: <span class="fw-bold">${ccMeta}</span></div>
+              <div class="badge bg-primary p-2">Cierre %: <span class="fw-bold">${fmt(ccPct)}</span></div>
+            </div>
+          `;
+        }
+        cont.innerHTML = `
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-primary">
+              <tr>
+                <th>Estado</th>
+                <th>Cantidad</th>
+                <th>Cantidad gestionada</th>
+                <th>Finalizado %</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="badge bg-success">Completado</span></td>
+                <td>${c.cantidad}</td>
+                <td>${c.gestionada}</td>
+                <td>${fmt(pComp)}</td>
+              </tr>
+              <tr>
+                <td><span class="badge bg-warning text-dark">No completado</span></td>
+                <td>${n.cantidad}</td>
+                <td>${n.gestionada}</td>
+                <td>${fmt(pNComp)}</td>
+              </tr>
+            </tbody>
+          </table>
+        `;
+        return;
+      }
+    }
+  }catch(_){ }
+  let comp = 0, compGest = 0, ncomp = 0, ncompGest = 0;
+  for(const it of __items){
+    const e = String(it.estado || '').toLowerCase().trim();
+    const fin = (()=>{const v=String(it.estado_final ?? '').trim().toLowerCase();return v==='1'||v==='true';})();
+    if(e==='completado'){ comp++; if(fin) compGest++; }
+    else if(e==='no completado'){ ncomp++; if(fin) ncompGest++; }
+  }
+  const fmt = (v) => `${v.toFixed(1)}%`;
+  const pComp = comp ? (compGest * 100) / comp : 0;
+  const pNComp = ncomp ? (ncompGest * 100) / ncomp : 0;
+  const totalCant = comp + ncomp;
+  const totalGest = compGest + ncompGest;
+  const totalPct = totalCant ? (totalGest * 100) / totalCant : 0;
+  const top = document.getElementById('resumenTop');
+  if(top){
+    top.innerHTML = `
+      <div class="badge bg-secondary p-2">Cantidad (día): <span class="fw-bold">${totalCant}</span></div>
+      <div class="badge bg-info p-2">Gestionada (día): <span class="fw-bold">${totalGest}</span></div>
+      <div class="badge bg-success p-2">Finalizado (día): <span class="fw-bold">${fmt(totalPct)}</span></div>
+    `;
+  }
+  cont.innerHTML = `
+    <table class="table table-sm table-bordered mb-0">
+      <thead class="table-primary">
+        <tr>
+          <th>Estado</th>
+          <th>Cantidad</th>
+          <th>Cantidad gestionada</th>
+          <th>Finalizado %</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge bg-success">Completado</span></td>
+          <td>${comp}</td>
+          <td>${compGest}</td>
+          <td>${fmt(pComp)}</td>
+        </tr>
+        <tr>
+          <td><span class="badge bg-warning text-dark">No completado</span></td>
+          <td>${ncomp}</td>
+          <td>${ncompGest}</td>
+          <td>${fmt(pNComp)}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
 }
 
 document.getElementById('paginadorActividades').addEventListener('click', (e) => {
@@ -281,6 +412,25 @@ function formatOT(v){
     const i = parseInt(base, 10);
     return isNaN(i) ? s : i.toString();
   }catch(_){ return v ?? ''; }
+}
+
+function debeBloquearGestion(fechaRaw){
+  try{
+    const s = String(fechaRaw ?? '').trim();
+    let y = null, m = null, d = null;
+    const rx = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(rx){ y = parseInt(rx[1],10); m = parseInt(rx[2],10); d = parseInt(rx[3],10); }
+    else{
+      const f = (document.getElementById('filtroFecha')?.value || '').trim();
+      const r2 = f.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if(!r2) return false;
+      y = parseInt(r2[1],10); m = parseInt(r2[2],10); d = parseInt(r2[3],10);
+    }
+    const nowStr = new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' });
+    const now = new Date(nowStr);
+    const deadline = new Date(y, m-1, d+1, 12, 0, 0);
+    return now.getTime() >= deadline.getTime();
+  }catch(_){ return false; }
 }
 
 // Modal de gestión de actividad
@@ -764,7 +914,7 @@ async function finalizarCierre(){
     const obs = document.getElementById('gaObservacionNovedad').value.trim();
     const confValOk = (document.querySelector('input[name="gaConfirmEventoOk"]:checked') || {}).value || 'no';
     const confirmacion_evento = confValOk.toLowerCase() === 'si' ? 1 : 0;
-    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, tipificacion_ok: ok || null, tipificacion_novedad: null, observacion: obs || null, confirmacion_evento };
+    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, tipificacion_ok: ok || null, tipificacion_novedad: null, observacion: obs || null, confirmacion_evento, cierre_ciclo: 1 };
     const res = await fetch('/api/analistas/actividad-cierre', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){
@@ -784,7 +934,7 @@ async function finalizarSinCierre(){
   try{
     const confValOk = (document.querySelector('input[name="gaConfirmEventoOk"]:checked') || {}).value || 'no';
     const confirmacion_evento = confValOk.toLowerCase() === 'si' ? 1 : 0;
-    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, confirmacion_evento };
+    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, confirmacion_evento, cierre_ciclo: 0 };
     const res = await fetch('/api/analistas/actividad-cierre', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){

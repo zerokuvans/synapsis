@@ -988,17 +988,12 @@
             
             setTimeout(async () => {
                 try {
-                    // Crear un nuevo libro de trabajo
                     const wb = XLSX.utils.book_new();
                     const datos = [];
-                    
-                    // Obtener la tabla
                     const tabla = document.getElementById('tablaUsuarios');
-                    
-                    // Agregar encabezados (incluyendo columnas adicionales solicitadas)
                     const encabezados = [];
                     tabla.querySelectorAll('thead th').forEach((th, index) => {
-                        if (index !== 6) { // Excluir la columna de acciones
+                        if (index !== 6) {
                             encabezados.push(th.textContent.trim());
                         }
                     });
@@ -1008,27 +1003,59 @@
                     encabezados.push('Supervisor');
                     encabezados.push('Analista');
                     datos.push(encabezados);
-                    
-                    // Agregar datos de todas las filas filtradas (no solo las visibles en la página actual)
-                    for (const fila of filasFiltradas) {
-                        if (fila.id !== 'mensajeNoResultados') {
-                            const filaDatos = [];
-                            fila.querySelectorAll('td').forEach((celda, index) => {
-                                // Para las celdas con badges, obtener solo el texto
-                                if (index === 3 || index === 4) { // Columnas de rol y estado
-                                    const badge = celda.querySelector('.badge');
-                                    filaDatos.push(badge ? badge.textContent.trim() : celda.textContent.trim());
-                                } else if (index !== 6) { // Excluir la columna de acciones
-                                    filaDatos.push(celda.textContent.trim());
+
+                    let ok = false;
+                    try {
+                        const resp = await fetch('/api/admin/usuarios/export');
+                        if (resp.ok) {
+                            const payload = await resp.json();
+                            if (payload && payload.success) {
+                                const items = payload.data || [];
+                                const idsVisibles = new Set();
+                                for (const fila of filasFiltradas) {
+                                    if (fila.id !== 'mensajeNoResultados') {
+                                        const idCell = fila.querySelector('td');
+                                        const idVal = idCell ? idCell.textContent.trim() : '';
+                                        if (idVal) idsVisibles.add(idVal);
+                                    }
                                 }
-                            });
-                            let d = fila.dataset || {};
-                            let carpeta = d.carpeta || '';
-                            let fechaIngreso = d.fechaIngreso || '';
-                            let fechaRetiro = d.fechaRetiro || '';
-                            let supervisor = d.supervisor || '';
-                            let analista = d.analista || '';
-                            if (!carpeta && !fechaIngreso && !fechaRetiro && !supervisor && !analista) {
+                                for (const u of items) {
+                                    if (idsVisibles.size && !idsVisibles.has(String(u.id_codigo_consumidor))) continue;
+                                    const filaDatos = [];
+                                    filaDatos.push(String(u.id_codigo_consumidor || ''));
+                                    filaDatos.push(u.recurso_operativo_cedula || '');
+                                    filaDatos.push(u.nombre || '');
+                                    filaDatos.push((u.role || ''));
+                                    filaDatos.push(u.estado || '');
+                                    filaDatos.push(u.cargo || '');
+                                    filaDatos.push(u.carpeta || '');
+                                    filaDatos.push(u.fecha_ingreso || '');
+                                    filaDatos.push(u.fecha_retiro || '');
+                                    filaDatos.push(u.super || '');
+                                    filaDatos.push(u.analista || '');
+                                    datos.push(filaDatos);
+                                }
+                                ok = true;
+                            }
+                        }
+                    } catch (e) {}
+                    if (!ok) {
+                        for (const fila of filasFiltradas) {
+                            if (fila.id !== 'mensajeNoResultados') {
+                                const filaDatos = [];
+                                fila.querySelectorAll('td').forEach((celda, index) => {
+                                    if (index === 3 || index === 4) {
+                                        const badge = celda.querySelector('.badge');
+                                        filaDatos.push(badge ? badge.textContent.trim() : celda.textContent.trim());
+                                    } else if (index !== 6) {
+                                        filaDatos.push(celda.textContent.trim());
+                                    }
+                                });
+                                let carpeta = '';
+                                let fechaIngreso = '';
+                                let fechaRetiro = '';
+                                let supervisor = '';
+                                let analista = '';
                                 const idCell = fila.querySelector('td');
                                 const idVal = idCell ? idCell.textContent.trim() : '';
                                 if (idVal) {
@@ -1044,49 +1071,35 @@
                                         }
                                     } catch (e) {}
                                 }
+                                filaDatos.push(carpeta);
+                                filaDatos.push(fechaIngreso);
+                                filaDatos.push(fechaRetiro);
+                                filaDatos.push(supervisor);
+                                filaDatos.push(analista);
+                                datos.push(filaDatos);
                             }
-                            filaDatos.push(carpeta);
-                            filaDatos.push(fechaIngreso);
-                            filaDatos.push(fechaRetiro);
-                            filaDatos.push(supervisor);
-                            filaDatos.push(analista);
-                            datos.push(filaDatos);
                         }
                     }
-                    
-                    // Crear hoja de cálculo
+
                     const ws = XLSX.utils.aoa_to_sheet(datos);
-                    
-                    // Añadir la hoja al libro
                     XLSX.utils.book_append_sheet(wb, ws, 'Usuarios');
-                    
-                    // Generar el archivo Excel
                     const fechaActual = new Date().toISOString().slice(0, 10);
-                    
-                    // Verificar si hay filtros aplicados
                     const busqueda = document.getElementById('buscarUsuario').value;
                     const rol = document.getElementById('filtroRol').value;
                     const estado = document.getElementById('filtroEstado').value;
                     const cargo = document.getElementById('filtroCargo').value;
-                    
                     let nombreArchivo = `Usuarios_${fechaActual}`;
-                    if (busqueda || rol || estado || cargo) {
-                        nombreArchivo += '_Filtrado';
-                    }
-                    
+                    if (busqueda || rol || estado || cargo) nombreArchivo += '_Filtrado';
                     XLSX.writeFile(wb, `${nombreArchivo}.xlsx`);
-                    
-                    // Mostrar mensaje de éxito con información sobre los registros exportados
                     mostrarAlerta(`Se han exportado ${datos.length - 1} registros a Excel`, 'success');
                 } catch (error) {
                     console.error('Error al exportar a Excel:', error);
                     mostrarAlerta('Error al exportar la tabla a Excel', 'danger');
                 } finally {
-                    // Restaurar el botón
                     this.innerHTML = '<i class="fas fa-file-excel me-1"></i> Exportar a Excel';
                     this.disabled = false;
                 }
-            }, 500); // Pequeño retraso para mostrar la animación
+            }, 500);
         });
         
         // Editar usuario

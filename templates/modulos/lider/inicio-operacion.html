@@ -444,6 +444,37 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Fila 6: Cierre de Ciclo -->
+                <div class="row mb-4">
+                    <div class="col-12 mb-3">
+                        <h5 class="text-cumplimiento"><i class="fas fa-sync-alt me-2"></i>Cierre de Ciclo</h5>
+                    </div>
+                    <div class="col-lg-6 col-md-6 mb-3">
+                        <div class="card metric-card card-cumplimiento">
+                            <div class="card-body">
+                                <div class="metric-icon text-warning">
+                                    <i class="fas fa-flag-checkered"></i>
+                                </div>
+                                <h6 class="metric-title">Meta Mensual</h6>
+                                <div class="metric-value text-warning" id="cierreCicloMeta">260</div>
+                                <p class="metric-subtitle">Cierre Ciclo mensual = 260</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6 col-md-6 mb-3">
+                        <div class="card metric-card card-cumplimiento">
+                            <div class="card-body">
+                                <div class="metric-icon text-success">
+                                    <i class="fas fa-check-double"></i>
+                                </div>
+                                <h6 class="metric-title">Cierre Ciclo (Mes)</h6>
+                                <div class="metric-value text-success" id="cierreCicloMes">0</div>
+                                <p class="metric-subtitle">% sobre meta: <span id="cierreCicloPorcentaje">0%</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <!-- Tabla de Asistencia -->
@@ -619,6 +650,19 @@ function actualizarMetricas(data) {
     document.getElementById('noCumple').textContent = data.cumplimiento.no_cumple;
     document.getElementById('cumplimientoDia').textContent = data.cumplimiento.cumplimiento_dia + '%';
     document.getElementById('cumplimientoMes').textContent = data.cumplimiento.cumplimiento_mes + '%';
+    
+    // Cierre de Ciclo mensual
+    if (data.cierre_ciclo) {
+        const meta = typeof data.cierre_ciclo.meta_mensual === 'number' ? data.cierre_ciclo.meta_mensual : (Number(data.cierre_ciclo.meta_mensual) || 260);
+        const gestionado = typeof data.cierre_ciclo.gestionado_mes === 'number' ? data.cierre_ciclo.gestionado_mes : (Number(data.cierre_ciclo.gestionado_mes) || 0);
+        const porcentaje = typeof data.cierre_ciclo.porcentaje_mensual === 'number' ? data.cierre_ciclo.porcentaje_mensual : (Number(data.cierre_ciclo.porcentaje_mensual) || 0);
+        const metaEl = document.getElementById('cierreCicloMeta');
+        const mesEl = document.getElementById('cierreCicloMes');
+        const pctEl = document.getElementById('cierreCicloPorcentaje');
+        if (metaEl) metaEl.textContent = meta;
+        if (mesEl) mesEl.textContent = gestionado;
+        if (pctEl) pctEl.textContent = porcentaje + '%';
+    }
 }
 
 // Actualizar tabla de asistencia
