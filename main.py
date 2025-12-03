@@ -3633,10 +3633,12 @@ def api_analistas_actividad_cierre():
                             act_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
                 except Exception:
                     act_date = None
-                if act_date:
+                # Aplicar bloqueo solo desde 2025-12-04 12:00 (Bogotá)
+                now = datetime.now(TIMEZONE)
+                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 4, 12, 0, 0))
+                if now >= bloqueo_inicio and act_date:
                     dnext = act_date + timedelta(days=1)
                     cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
-                    now = datetime.now(TIMEZONE)
                     if now >= cutoff:
                         return jsonify({'success': False, 'code': 'BLOCKED_BY_CUTOFF'}), 403
         set_parts = []
@@ -3756,10 +3758,12 @@ def api_analistas_actividad_razon():
                             act_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
                 except Exception:
                     act_date = None
-                if act_date:
+                # Aplicar bloqueo solo desde 2025-12-04 12:00 (Bogotá)
+                now = datetime.now(TIMEZONE)
+                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 4, 12, 0, 0))
+                if now >= bloqueo_inicio and act_date:
                     dnext = act_date + timedelta(days=1)
                     cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
-                    now = datetime.now(TIMEZONE)
                     if now >= cutoff:
                         return jsonify({'success': False, 'code': 'BLOCKED_BY_CUTOFF'}), 403
         set_parts = []
