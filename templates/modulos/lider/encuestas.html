@@ -211,6 +211,7 @@
       <div id="lista-candidatos-votacion" class="row g-3 mb-3"></div>
       <div id="votacion-info" class="text-muted small mb-3"></div>
       <div id="resultados-panel" style="display:none;">
+        <div id="titulo-resultados" class="mb-1"></div>
         <canvas id="grafico-resultados" height="120"></canvas>
         <div id="resumen-resultados" class="mt-2"></div>
       </div>
@@ -2401,6 +2402,7 @@
     const resumen = document.getElementById('resumen-resultados');
     const canvas = document.getElementById('grafico-resultados');
     const btnVerResultados = document.getElementById('btn-ver-resultados');
+    const tituloEl = document.getElementById('titulo-resultados');
     if (!encuestaSeleccionada) return;
     if (!resultadosDisponibles()) {
       panel.style.display = 'none';
@@ -2408,6 +2410,7 @@
       return;
     }
     if (btnVerResultados) btnVerResultados.style.display = '';
+    if (tituloEl) tituloEl.textContent = encuestaSeleccionada.titulo || 'Votación';
     try {
       const res = await fetch(`/api/votaciones/${encuestaSeleccionada.id_encuesta}/resultados`);
       const data = await res.json();
