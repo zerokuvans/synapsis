@@ -22700,7 +22700,20 @@ def sgis_dashboard():
     if session.get('user_role') not in ['tecnicos', 'operativo', 'administrativo', 'sstt', 'SSTT', 'tecnico', 'Tecnico']:
         flash('No tienes permisos para acceder a este módulo', 'error')
         return redirect(url_for('dashboard'))
-    return render_template('modulos/sgis/dashboard.html')
+    habilitar_escaleras = False
+    try:
+        connection = get_db_connection()
+        if connection:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute("SELECT carpeta FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (session.get('user_cedula'),))
+            row = cursor.fetchone() or {}
+            carpeta = (row.get('carpeta') or '').strip().upper()
+            habilitar_escaleras = carpeta == 'APOYO CAMIONETAS'
+            cursor.close()
+            connection.close()
+    except Exception:
+        pass
+    return render_template('modulos/sgis/dashboard.html', habilitar_escaleras=habilitar_escaleras)
 
 @app.route('/sgis/preoperacional-epp')
 @login_required()
@@ -22710,10 +22723,40 @@ def sgis_preoperacional_epp_page():
         return redirect(url_for('dashboard'))
     return render_template('modulos/sgis/preoperacional_epp.html')
 
+@app.route('/sgis/preoperacional-escaleras')
+@login_required()
+def sgis_preoperacional_escaleras_page():
+    if session.get('user_role') not in ['tecnicos', 'operativo', 'administrativo', 'sstt', 'SSTT', 'tecnico', 'Tecnico']:
+        flash('No tienes permisos para acceder a este módulo', 'error')
+        return redirect(url_for('dashboard'))
+    info = {}
+    try:
+        connection = get_db_connection()
+        if connection:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute("SELECT nombre, cargo, area FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (session.get('user_cedula'),))
+            info = cursor.fetchone() or {}
+            cursor.close()
+            connection.close()
+    except Exception:
+        pass
+    mes = get_bogota_datetime().strftime('%Y-%m')
+    return render_template('modulos/sgis/preoperacional_escaleras.html', info=info, mes=mes)
+
 @app.route('/sgis/reportes')
 @login_required(role='administrativo')
 def sgis_reportes_page():
+    return render_template('modulos/sgis/reportes_menu.html')
+
+@app.route('/sgis/reportes/epp')
+@login_required(role='administrativo')
+def sgis_reportes_epp_page():
     return render_template('modulos/sgis/reportes.html')
+
+@app.route('/sgis/reportes/escaleras')
+@login_required(role='administrativo')
+def sgis_reportes_escaleras_page():
+    return render_template('modulos/sgis/reportes_escaleras.html')
 
 @app.route('/api/sgis/preoperacional-epp', methods=['POST'])
 @login_required_api()
@@ -23219,6 +23262,144 @@ def api_sgis_reportes_preop_matriz():
             except Exception:
                 pass
 
+@app.route('/api/sgis/reportes/preop-matriz-escaleras', methods=['GET'])
+@login_required_api(role='administrativo')
+def api_sgis_reportes_preop_matriz_escaleras():
+    try:
+        cedula = request.args.get('cedula')
+        mes = request.args.get('mes')
+        if not cedula:
+            return jsonify({'success': False, 'error': 'Cédula requerida'}), 400
+        if mes:
+            try:
+                inicio = datetime.strptime(mes + '-01', '%Y-%m-%d').date()
+            except ValueError:
+                inicio = get_bogota_datetime().date().replace(day=1)
+        else:
+            inicio = get_bogota_datetime().date().replace(day=1)
+        if inicio.month == 12:
+            fin = inicio.replace(year=inicio.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            fin = inicio.replace(month=inicio.month + 1, day=1) - timedelta(days=1)
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_pre_escaleras (
+                id_sgis_pre_escaleras INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                cargo VARCHAR(128) NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                sgis_pre_escaleras_larguero VARCHAR(4),
+                sgis_pre_escaleras_peldanos VARCHAR(4),
+                sgis_pre_escaleras_union VARCHAR(4),
+                sgis_pre_escaleras_zapatas VARCHAR(4),
+                sgis_pre_escaleras_base_apoyo VARCHAR(4),
+                sgis_pre_escaleras_piezas_ajuste VARCHAR(4),
+                sgis_pre_escaleras_ganchos VARCHAR(4),
+                sgis_pre_escaleras_cuerda_polea VARCHAR(4),
+                sgis_pre_escaleras_guias_externas VARCHAR(4),
+                sgis_pre_escaleras_senal_seguridad VARCHAR(4),
+                sgis_pre_escaleras_aseo_escalera VARCHAR(4),
+                observacion TEXT,
+                fecha_registro DATETIME,
+                firma LONGTEXT,
+                fecha_dia DATE,
+                cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                fecha DATETIME,
+                firma_base64 LONGTEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.cursor().execute(ddl)
+        cursor.execute(
+            """
+            SELECT fecha_dia,
+                   sgis_pre_escaleras_larguero,
+                   sgis_pre_escaleras_peldanos,
+                   sgis_pre_escaleras_union,
+                   sgis_pre_escaleras_zapatas,
+                   sgis_pre_escaleras_base_apoyo,
+                   sgis_pre_escaleras_piezas_ajuste,
+                   sgis_pre_escaleras_ganchos,
+                   sgis_pre_escaleras_cuerda_polea,
+                   sgis_pre_escaleras_guias_externas,
+                   sgis_pre_escaleras_senal_seguridad,
+                   sgis_pre_escaleras_aseo_escalera,
+                   observacion,
+                   firma_base64,
+                   firma
+            FROM sgis_pre_escaleras
+            WHERE cedula = %s AND fecha_dia BETWEEN %s AND %s
+            ORDER BY fecha_dia
+            """,
+            (cedula, inicio, fin)
+        )
+        rows = cursor.fetchall()
+        ultimo_dia = fin.day
+        def arr():
+            return ['' for _ in range(31)]
+        gen = {
+            'larguero': arr(),
+            'peldanos': arr(),
+            'union': arr(),
+            'zapatas': arr(),
+            'base_apoyo': arr(),
+            'piezas_ajuste': arr(),
+            'ganchos': arr(),
+            'cuerda_polea': arr(),
+            'guias_externas': arr(),
+            'senal_seguridad': arr(),
+            'aseo_escalera': arr()
+        }
+        observaciones = arr()
+        firmas = arr()
+        for row in rows:
+            d = row['fecha_dia'].day
+            idx = d - 1
+            if 0 <= idx < 31:
+                gen['larguero'][idx] = row.get('sgis_pre_escaleras_larguero') or ''
+                gen['peldanos'][idx] = row.get('sgis_pre_escaleras_peldanos') or ''
+                gen['union'][idx] = row.get('sgis_pre_escaleras_union') or ''
+                gen['zapatas'][idx] = row.get('sgis_pre_escaleras_zapatas') or ''
+                gen['base_apoyo'][idx] = row.get('sgis_pre_escaleras_base_apoyo') or ''
+                gen['piezas_ajuste'][idx] = row.get('sgis_pre_escaleras_piezas_ajuste') or ''
+                gen['ganchos'][idx] = row.get('sgis_pre_escaleras_ganchos') or ''
+                gen['cuerda_polea'][idx] = row.get('sgis_pre_escaleras_cuerda_polea') or ''
+                gen['guias_externas'][idx] = row.get('sgis_pre_escaleras_guias_externas') or ''
+                gen['senal_seguridad'][idx] = row.get('sgis_pre_escaleras_senal_seguridad') or ''
+                gen['aseo_escalera'][idx] = row.get('sgis_pre_escaleras_aseo_escalera') or ''
+                observaciones[idx] = (row.get('observacion') or '').strip()
+                firmas[idx] = (row.get('firma_base64') or row.get('firma') or '')
+        cursor.execute("SELECT nombre, cargo, carpeta FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+        u = cursor.fetchone() or {}
+        info = {
+            'nombre': u.get('nombre') or '',
+            'cedula': cedula,
+            'cargo': u.get('cargo') or '',
+            'area': u.get('carpeta') or ''
+        }
+        matriz = { 'generalidades': gen }
+        return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'matriz': matriz, 'observaciones': observaciones, 'firmas': firmas})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
 @app.route('/api/sgis/dashboard-stats', methods=['GET'])
 @login_required_api(role='administrativo')
 def api_sgis_dashboard_stats():
@@ -23674,6 +23855,209 @@ def api_sgis_pre_proteccion_save():
             observaciones, fecha, firma_base64, fecha_dia, ced, nombre, fecha, firma_base64
         )
         )
+        connection.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/pre-escaleras/status', methods=['GET'])
+@login_required_api()
+def api_sgis_pre_escaleras_status():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_pre_escaleras (
+                id_sgis_pre_escaleras INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                cargo VARCHAR(128) NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                sgis_pre_escaleras_larguero VARCHAR(4),
+                sgis_pre_escaleras_peldanos VARCHAR(4),
+                sgis_pre_escaleras_union VARCHAR(4),
+                sgis_pre_escaleras_zapatas VARCHAR(4),
+                sgis_pre_escaleras_base_apoyo VARCHAR(4),
+                sgis_pre_escaleras_piezas_ajuste VARCHAR(4),
+                sgis_pre_escaleras_ganchos VARCHAR(4),
+                sgis_pre_escaleras_cuerda_polea VARCHAR(4),
+                sgis_pre_escaleras_guias_externas VARCHAR(4),
+                sgis_pre_escaleras_senal_seguridad VARCHAR(4),
+                sgis_pre_escaleras_aseo_escalera VARCHAR(4),
+                sgis_pre_escaleras_marca VARCHAR(128),
+                sgis_pre_escaleras_cant_peldano INT,
+                observacion TEXT,
+                fecha_registro DATETIME,
+                firma LONGTEXT,
+                fecha_dia DATE,
+                cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                fecha DATETIME,
+                firma_base64 LONGTEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.cursor().execute(ddl)
+        cur_sys = connection.cursor(buffered=True)
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_escaleras LIKE 'fecha_dia'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_escaleras ADD COLUMN fecha_dia DATE")
+            connection.commit()
+        cur_sys.execute("SHOW INDEX FROM sgis_pre_escaleras WHERE Key_name = 'uq_tecnico_dia'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_escaleras ADD UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)")
+            connection.commit()
+        uid = session.get('id_codigo_consumidor')
+        hoy = get_bogota_datetime().date()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT COUNT(*) AS c FROM sgis_pre_escaleras WHERE id_codigo_consumidor = %s AND fecha_dia = %s", (uid, hoy))
+        row = cursor.fetchone()
+        return jsonify({'success': True, 'already_today': (row and row.get('c',0) > 0)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/pre-escaleras', methods=['POST'])
+@login_required_api()
+def api_sgis_pre_escaleras_save():
+    try:
+        data = request.get_json() or {}
+        campos = ['larguero','peldanos','union','zapatas','base_apoyo','piezas_ajuste','ganchos','cuerda_polea','guias_externas','senal_seguridad','aseo_escalera']
+        for k in campos:
+            v = (data.get(k) or '').strip()
+            if v not in ('C','NC','N/A'):
+                return jsonify({'success': False, 'error': f'Campo inválido o faltante: {k}'}), 400
+        any_nc = any((data.get(k) or '').strip() == 'NC' for k in campos)
+        obs_txt = (data.get('observacion') or '').strip()
+        if any_nc and not obs_txt:
+            return jsonify({'success': False, 'error': 'Observaciones requeridas por hallazgos NC'}), 400
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_pre_escaleras (
+                id_sgis_pre_escaleras INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                cargo VARCHAR(128) NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                sgis_pre_escaleras_larguero VARCHAR(4),
+                sgis_pre_escaleras_peldanos VARCHAR(4),
+                sgis_pre_escaleras_union VARCHAR(4),
+                sgis_pre_escaleras_zapatas VARCHAR(4),
+                sgis_pre_escaleras_base_apoyo VARCHAR(4),
+                sgis_pre_escaleras_piezas_ajuste VARCHAR(4),
+                sgis_pre_escaleras_ganchos VARCHAR(4),
+                sgis_pre_escaleras_cuerda_polea VARCHAR(4),
+                sgis_pre_escaleras_guias_externas VARCHAR(4),
+                sgis_pre_escaleras_senal_seguridad VARCHAR(4),
+                sgis_pre_escaleras_aseo_escalera VARCHAR(4),
+                sgis_pre_escaleras_marca VARCHAR(128),
+                sgis_pre_escaleras_cant_peldano INT,
+                observacion TEXT,
+                fecha_registro DATETIME,
+                firma LONGTEXT,
+                fecha_dia DATE,
+                cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                fecha DATETIME,
+                firma_base64 LONGTEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.cursor().execute(ddl)
+        cur_sys = connection.cursor(buffered=True)
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_escaleras LIKE 'sgis_pre_escaleras_seÃ±al_seguridad'")
+        senal_alt = bool(cur_sys.fetchone())
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_escaleras LIKE 'sgis_pre_escaleras_senal_seguridad'")
+        senal_std = bool(cur_sys.fetchone())
+        if not senal_alt and not senal_std:
+            connection.cursor().execute("ALTER TABLE sgis_pre_escaleras ADD COLUMN sgis_pre_escaleras_senal_seguridad VARCHAR(4)")
+            connection.commit()
+            senal_std = True
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_escaleras LIKE 'sgis_pre_escaleras_cant_peldaño'")
+        peld_alt = bool(cur_sys.fetchone())
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_escaleras LIKE 'sgis_pre_escaleras_cant_peldano'")
+        peld_std = bool(cur_sys.fetchone())
+        if not peld_alt and not peld_std:
+            connection.cursor().execute("ALTER TABLE sgis_pre_escaleras ADD COLUMN sgis_pre_escaleras_cant_peldano INT")
+            connection.commit()
+            peld_std = True
+        cursor = connection.cursor(dictionary=True)
+        uid = session.get('id_codigo_consumidor')
+        ced = session.get('user_cedula')
+        cursor.execute("SELECT nombre, cargo FROM recurso_operativo WHERE id_codigo_consumidor = %s", (uid,))
+        urow = cursor.fetchone() or {}
+        nombre = urow.get('nombre') or session.get('user_name')
+        cargo = urow.get('cargo') or session.get('user_role')
+        fecha = get_bogota_datetime()
+        fecha_dia = fecha.date()
+        cursor.execute("SELECT COUNT(*) AS c FROM sgis_pre_escaleras WHERE id_codigo_consumidor=%s AND fecha_dia=%s", (uid, fecha_dia))
+        row = cursor.fetchone()
+        if row and row.get('c',0) > 0:
+            return jsonify({'success': False, 'error': 'Ya registraste el preoperacional hoy'}), 409
+        firma_base64 = data.get('firma_base64') or None
+        marca = (data.get('marca') or '').strip()
+        cant = int(str(data.get('cant_peldano') or '0') or '0')
+        col_senal = 'sgis_pre_escaleras_seÃ±al_seguridad' if senal_alt else 'sgis_pre_escaleras_senal_seguridad'
+        col_peld = 'sgis_pre_escaleras_cant_peldaño' if peld_alt else 'sgis_pre_escaleras_cant_peldano'
+        sql = (
+            f"""
+            INSERT INTO sgis_pre_escaleras (
+                id_codigo_consumidor, cargo, recurso_operativo_cedula,
+                sgis_pre_escaleras_larguero, sgis_pre_escaleras_peldanos, sgis_pre_escaleras_union,
+                sgis_pre_escaleras_zapatas, sgis_pre_escaleras_base_apoyo, sgis_pre_escaleras_piezas_ajuste,
+                sgis_pre_escaleras_ganchos, sgis_pre_escaleras_cuerda_polea, sgis_pre_escaleras_guias_externas,
+                {col_senal}, sgis_pre_escaleras_aseo_escalera,
+                sgis_pre_escaleras_marca, {col_peld}, observacion,
+                fecha_registro, firma, fecha_dia, cedula, nombre, fecha, firma_base64
+            ) VALUES (
+                %s,%s,%s,
+                %s,%s,%s,
+                %s,%s,%s,
+                %s,%s,%s,
+                %s,%s,
+                %s,%s,%s,
+                %s,%s,%s,%s,%s,%s,%s
+            )
+            """
+        )
+        params = (
+            uid, cargo, ced,
+            data['larguero'], data['peldanos'], data['union'],
+            data['zapatas'], data['base_apoyo'], data['piezas_ajuste'],
+            data['ganchos'], data['cuerda_polea'], data['guias_externas'],
+            data['senal_seguridad'], data['aseo_escalera'],
+            marca, cant, obs_txt,
+            fecha, firma_base64, fecha_dia, ced, nombre, fecha, firma_base64
+        )
+        cursor.execute(sql, params)
         connection.commit()
         return jsonify({'success': True})
     except Exception as e:

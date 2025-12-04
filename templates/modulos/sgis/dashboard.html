@@ -92,6 +92,9 @@
                     <button id="btnPreop" type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalPreop">
                       <i class="fas fa-hard-hat me-2"></i>Pre-operacional de EPP
                     </button>
+                    <button id="btnPreopEsc" type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEscaleras" {% if not habilitar_escaleras %}disabled title="Disponible solo para APOYO CAMIONETAS"{% endif %}>
+                      <i class="fas fa-stairs me-2"></i>Pre-operacional de Escaleras
+                    </button>
                   </div>
                 </div>
               </div>
@@ -106,7 +109,7 @@
                 </div>
                 <div class="card-body">
                   <div class="d-grid gap-2">
-                    <a href="/admin/reportes" class="btn btn-outline-success">
+                    <a href="/sgis/reportes" class="btn btn-outline-success">
                       <i class="fas fa-chart-line me-2"></i>Reportes SGIS
                     </a>
                   </div>
@@ -350,6 +353,169 @@
   </div>
 </div>
 
+<!-- Modal Escaleras -->
+<div class="modal fade" id="modalEscaleras" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-stairs me-2"></i>Pre-operacional de Escaleras</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <div class="row g-3">
+            <div class="col-md-3"><small class="text-muted">Nombre</small><div>{{ session.get('user_name') }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Cédula</small><div>{{ session.get('user_cedula') }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Cargo</small><div>{{ session.get('user_role') }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Mes</small><div id="mesActualEsc"></div></div>
+          </div>
+        </div>
+        <hr>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Marca de escalera</label>
+            <input type="text" id="marcaEscaleraEsc" class="form-control" placeholder="Marca">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Número de peldaños</label>
+            <input type="number" id="cantPeldanosEsc" min="0" class="form-control" placeholder="Cantidad">
+          </div>
+        </div>
+        <div class="mb-3">
+          <h6 class="mb-2">Generalidades</h6>
+          <div class="row g-3 align-items-start">
+            <div class="col-md-4 text-center">
+              <img class="img-fluid border rounded" alt="Escalera"
+                   src="{{ url_for('static', filename='img/sgis/escalera.jpeg') }}"
+                   onerror="this.style.display='none'"
+                   style="max-height:320px; object-fit:contain;">
+            </div>
+            <div class="col-md-8">
+              <ul class="mb-0">
+                <li class="mb-2">
+                  <label class="form-label fw-bold mb-1">Larguero o perfil</label>
+                  <div>
+                    <label class="me-2"><input type="radio" name="esc_larguero" value="C"> C</label>
+                    <label class="me-2"><input type="radio" name="esc_larguero" value="NC"> NC</label>
+                    <label><input type="radio" name="esc_larguero" value="N/A"> N/A</label>
+                  </div>
+                </li>
+                <li class="mb-2">
+                  <label class="form-label fw-bold mb-1">Peldaños</label>
+                  <div>
+                    <label class="me-2"><input type="radio" name="esc_peldanos" value="C"> C</label>
+                    <label class="me-2"><input type="radio" name="esc_peldanos" value="NC"> NC</label>
+                    <label><input type="radio" name="esc_peldanos" value="N/A"> N/A</label>
+                  </div>
+                </li>
+                <li class="mb-2">
+                  <label class="form-label fw-bold mb-1">Unión de peldaños y largueros</label>
+                  <div>
+                    <label class="me-2"><input type="radio" name="esc_union" value="C"> C</label>
+                    <label class="me-2"><input type="radio" name="esc_union" value="NC"> NC</label>
+                    <label><input type="radio" name="esc_union" value="N/A"> N/A</label>
+                  </div>
+                </li>
+                <li class="mb-2">
+                  <label class="form-label fw-bold mb-1">Zapatas antideslizantes</label>
+                  <div>
+                    <label class="me-2"><input type="radio" name="esc_zapatas" value="C"> C</label>
+                    <label class="me-2"><input type="radio" name="esc_zapatas" value="NC"> NC</label>
+                    <label><input type="radio" name="esc_zapatas" value="N/A"> N/A</label>
+                  </div>
+                </li>
+                <li class="mb-2">
+                  <label class="form-label fw-bold mb-1">Base de apoyo a poste</label>
+                  <div>
+                    <label class="me-2"><input type="radio" name="esc_base_apoyo" value="C"> C</label>
+                    <label class="me-2"><input type="radio" name="esc_base_apoyo" value="NC"> NC</label>
+                    <label><input type="radio" name="esc_base_apoyo" value="N/A"> N/A</label>
+                  </div>
+                </li>
+                <li class="mb-2">
+                  <label class="form-label fw-bold mb-1">Piezas de ajuste</label>
+                  <div>
+                    <label class="me-2"><input type="radio" name="esc_piezas_ajuste" value="C"> C</label>
+                    <label class="me-2"><input type="radio" name="esc_piezas_ajuste" value="NC"> NC</label>
+                    <label><input type="radio" name="esc_piezas_ajuste" value="N/A"> N/A</label>
+                  </div>
+                </li>
+                <li class="mb-2">
+                  <label class="form-label fw-bold mb-1">Ganchos Trabapeldaños y uñas de seguridad</label>
+                  <div>
+                    <label class="me-2"><input type="radio" name="esc_ganchos" value="C"> C</label>
+                    <label class="me-2"><input type="radio" name="esc_ganchos" value="NC"> NC</label>
+                    <label><input type="radio" name="esc_ganchos" value="N/A"> N/A</label>
+                  </div>
+                </li>
+                <li class="mb-2">
+                  <label class="form-label fw-bold mb-1">Cuerda y polea</label>
+                  <div>
+                    <label class="me-2"><input type="radio" name="esc_cuerda_polea" value="C"> C</label>
+                    <label class="me-2"><input type="radio" name="esc_cuerda_polea" value="NC"> NC</label>
+                    <label><input type="radio" name="esc_cuerda_polea" value="N/A"> N/A</label>
+                  </div>
+                </li>
+                <li class="mb-2">
+                  <label class="form-label fw-bold mb-1">Guías externas para unión de largueros</label>
+                  <div>
+                    <label class="me-2"><input type="radio" name="esc_guias_externas" value="C"> C</label>
+                    <label class="me-2"><input type="radio" name="esc_guias_externas" value="NC"> NC</label>
+                    <label><input type="radio" name="esc_guias_externas" value="N/A"> N/A</label>
+                  </div>
+                </li>
+                <li class="mb-0">
+                  <label class="form-label fw-bold mb-1">Señalización de seguridad en peldaño</label>
+                  <div>
+                    <label class="me-2"><input type="radio" name="esc_senal_seguridad" value="C"> C</label>
+                    <label class="me-2"><input type="radio" name="esc_senal_seguridad" value="NC"> NC</label>
+                    <label><input type="radio" name="esc_senal_seguridad" value="N/A"> N/A</label>
+                  </div>
+                </li>
+                <li class="mt-2 mb-0">
+                  <label class="form-label fw-bold mb-1">Aseo de escalera</label>
+                  <div>
+                    <label class="me-2"><input type="radio" name="esc_aseo_escalera" value="C"> C</label>
+                    <label class="me-2"><input type="radio" name="esc_aseo_escalera" value="NC"> NC</label>
+                    <label><input type="radio" name="esc_aseo_escalera" value="N/A"> N/A</label>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Observaciones</label>
+          <textarea id="observacionesEsc" class="form-control" rows="3" placeholder="Observaciones"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button id="btnGuardarPreopEsc" type="button" class="btn btn-primary">Guardar preoperacional</button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+<!-- Modal Firma Escaleras -->
+<div class="modal fade" id="modalFirmaEsc" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-pen-nib me-2"></i>Firma</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <canvas id="firmaCanvasEsc" width="300" height="150" style="border:1px solid #ddd; border-radius:4px; cursor:crosshair"></canvas>
+        <div class="mt-2 d-flex gap-2">
+          <button id="btnLimpiarFirmaEsc" type="button" class="btn btn-outline-secondary btn-sm">Limpiar</button>
+          <button id="btnEnviarPreopEsc" type="button" class="btn btn-success btn-sm">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
 <script>
 function setFechaBogota(){
   const nowStr = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
@@ -503,6 +669,77 @@ document.addEventListener('DOMContentLoaded', function(){
     initFirma();
   });
   document.getElementById('btnEnviarPreop').addEventListener('click', enviarConFirma);
+  function escGet(name){ const el = document.querySelector('input[name="'+name+'"]:checked'); return el ? el.value : ''; }
+  function construirPayloadEsc(){
+    return {
+      larguero: escGet('esc_larguero'),
+      peldanos: escGet('esc_peldanos'),
+      union: escGet('esc_union'),
+      zapatas: escGet('esc_zapatas'),
+      base_apoyo: escGet('esc_base_apoyo'),
+      piezas_ajuste: escGet('esc_piezas_ajuste'),
+      ganchos: escGet('esc_ganchos'),
+      cuerda_polea: escGet('esc_cuerda_polea'),
+      guias_externas: escGet('esc_guias_externas'),
+      senal_seguridad: escGet('esc_senal_seguridad'),
+      aseo_escalera: escGet('esc_aseo_escalera'),
+      marca: (document.getElementById('marcaEscaleraEsc').value || '').trim(),
+      cant_peldano: parseInt(document.getElementById('cantPeldanosEsc').value || '0', 10),
+      observacion: (document.getElementById('observacionesEsc').value || '').trim()
+    };
+  }
+  function validarCamposEsc(){
+    const req = ['larguero','peldanos','union','zapatas','base_apoyo','piezas_ajuste','ganchos','cuerda_polea','guias_externas','senal_seguridad','aseo_escalera'];
+    const p = construirPayloadEsc();
+    for(const k of req){ if(!p[k] || !(['C','NC','N/A'].includes(p[k]))){ Swal.fire('Campos incompletos','Completa todas las generalidades','warning'); return false; } }
+    const hasNC = req.some(k => p[k] === 'NC');
+    if(hasNC && !p.observacion){ Swal.fire('Observaciones requeridas','Registra observaciones para los hallazgos en NC','warning'); return false; }
+    return true;
+  }
+  let firmaCtxEsc, firmandoEsc = false;
+  function initFirmaEsc(){
+    const c = document.getElementById('firmaCanvasEsc');
+    firmaCtxEsc = c.getContext('2d');
+    firmaCtxEsc.strokeStyle = '#222';
+    firmaCtxEsc.lineWidth = 2;
+    const pos = (e)=>{ const r = c.getBoundingClientRect(); const x = (e.touches? e.touches[0].clientX : e.clientX) - r.left; const y = (e.touches? e.touches[0].clientY : e.clientY) - r.top; return {x,y}; };
+    const start = (e)=>{ firmandoEsc = true; const p = pos(e); firmaCtxEsc.beginPath(); firmaCtxEsc.moveTo(p.x,p.y); e.preventDefault(); };
+    const move = (e)=>{ if(!firmandoEsc) return; const p = pos(e); firmaCtxEsc.lineTo(p.x,p.y); firmaCtxEsc.stroke(); e.preventDefault(); };
+    const end = ()=>{ firmandoEsc = false; };
+    c.addEventListener('mousedown', start); c.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+    c.addEventListener('touchstart', start, {passive:false}); c.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
+    document.getElementById('btnLimpiarFirmaEsc').addEventListener('click', ()=>{ firmaCtxEsc.clearRect(0,0,c.width,c.height); });
+  }
+  function enviarConFirmaEsc(){
+    const c = document.getElementById('firmaCanvasEsc');
+    const firma = c.toDataURL('image/png');
+    const payload = construirPayloadEsc();
+    if(!validarCamposEsc()) return;
+    payload.firma_base64 = firma;
+    fetch('/api/sgis/pre-escaleras', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+      .then(r=>r.json()).then(d=>{
+        if(d && d.success){
+          Swal.fire('Éxito','Preoperacional de escaleras registrado','success');
+          const btn = document.getElementById('btnPreopEsc'); if(btn){ btn.disabled = true; btn.textContent = 'Pre-operacional diligenciado'; }
+          const mf = document.getElementById('modalFirmaEsc'); const modal = bootstrap.Modal.getInstance(mf); if(modal) modal.hide();
+          const me = document.getElementById('modalEscaleras'); const modal2 = bootstrap.Modal.getInstance(me); if(modal2) modal2.hide();
+        } else {
+          Swal.fire('Error', d.error || 'No se pudo registrar', 'error');
+        }
+      }).catch(()=>{ Swal.fire('Error','Error de red','error'); });
+  }
+  document.getElementById('btnGuardarPreopEsc').addEventListener('click', function(){
+    if(!validarCamposEsc()) return;
+    const mf = new bootstrap.Modal(document.getElementById('modalFirmaEsc'));
+    mf.show();
+    initFirmaEsc();
+  });
+  document.getElementById('btnEnviarPreopEsc').addEventListener('click', enviarConFirmaEsc);
+  fetch('/api/sgis/pre-escaleras/status').then(r=>r.json()).then(d=>{
+    const btn = document.getElementById('btnPreopEsc');
+    if(d && d.success && d.already_today && btn){ btn.disabled = true; btn.textContent = 'Pre-operacional diligenciado'; }
+  }).catch(()=>{});
+  try { const d = new Date(); const m = String(d.getMonth()+1).padStart(2,'0'); document.getElementById('mesActualEsc').textContent = `${d.getFullYear()}-${m}`; } catch(e) {}
   try {
     const params = new URLSearchParams(window.location.search);
     if(params.get('open') === 'preop'){

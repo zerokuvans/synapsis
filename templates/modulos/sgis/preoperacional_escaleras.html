@@ -1,0 +1,247 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header text-white fw-bold" style="background: linear-gradient(135deg, #0ea5e9 0%, #7c3aed 100%) !important;">
+          <h4 class="mb-0"><i class="fas fa-stairs me-2"></i>Pre-operacional de Escaleras</h4>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <div class="row g-3">
+              <div class="col-md-3"><small class="text-muted">Nombre</small><div>{{ (info.nombre or session.get('user_name')) if info is defined else session.get('user_name') }}</div></div>
+              <div class="col-md-3"><small class="text-muted">Cédula</small><div>{{ session.get('user_cedula') }}</div></div>
+              <div class="col-md-3"><small class="text-muted">Cargo</small><div>{{ (info.cargo or session.get('user_role')) if info is defined else session.get('user_role') }}</div></div>
+              <div class="col-md-3"><small class="text-muted">Área</small><div>{{ (info.area or '-') if info is defined else '-' }}</div></div>
+            </div>
+            <div class="row g-3 mt-1">
+              <div class="col-md-3"><small class="text-muted">Mes</small><div id="mesActual">{{ mes if mes is defined else '' }}</div></div>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label">Marca de escalera</label>
+              <input type="text" id="marcaEscalera" class="form-control" placeholder="Marca">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Número de peldaños</label>
+              <input type="number" id="cantPeldanos" min="0" class="form-control" placeholder="Cantidad">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <h6 class="mb-2">Generalidades</h6>
+            <div class="row g-3 align-items-start">
+              <div class="col-md-4 text-center">
+                <img src="/static/img/sgis/escalera.jpeg" alt="Escalera" class="img-fluid border rounded" style="max-height:320px; object-fit:contain;">
+              </div>
+              <div class="col-md-8">
+                <ul class="mb-0">
+                  <li class="mb-2">
+                    <label class="form-label fw-bold mb-1">Larguero o perfil</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="larguero" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="larguero" value="NC"> NC</label>
+                      <label><input type="radio" name="larguero" value="N/A"> N/A</label>
+                    </div>
+                  </li>
+                  <li class="mb-2">
+                    <label class="form-label fw-bold mb-1">Peldaños</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="peldanos" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="peldanos" value="NC"> NC</label>
+                      <label><input type="radio" name="peldanos" value="N/A"> N/A</label>
+                    </div>
+                  </li>
+                  <li class="mb-2">
+                    <label class="form-label fw-bold mb-1">Unión de peldaños y largueros</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="union" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="union" value="NC"> NC</label>
+                      <label><input type="radio" name="union" value="N/A"> N/A</label>
+                    </div>
+                  </li>
+                  <li class="mb-2">
+                    <label class="form-label fw-bold mb-1">Zapatas antideslizantes</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="zapatas" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="zapatas" value="NC"> NC</label>
+                      <label><input type="radio" name="zapatas" value="N/A"> N/A</label>
+                    </div>
+                  </li>
+                  <li class="mb-2">
+                    <label class="form-label fw-bold mb-1">Base de apoyo a poste</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="base_apoyo" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="base_apoyo" value="NC"> NC</label>
+                      <label><input type="radio" name="base_apoyo" value="N/A"> N/A</label>
+                    </div>
+                  </li>
+                  <li class="mb-2">
+                    <label class="form-label fw-bold mb-1">Piezas de ajuste</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="piezas_ajuste" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="piezas_ajuste" value="NC"> NC</label>
+                      <label><input type="radio" name="piezas_ajuste" value="N/A"> N/A</label>
+                    </div>
+                  </li>
+                  <li class="mb-2">
+                    <label class="form-label fw-bold mb-1">Ganchos Trabapeldaños y uñas de seguridad</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="ganchos" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="ganchos" value="NC"> NC</label>
+                      <label><input type="radio" name="ganchos" value="N/A"> N/A</label>
+                    </div>
+                  </li>
+                  <li class="mb-2">
+                    <label class="form-label fw-bold mb-1">Cuerda y polea</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="cuerda_polea" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="cuerda_polea" value="NC"> NC</label>
+                      <label><input type="radio" name="cuerda_polea" value="N/A"> N/A</label>
+                    </div>
+                  </li>
+                  <li class="mb-2">
+                    <label class="form-label fw-bold mb-1">Guías externas para unión de largueros</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="guias_externas" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="guias_externas" value="NC"> NC</label>
+                      <label><input type="radio" name="guias_externas" value="N/A"> N/A</label>
+                    </div>
+                  </li>
+                  <li class="mb-2">
+                    <label class="form-label fw-bold mb-1">Señalización de seguridad en peldaño</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="senal_seguridad" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="senal_seguridad" value="NC"> NC</label>
+                      <label><input type="radio" name="senal_seguridad" value="N/A"> N/A</label>
+                    </div>
+                  </li>
+                  <li class="mb-0">
+                    <label class="form-label fw-bold mb-1">Aseo de escalera</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="aseo_escalera" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="aseo_escalera" value="NC"> NC</label>
+                      <label><input type="radio" name="aseo_escalera" value="N/A"> N/A</label>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <label class="form-label">Observaciones</label>
+            <textarea id="observaciones" class="form-control" rows="3" placeholder="Observaciones"></textarea>
+          </div>
+
+          <div class="mt-4 d-flex gap-2">
+            <a href="/sgis" class="btn btn-outline-secondary">
+              <i class="fas fa-arrow-left me-2"></i>Volver al Dashboard
+            </a>
+            <button id="btnRegistrarEscalera" class="btn btn-primary">
+              <i class="fas fa-pen-nib me-2"></i>Firmar y Enviar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function valorSeleccionado(n){ const el = document.querySelector('input[name="'+n+'"]:checked'); return el ? el.value : ''; }
+function construirPayload(){
+  return {
+    larguero: valorSeleccionado('larguero'),
+    peldanos: valorSeleccionado('peldanos'),
+    union: valorSeleccionado('union'),
+    zapatas: valorSeleccionado('zapatas'),
+    base_apoyo: valorSeleccionado('base_apoyo'),
+    piezas_ajuste: valorSeleccionado('piezas_ajuste'),
+    ganchos: valorSeleccionado('ganchos'),
+    cuerda_polea: valorSeleccionado('cuerda_polea'),
+    guias_externas: valorSeleccionado('guias_externas'),
+    senal_seguridad: valorSeleccionado('senal_seguridad'),
+    aseo_escalera: valorSeleccionado('aseo_escalera'),
+    marca: (document.getElementById('marcaEscalera').value || '').trim(),
+    cant_peldano: parseInt(document.getElementById('cantPeldanos').value || '0', 10),
+    observacion: (document.getElementById('observaciones').value || '').trim()
+  };
+}
+function validar(payload){
+  const req = ['larguero','peldanos','union','zapatas','base_apoyo','piezas_ajuste','ganchos','cuerda_polea','guias_externas','senal_seguridad','aseo_escalera'];
+  for(const k of req){ if(!payload[k] || !(['C','NC','N/A'].includes(payload[k]))){ Swal.fire('Campos incompletos','Completa todas las generalidades','warning'); return false; } }
+  let hasNC = req.some(k => payload[k] === 'NC');
+  if(hasNC && !payload.observacion){ Swal.fire('Observaciones requeridas','Registra observaciones para los hallazgos en NC','warning'); return false; }
+  return true;
+}
+let firmaCtxEsc, firmandoEsc = false;
+function initFirmaEsc(){
+  const c = document.getElementById('firmaCanvasEsc');
+  firmaCtxEsc = c.getContext('2d');
+  firmaCtxEsc.strokeStyle = '#222';
+  firmaCtxEsc.lineWidth = 2;
+  const pos = (e)=>{ const r = c.getBoundingClientRect(); const x = (e.touches? e.touches[0].clientX : e.clientX) - r.left; const y = (e.touches? e.touches[0].clientY : e.clientY) - r.top; return {x,y}; };
+  const start = (e)=>{ firmandoEsc = true; const p = pos(e); firmaCtxEsc.beginPath(); firmaCtxEsc.moveTo(p.x,p.y); e.preventDefault(); };
+  const move = (e)=>{ if(!firmandoEsc) return; const p = pos(e); firmaCtxEsc.lineTo(p.x,p.y); firmaCtxEsc.stroke(); e.preventDefault(); };
+  const end = ()=>{ firmandoEsc = false; };
+  c.addEventListener('mousedown', start); c.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+  c.addEventListener('touchstart', start, {passive:false}); c.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
+  document.getElementById('btnLimpiarFirmaEsc').addEventListener('click', ()=>{ firmaCtxEsc.clearRect(0,0,c.width,c.height); });
+}
+function enviarEsc(){
+  const c = document.getElementById('firmaCanvasEsc');
+  const firma = c.toDataURL('image/png');
+  const payload = construirPayload();
+  if(!validar(payload)) return;
+  payload.firma_base64 = firma;
+  fetch('/api/sgis/pre-escaleras', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+    .then(r=>r.json()).then(d=>{
+      if(d && d.success){
+        Swal.fire('Éxito','Preoperacional de escaleras registrado','success');
+        const btn = document.getElementById('btnRegistrarEscalera'); if(btn){ btn.disabled = true; btn.textContent = 'Pre-operacional diligenciado'; }
+        const mf = document.getElementById('modalFirmaEsc'); const modal = bootstrap.Modal.getInstance(mf); if(modal) modal.hide();
+      } else {
+        Swal.fire('Error', d.error || 'No se pudo registrar', 'error');
+      }
+    }).catch(()=>{ Swal.fire('Error','Error de red','error'); });
+}
+document.addEventListener('DOMContentLoaded', function(){
+  document.getElementById('btnRegistrarEscalera').addEventListener('click', function(){
+    const payload = construirPayload();
+    if(!validar(payload)) return;
+    const mf = new bootstrap.Modal(document.getElementById('modalFirmaEsc'));
+    mf.show();
+    initFirmaEsc();
+  });
+  fetch('/api/sgis/pre-escaleras/status').then(r=>r.json()).then(d=>{
+    const btn = document.getElementById('btnRegistrarEscalera');
+    if(d && d.success && d.already_today && btn){ btn.disabled = true; btn.textContent = 'Pre-operacional diligenciado'; }
+  }).catch(()=>{});
+  if(!document.getElementById('mesActual').textContent){
+    const d = new Date(); const m = String(d.getMonth()+1).padStart(2,'0'); document.getElementById('mesActual').textContent = `${d.getFullYear()}-${m}`;
+  }
+});
+</script>
+
+<div class="modal fade" id="modalFirmaEsc" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-pen-nib me-2"></i>Firma</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <canvas id="firmaCanvasEsc" width="300" height="150" style="border:1px solid #ddd; border-radius:4px; cursor:crosshair"></canvas>
+        <div class="mt-2 d-flex gap-2">
+          <button id="btnLimpiarFirmaEsc" type="button" class="btn btn-outline-secondary btn-sm">Limpiar</button>
+          <button id="btnEnviarPreopEsc" type="button" class="btn btn-success btn-sm" onclick="enviarEsc()">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

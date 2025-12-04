@@ -1,0 +1,54 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header text-white fw-bold" style="background: linear-gradient(135deg, #1e293b 0%, #0ea5e9 100%) !important;">
+          <h4 class="mb-0"><i class="fas fa-chart-line me-2"></i>Reportes SGIS</h4>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <div class="card h-100 border-primary">
+                <div class="card-body d-flex flex-column">
+                  <div class="mb-3 text-primary"><i class="fas fa-hard-hat fa-2x"></i></div>
+                  <h5 class="card-title mb-2">Pre-operacional EPP</h5>
+                  <p class="text-muted mb-3">Reporte mensual de inspecciones de elementos de protección personal.</p>
+                  <a href="/sgis/reportes/epp" class="btn btn-outline-primary mt-auto">
+                    <i class="fas fa-file-alt me-2"></i>Abrir Reporte
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card h-100 border-secondary">
+                <div class="card-body d-flex flex-column">
+                  <div class="mb-3 text-secondary"><i class="fas fa-stairs fa-2x"></i></div>
+                  <h5 class="card-title mb-2">Pre-operacional Escaleras</h5>
+                  <p class="text-muted mb-3">Reporte mensual de inspecciones de escaleras.</p>
+                  <a href="/sgis/reportes/escaleras" class="btn btn-outline-secondary mt-auto">
+                    <i class="fas fa-file-alt me-2"></i>Abrir Reporte
+                  </a>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card h-100 border-secondary">
+                <div class="card-body d-flex flex-column">
+                  <div class="mb-3 text-secondary"><i class="fas fa-clipboard-check fa-2x"></i></div>
+                  <h5 class="card-title mb-2">Otros reportes</h5>
+                  <p class="text-muted mb-3">Más reportes SGIS en preparación.</p>
+                  <button class="btn btn-outline-secondary mt-auto" disabled title="Próximamente">
+                    <i class="fas fa-hourglass-half me-2"></i>Próximamente
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
