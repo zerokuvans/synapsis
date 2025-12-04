@@ -1285,7 +1285,11 @@ def api_tecnicos_list_ordenes():
 
         return jsonify({'success': True, 'ordenes': ordenes})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        try:
+            app.logger.error(f"SGIS dashboard-stats error: {e}")
+        except Exception:
+            pass
+        return jsonify({'success': True, 'data': {'total_preop': 0, 'epp_ok': 0, 'epp_alertas': 0, 'reportes': 0}})
     finally:
         try:
             if cursor:
@@ -3633,9 +3637,9 @@ def api_analistas_actividad_cierre():
                             act_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
                 except Exception:
                     act_date = None
-                # Aplicar bloqueo solo desde 2025-12-04 12:00 (Bogotá)
+                # Aplicar bloqueo solo desde 2025-12-05 12:00 (Bogotá)
                 now = datetime.now(TIMEZONE)
-                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 4, 12, 0, 0))
+                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 5, 12, 0, 0))
                 if now >= bloqueo_inicio and act_date:
                     dnext = act_date + timedelta(days=1)
                     cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
@@ -3758,9 +3762,9 @@ def api_analistas_actividad_razon():
                             act_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
                 except Exception:
                     act_date = None
-                # Aplicar bloqueo solo desde 2025-12-04 12:00 (Bogotá)
+                # Aplicar bloqueo solo desde 2025-12-05 12:00 (Bogotá)
                 now = datetime.now(TIMEZONE)
-                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 4, 12, 0, 0))
+                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 5, 12, 0, 0))
                 if now >= bloqueo_inicio and act_date:
                     dnext = act_date + timedelta(days=1)
                     cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
@@ -22690,6 +22694,1001 @@ def api_sstt_dashboard_stats():
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
+@app.route('/sgis')
+@login_required()
+def sgis_dashboard():
+    if session.get('user_role') not in ['tecnicos', 'operativo', 'administrativo', 'sstt', 'SSTT', 'tecnico', 'Tecnico']:
+        flash('No tienes permisos para acceder a este módulo', 'error')
+        return redirect(url_for('dashboard'))
+    return render_template('modulos/sgis/dashboard.html')
+
+@app.route('/sgis/preoperacional-epp')
+@login_required()
+def sgis_preoperacional_epp_page():
+    if session.get('user_role') not in ['tecnicos', 'operativo', 'administrativo', 'sstt', 'SSTT', 'tecnico', 'Tecnico']:
+        flash('No tienes permisos para acceder a este módulo', 'error')
+        return redirect(url_for('dashboard'))
+    return render_template('modulos/sgis/preoperacional_epp.html')
+
+@app.route('/sgis/reportes')
+@login_required(role='administrativo')
+def sgis_reportes_page():
+    return render_template('modulos/sgis/reportes.html')
+
+@app.route('/api/sgis/preoperacional-epp', methods=['POST'])
+@login_required_api()
+def api_sgis_preoperacional_epp():
+    try:
+        data = request.get_json() or {}
+        items = data.get('items') or {}
+        observaciones = (data.get('observaciones') or '').strip()
+        def m(val):
+            return 'C' if bool(val) else 'NC'
+        payload = {
+            'casco_estado_general': m(items.get('casco', True)),
+            'casco_uso_inf_2_anos': 'C',
+            'casco_estado_tafilete': 'C',
+            'casco_puntos_anclaje': 'C',
+            'barbuquejo_estado_puntos_apoyo': 'C',
+            'barbuquejo_estado_sujetador_menton': 'C',
+            'barbuquejo_estado_costuras_correas': 'C',
+            'guantes_estado_costuras': m(items.get('guantes', True)),
+            'guantes_estado_palma': 'C',
+            'guantes_estado_general': 'C',
+            'monogafas_estado_lentes': m(items.get('gafas', True)),
+            'monogafas_estado_patillas': 'C',
+            'monogafas_estado_puente_nariz': 'C',
+            'observacion': observaciones,
+            'firma_base64': data.get('firma_base64') or None
+        }
+        required_fields = [
+            'casco_estado_general','casco_uso_inf_2_anos','casco_estado_tafilete','casco_puntos_anclaje',
+            'barbuquejo_estado_puntos_apoyo','barbuquejo_estado_sujetador_menton','barbuquejo_estado_costuras_correas',
+            'guantes_estado_costuras','guantes_estado_palma','guantes_estado_general',
+            'monogafas_estado_lentes','monogafas_estado_patillas','monogafas_estado_puente_nariz'
+        ]
+        for f in required_fields:
+            v = payload.get(f)
+            if v not in ('C','NC','N/A'):
+                return jsonify({'success': False, 'error': f'Campo inválido o faltante: {f}'}), 400
+        any_nc = any(payload.get(f) == 'NC' for f in required_fields)
+        if any_nc and not observaciones:
+            return jsonify({'success': False, 'error': 'Observaciones requeridas por hallazgos NC'}), 400
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        uid = session.get('id_codigo_consumidor')
+        ced = session.get('user_cedula')
+        cursor.execute("SELECT nombre FROM recurso_operativo WHERE id_codigo_consumidor = %s", (uid,))
+        urow = cursor.fetchone() or {}
+        nombre = urow.get('nombre') or session.get('user_name')
+        cargo = session.get('user_role')
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_pre_proteccion_personal (
+                id_sgis_pre_proteccion_personal INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                cargo VARCHAR(128) NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                casco_estado_general VARCHAR(4),
+                casco_uso_inf_2_anos VARCHAR(4),
+                casco_estado_tafilete VARCHAR(4),
+                casco_puntos_anclaje VARCHAR(4),
+                barbuquejo_estado_puntos_apoyo VARCHAR(4),
+                barbuquejo_estado_sujetador_menton VARCHAR(4),
+                barbuquejo_estado_costuras_correas VARCHAR(4),
+                guantes_estado_costuras VARCHAR(4),
+                guantes_estado_palma VARCHAR(4),
+                guantes_estado_general VARCHAR(4),
+                monogafas_estado_lentes VARCHAR(4),
+                monogafas_estado_patillas VARCHAR(4),
+                monogafas_estado_puente_nariz VARCHAR(4),
+                observacion TEXT,
+                fecha_registro DATETIME,
+                firma LONGTEXT,
+                fecha_dia DATE,
+                cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                fecha DATETIME,
+                firma_base64 LONGTEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.cursor().execute(ddl)
+        cur_sys = connection.cursor(buffered=True)
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'fecha_dia'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN fecha_dia DATE")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'cedula'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN cedula VARCHAR(20)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'recurso_operativo_cedula'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN recurso_operativo_cedula VARCHAR(20)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'recurso_operativo_cedula'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN recurso_operativo_cedula VARCHAR(20)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'cargo'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN cargo VARCHAR(128)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'nombre'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN nombre VARCHAR(128)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'fecha'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN fecha DATETIME")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'firma_base64'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN firma_base64 LONGTEXT")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'observacion'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN observacion TEXT")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'fecha_registro'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN fecha_registro DATETIME")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'firma'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN firma LONGTEXT")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'id_codigo_consumidor'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN id_codigo_consumidor INT")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'usuario_id'")
+        if cur_sys.fetchone():
+            connection.cursor().execute("UPDATE sgis_pre_proteccion_personal SET id_codigo_consumidor = usuario_id WHERE id_codigo_consumidor IS NULL")
+            connection.commit()
+        cur_sys.execute("SHOW INDEX FROM sgis_pre_proteccion_personal WHERE Key_name = 'uq_tecnico_dia'")
+        if not cur_sys.fetchone():
+            try:
+                connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)")
+                connection.commit()
+            except Exception:
+                pass
+        fecha = get_bogota_datetime()
+        fecha_dia = fecha.date()
+        cursor.execute("SELECT COUNT(*) AS c FROM sgis_pre_proteccion_personal WHERE id_codigo_consumidor=%s AND fecha_dia=%s", (uid, fecha_dia))
+        row = cursor.fetchone()
+        if row and row.get('c',0) > 0:
+            return jsonify({'success': False, 'error': 'Ya registraste el preoperacional hoy'}), 409
+        cursor.execute(
+            """
+            INSERT INTO sgis_pre_proteccion_personal (
+                id_codigo_consumidor, cargo, recurso_operativo_cedula, casco_estado_general,
+                casco_uso_inf_2_anos, casco_estado_tafilete, casco_puntos_anclaje,
+                barbuquejo_estado_puntos_apoyo, barbuquejo_estado_sujetador_menton, barbuquejo_estado_costuras_correas,
+                guantes_estado_costuras, guantes_estado_palma, guantes_estado_general,
+                monogafas_estado_lentes, monogafas_estado_patillas, monogafas_estado_puente_nariz,
+                observacion, fecha_registro, firma, fecha_dia, cedula, nombre, fecha, firma_base64
+            ) VALUES (
+                %s,%s,%s,%s,
+                %s,%s,%s,
+                %s,%s,%s,
+                %s,%s,%s,
+                %s,%s,%s,
+                %s,%s,%s,%s,%s,%s,%s,%s
+            )
+            """,
+            (
+                uid, cargo, ced, payload['casco_estado_general'],
+                payload['casco_uso_inf_2_anos'], payload['casco_estado_tafilete'], payload['casco_puntos_anclaje'],
+                payload['barbuquejo_estado_puntos_apoyo'], payload['barbuquejo_estado_sujetador_menton'], payload['barbuquejo_estado_costuras_correas'],
+                payload['guantes_estado_costuras'], payload['guantes_estado_palma'], payload['guantes_estado_general'],
+                payload['monogafas_estado_lentes'], payload['monogafas_estado_patillas'], payload['monogafas_estado_puente_nariz'],
+                observaciones, fecha, payload['firma_base64'], fecha_dia, ced, nombre, fecha, payload['firma_base64']
+            )
+        )
+        connection.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/reportes/tecnicos-mes', methods=['GET'])
+@login_required_api(role='administrativo')
+def api_sgis_reportes_tecnicos_mes():
+    try:
+        mes = request.args.get('mes')
+        supervisor = request.args.get('supervisor')
+        if mes:
+            try:
+                inicio = datetime.strptime(mes + '-01', '%Y-%m-%d').date()
+            except ValueError:
+                inicio = get_bogota_datetime().date().replace(day=1)
+        else:
+            inicio = get_bogota_datetime().date().replace(day=1)
+        if inicio.month == 12:
+            fin = inicio.replace(year=inicio.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            fin = inicio.replace(month=inicio.month + 1, day=1) - timedelta(days=1)
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        query = """
+            SELECT a.cedula, COALESCE(a.tecnico, r.nombre) AS tecnico
+            FROM asistencia a
+            LEFT JOIN recurso_operativo r ON r.recurso_operativo_cedula = a.cedula
+            JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s AND t.valor = '1'
+        """
+        params = [inicio, fin]
+        if supervisor:
+            query += " AND a.super = %s"
+            params.append(supervisor)
+        query += " GROUP BY a.cedula, tecnico ORDER BY tecnico"
+        cursor.execute(query, tuple(params))
+        filas = cursor.fetchall()
+        data = [{'cedula': f['cedula'], 'nombre': f['tecnico']} for f in filas]
+        return jsonify({'success': True, 'data': data, 'mes': inicio.strftime('%Y-%m')})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/reportes/preop-detalle', methods=['GET'])
+@login_required_api(role='administrativo')
+def api_sgis_reportes_preop_detalle():
+    try:
+        cedula = request.args.get('cedula')
+        mes = request.args.get('mes')
+        if not cedula:
+            return jsonify({'success': False, 'error': 'Cédula requerida'}), 400
+        if mes:
+            try:
+                inicio = datetime.strptime(mes + '-01', '%Y-%m-%d').date()
+            except ValueError:
+                inicio = get_bogota_datetime().date().replace(day=1)
+        else:
+            inicio = get_bogota_datetime().date().replace(day=1)
+        if inicio.month == 12:
+            fin = inicio.replace(year=inicio.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            fin = inicio.replace(month=inicio.month + 1, day=1) - timedelta(days=1)
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_pre_proteccion_personal (
+                id_sgis_pre_proteccion_personal INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                cargo VARCHAR(128) NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                casco_estado_general VARCHAR(4),
+                casco_uso_inf_2_anos VARCHAR(4),
+                casco_estado_tafilete VARCHAR(4),
+                casco_puntos_anclaje VARCHAR(4),
+                barbuquejo_estado_puntos_apoyo VARCHAR(4),
+                barbuquejo_estado_sujetador_menton VARCHAR(4),
+                barbuquejo_estado_costuras_correas VARCHAR(4),
+                guantes_estado_costuras VARCHAR(4),
+                guantes_estado_palma VARCHAR(4),
+                guantes_estado_general VARCHAR(4),
+                monogafas_estado_lentes VARCHAR(4),
+                monogafas_estado_patillas VARCHAR(4),
+                monogafas_estado_puente_nariz VARCHAR(4),
+                observacion TEXT,
+                fecha_registro DATETIME,
+                firma LONGTEXT,
+                fecha_dia DATE,
+                cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                fecha DATETIME,
+                firma_base64 LONGTEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.cursor().execute(ddl)
+        cursor.execute(
+            """
+            SELECT fecha_dia, casco_estado_general, casco_uso_inf_2_anos, casco_estado_tafilete, casco_puntos_anclaje,
+                   barbuquejo_estado_puntos_apoyo, barbuquejo_estado_sujetador_menton, barbuquejo_estado_costuras_correas,
+                   guantes_estado_costuras, guantes_estado_palma, guantes_estado_general,
+                   monogafas_estado_lentes, monogafas_estado_patillas, monogafas_estado_puente_nariz
+            FROM sgis_pre_proteccion_personal
+            WHERE cedula = %s AND fecha_dia BETWEEN %s AND %s
+            ORDER BY fecha_dia
+            """,
+            (cedula, inicio, fin)
+        )
+        rows = cursor.fetchall()
+        dia_estado = {}
+        for row in rows:
+            estados = [
+                row.get('casco_estado_general'),
+                row.get('casco_uso_inf_2_anos'),
+                row.get('casco_estado_tafilete'),
+                row.get('casco_puntos_anclaje'),
+                row.get('barbuquejo_estado_puntos_apoyo'),
+                row.get('barbuquejo_estado_sujetador_menton'),
+                row.get('barbuquejo_estado_costuras_correas'),
+                row.get('guantes_estado_costuras'),
+                row.get('guantes_estado_palma'),
+                row.get('guantes_estado_general'),
+                row.get('monogafas_estado_lentes'),
+                row.get('monogafas_estado_patillas'),
+                row.get('monogafas_estado_puente_nariz')
+            ]
+            e = 'C'
+            if any(s == 'NC' for s in estados if s):
+                e = 'NC'
+            elif all(s == 'N/A' for s in estados if s):
+                e = 'N/A'
+            fecha = row['fecha_dia']
+            d = fecha.day
+            dia_estado[d] = e
+        dias = []
+        ultimo_dia = fin.day
+        for d in range(1, 32):
+            if d <= ultimo_dia:
+                dias.append(dia_estado.get(d, ''))
+            else:
+                dias.append('')
+        return jsonify({'success': True, 'cedula': cedula, 'mes': inicio.strftime('%Y-%m'), 'dias': dias})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/reportes/preop-matriz', methods=['GET'])
+@login_required_api(role='administrativo')
+def api_sgis_reportes_preop_matriz():
+    try:
+        cedula = request.args.get('cedula')
+        mes = request.args.get('mes')
+        if not cedula:
+            return jsonify({'success': False, 'error': 'Cédula requerida'}), 400
+        if mes:
+            try:
+                inicio = datetime.strptime(mes + '-01', '%Y-%m-%d').date()
+            except ValueError:
+                inicio = get_bogota_datetime().date().replace(day=1)
+        else:
+            inicio = get_bogota_datetime().date().replace(day=1)
+        if inicio.month == 12:
+            fin = inicio.replace(year=inicio.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            fin = inicio.replace(month=inicio.month + 1, day=1) - timedelta(days=1)
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_pre_proteccion_personal (
+                id_sgis_pre_proteccion_personal INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                cargo VARCHAR(128) NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                casco_estado_general VARCHAR(4),
+                casco_uso_inf_2_anos VARCHAR(4),
+                casco_estado_tafilete VARCHAR(4),
+                casco_puntos_anclaje VARCHAR(4),
+                barbuquejo_estado_puntos_apoyo VARCHAR(4),
+                barbuquejo_estado_sujetador_menton VARCHAR(4),
+                barbuquejo_estado_costuras_correas VARCHAR(4),
+                guantes_estado_costuras VARCHAR(4),
+                guantes_estado_palma VARCHAR(4),
+                guantes_estado_general VARCHAR(4),
+                monogafas_estado_lentes VARCHAR(4),
+                monogafas_estado_patillas VARCHAR(4),
+                monogafas_estado_puente_nariz VARCHAR(4),
+                observacion TEXT,
+                fecha_registro DATETIME,
+                firma LONGTEXT,
+                fecha_dia DATE,
+                cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                fecha DATETIME,
+                firma_base64 LONGTEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.cursor().execute(ddl)
+        cursor.execute(
+            """
+            SELECT fecha_dia,
+                   casco_estado_general, casco_uso_inf_2_anos, casco_estado_tafilete, casco_puntos_anclaje,
+                   barbuquejo_estado_puntos_apoyo, barbuquejo_estado_sujetador_menton, barbuquejo_estado_costuras_correas,
+                   guantes_estado_costuras, guantes_estado_palma, guantes_estado_general,
+                   monogafas_estado_lentes, monogafas_estado_patillas, monogafas_estado_puente_nariz,
+                   observacion,
+                   firma_base64,
+                   firma
+            FROM sgis_pre_proteccion_personal
+            WHERE cedula = %s AND fecha_dia BETWEEN %s AND %s
+            ORDER BY fecha_dia
+            """,
+            (cedula, inicio, fin)
+        )
+        rows = cursor.fetchall()
+        ultimo_dia = fin.day
+        def arr():
+            return ['' for _ in range(31)]
+        matriz = {
+            'casco': {
+                'estado_general': arr(),
+                'uso_inferior_2_anios': arr(),
+                'estado_talifete': arr(),
+                'puntos_anclaje_barbuquejo': arr()
+            },
+            'barbuquejo': {
+                'puntos_apoyo': arr(),
+                'sujetador_menton': arr(),
+                'costuras_correas': arr()
+            },
+            'guantes': {
+                'costuras': arr(),
+                'refuerzo_palma': arr(),
+                'estado_general': arr()
+            },
+            'monogafas': {
+                'lentes_sin_rayones': arr(),
+                'patillas': arr(),
+                'puente_nariz': arr()
+            }
+        }
+        observaciones = arr()
+        firmas = arr()
+        for row in rows:
+            d = row['fecha_dia'].day
+            idx = d - 1
+            if 0 <= idx < 31:
+                matriz['casco']['estado_general'][idx] = row.get('casco_estado_general') or ''
+                matriz['casco']['uso_inferior_2_anios'][idx] = row.get('casco_uso_inf_2_anos') or ''
+                matriz['casco']['estado_talifete'][idx] = row.get('casco_estado_tafilete') or ''
+                matriz['casco']['puntos_anclaje_barbuquejo'][idx] = row.get('casco_puntos_anclaje') or ''
+                matriz['barbuquejo']['puntos_apoyo'][idx] = row.get('barbuquejo_estado_puntos_apoyo') or ''
+                matriz['barbuquejo']['sujetador_menton'][idx] = row.get('barbuquejo_estado_sujetador_menton') or ''
+                matriz['barbuquejo']['costuras_correas'][idx] = row.get('barbuquejo_estado_costuras_correas') or ''
+                matriz['guantes']['costuras'][idx] = row.get('guantes_estado_costuras') or ''
+                matriz['guantes']['refuerzo_palma'][idx] = row.get('guantes_estado_palma') or ''
+                matriz['guantes']['estado_general'][idx] = row.get('guantes_estado_general') or ''
+                matriz['monogafas']['lentes_sin_rayones'][idx] = row.get('monogafas_estado_lentes') or ''
+                matriz['monogafas']['patillas'][idx] = row.get('monogafas_estado_patillas') or ''
+                matriz['monogafas']['puente_nariz'][idx] = row.get('monogafas_estado_puente_nariz') or ''
+                observaciones[idx] = (row.get('observacion') or '').strip()
+                firmas[idx] = (row.get('firma_base64') or row.get('firma') or '')
+        cursor.execute("SELECT nombre, cargo, carpeta FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+        u = cursor.fetchone() or {}
+        info = {
+            'nombre': u.get('nombre') or '',
+            'cedula': cedula,
+            'cargo': u.get('cargo') or '',
+            'area': u.get('carpeta') or ''
+        }
+        return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'matriz': matriz, 'observaciones': observaciones, 'firmas': firmas})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/dashboard-stats', methods=['GET'])
+@login_required_api(role='administrativo')
+def api_sgis_dashboard_stats():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_pre_proteccion_personal (
+                id_sgis_pre_proteccion_personal INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                cargo VARCHAR(128) NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                casco_estado_general VARCHAR(4),
+                casco_uso_inf_2_anos VARCHAR(4),
+                casco_estado_tafilete VARCHAR(4),
+                casco_puntos_anclaje VARCHAR(4),
+                barbuquejo_estado_puntos_apoyo VARCHAR(4),
+                barbuquejo_estado_sujetador_menton VARCHAR(4),
+                barbuquejo_estado_costuras_correas VARCHAR(4),
+                guantes_estado_costuras VARCHAR(4),
+                guantes_estado_palma VARCHAR(4),
+                guantes_estado_general VARCHAR(4),
+                monogafas_estado_lentes VARCHAR(4),
+                monogafas_estado_patillas VARCHAR(4),
+                monogafas_estado_puente_nariz VARCHAR(4),
+                observacion TEXT,
+                fecha_registro DATETIME,
+                firma LONGTEXT,
+                fecha_dia DATE,
+                cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                fecha DATETIME,
+                firma_base64 LONGTEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.cursor().execute(ddl)
+        cur_sys = connection.cursor(buffered=True)
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'fecha_dia'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN fecha_dia DATE")
+            connection.cursor().execute("UPDATE sgis_pre_proteccion_personal SET fecha_dia = DATE(fecha) WHERE fecha_dia IS NULL")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'cedula'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN cedula VARCHAR(20)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'cargo'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN cargo VARCHAR(128)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'nombre'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN nombre VARCHAR(128)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'fecha'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN fecha DATETIME")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'firma_base64'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN firma_base64 LONGTEXT")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'firma'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN firma LONGTEXT")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'observacion'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN observacion TEXT")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'fecha_registro'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN fecha_registro DATETIME")
+            connection.commit()
+        # Asegurar columna id_codigo_consumidor y migrar datos desde usuario_id si existe
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'id_codigo_consumidor'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN id_codigo_consumidor INT")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'usuario_id'")
+        if cur_sys.fetchone():
+            connection.cursor().execute("UPDATE sgis_pre_proteccion_personal SET id_codigo_consumidor = usuario_id WHERE id_codigo_consumidor IS NULL")
+            connection.commit()
+        # Asegurar índice único por técnico y día
+        cur_sys.execute("SHOW INDEX FROM sgis_pre_proteccion_personal WHERE Key_name = 'uq_tecnico_dia'")
+        exists_idx = cur_sys.fetchone()
+        if not exists_idx:
+            try:
+                connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)")
+                connection.commit()
+            except Exception:
+                pass
+        cursor = connection.cursor(dictionary=True)
+        hoy = get_bogota_datetime().date()
+        cursor.execute("SELECT COUNT(*) AS c FROM sgis_pre_proteccion_personal WHERE fecha_dia = %s", (hoy,))
+        total_preop = cursor.fetchone()['c']
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS c
+            FROM sgis_pre_proteccion_personal
+            WHERE fecha_dia = %s
+              AND (
+                COALESCE(casco_estado_general, 'C') <> 'NC' AND
+                COALESCE(casco_uso_inf_2_anos, 'C') <> 'NC' AND
+                COALESCE(casco_estado_tafilete, 'C') <> 'NC' AND
+                COALESCE(casco_puntos_anclaje, 'C') <> 'NC' AND
+                COALESCE(barbuquejo_estado_puntos_apoyo, 'C') <> 'NC' AND
+                COALESCE(barbuquejo_estado_sujetador_menton, 'C') <> 'NC' AND
+                COALESCE(barbuquejo_estado_costuras_correas, 'C') <> 'NC' AND
+                COALESCE(guantes_estado_costuras, 'C') <> 'NC' AND
+                COALESCE(guantes_estado_palma, 'C') <> 'NC' AND
+                COALESCE(guantes_estado_general, 'C') <> 'NC' AND
+                COALESCE(monogafas_estado_lentes, 'C') <> 'NC' AND
+                COALESCE(monogafas_estado_patillas, 'C') <> 'NC' AND
+                COALESCE(monogafas_estado_puente_nariz, 'C') <> 'NC'
+              )
+            """,
+            (hoy,)
+        )
+        epp_ok = cursor.fetchone()['c']
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS c
+            FROM sgis_pre_proteccion_personal
+            WHERE fecha_dia = %s
+              AND (
+                casco_estado_general = 'NC' OR
+                casco_uso_inf_2_anos = 'NC' OR
+                casco_estado_tafilete = 'NC' OR
+                casco_puntos_anclaje = 'NC' OR
+                barbuquejo_estado_puntos_apoyo = 'NC' OR
+                barbuquejo_estado_sujetador_menton = 'NC' OR
+                barbuquejo_estado_costuras_correas = 'NC' OR
+                guantes_estado_costuras = 'NC' OR
+                guantes_estado_palma = 'NC' OR
+                guantes_estado_general = 'NC' OR
+                monogafas_estado_lentes = 'NC' OR
+                monogafas_estado_patillas = 'NC' OR
+                monogafas_estado_puente_nariz = 'NC'
+              )
+            """,
+            (hoy,)
+        )
+        epp_alertas = cursor.fetchone()['c']
+        return jsonify({'success': True, 'data': {'total_preop': total_preop, 'epp_ok': epp_ok, 'epp_alertas': epp_alertas, 'reportes': 0}})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/cleanup', methods=['POST'])
+@login_required_api(role='administrativo')
+def api_sgis_cleanup():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        cur.execute("DROP TABLE IF EXISTS sgis_preoperacional_epp")
+        connection.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cur' in locals():
+            try:
+                cur.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/pre-proteccion-personal/status', methods=['GET'])
+@login_required_api()
+def api_sgis_pre_proteccion_status():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_pre_proteccion_personal (
+                id_sgis_pre_proteccion_personal INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                cargo VARCHAR(128) NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                casco_estado_general VARCHAR(4),
+                casco_uso_inf_2_anos VARCHAR(4),
+                casco_estado_tafilete VARCHAR(4),
+                casco_puntos_anclaje VARCHAR(4),
+                barbuquejo_estado_puntos_apoyo VARCHAR(4),
+                barbuquejo_estado_sujetador_menton VARCHAR(4),
+                barbuquejo_estado_costuras_correas VARCHAR(4),
+                guantes_estado_costuras VARCHAR(4),
+                guantes_estado_palma VARCHAR(4),
+                guantes_estado_general VARCHAR(4),
+                monogafas_estado_lentes VARCHAR(4),
+                monogafas_estado_patillas VARCHAR(4),
+                monogafas_estado_puente_nariz VARCHAR(4),
+                observacion TEXT,
+                fecha_registro DATETIME,
+                firma LONGTEXT,
+                fecha_dia DATE,
+                cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                fecha DATETIME,
+                firma_base64 LONGTEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.cursor().execute(ddl)
+        cur_sys = connection.cursor(buffered=True)
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'fecha_dia'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN fecha_dia DATE")
+            connection.cursor().execute("UPDATE sgis_pre_proteccion_personal SET fecha_dia = DATE(fecha) WHERE fecha_dia IS NULL")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'cedula'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN cedula VARCHAR(20)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'cargo'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN cargo VARCHAR(128)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'nombre'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN nombre VARCHAR(128)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'fecha'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN fecha DATETIME")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'firma_base64'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN firma_base64 LONGTEXT")
+            connection.commit()
+        # Asegurar columna id_codigo_consumidor y migrar datos desde usuario_id si existe
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'id_codigo_consumidor'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN id_codigo_consumidor INT")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'usuario_id'")
+        if cur_sys.fetchone():
+            connection.cursor().execute("UPDATE sgis_pre_proteccion_personal SET id_codigo_consumidor = usuario_id WHERE id_codigo_consumidor IS NULL")
+            connection.commit()
+        # Asegurar índice único por técnico y día
+        cur_sys.execute("SHOW INDEX FROM sgis_pre_proteccion_personal WHERE Key_name = 'uq_tecnico_dia'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)")
+            connection.commit()
+        cursor = connection.cursor(dictionary=True)
+        hoy = get_bogota_datetime().date()
+        uid = session.get('id_codigo_consumidor')
+        cursor.execute("SELECT COUNT(*) AS c FROM sgis_pre_proteccion_personal WHERE id_codigo_consumidor = %s AND fecha_dia = %s", (uid, hoy))
+        row = cursor.fetchone()
+        return jsonify({'success': True, 'already_today': (row and row.get('c',0) > 0)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/pre-proteccion-personal', methods=['POST'])
+@login_required_api()
+def api_sgis_pre_proteccion_save():
+    try:
+        data = request.get_json() or {}
+        mapa = {
+            'casco_uso_menor_2_anios': 'casco_uso_inf_2_anos',
+            'casco_estado_talifete': 'casco_estado_tafilete',
+            'casco_puntos_anclaje_barbuquejo': 'casco_puntos_anclaje',
+            'barbuquejo_puntos_apoyo': 'barbuquejo_estado_puntos_apoyo',
+            'barbuquejo_sujetador_menton': 'barbuquejo_estado_sujetador_menton',
+            'barbuquejo_costuras_correas': 'barbuquejo_estado_costuras_correas',
+            'guantes_costuras': 'guantes_estado_costuras',
+            'guantes_refuerzo_palma': 'guantes_estado_palma',
+            'guantes_estado_general': 'guantes_estado_general',
+            'monogafas_lentes': 'monogafas_estado_lentes',
+            'monogafas_patillas_ajustables': 'monogafas_estado_patillas',
+            'monogafas_puente_nariz': 'monogafas_estado_puente_nariz'
+        }
+        nuevos = [
+            'casco_estado_general','casco_uso_inf_2_anos','casco_estado_tafilete','casco_puntos_anclaje',
+            'barbuquejo_estado_puntos_apoyo','barbuquejo_estado_sujetador_menton','barbuquejo_estado_costuras_correas',
+            'guantes_estado_costuras','guantes_estado_palma','guantes_estado_general',
+            'monogafas_estado_lentes','monogafas_estado_patillas','monogafas_estado_puente_nariz'
+        ]
+        vals = {}
+        for nk in nuevos:
+            ok = None
+            for k,v in mapa.items():
+                if v == nk and k in data:
+                    ok = data.get(k)
+                    break
+            if ok is None:
+                ok = data.get(nk)
+            if ok not in ('C','NC','N/A'):
+                return jsonify({'success': False, 'error': f'Campo inválido o faltante: {nk}'}), 400
+            vals[nk] = ok
+        any_nc = any(vals.get(f) == 'NC' for f in nuevos)
+        obs_txt = (data.get('observacion') or data.get('observaciones') or '').strip()
+        if any_nc and not obs_txt:
+            return jsonify({'success': False, 'error': 'Observaciones requeridas por hallazgos NC'}), 400
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        # Obtener datos del usuario
+        uid = session.get('id_codigo_consumidor')
+        ced = session.get('user_cedula')
+        cursor.execute("SELECT nombre FROM recurso_operativo WHERE id_codigo_consumidor = %s", (uid,))
+        urow = cursor.fetchone() or {}
+        nombre = urow.get('nombre') or session.get('user_name')
+        cargo = session.get('user_role')
+        # Crear tabla si no existe
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_pre_proteccion_personal (
+                id_sgis_pre_proteccion_personal INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                cargo VARCHAR(128) NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                casco_estado_general VARCHAR(4),
+                casco_uso_inf_2_anos VARCHAR(4),
+                casco_estado_tafilete VARCHAR(4),
+                casco_puntos_anclaje VARCHAR(4),
+                barbuquejo_estado_puntos_apoyo VARCHAR(4),
+                barbuquejo_estado_sujetador_menton VARCHAR(4),
+                barbuquejo_estado_costuras_correas VARCHAR(4),
+                guantes_estado_costuras VARCHAR(4),
+                guantes_estado_palma VARCHAR(4),
+                guantes_estado_general VARCHAR(4),
+                monogafas_estado_lentes VARCHAR(4),
+                monogafas_estado_patillas VARCHAR(4),
+                monogafas_estado_puente_nariz VARCHAR(4),
+                observacion TEXT,
+                fecha_registro DATETIME,
+                firma LONGTEXT,
+                fecha_dia DATE,
+                cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                fecha DATETIME,
+                firma_base64 LONGTEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.cursor().execute(ddl)
+        cur_sys = connection.cursor(buffered=True)
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'fecha_dia'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN fecha_dia DATE")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'cedula'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN cedula VARCHAR(20)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'cargo'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN cargo VARCHAR(128)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'nombre'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN nombre VARCHAR(128)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'fecha'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN fecha DATETIME")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'firma_base64'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN firma_base64 LONGTEXT")
+            connection.commit()
+        # Asegurar columna id_codigo_consumidor y migrar datos desde usuario_id si existe
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'id_codigo_consumidor'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN id_codigo_consumidor INT")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'usuario_id'")
+        if cur_sys.fetchone():
+            connection.cursor().execute("UPDATE sgis_pre_proteccion_personal SET id_codigo_consumidor = usuario_id WHERE id_codigo_consumidor IS NULL")
+            connection.commit()
+        # Asegurar índice único por técnico y día
+        cur_sys.execute("SHOW INDEX FROM sgis_pre_proteccion_personal WHERE Key_name = 'uq_tecnico_dia'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)")
+            connection.commit()
+        cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'firma'")
+        if not cur_sys.fetchone():
+            connection.cursor().execute("ALTER TABLE sgis_pre_proteccion_personal ADD COLUMN firma LONGTEXT")
+            connection.commit()
+        fecha = get_bogota_datetime()
+        fecha_dia = fecha.date()
+        cursor.execute("SELECT COUNT(*) AS c FROM sgis_pre_proteccion_personal WHERE id_codigo_consumidor=%s AND fecha_dia=%s", (uid, fecha_dia))
+        row = cursor.fetchone()
+        if row and row.get('c',0) > 0:
+            return jsonify({'success': False, 'error': 'Ya registraste el preoperacional hoy'}), 409
+        firma_base64 = data.get('firma_base64') or None
+        observaciones = obs_txt
+        cursor.execute(
+            """
+            INSERT INTO sgis_pre_proteccion_personal (
+                id_codigo_consumidor, cargo, recurso_operativo_cedula, casco_estado_general,
+                casco_uso_inf_2_anos, casco_estado_tafilete, casco_puntos_anclaje,
+                barbuquejo_estado_puntos_apoyo, barbuquejo_estado_sujetador_menton, barbuquejo_estado_costuras_correas,
+                guantes_estado_costuras, guantes_estado_palma, guantes_estado_general,
+                monogafas_estado_lentes, monogafas_estado_patillas, monogafas_estado_puente_nariz,
+                observacion, fecha_registro, firma, fecha_dia, cedula, nombre, fecha, firma_base64
+            ) VALUES (
+                %s,%s,%s,%s,
+                %s,%s,%s,
+                %s,%s,%s,
+                %s,%s,%s,
+                %s,%s,%s,
+                %s,%s,%s,%s,%s,%s,%s,%s
+            )
+        """,
+        (
+            uid, cargo, ced, vals['casco_estado_general'],
+            vals['casco_uso_inf_2_anos'], vals['casco_estado_tafilete'], vals['casco_puntos_anclaje'],
+            vals['barbuquejo_estado_puntos_apoyo'], vals['barbuquejo_estado_sujetador_menton'], vals['barbuquejo_estado_costuras_correas'],
+            vals['guantes_estado_costuras'], vals['guantes_estado_palma'], vals['guantes_estado_general'],
+            vals['monogafas_estado_lentes'], vals['monogafas_estado_patillas'], vals['monogafas_estado_puente_nariz'],
+            observaciones, fecha, firma_base64, fecha_dia, ced, nombre, fecha, firma_base64
+        )
+        )
+        connection.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
 # ============================================================================
 # ENDPOINTS PARA INICIO DE OPERACIÓN - NUEVOS CAMPOS DE ASISTENCIA
 # ============================================================================
@@ -24352,5 +25351,20 @@ def api_log_computadores_update():
         connection.commit()
         cur.close(); connection.close()
         return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+@app.route('/api/sgis/debug-session', methods=['GET'])
+def api_sgis_debug_session():
+    try:
+        return jsonify({
+            'success': True,
+            'data': {
+                'user_id': session.get('user_id'),
+                'id_codigo_consumidor': session.get('id_codigo_consumidor'),
+                'user_role': session.get('user_role'),
+                'user_name': session.get('user_name'),
+                'user_cedula': session.get('user_cedula')
+            }
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

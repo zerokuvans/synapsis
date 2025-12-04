@@ -1,0 +1,525 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header text-white fw-bold" style="background: linear-gradient(135deg, #1e293b 0%, #1e293b 100%) !important;">
+          <h3 class="mb-0">
+            <i class="fas fa-shield-halved me-2"></i>Sistema de Gestión Integrado de Seguridad (SGIS)
+          </h3>
+        </div>
+        <div class="card-body">
+          <style>
+            .sgis-section{border:1px solid #e5e7eb; border-radius:.5rem; padding:1rem}
+            .sgis-section.nc{border-color:#dc2626; box-shadow:0 0 0 .15rem rgba(220,38,38,.15)}
+            .badge-nc{display:inline-block; color:#dc2626}
+          </style>
+          {% if session.get('user_role') == 'administrativo' %}
+          <div class="row mb-4">
+            <div class="col-md-3">
+              <div class="card bg-primary text-white">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <h4 id="sgis-total-preop">0</h4>
+                      <p class="mb-0">Pre-operacionales hoy</p>
+                    </div>
+                    <div class="align-self-center">
+                      <i class="fas fa-clipboard-check fa-2x"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card bg-success text-white">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <h4 id="sgis-epp-ok">0</h4>
+                      <p class="mb-0">EPP en buen estado</p>
+                    </div>
+                    <div class="align-self-center">
+                      <i class="fas fa-hard-hat fa-2x"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card bg-warning text-dark">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <h4 id="sgis-epp-alertas">0</h4>
+                      <p class="mb-0">Alertas EPP</p>
+                    </div>
+                    <div class="align-self-center">
+                      <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="card bg-info text-white">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <h4 id="sgis-reportes">0</h4>
+                      <p class="mb-0">Reportes generados</p>
+                    </div>
+                    <div class="align-self-center">
+                      <i class="fas fa-chart-bar fa-2x"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if session.get('user_role') in ['tecnicos', 'operativo', 'sstt', 'SSTT', 'tecnico', 'Tecnico'] %}
+          <div class="row">
+            <div class="col-md-12">
+              <div class="card">
+                <div class="card-header">
+                  <h5 class="mb-0"><i class="fas fa-wrench me-2"></i>Técnicos</h5>
+                </div>
+                <div class="card-body">
+                  <div class="d-grid gap-2">
+                    <button id="btnPreop" type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalPreop">
+                      <i class="fas fa-hard-hat me-2"></i>Pre-operacional de EPP
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% elif session.get('user_role') == 'administrativo' %}
+          <div class="row">
+            <div class="col-md-6">
+              <div class="card">
+                <div class="card-header">
+                  <h5 class="mb-0"><i class="fas fa-user-tie me-2"></i>Administrativo</h5>
+                </div>
+                <div class="card-body">
+                  <div class="d-grid gap-2">
+                    <a href="/admin/reportes" class="btn btn-outline-success">
+                      <i class="fas fa-chart-line me-2"></i>Reportes SGIS
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Preoperacional -->
+<div class="modal fade" id="modalPreop" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-clipboard-check me-2"></i>Pre-operacional de Elementos de Protección Personal</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <div class="row g-3">
+            <div class="col-md-3"><small class="text-muted">Nombre</small><div>{{ session.get('user_name') }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Cédula</small><div>{{ session.get('user_cedula') }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Cargo</small><div>{{ session.get('user_role') }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Fecha</small><div id="fechaBogota"></div></div>
+          </div>
+        </div>
+        <hr>
+        <form id="formPreop">
+          <div id="sec-casco" class="mb-3 sgis-section">
+            <h6 class="mb-1"><i class="fas  me-2"></i>Casco</h6>
+            <p class="text-muted small mb-3">Conforme a los hallazgos de inspección registre los siguiente: "C - Cumple" "NC - No Cumple" "N/A - No Aplica".</p>
+            <div id="nc-casco" class="badge-nc d-none mb-2">NC seleccionado</div>
+            <div class="row align-items-start g-3">
+              <div class="col-md-4">
+                <img class="img-fluid rounded border" alt="Casco"
+                     src="{{ url_for('static', filename='img/sgis/casco.jpg') }}"
+                     onerror="this.src='{{ url_for('static', filename='img/sgis/casco.svg') }}'">
+              </div>
+              <div class="col-md-8">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Estado General</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="casco_estado_general" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="casco_estado_general" value="NC"> NC</label>
+                      <label><input type="radio" name="casco_estado_general" value="N/A"> N/A</label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Uso inferior a 2 Años</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="casco_uso_menor_2_anios" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="casco_uso_menor_2_anios" value="NC"> NC</label>
+                      <label><input type="radio" name="casco_uso_menor_2_anios" value="N/A"> N/A</label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Estado del Talifete</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="casco_estado_talifete" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="casco_estado_talifete" value="NC"> NC</label>
+                      <label><input type="radio" name="casco_estado_talifete" value="N/A"> N/A</label>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label">Puntos de anclaje del barbuquejo</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="casco_puntos_anclaje_barbuquejo" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="casco_puntos_anclaje_barbuquejo" value="NC"> NC</label>
+                      <label><input type="radio" name="casco_puntos_anclaje_barbuquejo" value="N/A"> N/A</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <hr class="my-3">
+          </div>
+
+          <div id="sec-barbuquejo" class="mb-3 sgis-section">
+            <h6 class="mb-1"><i class="fas  me-2"></i>Barbuquejo</h6>
+            <p class="text-muted small mb-3">Conforme a los hallazgos de inspección registre los siguiente: "C - Cumple" "NC - No Cumple" "N/A - No Aplica".</p>
+            <div id="nc-barbuquejo" class="badge-nc d-none mb-2">NC seleccionado</div>
+            <div class="row align-items-start g-3">
+              <div class="col-md-4">
+                <img class="img-fluid rounded border" alt="Barbuquejo"
+                     src="{{ url_for('static', filename='img/sgis/barbuquejo.jpg') }}"
+                     onerror="this.src='{{ url_for('static', filename='img/sgis/barbuquejo.svg') }}'">
+              </div>
+              <div class="col-md-8">
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Estado puntos de apoyo</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="barbuquejo_puntos_apoyo" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="barbuquejo_puntos_apoyo" value="NC"> NC</label>
+                      <label><input type="radio" name="barbuquejo_puntos_apoyo" value="N/A"> N/A</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Estado sujetador del mentón</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="barbuquejo_sujetador_menton" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="barbuquejo_sujetador_menton" value="NC"> NC</label>
+                      <label><input type="radio" name="barbuquejo_sujetador_menton" value="N/A"> N/A</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Estado costuras y correas</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="barbuquejo_costuras_correas" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="barbuquejo_costuras_correas" value="NC"> NC</label>
+                      <label><input type="radio" name="barbuquejo_costuras_correas" value="N/A"> N/A</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <hr class="my-3">
+          </div>
+
+          <div id="sec-guantes" class="mb-3 sgis-section">
+            <h6 class="mb-1"><i class="fas  me-2"></i>Guantes</h6>
+            <p class="text-muted small mb-3">Conforme a los hallazgos de inspección registre los siguiente: "C - Cumple" "NC - No Cumple" "N/A - No Aplica".</p>
+            <div id="nc-guantes" class="badge-nc d-none mb-2">NC seleccionado</div>
+            <div class="row align-items-start g-3">
+              <div class="col-md-4">
+                <img class="img-fluid rounded border" alt="Guantes"
+                     src="{{ url_for('static', filename='img/sgis/guantes.jpg') }}"
+                     onerror="this.src='{{ url_for('static', filename='img/sgis/guantes.svg') }}'">
+              </div>
+              <div class="col-md-8">
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Estado costuras</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="guantes_costuras" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="guantes_costuras" value="NC"> NC</label>
+                      <label><input type="radio" name="guantes_costuras" value="N/A"> N/A</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Estado refuerzo palma</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="guantes_refuerzo_palma" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="guantes_refuerzo_palma" value="NC"> NC</label>
+                      <label><input type="radio" name="guantes_refuerzo_palma" value="N/A"> N/A</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Estado General (Sin rotos)</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="guantes_estado_general" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="guantes_estado_general" value="NC"> NC</label>
+                      <label><input type="radio" name="guantes_estado_general" value="N/A"> N/A</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <hr class="my-3">
+          </div>
+
+          <div id="sec-monogafas" class="mb-3 sgis-section">
+            <h6 class="mb-1"><i class="fas me-2"></i>Monogafas</h6>
+            <p class="text-muted small mb-3">Conforme a los hallazgos de inspección registre los siguiente: "C - Cumple" "NC - No Cumple" "N/A - No Aplica".</p>
+            <div id="nc-monogafas" class="badge-nc d-none mb-2">NC seleccionado</div>
+            <div class="row align-items-start g-3">
+              <div class="col-md-4">
+                <img class="img-fluid rounded border" alt="Monogafas"
+                     src="{{ url_for('static', filename='img/sgis/monogafas.jpg') }}"
+                     onerror="this.src='{{ url_for('static', filename='img/sgis/monogafas.svg') }}'">
+              </div>
+              <div class="col-md-8">
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label">Estado de lentes (Sin rayones)</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="monogafas_lentes" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="monogafas_lentes" value="NC"> NC</label>
+                      <label><input type="radio" name="monogafas_lentes" value="N/A"> N/A</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Estado patillas ajustables</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="monogafas_patillas_ajustables" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="monogafas_patillas_ajustables" value="NC"> NC</label>
+                      <label><input type="radio" name="monogafas_patillas_ajustables" value="N/A"> N/A</label>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Estado puente de nariz</label>
+                    <div>
+                      <label class="me-2"><input type="radio" name="monogafas_puente_nariz" value="C"> C</label>
+                      <label class="me-2"><input type="radio" name="monogafas_puente_nariz" value="NC"> NC</label>
+                      <label><input type="radio" name="monogafas_puente_nariz" value="N/A"> N/A</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <hr class="my-3">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Observaciones</label>
+            <small class="text-muted d-block mb-2">Si existen hallazgos en "NC - No Cumple", por favor registre las OBSERVACIONES.</small>
+            <textarea id="observaciones" class="form-control" rows="3"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button id="btnGuardarPreop" type="button" class="btn btn-primary">Guardar preoperacional</button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+<!-- Modal Firma -->
+<div class="modal fade" id="modalFirma" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-pen-nib me-2"></i>Firma</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <canvas id="firmaCanvas" width="300" height="150" style="border:1px solid #ddd; border-radius:4px; cursor:crosshair"></canvas>
+        <div class="mt-2 d-flex gap-2">
+          <button id="btnLimpiarFirma" type="button" class="btn btn-outline-secondary btn-sm">Limpiar</button>
+          <button id="btnEnviarPreop" type="button" class="btn btn-success btn-sm">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function setFechaBogota(){
+  const nowStr = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
+  const el = document.getElementById('fechaBogota');
+  if(el) el.textContent = nowStr;
+}
+function getRadio(name){
+  const els = document.querySelectorAll(`input[name="${name}"]`);
+  for(const e of els){ if(e.checked) return e.value; }
+  return null;
+}
+function validarCampos(){
+  const req = [
+    'casco_estado_general','casco_uso_menor_2_anios','casco_estado_talifete','casco_puntos_anclaje_barbuquejo',
+    'barbuquejo_puntos_apoyo','barbuquejo_sujetador_menton','barbuquejo_costuras_correas',
+    'guantes_costuras','guantes_refuerzo_palma','guantes_estado_general',
+    'monogafas_lentes','monogafas_patillas_ajustables','monogafas_puente_nariz'
+  ];
+  for(const n of req){
+    const v = getRadio(n);
+    if(!v){
+      Swal.fire('Campos incompletos', 'Completa todas las secciones', 'warning');
+      return false;
+    }
+  }
+  let hasNC = false;
+  for(const n of req){
+    if(getRadio(n) === 'NC'){ hasNC = true; break; }
+  }
+  if(hasNC){
+    const obs = (document.getElementById('observaciones').value || '').trim();
+    if(!obs){
+      Swal.fire('Observaciones requeridas', 'Registra observaciones para los hallazgos en NC', 'warning');
+      return false;
+    }
+  }
+  return true;
+}
+function recolectar(){
+  return {
+    casco_estado_general: getRadio('casco_estado_general'),
+    casco_uso_menor_2_anios: getRadio('casco_uso_menor_2_anios'),
+    casco_estado_talifete: getRadio('casco_estado_talifete'),
+    casco_puntos_anclaje_barbuquejo: getRadio('casco_puntos_anclaje_barbuquejo'),
+    barbuquejo_puntos_apoyo: getRadio('barbuquejo_puntos_apoyo'),
+    barbuquejo_sujetador_menton: getRadio('barbuquejo_sujetador_menton'),
+    barbuquejo_costuras_correas: getRadio('barbuquejo_costuras_correas'),
+    guantes_costuras: getRadio('guantes_costuras'),
+    guantes_refuerzo_palma: getRadio('guantes_refuerzo_palma'),
+    guantes_estado_general: getRadio('guantes_estado_general'),
+    monogafas_lentes: getRadio('monogafas_lentes'),
+    monogafas_patillas_ajustables: getRadio('monogafas_patillas_ajustables'),
+    monogafas_puente_nariz: getRadio('monogafas_puente_nariz'),
+    observaciones: document.getElementById('observaciones').value || ''
+  };
+}
+function calcSectionNC(section){
+  if(section==='casco'){
+    return ['casco_estado_general','casco_uso_menor_2_anios','casco_estado_talifete','casco_puntos_anclaje_barbuquejo'].some(n=>getRadio(n)==='NC');
+  } else if(section==='barbuquejo'){
+    return ['barbuquejo_puntos_apoyo','barbuquejo_sujetador_menton','barbuquejo_costuras_correas'].some(n=>getRadio(n)==='NC');
+  } else if(section==='guantes'){
+    return ['guantes_costuras','guantes_refuerzo_palma','guantes_estado_general'].some(n=>getRadio(n)==='NC');
+  } else if(section==='monogafas'){
+    return ['monogafas_lentes','monogafas_patillas_ajustables','monogafas_puente_nariz'].some(n=>getRadio(n)==='NC');
+  }
+  return false;
+}
+function updateSectionUI(section){
+  const hasNC = calcSectionNC(section);
+  const block = document.getElementById('sec-'+section);
+  const badge = document.getElementById('nc-'+section);
+  if(block){ block.classList.toggle('nc', !!hasNC); }
+  if(badge){ badge.classList.toggle('d-none', !hasNC); }
+}
+let firmaCtx, firmando = false;
+function initFirma(){
+  const c = document.getElementById('firmaCanvas');
+  firmaCtx = c.getContext('2d');
+  firmaCtx.strokeStyle = '#222';
+  firmaCtx.lineWidth = 2;
+  const pos = (e)=>{
+    const r = c.getBoundingClientRect();
+    const x = (e.touches? e.touches[0].clientX : e.clientX) - r.left;
+    const y = (e.touches? e.touches[0].clientY : e.clientY) - r.top;
+    return {x,y};
+  };
+  const start = (e)=>{ firmando = true; const p = pos(e); firmaCtx.beginPath(); firmaCtx.moveTo(p.x,p.y); e.preventDefault(); };
+  const move = (e)=>{ if(!firmando) return; const p = pos(e); firmaCtx.lineTo(p.x,p.y); firmaCtx.stroke(); e.preventDefault(); };
+  const end = ()=>{ firmando = false; };
+  c.addEventListener('mousedown', start); c.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+  c.addEventListener('touchstart', start, {passive:false}); c.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
+  document.getElementById('btnLimpiarFirma').addEventListener('click', ()=>{ firmaCtx.clearRect(0,0,c.width,c.height); });
+}
+function enviarConFirma(){
+  const c = document.getElementById('firmaCanvas');
+  const firma = c.toDataURL('image/png');
+  const payload = recolectar();
+  payload.firma_base64 = firma;
+  const req = [
+    'casco_estado_general','casco_uso_menor_2_anios','casco_estado_talifete','casco_puntos_anclaje_barbuquejo',
+    'barbuquejo_puntos_apoyo','barbuquejo_sujetador_menton','barbuquejo_costuras_correas',
+    'guantes_costuras','guantes_refuerzo_palma','guantes_estado_general',
+    'monogafas_lentes','monogafas_patillas_ajustables','monogafas_puente_nariz'
+  ];
+  let hasNC = false;
+  for(const n of req){ if(payload[n] === 'NC'){ hasNC = true; break; } }
+  if(hasNC){
+    const obs = (payload.observaciones || '').trim();
+    if(!obs){
+      Swal.fire('Observaciones requeridas', 'Registra observaciones para los hallazgos en NC', 'warning');
+      return;
+    }
+  }
+  fetch('/api/sgis/pre-proteccion-personal', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+  }).then(r=>r.json()).then(d=>{
+    if(d && d.success){
+      Swal.fire('Éxito','Preoperacional registrado','success');
+      const btn = document.getElementById('btnPreop');
+      if(btn){ btn.disabled = true; btn.textContent = 'Pre-operacional diligenciado'; }
+      const mf = document.getElementById('modalFirma');
+      const modal = bootstrap.Modal.getInstance(mf); if(modal) modal.hide();
+      const mp = document.getElementById('modalPreop');
+      const modal2 = bootstrap.Modal.getInstance(mp); if(modal2) modal2.hide();
+    } else {
+      Swal.fire('Error', d.error || 'No se pudo registrar', 'error');
+    }
+  }).catch(()=>{ Swal.fire('Error','Error de red','error'); });
+}
+document.addEventListener('DOMContentLoaded', function(){
+  {% if session.get('user_role') == 'administrativo' %}
+  fetch('/api/sgis/dashboard-stats').then(r=>r.json()).then(d=>{
+    if(d && d.success){
+      document.getElementById('sgis-total-preop').textContent = d.data.total_preop || 0;
+      document.getElementById('sgis-epp-ok').textContent = d.data.epp_ok || 0;
+      document.getElementById('sgis-epp-alertas').textContent = d.data.epp_alertas || 0;
+      document.getElementById('sgis-reportes').textContent = d.data.reportes || 0;
+    }
+  }).catch(()=>{});
+  {% endif %}
+  fetch('/api/sgis/pre-proteccion-personal/status').then(r=>r.json()).then(d=>{
+    const btn = document.getElementById('btnPreop');
+    if(d && d.success && d.already_today && btn){ btn.disabled = true; btn.textContent = 'Pre-operacional diligenciado'; }
+  }).catch(()=>{});
+  setFechaBogota();
+  document.getElementById('btnGuardarPreop').addEventListener('click', function(){
+    if(!validarCampos()) return;
+    const mf = new bootstrap.Modal(document.getElementById('modalFirma'));
+    mf.show();
+    initFirma();
+  });
+  document.getElementById('btnEnviarPreop').addEventListener('click', enviarConFirma);
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if(params.get('open') === 'preop'){
+      const mp = new bootstrap.Modal(document.getElementById('modalPreop'));
+      mp.show();
+    }
+  } catch(e) {}
+  ['casco','barbuquejo','guantes','monogafas'].forEach(updateSectionUI);
+  document.querySelectorAll('input[type="radio"]').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      const n = el.name;
+      if(n.startsWith('casco_')) updateSectionUI('casco');
+      else if(n.startsWith('barbuquejo_')) updateSectionUI('barbuquejo');
+      else if(n.startsWith('guantes_')) updateSectionUI('guantes');
+      else if(n.startsWith('monogafas_')) updateSectionUI('monogafas');
+    });
+  });
+});
+</script>
+{% endblock %}
