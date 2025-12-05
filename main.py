@@ -3340,6 +3340,207 @@ def api_analistas_actividades_diarias_resumen():
         })
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/analistas/actividades-diarias/export', methods=['GET'])
+@login_required_api(role='administrativo')
+def api_analistas_actividades_diarias_export():
+    formato = (request.args.get('formato') or 'csv').strip().lower()
+    fecha = (request.args.get('fecha') or '').strip()
+    analista = (request.args.get('analista') or '').strip()
+    mensual = ((request.args.get('mensual') or '').strip().lower() in ('1','true','si','yes'))
+    solo_gest = ((request.args.get('gestionadas') or '').strip().lower() in ('1','true','si','yes'))
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        c = connection.cursor()
+        c.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in c.fetchall()}
+        def pick(names, approx=None):
+            if approx is None:
+                approx = []
+            for n in names:
+                k = n.lower()
+                if k in cols:
+                    return cols[k]
+            for k0,v0 in cols.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            if approx:
+                import re
+                def norm(s):
+                    return re.sub(r"[^a-z0-9]", "", s.lower())
+                aset = {norm(x) for x in approx}
+                for k0,v0 in cols.items():
+                    if norm(k0) in aset:
+                        return v0
+            return None
+        col_ot = pick(['orden_de_trabajo','ot','orden_trabajo','orden','orden_de_servicio'], approx=['orden_de_trabajo','ordentrabajo','ot'])
+        col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'], approx=['numerodecuenta','cuenta'])
+        col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'], approx=['fechaactividad','fechaorden'])
+        col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'], approx=['external_id','exetrnal_id','idexterno','id_externo','cedula'])
+        col_estado = pick(['estado'])
+        col_final = pick(['estado_final','finalizado','final'])
+        col_cierre = pick(['cierre_ciclo'])
+        opt_cols = []
+        for opt in ['tipificacion_ok','tipificacion_novedad','observacion_cierre','tipificacion_razon','tipo_razon_aplica','observacion_razon','confirmacion_evento']:
+            if opt.lower() in cols:
+                opt_cols.append(cols[opt.lower()])
+        if not col_ot or not col_cuenta or not col_fecha or not col_ext:
+            return jsonify({'success': False, 'message': 'Columnas requeridas no encontradas'}), 200
+        tipo_fecha = None
+        try:
+            c.execute(
+                """
+                SELECT DATA_TYPE FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='operaciones_actividades_diarias' AND column_name=%s
+                """,
+                (db_config.get('database'), col_fecha)
+            )
+            rowt = c.fetchone()
+            tipo_fecha = str(rowt[0]).lower() if rowt else None
+        except Exception:
+            tipo_fecha = None
+        cedulas = []
+        if analista:
+            c.execute(
+                """
+                SELECT COLLATION_NAME FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='recurso_operativo' AND column_name='analista'
+                """,
+                (db_config.get('database'),)
+            )
+            rcoll = c.fetchone()
+            coll = rcoll[0] if rcoll and rcoll[0] else 'utf8mb4_0900_ai_ci'
+            c.execute(
+                f"""
+                SELECT recurso_operativo_cedula
+                FROM recurso_operativo
+                WHERE LOWER(TRIM(analista)) COLLATE {coll} = LOWER(TRIM(CAST(%s AS CHAR CHARACTER SET utf8mb4))) COLLATE {coll}
+                """,
+                (analista,)
+            )
+            cedulas = [r[0] for r in c.fetchall()]
+        params = []
+        where = []
+        where.append(f"o.`{col_cuenta}` IS NOT NULL")
+        where.append(f"CAST(o.`{col_cuenta}` AS CHAR) <> ''")
+        where.append(f"o.`{col_cuenta}` REGEXP '^[0-9]+'")
+        where.append(f"CAST(o.`{col_cuenta}` AS SIGNED) > 0")
+        where.append(f"CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6")
+        if col_estado:
+            where.append(f"LOWER(TRIM(o.`{col_estado}`)) IN ('completado','no completado')")
+        if solo_gest:
+            if col_final:
+                where.append(f"CAST(o.`{col_final}` AS SIGNED) = 1")
+            elif col_cierre:
+                where.append(f"CAST(o.`{col_cierre}` AS SIGNED) = 1")
+        if fecha and not mensual:
+            import re
+            fecha_norm = fecha
+            for fmt in ('%Y-%m-%d','%d/%m/%Y','%d-%m-%Y','%Y/%m/%d'):
+                try:
+                    fecha_norm = datetime.strptime(fecha, fmt).strftime('%Y-%m-%d')
+                    break
+                except Exception:
+                    pass
+            if tipo_fecha in ('datetime','timestamp','date'):
+                where.append(f"DATE(o.`{col_fecha}`) = %s")
+                params.append(fecha_norm)
+            else:
+                where.append(f"o.`{col_fecha}` LIKE %s")
+                params.append(fecha_norm + '%')
+        if mensual:
+            from calendar import monthrange
+            now = datetime.now(TIMEZONE)
+            ms = f"{now.year}-{now.month:02d}-01"
+            me = f"{now.year}-{now.month:02d}-{monthrange(now.year, now.month)[1]:02d}"
+            if tipo_fecha in ('datetime','timestamp','date'):
+                where.append(f"DATE(o.`{col_fecha}`) BETWEEN %s AND %s")
+                params.extend([ms, me])
+            else:
+                pref = now.strftime('%Y-%m-')
+                where.append(f"o.`{col_fecha}` LIKE %s")
+                params.append(pref + '%')
+        if cedulas:
+            placeholders = ','.join(['%s'] * len(cedulas))
+            where.append(f"CAST(o.`{col_ext}` AS CHAR) IN ({placeholders})")
+            params.extend(cedulas)
+        select_parts = [
+            f"o.`{col_ot}` AS orden_de_trabajo",
+            f"o.`{col_cuenta}` AS numero_de_cuenta",
+            f"o.`{col_ext}` AS tecnico_id",
+            f"o.`{col_fecha}` AS fecha"
+        ]
+        if col_estado:
+            select_parts.append(f"o.`{col_estado}` AS estado")
+        if col_final:
+            select_parts.append(f"o.`{col_final}` AS estado_final")
+        if col_cierre:
+            select_parts.append(f"o.`{col_cierre}` AS cierre_ciclo")
+        for oc in opt_cols:
+            select_parts.append(f"o.`{oc}` AS `{oc}`")
+        sql = "SELECT " + ", ".join(select_parts) + " FROM operaciones_actividades_diarias o"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        sql += f" ORDER BY o.`{col_fecha}` DESC"
+        c = connection.cursor(dictionary=True)
+        c.execute(sql, tuple(params))
+        rows = c.fetchall() or []
+        tecnico_ids = {str(r.get('tecnico_id')) for r in rows if r.get('tecnico_id') is not None}
+        nombres_map = {}
+        analistas_map = {}
+        supervisores_map = {}
+        if tecnico_ids:
+            placeholders = ','.join(['%s'] * len(tecnico_ids))
+            c2 = connection.cursor()
+            c2.execute(
+                f"SELECT recurso_operativo_cedula, nombre, analista, super FROM recurso_operativo WHERE CAST(recurso_operativo_cedula AS CHAR) IN ({placeholders})",
+                tuple(tecnico_ids)
+            )
+            for r in c2.fetchall() or []:
+                nombres_map[str(r[0])] = r[1]
+                analistas_map[str(r[0])] = r[2] if len(r) > 2 else ''
+                supervisores_map[str(r[0])] = r[3] if len(r) > 3 else ''
+            c2.close()
+        for r in rows:
+            cid = str(r.get('tecnico_id')) if r.get('tecnico_id') is not None else ''
+            r['tecnico'] = nombres_map.get(cid, '')
+            r['analista'] = analistas_map.get(cid, '')
+            r['supervisor'] = supervisores_map.get(cid, '')
+        c.close(); connection.close()
+        if formato == 'xlsx':
+            buf = io.BytesIO()
+            pd.DataFrame(rows).to_excel(buf, index=False)
+            buf.seek(0)
+            filename = f"actividades_diarias_{datetime.now(TIMEZONE).strftime('%Y%m%d_%H%M%S')}.xlsx"
+            return send_file(buf, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', as_attachment=True, download_name=filename)
+        else:
+            def fmt(v):
+                if isinstance(v, datetime):
+                    return v.strftime('%Y-%m-%d %H:%M:%S')
+                return v
+            si = io.StringIO()
+            if rows:
+                header = list(rows[0].keys())
+            else:
+                header = ['orden_de_trabajo','numero_de_cuenta','tecnico_id','tecnico','analista','supervisor','fecha','estado','estado_final','cierre_ciclo'] + opt_cols
+            w = csv.writer(si)
+            w.writerow(header)
+            for r in rows:
+                w.writerow([fmt(r.get(h)) for h in header])
+            output = si.getvalue()
+            filename = f"actividades_diarias_{datetime.now(TIMEZONE).strftime('%Y%m%d_%H%M%S')}.csv"
+            return Response(output, mimetype='text/csv; charset=utf-8', headers={'Content-Disposition': f'attachment; filename="{filename}"'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 # Detalle de actividad por OT y cuenta
 @app.route('/api/analistas/actividad-detalle', methods=['GET'])
 @login_required_analistas_or_lider_api()
@@ -4380,6 +4581,7 @@ def api_inicio_operacion_datos():
         cierre_ciclo_meta = 260
         cierre_ciclo_gestionado_mes = 0
         cierre_ciclo_porcentaje_mes = 0.0
+        cierre_ciclo_detalle = []
         try:
             c2 = connection.cursor()
             c2.execute(
@@ -4398,6 +4600,7 @@ def api_inicio_operacion_datos():
             col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
             col_estado = pick(['estado'])
             col_cierre = pick(['cierre_ciclo'])
+            col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
             where_parts = []
             params_cc = []
             if col_estado:
@@ -4430,6 +4633,38 @@ def api_inicio_operacion_datos():
                     pref = base_dt.strftime('%Y-%m-')
                     where_parts.append(f"o.`{col_fecha}` LIKE %s")
                     params_cc.append(pref + '%')
+
+            # Filtrar por analistas si se proporciona y existe columna de ID externo
+            cedulas_all = []
+            cedulas_por_analista = {}
+            if analistas and col_ext:
+                c2.execute(
+                    """
+                    SELECT COLLATION_NAME FROM information_schema.columns
+                    WHERE table_schema=%s AND table_name='recurso_operativo' AND column_name='analista'
+                    """,
+                    ('capired',)
+                )
+                coll_row = c2.fetchone()
+                coll = coll_row[0] if coll_row and coll_row[0] else 'utf8mb4_0900_ai_ci'
+                for a in analistas:
+                    c2.execute(
+                        f"""
+                        SELECT recurso_operativo_cedula
+                        FROM recurso_operativo
+                        WHERE LOWER(TRIM(analista)) COLLATE {coll} = LOWER(TRIM(CAST(%s AS CHAR CHARACTER SET utf8mb4))) COLLATE {coll}
+                        """,
+                        (a,)
+                    )
+                    rows_ced = c2.fetchall() or []
+                    ceds = [r[0] for r in rows_ced]
+                    cedulas_por_analista[a] = ceds
+                    cedulas_all.extend(ceds)
+                if cedulas_all:
+                    placeholders = ','.join(['%s'] * len(cedulas_all))
+                    where_parts.append(f"CAST(o.`{col_ext}` AS CHAR) IN ({placeholders})")
+                    params_cc.extend([str(x) for x in cedulas_all])
+
             sql_cc = "SELECT COUNT(*) FROM operaciones_actividades_diarias o"
             if where_parts:
                 sql_cc += " WHERE " + " AND ".join(where_parts)
@@ -4437,8 +4672,36 @@ def api_inicio_operacion_datos():
             row_cnt = c2.fetchone()
             cierre_ciclo_gestionado_mes = int(row_cnt[0]) if row_cnt and row_cnt[0] is not None else 0
             cierre_ciclo_porcentaje_mes = round((cierre_ciclo_gestionado_mes / cierre_ciclo_meta * 100), 1) if cierre_ciclo_meta > 0 else 0.0
+
+            # Detalle por analista (solo si se filtró por analistas y existe columna de ID externo)
+            if analistas and col_ext:
+                for a in analistas:
+                    ceds = cedulas_por_analista.get(a) or []
+                    if not ceds:
+                        cierre_ciclo_detalle.append({
+                            'analista': a,
+                            'gestionado_mes': 0,
+                            'porcentaje_mensual': 0.0
+                        })
+                        continue
+                    placeholders = ','.join(['%s'] * len(ceds))
+                    sql_det = "SELECT COUNT(*) FROM operaciones_actividades_diarias o"
+                    det_where = list(where_parts)
+                    det_params = list(params_cc)
+                    det_where.append(f"CAST(o.`{col_ext}` AS CHAR) IN ({placeholders})")
+                    det_params.extend([str(x) for x in ceds])
+                    sql_det += " WHERE " + " AND ".join(det_where)
+                    c2.execute(sql_det, tuple(det_params))
+                    rdet = c2.fetchone()
+                    cnt = int(rdet[0]) if rdet and rdet[0] is not None else 0
+                    cierre_ciclo_detalle.append({
+                        'analista': a,
+                        'gestionado_mes': cnt,
+                        'porcentaje_mensual': round((cnt / cierre_ciclo_meta * 100), 1) if cierre_ciclo_meta > 0 else 0.0
+                    })
+
             c2.close()
-        except Exception as e:
+        except Exception:
             try:
                 c2.close()
             except Exception:
@@ -4481,7 +4744,8 @@ def api_inicio_operacion_datos():
                 'cierre_ciclo': {
                     'meta_mensual': cierre_ciclo_meta,
                     'gestionado_mes': cierre_ciclo_gestionado_mes,
-                    'porcentaje_mensual': cierre_ciclo_porcentaje_mes
+                    'porcentaje_mensual': cierre_ciclo_porcentaje_mes,
+                    'detalle': cierre_ciclo_detalle
                 },
                 'tabla_asistencia': asistencia_data,
                 'debug_info': {
@@ -7300,6 +7564,7 @@ def main_api_tecnicos_asignados():
                 ro.recurso_operativo_cedula as cedula,
                 ro.nombre as tecnico,
                 ro.carpeta,
+                ro.cargo as cargo,
                 ro.cliente,
                 ro.ciudad,
                 ro.super as supervisor,
@@ -7333,15 +7598,44 @@ def main_api_tecnicos_asignados():
                     pc.presupuesto_carpeta as nombre_presupuesto_carpeta
                 FROM asistencia a
                 LEFT JOIN tipificacion_asistencia ta ON a.carpeta_dia = ta.codigo_tipificacion
-                LEFT JOIN presupuesto_carpeta pc ON ta.nombre_tipificacion = pc.presupuesto_carpeta
+                LEFT JOIN presupuesto_carpeta pc ON ta.nombre_tipificacion = pc.presupuesto_carpeta AND pc.presupuesto_cargo = %s
                 WHERE a.cedula = %s
                 AND DATE(a.fecha_asistencia) = %s
                 ORDER BY a.fecha_asistencia DESC
                 LIMIT 1
             """
             
-            cursor.execute(query_asistencia, (tecnico['cedula'], fecha_filtro))
+            cursor.execute(query_asistencia, (tecnico.get('cargo'), tecnico['cedula'], fecha_filtro))
             asistencia = cursor.fetchone()
+            
+            if asistencia:
+                try:
+                    tip_nom = asistencia.get('nombre_tipificacion')
+                    pe = asistencia.get('presupuesto_eventos')
+                    pd = asistencia.get('presupuesto_diario')
+                    if (tip_nom and str(tip_nom).strip().upper() == 'DX') and (pe is None or pd is None):
+                        cargo_tecnico = tecnico.get('cargo')
+                        cursor.execute("""
+                            SELECT presupuesto_eventos, presupuesto_diario 
+                            FROM presupuesto_carpeta 
+                            WHERE presupuesto_carpeta = %s AND presupuesto_cargo = %s
+                            LIMIT 1
+                        """, ('ARREGLOS HFC', cargo_tecnico))
+                        alt = cursor.fetchone()
+                        if not alt:
+                            cursor.execute("""
+                                SELECT presupuesto_eventos, presupuesto_diario 
+                                FROM presupuesto_carpeta 
+                                WHERE presupuesto_carpeta = %s AND presupuesto_cargo = %s
+                                LIMIT 1
+                            """, ('MANTENIMIENTO FTTH', cargo_tecnico))
+                            alt = cursor.fetchone()
+                        if alt:
+                            asistencia['presupuesto_eventos'] = alt.get('presupuesto_eventos')
+                            asistencia['presupuesto_diario'] = alt.get('presupuesto_diario')
+                            asistencia['nombre_presupuesto_carpeta'] = 'DX'
+                except Exception:
+                    pass
             
             # Agregar información de asistencia al técnico
             tecnico_info = {
@@ -13163,13 +13457,29 @@ def guardar_asistencias_operativo():
                             if carpeta_normalizada != carpeta_tecnico:
                                 print(f"DEBUG - Normalización de carpeta: '{carpeta_tecnico}' -> '{carpeta_normalizada}'")
                             
+                            cd_val = asistencia.get('carpeta_dia', '')
+                            carpeta_presupuesto = carpeta_normalizada
+                            if cd_val:
+                                try:
+                                    cursor.execute("""
+                                        SELECT nombre_tipificacion 
+                                        FROM tipificacion_asistencia 
+                                        WHERE codigo_tipificacion = %s 
+                                        LIMIT 1
+                                    """, (cd_val,))
+                                    rtip = cursor.fetchone()
+                                    if rtip and rtip.get('nombre_tipificacion'):
+                                        carpeta_presupuesto = str(rtip.get('nombre_tipificacion')).strip().upper()
+                                except Exception:
+                                    pass
+                            
                             # VALIDACIÓN DUAL: Verificar carpeta Y cargo en presupuesto_carpeta
                             cursor.execute("""
                                 SELECT presupuesto_diario, presupuesto_eventos 
                                 FROM presupuesto_carpeta 
                                 WHERE presupuesto_carpeta = %s AND presupuesto_cargo = %s
                                 LIMIT 1
-                            """, (carpeta_normalizada, cargo_tecnico))
+                            """, (carpeta_presupuesto, cargo_tecnico))
                             presupuesto_row = cursor.fetchone()
                             
                             if presupuesto_row:
@@ -13195,10 +13505,44 @@ def guardar_asistencias_operativo():
                                 print(f"DEBUG - Valores aplicados: valor={valor_presupuesto}, eventos={valor_eventos}")
                             else:
                                 print(f"DEBUG - ❌ COMBINACIÓN INVÁLIDA: carpeta='{carpeta_tecnico}' + cargo='{cargo_tecnico}' NO encontrada en presupuesto_carpeta")
-                                print(f"DEBUG - Aplicando valores en 0")
-                                valor_presupuesto = 0
-                                valor_eventos = 0
-                                presupuesto_encontrado = False
+                                if carpeta_presupuesto == 'DX':
+                                    try:
+                                        cursor.execute("""
+                                            SELECT presupuesto_diario, presupuesto_eventos 
+                                            FROM presupuesto_carpeta 
+                                            WHERE presupuesto_carpeta = %s AND presupuesto_cargo = %s
+                                            LIMIT 1
+                                        """, ('ARREGLOS HFC', cargo_tecnico))
+                                        presupuesto_row_alt = cursor.fetchone()
+                                        if not presupuesto_row_alt:
+                                            cursor.execute("""
+                                                SELECT presupuesto_diario, presupuesto_eventos 
+                                                FROM presupuesto_carpeta 
+                                                WHERE presupuesto_carpeta = %s AND presupuesto_cargo = %s
+                                                LIMIT 1
+                                            """, ('MANTENIMIENTO FTTH', cargo_tecnico))
+                                            presupuesto_row_alt = cursor.fetchone()
+                                        if presupuesto_row_alt:
+                                            if 'presupuesto_diario' in presupuesto_row_alt and presupuesto_row_alt['presupuesto_diario'] is not None:
+                                                try:
+                                                    valor_presupuesto = int(float(presupuesto_row_alt['presupuesto_diario']))
+                                                    presupuesto_encontrado = True
+                                                except Exception:
+                                                    valor_presupuesto = 0
+                                            if 'presupuesto_eventos' in presupuesto_row_alt and presupuesto_row_alt['presupuesto_eventos'] is not None:
+                                                try:
+                                                    valor_eventos = int(float(presupuesto_row_alt['presupuesto_eventos']))
+                                                    presupuesto_encontrado = True
+                                                except Exception:
+                                                    valor_eventos = 0
+                                            print(f"DEBUG - Fallback DX aplicado: valor={valor_presupuesto}, eventos={valor_eventos}")
+                                    except Exception:
+                                        pass
+                                if not presupuesto_encontrado:
+                                    print(f"DEBUG - Aplicando valores en 0")
+                                    valor_presupuesto = 0
+                                    valor_eventos = 0
+                                    presupuesto_encontrado = False
                         else:
                             print(f"DEBUG - No se encontró carpeta o cargo para técnico con cédula '{cedula_tecnico}' en recurso_operativo")
                     except Exception as e_presupuesto:

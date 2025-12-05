@@ -540,6 +540,8 @@
         <form id="formCaidas">
           <div class="mb-4 caidas-step" data-step="1">
             <h6 class="mb-2">Arnés</h6>
+            <hr class="mt-0 mb-2">
+            <div class="mb-2 fw-bold">Información</div>
             <div class="row g-3 mb-2">
               <div class="col-md-2"><label class="form-label">Marca</label><input type="text" class="form-control" id="arnes_marca"></div>
               <div class="col-md-2"><label class="form-label">Modelo</label><input type="text" class="form-control" id="arnes_modelo"></div>
@@ -547,22 +549,33 @@
               <div class="col-md-2"><label class="form-label">No Lote</label><input type="text" class="form-control" id="arnes_lote"></div>
               <div class="col-md-2"><label class="form-label">Fecha fabricación</label><input type="date" class="form-control" id="arnes_fecha_fabri"></div>
             </div>
-            <ul class="mb-0">
-              <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
-                <div><label class="me-2"><input type="radio" name="arnes_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_fisura" value="NC"> NC</label><label><input type="radio" name="arnes_fisura" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Fibras rotas o grietas en reatas, cintas o cuerdas.</label>
-                <div><label class="me-2"><input type="radio" name="arnes_fibra_rota" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_fibra_rota" value="NC"> NC</label><label><input type="radio" name="arnes_fibra_rota" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
-                <div><label class="me-2"><input type="radio" name="arnes_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_deterioro" value="NC"> NC</label><label><input type="radio" name="arnes_deterioro" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Manchas brillantes o duras.</label>
-                <div><label class="me-2"><input type="radio" name="arnes_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_manchas" value="NC"> NC</label><label><input type="radio" name="arnes_manchas" value="N/A"> N/A</label></div></li>
-              <li class="mb-0"><label class="form-label">Indicador de impacto.</label>
-                <div><label class="me-2"><input type="radio" name="arnes_impacto" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_impacto" value="NC"> NC</label><label><input type="radio" name="arnes_impacto" value="N/A"> N/A</label></div></li>
-            </ul>
+            <div class="mb-2 fw-bold">Generalidades</div>
+            <div class="small text-muted mb-2">Conforme a los hallazgos de inspección registre lo siguiente: "C - Cumple" "NC - No Cumple" "N/A - No Aplica".</div>
+            <div class="row align-items-start">
+              <div class="col-12 col-md-2 d-flex justify-content-center mb-2 mb-md-0">
+                <img src="/static/img/sgis/arnes.jpg" onerror="this.src='/static/img/sgis/arnes.png'" class="img-fluid" style="max-width:180px; max-height:180px; object-fit:contain">
+              </div>
+              <div class="col-12 col-md-10">
+                <ul class="mb-0">
+                  <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
+                    <div><label class="me-2"><input type="radio" name="arnes_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_fisura" value="NC"> NC</label><label><input type="radio" name="arnes_fisura" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Fibras rotas o grietas en reatas, cintas o cuerdas.</label>
+                    <div><label class="me-2"><input type="radio" name="arnes_fibra_rota" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_fibra_rota" value="NC"> NC</label><label><input type="radio" name="arnes_fibra_rota" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
+                    <div><label class="me-2"><input type="radio" name="arnes_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_deterioro" value="NC"> NC</label><label><input type="radio" name="arnes_deterioro" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Manchas brillantes o duras.</label>
+                    <div><label class="me-2"><input type="radio" name="arnes_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_manchas" value="NC"> NC</label><label><input type="radio" name="arnes_manchas" value="N/A"> N/A</label></div></li>
+                  <li class="mb-0"><label class="form-label">Indicador de impacto.</label>
+                    <div><label class="me-2"><input type="radio" name="arnes_impacto" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_impacto" value="NC"> NC</label><label><input type="radio" name="arnes_impacto" value="N/A"> N/A</label></div></li>
+                </ul>
+              </div>
+            </div>
             <div class="text-end mt-3"><button type="button" class="btn btn-primary btn-next-caidas">Siguiente</button></div>
           </div>
           <div class="mb-4 caidas-step" data-step="2">
             <h6 class="mb-2">Eslinga</h6>
+            <hr class="mt-0 mb-2">
+            <div class="mb-2 fw-bold">Información</div>
             <div class="row g-3 mb-2">
               <div class="col-md-2"><label class="form-label">Marca</label><input type="text" class="form-control" id="eslinga_marca"></div>
               <div class="col-md-2"><label class="form-label">Modelo</label><input type="text" class="form-control" id="eslinga_modelo"></div>
@@ -570,22 +583,33 @@
               <div class="col-md-2"><label class="form-label">No Lote</label><input type="text" class="form-control" id="eslinga_lote"></div>
               <div class="col-md-2"><label class="form-label">Fecha fabricación</label><input type="date" class="form-control" id="eslinga_fecha_fabri"></div>
             </div>
-            <ul class="mb-0">
-              <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
-                <div><label class="me-2"><input type="radio" name="eslinga_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_fisura" value="NC"> NC</label><label><input type="radio" name="eslinga_fisura" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Fibras rotas o grietas en reatas, cintas o cuerdas.</label>
-                <div><label class="me-2"><input type="radio" name="eslinga_fibra_rota" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_fibra_rota" value="NC"> NC</label><label><input type="radio" name="eslinga_fibra_rota" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
-                <div><label class="me-2"><input type="radio" name="eslinga_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_deterioro" value="NC"> NC</label><label><input type="radio" name="eslinga_deterioro" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Manchas brillantes o duras.</label>
-                <div><label class="me-2"><input type="radio" name="eslinga_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_manchas" value="NC"> NC</label><label><input type="radio" name="eslinga_manchas" value="N/A"> N/A</label></div></li>
-              <li class="mb-0"><label class="form-label">Indicador de impacto.</label>
-                <div><label class="me-2"><input type="radio" name="eslinga_impacto" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_impacto" value="NC"> NC</label><label><input type="radio" name="eslinga_impacto" value="N/A"> N/A</label></div></li>
-            </ul>
+            <div class="mb-2 fw-bold">Generalidades</div>
+            <div class="small text-muted mb-2">Conforme a los hallazgos de inspección registre lo siguiente: "C - Cumple" "NC - No Cumple" "N/A - No Aplica".</div>
+            <div class="row align-items-start">
+              <div class="col-12 col-md-2 d-flex justify-content-center mb-2 mb-md-0">
+                <img src="/static/img/sgis/eslinga.jpg" onerror="this.src='/static/img/sgis/eslinga.png'" class="img-fluid" style="max-width:180px; max-height:180px; object-fit:contain">
+              </div>
+              <div class="col-12 col-md-10">
+                <ul class="mb-0">
+                  <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
+                    <div><label class="me-2"><input type="radio" name="eslinga_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_fisura" value="NC"> NC</label><label><input type="radio" name="eslinga_fisura" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Fibras rotas o grietas en reatas, cintas o cuerdas.</label>
+                    <div><label class="me-2"><input type="radio" name="eslinga_fibra_rota" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_fibra_rota" value="NC"> NC</label><label><input type="radio" name="eslinga_fibra_rota" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
+                    <div><label class="me-2"><input type="radio" name="eslinga_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_deterioro" value="NC"> NC</label><label><input type="radio" name="eslinga_deterioro" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Manchas brillantes o duras.</label>
+                    <div><label class="me-2"><input type="radio" name="eslinga_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_manchas" value="NC"> NC</label><label><input type="radio" name="eslinga_manchas" value="N/A"> N/A</label></div></li>
+                  <li class="mb-0"><label class="form-label">Indicador de impacto.</label>
+                    <div><label class="me-2"><input type="radio" name="eslinga_impacto" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_impacto" value="NC"> NC</label><label><input type="radio" name="eslinga_impacto" value="N/A"> N/A</label></div></li>
+                </ul>
+              </div>
+            </div>
             <div class="text-end mt-3"><button type="button" class="btn btn-primary btn-next-caidas">Siguiente</button></div>
           </div>
           <div class="mb-4 caidas-step" data-step="3">
             <h6 class="mb-2">Anclaje Portátil (Tie-Off)</h6>
+            <hr class="mt-0 mb-2">
+            <div class="mb-2 fw-bold">Información</div>
             <div class="row g-3 mb-2">
               <div class="col-md-2"><label class="form-label">Marca</label><input type="text" class="form-control" id="anclaje_marca"></div>
               <div class="col-md-2"><label class="form-label">Modelo</label><input type="text" class="form-control" id="anclaje_modelo"></div>
@@ -593,22 +617,33 @@
               <div class="col-md-2"><label class="form-label">No Lote</label><input type="text" class="form-control" id="anclaje_lote"></div>
               <div class="col-md-2"><label class="form-label">Fecha fabricación</label><input type="date" class="form-control" id="anclaje_fecha_fabri"></div>
             </div>
-            <ul class="mb-0">
-              <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
-                <div><label class="me-2"><input type="radio" name="anclaje_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_fisura" value="NC"> NC</label><label><input type="radio" name="anclaje_fisura" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Fibras rotas o grietas en reatas, cintas o cuerdas.</label>
-                <div><label class="me-2"><input type="radio" name="anclaje_fibra_rota" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_fibra_rota" value="NC"> NC</label><label><input type="radio" name="anclaje_fibra_rota" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
-                <div><label class="me-2"><input type="radio" name="anclaje_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_deterioro" value="NC"> NC</label><label><input type="radio" name="anclaje_deterioro" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Manchas brillantes o duras.</label>
-                <div><label class="me-2"><input type="radio" name="anclaje_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_manchas" value="NC"> NC</label><label><input type="radio" name="anclaje_manchas" value="N/A"> N/A</label></div></li>
-              <li class="mb-0"><label class="form-label">Indicador de impacto.</label>
-                <div><label class="me-2"><input type="radio" name="anclaje_impacto" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_impacto" value="NC"> NC</label><label><input type="radio" name="anclaje_impacto" value="N/A"> N/A</label></div></li>
-            </ul>
+            <div class="mb-2 fw-bold">Generalidades</div>
+            <div class="small text-muted mb-2">Conforme a los hallazgos de inspección registre lo siguiente: "C - Cumple" "NC - No Cumple" "N/A - No Aplica".</div>
+            <div class="row align-items-start">
+              <div class="col-12 col-md-2 d-flex justify-content-center mb-2 mb-md-0">
+                <img src="/static/img/sgis/anclaje.jpg" onerror="this.src='/static/img/sgis/anclaje.png'" class="img-fluid" style="max-width:180px; max-height:180px; object-fit:contain">
+              </div>
+              <div class="col-12 col-md-10">
+                <ul class="mb-0">
+                  <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
+                    <div><label class="me-2"><input type="radio" name="anclaje_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_fisura" value="NC"> NC</label><label><input type="radio" name="anclaje_fisura" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Fibras rotas o grietas en reatas, cintas o cuerdas.</label>
+                    <div><label class="me-2"><input type="radio" name="anclaje_fibra_rota" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_fibra_rota" value="NC"> NC</label><label><input type="radio" name="anclaje_fibra_rota" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
+                    <div><label class="me-2"><input type="radio" name="anclaje_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_deterioro" value="NC"> NC</label><label><input type="radio" name="anclaje_deterioro" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Manchas brillantes o duras.</label>
+                    <div><label class="me-2"><input type="radio" name="anclaje_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_manchas" value="NC"> NC</label><label><input type="radio" name="anclaje_manchas" value="N/A"> N/A</label></div></li>
+                  <li class="mb-0"><label class="form-label">Indicador de impacto.</label>
+                    <div><label class="me-2"><input type="radio" name="anclaje_impacto" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_impacto" value="NC"> NC</label><label><input type="radio" name="anclaje_impacto" value="N/A"> N/A</label></div></li>
+                </ul>
+              </div>
+            </div>
             <div class="text-end mt-3"><button type="button" class="btn btn-primary btn-next-caidas">Siguiente</button></div>
           </div>
           <div class="mb-4 caidas-step" data-step="4">
             <h6 class="mb-2">Línea de Vida</h6>
+            <hr class="mt-0 mb-2">
+            <div class="mb-2 fw-bold">Información</div>
             <div class="row g-3 mb-2">
               <div class="col-md-2"><label class="form-label">Marca</label><input type="text" class="form-control" id="linea_marca"></div>
               <div class="col-md-2"><label class="form-label">Modelo</label><input type="text" class="form-control" id="linea_modelo"></div>
@@ -616,22 +651,33 @@
               <div class="col-md-2"><label class="form-label">No Lote</label><input type="text" class="form-control" id="linea_lote"></div>
               <div class="col-md-2"><label class="form-label">Fecha fabricación</label><input type="date" class="form-control" id="linea_fecha_fabri"></div>
             </div>
-            <ul class="mb-0">
-              <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
-                <div><label class="me-2"><input type="radio" name="linea_vida_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_fisura" value="NC"> NC</label><label><input type="radio" name="linea_vida_fisura" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Fibras rotas o grietas en reatas, cintas o cuerdas.</label>
-                <div><label class="me-2"><input type="radio" name="linea_vida_fibra_rota" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_fibra_rota" value="NC"> NC</label><label><input type="radio" name="linea_vida_fibra_rota" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
-                <div><label class="me-2"><input type="radio" name="linea_vida_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_deterioro" value="NC"> NC</label><label><input type="radio" name="linea_vida_deterioro" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Manchas brillantes o duras.</label>
-                <div><label class="me-2"><input type="radio" name="linea_vida_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_manchas" value="NC"> NC</label><label><input type="radio" name="linea_vida_manchas" value="N/A"> N/A</label></div></li>
-              <li class="mb-0"><label class="form-label">Indicador de impacto.</label>
-                <div><label class="me-2"><input type="radio" name="linea_vida_impacto" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_impacto" value="NC"> NC</label><label><input type="radio" name="linea_vida_impacto" value="N/A"> N/A</label></div></li>
-            </ul>
+            <div class="mb-2 fw-bold">Generalidades</div>
+            <div class="small text-muted mb-2">Conforme a los hallazgos de inspección registre lo siguiente: "C - Cumple" "NC - No Cumple" "N/A - No Aplica".</div>
+            <div class="row align-items-start">
+              <div class="col-12 col-md-2 d-flex justify-content-center mb-2 mb-md-0">
+                <img src="/static/img/sgis/linea_de_vida.jpg" onerror="this.src='/static/img/sgis/linea_de_vida.png'" class="img-fluid" style="max-width:180px; max-height:180px; object-fit:contain">
+              </div>
+              <div class="col-12 col-md-10">
+                <ul class="mb-0">
+                  <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
+                    <div><label class="me-2"><input type="radio" name="linea_vida_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_fisura" value="NC"> NC</label><label><input type="radio" name="linea_vida_fisura" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Fibras rotas o grietas en reatas, cintas o cuerdas.</label>
+                    <div><label class="me-2"><input type="radio" name="linea_vida_fibra_rota" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_fibra_rota" value="NC"> NC</label><label><input type="radio" name="linea_vida_fibra_rota" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
+                    <div><label class="me-2"><input type="radio" name="linea_vida_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_deterioro" value="NC"> NC</label><label><input type="radio" name="linea_vida_deterioro" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Manchas brillantes o duras.</label>
+                    <div><label class="me-2"><input type="radio" name="linea_vida_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_manchas" value="NC"> NC</label><label><input type="radio" name="linea_vida_manchas" value="N/A"> N/A</label></div></li>
+                  <li class="mb-0"><label class="form-label">Indicador de impacto.</label>
+                    <div><label class="me-2"><input type="radio" name="linea_vida_impacto" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_impacto" value="NC"> NC</label><label><input type="radio" name="linea_vida_impacto" value="N/A"> N/A</label></div></li>
+                </ul>
+              </div>
+            </div>
             <div class="text-end mt-3"><button type="button" class="btn btn-primary btn-next-caidas">Siguiente</button></div>
           </div>
           <div class="mb-4 caidas-step" data-step="5">
             <h6 class="mb-2">Mosquetón</h6>
+            <hr class="mt-0 mb-2">
+            <div class="mb-2 fw-bold">Información</div>
             <div class="row g-3 mb-2">
               <div class="col-md-2"><label class="form-label">Marca</label><input type="text" class="form-control" id="mosqueton_marca"></div>
               <div class="col-md-2"><label class="form-label">Modelo</label><input type="text" class="form-control" id="mosqueton_modelo"></div>
@@ -639,18 +685,29 @@
               <div class="col-md-2"><label class="form-label">No Lote</label><input type="text" class="form-control" id="mosqueton_lote"></div>
               <div class="col-md-2"><label class="form-label">Fecha fabricación</label><input type="date" class="form-control" id="mosqueton_fecha_fabri"></div>
             </div>
-            <ul class="mb-0">
-              <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
-                <div><label class="me-2"><input type="radio" name="mosqueton_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="mosqueton_deterioro" value="NC"> NC</label><label><input type="radio" name="mosqueton_deterioro" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
-                <div><label class="me-2"><input type="radio" name="mosqueton_fisural" value="C"> C</label><label class="me-2"><input type="radio" name="mosqueton_fisural" value="NC"> NC</label><label><input type="radio" name="mosqueton_fisural" value="N/A"> N/A</label></div></li>
-              <li class="mb-0"><label class="form-label">Manchas brillantes o duras.</label>
-                <div><label class="me-2"><input type="radio" name="mosqueton_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="mosqueton_manchas" value="NC"> NC</label><label><input type="radio" name="mosqueton_manchas" value="N/A"> N/A</label></div></li>
-            </ul>
+            <div class="mb-2 fw-bold">Generalidades</div>
+            <div class="small text-muted mb-2">Conforme a los hallazgos de inspección registre lo siguiente: "C - Cumple" "NC - No Cumple" "N/A - No Aplica".</div>
+            <div class="row align-items-start">
+              <div class="col-12 col-md-2 d-flex justify-content-center mb-2 mb-md-0">
+                <img src="/static/img/sgis/mosqueton.jpg" onerror="this.src='/static/img/sgis/mosqueton.png'" class="img-fluid" style="max-width:180px; max-height:180px; object-fit:contain">
+              </div>
+              <div class="col-12 col-md-10">
+                <ul class="mb-0">
+                  <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
+                    <div><label class="me-2"><input type="radio" name="mosqueton_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="mosqueton_deterioro" value="NC"> NC</label><label><input type="radio" name="mosqueton_deterioro" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
+                    <div><label class="me-2"><input type="radio" name="mosqueton_fisural" value="C"> C</label><label class="me-2"><input type="radio" name="mosqueton_fisural" value="NC"> NC</label><label><input type="radio" name="mosqueton_fisural" value="N/A"> N/A</label></div></li>
+                  <li class="mb-0"><label class="form-label">Manchas brillantes o duras.</label>
+                    <div><label class="me-2"><input type="radio" name="mosqueton_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="mosqueton_manchas" value="NC"> NC</label><label><input type="radio" name="mosqueton_manchas" value="N/A"> N/A</label></div></li>
+                </ul>
+              </div>
+            </div>
             <div class="text-end mt-3"><button type="button" class="btn btn-primary btn-next-caidas">Siguiente</button></div>
           </div>
           <div class="mb-4 caidas-step" data-step="6">
             <h6 class="mb-2">Pretales</h6>
+            <hr class="mt-0 mb-2">
+            <div class="mb-2 fw-bold">Información</div>
             <div class="row g-3 mb-2">
               <div class="col-md-2"><label class="form-label">Marca</label><input type="text" class="form-control" id="pretales_marca"></div>
               <div class="col-md-2"><label class="form-label">Modelo</label><input type="text" class="form-control" id="pretales_modelo"></div>
@@ -658,14 +715,23 @@
               <div class="col-md-2"><label class="form-label">No Lote</label><input type="text" class="form-control" id="pretales_lote"></div>
               <div class="col-md-2"><label class="form-label">Fecha fabricación</label><input type="date" class="form-control" id="pretales_fecha_fabri"></div>
             </div>
-            <ul class="mb-0">
-              <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
-                <div><label class="me-2"><input type="radio" name="pretales_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="pretales_deterioro" value="NC"> NC</label><label><input type="radio" name="pretales_deterioro" value="N/A"> N/A</label></div></li>
-              <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
-                <div><label class="me-2"><input type="radio" name="pretales_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="pretales_fisura" value="NC"> NC</label><label><input type="radio" name="pretales_fisura" value="N/A"> N/A</label></div></li>
-              <li class="mb-0"><label class="form-label">Manchas brillantes o duras.</label>
-                <div><label class="me-2"><input type="radio" name="pretales_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="pretales_manchas" value="NC"> NC</label><label><input type="radio" name="pretales_manchas" value="N/A"> N/A</label></div></li>
-            </ul>
+            <div class="mb-2 fw-bold">Generalidades</div>
+            <div class="small text-muted mb-2">Conforme a los hallazgos de inspección registre lo siguiente: "C - Cumple" "NC - No Cumple" "N/A - No Aplica".</div>
+            <div class="row align-items-start">
+              <div class="col-12 col-md-2 d-flex justify-content-center mb-2 mb-md-0">
+                <img src="/static/img/sgis/pretales.jpg" onerror="this.src='/static/img/sgis/pretales.png'" class="img-fluid" style="max-width:180px; max-height:180px; object-fit:contain">
+              </div>
+              <div class="col-12 col-md-10">
+                <ul class="mb-0">
+                  <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
+                    <div><label class="me-2"><input type="radio" name="pretales_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="pretales_deterioro" value="NC"> NC</label><label><input type="radio" name="pretales_deterioro" value="N/A"> N/A</label></div></li>
+                  <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
+                    <div><label class="me-2"><input type="radio" name="pretales_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="pretales_fisura" value="NC"> NC</label><label><input type="radio" name="pretales_fisura" value="N/A"> N/A</label></div></li>
+                  <li class="mb-0"><label class="form-label">Manchas brillantes o duras.</label>
+                    <div><label class="me-2"><input type="radio" name="pretales_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="pretales_manchas" value="NC"> NC</label><label><input type="radio" name="pretales_manchas" value="N/A"> N/A</label></div></li>
+                </ul>
+              </div>
+            </div>
           </div>
           <div class="mb-3">
             <label class="form-label">Observaciones</label>

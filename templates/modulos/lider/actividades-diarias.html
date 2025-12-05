@@ -29,6 +29,14 @@
             <div class="col-md-2 d-flex align-items-end">
               <button class="btn btn-outline-primary w-100" id="btnFiltrarFecha"><i class="fas fa-filter me-2"></i>Filtrar</button>
             </div>
+            {% if session.get('user_role') == 'administrativo' %}
+            <div class="col-auto d-flex align-items-end">
+              <div class="btn-group">
+                <button class="btn btn-success" id="btnExportCsv" onclick="exportarActividades('csv')"><i class="fas fa-file-csv me-2"></i>Export CSV</button>
+                <button class="btn btn-secondary" id="btnExportXlsx" onclick="exportarActividades('xlsx')"><i class="fas fa-file-excel me-2"></i>Export Excel</button>
+              </div>
+            </div>
+            {% endif %}
             <div class="col d-flex align-items-end justify-content-end">
               <div id="resumenTop" class="d-flex gap-2"></div>
             </div>
@@ -155,6 +163,14 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 const __btnFiltro = document.getElementById('btnFiltrarFecha');
 if(__btnFiltro){ __btnFiltro.addEventListener('click', cargarLista); }
+
+function exportarActividades(formato){
+  try{
+    const f = (formato || 'csv').toLowerCase();
+    let url = `/api/analistas/actividades-diarias/export?formato=${encodeURIComponent(f)}&mensual=1&gestionadas=1`;
+    window.open(url, '_blank');
+  }catch(_){ }
+}
 
 let __items = [];
 let __page = 1;

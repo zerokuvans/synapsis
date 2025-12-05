@@ -475,6 +475,30 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="row mb-4" id="cierreCicloDetalleSection" style="display:none;">
+                    <div class="col-12 mb-3">
+                        <h6 class="text-cumplimiento"><i class="fas fa-user-check me-2"></i>Avance por Analista</h6>
+                    </div>
+                    <div class="col-12">
+                        <div class="card metric-card card-cumplimiento">
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Analista</th>
+                                                <th class="text-center">Gestionado (Mes)</th>
+                                                <th class="text-end">% sobre meta</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="cierreCicloDetalleBody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <!-- Tabla de Asistencia -->
@@ -662,6 +686,33 @@ function actualizarMetricas(data) {
         if (metaEl) metaEl.textContent = meta;
         if (mesEl) mesEl.textContent = gestionado;
         if (pctEl) pctEl.textContent = porcentaje + '%';
+
+        const detalle = Array.isArray(data.cierre_ciclo.detalle) ? data.cierre_ciclo.detalle : [];
+        const section = document.getElementById('cierreCicloDetalleSection');
+        const tbody = document.getElementById('cierreCicloDetalleBody');
+        if (section && tbody) {
+            if (detalle.length > 0) {
+                section.style.display = '';
+                tbody.innerHTML = '';
+                detalle.forEach(item => {
+                    const tr = document.createElement('tr');
+                    const pct = typeof item.porcentaje_mensual === 'number' ? item.porcentaje_mensual : (Number(item.porcentaje_mensual) || 0);
+                    tr.innerHTML = `
+                        <td>${item.analista || ''}</td>
+                        <td class="text-center fw-bold">${Number(item.gestionado_mes || 0).toLocaleString('es-CO')}</td>
+                        <td class="text-end">
+                            <span class="text-muted small">${pct}%</span>
+                            <div class="progress" style="height:8px;">
+                                <div class="progress-bar ${pct >= 100 ? 'bg-success' : 'bg-warning'}" role="progressbar" style="width:${Math.min(100, pct)}%" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </td>`;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                section.style.display = 'none';
+                tbody.innerHTML = '';
+            }
+        }
     }
 }
 
