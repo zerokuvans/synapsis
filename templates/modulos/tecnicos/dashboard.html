@@ -143,6 +143,25 @@
                             </div>
                         </div>
 
+                        <div class="col-md-3 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-sync-alt fa-3x text-secondary mb-3"></i>
+                                    <h5 class="card-title">Cierre de Ciclo</h5>
+                                    <p class="card-text">Consulta cierres con tipificación CLIENTE INCONFORME.</p>
+                                    {% if tiene_asistencia %}
+                                        <a href="/operativo/cierre-ciclo" class="btn btn-secondary">
+                                            <i class="fas fa-table me-2"></i>Ver Cierres
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-secondary disabled" disabled title="Debe registrar asistencia primero">
+                                            <i class="fas fa-table me-2"></i>Ver Cierres
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
                         
                     </div> <!-- Close row mt-4 -->
                 </div> <!-- Close card-body -->

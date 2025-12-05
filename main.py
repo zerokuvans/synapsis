@@ -42,6 +42,7 @@ import zipfile
 import re
 import logging
 from decimal import Decimal
+from pywebpush import webpush, WebPushException
 #from models import Suministro  # Asegúrate de importar el modelo correcto
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 
@@ -245,6 +246,36 @@ db_config = {
     'port': int(os.getenv('MYSQL_PORT')),
     'time_zone': '+00:00'  # Configurar MySQL para usar UTC
 }
+
+VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
+VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
+VAPID_SUBJECT = os.getenv('VAPID_SUBJECT') or 'mailto:notificaciones@synapsis.local'
+
+def ensure_webpush_tables():
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS webpush_subscriptions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id VARCHAR(64) NOT NULL,
+                role VARCHAR(32) NULL,
+                subscription_json TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_user (user_id),
+                INDEX idx_role (role)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        conn.commit()
+        cur.close(); conn.close()
+    except Exception:
+        pass
+
+ensure_webpush_tables()
 
 # Función para obtener conexión a la base de datos
 def get_db_connection():
@@ -3432,9 +3463,13 @@ def api_analistas_actividades_diarias_export():
         where = []
         where.append(f"o.`{col_cuenta}` IS NOT NULL")
         where.append(f"CAST(o.`{col_cuenta}` AS CHAR) <> ''")
-        where.append(f"o.`{col_cuenta}` REGEXP '^[0-9]+'")
-        where.append(f"CAST(o.`{col_cuenta}` AS SIGNED) > 0")
-        where.append(f"CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6")
+        tipo_cuenta = cols_type.get(col_cuenta.lower())
+        is_numeric = str(tipo_cuenta or '').lower() in (
+            'int','bigint','smallint','mediumint','tinyint','decimal','numeric','float','double')
+        if is_numeric:
+            where.append(f"CAST(o.`{col_cuenta}` AS SIGNED) > 0")
+        else:
+            where.append(f"CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 3")
         if col_estado:
             where.append(f"LOWER(TRIM(o.`{col_estado}`)) IN ('completado','no completado')")
         if solo_gest:
@@ -3501,14 +3536,24 @@ def api_analistas_actividades_diarias_export():
         if tecnico_ids:
             placeholders = ','.join(['%s'] * len(tecnico_ids))
             c2 = connection.cursor()
+            # Mapear por cédula
             c2.execute(
                 f"SELECT recurso_operativo_cedula, nombre, analista, super FROM recurso_operativo WHERE CAST(recurso_operativo_cedula AS CHAR) IN ({placeholders})",
                 tuple(tecnico_ids)
             )
             for r in c2.fetchall() or []:
-                nombres_map[str(r[0])] = r[1]
-                analistas_map[str(r[0])] = r[2] if len(r) > 2 else ''
-                supervisores_map[str(r[0])] = r[3] if len(r) > 3 else ''
+                k = str(r[0]); nombres_map[k] = r[1]
+                analistas_map[k] = r[2] if len(r) > 2 else ''
+                supervisores_map[k] = r[3] if len(r) > 3 else ''
+            # Mapear por id_codigo_consumidor
+            c2.execute(
+                f"SELECT id_codigo_consumidor, nombre, analista, super FROM recurso_operativo WHERE CAST(id_codigo_consumidor AS CHAR) IN ({placeholders})",
+                tuple(tecnico_ids)
+            )
+            for r in c2.fetchall() or []:
+                k = str(r[0]); nombres_map[k] = r[1]
+                analistas_map[k] = r[2] if len(r) > 2 else ''
+                supervisores_map[k] = r[3] if len(r) > 3 else ''
             c2.close()
         for r in rows:
             cid = str(r.get('tecnico_id')) if r.get('tecnico_id') is not None else ''
@@ -5525,6 +5570,803 @@ def operativo_asistencia():
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
+
+@app.route('/operativo/cierre-ciclo')
+@login_required(role=['operativo','tecnico','tecnicos'])
+def operativo_cierre_ciclo():
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos', 'danger')
+            return redirect(url_for('operativo_dashboard'))
+        cursor = connection.cursor(dictionary=True)
+        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
+        cursor.execute(
+            """
+            SELECT COUNT(*) as registros_hoy
+            FROM asistencia 
+            WHERE id_codigo_consumidor = %s AND DATE(fecha_asistencia) = %s
+            """,
+            (session['id_codigo_consumidor'], fecha_hoy)
+        )
+        registro_existente = cursor.fetchone()
+        tiene_asistencia = registro_existente['registros_hoy'] > 0 if registro_existente else False
+        resp = make_response(render_template('modulos/operativo/cierre_ciclo.html', tiene_asistencia=tiene_asistencia))
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+        return resp
+    except mysql.connector.Error as e:
+        flash(f'Error al cargar Cierre de Ciclo: {str(e)}', 'danger')
+        return redirect(url_for('operativo_dashboard'))
+    finally:
+        if cursor:
+            try:
+                cursor.close()
+            except:
+                pass
+        if connection and connection.is_connected():
+            try:
+                connection.close()
+            except:
+                pass
+
+@app.route('/api/operativo/cierre-ciclo', methods=['GET'])
+@login_required_api(role=['operativo','tecnico','tecnicos'])
+def api_operativo_cierre_ciclo():
+    fecha = (request.args.get('fecha') or '').strip()
+    tipificacion = (request.args.get('tipificacion') or '').strip()
+    connection = None
+    c = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        c = connection.cursor()
+        c.execute(
+            """
+            SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols_all = {r[0].lower(): r[0] for r in c.fetchall()}
+        cols_type = {}
+        c.execute(
+            """
+            SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        for r in c.fetchall():
+            cols_type[r[0].lower()] = str(r[1]).lower()
+        def pick(names):
+            for n in names:
+                k = n.lower()
+                if k in cols_all:
+                    return cols_all[k]
+            for k0,v0 in cols_all.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            return None
+        col_ot = pick(['orden_de_trabajo','ot','orden_trabajo','orden','orden_de_servicio'])
+        col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
+        col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+        col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
+        col_estado = pick(['estado'])
+        col_cierre = pick(['cierre_ciclo'])
+        col_tip_ok = pick(['tipificacion_ok'])
+        col_tip_nov = pick(['tipificacion_novedad'])
+        # Columnas para gestión de supervisor
+        col_cierre_super = pick(['cierre_super','estado_super'])
+        col_tip_super_1 = pick(['tip_super_1','tipificacion_super_1'])
+        col_tip_super_2 = pick(['tip_super_2','tipificacion_super_2'])
+        col_fecha_gestion_super = pick(['fecha_gestion_super','fecha_super'])
+        if not col_ot or not col_cuenta or not col_fecha or not col_ext:
+            return jsonify({'success': True, 'data': [], 'total': 0}), 200
+        params = []
+        where = []
+        where.append(f"o.`{col_cuenta}` IS NOT NULL")
+        where.append(f"CAST(o.`{col_cuenta}` AS CHAR) <> ''")
+        where.append(f"o.`{col_cuenta}` REGEXP '^[0-9]+'")
+        where.append(f"CAST(o.`{col_cuenta}` AS SIGNED) > 0")
+        where.append(f"CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6")
+        if col_estado:
+            where.append(f"LOWER(TRIM(o.`{col_estado}`)) = 'completado'")
+        if col_cierre:
+            where.append(f"CAST(o.`{col_cierre}` AS SIGNED) = 1")
+        try:
+            user_role = session.get('user_role')
+        except Exception:
+            user_role = None
+        if user_role in ('tecnico','tecnicos','Tecnico','Tecnicos') and col_ext:
+            val_id = str(session.get('id_codigo_consumidor') or '').strip()
+            val_ced = str(session.get('user_cedula') or '').strip()
+            col_l = str(col_ext).lower()
+            if 'cedula' in col_l:
+                if val_ced:
+                    where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                    params.append(val_ced)
+            else:
+                if val_id and val_ced:
+                    where.append(f"(CAST(o.`{col_ext}` AS CHAR) = %s OR CAST(o.`{col_ext}` AS CHAR) = %s)")
+                    params.extend([val_id, val_ced])
+                elif val_id:
+                    where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                    params.append(val_id)
+                elif val_ced:
+                    where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                    params.append(val_ced)
+        elif user_role in ('operativo','Operativo') and col_ext:
+            sup_name = str(session.get('user_name') or '').strip()
+            tech_keys = []
+            try:
+                c_sup = connection.cursor()
+                try:
+                    c_sup.execute(
+                        """
+                        SELECT id_codigo_consumidor, recurso_operativo_cedula
+                        FROM recurso_operativo
+                        WHERE super = %s
+                        """,
+                        (sup_name,)
+                    )
+                except Exception:
+                    c_sup.execute(
+                        """
+                        SELECT id_codigo_consumidor, recurso_operativo_cedula
+                        FROM recurso_operativo
+                        WHERE supervisor = %s
+                        """,
+                        (sup_name,)
+                    )
+                for r0 in c_sup.fetchall() or []:
+                    try:
+                        if r0[0] is not None:
+                            tech_keys.append(str(r0[0]))
+                    except Exception:
+                        pass
+                    try:
+                        if r0[1] is not None:
+                            tech_keys.append(str(r0[1]))
+                    except Exception:
+                        pass
+                c_sup.close()
+            except Exception:
+                tech_keys = []
+            tech_keys = list(dict.fromkeys([k for k in tech_keys if k and k.strip()]))
+            if len(tech_keys) == 0:
+                return jsonify({'success': True, 'data': [], 'total': 0}), 200
+            placeholders = ','.join(['%s'] * len(tech_keys))
+            where.append(f"CAST(o.`{col_ext}` AS CHAR) IN ({placeholders})")
+            params.extend(tech_keys)
+        tipo_fecha = cols_type.get(col_fecha.lower())
+        if fecha:
+            fecha_norm = fecha
+            for fmt in ('%Y-%m-%d','%d/%m/%Y','%d-%m-%Y','%Y/%m/%d'):
+                try:
+                    fecha_norm = datetime.strptime(fecha, fmt).strftime('%Y-%m-%d')
+                    break
+                except Exception:
+                    pass
+            if tipo_fecha in ('datetime','timestamp','date'):
+                where.append(f"DATE(o.`{col_fecha}`) = %s")
+                params.append(fecha_norm)
+            else:
+                where.append(f"o.`{col_fecha}` LIKE %s")
+                params.append(fecha_norm + '%')
+        if tipificacion:
+            if col_tip_ok:
+                where.append(f"LOWER(TRIM(o.`{col_tip_ok}`)) = LOWER(TRIM(%s))")
+                params.append(tipificacion)
+            elif col_tip_nov:
+                where.append(f"LOWER(TRIM(o.`{col_tip_nov}`)) = LOWER(TRIM(%s))")
+                params.append(tipificacion)
+        select_parts = [
+            f"o.`{col_ot}` AS orden_de_trabajo",
+            f"o.`{col_cuenta}` AS numero_de_cuenta",
+            f"o.`{col_ext}` AS tecnico_id",
+            f"o.`{col_fecha}` AS fecha"
+        ]
+        if col_estado:
+            select_parts.append(f"o.`{col_estado}` AS estado")
+        if col_cierre:
+            select_parts.append(f"o.`{col_cierre}` AS cierre_ciclo")
+        if col_tip_ok:
+            select_parts.append(f"o.`{col_tip_ok}` AS tipificacion_ok")
+        if col_tip_nov:
+            select_parts.append(f"o.`{col_tip_nov}` AS tipificacion_novedad")
+        if col_cierre_super:
+            select_parts.append(f"o.`{col_cierre_super}` AS cierre_super")
+        if col_tip_super_1:
+            select_parts.append(f"o.`{col_tip_super_1}` AS tip_super_1")
+        if col_tip_super_2:
+            select_parts.append(f"o.`{col_tip_super_2}` AS tip_super_2")
+        if col_fecha_gestion_super:
+            select_parts.append(f"o.`{col_fecha_gestion_super}` AS fecha_gestion_super")
+        sql = "SELECT " + ", ".join(select_parts) + " FROM operaciones_actividades_diarias o"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        sql += f" ORDER BY o.`{col_fecha}` DESC"
+        cur = connection.cursor(dictionary=True)
+        cur.execute(sql, tuple(params))
+        rows = cur.fetchall() or []
+        tecnico_ids = {str(r.get('tecnico_id')) for r in rows if r.get('tecnico_id') is not None}
+        nombres_map = {}
+        analistas_map = {}
+        supervisores_map = {}
+        if tecnico_ids:
+            placeholders = ','.join(['%s'] * len(tecnico_ids))
+            c2 = connection.cursor()
+            c2.execute(
+                f"SELECT recurso_operativo_cedula, nombre, analista, super FROM recurso_operativo WHERE CAST(recurso_operativo_cedula AS CHAR) IN ({placeholders})",
+                tuple(tecnico_ids)
+            )
+            for r in c2.fetchall() or []:
+                nombres_map[str(r[0])] = r[1]
+                analistas_map[str(r[0])] = r[2] if len(r) > 2 else ''
+                supervisores_map[str(r[0])] = r[3] if len(r) > 3 else ''
+            try:
+                c2.execute(
+                    f"SELECT id_codigo_consumidor, nombre, analista, super FROM recurso_operativo WHERE CAST(id_codigo_consumidor AS CHAR) IN ({placeholders})",
+                    tuple(tecnico_ids)
+                )
+                for r in c2.fetchall() or []:
+                    nombres_map[str(r[0])] = r[1]
+                    analistas_map[str(r[0])] = r[2] if len(r) > 2 else ''
+                    supervisores_map[str(r[0])] = r[3] if len(r) > 3 else ''
+            except Exception:
+                pass
+            c2.close()
+        for r in rows:
+            cid = str(r.get('tecnico_id')) if r.get('tecnico_id') is not None else ''
+            r['tecnico'] = nombres_map.get(cid, '')
+            r['analista'] = analistas_map.get(cid, '')
+            r['supervisor'] = supervisores_map.get(cid, '')
+            # Calcular estado_super
+            done = False
+            val_cierre = r.get('cierre_super')
+            if val_cierre is not None:
+                try:
+                    done = int(val_cierre) == 1
+                except Exception:
+                    done = str(val_cierre).strip().lower() in ('1','true','si','sí','completado')
+            if not done and r.get('fecha_gestion_super'):
+                done = True
+            if not done:
+                tip1 = r.get('tip_super_1')
+                tip2 = r.get('tip_super_2')
+                if (tip1 and str(tip1).strip()) or (tip2 and str(tip2).strip()):
+                    done = True
+            r['estado_super'] = 'Completado' if done else 'Pendiente'
+        cur.close(); connection.close()
+        return jsonify({'success': True, 'data': rows, 'total': len(rows)})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/operativo/cierre-ciclo/detalle', methods=['GET'])
+@login_required_api(role=['operativo','tecnico','tecnicos'])
+def api_operativo_cierre_ciclo_detalle():
+    ot = (request.args.get('ot') or '').strip()
+    cuenta = (request.args.get('cuenta') or '').strip()
+    connection = None
+    c = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        c = connection.cursor()
+        c.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in c.fetchall()}
+        def pick(names):
+            for n in names:
+                k = n.lower()
+                if k in cols:
+                    return cols[k]
+            for k0,v0 in cols.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            return None
+        col_ot = pick(['orden_de_trabajo','ot','orden_trabajo','orden','orden_de_servicio'])
+        col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
+        col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+        col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
+        col_estado = pick(['estado'])
+        col_final = pick(['estado_final'])
+        col_cierre = pick(['cierre_ciclo'])
+        col_tip_ok = pick(['tipificacion_ok'])
+        col_tip_nov = pick(['tipificacion_novedad'])
+        col_observ = pick(['observacion_cierre'])
+        if not col_ot or not col_cuenta:
+            return jsonify({'success': False, 'message': 'Columnas requeridas no encontradas'}), 200
+        select_parts = [
+            f"o.`{col_ot}` AS orden_de_trabajo",
+            f"o.`{col_cuenta}` AS numero_de_cuenta"
+        ]
+        if col_fecha:
+            select_parts.append(f"o.`{col_fecha}` AS fecha")
+        if col_estado:
+            select_parts.append(f"o.`{col_estado}` AS estado")
+        if col_final:
+            select_parts.append(f"o.`{col_final}` AS estado_final")
+        if col_cierre:
+            select_parts.append(f"o.`{col_cierre}` AS cierre_ciclo")
+        if col_tip_ok:
+            select_parts.append(f"o.`{col_tip_ok}` AS tipificacion_ok")
+        if col_tip_nov:
+            select_parts.append(f"o.`{col_tip_nov}` AS tipificacion_novedad")
+        if col_observ:
+            select_parts.append(f"o.`{col_observ}` AS observacion_cierre")
+        sql = "SELECT " + ", ".join(select_parts) + " FROM operaciones_actividades_diarias o WHERE 1=1"
+        params = []
+        sql += f" AND o.`{col_ot}` = %s"
+        params.append(ot)
+        sql += f" AND o.`{col_cuenta}` = %s"
+        params.append(cuenta)
+        cur = connection.cursor(dictionary=True)
+        cur.execute(sql, tuple(params))
+        row = cur.fetchone() or {}
+        if row:
+            cid = str(row.get('tecnico_id') or '')
+            if not cid and col_ext:
+                cur2 = connection.cursor()
+                cur2.execute(
+                    f"SELECT `{col_ext}` FROM operaciones_actividades_diarias WHERE `{col_ot}`=%s AND `{col_cuenta}`=%s LIMIT 1",
+                    (ot, cuenta)
+                )
+                rv = cur2.fetchone()
+                if rv:
+                    cid = str(rv[0])
+                cur2.close()
+            if cid:
+                c2 = connection.cursor()
+                c2.execute(
+                    "SELECT recurso_operativo_cedula, nombre, analista, super FROM recurso_operativo WHERE CAST(recurso_operativo_cedula AS CHAR)=%s",
+                    (cid,)
+                )
+                r2 = c2.fetchone()
+                if r2:
+                    row['tecnico'] = r2[1]
+                    row['analista'] = r2[2] if len(r2) > 2 else ''
+                    row['supervisor'] = r2[3] if len(r2) > 3 else ''
+                c2.close()
+        cur.close(); connection.close()
+        return jsonify({'success': True, 'data': row})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/operativo/cierre-ciclo/tipificaciones1', methods=['GET'])
+@login_required_api(role=['operativo','tecnico','tecnicos'])
+def api_operativo_tipificaciones1():
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='tipificacion_cierre_ciclo_super'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cursor.fetchall()}
+        def pick(names):
+            for n in names:
+                k = n.lower()
+                if k in cols:
+                    return cols[k]
+            for k0,v0 in cols.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            return None
+        col_nivel = pick(['nivel','level','tipo'])
+        col_codigo = pick(['codigo','codigo_tipificacion','cod','code'])
+        col_nombre = pick(['nombre','nombre_tipificacion','name'])
+        col_t1 = pick(['tipificacion_cierre_ciclo_1','tipificacion_1','t1','nivel1'])
+        cur = connection.cursor(dictionary=True)
+        if col_t1:
+            sql = f"SELECT DISTINCT `{col_t1}` AS codigo FROM tipificacion_cierre_ciclo_super"
+            sql += f" WHERE `{col_t1}` IS NOT NULL AND TRIM(CAST(`{col_t1}` AS CHAR)) <> ''"
+            sql += " ORDER BY 1"
+            cur.execute(sql)
+            rows_raw = cur.fetchall() or []
+            out = []
+            for r in rows_raw:
+                val = r.get('codigo')
+                s = '' if val is None else str(val)
+                out.append({'codigo': s, 'nombre': s})
+            cur.close(); connection.close()
+            return jsonify({'success': True, 'data': out})
+        else:
+            sql = "SELECT * FROM tipificacion_cierre_ciclo_super"
+            where = []
+            if col_nivel:
+                where.append(f"CAST(`{col_nivel}` AS SIGNED) = 1")
+            elif pick(['padre','parent','id_padre','padre_codigo']):
+                col_padre_tmp = pick(['padre','parent','id_padre','padre_codigo'])
+                where.append(f"(`{col_padre_tmp}` IS NULL OR TRIM(CAST(`{col_padre_tmp}` AS CHAR)) IN ('','0'))")
+            if where:
+                sql += " WHERE " + " AND ".join(where)
+            cur.execute(sql)
+            rows_raw = cur.fetchall() or []
+            def find_key(keys, patterns):
+                for k in keys:
+                    kl = k.lower()
+                    for p in patterns:
+                        if p in kl:
+                            return k
+                return None
+            out = []
+            if rows_raw:
+                keys = list(rows_raw[0].keys())
+                codigo_key = col_codigo or find_key(keys, ['codigo','cod','id']) or keys[0]
+                nombre_key = col_nombre or find_key(keys, ['nombre','name','descripcion','desc']) or codigo_key
+                for r in rows_raw:
+                    cod_val = r.get(codigo_key)
+                    nom_val = r.get(nombre_key)
+                    out.append({'codigo': '' if cod_val is None else str(cod_val), 'nombre': '' if nom_val is None else str(nom_val)})
+            cur.close(); connection.close()
+            return jsonify({'success': True, 'data': out})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/operativo/cierre-ciclo/tipificaciones2', methods=['GET'])
+@login_required_api(role=['operativo','tecnico','tecnicos'])
+def api_operativo_tipificaciones2():
+    parent = (request.args.get('parent') or '').strip()
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='tipificacion_cierre_ciclo_super'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cursor.fetchall()}
+        def pick(names):
+            for n in names:
+                k = n.lower()
+                if k in cols:
+                    return cols[k]
+            for k0,v0 in cols.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            return None
+        col_nivel = pick(['nivel','level','tipo'])
+        col_codigo = pick(['codigo','codigo_tipificacion','cod','code'])
+        col_nombre = pick(['nombre','nombre_tipificacion','name'])
+        col_padre = pick(['padre','parent','id_padre','padre_codigo'])
+        col_t1 = pick(['tipificacion_cierre_ciclo_1','tipificacion_1','t1','nivel1'])
+        col_t2 = pick(['tipificacion_cierre_ciclo_2','tipificacion_2','t2','nivel2'])
+        cur = connection.cursor(dictionary=True)
+        if col_t1 and col_t2 and parent:
+            sql = f"SELECT DISTINCT `{col_t2}` AS codigo FROM tipificacion_cierre_ciclo_super WHERE `{col_t1}` = %s AND `{col_t2}` IS NOT NULL AND TRIM(CAST(`{col_t2}` AS CHAR)) <> '' ORDER BY 1"
+            cur.execute(sql, (parent,))
+            rows_raw = cur.fetchall() or []
+            out = []
+            for r in rows_raw:
+                val = r.get('codigo')
+                s = '' if val is None else str(val)
+                out.append({'codigo': s, 'nombre': s})
+            cur.close(); connection.close()
+            return jsonify({'success': True, 'data': out})
+        else:
+            sql = "SELECT * FROM tipificacion_cierre_ciclo_super"
+            where = []
+            params = []
+            if col_nivel:
+                where.append(f"CAST(`{col_nivel}` AS SIGNED) = 2")
+            if col_padre and parent:
+                where.append(f"`{col_padre}` = %s")
+                params.append(parent)
+            elif col_padre and not parent:
+                where.append(f"TRIM(CAST(`{col_padre}` AS CHAR)) <> ''")
+            if where:
+                sql += " WHERE " + " AND ".join(where)
+            cur.execute(sql, tuple(params))
+            rows_raw = cur.fetchall() or []
+            def find_key(keys, patterns):
+                for k in keys:
+                    kl = k.lower()
+                    for p in patterns:
+                        if p in kl:
+                            return k
+                return None
+            out = []
+            if rows_raw:
+                keys = list(rows_raw[0].keys())
+                codigo_key = col_codigo or find_key(keys, ['codigo','cod','id']) or keys[0]
+                nombre_key = col_nombre or find_key(keys, ['nombre','name','descripcion','desc']) or codigo_key
+                for r in rows_raw:
+                    cod_val = r.get(codigo_key)
+                    nom_val = r.get(nombre_key)
+                    out.append({'codigo': '' if cod_val is None else str(cod_val), 'nombre': '' if nom_val is None else str(nom_val)})
+            cur.close(); connection.close()
+            return jsonify({'success': True, 'data': out})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/operativo/cierre-ciclo/gestionar', methods=['POST'])
+@login_required_api(role='operativo')
+def api_operativo_cierre_ciclo_gestionar():
+    data = request.get_json() or {}
+    ot = str(data.get('ot') or '').strip()
+    cuenta = str(data.get('cuenta') or '').strip()
+    tip1 = str(data.get('tip_super_1') or '').strip()
+    tip2 = str(data.get('tip_super_2') or '').strip()
+    observ = str(data.get('observacion_super') or '').strip()
+    connection = None
+    cur = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        cur.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cur.fetchall()}
+        def ensure_col(col, ddl):
+            if col.lower() not in cols:
+                c2 = connection.cursor()
+                c2.execute(ddl)
+                c2.close()
+                cols[col.lower()] = col
+        ensure_col('tip_super_1', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tip_super_1` VARCHAR(255) NULL")
+        ensure_col('tip_super_2', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tip_super_2` VARCHAR(255) NULL")
+        ensure_col('observacion_super', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `observacion_super` TEXT NULL")
+        ensure_col('cierre_super', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `cierre_super` TINYINT(1) NULL DEFAULT 0")
+        ensure_col('fecha_gestion_super', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `fecha_gestion_super` DATETIME NULL")
+        cur.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cur.fetchall()}
+        def pick(names):
+            for n in names:
+                k = n.lower()
+                if k in cols:
+                    return cols[k]
+            for k0,v0 in cols.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            return None
+        col_ot = pick(['orden_de_trabajo','ot','orden_trabajo','orden','orden_de_servicio'])
+        col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
+        if not col_ot or not col_cuenta:
+            return jsonify({'success': False, 'message': 'Columnas requeridas no encontradas'}), 200
+        set_parts = ["`tip_super_1`=%s","`tip_super_2`=%s","`observacion_super`=%s","`cierre_super`=1","`fecha_gestion_super`=NOW()"]
+        params = [tip1, tip2, observ]
+        sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE `{col_ot}`=%s AND `{col_cuenta}`=%s"
+        params.extend([ot, cuenta])
+        cur.execute(sql, tuple(params))
+        connection.commit()
+        cur.close(); connection.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/operativo/cierre-ciclo/pending-count', methods=['GET'])
+@login_required_api(role=['operativo','tecnico','tecnicos'])
+def api_operativo_cierre_ciclo_pending_count():
+    connection = None
+    c = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        c = connection.cursor()
+        c.execute(
+            """
+            SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols_all = {r[0].lower(): r[0] for r in c.fetchall()}
+        cols_type = {}
+        c.execute(
+            """
+            SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        for r in c.fetchall():
+            cols_type[r[0].lower()] = str(r[1]).lower()
+        def pick(names):
+            for n in names:
+                k = n.lower()
+                if k in cols_all:
+                    return cols_all[k]
+            for k0,v0 in cols_all.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            return None
+        col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
+        col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+        col_cierre = pick(['cierre_ciclo'])
+        col_estado = pick(['estado'])
+        col_tip_super_1 = pick(['tip_super_1','tipificacion_super_1'])
+        col_tip_super_2 = pick(['tip_super_2','tipificacion_super_2'])
+        col_fecha_gestion_super = pick(['fecha_gestion_super','fecha_super'])
+        col_cierre_super = pick(['cierre_super','estado_super'])
+        col_tip_ok = pick(['tipificacion_ok'])
+        col_tip_nov = pick(['tipificacion_novedad'])
+        if not col_ext:
+            return jsonify({'success': True, 'pending': 0})
+        params = []
+        where = []
+        if col_cierre:
+            where.append(f"CAST(o.`{col_cierre}` AS SIGNED) = 1")
+        if col_estado:
+            where.append(f"LOWER(TRIM(o.`{col_estado}`)) = 'completado'")
+        fecha_arg = (request.args.get('fecha') or '').strip()
+        tip_arg = (request.args.get('tip') or '').strip()
+        if not tip_arg:
+            tip_arg = 'CLIENTE INCONFORME'
+        fecha_norm = None
+        if fecha_arg:
+            fecha_norm = fecha_arg
+            for fmt in ('%Y-%m-%d','%d/%m/%Y','%d-%m-%Y','%Y/%m/%d'):
+                try:
+                    fecha_norm = datetime.strptime(fecha_arg, fmt).strftime('%Y-%m-%d')
+                    break
+                except Exception:
+                    pass
+        else:
+            fecha_norm = datetime.now().strftime('%Y-%m-%d')
+        if col_fecha and fecha_norm:
+            tipo_fecha = cols_type.get(col_fecha.lower())
+            if tipo_fecha in ('datetime','timestamp','date'):
+                where.append(f"DATE(o.`{col_fecha}`) = %s")
+                params.append(fecha_norm)
+            else:
+                where.append(f"o.`{col_fecha}` LIKE %s")
+                params.append(fecha_norm + '%')
+        if tip_arg:
+            if col_tip_ok:
+                where.append(f"LOWER(TRIM(o.`{col_tip_ok}`)) = LOWER(TRIM(%s))")
+                params.append(tip_arg)
+            elif col_tip_nov:
+                where.append(f"LOWER(TRIM(o.`{col_tip_nov}`)) = LOWER(TRIM(%s))")
+                params.append(tip_arg)
+        user_role = None
+        try:
+            user_role = session.get('user_role')
+        except Exception:
+            user_role = None
+        if user_role in ('tecnico','tecnicos','Tecnico','Tecnicos') and col_ext:
+            val_id = str(session.get('id_codigo_consumidor') or '').strip()
+            val_ced = str(session.get('user_cedula') or '').strip()
+            col_l = str(col_ext).lower()
+            if 'cedula' in col_l:
+                if val_ced:
+                    where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                    params.append(val_ced)
+            else:
+                if val_id and val_ced:
+                    where.append(f"(CAST(o.`{col_ext}` AS CHAR) = %s OR CAST(o.`{col_ext}` AS CHAR) = %s)")
+                    params.extend([val_id, val_ced])
+                elif val_id:
+                    where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                    params.append(val_id)
+                elif val_ced:
+                    where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                    params.append(val_ced)
+        else:
+            sup_name = str(session.get('user_name') or '').strip()
+            tech_keys = []
+            try:
+                c_sup = connection.cursor()
+                try:
+                    c_sup.execute(
+                        """
+                        SELECT id_codigo_consumidor, recurso_operativo_cedula
+                        FROM recurso_operativo
+                        WHERE super = %s
+                        """,
+                        (sup_name,)
+                    )
+                except Exception:
+                    c_sup.execute(
+                        """
+                        SELECT id_codigo_consumidor, recurso_operativo_cedula
+                        FROM recurso_operativo
+                        WHERE supervisor = %s
+                        """,
+                        (sup_name,)
+                    )
+                for r0 in c_sup.fetchall() or []:
+                    try:
+                        if r0[0] is not None:
+                            tech_keys.append(str(r0[0]))
+                    except Exception:
+                        pass
+                    try:
+                        if r0[1] is not None:
+                            tech_keys.append(str(r0[1]))
+                    except Exception:
+                        pass
+                c_sup.close()
+            except Exception:
+                tech_keys = []
+            tech_keys = list(dict.fromkeys([k for k in tech_keys if k and k.strip()]))
+            if len(tech_keys) == 0:
+                return jsonify({'success': True, 'pending': 0})
+            placeholders = ','.join(['%s'] * len(tech_keys))
+            where.append(f"CAST(o.`{col_ext}` AS CHAR) IN ({placeholders})")
+            params.extend(tech_keys)
+        select_parts = [
+            f"o.`{col_ext}` AS tecnico_id"
+        ]
+        if col_cierre_super:
+            select_parts.append(f"o.`{col_cierre_super}` AS cierre_super")
+        if col_tip_super_1:
+            select_parts.append(f"o.`{col_tip_super_1}` AS tip_super_1")
+        if col_tip_super_2:
+            select_parts.append(f"o.`{col_tip_super_2}` AS tip_super_2")
+        if col_fecha_gestion_super:
+            select_parts.append(f"o.`{col_fecha_gestion_super}` AS fecha_gestion_super")
+        sql = "SELECT " + ", ".join(select_parts) + " FROM operaciones_actividades_diarias o"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        cur = connection.cursor(dictionary=True)
+        cur.execute(sql, tuple(params))
+        rows = cur.fetchall() or []
+        pending = 0
+        for r in rows:
+            done = False
+            val_cierre = r.get('cierre_super')
+            if val_cierre is not None:
+                try:
+                    done = int(val_cierre) == 1
+                except Exception:
+                    done = str(val_cierre).strip().lower() in ('1','true','si','sí','completado')
+            if not done and r.get('fecha_gestion_super'):
+                done = True
+            if not done:
+                tip1 = r.get('tip_super_1')
+                tip2 = r.get('tip_super_2')
+                if (tip1 and str(tip1).strip()) or (tip2 and str(tip2).strip()):
+                    done = True
+            if not done:
+                pending += 1
+        cur.close(); connection.close()
+        return jsonify({'success': True, 'pending': pending})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/logistica')
 @login_required(role='logistica')
@@ -7857,6 +8699,276 @@ def registrar_asignacion():
             cursor.close()
         if connection and connection.is_connected():
             connection.close()
+
+@app.route('/push/vapid-public-key', methods=['GET'])
+def push_vapid_public_key():
+    try:
+        if not VAPID_PUBLIC_KEY:
+            return jsonify({'success': False, 'message': 'VAPID_PUBLIC_KEY no configurada'}), 500
+        return jsonify({'success': True, 'publicKey': VAPID_PUBLIC_KEY})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/push/subscribe', methods=['POST'])
+@login_required_api()
+def api_push_subscribe():
+    try:
+        data = request.get_json(silent=True) or {}
+        sub = data.get('subscription')
+        if not sub:
+            return jsonify({'success': False, 'message': 'Suscripción inválida'}), 400
+        user_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        role = session.get('user_role')
+        if not user_id:
+            return jsonify({'success': False, 'message': 'Usuario no autenticado'}), 401
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO webpush_subscriptions (user_id, role, subscription_json)
+            VALUES (%s, %s, %s)
+            """,
+            (str(user_id), role, json.dumps(sub))
+        )
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        try:
+            if conn:
+                conn.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+def _compute_pending_cierres(connection, fecha_arg, tip_arg):
+    c = connection.cursor()
+    c.execute(
+        """
+        SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns
+        WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+        """,
+        (db_config.get('database'),)
+    )
+    cols_all = {r[0].lower(): r[0] for r in c.fetchall()}
+    cols_type = {}
+    c.execute(
+        """
+        SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns
+        WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+        """,
+        (db_config.get('database'),)
+    )
+    for r in c.fetchall():
+        cols_type[r[0].lower()] = str(r[1]).lower()
+    def pick(names):
+        for n in names:
+            k = n.lower()
+            if k in cols_all:
+                return cols_all[k]
+        for k0,v0 in cols_all.items():
+            for n in names:
+                if n.lower() in k0:
+                    return v0
+        return None
+    col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
+    col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+    col_cierre = pick(['cierre_ciclo'])
+    col_estado = pick(['estado'])
+    col_tip_super_1 = pick(['tip_super_1','tipificacion_super_1'])
+    col_tip_super_2 = pick(['tip_super_2','tipificacion_super_2'])
+    col_fecha_gestion_super = pick(['fecha_gestion_super','fecha_super'])
+    col_cierre_super = pick(['cierre_super','estado_super'])
+    col_tip_ok = pick(['tipificacion_ok'])
+    col_tip_nov = pick(['tipificacion_novedad'])
+    if not col_ext:
+        return 0
+    params = []
+    where = []
+    if col_cierre:
+        where.append(f"CAST(o.`{col_cierre}` AS SIGNED) = 1")
+    if col_estado:
+        where.append(f"LOWER(TRIM(o.`{col_estado}`)) = 'completado'")
+    tip_arg = (tip_arg or '').strip() or 'CLIENTE INCONFORME'
+    fecha_norm = None
+    if fecha_arg:
+        fecha_norm = fecha_arg
+        for fmt in ('%Y-%m-%d','%d/%m/%Y','%d-%m-%Y','%Y/%m/%d'):
+            try:
+                fecha_norm = datetime.strptime(fecha_arg, fmt).strftime('%Y-%m-%d')
+                break
+            except Exception:
+                pass
+    else:
+        fecha_norm = datetime.now().strftime('%Y-%m-%d')
+    if col_fecha and fecha_norm:
+        tipo_fecha = cols_type.get(col_fecha.lower())
+        if tipo_fecha in ('datetime','timestamp','date'):
+            where.append(f"DATE(o.`{col_fecha}`) = %s")
+            params.append(fecha_norm)
+        else:
+            where.append(f"o.`{col_fecha}` LIKE %s")
+            params.append(fecha_norm + '%')
+    if tip_arg:
+        if col_tip_ok:
+            where.append(f"LOWER(TRIM(o.`{col_tip_ok}`)) = LOWER(TRIM(%s))")
+            params.append(tip_arg)
+        elif col_tip_nov:
+            where.append(f"LOWER(TRIM(o.`{col_tip_nov}`)) = LOWER(TRIM(%s))")
+            params.append(tip_arg)
+    user_role = session.get('user_role')
+    if user_role in ('tecnico','tecnicos','Tecnico','Tecnicos') and col_ext:
+        val_id = str(session.get('id_codigo_consumidor') or '').strip()
+        val_ced = str(session.get('user_cedula') or '').strip()
+        col_l = str(col_ext).lower()
+        if 'cedula' in col_l:
+            if val_ced:
+                where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                params.append(val_ced)
+        else:
+            if val_id and val_ced:
+                where.append(f"(CAST(o.`{col_ext}` AS CHAR) = %s OR CAST(o.`{col_ext}` AS CHAR) = %s)")
+                params.extend([val_id, val_ced])
+            elif val_id:
+                where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                params.append(val_id)
+            elif val_ced:
+                where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                params.append(val_ced)
+    else:
+        sup_name = str(session.get('user_name') or '').strip()
+        tech_keys = []
+        try:
+            c_sup = connection.cursor()
+            try:
+                c_sup.execute(
+                    """
+                    SELECT id_codigo_consumidor, recurso_operativo_cedula
+                    FROM recurso_operativo
+                    WHERE super = %s
+                    """,
+                    (sup_name,)
+                )
+            except Exception:
+                c_sup.execute(
+                    """
+                    SELECT id_codigo_consumidor, recurso_operativo_cedula
+                    FROM recurso_operativo
+                    WHERE supervisor = %s
+                    """,
+                    (sup_name,)
+                )
+            for r0 in c_sup.fetchall() or []:
+                try:
+                    if r0[0] is not None:
+                        tech_keys.append(str(r0[0]))
+                except Exception:
+                    pass
+                try:
+                    if r0[1] is not None:
+                        tech_keys.append(str(r0[1]))
+                except Exception:
+                    pass
+            c_sup.close()
+        except Exception:
+            tech_keys = []
+        tech_keys = list(dict.fromkeys([k for k in tech_keys if k and k.strip()]))
+        if len(tech_keys) == 0:
+            return 0
+        placeholders = ','.join(['%s'] * len(tech_keys))
+        where.append(f"CAST(o.`{col_ext}` AS CHAR) IN ({placeholders})")
+        params.extend(tech_keys)
+    select_parts = [f"o.`{col_ext}` AS tecnico_id"]
+    if col_cierre_super:
+        select_parts.append(f"o.`{col_cierre_super}` AS cierre_super")
+    if col_tip_super_1:
+        select_parts.append(f"o.`{col_tip_super_1}` AS tip_super_1")
+    if col_tip_super_2:
+        select_parts.append(f"o.`{col_tip_super_2}` AS tip_super_2")
+    if col_fecha_gestion_super:
+        select_parts.append(f"o.`{col_fecha_gestion_super}` AS fecha_gestion_super")
+    sql = "SELECT " + ", ".join(select_parts) + " FROM operaciones_actividades_diarias o"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    cur = connection.cursor(dictionary=True)
+    cur.execute(sql, tuple(params))
+    rows = cur.fetchall() or []
+    pending = 0
+    for r in rows:
+        done = False
+        val_cierre = r.get('cierre_super')
+        if val_cierre is not None:
+            try:
+                done = int(val_cierre) == 1
+            except Exception:
+                done = str(val_cierre).strip().lower() in ('1','true','si','sí','completado')
+        if not done and r.get('fecha_gestion_super'):
+            done = True
+        if not done:
+            tip1 = r.get('tip_super_1')
+            tip2 = r.get('tip_super_2')
+            if (tip1 and str(tip1).strip()) or (tip2 and str(tip2).strip()):
+                done = True
+        if not done:
+            pending += 1
+    cur.close(); c.close()
+    return pending
+
+def _send_push_to_user(user_id, title, body, tag, data):
+    conn = get_db_connection()
+    if not conn:
+        return False
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT id, subscription_json FROM webpush_subscriptions WHERE user_id = %s", (str(user_id),))
+        subs = cur.fetchall() or []
+        payload = json.dumps({'title': title, 'body': body, 'tag': tag, 'data': data})
+        ok = False
+        for s in subs:
+            try:
+                info = json.loads(s.get('subscription_json') or '{}')
+                webpush(
+                    subscription_info=info,
+                    data=payload,
+                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_claims={'sub': VAPID_SUBJECT}
+                )
+                ok = True
+            except Exception:
+                pass
+        cur.close(); conn.close()
+        return ok
+    except Exception:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return False
+
+@app.route('/api/operativo/cierre-ciclo/push-pending', methods=['POST'])
+@login_required_api(role=['operativo','tecnico','tecnicos'])
+def api_operativo_cierre_ciclo_push_pending():
+    try:
+        user_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        if not user_id:
+            return jsonify({'success': False, 'message': 'Usuario no autenticado'}), 401
+        data = request.get_json(silent=True) or {}
+        fecha_arg = (data.get('fecha') or '').strip()
+        tip_arg = (data.get('tip') or '').strip()
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        pending = _compute_pending_cierres(connection, fecha_arg, tip_arg)
+        title = 'Cierres de ciclo pendientes'
+        body = f'Tienes {pending} cierres de ciclo pendientes por gestionar'
+        tag = 'cierre-ciclo'
+        data_payload = {'url': '/operativo/cierre-ciclo'}
+        sent = _send_push_to_user(user_id, title, body, tag, data_payload)
+        return jsonify({'success': True, 'pending': pending, 'sent': bool(sent)})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/logistica/asignacion/<int:id_asignacion>')
 @login_required()

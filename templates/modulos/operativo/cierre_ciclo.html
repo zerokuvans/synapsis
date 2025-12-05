@@ -1,0 +1,314 @@
+{% extends "header.html" %}
+{% block content %}
+<style>
+    .btn.disabled{opacity:.6;cursor:not-allowed;pointer-events:none}
+    .btn.disabled:hover{opacity:.6}
+    #tablaCierre{width:100%;}
+    #tablaCierre td:nth-child(3),
+    #tablaCierre td:nth-child(4),
+    #tablaCierre td:nth-child(5){white-space:nowrap}
+    .cc-container{max-width:1500px;margin:0 auto}
+</style>
+<div class="container-fluid mt-5 cc-container">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h3 class="mb-0"><i class="fas fa-sync-alt me-2"></i>Cierre de Ciclo</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label">Fecha</label>
+                            <input type="date" id="fechaFiltro" class="form-control" />
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <label class="form-label">Tipificación</label>
+                            <input type="text" id="tipificacionFiltro" class="form-control" value="CLIENTE INCONFORME" readonly />
+                        </div>
+                        <div class="col-sm-12 col-md-5 d-flex align-items-end">
+                            {% if tiene_asistencia %}
+                            <button id="btnBuscar" class="btn btn-secondary me-2">
+                                <i class="fas fa-search me-2"></i>Buscar
+                            </button>
+                            {% else %}
+                            <button id="btnBuscar" class="btn btn-secondary disabled" disabled title="Debe registrar asistencia primero">
+                                <i class="fas fa-search me-2"></i>Buscar
+                            </button>
+                            {% endif %}
+                            <span class="ms-auto text-muted">Total: <span id="totalRegistros">0</span></span>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="tablaCierre">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th>OT</th>
+                                    <th>Cuenta</th>
+                                    <th>Técnico</th>
+                                    <th>Analista</th>
+                                    <th>Supervisor</th>
+                                    <th>Fecha</th>
+                                    <th>Estado</th>
+                                    <th>Estado Super</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaCierreBody">
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted">Sin datos</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+const apiUrl = '/api/operativo/cierre-ciclo';
+function fmtFecha(v){
+    if(!v)return '';
+    const s=String(v).trim();
+    const m1=s.match(/^(\d{4}-\d{2}-\d{2})/);
+    if(m1)return m1[1];
+    const m2=s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
+    if(m2)return `${m2[3]}-${m2[2]}-${m2[1]}`;
+    try{
+        const d=new Date(s);
+        if(!isNaN(d)){
+            const y=d.getFullYear();
+            const m=String(d.getMonth()+1).padStart(2,'0');
+            const dd=String(d.getDate()).padStart(2,'0');
+            return `${y}-${m}-${dd}`;
+        }
+    }catch(e){}
+    return s;
+}
+async function buscar(){
+    const fecha=document.getElementById('fechaFiltro').value;
+    const tip=document.getElementById('tipificacionFiltro').value;
+    const params=new URLSearchParams();
+    if(fecha)params.set('fecha',fecha);
+    if(tip)params.set('tipificacion',tip);
+    const res=await fetch(apiUrl+'?'+params.toString(),{credentials:'include'});
+    const data=await res.json();
+    const body=document.getElementById('tablaCierreBody');
+    if(!data.success){
+        body.innerHTML='<tr><td colspan="9" class="text-center text-danger">Error</td></tr>';
+        document.getElementById('totalRegistros').textContent='0';
+        return;
+    }
+    const rows=data.data||[];
+    document.getElementById('totalRegistros').textContent=rows.length;
+    if(rows.length===0){
+        body.innerHTML='<tr><td colspan="9" class="text-center text-muted">Sin datos</td></tr>';
+        return;
+    }
+    body.innerHTML=rows.map(r=>{
+        const ot=r.orden_de_trabajo??'';
+        const cuenta=r.numero_de_cuenta??'';
+        const estadoSuper = (r.estado_super||'') === 'Completado'
+            ? '<span class="badge bg-success">Completado</span>'
+            : '<span class="badge bg-warning text-dark">Pendiente</span>';
+        const gestionCompletada = (r.estado_super||'') === 'Completado';
+        const disabledAttr = gestionCompletada ? 'disabled' : '';
+        const disabledClass = gestionCompletada ? 'disabled' : '';
+        return `
+        <tr>
+            <td>${ot}</td>
+            <td>${cuenta}</td>
+            <td>${r.tecnico??''}</td>
+            <td>${r.analista??''}</td>
+            <td>${r.supervisor??''}</td>
+            <td>${fmtFecha(r.fecha)}</td>
+            <td>${r.estado??''}</td>
+            <td>${estadoSuper}</td>
+            <td>
+                <button class="btn btn-outline-secondary btn-sm ${disabledClass}" ${disabledAttr} onclick="abrirGestion('${ot}','${cuenta}')">
+                    <i class="fas fa-tools me-1"></i>Gestionar
+                </button>
+            </td>
+        </tr>`
+    }).join('');
+}
+document.addEventListener('DOMContentLoaded',()=>{
+    const f=document.getElementById('fechaFiltro');
+    const today=new Date();
+    const y=today.getFullYear();
+    const m=String(today.getMonth()+1).padStart(2,'0');
+    const d=String(today.getDate()).padStart(2,'0');
+    f.value=`${y}-${m}-${d}`;
+    const tieneAsistencia = {{ 'true' if tiene_asistencia else 'false' }};
+    if(tieneAsistencia){
+        buscar();
+    }
+    const btn=document.getElementById('btnBuscar');
+    if(btn){
+        btn.addEventListener('click',buscar);
+    }
+});
+async function abrirGestion(ot, cuenta){
+    const modalEl=document.getElementById('modalGestionSuper');
+    const m=new bootstrap.Modal(modalEl);
+    document.getElementById('gs_ot').value=ot||'';
+    document.getElementById('gs_cuenta').value=cuenta||'';
+    document.getElementById('gs_tecnico').value='';
+    document.getElementById('gs_analista').value='';
+    document.getElementById('gs_supervisor').value='';
+    document.getElementById('gs_fecha').value='';
+    document.getElementById('gs_estado').value='';
+    document.getElementById('gs_tip_ok').value='';
+    document.getElementById('gs_tip_nov').value='';
+    document.getElementById('gs_observ').value='';
+    await cargarTipificaciones1();
+    try{
+        const params=new URLSearchParams({ot:ot, cuenta:cuenta});
+        const res=await fetch('/api/operativo/cierre-ciclo/detalle?'+params.toString(),{credentials:'include'});
+        const data=await res.json();
+        if(data && data.success && data.data){
+            const r=data.data;
+            document.getElementById('gs_tecnico').value=r.tecnico||'';
+            document.getElementById('gs_analista').value=r.analista||'';
+            document.getElementById('gs_supervisor').value=r.supervisor||'';
+            document.getElementById('gs_fecha').value=fmtFecha(r.fecha)||'';
+            document.getElementById('gs_estado').value=r.estado||'';
+            document.getElementById('gs_tip_ok').value=r.tipificacion_ok||'';
+            document.getElementById('gs_tip_nov').value=r.tipificacion_novedad||'';
+            document.getElementById('gs_observ').value=r.observacion_cierre||'';
+        }
+    }catch(e){}
+    m.show();
+}
+async function cargarTipificaciones1(){
+    const sel=document.getElementById('gs_tip1');
+    sel.innerHTML='<option value="">Seleccione</option>';
+    try{
+        const res=await fetch('/api/operativo/cierre-ciclo/tipificaciones1',{credentials:'include'});
+        const data=await res.json();
+        if(data && data.success){
+            (data.data||[]).forEach(x=>{
+                const opt=document.createElement('option');
+                opt.value=x.codigo;
+                opt.textContent=x.nombre||x.codigo;
+                sel.appendChild(opt);
+            });
+        }
+    }catch(e){}
+    document.getElementById('gs_tip2').innerHTML='<option value="">Seleccione</option>';
+}
+async function cargarTipificaciones2(){
+    const p=document.getElementById('gs_tip1').value;
+    const sel=document.getElementById('gs_tip2');
+    sel.innerHTML='<option value="">Seleccione</option>';
+    if(!p)return;
+    try{
+        const res=await fetch('/api/operativo/cierre-ciclo/tipificaciones2?parent='+encodeURIComponent(p),{credentials:'include'});
+        const data=await res.json();
+        if(data && data.success){
+            (data.data||[]).forEach(x=>{
+                const opt=document.createElement('option');
+                opt.value=x.codigo;
+                opt.textContent=x.nombre||x.codigo;
+                sel.appendChild(opt);
+            });
+        }
+    }catch(e){}
+}
+async function guardarGestionSuper(){
+    const payload={
+        ot:document.getElementById('gs_ot').value,
+        cuenta:document.getElementById('gs_cuenta').value,
+        tip_super_1:document.getElementById('gs_tip1').value,
+        tip_super_2:document.getElementById('gs_tip2').value,
+        observacion_super:document.getElementById('gs_obs_super').value
+    };
+    try{
+        const res=await fetch('/api/operativo/cierre-ciclo/gestionar',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            credentials:'include',
+            body:JSON.stringify(payload)
+        });
+        const data=await res.json();
+        if(data && data.success){
+            const modalEl=document.getElementById('modalGestionSuper');
+            bootstrap.Modal.getInstance(modalEl).hide();
+            buscar();
+        }
+    }catch(e){}
+}
+</script>
+<div class="modal fade" id="modalGestionSuper" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-tools me-2"></i>Gestión Super</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">OT</label>
+                        <input id="gs_ot" class="form-control" readonly />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Cuenta</label>
+                        <input id="gs_cuenta" class="form-control" readonly />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Técnico</label>
+                        <input id="gs_tecnico" class="form-control" readonly />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Analista</label>
+                        <input id="gs_analista" class="form-control" readonly />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Supervisor</label>
+                        <input id="gs_supervisor" class="form-control" readonly />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Fecha</label>
+                        <input id="gs_fecha" class="form-control" readonly />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Estado</label>
+                        <input id="gs_estado" class="form-control" readonly />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Tipificación OK</label>
+                        <input id="gs_tip_ok" class="form-control" readonly />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Tipificación Novedad</label>
+                        <input id="gs_tip_nov" class="form-control" readonly />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Observación Analista</label>
+                        <textarea id="gs_observ" class="form-control" rows="2" readonly></textarea>
+                    </div>
+                    <hr />
+                    <div class="col-md-6">
+                        <label class="form-label">Tipificación de cierre de ciclo 1</label>
+                        <select id="gs_tip1" class="form-select" onchange="cargarTipificaciones2()"></select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Tipificación de cierre de ciclo 2</label>
+                        <select id="gs_tip2" class="form-select"></select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Observación Super</label>
+                        <textarea id="gs_obs_super" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarGestionSuper()">Guardar Gestión</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

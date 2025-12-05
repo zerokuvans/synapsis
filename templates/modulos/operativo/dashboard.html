@@ -125,6 +125,25 @@
                             </div>
                         </div>
                         
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-sync-alt fa-3x text-secondary mb-3"></i>
+                                    <h5 class="card-title">Cierre de Ciclo</h5>
+                                    <p class="card-text">Consulta cierres con tipificación CLIENTE INCONFORME.</p>
+                                    {% if tiene_asistencia %}
+                                        <a href="/operativo/cierre-ciclo" class="btn btn-secondary">
+                                            <i class="fas fa-table me-2"></i>Ver Cierres
+                                        </a>
+                                    {% else %}
+                                        <button class="btn btn-secondary disabled" disabled title="Debe registrar asistencia primero">
+                                            <i class="fas fa-table me-2"></i>Ver Cierres
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
                         
                     </div>
                 </div>
@@ -486,6 +505,32 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    try{
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth()+1).padStart(2,'0');
+        const d = String(today.getDate()).padStart(2,'0');
+        const qs = new URLSearchParams({ fecha: `${y}-${m}-${d}`, tip: 'CLIENTE INCONFORME' });
+        fetch('/api/operativo/cierre-ciclo/pending-count?'+qs.toString(), {credentials:'include'})
+          .then(r=>r.json())
+          .then(data=>{
+            if(data && data.success && typeof data.pending === 'number' && data.pending > 0){
+              Swal.fire({
+                icon: 'warning',
+                title: 'Cierres de ciclo pendientes',
+                text: 'Tienes ' + data.pending + ' cierres de ciclo pendientes por gestionar',
+                confirmButtonText: 'Ver cierres',
+                showCancelButton: true,
+                cancelButtonText: 'Cerrar'
+              }).then(res=>{
+                if(res.isConfirmed){
+                  window.location.href = '/operativo/cierre-ciclo';
+                }
+              });
+            }
+          })
+          .catch(()=>{});
+    }catch(e){}
     const preoperacionalButton = document.getElementById('preoperacionalButton');
     const preoperacionalForm = document.getElementById('preoperacionalForm');
     const preoperacionalModal = document.getElementById('preoperacionalModal');
