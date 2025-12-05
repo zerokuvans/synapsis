@@ -3512,8 +3512,11 @@ def api_analistas_actividades_diarias_export():
             f"o.`{col_ot}` AS orden_de_trabajo",
             f"o.`{col_cuenta}` AS numero_de_cuenta",
             f"o.`{col_ext}` AS tecnico_id",
-            f"o.`{col_fecha}` AS fecha"
         ]
+        if tipo_fecha in ('datetime','timestamp','date'):
+            select_parts.append(f"DATE_FORMAT(o.`{col_fecha}`, '%Y-%m-%d') AS fecha")
+        else:
+            select_parts.append(f"o.`{col_fecha}` AS fecha")
         if col_estado:
             select_parts.append(f"o.`{col_estado}` AS estado")
         if col_final:
@@ -5769,9 +5772,12 @@ def api_operativo_cierre_ciclo():
         select_parts = [
             f"o.`{col_ot}` AS orden_de_trabajo",
             f"o.`{col_cuenta}` AS numero_de_cuenta",
-            f"o.`{col_ext}` AS tecnico_id",
-            f"o.`{col_fecha}` AS fecha"
+            f"o.`{col_ext}` AS tecnico_id"
         ]
+        if tipo_fecha in ('datetime','timestamp','date'):
+            select_parts.append(f"DATE_FORMAT(o.`{col_fecha}`, '%Y-%m-%d') AS fecha")
+        else:
+            select_parts.append(f"o.`{col_fecha}` AS fecha")
         if col_estado:
             select_parts.append(f"o.`{col_estado}` AS estado")
         if col_cierre:
@@ -5791,10 +5797,49 @@ def api_operativo_cierre_ciclo():
         sql = "SELECT " + ", ".join(select_parts) + " FROM operaciones_actividades_diarias o"
         if where:
             sql += " WHERE " + " AND ".join(where)
-        sql += f" ORDER BY o.`{col_fecha}` DESC"
+        if tipo_fecha in ('datetime','timestamp','date'):
+            sql += f" ORDER BY DATE(o.`{col_fecha}`) DESC"
+        else:
+            sql += f" ORDER BY o.`{col_fecha}` DESC"
         cur = connection.cursor(dictionary=True)
         cur.execute(sql, tuple(params))
         rows = cur.fetchall() or []
+        f_norm = None
+        if fecha:
+            f_norm = fecha
+            for fmt in ('%Y-%m-%d','%d/%m/%Y','%d-%m-%Y','%Y/%m/%d'):
+                try:
+                    f_norm = datetime.strptime(fecha, fmt).strftime('%Y-%m-%d')
+                    break
+                except Exception:
+                    pass
+        if f_norm:
+            try:
+                tgt = datetime.strptime(f_norm, '%Y-%m-%d').date()
+                def pdt(v):
+                    if v is None:
+                        return None
+                    if hasattr(v, 'year') and hasattr(v, 'month') and hasattr(v, 'day'):
+                        try:
+                            return v.date() if hasattr(v, 'date') else datetime(int(getattr(v,'year')), int(getattr(v,'month')), int(getattr(v,'day'))).date()
+                        except Exception:
+                            return None
+                    s = str(v).strip()
+                    s0 = s.split('.')[0]
+                    try:
+                        d0 = datetime.fromisoformat(s0.replace('Z',''))
+                        return d0.date()
+                    except Exception:
+                        pass
+                    for fmt in ('%Y-%m-%d %H:%M:%S','%Y-%m-%d','%d/%m/%Y %H:%M:%S','%d/%m/%Y','%d-%m-%Y %H:%M:%S','%d-%m-%Y','%Y/%m/%d %H:%M:%S','%Y/%m/%d'):
+                        try:
+                            return datetime.strptime(s0, fmt).date()
+                        except Exception:
+                            pass
+                    return None
+                rows = [r for r in rows if pdt(r.get('fecha')) == tgt]
+            except Exception:
+                pass
         tecnico_ids = {str(r.get('tecnico_id')) for r in rows if r.get('tecnico_id') is not None}
         nombres_map = {}
         analistas_map = {}
@@ -5888,6 +5933,20 @@ def api_operativo_cierre_ciclo_detalle():
         col_tip_ok = pick(['tipificacion_ok'])
         col_tip_nov = pick(['tipificacion_novedad'])
         col_observ = pick(['observacion_cierre'])
+        tipo_fecha = None
+        if col_fecha:
+            c.execute(
+                """
+                SELECT DATA_TYPE FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='operaciones_actividades_diarias' AND column_name=%s
+                """,
+                (db_config.get('database'), col_fecha)
+            )
+            rowt = c.fetchone()
+            try:
+                tipo_fecha = str(rowt[0]).lower() if rowt and rowt[0] else None
+            except Exception:
+                tipo_fecha = None
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'message': 'Columnas requeridas no encontradas'}), 200
         select_parts = [
@@ -5895,7 +5954,10 @@ def api_operativo_cierre_ciclo_detalle():
             f"o.`{col_cuenta}` AS numero_de_cuenta"
         ]
         if col_fecha:
-            select_parts.append(f"o.`{col_fecha}` AS fecha")
+            if tipo_fecha in ('datetime','timestamp','date'):
+                select_parts.append(f"DATE_FORMAT(o.`{col_fecha}`, '%Y-%m-%d') AS fecha")
+            else:
+                select_parts.append(f"o.`{col_fecha}` AS fecha")
         if col_estado:
             select_parts.append(f"o.`{col_estado}` AS estado")
         if col_final:
@@ -8916,6 +8978,362 @@ def _compute_pending_cierres(connection, fecha_arg, tip_arg):
     cur.close(); c.close()
     return pending
 
+def _compute_pending_cierres_backlog(connection, tip_arg):
+    c = connection.cursor()
+    c.execute(
+        """
+        SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns
+        WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+        """,
+        (db_config.get('database'),)
+    )
+    cols_all = {r[0].lower(): r[0] for r in c.fetchall()}
+    cols_type = {}
+    c.execute(
+        """
+        SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns
+        WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+        """,
+        (db_config.get('database'),)
+    )
+    for r in c.fetchall():
+        cols_type[r[0].lower()] = str(r[1]).lower()
+    def pick(names):
+        for n in names:
+            k = n.lower()
+            if k in cols_all:
+                return cols_all[k]
+        for k0,v0 in cols_all.items():
+            for n in names:
+                if n.lower() in k0:
+                    return v0
+        return None
+    col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
+    col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+    col_cierre = pick(['cierre_ciclo'])
+    col_estado = pick(['estado'])
+    col_tip_super_1 = pick(['tip_super_1','tipificacion_super_1'])
+    col_tip_super_2 = pick(['tip_super_2','tipificacion_super_2'])
+    col_fecha_gestion_super = pick(['fecha_gestion_super','fecha_super'])
+    col_cierre_super = pick(['cierre_super','estado_super'])
+    col_tip_ok = pick(['tipificacion_ok'])
+    col_tip_nov = pick(['tipificacion_novedad'])
+    if not col_ext:
+        return 0
+    params = []
+    where = []
+    if col_cierre:
+        where.append(f"CAST(o.`{col_cierre}` AS SIGNED) = 1")
+    if col_estado:
+        where.append(f"LOWER(TRIM(o.`{col_estado}`)) = 'completado'")
+    tip_norm = (tip_arg or '').strip()
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    # Fecha se evaluará en Python para soportar múltiples formatos
+    if tip_norm:
+        if col_tip_ok:
+            where.append(f"LOWER(TRIM(o.`{col_tip_ok}`)) = LOWER(TRIM(%s))")
+            params.append(tip_norm)
+        elif col_tip_nov:
+            where.append(f"LOWER(TRIM(o.`{col_tip_nov}`)) = LOWER(TRIM(%s))")
+            params.append(tip_norm)
+    user_role = session.get('user_role')
+    if user_role in ('tecnico','tecnicos','Tecnico','Tecnicos') and col_ext:
+        val_id = str(session.get('id_codigo_consumidor') or '').strip()
+        val_ced = str(session.get('user_cedula') or '').strip()
+        col_l = str(col_ext).lower()
+        if 'cedula' in col_l:
+            if val_ced:
+                where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                params.append(val_ced)
+        else:
+            if val_id and val_ced:
+                where.append(f"(CAST(o.`{col_ext}` AS CHAR) = %s OR CAST(o.`{col_ext}` AS CHAR) = %s)")
+                params.extend([val_id, val_ced])
+            elif val_id:
+                where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                params.append(val_id)
+            elif val_ced:
+                where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                params.append(val_ced)
+    else:
+        sup_name = str(session.get('user_name') or '').strip()
+        tech_keys = []
+        try:
+            c_sup = connection.cursor()
+            try:
+                c_sup.execute(
+                    """
+                    SELECT id_codigo_consumidor, recurso_operativo_cedula
+                    FROM recurso_operativo
+                    WHERE super = %s
+                    """,
+                    (sup_name,)
+                )
+            except Exception:
+                c_sup.execute(
+                    """
+                    SELECT id_codigo_consumidor, recurso_operativo_cedula
+                    FROM recurso_operativo
+                    WHERE supervisor = %s
+                    """,
+                    (sup_name,)
+                )
+            for r0 in c_sup.fetchall() or []:
+                try:
+                    if r0[0] is not None:
+                        tech_keys.append(str(r0[0]))
+                except Exception:
+                    pass
+                try:
+                    if r0[1] is not None:
+                        tech_keys.append(str(r0[1]))
+                except Exception:
+                    pass
+            c_sup.close()
+        except Exception:
+            tech_keys = []
+        tech_keys = list(dict.fromkeys([k for k in tech_keys if k and k.strip()]))
+        if len(tech_keys) == 0:
+            return 0
+        placeholders = ','.join(['%s'] * len(tech_keys))
+        where.append(f"CAST(o.`{col_ext}` AS CHAR) IN ({placeholders})")
+        params.extend(tech_keys)
+    select_parts = [f"o.`{col_ext}` AS tecnico_id"]
+    if col_cierre_super:
+        select_parts.append(f"o.`{col_cierre_super}` AS cierre_super")
+    if col_tip_super_1:
+        select_parts.append(f"o.`{col_tip_super_1}` AS tip_super_1")
+    if col_tip_super_2:
+        select_parts.append(f"o.`{col_tip_super_2}` AS tip_super_2")
+    if col_fecha_gestion_super:
+        select_parts.append(f"o.`{col_fecha_gestion_super}` AS fecha_gestion_super")
+    if col_fecha:
+        select_parts.append(f"o.`{col_fecha}` AS fecha_column")
+    sql = "SELECT " + ", ".join(select_parts) + " FROM operaciones_actividades_diarias o"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    cur = connection.cursor(dictionary=True)
+    cur.execute(sql, tuple(params))
+    rows = cur.fetchall() or []
+    pending = 0
+    for r in rows:
+        done = False
+        val_cierre = r.get('cierre_super')
+        if val_cierre is not None:
+            try:
+                done = int(val_cierre) == 1
+            except Exception:
+                done = str(val_cierre).strip().lower() in ('1','true','si','sí','completado')
+        if not done and r.get('fecha_gestion_super'):
+            done = True
+        if not done:
+            tip1 = r.get('tip_super_1')
+            tip2 = r.get('tip_super_2')
+            if (tip1 and str(tip1).strip()) or (tip2 and str(tip2).strip()):
+                done = True
+        if not done:
+            try:
+                fv = r.get('fecha_column')
+                dt = None
+                if fv is not None:
+                    if hasattr(fv, 'year') and hasattr(fv, 'month') and hasattr(fv, 'day'):
+                        if hasattr(fv, 'hour') and hasattr(fv, 'minute'):
+                            dt = fv
+                        else:
+                            dt = datetime(int(getattr(fv, 'year')), int(getattr(fv, 'month')), int(getattr(fv, 'day')))
+                    else:
+                        s = str(fv).strip()
+                        s0 = s.split('.')[0]
+                        try:
+                            dt = datetime.fromisoformat(s0.replace('Z',''))
+                        except Exception:
+                            dt = None
+                        if dt is None:
+                            for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d', '%d/%m/%Y %H:%M:%S', '%d/%m/%Y', '%d-%m-%Y %H:%M:%S', '%d-%m-%Y', '%Y/%m/%d %H:%M:%S', '%Y/%m/%d'):
+                                try:
+                                    dt = datetime.strptime(s0, fmt)
+                                    break
+                                except Exception:
+                                    pass
+                if dt is None:
+                    continue
+                today = get_bogota_datetime().date()
+                if dt.date() < today:
+                    pending += 1
+            except Exception:
+                pass
+    cur.close(); c.close()
+    return pending
+
+def _compute_pending_cierres_month(connection, tip_arg):
+    c = connection.cursor()
+    c.execute(
+        """
+        SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns
+        WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+        """,
+        (db_config.get('database'),)
+    )
+    cols_all = {r[0].lower(): r[0] for r in c.fetchall()}
+    cols_type = {}
+    c.execute(
+        """
+        SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns
+        WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+        """,
+        (db_config.get('database'),)
+    )
+    for r in c.fetchall():
+        cols_type[r[0].lower()] = str(r[1]).lower()
+    def pick(names):
+        for n in names:
+            k = n.lower()
+            if k in cols_all:
+                return cols_all[k]
+        for k0,v0 in cols_all.items():
+            for n in names:
+                if n.lower() in k0:
+                    return v0
+        return None
+    col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
+    col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+    col_cierre = pick(['cierre_ciclo'])
+    col_estado = pick(['estado'])
+    col_tip_super_1 = pick(['tip_super_1','tipificacion_super_1'])
+    col_tip_super_2 = pick(['tip_super_2','tipificacion_super_2'])
+    col_fecha_gestion_super = pick(['fecha_gestion_super','fecha_super'])
+    col_cierre_super = pick(['cierre_super','estado_super'])
+    col_tip_ok = pick(['tipificacion_ok'])
+    col_tip_nov = pick(['tipificacion_novedad'])
+    if not col_ext:
+        return 0
+    params = []
+    where = []
+    if col_cierre:
+        where.append(f"CAST(o.`{col_cierre}` AS SIGNED) = 1")
+    if col_estado:
+        where.append(f"LOWER(TRIM(o.`{col_estado}`)) = 'completado'")
+    tip_norm = (tip_arg or '').strip() or 'CLIENTE INCONFORME'
+    if tip_norm:
+        if col_tip_ok:
+            where.append(f"LOWER(TRIM(o.`{col_tip_ok}`)) = LOWER(TRIM(%s))")
+            params.append(tip_norm)
+        elif col_tip_nov:
+            where.append(f"LOWER(TRIM(o.`{col_tip_nov}`)) = LOWER(TRIM(%s))")
+            params.append(tip_norm)
+    user_role = session.get('user_role')
+    if user_role in ('tecnico','tecnicos','Tecnico','Tecnicos') and col_ext:
+        val_id = str(session.get('id_codigo_consumidor') or '').strip()
+        val_ced = str(session.get('user_cedula') or '').strip()
+        col_l = str(col_ext).lower()
+        if 'cedula' in col_l:
+            if val_ced:
+                where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                params.append(val_ced)
+        else:
+            if val_id and val_ced:
+                where.append(f"(CAST(o.`{col_ext}` AS CHAR) = %s OR CAST(o.`{col_ext}` AS CHAR) = %s)")
+                params.extend([val_id, val_ced])
+            elif val_id:
+                where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                params.append(val_id)
+            elif val_ced:
+                where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                params.append(val_ced)
+    else:
+        sup_name = str(session.get('user_name') or '').strip()
+        tech_keys = []
+        try:
+            c_sup = connection.cursor()
+            try:
+                c_sup.execute(
+                    """
+                    SELECT id_codigo_consumidor, recurso_operativo_cedula
+                    FROM recurso_operativo
+                    WHERE super = %s
+                    """,
+                    (sup_name,)
+                )
+            except Exception:
+                c_sup.execute(
+                    """
+                    SELECT id_codigo_consumidor, recurso_operativo_cedula
+                    FROM recurso_operativo
+                    WHERE supervisor = %s
+                    """,
+                    (sup_name,)
+                )
+            for r0 in c_sup.fetchall() or []:
+                try:
+                    if r0[0] is not None:
+                        tech_keys.append(str(r0[0]))
+                except Exception:
+                    pass
+                try:
+                    if r0[1] is not None:
+                        tech_keys.append(str(r0[1]))
+                except Exception:
+                    pass
+            c_sup.close()
+        except Exception:
+            tech_keys = []
+        tech_keys = list(dict.fromkeys([k for k in tech_keys if k and k.strip()]))
+        if len(tech_keys) == 0:
+            return 0
+        placeholders = ','.join(['%s'] * len(tech_keys))
+        where.append(f"CAST(o.`{col_ext}` AS CHAR) IN ({placeholders})")
+        params.extend(tech_keys)
+    tipo_fecha = str(cols_type.get((col_fecha or '').lower()) or '').lower() if col_fecha else None
+    today = get_bogota_datetime()
+    y = today.year
+    m = today.month
+    from calendar import monthrange
+    last_day = monthrange(y, m)[1]
+    ini = f"{y}-{str(m).zfill(2)}-01"
+    fin = f"{y}-{str(m).zfill(2)}-{str(last_day).zfill(2)}"
+    if col_fecha:
+        if tipo_fecha in ('datetime','timestamp','date'):
+            where.append(f"DATE(o.`{col_fecha}`) BETWEEN %s AND %s")
+            params.extend([ini, fin])
+        else:
+            where.append(f"o.`{col_fecha}` LIKE %s")
+            params.append(f"{y}-{str(m).zfill(2)}-%")
+    select_parts = [f"o.`{col_ext}` AS tecnico_id"]
+    if col_cierre_super:
+        select_parts.append(f"o.`{col_cierre_super}` AS cierre_super")
+    if col_tip_super_1:
+        select_parts.append(f"o.`{col_tip_super_1}` AS tip_super_1")
+    if col_tip_super_2:
+        select_parts.append(f"o.`{col_tip_super_2}` AS tip_super_2")
+    if col_fecha_gestion_super:
+        select_parts.append(f"o.`{col_fecha_gestion_super}` AS fecha_gestion_super")
+    sql = "SELECT " + ", ".join(select_parts) + " FROM operaciones_actividades_diarias o"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    cur = connection.cursor(dictionary=True)
+    cur.execute(sql, tuple(params))
+    rows = cur.fetchall() or []
+    pending = 0
+    for r in rows:
+        done = False
+        val_cierre = r.get('cierre_super')
+        if val_cierre is not None:
+            try:
+                done = int(val_cierre) == 1
+            except Exception:
+                done = str(val_cierre).strip().lower() in ('1','true','si','sí','completado')
+        if not done and r.get('fecha_gestion_super'):
+            done = True
+        if not done:
+            tip1 = r.get('tip_super_1')
+            tip2 = r.get('tip_super_2')
+            if (tip1 and str(tip1).strip()) or (tip2 and str(tip2).strip()):
+                done = True
+        if not done:
+            pending += 1
+    cur.close(); c.close()
+    return pending
+
 def _send_push_to_user(user_id, title, body, tag, data):
     conn = get_db_connection()
     if not conn:
@@ -8956,17 +9374,45 @@ def api_operativo_cierre_ciclo_push_pending():
             return jsonify({'success': False, 'message': 'Usuario no autenticado'}), 401
         data = request.get_json(silent=True) or {}
         fecha_arg = (data.get('fecha') or '').strip()
-        tip_arg = (data.get('tip') or '').strip()
+        tip_arg = (data.get('tip') or '').strip() or 'CLIENTE INCONFORME'
         connection = get_db_connection()
         if connection is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
-        pending = _compute_pending_cierres(connection, fecha_arg, tip_arg)
+        pending_today = _compute_pending_cierres(connection, fecha_arg, tip_arg)
+        pending_backlog = _compute_pending_cierres_backlog(connection, tip_arg)
+        pending_total = int(pending_today) + int(pending_backlog)
         title = 'Cierres de ciclo pendientes'
-        body = f'Tienes {pending} cierres de ciclo pendientes por gestionar'
+        body = f'Hoy: {pending_today} • Días anteriores: {pending_backlog}'
         tag = 'cierre-ciclo'
         data_payload = {'url': '/operativo/cierre-ciclo'}
         sent = _send_push_to_user(user_id, title, body, tag, data_payload)
-        return jsonify({'success': True, 'pending': pending, 'sent': bool(sent)})
+        return jsonify({'success': True, 'pending': pending_today, 'backlog': pending_backlog, 'total': pending_total, 'sent': bool(sent)})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/operativo/cierre-ciclo/pending-backlog', methods=['GET'])
+@login_required_api(role=['operativo','tecnico','tecnicos'])
+def api_operativo_cierre_ciclo_pending_backlog():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        tip_arg = request.args.get('tip', '').strip()
+        pending = _compute_pending_cierres_backlog(connection, tip_arg)
+        return jsonify({'success': True, 'pending': pending})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/operativo/cierre-ciclo/pending-month', methods=['GET'])
+@login_required_api(role=['operativo','tecnico','tecnicos'])
+def api_operativo_cierre_ciclo_pending_month():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        tip_arg = request.args.get('tip', '').strip() or 'CLIENTE INCONFORME'
+        pending = _compute_pending_cierres_month(connection, tip_arg)
+        return jsonify({'success': True, 'pending': pending})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 

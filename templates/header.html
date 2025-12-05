@@ -495,6 +495,48 @@
     })();
     </script>
 
+    <script>
+    (function(){
+        function mostrarAlertaBacklog(pendHoy, pendBacklog){
+            try{
+                const msg = 'Cierres de ciclo — Hoy: '+(pendHoy||0)+' • Días anteriores: '+(pendBacklog||0);
+                if (window.Swal){
+                    window.Swal.fire({ icon:'warning', title:'Cierres pendientes', text: msg, confirmButtonText:'Ir a Cierre de Ciclo' }).then(function(){ window.location.href = '/operativo/cierre-ciclo'; });
+                } else {
+                    alert(msg);
+                    window.location.href = '/operativo/cierre-ciclo';
+                }
+            }catch(e){ }
+        }
+        async function verificarBacklog(){
+            try{
+                const role = {{ session.get('user_role')|tojson }};
+                if (!role || !['operativo','tecnicos','tecnico','Tecnico','Tecnicos'].includes(role)) return;
+                const today = new Date();
+                const y = today.getFullYear();
+                const m = String(today.getMonth()+1).padStart(2,'0');
+                const d0 = String(today.getDate()).padStart(2,'0');
+                const key = 'cierreBacklogAlert_'+y+'-'+m+'-'+d0;
+                if (localStorage.getItem(key)) return;
+                const [rBacklog, rHoy] = await Promise.all([
+                    fetch('/api/operativo/cierre-ciclo/pending-backlog?'+new URLSearchParams({ tip: 'CLIENTE INCONFORME' }), { credentials: 'include' }),
+                    fetch('/api/operativo/cierre-ciclo?'+new URLSearchParams({ fecha: y+'-'+m+'-'+d0, tipificacion: 'CLIENTE INCONFORME' }), { credentials: 'include' })
+                ]);
+                const dBacklog = await rBacklog.json();
+                const dHoy = await rHoy.json();
+                const pendBacklog = (dBacklog && dBacklog.success) ? Number(dBacklog.pending||0) : 0;
+                const hoyRows = (dHoy && dHoy.success) ? (dHoy.data||[]) : [];
+                const pendHoy = hoyRows.filter(r => (r.estado_super||'') !== 'Completado').length;
+                if (pendBacklog > 0 || pendHoy > 0){
+                    mostrarAlertaBacklog(pendHoy, pendBacklog);
+                    localStorage.setItem(key, '1');
+                }
+            }catch(e){ }
+        }
+        document.addEventListener('DOMContentLoaded', function(){ verificarBacklog(); });
+    })();
+    </script>
+
     <!-- Votaciones Popup al iniciar sesión -->
     <script>
     (function(){

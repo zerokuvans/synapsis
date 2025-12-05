@@ -36,7 +36,7 @@
                                 <i class="fas fa-search me-2"></i>Buscar
                             </button>
                             {% endif %}
-                            <span class="ms-auto text-muted">Total: <span id="totalRegistros">0</span></span>
+                            <span class="ms-auto text-muted">Total: <span id="totalRegistros">0</span> • Pend. mes: <span id="pendMesBadge" class="badge bg-warning text-dark">0</span></span>
                         </div>
                     </div>
                     <div class="table-responsive">
@@ -132,6 +132,7 @@ async function buscar(){
             </td>
         </tr>`
     }).join('');
+    await actualizarPendientesMes();
 }
 document.addEventListener('DOMContentLoaded',()=>{
     const f=document.getElementById('fechaFiltro');
@@ -148,7 +149,18 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(btn){
         btn.addEventListener('click',buscar);
     }
+    actualizarPendientesMes();
 });
+async function actualizarPendientesMes(){
+    try{
+        const tip=document.getElementById('tipificacionFiltro').value;
+        const r=await fetch('/api/operativo/cierre-ciclo/pending-month?'+new URLSearchParams({tip:tip}),{credentials:'include'});
+        const d=await r.json();
+        const v=(d&&d.success)?Number(d.pending||0):0;
+        const el=document.getElementById('pendMesBadge');
+        if(el)el.textContent=String(v);
+    }catch(e){}
+}
 async function abrirGestion(ot, cuenta){
     const modalEl=document.getElementById('modalGestionSuper');
     const m=new bootstrap.Modal(modalEl);
