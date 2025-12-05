@@ -1824,6 +1824,17 @@
                             <p class="mt-2 mb-0">Cargando historial de cambios...</p>
                         </div>
                     </div>
+                    <div class="pagination-controls mt-3">
+                        <div>
+                            <button type="button" class="btn btn-outline-primary" id="btnHistAnterior" onclick="cambiarPaginaHistorial(-1)">
+                                <i class="fas fa-chevron-left me-1"></i>Anterior
+                            </button>
+                            <button type="button" class="btn btn-outline-primary ms-2" id="btnHistSiguiente" onclick="cambiarPaginaHistorial(1)">
+                                Siguiente<i class="fas fa-chevron-right ms-1"></i>
+                            </button>
+                        </div>
+                        <span class="pagination-info" id="histPaginationInfo">Página 1 de 1 (0 cambios)</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2774,6 +2785,8 @@ console.log('🔄 Cambios Dotación JS cargado - Versión:', new Date().getTime(
 
 // Variable global para almacenar los datos de cambios
 let cambiosData = [];
+let paginaActualHistorial = 1;
+const elementosPorPaginaHistorial = 10;
 
 // Funcionalidad para el colapso del formulario de registro
 document.addEventListener('DOMContentLoaded', function() {
@@ -3167,9 +3180,8 @@ function cargarHistorialCambios() {
 }
 
 // Función para mostrar los datos del historial en la tabla
-function mostrarHistorialCambios(cambios) {
-    // Almacenar los datos globalmente para uso en edición
-    cambiosData = cambios;
+function renderHistorialCambios(cambios) {
+    // Renderiza una porción de datos sin modificar el dataset global
     
     const tbodyDesktop = document.querySelector('#tablaHistorialCambiosDesktop tbody');
     const mobileContainer = document.getElementById('mobileCardsContainer');
@@ -3365,6 +3377,69 @@ function mostrarHistorialCambios(cambios) {
             mobileContainer.appendChild(card);
         }
     });
+}
+
+function mostrarHistorialCambios(cambios) {
+    cambiosData = cambios || [];
+    paginaActualHistorial = 1;
+    renderPaginaHistorial();
+    actualizarPaginacionHistorial();
+}
+
+function renderPaginaHistorial() {
+    const tbodyDesktop = document.querySelector('#tablaHistorialCambiosDesktop tbody');
+    const mobileContainer = document.getElementById('mobileCardsContainer');
+    if (!cambiosData || cambiosData.length === 0) {
+        if (tbodyDesktop) {
+            tbodyDesktop.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-muted">
+                        <i class="fas fa-info-circle me-2"></i>
+                        No hay cambios de dotación registrados
+                    </td>
+                </tr>
+            `;
+        }
+        if (mobileContainer) {
+            mobileContainer.innerHTML = `
+                <div class="text-center p-4 text-muted">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No hay cambios de dotación registrados
+                </div>
+            `;
+        }
+        return;
+    }
+    const inicio = (paginaActualHistorial - 1) * elementosPorPaginaHistorial;
+    const fin = inicio + elementosPorPaginaHistorial;
+    const cambiosPagina = cambiosData.slice(inicio, fin);
+    if (tbodyDesktop) {
+        tbodyDesktop.innerHTML = '';
+    }
+    if (mobileContainer) {
+        mobileContainer.innerHTML = '';
+    }
+    renderHistorialCambios(cambiosPagina);
+}
+
+function actualizarPaginacionHistorial() {
+    const totalPaginas = Math.ceil((cambiosData.length || 0) / elementosPorPaginaHistorial) || 1;
+    const btnAnterior = document.getElementById('btnHistAnterior');
+    const btnSiguiente = document.getElementById('btnHistSiguiente');
+    const paginationInfo = document.getElementById('histPaginationInfo');
+    if (btnAnterior) btnAnterior.disabled = paginaActualHistorial <= 1 || cambiosData.length === 0;
+    if (btnSiguiente) btnSiguiente.disabled = paginaActualHistorial >= totalPaginas || cambiosData.length === 0;
+    if (paginationInfo) paginationInfo.textContent = `Página ${paginaActualHistorial} de ${totalPaginas} (${cambiosData.length} cambios)`;
+}
+
+function cambiarPaginaHistorial(direccion) {
+    const totalPaginas = Math.ceil((cambiosData.length || 0) / elementosPorPaginaHistorial) || 1;
+    const nuevaPagina = paginaActualHistorial + direccion;
+    if (nuevaPagina >= 1 && nuevaPagina <= totalPaginas) {
+        paginaActualHistorial = nuevaPagina;
+        renderPaginaHistorial();
+        actualizarPaginacionHistorial();
+    }
 }
 
 // Función para mostrar detalles del cambio en el modal

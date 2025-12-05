@@ -22758,6 +22758,11 @@ def sgis_reportes_epp_page():
 def sgis_reportes_escaleras_page():
     return render_template('modulos/sgis/reportes_escaleras.html')
 
+@app.route('/sgis/reportes/caidas')
+@login_required(role='administrativo')
+def sgis_reportes_caidas_page():
+    return render_template('modulos/sgis/reportes_caidas.html')
+
 @app.route('/api/sgis/preoperacional-epp', methods=['POST'])
 @login_required_api()
 def api_sgis_preoperacional_epp():
@@ -23386,6 +23391,264 @@ def api_sgis_reportes_preop_matriz_escaleras():
         }
         matriz = { 'generalidades': gen }
         return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'matriz': matriz, 'observaciones': observaciones, 'firmas': firmas})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/reportes/preop-matriz-caidas', methods=['GET'])
+@login_required_api(role='administrativo')
+def api_sgis_reportes_preop_matriz_caidas():
+    try:
+        cedula = request.args.get('cedula')
+        mes = request.args.get('mes')
+        if not cedula:
+            return jsonify({'success': False, 'error': 'Cédula requerida'}), 400
+        if mes:
+            try:
+                inicio = datetime.strptime(mes + '-01', '%Y-%m-%d').date()
+            except ValueError:
+                inicio = get_bogota_datetime().date().replace(day=1)
+        else:
+            inicio = get_bogota_datetime().date().replace(day=1)
+        if inicio.month == 12:
+            fin = inicio.replace(year=inicio.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            fin = inicio.replace(month=inicio.month + 1, day=1) - timedelta(days=1)
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_pre_proteccion_caidas (
+                id_sgis_pre_proteccion_caidas INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                cargo VARCHAR(128) NULL,
+                sgis_pre_proteccion_caidas_arnes_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_arnes_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_arnes_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_arnes_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_arnes_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_arnes_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_arnes_fibra_rota VARCHAR(4),
+                sgis_pre_proteccion_caidas_arnes_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_arnes_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_arnes_impacto VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_eslinga_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_eslinga_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_eslinga_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_eslinga_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_eslinga_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_fibra_rota VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_impacto VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_anclaje_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_anclaje_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_anclaje_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_anclaje_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_anclaje_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_fibra_rota VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_impacto VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_linea_vida_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_linea_vida_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_linea_vida_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_linea_vida_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_linea_vida_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_fibra_rota VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_impacto VARCHAR(4),
+                sgis_pre_proteccion_caidas_mosqueton_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_mosqueton_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_mosqueton_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_mosqueton_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_mosqueton_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_mosqueton_fisural VARCHAR(4),
+                sgis_pre_proteccion_caidas_mosqueton_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_mosqueton_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_pretales_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_pretales_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_pretales_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_pretales_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_pretales_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_pretales_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_pretales_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_pretales_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidascol VARCHAR(45),
+                observacion TEXT,
+                fecha_registro DATETIME,
+                fecha_dia DATE,
+                firma LONGTEXT,
+                cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                fecha DATETIME,
+                firma_base64 LONGTEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.cursor().execute(ddl)
+        cursor.execute(
+            """
+            SELECT fecha_dia,
+                   sgis_pre_proteccion_caidas_arnes_marca,
+                   sgis_pre_proteccion_caidas_arnes_modelo,
+                   sgis_pre_proteccion_caidas_arnes_serie,
+                   sgis_pre_proteccion_caidas_arnes_lote,
+                   sgis_pre_proteccion_caidas_arnes_fecha_fabri,
+                   sgis_pre_proteccion_caidas_arnes_fisura,
+                   sgis_pre_proteccion_caidas_arnes_fibra_rota,
+                   sgis_pre_proteccion_caidas_arnes_deterioro,
+                   sgis_pre_proteccion_caidas_arnes_manchas,
+                   sgis_pre_proteccion_caidas_arnes_impacto,
+                   sgis_pre_proteccion_caidas_eslinga_marca,
+                   sgis_pre_proteccion_caidas_eslinga_modelo,
+                   sgis_pre_proteccion_caidas_eslinga_serie,
+                   sgis_pre_proteccion_caidas_eslinga_lote,
+                   sgis_pre_proteccion_caidas_eslinga_fecha_fabri,
+                   sgis_pre_proteccion_caidas_eslinga_fisura,
+                   sgis_pre_proteccion_caidas_eslinga_fibra_rota,
+                   sgis_pre_proteccion_caidas_eslinga_deterioro,
+                   sgis_pre_proteccion_caidas_eslinga_manchas,
+                   sgis_pre_proteccion_caidas_eslinga_impacto,
+                   sgis_pre_proteccion_caidas_anclaje_marca,
+                   sgis_pre_proteccion_caidas_anclaje_modelo,
+                   sgis_pre_proteccion_caidas_anclaje_serie,
+                   sgis_pre_proteccion_caidas_anclaje_lote,
+                   sgis_pre_proteccion_caidas_anclaje_fecha_fabri,
+                   sgis_pre_proteccion_caidas_anclaje_fisura,
+                   sgis_pre_proteccion_caidas_anclaje_fibra_rota,
+                   sgis_pre_proteccion_caidas_anclaje_deterioro,
+                   sgis_pre_proteccion_caidas_anclaje_manchas,
+                   sgis_pre_proteccion_caidas_anclaje_impacto,
+                   sgis_pre_proteccion_caidas_linea_vida_marca,
+                   sgis_pre_proteccion_caidas_linea_vida_modelo,
+                   sgis_pre_proteccion_caidas_linea_vida_serie,
+                   sgis_pre_proteccion_caidas_linea_vida_lote,
+                   sgis_pre_proteccion_caidas_linea_vida_fecha_fabri,
+                   sgis_pre_proteccion_caidas_linea_vida_fisura,
+                   sgis_pre_proteccion_caidas_linea_vida_fibra_rota,
+                   sgis_pre_proteccion_caidas_linea_vida_deterioro,
+                   sgis_pre_proteccion_caidas_linea_vida_manchas,
+                   sgis_pre_proteccion_caidas_linea_vida_impacto,
+                   sgis_pre_proteccion_caidas_mosqueton_marca,
+                   sgis_pre_proteccion_caidas_mosqueton_modelo,
+                   sgis_pre_proteccion_caidas_mosqueton_serie,
+                   sgis_pre_proteccion_caidas_mosqueton_lote,
+                   sgis_pre_proteccion_caidas_mosqueton_fecha_fabri,
+                   sgis_pre_proteccion_caidas_mosqueton_fisural,
+                   sgis_pre_proteccion_caidas_mosqueton_deterioro,
+                   sgis_pre_proteccion_caidas_mosqueton_manchas,
+                   sgis_pre_proteccion_caidas_pretales_marca,
+                   sgis_pre_proteccion_caidas_pretales_modelo,
+                   sgis_pre_proteccion_caidas_pretales_serie,
+                   sgis_pre_proteccion_caidas_pretales_lote,
+                   sgis_pre_proteccion_caidas_pretales_fecha_fabri,
+                   sgis_pre_proteccion_caidas_pretales_fisura,
+                   sgis_pre_proteccion_caidas_pretales_deterioro,
+                   sgis_pre_proteccion_caidas_pretales_manchas,
+                   observacion,
+                   firma_base64,
+                   firma
+            FROM sgis_pre_proteccion_caidas
+            WHERE cedula = %s AND fecha_dia BETWEEN %s AND %s
+            ORDER BY fecha_dia
+            """,
+            (cedula, inicio, fin)
+        )
+        rows = cursor.fetchall()
+        ultimo_dia = fin.day
+        def arr():
+            return ['' for _ in range(31)]
+        matriz = {
+            'arnes': { 'fisura': arr(), 'fibra_rota': arr(), 'deterioro': arr(), 'manchas': arr(), 'impacto': arr() },
+            'eslinga': { 'fisura': arr(), 'fibra_rota': arr(), 'deterioro': arr(), 'manchas': arr(), 'impacto': arr() },
+            'anclaje': { 'fisura': arr(), 'fibra_rota': arr(), 'deterioro': arr(), 'manchas': arr(), 'impacto': arr() },
+            'linea_vida': { 'fisura': arr(), 'fibra_rota': arr(), 'deterioro': arr(), 'manchas': arr(), 'impacto': arr() },
+            'mosqueton': { 'fisural': arr(), 'deterioro': arr(), 'manchas': arr() },
+            'pretales': { 'fisura': arr(), 'deterioro': arr(), 'manchas': arr() }
+        }
+        observaciones = arr()
+        firmas = arr()
+        meta = {
+            'arnes': {'marca':'','modelo':'','serie':'','lote':'','fecha_fabri':''},
+            'eslinga': {'marca':'','modelo':'','serie':'','lote':'','fecha_fabri':''},
+            'anclaje': {'marca':'','modelo':'','serie':'','lote':'','fecha_fabri':''},
+            'linea_vida': {'marca':'','modelo':'','serie':'','lote':'','fecha_fabri':''},
+            'mosqueton': {'marca':'','modelo':'','serie':'','lote':'','fecha_fabri':''},
+            'pretales': {'marca':'','modelo':'','serie':'','lote':'','fecha_fabri':''}
+        }
+        for row in rows:
+            d = row['fecha_dia'].day
+            idx = d - 1
+            if 0 <= idx < 31:
+                matriz['arnes']['fisura'][idx] = row.get('sgis_pre_proteccion_caidas_arnes_fisura') or ''
+                matriz['arnes']['fibra_rota'][idx] = row.get('sgis_pre_proteccion_caidas_arnes_fibra_rota') or ''
+                matriz['arnes']['deterioro'][idx] = row.get('sgis_pre_proteccion_caidas_arnes_deterioro') or ''
+                matriz['arnes']['manchas'][idx] = row.get('sgis_pre_proteccion_caidas_arnes_manchas') or ''
+                matriz['arnes']['impacto'][idx] = row.get('sgis_pre_proteccion_caidas_arnes_impacto') or ''
+                matriz['eslinga']['fisura'][idx] = row.get('sgis_pre_proteccion_caidas_eslinga_fisura') or ''
+                matriz['eslinga']['fibra_rota'][idx] = row.get('sgis_pre_proteccion_caidas_eslinga_fibra_rota') or ''
+                matriz['eslinga']['deterioro'][idx] = row.get('sgis_pre_proteccion_caidas_eslinga_deterioro') or ''
+                matriz['eslinga']['manchas'][idx] = row.get('sgis_pre_proteccion_caidas_eslinga_manchas') or ''
+                matriz['eslinga']['impacto'][idx] = row.get('sgis_pre_proteccion_caidas_eslinga_impacto') or ''
+                matriz['anclaje']['fisura'][idx] = row.get('sgis_pre_proteccion_caidas_anclaje_fisura') or ''
+                matriz['anclaje']['fibra_rota'][idx] = row.get('sgis_pre_proteccion_caidas_anclaje_fibra_rota') or ''
+                matriz['anclaje']['deterioro'][idx] = row.get('sgis_pre_proteccion_caidas_anclaje_deterioro') or ''
+                matriz['anclaje']['manchas'][idx] = row.get('sgis_pre_proteccion_caidas_anclaje_manchas') or ''
+                matriz['anclaje']['impacto'][idx] = row.get('sgis_pre_proteccion_caidas_anclaje_impacto') or ''
+                matriz['linea_vida']['fisura'][idx] = row.get('sgis_pre_proteccion_caidas_linea_vida_fisura') or ''
+                matriz['linea_vida']['fibra_rota'][idx] = row.get('sgis_pre_proteccion_caidas_linea_vida_fibra_rota') or ''
+                matriz['linea_vida']['deterioro'][idx] = row.get('sgis_pre_proteccion_caidas_linea_vida_deterioro') or ''
+                matriz['linea_vida']['manchas'][idx] = row.get('sgis_pre_proteccion_caidas_linea_vida_manchas') or ''
+                matriz['linea_vida']['impacto'][idx] = row.get('sgis_pre_proteccion_caidas_linea_vida_impacto') or ''
+                matriz['mosqueton']['fisural'][idx] = row.get('sgis_pre_proteccion_caidas_mosqueton_fisural') or ''
+                matriz['mosqueton']['deterioro'][idx] = row.get('sgis_pre_proteccion_caidas_mosqueton_deterioro') or ''
+                matriz['mosqueton']['manchas'][idx] = row.get('sgis_pre_proteccion_caidas_mosqueton_manchas') or ''
+                matriz['pretales']['fisura'][idx] = row.get('sgis_pre_proteccion_caidas_pretales_fisura') or ''
+                matriz['pretales']['deterioro'][idx] = row.get('sgis_pre_proteccion_caidas_pretales_deterioro') or ''
+                matriz['pretales']['manchas'][idx] = row.get('sgis_pre_proteccion_caidas_pretales_manchas') or ''
+                observaciones[idx] = (row.get('observacion') or '').strip()
+                firmas[idx] = (row.get('firma_base64') or row.get('firma') or '')
+                def set_meta(sec, pref):
+                    v_marca = (row.get(f'{pref}_marca') or '').strip()
+                    v_modelo = (row.get(f'{pref}_modelo') or '').strip()
+                    v_serie = (row.get(f'{pref}_serie') or '').strip()
+                    v_lote = (row.get(f'{pref}_lote') or '').strip()
+                    v_fecha = row.get(f'{pref}_fecha_fabri')
+                    if v_marca: meta[sec]['marca'] = v_marca
+                    if v_modelo: meta[sec]['modelo'] = v_modelo
+                    if v_serie: meta[sec]['serie'] = v_serie
+                    if v_lote: meta[sec]['lote'] = v_lote
+                    if v_fecha: meta[sec]['fecha_fabri'] = v_fecha.strftime('%Y-%m-%d') if hasattr(v_fecha, 'strftime') else str(v_fecha)
+                set_meta('arnes', 'sgis_pre_proteccion_caidas_arnes')
+                set_meta('eslinga', 'sgis_pre_proteccion_caidas_eslinga')
+                set_meta('anclaje', 'sgis_pre_proteccion_caidas_anclaje')
+                set_meta('linea_vida', 'sgis_pre_proteccion_caidas_linea_vida')
+                set_meta('mosqueton', 'sgis_pre_proteccion_caidas_mosqueton')
+                set_meta('pretales', 'sgis_pre_proteccion_caidas_pretales')
+        cursor.execute("SELECT nombre, cargo, carpeta FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+        u = cursor.fetchone() or {}
+        info = { 'nombre': u.get('nombre') or '', 'cedula': cedula, 'cargo': u.get('cargo') or '', 'area': u.get('carpeta') or '' }
+        return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'matriz': matriz, 'meta': meta, 'observaciones': observaciones, 'firmas': firmas})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
@@ -24056,6 +24319,309 @@ def api_sgis_pre_escaleras_save():
             data['senal_seguridad'], data['aseo_escalera'],
             marca, cant, obs_txt,
             fecha, firma_base64, fecha_dia, ced, nombre, fecha, firma_base64
+        )
+        cursor.execute(sql, params)
+        connection.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/pre-caidas/status', methods=['GET'])
+@login_required_api()
+def api_sgis_pre_caidas_status():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_pre_proteccion_caidas (
+                id_sgis_pre_proteccion_caidas INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                cargo VARCHAR(128) NULL,
+                sgis_pre_proteccion_caidas_arnes_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_arnes_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_arnes_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_arnes_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_arnes_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_arnes_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_arnes_fibra_rota VARCHAR(4),
+                sgis_pre_proteccion_caidas_arnes_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_arnes_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_arnes_impacto VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_eslinga_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_eslinga_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_eslinga_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_eslinga_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_eslinga_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_fibra_rota VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_impacto VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_anclaje_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_anclaje_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_anclaje_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_anclaje_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_anclaje_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_fibra_rota VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_impacto VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_linea_vida_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_linea_vida_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_linea_vida_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_linea_vida_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_linea_vida_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_fibra_rota VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_impacto VARCHAR(4),
+                sgis_pre_proteccion_caidas_mosqueton_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_mosqueton_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_mosqueton_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_mosqueton_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_mosqueton_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_mosqueton_fisural VARCHAR(4),
+                sgis_pre_proteccion_caidas_mosqueton_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_mosqueton_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_pretales_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_pretales_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_pretales_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_pretales_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_pretales_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_pretales_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_pretales_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_pretales_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidascol VARCHAR(45),
+                observacion TEXT,
+                fecha_registro DATETIME,
+                fecha_dia DATE,
+                firma LONGTEXT,
+                cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                fecha DATETIME,
+                firma_base64 LONGTEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.cursor().execute(ddl)
+        cursor = connection.cursor(dictionary=True)
+        uid = session.get('id_codigo_consumidor')
+        hoy = get_bogota_datetime().date()
+        cursor.execute("SELECT COUNT(*) AS c FROM sgis_pre_proteccion_caidas WHERE id_codigo_consumidor=%s AND fecha_dia=%s", (uid, hoy))
+        row = cursor.fetchone()
+        return jsonify({'success': True, 'already_today': (row and row.get('c',0) > 0)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/pre-caidas', methods=['POST'])
+@login_required_api()
+def api_sgis_pre_caidas_save():
+    try:
+        data = request.get_json() or {}
+        grupos = {
+            'arnes': ['fisura','fibra_rota','deterioro','manchas','impacto'],
+            'eslinga': ['fisura','fibra_rota','deterioro','manchas','impacto'],
+            'anclaje': ['fisura','fibra_rota','deterioro','manchas','impacto'],
+            'linea_vida': ['fisura','fibra_rota','deterioro','manchas','impacto'],
+            'mosqueton': ['fisural','deterioro','manchas'],
+            'pretales': ['fisura','deterioro','manchas']
+        }
+        for g, checks in grupos.items():
+            for ckey in checks:
+                k = f"sgis_pre_proteccion_caidas_{g}_{ckey}"
+                v = (data.get(k) or '').strip()
+                if v not in ('C','NC','N/A'):
+                    return jsonify({'success': False, 'error': f'Campo inválido o faltante: {k}'}), 400
+        any_nc = any(((data.get(f"sgis_pre_proteccion_caidas_{g}_{ckey}") or '').strip() == 'NC') for g, checks in grupos.items() for ckey in checks)
+        obs_txt = (data.get('observacion') or '').strip()
+        if any_nc and not obs_txt:
+            return jsonify({'success': False, 'error': 'Observaciones requeridas por hallazgos NC'}), 400
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_pre_proteccion_caidas (
+                id_sgis_pre_proteccion_caidas INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                cargo VARCHAR(128) NULL,
+                sgis_pre_proteccion_caidas_arnes_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_arnes_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_arnes_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_arnes_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_arnes_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_arnes_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_arnes_fibra_rota VARCHAR(4),
+                sgis_pre_proteccion_caidas_arnes_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_arnes_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_arnes_impacto VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_eslinga_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_eslinga_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_eslinga_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_eslinga_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_eslinga_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_fibra_rota VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_eslinga_impacto VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_anclaje_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_anclaje_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_anclaje_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_anclaje_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_anclaje_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_fibra_rota VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_anclaje_impacto VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_linea_vida_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_linea_vida_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_linea_vida_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_linea_vida_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_linea_vida_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_fibra_rota VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_linea_vida_impacto VARCHAR(4),
+                sgis_pre_proteccion_caidas_mosqueton_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_mosqueton_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_mosqueton_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_mosqueton_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_mosqueton_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_mosqueton_fisural VARCHAR(4),
+                sgis_pre_proteccion_caidas_mosqueton_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_mosqueton_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidas_pretales_marca VARCHAR(128),
+                sgis_pre_proteccion_caidas_pretales_modelo VARCHAR(128),
+                sgis_pre_proteccion_caidas_pretales_serie VARCHAR(128),
+                sgis_pre_proteccion_caidas_pretales_lote VARCHAR(128),
+                sgis_pre_proteccion_caidas_pretales_fecha_fabri DATE,
+                sgis_pre_proteccion_caidas_pretales_fisura VARCHAR(4),
+                sgis_pre_proteccion_caidas_pretales_deterioro VARCHAR(4),
+                sgis_pre_proteccion_caidas_pretales_manchas VARCHAR(4),
+                sgis_pre_proteccion_caidascol VARCHAR(45),
+                observacion TEXT,
+                fecha_registro DATETIME,
+                fecha_dia DATE,
+                firma LONGTEXT,
+                cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                fecha DATETIME,
+                firma_base64 LONGTEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_tecnico_dia (id_codigo_consumidor, fecha_dia)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.cursor().execute(ddl)
+        cursor = connection.cursor(dictionary=True)
+        uid = session.get('id_codigo_consumidor')
+        ced = session.get('user_cedula')
+        cursor.execute("SELECT nombre, cargo FROM recurso_operativo WHERE id_codigo_consumidor = %s", (uid,))
+        urow = cursor.fetchone() or {}
+        nombre = urow.get('nombre') or session.get('user_name')
+        cargo = urow.get('cargo') or session.get('user_role')
+        fecha = get_bogota_datetime()
+        fecha_dia = fecha.date()
+        cursor.execute("SELECT COUNT(*) AS c FROM sgis_pre_proteccion_caidas WHERE id_codigo_consumidor=%s AND fecha_dia=%s", (uid, fecha_dia))
+        row = cursor.fetchone()
+        if row and row.get('c',0) > 0:
+            return jsonify({'success': False, 'error': 'Ya registraste el preoperacional hoy'}), 409
+        firma_base64 = data.get('firma_base64') or None
+        def gstr(prefix, name):
+            return (data.get(f"sgis_pre_proteccion_caidas_{prefix}_{name}") or '').strip()
+        params = (
+            uid, ced, cargo,
+            gstr('arnes','marca'), gstr('arnes','modelo'), gstr('arnes','serie'), gstr('arnes','lote'), data.get('sgis_pre_proteccion_caidas_arnes_fecha_fabri') or None,
+            gstr('arnes','fisura'), gstr('arnes','fibra_rota'), gstr('arnes','deterioro'), gstr('arnes','manchas'), gstr('arnes','impacto'),
+            gstr('eslinga','marca'), gstr('eslinga','modelo'), gstr('eslinga','serie'), gstr('eslinga','lote'), data.get('sgis_pre_proteccion_caidas_eslinga_fecha_fabri') or None,
+            gstr('eslinga','fisura'), gstr('eslinga','fibra_rota'), gstr('eslinga','deterioro'), gstr('eslinga','manchas'), gstr('eslinga','impacto'),
+            gstr('anclaje','marca'), gstr('anclaje','modelo'), gstr('anclaje','serie'), gstr('anclaje','lote'), data.get('sgis_pre_proteccion_caidas_anclaje_fecha_fabri') or None,
+            gstr('anclaje','fisura'), gstr('anclaje','fibra_rota'), gstr('anclaje','deterioro'), gstr('anclaje','manchas'), gstr('anclaje','impacto'),
+            gstr('linea_vida','marca'), gstr('linea_vida','modelo'), gstr('linea_vida','serie'), gstr('linea_vida','lote'), data.get('sgis_pre_proteccion_caidas_linea_vida_fecha_fabri') or None,
+            gstr('linea_vida','fisura'), gstr('linea_vida','fibra_rota'), gstr('linea_vida','deterioro'), gstr('linea_vida','manchas'), gstr('linea_vida','impacto'),
+            gstr('mosqueton','marca'), gstr('mosqueton','modelo'), gstr('mosqueton','serie'), gstr('mosqueton','lote'), data.get('sgis_pre_proteccion_caidas_mosqueton_fecha_fabri') or None,
+            gstr('mosqueton','fisural'), gstr('mosqueton','deterioro'), gstr('mosqueton','manchas'),
+            gstr('pretales','marca'), gstr('pretales','modelo'), gstr('pretales','serie'), gstr('pretales','lote'), data.get('sgis_pre_proteccion_caidas_pretales_fecha_fabri') or None,
+            gstr('pretales','fisura'), gstr('pretales','deterioro'), gstr('pretales','manchas'),
+            (data.get('sgis_pre_proteccion_caidascol') or '').strip(),
+            obs_txt,
+            fecha,
+            fecha_dia,
+            firma_base64,
+            ced,
+            nombre,
+            fecha,
+            firma_base64
+        )
+        sql = (
+            """
+            INSERT INTO sgis_pre_proteccion_caidas (
+                id_codigo_consumidor, recurso_operativo_cedula, cargo,
+                sgis_pre_proteccion_caidas_arnes_marca, sgis_pre_proteccion_caidas_arnes_modelo, sgis_pre_proteccion_caidas_arnes_serie, sgis_pre_proteccion_caidas_arnes_lote, sgis_pre_proteccion_caidas_arnes_fecha_fabri,
+                sgis_pre_proteccion_caidas_arnes_fisura, sgis_pre_proteccion_caidas_arnes_fibra_rota, sgis_pre_proteccion_caidas_arnes_deterioro, sgis_pre_proteccion_caidas_arnes_manchas, sgis_pre_proteccion_caidas_arnes_impacto,
+                sgis_pre_proteccion_caidas_eslinga_marca, sgis_pre_proteccion_caidas_eslinga_modelo, sgis_pre_proteccion_caidas_eslinga_serie, sgis_pre_proteccion_caidas_eslinga_lote, sgis_pre_proteccion_caidas_eslinga_fecha_fabri,
+                sgis_pre_proteccion_caidas_eslinga_fisura, sgis_pre_proteccion_caidas_eslinga_fibra_rota, sgis_pre_proteccion_caidas_eslinga_deterioro, sgis_pre_proteccion_caidas_eslinga_manchas, sgis_pre_proteccion_caidas_eslinga_impacto,
+                sgis_pre_proteccion_caidas_anclaje_marca, sgis_pre_proteccion_caidas_anclaje_modelo, sgis_pre_proteccion_caidas_anclaje_serie, sgis_pre_proteccion_caidas_anclaje_lote, sgis_pre_proteccion_caidas_anclaje_fecha_fabri,
+                sgis_pre_proteccion_caidas_anclaje_fisura, sgis_pre_proteccion_caidas_anclaje_fibra_rota, sgis_pre_proteccion_caidas_anclaje_deterioro, sgis_pre_proteccion_caidas_anclaje_manchas, sgis_pre_proteccion_caidas_anclaje_impacto,
+                sgis_pre_proteccion_caidas_linea_vida_marca, sgis_pre_proteccion_caidas_linea_vida_modelo, sgis_pre_proteccion_caidas_linea_vida_serie, sgis_pre_proteccion_caidas_linea_vida_lote, sgis_pre_proteccion_caidas_linea_vida_fecha_fabri,
+                sgis_pre_proteccion_caidas_linea_vida_fisura, sgis_pre_proteccion_caidas_linea_vida_fibra_rota, sgis_pre_proteccion_caidas_linea_vida_deterioro, sgis_pre_proteccion_caidas_linea_vida_manchas, sgis_pre_proteccion_caidas_linea_vida_impacto,
+                sgis_pre_proteccion_caidas_mosqueton_marca, sgis_pre_proteccion_caidas_mosqueton_modelo, sgis_pre_proteccion_caidas_mosqueton_serie, sgis_pre_proteccion_caidas_mosqueton_lote, sgis_pre_proteccion_caidas_mosqueton_fecha_fabri,
+                sgis_pre_proteccion_caidas_mosqueton_fisural, sgis_pre_proteccion_caidas_mosqueton_deterioro, sgis_pre_proteccion_caidas_mosqueton_manchas,
+                sgis_pre_proteccion_caidas_pretales_marca, sgis_pre_proteccion_caidas_pretales_modelo, sgis_pre_proteccion_caidas_pretales_serie, sgis_pre_proteccion_caidas_pretales_lote, sgis_pre_proteccion_caidas_pretales_fecha_fabri,
+                sgis_pre_proteccion_caidas_pretales_fisura, sgis_pre_proteccion_caidas_pretales_deterioro, sgis_pre_proteccion_caidas_pretales_manchas,
+                sgis_pre_proteccion_caidascol,
+                observacion, fecha_registro, fecha_dia, firma, cedula, nombre, fecha, firma_base64
+            ) VALUES (
+                %s,%s,%s,
+                %s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,
+                %s,%s,%s,
+                %s,%s,%s,%s,%s,
+                %s,%s,%s,
+                %s,
+                %s,%s,%s,%s,%s,%s,%s,%s
+            )
+            """
         )
         cursor.execute(sql, params)
         connection.commit()

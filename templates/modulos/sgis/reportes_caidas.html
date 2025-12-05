@@ -4,8 +4,8 @@
   <div class="row">
     <div class="col-12">
       <div class="card shadow-sm">
-        <div class="card-header text-white fw-bold" style="background: linear-gradient(135deg, #1e293b 0%, #0ea5e9 100%) !important;">
-          <h4 class="mb-0"><i class="fas fa-file-alt me-2"></i>Reportes SGIS · Pre-operacional EPP</h4>
+        <div class="card-header text-white fw-bold" style="background: linear-gradient(135deg, #1e293b 0%, #10b981 100%) !important;">
+          <h4 class="mb-0"><i class="fas fa-user-shield me-2"></i>Reportes SGIS · Protección contra Caídas</h4>
         </div>
         <div class="card-body">
           <div class="row g-3 mb-3">
@@ -14,7 +14,7 @@
               <input type="month" id="filtroMes" class="form-control">
             </div>
             <div class="col-md-4 align-self-end">
-              <button id="btnCargar" class="btn btn-primary w-100"><i class="fas fa-sync me-2"></i>Cargar técnicos</button>
+              <button id="btnCargar" class="btn btn-success w-100"><i class="fas fa-sync me-2"></i>Cargar técnicos</button>
             </div>
           </div>
           <div class="table-responsive">
@@ -39,7 +39,7 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title"><i class="fas fa-clipboard-check me-2"></i>Pre-operacional mensual</h5>
+        <h5 class="modal-title"><i class="fas fa-clipboard-check me-2"></i>Pre-operacional mensual · Caídas</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
@@ -51,7 +51,6 @@
           .tpl-box{border:1px solid #dee2e6;border-radius:4px;min-height:32px;padding:.25rem .5rem}
           .tpl-seccion-title{display:flex;align-items:center;gap:.5rem;background:#0f3d61;color:#fff;padding:.4rem .6rem;border-radius:4px;margin:10px 0}
           .tpl-seccion-title i{font-size:1.1rem}
-          .tpl-head-merge{background:#143c60;color:#fff}
           .tpl-head-days th{min-width:28px;text-align:center}
           .tpl-firma{border-top:3px solid #0f3d61;margin-top:12px;padding-top:10px}
           .tpl-firma .firma-box{border:1px solid #0f3d61;border-radius:4px;height:120px}
@@ -71,7 +70,7 @@
           .item-img{width:70px;height:70px;object-fit:contain;margin-right:.5rem;vertical-align:middle}
         </style>
         <div class="tpl-grid p-3 mb-3">
-          <div class="tpl-bar mb-2">INSPECCIÓN PRE-OPERACIONAL DE ELEMENTOS DE PROTECCIÓN PERSONAL</div>
+          <div class="tpl-bar mb-2">INSPECCIÓN PRE-OPERACIONAL DE PROTECCIÓN CONTRA CAÍDAS</div>
           <div class="row g-2 mb-2">
             <div class="col-sm-6">
               <div class="tpl-label">Nombre y apellidos</div>
@@ -114,7 +113,7 @@
         <div class="small text-muted mt-2">Leyenda: C = Cumple · NC = No Cumple · N/A = No Aplica</div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-outline-danger" id="btnExportarPDF"><i class="fas fa-file-pdf me-2"></i>Exportar PDF</button>
+        <button type="button" class="btn btn-outline-success" id="btnExportarPDF"><i class="fas fa-file-pdf me-2"></i>Exportar PDF</button>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
@@ -127,20 +126,8 @@
 <script>
 let ultimoDetalle = null;
 let ultimoNoLaborales = null;
-function addDays(base, days){ const d = new Date(base.getFullYear(), base.getMonth(), base.getDate()); d.setDate(d.getDate()+days); return d; }
-function easterDate(year){ const a = year % 19; const b = Math.floor(year / 100); const c = year % 100; const d = Math.floor(b / 4); const e = b % 4; const f = Math.floor((b + 8) / 25); const g = Math.floor((b - f + 1) / 3); const h = (19 * a + b - d - g + 15) % 30; const i = Math.floor(c / 4); const k = c % 4; const l = (32 + 2 * e + 2 * i - h - k) % 7; const m = Math.floor((a + 11 * h + 22 * l) / 451); const month = Math.floor((h + l - 7 * m + 114) / 31) - 1; const day = ((h + l - 7 * m + 114) % 31) + 1; return new Date(year, month, day); }
-function observedMonday(year, month, day){ const d = new Date(year, month, day); const dow = d.getDay(); const shift = (8 - dow) % 7; d.setDate(d.getDate() + shift); return d; }
-function colombiaFestivos(year){ const res = []; res.push(new Date(year,0,1)); res.push(new Date(year,4,1)); res.push(new Date(year,6,20)); res.push(new Date(year,7,7)); res.push(new Date(year,11,8)); res.push(new Date(year,11,25)); const easter = easterDate(year); res.push(addDays(easter,-3)); res.push(addDays(easter,-2)); res.push(observedMonday(year,0,6)); res.push(observedMonday(year,2,19)); res.push(observedMonday(year,5,29)); res.push(observedMonday(year,7,15)); res.push(observedMonday(year,9,12)); res.push(observedMonday(year,10,1)); res.push(observedMonday(year,10,11)); res.push(addDays(easter,43)); res.push(addDays(easter,64)); res.push(addDays(easter,69)); return res; }
-function computeNoLaboralSet(mes, ultimoDia){ const parts = mes.split('-'); const year = Number(parts[0]); const month = Number(parts[1]) - 1; const hol = colombiaFestivos(year); const set = new Set(); for(let d=1; d<=ultimoDia; d++){ const dt = new Date(year, month, d); if(dt.getDay() === 0) set.add(d); } hol.forEach(h=>{ if(h.getFullYear() === year && h.getMonth() === month) set.add(h.getDate()); }); return set; }
-function valorMesActual(){
-  const d = new Date();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  return `${d.getFullYear()}-${m}`;
-}
-function setMesInicial(){
-  const i = document.getElementById('filtroMes');
-  if(i && !i.value) i.value = valorMesActual();
-}
+function valorMesActual(){ const d = new Date(); const m = String(d.getMonth()+1).padStart(2,'0'); return `${d.getFullYear()}-${m}`; }
+function setMesInicial(){ const i = document.getElementById('filtroMes'); if(i && !i.value) i.value = valorMesActual(); }
 function cargarTecnicos(){
   const mes = document.getElementById('filtroMes').value;
   fetch(`/api/sgis/reportes/tecnicos-mes?mes=${encodeURIComponent(mes)}`)
@@ -155,8 +142,8 @@ function cargarTecnicos(){
             <td>${t.nombre || ''}</td>
             <td>${t.cedula || ''}</td>
             <td>
-              <button class="btn btn-outline-primary btn-sm" data-cedula="${t.cedula}" data-nombre="${t.nombre}">
-                <i class="fas fa-hard-hat me-1"></i>Preoperacional
+              <button class=\"btn btn-outline-success btn-sm\" data-cedula=\"${t.cedula}\" data-nombre=\"${t.nombre}\"> 
+                <i class=\"fas fa-user-shield me-1\"></i>Preoperacional
               </button>
             </td>
           `;
@@ -187,32 +174,43 @@ function renderHeaderDias(ultimoDia){
   }
   return tr;
 }
-function renderFila(label, valores, icon, imgUrl){
-  const tr = document.createElement('tr');
-  const th = document.createElement('th');
-  const img = imgUrl ? `<img class="item-img" src="${imgUrl}" onerror="this.style.display='none'"/>` : '';
-  const ico = icon ? `<i class="item-icon ${icon}"></i>` : '';
-  th.innerHTML = `${img}${ico}<span>${label}</span>`;
-  tr.appendChild(th);
-  for(let i=0;i<31;i++){
-    const td = document.createElement('td');
-    const day = i+1;
-    let v = (valores[i] || '').trim();
-    if(day <= 31 && !v && ultimoNoLaborales && ultimoNoLaborales.has(day)) v = 'N/A';
-    td.textContent = v;
-    if(v === 'NC') td.className = 'table-danger';
-    else if(v === 'C') td.className = 'table-success';
-    else if(v === 'N/A') td.className = 'table-secondary';
-    tr.appendChild(td);
-  }
-  return tr;
-}
 function renderSeccion(titulo, filas, ultimoDia){
   const div = document.createElement('div');
   div.className = 'mb-3';
   const h6 = document.createElement('h6');
   h6.className = 'mb-2';
+  const meta = document.createElement('small');
+  meta.className = 'text-muted ms-2';
+  (function(){
+    const map = {
+      'ARNÉS':'arnes',
+      'ESLINGA':'eslinga',
+      'ANCLAJE':'anclaje',
+      'LÍNEA DE VIDA':'linea_vida',
+      'MOSQUETÓN':'mosqueton',
+      'PRETALES':'pretales'
+    };
+    const key = map[titulo];
+    const m = (ultimoDetalle && ultimoDetalle.meta && key) ? (ultimoDetalle.meta[key] || {}) : {};
+    const marca = (m.marca || '').trim();
+    const modelo = (m.modelo || '').trim();
+    const serie = (m.serie || '').trim();
+    const lote = (m.lote || '').trim();
+    const fecha = (m.fecha_fabri || '').trim();
+    if(marca || modelo || serie || lote || fecha){
+      const partes = [];
+      if(marca) partes.push(`Marca: ${marca}`);
+      if(modelo) partes.push(`Modelo: ${modelo}`);
+      if(serie) partes.push(`No Serie: ${serie}`);
+      if(lote) partes.push(`No Lote: ${lote}`);
+      if(fecha) partes.push(`Fecha Fabricación: ${fecha}`);
+      meta.textContent = partes.join(' · ');
+    } else {
+      meta.textContent = 'Marca · Modelo · No Serie · No Lote · Fecha Fabricación';
+    }
+  })();
   h6.textContent = titulo;
+  h6.appendChild(meta);
   div.appendChild(h6);
   const table = document.createElement('table');
   table.className = 'table table-bordered';
@@ -223,10 +221,12 @@ function renderSeccion(titulo, filas, ultimoDia){
   let icono = '';
   let imagen = '';
   let imagenAlt = '';
-  if(titulo === 'CASCO'){ icono = 'fas fa-hard-hat'; imagen = '/static/img/sgis/casco.jpg'; imagenAlt = '/static/img/sgis/casco.png'; }
-  else if(titulo === 'BARBUQUEJO'){ icono = 'fas fa-user-shield'; imagen = '/static/img/sgis/barbuquejo.jpg'; imagenAlt = '/static/img/sgis/barbuquejo.png'; }
-  else if(titulo === 'GUANTES'){ icono = 'fas fa-hand-paper'; imagen = '/static/img/sgis/guantes.jpg'; imagenAlt = '/static/img/sgis/guantes.png'; }
-  else if(titulo === 'MONOGAFAS'){ icono = 'fas fa-glasses'; imagen = '/static/img/sgis/monogafas.jpg'; imagenAlt = '/static/img/sgis/monogafas.png'; }
+  if(titulo === 'ARNÉS'){ icono = 'fas fa-user-shield'; imagen = '/static/img/sgis/arnes.jpg'; imagenAlt = '/static/img/sgis/arnes.png'; }
+  else if(titulo === 'ESLINGA'){ icono = 'fas fa-link'; imagen = '/static/img/sgis/eslinga.jpg'; imagenAlt = '/static/img/sgis/eslinga.png'; }
+  else if(titulo === 'ANCLAJE'){ icono = 'fas fa-anchor'; imagen = '/static/img/sgis/anclaje.jpg'; imagenAlt = '/static/img/sgis/anclaje.png'; }
+  else if(titulo === 'LÍNEA DE VIDA'){ icono = 'fas fa-life-ring'; imagen = '/static/img/sgis/linea_de_vida.jpg'; imagenAlt = '/static/img/sgis/linea_de_vida.png'; }
+  else if(titulo === 'MOSQUETÓN'){ icono = 'fas fa-link'; imagen = '/static/img/sgis/mosqueton.jpg'; imagenAlt = '/static/img/sgis/mosqueton.png'; }
+  else if(titulo === 'PRETALES'){ icono = 'fas fa-vest'; imagen = '/static/img/sgis/pretales.jpg'; imagenAlt = '/static/img/sgis/pretales.png'; }
   filas.forEach((f, idx)=>{
     const tr = document.createElement('tr');
     if(idx===0){
@@ -264,9 +264,14 @@ function renderSeccion(titulo, filas, ultimoDia){
   div.appendChild(table);
   return div;
 }
+function addDays(base, days){ const d = new Date(base.getFullYear(), base.getMonth(), base.getDate()); d.setDate(d.getDate()+days); return d; }
+function easterDate(year){ const a = year % 19; const b = Math.floor(year / 100); const c = year % 100; const d = Math.floor(b / 4); const e = b % 4; const f = Math.floor((b + 8) / 25); const g = Math.floor((b - f + 1) / 3); const h = (19 * a + b - d - g + 15) % 30; const i = Math.floor(c / 4); const k = c % 4; const l = (32 + 2 * e + 2 * i - h - k) % 7; const m = Math.floor((a + 11 * h + 22 * l) / 451); const month = Math.floor((h + l - 7 * m + 114) / 31) - 1; const day = ((h + l - 7 * m + 114) % 31) + 1; return new Date(year, month, day); }
+function observedMonday(year, month, day){ const d = new Date(year, month, day); const dow = d.getDay(); const shift = (8 - dow) % 7; d.setDate(d.getDate() + shift); return d; }
+function colombiaFestivos(year){ const res = []; res.push(new Date(year,0,1)); res.push(new Date(year,4,1)); res.push(new Date(year,6,20)); res.push(new Date(year,7,7)); res.push(new Date(year,11,8)); res.push(new Date(year,11,25)); const easter = easterDate(year); res.push(addDays(easter,-3)); res.push(addDays(easter,-2)); res.push(observedMonday(year,0,6)); res.push(observedMonday(year,2,19)); res.push(observedMonday(year,5,29)); res.push(observedMonday(year,7,15)); res.push(observedMonday(year,9,12)); res.push(observedMonday(year,10,1)); res.push(observedMonday(year,10,11)); res.push(addDays(easter,43)); res.push(addDays(easter,64)); res.push(addDays(easter,69)); return res; }
+function computeNoLaboralSet(mes, ultimoDia){ const parts = mes.split('-'); const year = Number(parts[0]); const month = Number(parts[1]) - 1; const hol = colombiaFestivos(year); const set = new Set(); for(let d=1; d<=ultimoDia; d++){ const dt = new Date(year, month, d); if(dt.getDay() === 0) set.add(d); } hol.forEach(h=>{ if(h.getFullYear() === year && h.getMonth() === month) set.add(h.getDate()); }); return set; }
 function abrirDetalle(cedula, nombre){
   const mes = document.getElementById('filtroMes').value;
-  fetch(`/api/sgis/reportes/preop-matriz?cedula=${encodeURIComponent(cedula)}&mes=${encodeURIComponent(mes)}`)
+  fetch(`/api/sgis/reportes/preop-matriz-caidas?cedula=${encodeURIComponent(cedula)}&mes=${encodeURIComponent(mes)}`)
     .then(r=>r.json())
     .then(d=>{
       if(d && d.success){
@@ -282,33 +287,47 @@ function abrirDetalle(cedula, nombre){
         const m = d.matriz || {};
         const obs = Array.isArray(d.observaciones) ? d.observaciones : [];
         const obsLines = [];
-        obs.forEach((txt, idx)=>{
-          const t = (txt || '').trim();
-          if(t){ obsLines.push(`Día ${idx+1}: ${t}`); }
-        });
+        obs.forEach((txt, idx)=>{ const t = (txt || '').trim(); if(t){ obsLines.push(`Día ${idx+1}: ${t}`); } });
         document.getElementById('plantObservaciones').innerHTML = obsLines.length ? obsLines.join('<br>') : '';
-        ultimoDetalle = { mes: d.mes, ultimoDia: u, info: { nombre: info.nombre || nombre || '', cedula: info.cedula || cedula || '', cargo: info.cargo || '', area: info.area || '' }, matriz: m, observaciones: obs };
+        ultimoDetalle = { mes: d.mes, ultimoDia: u, info: { nombre: info.nombre || nombre || '', cedula: info.cedula || cedula || '', cargo: info.cargo || '', area: info.area || '' }, matriz: m, meta: (d.meta || {}), observaciones: obs };
         ultimoNoLaborales = computeNoLaboralSet(d.mes, u);
-        cont.appendChild(renderSeccion('CASCO', [
-          {label:'Estado general', valores:(m.casco||{}).estado_general||[]},
-          {label:'Uso inferior a 2 años', valores:(m.casco||{}).uso_inferior_2_anios||[]},
-          {label:'Estado del talifete', valores:(m.casco||{}).estado_talifete||[]},
-          {label:'Puntos de anclaje del barbuquejo', valores:(m.casco||{}).puntos_anclaje_barbuquejo||[]}
+        cont.appendChild(renderSeccion('ARNÉS', [
+          {label:'1.Fisura, oxido, Rotura, Deformacion en hebillas y Argollas.', valores:(m.arnes||{}).fisura||[]},
+          {label:'2.Fibras rotas o grietas en reatas, cintas o cuerdas.', valores:(m.arnes||{}).fibra_rota||[]},
+          {label:'3.Deterioro, desgaste y abrasion general del elemento.', valores:(m.arnes||{}).deterioro||[]},
+          {label:'4.manchas brillantes o duras.', valores:(m.arnes||{}).manchas||[]},
+          {label:'5.Indicador de impacto.', valores:(m.arnes||{}).impacto||[]}
         ], u));
-        cont.appendChild(renderSeccion('BARBUQUEJO', [
-          {label:'Estado puntos de apoyo', valores:(m.barbuquejo||{}).puntos_apoyo||[]},
-          {label:'Estado sujetador del mentón', valores:(m.barbuquejo||{}).sujetador_menton||[]},
-          {label:'Estado costuras y correas', valores:(m.barbuquejo||{}).costuras_correas||[]}
+        cont.appendChild(renderSeccion('ESLINGA', [
+          {label:'1.Fisura, oxido, Rotura, Deformacion en hebillas y Argollas.', valores:(m.eslinga||{}).fisura||[]},
+          {label:'2.Fibras rotas o grietas en reatas, cintas o cuerdas.', valores:(m.eslinga||{}).fibra_rota||[]},
+          {label:'3.Deterioro, desgaste y abrasion general del elemento.', valores:(m.eslinga||{}).deterioro||[]},
+          {label:'4.manchas brillantes o duras.', valores:(m.eslinga||{}).manchas||[]},
+          {label:'5.Indicador de impacto.', valores:(m.eslinga||{}).impacto||[]}
         ], u));
-        cont.appendChild(renderSeccion('GUANTES', [
-          {label:'Estado costuras', valores:(m.guantes||{}).costuras||[]},
-          {label:'Estado refuerzo palmas', valores:(m.guantes||{}).refuerzo_palma||[]},
-          {label:'Estado general (sin rotos)', valores:(m.guantes||{}).estado_general||[]}
+        cont.appendChild(renderSeccion('ANCLAJE', [
+          {label:'1.Fisura, oxido, Rotura, Deformacion en hebillas y Argollas.', valores:(m.anclaje||{}).fisura||[]},
+          {label:'2.Fibras rotas o grietas en reatas, cintas o cuerdas.', valores:(m.anclaje||{}).fibra_rota||[]},
+          {label:'3.Deterioro, desgaste y abrasion general del elemento.', valores:(m.anclaje||{}).deterioro||[]},
+          {label:'4.manchas brillantes o duras.', valores:(m.anclaje||{}).manchas||[]},
+          {label:'5.Indicador de impacto.', valores:(m.anclaje||{}).impacto||[]}
         ], u));
-        cont.appendChild(renderSeccion('MONOGAFAS', [
-          {label:'Estado de lentes (sin rayones)', valores:(m.monogafas||{}).lentes_sin_rayones||[]},
-          {label:'Estado patillas', valores:(m.monogafas||{}).patillas||[]},
-          {label:'Estado puente nariz', valores:(m.monogafas||{}).puente_nariz||[]}
+        cont.appendChild(renderSeccion('LÍNEA DE VIDA', [
+          {label:'1.Fisura, oxido, Rotura, Deformacion en hebillas y Argollas.', valores:(m.linea_vida||{}).fisura||[]},
+          {label:'2.Fibras rotas o grietas en reatas, cintas o cuerdas.', valores:(m.linea_vida||{}).fibra_rota||[]},
+          {label:'3.Deterioro, desgaste y abrasion general del elemento.', valores:(m.linea_vida||{}).deterioro||[]},
+          {label:'4.manchas brillantes o duras.', valores:(m.linea_vida||{}).manchas||[]},
+          {label:'5.Indicador de impacto.', valores:(m.linea_vida||{}).impacto||[]}
+        ], u));
+        cont.appendChild(renderSeccion('MOSQUETÓN', [
+          {label:'1.Fisura, oxido, Rotura, Deformacion en hebillas y Argollas.', valores:(m.mosqueton||{}).fisural||[]},
+          {label:'3.Deterioro, desgaste y abrasion general del elemento.', valores:(m.mosqueton||{}).deterioro||[]},
+          {label:'4.manchas brillantes o duras.', valores:(m.mosqueton||{}).manchas||[]}
+        ], u));
+        cont.appendChild(renderSeccion('PRETALES', [
+          {label:'1.Fisura, oxido, Rotura, Deformacion en hebillas y Argollas.', valores:(m.pretales||{}).fisura||[]},
+          {label:'3.Deterioro, desgaste y abrasion general del elemento.', valores:(m.pretales||{}).deterioro||[]},
+          {label:'4.manchas brillantes o duras.', valores:(m.pretales||{}).manchas||[]}
         ], u));
         aplicarFirmasSemana({ mes: d.mes, ultimo_dia: u, matriz: m, firmas: Array.isArray(d.firmas) ? d.firmas : [] });
         const modal = new bootstrap.Modal(document.getElementById('modalDetallePreop'));
@@ -322,16 +341,9 @@ function aplicarFirmasSemana(det){
   const u = det.ultimo_dia || new Date(Number(det.mes.split('-')[0]), Number(det.mes.split('-')[1]), 0).getDate();
   const m = det.matriz || {};
   const firmasArr = Array.isArray(det.firmas) ? det.firmas : [];
-  function normalizar(v){
-    const t = (v || '').trim();
-    if(!t) return '';
-    if(t.startsWith('data:image')) return t;
-    if(/^https?:\/\//.test(t) || t.startsWith('/')) return t;
-    if(/^[A-Za-z0-9+/=]+$/.test(t) && t.length>100) return 'data:image/png;base64,'+t;
-    return '';
-  }
+  function normalizar(v){ const t = (v || '').trim(); if(!t) return ''; if(t.startsWith('data:image')) return t; if(/^https?:\/\//.test(t) || t.startsWith('/')) return t; if(/^[A-Za-z0-9+/=]+$/.test(t) && t.length>100) return 'data:image/png;base64,'+t; return ''; }
   function hayRegistroDia(dia){
-    return ['casco','barbuquejo','guantes','monogafas'].some(k=>{
+    return ['arnes','eslinga','anclaje','linea_vida','mosqueton','pretales'].some(k=>{
       const sec = m[k] || {};
       return Object.values(sec).some(v=>Array.isArray(v) && (v[dia-1] || '') !== '');
     });
@@ -383,7 +395,7 @@ function exportarPDF(){
   const el = document.querySelector('#modalDetallePreop .modal-content');
   const nombre = (ultimoDetalle.info?.nombre || '').replace(/[^A-Za-z0-9_\- ]/g,'');
   const ced = (ultimoDetalle.info?.cedula || '').replace(/[^0-9]/g,'');
-  const archivo = `Preop_EPP_${ced || nombre}_${ultimoDetalle.mes}.pdf`;
+  const archivo = `Preop_Caidas_${ced || nombre}_${ultimoDetalle.mes}.pdf`;
   const margin = 5;
   const hasH2C = !!(window.html2canvas);
   const hasJspdf = !!((window.jspdf && window.jspdf.jsPDF) || window.jsPDF);
@@ -405,14 +417,7 @@ function exportarPDF(){
       pdf.save(archivo);
     });
   } else if(window.html2pdf){
-    const opt = {
-      margin: 10,
-      filename: archivo,
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
-      jsPDF: { unit: 'pt', format: 'letter', orientation: 'landscape' },
-      pagebreak: { mode: ['avoid-all'] }
-    };
+    const opt = { margin: 10, filename: archivo, image: { type: 'jpeg', quality: 0.95 }, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { unit: 'pt', format: 'letter', orientation: 'landscape' }, pagebreak: { mode: ['avoid-all'] } };
     window.html2pdf().from(el).set(opt).save();
   } else {
     Swal.fire('Error','No se encontraron librerías de exportación','error');

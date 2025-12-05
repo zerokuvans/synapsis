@@ -95,6 +95,9 @@
                     <button id="btnPreopEsc" type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEscaleras" {% if not habilitar_escaleras %}disabled title="Disponible solo para APOYO CAMIONETAS"{% endif %}>
                       <i class="fas fa-stairs me-2"></i>Pre-operacional de Escaleras
                     </button>
+                    <button id="btnPreopCaidas" type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCaidas">
+                      <i class="fas fa-user-shield me-2"></i>Pre-operacional Control Caídas
+                    </button>
                   </div>
                 </div>
               </div>
@@ -516,6 +519,187 @@
   </div>
   </div>
 
+<!-- Modal Preoperacional Control Caídas -->
+<div class="modal fade" id="modalCaidas" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-user-shield me-2"></i>Pre-operacional Control de Caídas</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <div class="row g-3">
+            <div class="col-md-3"><small class="text-muted">Nombre</small><div>{{ session.get('user_name') }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Cédula</small><div>{{ session.get('user_cedula') }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Cargo</small><div>{{ session.get('user_role') }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Fecha</small><div id="fechaBogotaCaidas"></div></div>
+          </div>
+        </div>
+        <hr>
+        <form id="formCaidas">
+          <div class="mb-4 caidas-step" data-step="1">
+            <h6 class="mb-2">Arnés</h6>
+            <div class="row g-3 mb-2">
+              <div class="col-md-2"><label class="form-label">Marca</label><input type="text" class="form-control" id="arnes_marca"></div>
+              <div class="col-md-2"><label class="form-label">Modelo</label><input type="text" class="form-control" id="arnes_modelo"></div>
+              <div class="col-md-2"><label class="form-label">No Serie</label><input type="text" class="form-control" id="arnes_serie"></div>
+              <div class="col-md-2"><label class="form-label">No Lote</label><input type="text" class="form-control" id="arnes_lote"></div>
+              <div class="col-md-2"><label class="form-label">Fecha fabricación</label><input type="date" class="form-control" id="arnes_fecha_fabri"></div>
+            </div>
+            <ul class="mb-0">
+              <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
+                <div><label class="me-2"><input type="radio" name="arnes_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_fisura" value="NC"> NC</label><label><input type="radio" name="arnes_fisura" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Fibras rotas o grietas en reatas, cintas o cuerdas.</label>
+                <div><label class="me-2"><input type="radio" name="arnes_fibra_rota" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_fibra_rota" value="NC"> NC</label><label><input type="radio" name="arnes_fibra_rota" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
+                <div><label class="me-2"><input type="radio" name="arnes_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_deterioro" value="NC"> NC</label><label><input type="radio" name="arnes_deterioro" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Manchas brillantes o duras.</label>
+                <div><label class="me-2"><input type="radio" name="arnes_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_manchas" value="NC"> NC</label><label><input type="radio" name="arnes_manchas" value="N/A"> N/A</label></div></li>
+              <li class="mb-0"><label class="form-label">Indicador de impacto.</label>
+                <div><label class="me-2"><input type="radio" name="arnes_impacto" value="C"> C</label><label class="me-2"><input type="radio" name="arnes_impacto" value="NC"> NC</label><label><input type="radio" name="arnes_impacto" value="N/A"> N/A</label></div></li>
+            </ul>
+            <div class="text-end mt-3"><button type="button" class="btn btn-primary btn-next-caidas">Siguiente</button></div>
+          </div>
+          <div class="mb-4 caidas-step" data-step="2">
+            <h6 class="mb-2">Eslinga</h6>
+            <div class="row g-3 mb-2">
+              <div class="col-md-2"><label class="form-label">Marca</label><input type="text" class="form-control" id="eslinga_marca"></div>
+              <div class="col-md-2"><label class="form-label">Modelo</label><input type="text" class="form-control" id="eslinga_modelo"></div>
+              <div class="col-md-2"><label class="form-label">No Serie</label><input type="text" class="form-control" id="eslinga_serie"></div>
+              <div class="col-md-2"><label class="form-label">No Lote</label><input type="text" class="form-control" id="eslinga_lote"></div>
+              <div class="col-md-2"><label class="form-label">Fecha fabricación</label><input type="date" class="form-control" id="eslinga_fecha_fabri"></div>
+            </div>
+            <ul class="mb-0">
+              <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
+                <div><label class="me-2"><input type="radio" name="eslinga_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_fisura" value="NC"> NC</label><label><input type="radio" name="eslinga_fisura" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Fibras rotas o grietas en reatas, cintas o cuerdas.</label>
+                <div><label class="me-2"><input type="radio" name="eslinga_fibra_rota" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_fibra_rota" value="NC"> NC</label><label><input type="radio" name="eslinga_fibra_rota" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
+                <div><label class="me-2"><input type="radio" name="eslinga_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_deterioro" value="NC"> NC</label><label><input type="radio" name="eslinga_deterioro" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Manchas brillantes o duras.</label>
+                <div><label class="me-2"><input type="radio" name="eslinga_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_manchas" value="NC"> NC</label><label><input type="radio" name="eslinga_manchas" value="N/A"> N/A</label></div></li>
+              <li class="mb-0"><label class="form-label">Indicador de impacto.</label>
+                <div><label class="me-2"><input type="radio" name="eslinga_impacto" value="C"> C</label><label class="me-2"><input type="radio" name="eslinga_impacto" value="NC"> NC</label><label><input type="radio" name="eslinga_impacto" value="N/A"> N/A</label></div></li>
+            </ul>
+            <div class="text-end mt-3"><button type="button" class="btn btn-primary btn-next-caidas">Siguiente</button></div>
+          </div>
+          <div class="mb-4 caidas-step" data-step="3">
+            <h6 class="mb-2">Anclaje Portátil (Tie-Off)</h6>
+            <div class="row g-3 mb-2">
+              <div class="col-md-2"><label class="form-label">Marca</label><input type="text" class="form-control" id="anclaje_marca"></div>
+              <div class="col-md-2"><label class="form-label">Modelo</label><input type="text" class="form-control" id="anclaje_modelo"></div>
+              <div class="col-md-2"><label class="form-label">No Serie</label><input type="text" class="form-control" id="anclaje_serie"></div>
+              <div class="col-md-2"><label class="form-label">No Lote</label><input type="text" class="form-control" id="anclaje_lote"></div>
+              <div class="col-md-2"><label class="form-label">Fecha fabricación</label><input type="date" class="form-control" id="anclaje_fecha_fabri"></div>
+            </div>
+            <ul class="mb-0">
+              <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
+                <div><label class="me-2"><input type="radio" name="anclaje_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_fisura" value="NC"> NC</label><label><input type="radio" name="anclaje_fisura" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Fibras rotas o grietas en reatas, cintas o cuerdas.</label>
+                <div><label class="me-2"><input type="radio" name="anclaje_fibra_rota" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_fibra_rota" value="NC"> NC</label><label><input type="radio" name="anclaje_fibra_rota" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
+                <div><label class="me-2"><input type="radio" name="anclaje_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_deterioro" value="NC"> NC</label><label><input type="radio" name="anclaje_deterioro" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Manchas brillantes o duras.</label>
+                <div><label class="me-2"><input type="radio" name="anclaje_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_manchas" value="NC"> NC</label><label><input type="radio" name="anclaje_manchas" value="N/A"> N/A</label></div></li>
+              <li class="mb-0"><label class="form-label">Indicador de impacto.</label>
+                <div><label class="me-2"><input type="radio" name="anclaje_impacto" value="C"> C</label><label class="me-2"><input type="radio" name="anclaje_impacto" value="NC"> NC</label><label><input type="radio" name="anclaje_impacto" value="N/A"> N/A</label></div></li>
+            </ul>
+            <div class="text-end mt-3"><button type="button" class="btn btn-primary btn-next-caidas">Siguiente</button></div>
+          </div>
+          <div class="mb-4 caidas-step" data-step="4">
+            <h6 class="mb-2">Línea de Vida</h6>
+            <div class="row g-3 mb-2">
+              <div class="col-md-2"><label class="form-label">Marca</label><input type="text" class="form-control" id="linea_marca"></div>
+              <div class="col-md-2"><label class="form-label">Modelo</label><input type="text" class="form-control" id="linea_modelo"></div>
+              <div class="col-md-2"><label class="form-label">No Serie</label><input type="text" class="form-control" id="linea_serie"></div>
+              <div class="col-md-2"><label class="form-label">No Lote</label><input type="text" class="form-control" id="linea_lote"></div>
+              <div class="col-md-2"><label class="form-label">Fecha fabricación</label><input type="date" class="form-control" id="linea_fecha_fabri"></div>
+            </div>
+            <ul class="mb-0">
+              <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
+                <div><label class="me-2"><input type="radio" name="linea_vida_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_fisura" value="NC"> NC</label><label><input type="radio" name="linea_vida_fisura" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Fibras rotas o grietas en reatas, cintas o cuerdas.</label>
+                <div><label class="me-2"><input type="radio" name="linea_vida_fibra_rota" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_fibra_rota" value="NC"> NC</label><label><input type="radio" name="linea_vida_fibra_rota" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
+                <div><label class="me-2"><input type="radio" name="linea_vida_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_deterioro" value="NC"> NC</label><label><input type="radio" name="linea_vida_deterioro" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Manchas brillantes o duras.</label>
+                <div><label class="me-2"><input type="radio" name="linea_vida_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_manchas" value="NC"> NC</label><label><input type="radio" name="linea_vida_manchas" value="N/A"> N/A</label></div></li>
+              <li class="mb-0"><label class="form-label">Indicador de impacto.</label>
+                <div><label class="me-2"><input type="radio" name="linea_vida_impacto" value="C"> C</label><label class="me-2"><input type="radio" name="linea_vida_impacto" value="NC"> NC</label><label><input type="radio" name="linea_vida_impacto" value="N/A"> N/A</label></div></li>
+            </ul>
+            <div class="text-end mt-3"><button type="button" class="btn btn-primary btn-next-caidas">Siguiente</button></div>
+          </div>
+          <div class="mb-4 caidas-step" data-step="5">
+            <h6 class="mb-2">Mosquetón</h6>
+            <div class="row g-3 mb-2">
+              <div class="col-md-2"><label class="form-label">Marca</label><input type="text" class="form-control" id="mosqueton_marca"></div>
+              <div class="col-md-2"><label class="form-label">Modelo</label><input type="text" class="form-control" id="mosqueton_modelo"></div>
+              <div class="col-md-2"><label class="form-label">No Serie</label><input type="text" class="form-control" id="mosqueton_serie"></div>
+              <div class="col-md-2"><label class="form-label">No Lote</label><input type="text" class="form-control" id="mosqueton_lote"></div>
+              <div class="col-md-2"><label class="form-label">Fecha fabricación</label><input type="date" class="form-control" id="mosqueton_fecha_fabri"></div>
+            </div>
+            <ul class="mb-0">
+              <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
+                <div><label class="me-2"><input type="radio" name="mosqueton_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="mosqueton_deterioro" value="NC"> NC</label><label><input type="radio" name="mosqueton_deterioro" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
+                <div><label class="me-2"><input type="radio" name="mosqueton_fisural" value="C"> C</label><label class="me-2"><input type="radio" name="mosqueton_fisural" value="NC"> NC</label><label><input type="radio" name="mosqueton_fisural" value="N/A"> N/A</label></div></li>
+              <li class="mb-0"><label class="form-label">Manchas brillantes o duras.</label>
+                <div><label class="me-2"><input type="radio" name="mosqueton_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="mosqueton_manchas" value="NC"> NC</label><label><input type="radio" name="mosqueton_manchas" value="N/A"> N/A</label></div></li>
+            </ul>
+            <div class="text-end mt-3"><button type="button" class="btn btn-primary btn-next-caidas">Siguiente</button></div>
+          </div>
+          <div class="mb-4 caidas-step" data-step="6">
+            <h6 class="mb-2">Pretales</h6>
+            <div class="row g-3 mb-2">
+              <div class="col-md-2"><label class="form-label">Marca</label><input type="text" class="form-control" id="pretales_marca"></div>
+              <div class="col-md-2"><label class="form-label">Modelo</label><input type="text" class="form-control" id="pretales_modelo"></div>
+              <div class="col-md-2"><label class="form-label">No Serie</label><input type="text" class="form-control" id="pretales_serie"></div>
+              <div class="col-md-2"><label class="form-label">No Lote</label><input type="text" class="form-control" id="pretales_lote"></div>
+              <div class="col-md-2"><label class="form-label">Fecha fabricación</label><input type="date" class="form-control" id="pretales_fecha_fabri"></div>
+            </div>
+            <ul class="mb-0">
+              <li class="mb-2"><label class="form-label">Deterioro, desgaste y abrasión general del elemento.</label>
+                <div><label class="me-2"><input type="radio" name="pretales_deterioro" value="C"> C</label><label class="me-2"><input type="radio" name="pretales_deterioro" value="NC"> NC</label><label><input type="radio" name="pretales_deterioro" value="N/A"> N/A</label></div></li>
+              <li class="mb-2"><label class="form-label">Fisura, óxido, Rotura, Deformación en hebillas y Argollas.</label>
+                <div><label class="me-2"><input type="radio" name="pretales_fisura" value="C"> C</label><label class="me-2"><input type="radio" name="pretales_fisura" value="NC"> NC</label><label><input type="radio" name="pretales_fisura" value="N/A"> N/A</label></div></li>
+              <li class="mb-0"><label class="form-label">Manchas brillantes o duras.</label>
+                <div><label class="me-2"><input type="radio" name="pretales_manchas" value="C"> C</label><label class="me-2"><input type="radio" name="pretales_manchas" value="NC"> NC</label><label><input type="radio" name="pretales_manchas" value="N/A"> N/A</label></div></li>
+            </ul>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Observaciones</label>
+            <textarea id="observacionesCaidas" class="form-control" rows="3" placeholder="Observaciones"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button id="btnGuardarPreopCaidas" type="button" class="btn btn-primary" style="display:none">Guardar preoperacional</button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+<!-- Modal Firma Caídas -->
+<div class="modal fade" id="modalFirmaCaidas" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-pen-nib me-2"></i>Firma</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <canvas id="firmaCanvasCaidas" width="300" height="150" style="border:1px solid #ddd; border-radius:4px; cursor:crosshair"></canvas>
+        <div class="mt-2 d-flex gap-2">
+          <button id="btnLimpiarFirmaCaidas" type="button" class="btn btn-outline-secondary btn-sm">Limpiar</button>
+          <button id="btnEnviarPreopCaidas" type="button" class="btn btn-success btn-sm">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
 <script>
 function setFechaBogota(){
   const nowStr = new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' });
@@ -739,6 +923,10 @@ document.addEventListener('DOMContentLoaded', function(){
     const btn = document.getElementById('btnPreopEsc');
     if(d && d.success && d.already_today && btn){ btn.disabled = true; btn.textContent = 'Pre-operacional diligenciado'; }
   }).catch(()=>{});
+  fetch('/api/sgis/pre-caidas/status').then(r=>r.json()).then(d=>{
+    const btn = document.getElementById('btnPreopCaidas');
+    if(d && d.success && d.already_today && btn){ btn.disabled = true; btn.textContent = 'Pre-operacional diligenciado'; }
+  }).catch(()=>{});
   try { const d = new Date(); const m = String(d.getMonth()+1).padStart(2,'0'); document.getElementById('mesActualEsc').textContent = `${d.getFullYear()}-${m}`; } catch(e) {}
   try {
     const params = new URLSearchParams(window.location.search);
@@ -757,6 +945,154 @@ document.addEventListener('DOMContentLoaded', function(){
       else if(n.startsWith('monogafas_')) updateSectionUI('monogafas');
     });
   });
-});
+  function setFechaBogotaCaidas(){
+    try{ document.getElementById('fechaBogotaCaidas').textContent = new Date().toLocaleString('es-CO',{ timeZone:'America/Bogota' }); }catch(e){}
+  }
+  setFechaBogotaCaidas();
+  const caidasSteps = Array.from(document.querySelectorAll('#modalCaidas .caidas-step'));
+  let caidasStepIndex = 0;
+  function showCaidasStep(i){
+    caidasSteps.forEach((s,idx)=>{ s.style.display = idx===i ? 'block' : 'none'; });
+    const saveBtn = document.getElementById('btnGuardarPreopCaidas');
+    if(saveBtn) saveBtn.style.display = i === caidasSteps.length - 1 ? 'inline-block' : 'none';
+  }
+  showCaidasStep(0);
+  function validarSeccionCaidas(idx){
+    const reqs = [
+      ['arnes_fisura','arnes_fibra_rota','arnes_deterioro','arnes_manchas','arnes_impacto'],
+      ['eslinga_fisura','eslinga_fibra_rota','eslinga_deterioro','eslinga_manchas','eslinga_impacto'],
+      ['anclaje_fisura','anclaje_fibra_rota','anclaje_deterioro','anclaje_manchas','anclaje_impacto'],
+      ['linea_vida_fisura','linea_vida_fibra_rota','linea_vida_deterioro','linea_vida_manchas','linea_vida_impacto'],
+      ['mosqueton_deterioro','mosqueton_fisural','mosqueton_manchas'],
+      ['pretales_deterioro','pretales_fisura','pretales_manchas']
+    ];
+    const current = reqs[idx] || [];
+    for(const k of current){ const v = caidasGet(k); if(!v){ Swal.fire('Campos incompletos','Completa la sección actual','warning'); return false; } }
+    return true;
+  }
+  document.querySelectorAll('#modalCaidas .btn-next-caidas').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      const idx = caidasSteps.findIndex(s=>s.contains(btn));
+      if(idx === -1) return;
+      if(!validarSeccionCaidas(idx)) return;
+      const next = idx + 1;
+      if(next < caidasSteps.length){ caidasStepIndex = next; showCaidasStep(next); }
+    });
+  });
+  function caidasGet(name){ const el = document.querySelector('input[name="'+name+'"]:checked'); return el ? el.value : ''; }
+  function construirPayloadCaidas(){
+    return {
+      sgis_pre_proteccion_caidas_arnes_marca: document.getElementById('arnes_marca').value || '',
+      sgis_pre_proteccion_caidas_arnes_modelo: document.getElementById('arnes_modelo').value || '',
+      sgis_pre_proteccion_caidas_arnes_serie: document.getElementById('arnes_serie').value || '',
+      sgis_pre_proteccion_caidas_arnes_lote: document.getElementById('arnes_lote').value || '',
+      sgis_pre_proteccion_caidas_arnes_fecha_fabri: document.getElementById('arnes_fecha_fabri').value || null,
+      sgis_pre_proteccion_caidas_arnes_fisura: caidasGet('arnes_fisura'),
+      sgis_pre_proteccion_caidas_arnes_fibra_rota: caidasGet('arnes_fibra_rota'),
+      sgis_pre_proteccion_caidas_arnes_deterioro: caidasGet('arnes_deterioro'),
+      sgis_pre_proteccion_caidas_arnes_manchas: caidasGet('arnes_manchas'),
+      sgis_pre_proteccion_caidas_arnes_impacto: caidasGet('arnes_impacto'),
+      sgis_pre_proteccion_caidas_eslinga_marca: document.getElementById('eslinga_marca').value || '',
+      sgis_pre_proteccion_caidas_eslinga_modelo: document.getElementById('eslinga_modelo').value || '',
+      sgis_pre_proteccion_caidas_eslinga_serie: document.getElementById('eslinga_serie').value || '',
+      sgis_pre_proteccion_caidas_eslinga_lote: document.getElementById('eslinga_lote').value || '',
+      sgis_pre_proteccion_caidas_eslinga_fecha_fabri: document.getElementById('eslinga_fecha_fabri').value || null,
+      sgis_pre_proteccion_caidas_eslinga_fisura: caidasGet('eslinga_fisura'),
+      sgis_pre_proteccion_caidas_eslinga_fibra_rota: caidasGet('eslinga_fibra_rota'),
+      sgis_pre_proteccion_caidas_eslinga_deterioro: caidasGet('eslinga_deterioro'),
+      sgis_pre_proteccion_caidas_eslinga_manchas: caidasGet('eslinga_manchas'),
+      sgis_pre_proteccion_caidas_eslinga_impacto: caidasGet('eslinga_impacto'),
+      sgis_pre_proteccion_caidas_anclaje_marca: document.getElementById('anclaje_marca').value || '',
+      sgis_pre_proteccion_caidas_anclaje_modelo: document.getElementById('anclaje_modelo').value || '',
+      sgis_pre_proteccion_caidas_anclaje_serie: document.getElementById('anclaje_serie').value || '',
+      sgis_pre_proteccion_caidas_anclaje_lote: document.getElementById('anclaje_lote').value || '',
+      sgis_pre_proteccion_caidas_anclaje_fecha_fabri: document.getElementById('anclaje_fecha_fabri').value || null,
+      sgis_pre_proteccion_caidas_anclaje_fisura: caidasGet('anclaje_fisura'),
+      sgis_pre_proteccion_caidas_anclaje_fibra_rota: caidasGet('anclaje_fibra_rota'),
+      sgis_pre_proteccion_caidas_anclaje_deterioro: caidasGet('anclaje_deterioro'),
+      sgis_pre_proteccion_caidas_anclaje_manchas: caidasGet('anclaje_manchas'),
+      sgis_pre_proteccion_caidas_anclaje_impacto: caidasGet('anclaje_impacto'),
+      sgis_pre_proteccion_caidas_linea_vida_marca: document.getElementById('linea_marca').value || '',
+      sgis_pre_proteccion_caidas_linea_vida_modelo: document.getElementById('linea_modelo').value || '',
+      sgis_pre_proteccion_caidas_linea_vida_serie: document.getElementById('linea_serie').value || '',
+      sgis_pre_proteccion_caidas_linea_vida_lote: document.getElementById('linea_lote').value || '',
+      sgis_pre_proteccion_caidas_linea_vida_fecha_fabri: document.getElementById('linea_fecha_fabri').value || null,
+      sgis_pre_proteccion_caidas_linea_vida_fisura: caidasGet('linea_vida_fisura'),
+      sgis_pre_proteccion_caidas_linea_vida_fibra_rota: caidasGet('linea_vida_fibra_rota'),
+      sgis_pre_proteccion_caidas_linea_vida_deterioro: caidasGet('linea_vida_deterioro'),
+      sgis_pre_proteccion_caidas_linea_vida_manchas: caidasGet('linea_vida_manchas'),
+      sgis_pre_proteccion_caidas_linea_vida_impacto: caidasGet('linea_vida_impacto'),
+      sgis_pre_proteccion_caidas_mosqueton_marca: document.getElementById('mosqueton_marca').value || '',
+      sgis_pre_proteccion_caidas_mosqueton_modelo: document.getElementById('mosqueton_modelo').value || '',
+      sgis_pre_proteccion_caidas_mosqueton_serie: document.getElementById('mosqueton_serie').value || '',
+      sgis_pre_proteccion_caidas_mosqueton_lote: document.getElementById('mosqueton_lote').value || '',
+      sgis_pre_proteccion_caidas_mosqueton_fecha_fabri: document.getElementById('mosqueton_fecha_fabri').value || null,
+      sgis_pre_proteccion_caidas_mosqueton_fisural: caidasGet('mosqueton_fisural'),
+      sgis_pre_proteccion_caidas_mosqueton_deterioro: caidasGet('mosqueton_deterioro'),
+      sgis_pre_proteccion_caidas_mosqueton_manchas: caidasGet('mosqueton_manchas'),
+      sgis_pre_proteccion_caidas_pretales_marca: document.getElementById('pretales_marca').value || '',
+      sgis_pre_proteccion_caidas_pretales_modelo: document.getElementById('pretales_modelo').value || '',
+      sgis_pre_proteccion_caidas_pretales_serie: document.getElementById('pretales_serie').value || '',
+      sgis_pre_proteccion_caidas_pretales_lote: document.getElementById('pretales_lote').value || '',
+      sgis_pre_proteccion_caidas_pretales_fecha_fabri: document.getElementById('pretales_fecha_fabri').value || null,
+      sgis_pre_proteccion_caidas_pretales_fisura: caidasGet('pretales_fisura'),
+      sgis_pre_proteccion_caidas_pretales_deterioro: caidasGet('pretales_deterioro'),
+      sgis_pre_proteccion_caidas_pretales_manchas: caidasGet('pretales_manchas'),
+      observacion: (document.getElementById('observacionesCaidas').value || '').trim()
+    };
+  }
+  function validarCamposCaidas(){
+    const req = [
+      'arnes_fisura','arnes_fibra_rota','arnes_deterioro','arnes_manchas','arnes_impacto',
+      'eslinga_fisura','eslinga_fibra_rota','eslinga_deterioro','eslinga_manchas','eslinga_impacto',
+      'anclaje_fisura','anclaje_fibra_rota','anclaje_deterioro','anclaje_manchas','anclaje_impacto',
+      'linea_vida_fisura','linea_vida_fibra_rota','linea_vida_deterioro','linea_vida_manchas','linea_vida_impacto',
+      'mosqueton_deterioro','mosqueton_fisural','mosqueton_manchas',
+      'pretales_deterioro','pretales_fisura','pretales_manchas'
+    ];
+    for(const k of req){ const v = caidasGet(k); if(!v){ Swal.fire('Campos incompletos','Completa todas las generalidades','warning'); return false; } }
+    const hasNC = req.some(k => caidasGet(k) === 'NC');
+    if(hasNC){ const obs = (document.getElementById('observacionesCaidas').value || '').trim(); if(!obs){ Swal.fire('Observaciones requeridas','Registra observaciones para los hallazgos en NC','warning'); return false; } }
+    return true;
+  }
+  let firmaCtxCaidas, firmandoCaidas = false;
+  function initFirmaCaidas(){
+    const c = document.getElementById('firmaCanvasCaidas');
+    firmaCtxCaidas = c.getContext('2d');
+    firmaCtxCaidas.strokeStyle = '#222';
+    firmaCtxCaidas.lineWidth = 2;
+    const pos = (e)=>{ const r = c.getBoundingClientRect(); const x = (e.touches? e.touches[0].clientX : e.clientX) - r.left; const y = (e.touches? e.touches[0].clientY : e.clientY) - r.top; return {x,y}; };
+    const start = (e)=>{ firmandoCaidas = true; const p = pos(e); firmaCtxCaidas.beginPath(); firmaCtxCaidas.moveTo(p.x,p.y); e.preventDefault(); };
+    const move = (e)=>{ if(!firmandoCaidas) return; const p = pos(e); firmaCtxCaidas.lineTo(p.x,p.y); firmaCtxCaidas.stroke(); e.preventDefault(); };
+    const end = ()=>{ firmandoCaidas = false; };
+    c.addEventListener('mousedown', start); c.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+    c.addEventListener('touchstart', start, {passive:false}); c.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
+    document.getElementById('btnLimpiarFirmaCaidas').addEventListener('click', ()=>{ firmaCtxCaidas.clearRect(0,0,c.width,c.height); });
+  }
+  function enviarConFirmaCaidas(){
+    const c = document.getElementById('firmaCanvasCaidas');
+    const firma = c.toDataURL('image/png');
+    const payload = construirPayloadCaidas();
+    payload.firma_base64 = firma;
+    fetch('/api/sgis/pre-caidas', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+      .then(r=>r.json()).then(d=>{
+        if(d && d.success){
+          Swal.fire('Éxito','Preoperacional de control caídas registrado','success');
+          const btn = document.getElementById('btnPreopCaidas'); if(btn){ btn.disabled = true; btn.textContent = 'Pre-operacional diligenciado'; }
+          const mf = document.getElementById('modalFirmaCaidas'); const modal = bootstrap.Modal.getInstance(mf); if(modal) modal.hide();
+          const me = document.getElementById('modalCaidas'); const modal2 = bootstrap.Modal.getInstance(me); if(modal2) modal2.hide();
+        } else {
+          Swal.fire('Error', d.error || 'No se pudo registrar', 'error');
+        }
+      }).catch(()=>{ Swal.fire('Error','Error de red','error'); });
+  }
+  document.getElementById('btnGuardarPreopCaidas').addEventListener('click', function(){
+    if(!validarCamposCaidas()) return;
+    const mf = new bootstrap.Modal(document.getElementById('modalFirmaCaidas'));
+    mf.show();
+    initFirmaCaidas();
+  });
+  document.getElementById('btnEnviarPreopCaidas').addEventListener('click', enviarConFirmaCaidas);
+})
 </script>
 {% endblock %}
