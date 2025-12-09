@@ -103,7 +103,8 @@
                                                        value="{{ tecnico.id_codigo_consumidor }}"
                                                        data-cedula="{{ tecnico.recurso_operativo_cedula }}"
                                                        data-nombre="{{ tecnico.nombre }}"
-                                                       data-carpeta="{{ tecnico.carpeta }}">
+                                                       data-carpeta="{{ tecnico.carpeta }}"
+                                                       {% if novedades_rrhh and novedades_rrhh.get(tecnico.id_codigo_consumidor) %}disabled{% endif %}>
                                             </td>
                                             <td>{{ tecnico.recurso_operativo_cedula }}</td>
                                             <td>{{ tecnico.nombre }}</td>
@@ -111,7 +112,8 @@
                                             <td>
                                                 <select class="form-select form-select-sm carpeta-dia-select" 
                                                         name="carpeta_dia_{{ tecnico.id_codigo_consumidor }}" 
-                                                        data-tecnico-id="{{ tecnico.id_codigo_consumidor }}">
+                                                        data-tecnico-id="{{ tecnico.id_codigo_consumidor }}"
+                                                        {% if novedades_rrhh and novedades_rrhh.get(tecnico.id_codigo_consumidor) %}disabled{% endif %}>
                                                     <option value="">Seleccionar carpeta</option>
                                                     {% for carpeta in carpetas_dia %}
                                                     <option value="{{ carpeta.codigo_tipificacion }}">
@@ -121,7 +123,11 @@
                                                 </select>
                                             </td>
                                             <td>
+                                                {% if novedades_rrhh and novedades_rrhh.get(tecnico.id_codigo_consumidor) %}
+                                                <span class="badge bg-warning">RRHH: {{ novedades_rrhh[tecnico.id_codigo_consumidor].nombre }}</span>
+                                                {% else %}
                                                 <span class="badge bg-success">Activo</span>
+                                                {% endif %}
                                             </td>
                                         </tr>
                                         {% endfor %}
@@ -133,7 +139,7 @@
                                 <div>
                                 <span class="text-muted">
                                     <i class="fas fa-info-circle me-1"></i>
-                                    Todos los técnicos deben tener su checkbox marcado y una carpeta del día asignada para poder registrar la asistencia.
+                                    Seleccione técnicos y asigne carpeta del día a cada uno para registrar la asistencia.
                                 </span>
                             </div>
                                 <button type="submit" class="btn btn-primary btn-lg">
@@ -161,7 +167,7 @@
         document.getElementById('selectAll').addEventListener('change', function() {
             const checkboxes = document.querySelectorAll('.tecnico-checkbox');
             checkboxes.forEach(checkbox => {
-                checkbox.checked = this.checked;
+                if (!checkbox.disabled) checkbox.checked = this.checked;
             });
         });
 
@@ -170,53 +176,35 @@
             e.preventDefault();
             
             const fechaAsistencia = document.getElementById('fecha_asistencia').value;
-            const tecnicosSeleccionados = document.querySelectorAll('.tecnico-checkbox:checked');
-            
-            // Obtener todos los técnicos disponibles
-            const todosTecnicos = document.querySelectorAll('.tecnico-checkbox');
-            
-            // Validar que TODOS los técnicos estén seleccionados
-            let tecnicosSinSeleccionar = [];
-            todosTecnicos.forEach(checkbox => {
-                if (!checkbox.checked) {
-                    tecnicosSinSeleccionar.push(checkbox.dataset.nombre);
-                }
-            });
-            
-            if (tecnicosSinSeleccionar.length > 0) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Técnicos sin seleccionar',
-                    text: `Todos los técnicos deben estar seleccionados. Faltan: ${tecnicosSinSeleccionar.join(', ')}`
-                });
+            const tecnicosSeleccionados = Array.from(document.querySelectorAll('.tecnico-checkbox:checked'));
+            if (!fechaAsistencia) {
+                Swal.fire({ icon: 'warning', title: 'Fecha requerida', text: 'Seleccione la fecha de asistencia' });
                 return;
             }
-            
-            // Validar que TODOS los técnicos tengan carpeta del día asignada
+            if (tecnicosSeleccionados.length === 0) {
+                Swal.fire({ icon: 'warning', title: 'Selección requerida', text: 'Seleccione al menos un técnico' });
+                return;
+            }
             let tecnicosSinCarpeta = [];
-            todosTecnicos.forEach(checkbox => {
+            tecnicosSeleccionados.forEach(checkbox => {
                 const tecnicoId = checkbox.value;
                 const carpetaDiaSelect = document.querySelector(`select[name="carpeta_dia_${tecnicoId}"]`);
-                if (!carpetaDiaSelect.value) {
+                if (!carpetaDiaSelect || !carpetaDiaSelect.value) {
                     tecnicosSinCarpeta.push(checkbox.dataset.nombre);
                 }
             });
-            
             if (tecnicosSinCarpeta.length > 0) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Carpetas faltantes',
-                    text: `Todos los técnicos deben tener carpeta del día asignada. Faltan: ${tecnicosSinCarpeta.join(', ')}`
+                    text: `Asigne carpeta del día a: ${tecnicosSinCarpeta.join(', ')}`
                 });
                 return;
             }
             
-            // Procesar todos los técnicos (ya que todos están validados)
-            let tecnicosAProcesar = todosTecnicos;
-            
             // Preparar datos para envío
             const asistencias = [];
-            tecnicosAProcesar.forEach(checkbox => {
+            tecnicosSeleccionados.forEach(checkbox => {
                 const tecnicoId = checkbox.value;
                 const carpetaDiaSelect = document.querySelector(`select[name="carpeta_dia_${tecnicoId}"]`);
                 asistencias.push({

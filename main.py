@@ -5766,13 +5766,44 @@ def operativo_asistencia():
             ORDER BY codigo_tipificacion
         """)
         carpetas_dia = cursor.fetchall()
+        cursor.execute(
+            """
+            SELECT a.id_codigo_consumidor, a.carpeta_dia, t.nombre_tipificacion
+            FROM asistencia a
+            JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE a.super = %s AND DATE(a.fecha_asistencia) = %s AND a.carpeta = 'RRHH'
+            """,
+            (supervisor_usuario, fecha_hoy)
+        )
+        rrhh_rows = cursor.fetchall()
+        novedades_rrhh = {}
+        for r in rrhh_rows:
+            novedades_rrhh[r['id_codigo_consumidor']] = {
+                'codigo': r['carpeta_dia'],
+                'nombre': r['nombre_tipificacion']
+            }
         
+        cursor.execute(
+            """
+            SELECT COUNT(*) as registros_no_rrhh
+            FROM asistencia 
+            WHERE super = %s AND DATE(fecha_asistencia) = %s AND (carpeta IS NULL OR UPPER(carpeta) <> 'RRHH')
+            """,
+            (supervisor_usuario, fecha_hoy)
+        )
+        r_no_rrhh = cursor.fetchone()
+        registros_no_rrhh = r_no_rrhh['registros_no_rrhh'] if r_no_rrhh else 0
+        total_tecnicos = len(tecnicos)
+        total_rrhh = len(rrhh_rows)
+        pendientes = max(total_tecnicos - total_rrhh, 0)
+        ya_registrado = (registros_no_rrhh >= pendientes and pendientes > 0)
         return render_template('modulos/operativo/asistencia.html',
                            tecnicos=tecnicos,
                            carpetas_dia=carpetas_dia,
                            supervisor=supervisor_usuario,
                            ya_registrado=ya_registrado,
-                           fecha_hoy=fecha_hoy)
+                           fecha_hoy=fecha_hoy,
+                           novedades_rrhh=novedades_rrhh)
                            
     except mysql.connector.Error as e:
         flash(f'Error al cargar datos: {str(e)}', 'danger')
@@ -15139,17 +15170,22 @@ def guardar_asistencias_operativo():
         print(f"DEBUG - ID código consumidor: {session['id_codigo_consumidor']}")
         print(f"DEBUG - Nombre usuario actual (supervisor): {nombre_usuario_actual}")
         
-        # Verificar si ya existe un registro para hoy
         fecha_hoy = datetime.now().strftime('%Y-%m-%d')
-        cursor.execute("""
-            SELECT COUNT(*) as registros_hoy
+        cursor.execute(
+            """
+            SELECT id_codigo_consumidor, carpeta, carpeta_dia
             FROM asistencia 
             WHERE super = %s AND DATE(fecha_asistencia) = %s
-        """, (nombre_usuario_actual, fecha_hoy))
-        
-        registro_existente = cursor.fetchone()
-        if registro_existente and registro_existente['registros_hoy'] > 0:
-            return jsonify({'success': False, 'message': 'Ya existe un registro de asistencia para el día de hoy'}), 400
+            """,
+            (nombre_usuario_actual, fecha_hoy)
+        )
+        existentes_hoy_rows = cursor.fetchall()
+        existentes_hoy = {}
+        for r in existentes_hoy_rows:
+            existentes_hoy[r['id_codigo_consumidor']] = {
+                'carpeta': r.get('carpeta'),
+                'carpeta_dia': r.get('carpeta_dia')
+            }
         
         data = request.get_json()
         asistencias = data.get('asistencias', [])
@@ -15163,9 +15199,19 @@ def guardar_asistencias_operativo():
         print(f"DEBUG - Datos recibidos: {asistencias}")
         
         registros_insertados = 0
+        omitidos_existentes = 0
+        omitidos_rrhh = 0
         for i, asistencia in enumerate(asistencias):
             print(f"DEBUG - Insertando técnico {i+1}: {asistencia}")
             try:
+                idc = asistencia.get('id_codigo_consumidor', 0)
+                ex = existentes_hoy.get(idc)
+                if ex:
+                    if str(ex.get('carpeta') or '').upper() == 'RRHH':
+                        omitidos_rrhh += 1
+                    else:
+                        omitidos_existentes += 1
+                    continue
                 # VALIDACIÓN DUAL: Verificar AMBAS condiciones (carpeta Y cargo)
                 # Solo si AMBAS validaciones pasan, aplicar valores de presupuesto
                 cedula_tecnico = asistencia.get('cedula', '')
@@ -15352,14 +15398,17 @@ def guardar_asistencias_operativo():
                     valor_eventos
                 ))
                 registros_insertados += 1
+                existentes_hoy[idc] = {'carpeta': carpeta_normalizada, 'carpeta_dia': asistencia.get('carpeta_dia', '')}
                 print(f"DEBUG - Técnico {i+1} insertado exitosamente")
             except Exception as e:
                 print(f"DEBUG - Error insertando técnico {i+1}: {str(e)}")
         
         print(f"DEBUG - Total registros insertados: {registros_insertados}")
+        print(f"DEBUG - Omitidos existentes: {omitidos_existentes}")
+        print(f"DEBUG - Omitidos RRHH: {omitidos_rrhh}")
         connection.commit()
         print(f"DEBUG - Commit realizado exitosamente")
-        return jsonify({'success': True, 'message': f'Se registraron {len(asistencias)} asistencias correctamente. El formulario se ha bloqueado para evitar registros duplicados.'})
+        return jsonify({'success': True, 'message': f'Se registraron {registros_insertados} asistencias. Omitidos existentes: {omitidos_existentes}. Omitidos RRHH: {omitidos_rrhh}.'})
         
     except mysql.connector.Error as e:
         return jsonify({'success': False, 'message': f'Error al guardar asistencias: {str(e)}'}), 500

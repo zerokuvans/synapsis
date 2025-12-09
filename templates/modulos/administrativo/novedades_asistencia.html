@@ -52,6 +52,9 @@
   </div>
 
   <div class="calendar-container mt-3">
+    <div class="d-flex justify-content-center my-3" id="calendarLoader" style="display:none;">
+      <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>
+    </div>
     <div class="table-responsive">
       <table class="table table-bordered calendar-table" id="tablaNovedades">
         <thead></thead>
@@ -103,12 +106,18 @@
 
 {% block scripts %}
 <script>
+  function setLoadingCalendar(state) {
+    const loader = document.getElementById('calendarLoader');
+    if (loader) loader.style.display = state ? 'flex' : 'none';
+  }
+
   async function cargarNovedades(year, month) {
     const thead = document.querySelector('#tablaNovedades thead');
     const tbody = document.querySelector('#tablaNovedades tbody');
     thead.innerHTML = '';
     tbody.innerHTML = '';
     try {
+      setLoadingCalendar(true);
       const base = "{{ url_for('api_asistencia_novedades') }}";
       const url = `${base}?year=${year}&month=${month}`;
       const res = await fetch(url, { credentials: 'same-origin' });
@@ -212,6 +221,8 @@
     } catch (e) {
       console.error(e);
       Swal.fire('Error', 'Ocurrió un problema al cargar la información', 'error');
+    } finally {
+      setLoadingCalendar(false);
     }
   }
 
@@ -288,6 +299,10 @@
       Swal.fire('Campos requeridos', 'Complete todos los campos', 'warning');
       return;
     }
+    const btn = document.getElementById('btnGuardarNovedad');
+    const prevHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
     let tinfo = {};
     try { tinfo = JSON.parse(tecnicoSel); } catch {}
     const payload = {
@@ -310,15 +325,21 @@
         Swal.fire('Error', data.message || 'No se pudo guardar la novedad', 'error');
         return;
       }
-      Swal.fire('Guardado', data.message || 'Novedad creada', 'success');
-      const val = document.getElementById('mesSelector').value;
-      const [y, m] = val.split('-');
-      cargarNovedades(parseInt(y, 10), parseInt(m, 10));
       const modalEl = document.getElementById('modalCrearNovedad');
       const modal = bootstrap.Modal.getInstance(modalEl);
       if (modal) modal.hide();
+      modalEl.addEventListener('hidden.bs.modal', () => {
+        const val = document.getElementById('mesSelector').value;
+        const [y, m] = val.split('-');
+        setLoadingCalendar(true);
+        setTimeout(() => cargarNovedades(parseInt(y, 10), parseInt(m, 10)), 200);
+      }, { once: true });
+      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: (data.message || 'Novedad creada'), showConfirmButton: false, timer: 1500 });
     } catch (e) {
       Swal.fire('Error', 'Ocurrió un problema al guardar la novedad', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = prevHtml;
     }
   });
 
