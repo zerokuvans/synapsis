@@ -457,7 +457,7 @@
                 <!-- Alerta informativa sobre restricciones de edición -->
                 <div class="alert alert-warning">
                     <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Restricciones de edición:</strong> Solo se pueden editar registros de asistencia de los últimos 3 días (incluyendo el día actual). 
+                    <strong>Restricciones de edición:</strong> Solo se pueden editar registros de asistencia de los últimos 4 días (incluyendo el día actual). 
                     Los registros más antiguos aparecerán deshabilitados y marcados con <i class="fas fa-lock"></i>.
                 </div>
             </div>
@@ -986,7 +986,7 @@ async function cargarRegistrosAsistencia() {
     }
 }
 
-// Función para validar si una fecha está dentro del rango editable (3 días hacia atrás)
+// Función para validar si una fecha está dentro del rango editable (4 días hacia atrás)
 function esFechaEditable(fechaAsistencia) {
     const fechaRegistro = new Date(fechaAsistencia);
     const fechaActual = new Date();
@@ -997,7 +997,7 @@ function esFechaEditable(fechaAsistencia) {
     
     const diferenciaDias = Math.floor((fechaActual - fechaRegistro) / (1000 * 60 * 60 * 24));
     
-    return diferenciaDias >= 0 && diferenciaDias <= 3;
+    return diferenciaDias >= 0 && diferenciaDias <= 4;
 }
 
 // Crear select de tipificaciones
@@ -1172,7 +1172,7 @@ async function guardarCambiosEdicion() {
     });
     
     if (registrosNoEditables.length > 0) {
-        mostrarAlerta('Algunos registros que intentas modificar tienen más de 3 días de antigüedad y no pueden ser editados.', 'danger');
+        mostrarAlerta('Algunos registros que intentas modificar tienen más de 4 días de antigüedad y no pueden ser editados.', 'danger');
         return;
     }
     

@@ -16665,11 +16665,11 @@ def actualizar_asistencia():
         # Calcular la diferencia en días
         diferencia_dias = (fecha_actual - fecha_registro).days
         
-        # Validar que la fecha esté dentro del rango permitido (3 días hacia atrás)
-        if diferencia_dias > 3:
+        # Validar que la fecha esté dentro del rango permitido (4 días hacia atrás)
+        if diferencia_dias > 4:
             return jsonify({
                 'success': False,
-                'message': f'No se puede editar asistencia de más de 3 días atrás. La asistencia es del {fecha_registro.strftime("%d/%m/%Y")} y han pasado {diferencia_dias} días.'
+                'message': f'No se puede editar asistencia de más de 4 días atrás. La asistencia es del {fecha_registro.strftime("%d/%m/%Y")} y han pasado {diferencia_dias} días.'
             }), 400
         
         if diferencia_dias < 0:
@@ -16767,29 +16767,36 @@ def eliminar_asistencia():
 @app.route('/api/asistencia/tipificacion', methods=['GET'])
 @login_required(role='administrativo')
 def obtener_tipificacion_asistencia():
-    """Obtener valores únicos de la tabla tipificacion_asistencia"""
     try:
+        zona = (request.args.get('zona') or '').strip()
         connection = get_db_connection()
         if connection is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
-            
         cursor = connection.cursor(dictionary=True)
-        
-        # Obtener valores únicos de codigo_tipificacion
-        cursor.execute("""
-            SELECT codigo_tipificacion, nombre_tipificacion as descripcion 
-            FROM tipificacion_asistencia 
-            WHERE codigo_tipificacion IS NOT NULL AND codigo_tipificacion != ''
-            ORDER BY codigo_tipificacion
-        """)
-        
+        if zona:
+            cursor.execute(
+                """
+                SELECT codigo_tipificacion, nombre_tipificacion as descripcion
+                FROM tipificacion_asistencia
+                WHERE codigo_tipificacion IS NOT NULL AND codigo_tipificacion != '' AND zona = %s
+                ORDER BY codigo_tipificacion
+                """,
+                (zona,)
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT codigo_tipificacion, nombre_tipificacion as descripcion
+                FROM tipificacion_asistencia
+                WHERE codigo_tipificacion IS NOT NULL AND codigo_tipificacion != ''
+                ORDER BY codigo_tipificacion
+                """
+            )
         tipificaciones = cursor.fetchall()
-        
         return jsonify({
             'success': True,
             'tipificaciones': [{'codigo': t['codigo_tipificacion'], 'descripcion': t['descripcion']} for t in tipificaciones]
         })
-        
     except Exception as e:
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
     finally:
@@ -16832,6 +16839,144 @@ def obtener_supervisores_asistencia():
             cursor.close()
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
+
+# API para obtener técnicos por supervisor
+@app.route('/api/asistencia/tecnicos', methods=['GET'])
+@login_required(role='administrativo')
+def obtener_tecnicos_asistencia():
+    try:
+        supervisor = request.args.get('supervisor')
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        if supervisor:
+            cursor.execute(
+                """
+                SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta, super
+                FROM recurso_operativo
+                WHERE super = %s AND estado = 'Activo' AND (carpeta IS NULL OR carpeta != 'SUPERVISORES')
+                ORDER BY nombre
+                """,
+                (supervisor,)
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta, super
+                FROM recurso_operativo
+                WHERE estado = 'Activo' AND (carpeta IS NULL OR carpeta != 'SUPERVISORES')
+                ORDER BY nombre
+                """
+            )
+        tecnicos = cursor.fetchall()
+        return jsonify({'success': True, 'tecnicos': tecnicos})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+# API para crear novedades RRHH y programar asistencia
+@app.route('/api/asistencia/novedades/crear', methods=['POST'])
+@login_required(role='administrativo')
+def api_crear_novedad_rrhh():
+    try:
+        data = request.get_json(force=True) or {}
+        supervisor = (data.get('supervisor') or '').strip()
+        cedula = (data.get('cedula') or '').strip()
+        id_codigo_consumidor = data.get('id_codigo_consumidor')
+        fecha_inicio = (data.get('fecha_inicio') or '').strip()
+        fecha_fin = (data.get('fecha_fin') or '').strip()
+        codigo_tipificacion = (data.get('codigo_tipificacion') or '').strip()
+        if not cedula and id_codigo_consumidor:
+            conn = get_db_connection()
+            if conn is None:
+                return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            cur = conn.cursor(dictionary=True)
+            cur.execute("SELECT recurso_operativo_cedula FROM recurso_operativo WHERE id_codigo_consumidor = %s", (id_codigo_consumidor,))
+            row = cur.fetchone()
+            cedula = row['recurso_operativo_cedula'] if row else ''
+            cur.close(); conn.close()
+        if not (cedula and fecha_inicio and fecha_fin and codigo_tipificacion):
+            return jsonify({'success': False, 'message': 'Datos incompletos'}), 400
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT codigo_tipificacion, nombre_tipificacion, zona FROM tipificacion_asistencia WHERE codigo_tipificacion = %s", (codigo_tipificacion,))
+        tip = cur.fetchone()
+        if not tip or (tip.get('zona') or '').upper() != 'RRHH':
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'message': 'Tipificación no válida para RRHH'}), 400
+        cur.execute("SELECT id_codigo_consumidor, nombre, super FROM recurso_operativo WHERE recurso_operativo_cedula = %s AND estado = 'Activo'", (cedula,))
+        ro = cur.fetchone()
+        if not ro:
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'message': 'Técnico no encontrado'}), 404
+        tecnico_nombre = ro['nombre']
+        tecnico_id = ro['id_codigo_consumidor']
+        supervisor_real = supervisor or ro.get('super') or ''
+        from datetime import datetime, timedelta
+        fi = datetime.strptime(fecha_inicio, '%Y-%m-%d').date()
+        ff = datetime.strptime(fecha_fin, '%Y-%m-%d').date()
+        if fi > ff:
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'message': 'Rango de fechas inválido'}), 400
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS rrhh_novedades (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                cedula VARCHAR(64) NOT NULL,
+                id_codigo_consumidor INT NULL,
+                tecnico VARCHAR(256) NOT NULL,
+                supervisor VARCHAR(256) NULL,
+                fecha_inicio DATE NOT NULL,
+                fecha_fin DATE NOT NULL,
+                codigo_tipificacion VARCHAR(64) NOT NULL,
+                nombre_tipificacion VARCHAR(256) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_cedula (cedula),
+                INDEX idx_fecha (fecha_inicio),
+                INDEX idx_tip (codigo_tipificacion)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        dias = 0
+        actualizados = 0
+        d = fi
+        while d <= ff:
+            fecha_str = d.strftime('%Y-%m-%d')
+            cur.execute("SELECT id_asistencia FROM asistencia WHERE cedula = %s AND DATE(fecha_asistencia) = %s", (cedula, fecha_str))
+            ex = cur.fetchone()
+            if ex:
+                cur.execute("UPDATE asistencia SET carpeta_dia = %s, carpeta = %s WHERE id_asistencia = %s", (codigo_tipificacion, 'RRHH', ex['id_asistencia']))
+                actualizados += 1
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO asistencia (cedula, tecnico, carpeta_dia, carpeta, super, fecha_asistencia, id_codigo_consumidor)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (cedula, tecnico_nombre, codigo_tipificacion, 'RRHH', supervisor_real, fecha_str, tecnico_id)
+                )
+                actualizados += 1
+            dias += 1
+            d += timedelta(days=1)
+        cur.execute(
+            """
+            INSERT INTO rrhh_novedades (cedula, id_codigo_consumidor, tecnico, supervisor, fecha_inicio, fecha_fin, codigo_tipificacion, nombre_tipificacion)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (cedula, tecnico_id, tecnico_nombre, supervisor_real, fi.strftime('%Y-%m-%d'), ff.strftime('%Y-%m-%d'), tip['codigo_tipificacion'], tip['nombre_tipificacion'])
+        )
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'message': f'Novedad programada: {dias} día(s), registros afectadas: {actualizados}'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 # API para obtener resumen agrupado de asistencia por tipificación
 @app.route('/api/asistencia/resumen_agrupado', methods=['GET'])

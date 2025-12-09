@@ -38,7 +38,10 @@
         <div class="col-md-3">
           <button id="btnCargar" class="btn btn-primary w-100"><i class="fas fa-sync-alt me-2"></i>Cargar</button>
         </div>
-        <div class="col-md-6 text-end">
+        <div class="col-md-3">
+          <button id="btnCrearNovedad" class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#modalCrearNovedad"><i class="fas fa-plus me-2"></i>Crear novedad</button>
+        </div>
+        <div class="col-md-3 text-end">
           <div class="legend">
             <span class="badge" style="background:#28a74533;border:1px solid #28a745"></span> Presencia registrada
             <span class="badge ms-3" style="background:#dc354533;border:1px solid #dc3545"></span> Ausencia injustificada (0)
@@ -57,6 +60,45 @@
     </div>
   </div>
 </div>
+<!-- Modal Crear Novedad -->
+<div class="modal fade" id="modalCrearNovedad" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-user-clock me-2"></i>Programar novedad RRHH</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="selectSupervisor" class="form-label">Supervisor</label>
+            <select id="selectSupervisor" class="form-select"><option value="">Seleccione</option></select>
+          </div>
+          <div class="col-md-6">
+            <label for="selectTecnico" class="form-label">Técnico</label>
+            <select id="selectTecnico" class="form-select"><option value="">Seleccione</option></select>
+          </div>
+          <div class="col-md-6">
+            <label for="fechaInicioNovedad" class="form-label">Fecha inicial</label>
+            <input type="date" id="fechaInicioNovedad" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label for="fechaFinNovedad" class="form-label">Fecha final</label>
+            <input type="date" id="fechaFinNovedad" class="form-control">
+          </div>
+          <div class="col-md-12">
+            <label for="selectTipificacion" class="form-label">Tipificación RRHH</label>
+            <select id="selectTipificacion" class="form-select"><option value="">Seleccione</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-primary" id="btnGuardarNovedad">Guardar</button>
+      </div>
+    </div>
+  </div>
+  </div>
 {% endblock %}
 
 {% block scripts %}
@@ -177,6 +219,114 @@
     const val = document.getElementById('mesSelector').value; // YYYY-MM
     const [y, m] = val.split('-');
     cargarNovedades(parseInt(y, 10), parseInt(m, 10));
+  });
+
+  async function cargarSupervisoresModal() {
+    try {
+      const res = await fetch('/api/asistencia/supervisores', { credentials: 'same-origin' });
+      const data = await res.json();
+      const sel = document.getElementById('selectSupervisor');
+      sel.innerHTML = '<option value="">Seleccione</option>';
+      if (data.success && Array.isArray(data.supervisores)) {
+        data.supervisores.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = s;
+          sel.appendChild(opt);
+        });
+      }
+    } catch (e) {}
+  }
+
+  async function cargarTecnicosModal(supervisor) {
+    const sel = document.getElementById('selectTecnico');
+    sel.innerHTML = '<option value="">Seleccione</option>';
+    if (!supervisor) return;
+    try {
+      const url = `/api/asistencia/tecnicos?supervisor=${encodeURIComponent(supervisor)}`;
+      const res = await fetch(url, { credentials: 'same-origin' });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.tecnicos)) {
+        data.tecnicos.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = JSON.stringify({ cedula: t.recurso_operativo_cedula, id: t.id_codigo_consumidor });
+          opt.textContent = `${t.nombre} (${t.recurso_operativo_cedula})`;
+          sel.appendChild(opt);
+        });
+      }
+    } catch (e) {}
+  }
+
+  async function cargarTipificacionesRRHH() {
+    try {
+      const res = await fetch('/api/asistencia/tipificacion?zona=RRHH', { credentials: 'same-origin' });
+      const data = await res.json();
+      const sel = document.getElementById('selectTipificacion');
+      sel.innerHTML = '<option value="">Seleccione</option>';
+      if (data.success && Array.isArray(data.tipificaciones)) {
+        data.tipificaciones.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.codigo;
+          opt.textContent = t.descripcion;
+          sel.appendChild(opt);
+        });
+      }
+    } catch (e) {}
+  }
+
+  document.getElementById('selectSupervisor').addEventListener('change', (e) => {
+    cargarTecnicosModal(e.target.value);
+  });
+
+  document.getElementById('btnGuardarNovedad').addEventListener('click', async () => {
+    const supervisor = document.getElementById('selectSupervisor').value;
+    const tecnicoSel = document.getElementById('selectTecnico').value;
+    const fechaInicio = document.getElementById('fechaInicioNovedad').value;
+    const fechaFin = document.getElementById('fechaFinNovedad').value;
+    const codigoTip = document.getElementById('selectTipificacion').value;
+    if (!supervisor || !tecnicoSel || !fechaInicio || !fechaFin || !codigoTip) {
+      Swal.fire('Campos requeridos', 'Complete todos los campos', 'warning');
+      return;
+    }
+    let tinfo = {};
+    try { tinfo = JSON.parse(tecnicoSel); } catch {}
+    const payload = {
+      supervisor: supervisor,
+      cedula: tinfo.cedula,
+      id_codigo_consumidor: tinfo.id,
+      fecha_inicio: fechaInicio,
+      fecha_fin: fechaFin,
+      codigo_tipificacion: codigoTip
+    };
+    try {
+      const res = await fetch('/api/asistencia/novedades/crear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        Swal.fire('Error', data.message || 'No se pudo guardar la novedad', 'error');
+        return;
+      }
+      Swal.fire('Guardado', data.message || 'Novedad creada', 'success');
+      const val = document.getElementById('mesSelector').value;
+      const [y, m] = val.split('-');
+      cargarNovedades(parseInt(y, 10), parseInt(m, 10));
+      const modalEl = document.getElementById('modalCrearNovedad');
+      const modal = bootstrap.Modal.getInstance(modalEl);
+      if (modal) modal.hide();
+    } catch (e) {
+      Swal.fire('Error', 'Ocurrió un problema al guardar la novedad', 'error');
+    }
+  });
+
+  document.addEventListener('shown.bs.modal', (e) => {
+    if (e.target && e.target.id === 'modalCrearNovedad') {
+      cargarSupervisoresModal();
+      cargarTipificacionesRRHH();
+    }
   });
 
   // Carga inicial
