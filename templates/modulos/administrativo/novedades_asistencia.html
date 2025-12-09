@@ -52,9 +52,7 @@
   </div>
 
   <div class="calendar-container mt-3">
-    <div class="d-flex justify-content-center my-3" id="calendarLoader" style="display:none;">
-      <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>
-    </div>
+    
     <div class="table-responsive">
       <table class="table table-bordered calendar-table" id="tablaNovedades">
         <thead></thead>
@@ -328,13 +326,13 @@
       const modalEl = document.getElementById('modalCrearNovedad');
       const modal = bootstrap.Modal.getInstance(modalEl);
       if (modal) modal.hide();
-      modalEl.addEventListener('hidden.bs.modal', () => {
-        const val = document.getElementById('mesSelector').value;
-        const [y, m] = val.split('-');
-        setLoadingCalendar(true);
-        setTimeout(() => cargarNovedades(parseInt(y, 10), parseInt(m, 10)), 200);
-      }, { once: true });
-      Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: (data.message || 'Novedad creada'), showConfirmButton: false, timer: 1500 });
+      Swal.fire({
+        icon: 'success',
+        title: (data.message || 'Novedad creada'),
+        confirmButtonText: 'OK'
+      }).then(() => {
+        window.location.reload();
+      });
     } catch (e) {
       Swal.fire('Error', 'Ocurrió un problema al guardar la novedad', 'error');
     } finally {
