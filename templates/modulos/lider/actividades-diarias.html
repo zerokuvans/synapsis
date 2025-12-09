@@ -665,7 +665,7 @@ function debeBloquearGestion(fechaRaw){
                   </div>
                   <div class="col-12">
                     <label class="form-label">Observación</label>
-                    <input type="text" class="form-control" id="gaCanceladoObservacion" placeholder="Observaciones..." disabled>
+                    <input type="text" class="form-control" id="gaCanceladoObservacion" placeholder="Observaciones...">
                   </div>
                   <div class="col-12 d-flex justify-content-end">
                     <button type="button" class="btn btn-warning" id="btnFinalizarCancelado">
@@ -968,8 +968,7 @@ function inicializarTipificaciones(){
   const obsCancel = document.getElementById('gaCanceladoObservacion');
   const updateCancelObs = () => {
     const v = (selCancel && selCancel.value ? selCancel.value : '').trim().toUpperCase();
-    const en = v === 'OTRA';
-    if(obsCancel){ obsCancel.disabled = !en; if(!en) obsCancel.value = ''; }
+    if(obsCancel){ obsCancel.disabled = false; }
   };
   if(selCancel){ selCancel.addEventListener('change', updateCancelObs); updateCancelObs(); }
   const btnFin = document.getElementById('btnFinalizarCierre');
@@ -1063,8 +1062,9 @@ async function finalizarCancelado(){
   try{
     const tip = document.getElementById('gaCanceladoTipificacion').value;
     const obsRaw = document.getElementById('gaCanceladoObservacion').value.trim();
-    const obs = ((tip || '').trim().toUpperCase() === 'OTRA') ? obsRaw : '';
-    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, cancelado_tipificacion: tip || null, cancelado_observacion: obs || null };
+    const tipUpper = (tip || '').trim().toUpperCase();
+    const opcionTexto = tipUpper === 'OTRA' ? (obsRaw || null) : null;
+    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, cancelado_tipificacion: tip || null, cancelado_observacion: (obsRaw || null), cancelado_opcion_texto: opcionTexto };
     const res = await fetch('/api/analistas/actividad-cancelado', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){

@@ -6112,7 +6112,6 @@ def api_operativo_cierre_ciclo():
             r['tecnico'] = nombres_map.get(cid, '')
             r['analista'] = analistas_map.get(cid, '')
             r['supervisor'] = supervisores_map.get(cid, '')
-            # Calcular estado_super
             done = False
             val_cierre = r.get('cierre_super')
             if val_cierre is not None:
@@ -6125,7 +6124,17 @@ def api_operativo_cierre_ciclo():
             if not done:
                 tip1 = r.get('tip_super_1')
                 tip2 = r.get('tip_super_2')
-                if (tip1 and str(tip1).strip()) or (tip2 and str(tip2).strip()):
+                tip2_norm = str(tip2 or '').strip().lower()
+                pending2 = (
+                    tip2_norm == 'en predio' or
+                    tip2_norm == 'cliente no atiende' or
+                    tip2_norm == 'reprogramar' or
+                    ('reprogramar' in tip2_norm) or
+                    ('cliente no atiende' in tip2_norm)
+                )
+                if tip2 and str(tip2).strip():
+                    done = not pending2
+                elif tip1 and str(tip1).strip():
                     done = True
             r['estado_super'] = 'Completado' if done else 'Pendiente'
         cur.close(); connection.close()
@@ -6483,14 +6492,28 @@ def api_operativo_cierre_ciclo_gestionar():
         col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'message': 'Columnas requeridas no encontradas'}), 200
-        set_parts = ["`tip_super_1`=%s","`tip_super_2`=%s","`observacion_super`=%s","`cierre_super`=1","`fecha_gestion_super`=NOW()"]
+        tip2_norm = tip2.lower().strip()
+        should_pending = (
+            tip2_norm == 'en predio' or
+            tip2_norm == 'cliente no atiende' or
+            tip2_norm == 'reprogramar' or
+            ('reprogramar' in tip2_norm) or
+            ('cliente no atiende' in tip2_norm)
+        )
+        set_parts = ["`tip_super_1`=%s","`tip_super_2`=%s","`observacion_super`=%s"]
+        if should_pending:
+            set_parts.append("`cierre_super`=0")
+            set_parts.append("`fecha_gestion_super`=NULL")
+        else:
+            set_parts.append("`cierre_super`=1")
+            set_parts.append("`fecha_gestion_super`=NOW()")
         params = [tip1, tip2, observ]
         sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE `{col_ot}`=%s AND `{col_cuenta}`=%s"
         params.extend([ot, cuenta])
         cur.execute(sql, tuple(params))
         connection.commit()
         cur.close(); connection.close()
-        return jsonify({'success': True})
+        return jsonify({'success': True, 'pending': should_pending})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
@@ -6677,7 +6700,17 @@ def api_operativo_cierre_ciclo_pending_count():
             if not done:
                 tip1 = r.get('tip_super_1')
                 tip2 = r.get('tip_super_2')
-                if (tip1 and str(tip1).strip()) or (tip2 and str(tip2).strip()):
+                tip2_norm = str(tip2 or '').strip().lower()
+                pending2 = (
+                    tip2_norm == 'en predio' or
+                    tip2_norm == 'cliente no atiende' or
+                    tip2_norm == 'reprogramar' or
+                    ('reprogramar' in tip2_norm) or
+                    ('cliente no atiende' in tip2_norm)
+                )
+                if tip2 and str(tip2).strip():
+                    done = not pending2
+                elif tip1 and str(tip1).strip():
                     done = True
             if not done:
                 pending += 1
@@ -9227,7 +9260,17 @@ def _compute_pending_cierres(connection, fecha_arg, tip_arg):
         if not done:
             tip1 = r.get('tip_super_1')
             tip2 = r.get('tip_super_2')
-            if (tip1 and str(tip1).strip()) or (tip2 and str(tip2).strip()):
+            tip2_norm = str(tip2 or '').strip().lower()
+            pending2 = (
+                tip2_norm == 'en predio' or
+                tip2_norm == 'cliente no atiende' or
+                tip2_norm == 'reprogramar' or
+                ('reprogramar' in tip2_norm) or
+                ('cliente no atiende' in tip2_norm)
+            )
+            if tip2 and str(tip2).strip():
+                done = not pending2
+            elif tip1 and str(tip1).strip():
                 done = True
         if not done:
             pending += 1
@@ -9385,7 +9428,17 @@ def _compute_pending_cierres_backlog(connection, tip_arg):
         if not done:
             tip1 = r.get('tip_super_1')
             tip2 = r.get('tip_super_2')
-            if (tip1 and str(tip1).strip()) or (tip2 and str(tip2).strip()):
+            tip2_norm = str(tip2 or '').strip().lower()
+            pending2 = (
+                tip2_norm == 'en predio' or
+                tip2_norm == 'cliente no atiende' or
+                tip2_norm == 'reprogramar' or
+                ('reprogramar' in tip2_norm) or
+                ('cliente no atiende' in tip2_norm)
+            )
+            if tip2 and str(tip2).strip():
+                done = not pending2
+            elif tip1 and str(tip1).strip():
                 done = True
         if not done:
             try:
@@ -9583,7 +9636,17 @@ def _compute_pending_cierres_month(connection, tip_arg):
         if not done:
             tip1 = r.get('tip_super_1')
             tip2 = r.get('tip_super_2')
-            if (tip1 and str(tip1).strip()) or (tip2 and str(tip2).strip()):
+            tip2_norm = str(tip2 or '').strip().lower()
+            pending2 = (
+                tip2_norm == 'en predio' or
+                tip2_norm == 'cliente no atiende' or
+                tip2_norm == 'reprogramar' or
+                ('reprogramar' in tip2_norm) or
+                ('cliente no atiende' in tip2_norm)
+            )
+            if tip2 and str(tip2).strip():
+                done = not pending2
+            elif tip1 and str(tip1).strip():
                 done = True
         if not done:
             pending += 1
