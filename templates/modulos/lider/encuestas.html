@@ -691,6 +691,7 @@
   let cacheSupervisores = null;
   let cacheTecnicosPorSupervisor = {};
   let candidatosCache = [];
+  let seleccionTecnicosGlobal = new Set();
 
   // ===== Campos de tipo y votación (creación) =====
   function actualizarUITipoEncuesta() {
@@ -916,6 +917,7 @@
         const opt = document.createElement('option'); opt.value = s; opt.textContent = s; encTecSupervisor.appendChild(opt);
       });
     } else {
+      seleccionTecnicosGlobal.clear();
       supervisoresSelect.innerHTML = '';
       updateSupervisoresInfo();
       carpetasSelect.innerHTML = '';
@@ -939,9 +941,23 @@
     });
   }
   carpetasSelect.addEventListener('change', updateCarpetasInfo);
+  function syncSeleccionTecGlobalFromVisible() {
+    const visiblesSeleccionados = new Set(Array.from(tecnicosSelect.selectedOptions).map(o => o.value));
+    Array.from(tecnicosSelect.options).forEach(o => {
+      if (visiblesSeleccionados.has(o.value)) {
+        seleccionTecnicosGlobal.add(o.value);
+      } else {
+        seleccionTecnicosGlobal.delete(o.value);
+      }
+    });
+  }
   function updateTecnicosInfo() {
-    if (!tecnicosInfo) return; const count = Array.from(tecnicosSelect.selectedOptions).length;
-    const help = 'Mantén Ctrl/Cmd para múltiples técnicos'; tecnicosInfo.textContent = count > 0 ? `${count} seleccionado(s) • ${help}` : `Primero elige un supervisor. ${help}`;
+    if (!tecnicosInfo) return;
+    syncSeleccionTecGlobalFromVisible();
+    const count = seleccionTecnicosGlobal.size;
+    const help = 'Mantén Ctrl/Cmd para múltiples técnicos';
+    const supSel = encTecSupervisor && encTecSupervisor.value;
+    tecnicosInfo.textContent = count > 0 ? `${count} seleccionado(s) acumulados • ${help}` : (supSel ? help : `Primero elige un supervisor. ${help}`);
   }
   async function cargarTecnicosPorSupervisor(supervisor) {
     if (!supervisor) return [];
@@ -960,14 +976,14 @@
   function renderTecnicos(filtro = '') {
     const sup = encTecSupervisor.value || '';
     const lista = cacheTecnicosPorSupervisor[sup] || [];
-    const seleccionadas = new Set(Array.from(tecnicosSelect.selectedOptions).map(o => o.value));
+    const seleccionadas = seleccionTecnicosGlobal;
     const f = (filtro || '').toLowerCase();
     const filtradas = f ? lista.filter(t => (t.nombre || '').toLowerCase().includes(f)) : lista;
     tecnicosSelect.innerHTML = '';
     filtradas.forEach(t => { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = `${t.nombre} (ID ${t.id})`; if (seleccionadas.has(t.id)) opt.selected = true; tecnicosSelect.appendChild(opt); });
     updateTecnicosInfo();
   }
-  encTecSupervisor.addEventListener('change', async () => { const sup = encTecSupervisor.value; await cargarTecnicosPorSupervisor(sup); renderTecnicos(tecnicosBuscar.value.trim()); });
+  encTecSupervisor.addEventListener('change', async () => { syncSeleccionTecGlobalFromVisible(); const sup = encTecSupervisor.value; await cargarTecnicosPorSupervisor(sup); renderTecnicos(tecnicosBuscar.value.trim()); });
   if (tecnicosBuscar) tecnicosBuscar.addEventListener('input', () => renderTecnicos(tecnicosBuscar.value.trim()));
   if (tecnicosSelect) tecnicosSelect.addEventListener('change', updateTecnicosInfo);
   // Inicializar estado
@@ -1324,6 +1340,7 @@
   const editTecnicosBuscar = document.getElementById('edit-enc-tecnicos-buscar');
   const editTecnicosSelect = document.getElementById('edit-enc-tecnicos');
   const editTecnicosInfo = document.getElementById('edit-enc-tecnicos-info');
+  let editSeleccionTecnicosGlobal = new Set();
 
   function updateCarpetasInfoEdit() {
     if (!editCarpetasInfo) return;
@@ -1380,14 +1397,14 @@
         await cargarTecnicosPorSupervisor(editEncTecSupervisor.value);
         // Mantener selección al re-renderizar
         const filtro = (editTecnicosBuscar && editTecnicosBuscar.value) ? editTecnicosBuscar.value.trim() : '';
-        const actualesTec = new Set(Array.from(editTecnicosSelect.selectedOptions).map(o => o.value));
+        const actualesTec = editSeleccionTecnicosGlobal;
         const lista = cacheTecnicosPorSupervisor[editEncTecSupervisor.value] || [];
         const f = (filtro || '').toLowerCase();
         const filtradas = f ? lista.filter(t => (t.nombre || '').toLowerCase().includes(f)) : lista;
         editTecnicosSelect.innerHTML = '';
         filtradas.forEach(t => { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = `${t.nombre} (ID ${t.id})`; if (actualesTec.has(t.id)) opt.selected = true; editTecnicosSelect.appendChild(opt); });
         if (editTecnicosInfo) {
-          const count = Array.from(editTecnicosSelect.selectedOptions).length;
+          const count = editSeleccionTecnicosGlobal.size;
           const help = 'Mantén Ctrl/Cmd para múltiples técnicos';
           editTecnicosInfo.textContent = count > 0 ? `${count} seleccionado(s) • ${help}` : help;
         }
@@ -1399,6 +1416,7 @@
       updateCarpetasInfoEdit();
       if (editEncTecSupervisor) editEncTecSupervisor.innerHTML = '';
       if (editTecnicosSelect) editTecnicosSelect.innerHTML = '';
+      editSeleccionTecnicosGlobal.clear();
     }
   }
 
@@ -1432,21 +1450,32 @@
     }
   });
 
+  function syncEditSeleccionTecGlobalFromVisible() {
+    const visiblesSeleccionados = new Set(Array.from(editTecnicosSelect.selectedOptions).map(o => o.value));
+    Array.from(editTecnicosSelect.options).forEach(o => {
+      if (visiblesSeleccionados.has(o.value)) {
+        editSeleccionTecnicosGlobal.add(o.value);
+      } else {
+        editSeleccionTecnicosGlobal.delete(o.value);
+      }
+    });
+  }
   function updateTecnicosInfoEdit() {
-    if (!editTecnicosInfo) return; const count = Array.from(editTecnicosSelect.selectedOptions).length;
+    if (!editTecnicosInfo) return;
+    syncEditSeleccionTecGlobalFromVisible();
+    const count = editSeleccionTecnicosGlobal.size;
     const help = 'Mantén Ctrl/Cmd para múltiples técnicos';
-    editTecnicosInfo.textContent = count > 0 ? `${count} seleccionado(s) • ${help}` : help;
+    editTecnicosInfo.textContent = count > 0 ? `${count} seleccionado(s) acumulados • ${help}` : help;
   }
   if (editEncTecSupervisor) editEncTecSupervisor.addEventListener('change', async () => {
-    const sup = editEncTecSupervisor.value; await cargarTecnicosPorSupervisor(sup); // re-render
+    syncEditSeleccionTecGlobalFromVisible();
+    const sup = editEncTecSupervisor.value; await cargarTecnicosPorSupervisor(sup);
     const filtro = (editTecnicosBuscar && editTecnicosBuscar.value) ? editTecnicosBuscar.value.trim() : '';
     const lista = cacheTecnicosPorSupervisor[sup] || [];
     const f = (filtro || '').toLowerCase();
     const filtradas = f ? lista.filter(t => (t.nombre || '').toLowerCase().includes(f)) : lista;
-    // mantener selección
-    const actuales = new Set(Array.from(editTecnicosSelect.selectedOptions).map(o => o.value));
     editTecnicosSelect.innerHTML = '';
-    filtradas.forEach(t => { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = `${t.nombre} (ID ${t.id})`; if (actuales.has(t.id)) opt.selected = true; editTecnicosSelect.appendChild(opt); });
+    filtradas.forEach(t => { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = `${t.nombre} (ID ${t.id})`; if (editSeleccionTecnicosGlobal.has(t.id)) opt.selected = true; editTecnicosSelect.appendChild(opt); });
     updateTecnicosInfoEdit();
   });
   if (editTecnicosBuscar) editTecnicosBuscar.addEventListener('input', () => {
@@ -1454,9 +1483,8 @@
     const sup = editEncTecSupervisor.value;
     const lista = cacheTecnicosPorSupervisor[sup] || [];
     const filtradas = f ? lista.filter(t => (t.nombre || '').toLowerCase().includes(f.toLowerCase())) : lista;
-    const actuales = new Set(Array.from(editTecnicosSelect.selectedOptions).map(o => o.value));
     editTecnicosSelect.innerHTML = '';
-    filtradas.forEach(t => { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = `${t.nombre} (ID ${t.id})`; if (actuales.has(t.id)) opt.selected = true; editTecnicosSelect.appendChild(opt); });
+    filtradas.forEach(t => { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = `${t.nombre} (ID ${t.id})`; if (editSeleccionTecnicosGlobal.has(t.id)) opt.selected = true; editTecnicosSelect.appendChild(opt); });
     updateTecnicosInfoEdit();
   });
   if (editTecnicosSelect) editTecnicosSelect.addEventListener('change', updateTecnicosInfoEdit);
@@ -1544,9 +1572,10 @@
       const sup = editEncTecSupervisor.value;
       if (sup) await cargarTecnicosPorSupervisor(sup);
       const actualesTec = new Set((encuestaSeleccionada.audiencia_tecnicos || []).map(x => String(x)));
+      editSeleccionTecnicosGlobal = new Set(Array.from(actualesTec));
       const lista = sup ? (cacheTecnicosPorSupervisor[sup] || []) : [];
       editTecnicosSelect.innerHTML = '';
-      lista.forEach(t => { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = `${t.nombre} (ID ${t.id})`; if (actualesTec.has(String(t.id))) opt.selected = true; editTecnicosSelect.appendChild(opt); });
+      lista.forEach(t => { const opt = document.createElement('option'); opt.value = t.id; opt.textContent = `${t.nombre} (ID ${t.id})`; if (editSeleccionTecnicosGlobal.has(String(t.id))) opt.selected = true; editTecnicosSelect.appendChild(opt); });
       updateTecnicosInfoEdit();
     };
     if (editDirigidaA.value === 'tecnicos') { setSupervisores().then(setTecnicos); setCarpetas(); }
@@ -1598,7 +1627,8 @@
       payload.audiencia_supervisores = supSeleccionados;
       const seleccionadas = Array.from(editCarpetasSelect.selectedOptions).map(o => o.value).filter(Boolean);
       payload.audiencia_carpetas = seleccionadas;
-      const tecSeleccionados = Array.from(editTecnicosSelect.selectedOptions).map(o => o.value).filter(Boolean);
+      syncEditSeleccionTecGlobalFromVisible();
+      const tecSeleccionados = Array.from(editSeleccionTecnicosGlobal);
       if (tecSeleccionados.length > 0) payload.audiencia_tecnicos = tecSeleccionados;
     } else {
       payload.audiencia_supervisores = [];
@@ -2061,7 +2091,8 @@
       if (supSeleccionados.length > 0) payload.audiencia_supervisores = supSeleccionados;
       const seleccionadas = Array.from(carpetasSelect.selectedOptions).map(o => o.value).filter(Boolean);
       if (seleccionadas.length > 0) payload.audiencia_carpetas = seleccionadas;
-      const tecSeleccionados = Array.from(tecnicosSelect.selectedOptions).map(o => o.value).filter(Boolean);
+      syncSeleccionTecGlobalFromVisible();
+      const tecSeleccionados = Array.from(seleccionTecnicosGlobal);
       if (tecSeleccionados.length > 0) payload.audiencia_tecnicos = tecSeleccionados;
     }
     if (!payload.titulo) { showToast('Falta título', 'Ingresa un título para la encuesta', 'warning'); return; }
