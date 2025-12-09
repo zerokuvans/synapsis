@@ -3886,9 +3886,8 @@ def api_analistas_actividad_cierre():
                             act_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
                 except Exception:
                     act_date = None
-                # Aplicar bloqueo solo desde 2025-12-05 12:00 (Bogotá)
                 now = datetime.now(TIMEZONE)
-                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 5, 12, 0, 0))
+                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 10, 12, 0, 0))
                 if now >= bloqueo_inicio and act_date:
                     dnext = act_date + timedelta(days=1)
                     cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
@@ -4011,9 +4010,8 @@ def api_analistas_actividad_razon():
                             act_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
                 except Exception:
                     act_date = None
-                # Aplicar bloqueo solo desde 2025-12-05 12:00 (Bogotá)
                 now = datetime.now(TIMEZONE)
-                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 5, 12, 0, 0))
+                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 10, 12, 0, 0))
                 if now >= bloqueo_inicio and act_date:
                     dnext = act_date + timedelta(days=1)
                     cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
