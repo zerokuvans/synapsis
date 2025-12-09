@@ -137,7 +137,7 @@ async function cargarLista(){
     const rawItems = Array.isArray(data.items) ? data.items : [];
     __items = rawItems.filter(it => {
       const e = (it.estado || '').toString().toLowerCase().trim();
-      return e === 'completado' || e === 'no completado';
+      return e === 'completado' || e === 'no completado' || e === 'cancelado';
     });
     __page = 1;
     renderTabla();
@@ -194,7 +194,7 @@ function renderTabla(){
     const estado = (item.estado || '').toLowerCase();
     const fechaRaw = item.fecha;
     const bloqueado = debeBloquearGestion(fechaRaw);
-    const estadoBadge = estado === 'completado' ? '<span class="badge bg-success">Completado</span>' : (estado === 'no completado' ? '<span class="badge bg-warning text-dark">No completado</span>' : '<span class="badge bg-secondary">N/A</span>');
+    const estadoBadge = estado === 'completado' ? '<span class="badge bg-success">Completado</span>' : (estado === 'no completado' ? '<span class="badge bg-warning text-dark">No completado</span>' : (estado === 'cancelado' ? '<span class="badge bg-danger">Cancelado</span>' : '<span class="badge bg-secondary">N/A</span>'));
     tr.innerHTML = `
       <td>${cuenta}</td>
       <td>${ot}</td>
@@ -253,10 +253,13 @@ async function renderResumen(){
         const r = data.resumen || {};
         const c = r.completado || { cantidad: 0, gestionada: 0 };
         const n = r.no_completado || { cantidad: 0, gestionada: 0 };
+        const k = r.cancelado || { cantidad: 0, gestionada: 0 };
         const pComp = c.cantidad ? (c.gestionada * 100) / c.cantidad : 0;
         const pNComp = n.cantidad ? (n.gestionada * 100) / n.cantidad : 0;
+        const pCancel = k.cantidad ? (k.gestionada * 100) / k.cantidad : 0;
         const fmt = (v) => `${v.toFixed(1)}%`;
         const m = data.mensual || { cantidad: 0, gestionada: 0 };
+        const mk = (m.cancelado || { cantidad: 0, gestionada: 0 });
         const totalCant = m.cantidad || 0;
         const totalGest = m.gestionada || 0;
         const totalPct = m.cantidad ? (m.gestionada * 100) / m.cantidad : 0;
@@ -272,6 +275,10 @@ async function renderResumen(){
               <div class="badge bg-secondary p-2">Cantidad (mes): <span class="fw-bold">${totalCant}</span></div>
               <div class="badge bg-info p-2">Gestionada (mes): <span class="fw-bold">${totalGest}</span></div>
               <div class="badge bg-success p-2">Finalizado (mes): <span class="fw-bold">${fmt(totalPct)}</span></div>
+            </div>
+            <div class="d-flex gap-2 justify-content-end mb-1">
+              <div class="badge bg-danger p-2">Cancelado (mes): <span class="fw-bold">${mk.cantidad}</span></div>
+              <div class="badge bg-danger p-2">Cancelado gestionado (mes): <span class="fw-bold">${mk.gestionada}</span></div>
             </div>
             <div class="d-flex gap-2 justify-content-end">
               <div class="badge bg-warning p-2">Cierre Ciclo (mes): <span class="fw-bold">${ccGest}</span></div>
@@ -303,6 +310,12 @@ async function renderResumen(){
                 <td>${n.gestionada}</td>
                 <td>${fmt(pNComp)}</td>
               </tr>
+              <tr>
+                 <td><span class="badge bg-danger">Cancelado</span></td>
+                 <td>${k.cantidad}</td>
+                 <td>${k.gestionada}</td>
+                 <td>${fmt(pCancel)}</td>
+               </tr>
             </tbody>
           </table>
         `;
@@ -310,18 +323,20 @@ async function renderResumen(){
       }
     }
   }catch(_){ }
-  let comp = 0, compGest = 0, ncomp = 0, ncompGest = 0;
+  let comp = 0, compGest = 0, ncomp = 0, ncompGest = 0, canc = 0, cancGest = 0;
   for(const it of __items){
     const e = String(it.estado || '').toLowerCase().trim();
     const fin = (()=>{const v=String(it.estado_final ?? '').trim().toLowerCase();return v==='1'||v==='true';})();
     if(e==='completado'){ comp++; if(fin) compGest++; }
     else if(e==='no completado'){ ncomp++; if(fin) ncompGest++; }
+    else if(e==='cancelado'){ canc++; if(fin) cancGest++; }
   }
   const fmt = (v) => `${v.toFixed(1)}%`;
   const pComp = comp ? (compGest * 100) / comp : 0;
   const pNComp = ncomp ? (ncompGest * 100) / ncomp : 0;
-  const totalCant = comp + ncomp;
-  const totalGest = compGest + ncompGest;
+  const pCanc = canc ? (cancGest * 100) / canc : 0;
+  const totalCant = comp + ncomp + canc;
+  const totalGest = compGest + ncompGest + cancGest;
   const totalPct = totalCant ? (totalGest * 100) / totalCant : 0;
   const top = document.getElementById('resumenTop');
   if(top){
@@ -353,6 +368,12 @@ async function renderResumen(){
           <td>${ncomp}</td>
           <td>${ncompGest}</td>
           <td>${fmt(pNComp)}</td>
+        </tr>
+        <tr>
+          <td><span class="badge bg-danger">Cancelado</span></td>
+          <td>${canc}</td>
+          <td>${cancGest}</td>
+          <td>${fmt(pCanc)}</td>
         </tr>
       </tbody>
     </table>
@@ -632,6 +653,27 @@ function debeBloquearGestion(fechaRaw){
                   </div>
                 </div>
               </div>
+
+              <div id="seccionCancelado" style="display:none;">
+                <div class="alert alert-danger mb-3"><i class="fas fa-ban me-2"></i>Estado: Cancelado</div>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Tipificación Cancelado</label>
+                    <select class="form-select" id="gaCanceladoTipificacion">
+                      <option value="">Seleccione...</option>
+                    </select>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label">Observación</label>
+                    <input type="text" class="form-control" id="gaCanceladoObservacion" placeholder="Observaciones..." disabled>
+                  </div>
+                  <div class="col-12 d-flex justify-content-end">
+                    <button type="button" class="btn btn-warning" id="btnFinalizarCancelado">
+                      <i class="fas fa-save me-2"></i>Finalizar
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -705,8 +747,10 @@ async function abrirGestionActividad(ot, cuenta, tecnico){
 function mostrarSeccionesPorEstado(estado){
   const ok = document.getElementById('seccionOk');
   const rz = document.getElementById('seccionRazon');
+  const ca = document.getElementById('seccionCancelado');
   ok.style.display = estado === 'completado' ? 'block' : 'none';
   rz.style.display = estado === 'no completado' ? 'block' : 'none';
+  ca.style.display = estado === 'cancelado' ? 'block' : 'none';
 }
 
 document.getElementById('gaCierreSi').addEventListener('change', () => {
@@ -909,6 +953,24 @@ function inicializarTipificaciones(){
     razonRealOpts.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; selRz.appendChild(o); });
     if(currentR && razonRealOpts.includes(currentR)) selRz.value = currentR;
   }
+  const selCancel = document.getElementById('gaCanceladoTipificacion');
+  if(selCancel){
+    const cur = selCancel.value;
+    selCancel.innerHTML = '<option value="">Seleccione...</option>';
+    [
+      'TECNICO SOLICITO CANCELAR LA VISITA',
+      'CLIENTE REAGENDA LA VISITA',
+      'OTRA'
+    ].forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; selCancel.appendChild(o); });
+    if(cur) selCancel.value = cur;
+  }
+  const obsCancel = document.getElementById('gaCanceladoObservacion');
+  const updateCancelObs = () => {
+    const v = (selCancel && selCancel.value ? selCancel.value : '').trim().toUpperCase();
+    const en = v === 'OTRA';
+    if(obsCancel){ obsCancel.disabled = !en; if(!en) obsCancel.value = ''; }
+  };
+  if(selCancel){ selCancel.addEventListener('change', updateCancelObs); updateCancelObs(); }
   const btnFin = document.getElementById('btnFinalizarCierre');
   if(btnFin){
     btnFin.onclick = finalizarCierre;
@@ -923,6 +985,10 @@ function inicializarTipificaciones(){
   const btnFinR = document.getElementById('btnFinalizarRazon');
   if(btnFinR){
     btnFinR.onclick = finalizarRazon;
+  }
+  const btnFinC = document.getElementById('btnFinalizarCancelado');
+  if(btnFinC){
+    btnFinC.onclick = finalizarCancelado;
   }
 }
 
@@ -989,6 +1055,27 @@ async function finalizarRazon(){
     }
   }catch(e){
     if(window.Swal){ Swal.fire({icon:'error', title:'Error', text:'Error al guardar razón'}); }
+  }
+}
+
+async function finalizarCancelado(){
+  try{
+    const tip = document.getElementById('gaCanceladoTipificacion').value;
+    const obsRaw = document.getElementById('gaCanceladoObservacion').value.trim();
+    const obs = ((tip || '').trim().toUpperCase() === 'OTRA') ? obsRaw : '';
+    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, cancelado_tipificacion: tip || null, cancelado_observacion: obs || null };
+    const res = await fetch('/api/analistas/actividad-cancelado', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if(res.ok && data && data.success){
+      if(window.Swal){ Swal.fire({icon:'success', title:'Guardado', text:'Cancelado guardado y actividad finalizada'}); }
+      const mm = bootstrap.Modal.getInstance(document.getElementById('modalGestionActividad'));
+      mm && mm.hide();
+      try{ await cargarLista(); }catch(_){}
+    }else{
+      if(window.Swal){ Swal.fire({icon:'warning', title:'No guardado', text: data && data.error ? String(data.error) : 'Error al guardar'}); }
+    }
+  }catch(e){
+    if(window.Swal){ Swal.fire({icon:'error', title:'Error', text:'Error al guardar cancelado'}); }
   }
 }
 </script>

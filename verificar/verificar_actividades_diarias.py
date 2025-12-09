@@ -29,6 +29,56 @@ cur.execute(
 cols = [r[0] for r in cur.fetchall()]
 lc = {c.lower(): c for c in cols}
 
+# Información detallada de estructura y formato de tabla
+cur_desc = conn.cursor()
+cur_desc.execute("DESCRIBE operaciones_actividades_diarias")
+describe_rows = cur_desc.fetchall()
+print("DESCRIBE operaciones_actividades_diarias:")
+for row in describe_rows:
+    # row: Field, Type, Null, Key, Default, Extra
+    print(f"  {row[0]} | {row[1]} | Null:{row[2]} | Key:{row[3]} | Default:{row[4]} | Extra:{row[5]}")
+cur_desc.close()
+
+cur_fmt = conn.cursor()
+cur_fmt.execute(
+    """
+    SELECT ROW_FORMAT, TABLE_ROWS, AVG_ROW_LENGTH
+    FROM information_schema.tables
+    WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+    """,
+    (db_config.get('database'),)
+)
+fmt_row = cur_fmt.fetchone()
+print("TABLE STATUS:", {
+    'ROW_FORMAT': (fmt_row[0] if fmt_row else None),
+    'TABLE_ROWS': (fmt_row[1] if fmt_row else None),
+    'AVG_ROW_LENGTH': (fmt_row[2] if fmt_row else None)
+})
+cur_fmt.close()
+
+# Verificar columnas críticas recientes
+cur_cols = conn.cursor()
+cur_cols.execute(
+    """
+    SELECT column_name, data_type, character_maximum_length
+    FROM information_schema.columns
+    WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+      AND column_name IN (
+        'tipificacion_ok','tipificacion_novedad','observacion_cierre',
+        'tipificacion_razon','observacion_razon',
+        'cancelado_tipificacion','cancelado_opcion_texto','cancelado_observacion',
+        'estado_final','confirmacion_evento','cierre_ciclo',
+        'tip_super_1','tip_super_2','observacion_super','cierre_super','fecha_gestion_super'
+      )
+    ORDER BY column_name
+    """,
+    (db_config.get('database'),)
+)
+print("COLUMN TYPES (seleccion):")
+for cname, dtype, clen in cur_cols.fetchall():
+    print(f"  {cname}: {dtype}({clen if clen else ''})")
+cur_cols.close()
+
 def pick(cands):
     for n in cands:
         if n.lower() in lc:

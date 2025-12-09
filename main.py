@@ -3087,7 +3087,7 @@ def api_analistas_actividades_diarias_list():
                   AND o.`{col_cuenta}` REGEXP '^[0-9]+' 
                   AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
                   AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
-                  {" AND LOWER(TRIM(o.`" + col_estado + "`)) IN ('completado','no completado')" if col_estado else ''}
+                  {" AND LOWER(TRIM(o.`" + col_estado + "`)) IN ('completado','no completado','cancelado')" if col_estado else ''}
                 ORDER BY o.`{col_fecha}` DESC
                 LIMIT 500
             """
@@ -3182,7 +3182,7 @@ def api_analistas_actividades_diarias_resumen():
             (db_config.get('database'),)
         )
         row = cursor.fetchone()
-        coll = row[0] if row and row[0] else 'utf8mb4_0900_ai_ci'
+        coll = row[0] if row and row[0] else 'utf8mb4_general_ci'
         cursor.execute(
             f"""
             SELECT recurso_operativo_cedula, nombre
@@ -3215,10 +3215,15 @@ def api_analistas_actividades_diarias_resumen():
         comp_gest = 0
         ncomp_total = 0
         ncomp_gest = 0
+        cancel_total = 0
+        cancel_gest = 0
         m_comp_total = 0
         m_comp_gest = 0
         m_ncomp_total = 0
         m_ncomp_gest = 0
+        m_cancel_total = 0
+        m_cancel_gest = 0
+        cc_gestionada = 0
         if cedulas and col_estado:
             placeholders = ','.join(['%s'] * len(cedulas))
             final_cond = ''
@@ -3229,7 +3234,9 @@ def api_analistas_actividades_diarias_resumen():
                   SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'completado' THEN 1 ELSE 0 END) AS comp_total,
                   SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'completado' {(' AND CAST(o.`' + col_final + '` AS SIGNED) = 1') if col_final else ''} THEN 1 ELSE 0 END) AS comp_gest,
                   SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'no completado' THEN 1 ELSE 0 END) AS ncomp_total,
-                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'no completado' {(' AND CAST(o.`' + col_final + '` AS SIGNED) = 1') if col_final else ''} THEN 1 ELSE 0 END) AS ncomp_gest
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'no completado' {(' AND CAST(o.`' + col_final + '` AS SIGNED) = 1') if col_final else ''} THEN 1 ELSE 0 END) AS ncomp_gest,
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'cancelado' THEN 1 ELSE 0 END) AS cancel_total,
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'cancelado' {(' AND CAST(o.`' + col_final + '` AS SIGNED) = 1') if col_final else ''} THEN 1 ELSE 0 END) AS cancel_gest
                 FROM operaciones_actividades_diarias o
                 WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_fecha_sql}
                   AND o.`{col_cuenta}` IS NOT NULL
@@ -3240,17 +3247,21 @@ def api_analistas_actividades_diarias_resumen():
             """
             c2 = connection.cursor()
             c2.execute(sql, tuple(cedulas) + tuple(params))
-            rr = c2.fetchone() or (0,0,0,0)
+            rr = c2.fetchone() or (0,0,0,0,0,0)
             try:
                 comp_total = int(rr[0] or 0)
                 comp_gest = int(rr[1] or 0)
                 ncomp_total = int(rr[2] or 0)
                 ncomp_gest = int(rr[3] or 0)
+                cancel_total = int(rr[4] or 0)
+                cancel_gest = int(rr[5] or 0)
             except Exception:
                 comp_total = comp_total or 0
                 comp_gest = comp_gest or 0
                 ncomp_total = ncomp_total or 0
                 ncomp_gest = ncomp_gest or 0
+                cancel_total = cancel_total or 0
+                cancel_gest = cancel_gest or 0
             c2.close()
 
             # Cálculo mensual acumulado
@@ -3300,7 +3311,9 @@ def api_analistas_actividades_diarias_resumen():
                   SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'completado' THEN 1 ELSE 0 END) AS comp_total,
                   SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'completado' {(' AND CAST(o.`' + col_final + '` AS SIGNED) = 1') if col_final else ''} THEN 1 ELSE 0 END) AS comp_gest,
                   SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'no completado' THEN 1 ELSE 0 END) AS ncomp_total,
-                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'no completado' {(' AND CAST(o.`' + col_final + '` AS SIGNED) = 1') if col_final else ''} THEN 1 ELSE 0 END) AS ncomp_gest
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'no completado' {(' AND CAST(o.`' + col_final + '` AS SIGNED) = 1') if col_final else ''} THEN 1 ELSE 0 END) AS ncomp_gest,
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'cancelado' THEN 1 ELSE 0 END) AS cancel_total,
+                  SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'cancelado' {(' AND CAST(o.`' + col_final + '` AS SIGNED) = 1') if col_final else ''} THEN 1 ELSE 0 END) AS cancel_gest
                 FROM operaciones_actividades_diarias o
                 WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_mes_sql}
                   AND o.`{col_cuenta}` IS NOT NULL
@@ -3311,19 +3324,22 @@ def api_analistas_actividades_diarias_resumen():
             """
             c3 = connection.cursor()
             c3.execute(sqlm, tuple(cedulas) + tuple(mes_params))
-            rrm = c3.fetchone() or (0,0,0,0)
+            rrm = c3.fetchone() or (0,0,0,0,0,0)
             try:
                 m_comp_total = int(rrm[0] or 0)
                 m_comp_gest = int(rrm[1] or 0)
                 m_ncomp_total = int(rrm[2] or 0)
                 m_ncomp_gest = int(rrm[3] or 0)
+                m_cancel_total = int(rrm[4] or 0)
+                m_cancel_gest = int(rrm[5] or 0)
             except Exception:
                 m_comp_total = m_comp_total or 0
                 m_comp_gest = m_comp_gest or 0
                 m_ncomp_total = m_ncomp_total or 0
                 m_ncomp_gest = m_ncomp_gest or 0
+                m_cancel_total = 0
+                m_cancel_gest = 0
             c3.close()
-            cc_gestionada = 0
             if col_cierre:
                 sql_cc = f"""
                     SELECT COUNT(*)
@@ -3357,11 +3373,19 @@ def api_analistas_actividades_diarias_resumen():
                 'no_completado': {
                     'cantidad': ncomp_total,
                     'gestionada': ncomp_gest
+                },
+                'cancelado': {
+                    'cantidad': cancel_total,
+                    'gestionada': cancel_gest
                 }
             },
             'mensual': {
-                'cantidad': (m_comp_total + m_ncomp_total),
-                'gestionada': (m_comp_gest + m_ncomp_gest)
+                'cantidad': (m_comp_total + m_ncomp_total + (m_cancel_total or 0)),
+                'gestionada': (m_comp_gest + m_ncomp_gest + (m_cancel_gest or 0)),
+                'cancelado': {
+                    'cantidad': (m_cancel_total or 0),
+                    'gestionada': (m_cancel_gest or 0)
+                }
             },
             'cierre_ciclo': {
                 'meta_mensual': 260,
@@ -3421,7 +3445,7 @@ def api_analistas_actividades_diarias_export():
         col_final = pick(['estado_final','finalizado','final'])
         col_cierre = pick(['cierre_ciclo'])
         opt_cols = []
-        for opt in ['tipificacion_ok','tipificacion_novedad','observacion_cierre','tipificacion_razon','tipo_razon_aplica','observacion_razon','confirmacion_evento']:
+        for opt in ['tipificacion_ok','tipificacion_novedad','observacion_cierre','tipificacion_razon','tipo_razon_aplica','observacion_razon','confirmacion_evento','cancelado_tipificacion','cancelado_opcion_texto','cancelado_observacion']:
             if opt.lower() in cols:
                 opt_cols.append(cols[opt.lower()])
         if not col_ot or not col_cuenta or not col_fecha or not col_ext:
@@ -3471,7 +3495,7 @@ def api_analistas_actividades_diarias_export():
         else:
             where.append(f"CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 3")
         if col_estado:
-            where.append(f"LOWER(TRIM(o.`{col_estado}`)) IN ('completado','no completado')")
+            where.append(f"LOWER(TRIM(o.`{col_estado}`)) IN ('completado','no completado','cancelado')")
         if solo_gest:
             if col_final:
                 where.append(f"CAST(o.`{col_final}` AS SIGNED) = 1")
@@ -3829,12 +3853,31 @@ def api_analistas_actividad_cierre():
         def ensure_col(name, ddl):
             if name.lower() not in cols:
                 cur.execute(ddl)
-        ensure_col('tipificacion_ok', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tipificacion_ok` VARCHAR(255) NULL")
-        ensure_col('tipificacion_novedad', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tipificacion_novedad` VARCHAR(255) NULL")
+        # Reducir tamaño de fila: usar TEXT para tipificaciones
+        ensure_col('tipificacion_ok', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tipificacion_ok` TEXT NULL")
+        ensure_col('tipificacion_novedad', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tipificacion_novedad` TEXT NULL")
         ensure_col('observacion_cierre', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `observacion_cierre` TEXT NULL")
         ensure_col('estado_final', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `estado_final` TINYINT(1) NULL DEFAULT 0")
         ensure_col('confirmacion_evento', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `confirmacion_evento` TINYINT(1) NULL")
         ensure_col('cierre_ciclo', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `cierre_ciclo` TINYINT(1) NULL DEFAULT 0")
+        try:
+            cur.execute(
+                """
+                SELECT column_name, data_type FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+                AND column_name IN ('tipificacion_ok','tipificacion_novedad')
+                """,
+                (db_config.get('database'),)
+            )
+            for cname, dtype in cur.fetchall():
+                if str(dtype).lower().startswith('varchar'):
+                    cur.execute(f"ALTER TABLE `operaciones_actividades_diarias` MODIFY COLUMN `{cname}` TEXT NULL")
+        except Exception:
+            pass
+        try:
+            cur.execute("ALTER TABLE `operaciones_actividades_diarias` ROW_FORMAT=DYNAMIC")
+        except Exception:
+            pass
         # Detectar columnas ot/cuenta
         cur.execute(
             """
@@ -3954,11 +3997,31 @@ def api_analistas_actividad_razon():
         def ensure_col(name, ddl):
             if name.lower() not in cols:
                 cur.execute(ddl)
-        ensure_col('tipificacion_razon', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tipificacion_razon` VARCHAR(255) NULL")
+        # Reducir tamaño de fila: usar TEXT para tipificacion_razon
+        ensure_col('tipificacion_razon', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tipificacion_razon` TEXT NULL")
         ensure_col('tipo_razon_aplica', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tipo_razon_aplica` TINYINT(1) NULL")
         ensure_col('observacion_razon', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `observacion_razon` TEXT NULL")
         ensure_col('confirmacion_evento', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `confirmacion_evento` TINYINT(1) NULL")
         ensure_col('estado_final', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `estado_final` TINYINT(1) NULL DEFAULT 0")
+        # Si las columnas existen como VARCHAR, convertir a TEXT
+        try:
+            cur.execute(
+                """
+                SELECT column_name, data_type FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+                AND column_name IN ('tipificacion_razon')
+                """,
+                (db_config.get('database'),)
+            )
+            for cname, dtype in cur.fetchall():
+                if str(dtype).lower().startswith('varchar'):
+                    cur.execute(f"ALTER TABLE `operaciones_actividades_diarias` MODIFY COLUMN `{cname}` TEXT NULL")
+        except Exception:
+            pass
+        try:
+            cur.execute("ALTER TABLE `operaciones_actividades_diarias` ROW_FORMAT=DYNAMIC")
+        except Exception:
+            pass
         # Detectar columnas ot/cuenta
         cur.execute(
             """
@@ -4040,6 +4103,154 @@ def api_analistas_actividad_razon():
         else:
             set_parts.append("`confirmacion_evento`=NULL")
         set_parts.append("`estado_final`=1")
+        sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where)
+        cur.execute(sql, tuple(set_vals + params))
+        connection.commit()
+        cur.close(); connection.close()
+        return jsonify({'success': True, 'updated': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/analistas/actividad-cancelado', methods=['POST'])
+@login_required_analistas_or_lider_api()
+def api_analistas_actividad_cancelado():
+    data = request.get_json() or {}
+    ot = str(data.get('ot') or '').strip()
+    cuenta = str(data.get('cuenta') or '').strip()
+    tip_cancelado = str(data.get('cancelado_tipificacion') or '').strip()
+    texto_opcion = str(data.get('cancelado_opcion_texto') or '').strip()
+    observ = str(data.get('cancelado_observacion') or '').strip()
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        cur.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cur.fetchall()}
+        def ensure_col(name, ddl):
+            if name.lower() not in cols:
+                try:
+                    cur.execute(ddl)
+                except Exception:
+                    pass
+        ensure_col('cancelado_tipificacion', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `cancelado_tipificacion` TEXT NULL")
+        ensure_col('cancelado_opcion_texto', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `cancelado_opcion_texto` TEXT NULL")
+        ensure_col('cancelado_observacion', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `cancelado_observacion` TEXT NULL")
+        ensure_col('estado_final', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `estado_final` TINYINT(1) NULL DEFAULT 0")
+        try:
+            cur.execute(
+                """
+                SELECT column_name, data_type FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+                AND column_name IN ('cancelado_tipificacion')
+                """,
+                (db_config.get('database'),)
+            )
+            for cname, dtype in cur.fetchall():
+                if str(dtype).lower().startswith('varchar'):
+                    cur.execute(f"ALTER TABLE `operaciones_actividades_diarias` MODIFY COLUMN `{cname}` TEXT NULL")
+        except Exception:
+            pass
+        cur.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cur.fetchall()}
+        def pick(names):
+            for n in names:
+                if n.lower() in cols:
+                    return cols[n.lower()]
+            for k0,v0 in cols.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            return None
+        col_ot = pick(['orden_de_trabajo','ot','orden','orden_trabajo'])
+        col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
+        col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+        if not col_ot or not col_cuenta:
+            return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
+        where = []
+        params = []
+        if ot:
+            where.append(f"CAST(`{col_ot}` AS CHAR) = %s")
+            val_ot = str(ot).split('.')[0].strip()
+            try:
+                val_ot = str(int(val_ot))
+            except Exception:
+                pass
+            params.append(val_ot)
+        if cuenta:
+            where.append(f"CAST(`{col_cuenta}` AS CHAR) = %s")
+            val_cta = str(cuenta).split('.')[0].strip()
+            try:
+                val_cta = str(int(val_cta))
+            except Exception:
+                pass
+            params.append(val_cta)
+        if not where:
+            return jsonify({'success': False, 'error': 'Faltan OT/Cuenta'}), 400
+        if col_fecha:
+            c2 = connection.cursor()
+            c2.execute(f"SELECT o.`{col_fecha}` FROM operaciones_actividades_diarias o WHERE " + " AND ".join(where) + " LIMIT 1", tuple(params))
+            rdt = c2.fetchone()
+            c2.close()
+            if rdt:
+                v = rdt[0]
+                act_date = None
+                try:
+                    if isinstance(v, datetime):
+                        act_date = v.date()
+                    else:
+                        s = str(v).strip()
+                        m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", s)
+                        if m:
+                            act_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
+                except Exception:
+                    act_date = None
+                now = datetime.now(TIMEZONE)
+                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 10, 12, 0, 0))
+                if now >= bloqueo_inicio and act_date:
+                    dnext = act_date + timedelta(days=1)
+                    cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
+                    if now >= cutoff:
+                        return jsonify({'success': False, 'code': 'BLOCKED_BY_CUTOFF'}), 403
+        set_parts = []
+        set_vals = []
+        has_tip = 'cancelado_tipificacion' in cols
+        has_texto = 'cancelado_opcion_texto' in cols
+        has_obs = 'cancelado_observacion' in cols
+        has_final = 'estado_final' in cols
+        if has_tip:
+            if tip_cancelado:
+                set_parts.append("`cancelado_tipificacion`=%s")
+                set_vals.append(tip_cancelado)
+            else:
+                set_parts.append("`cancelado_tipificacion`=NULL")
+        texto_final = texto_opcion if (tip_cancelado.strip().upper() == 'OTRA' and texto_opcion) else None
+        if has_texto:
+            if texto_final is not None:
+                set_parts.append("`cancelado_opcion_texto`=%s")
+                set_vals.append(texto_final)
+            else:
+                set_parts.append("`cancelado_opcion_texto`=NULL")
+        if has_obs:
+            if observ:
+                set_parts.append("`cancelado_observacion`=%s")
+                set_vals.append(observ)
+            else:
+                set_parts.append("`cancelado_observacion`=NULL")
+        if has_final:
+            set_parts.append("`estado_final`=1")
         sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where)
         cur.execute(sql, tuple(set_vals + params))
         connection.commit()
@@ -6198,11 +6409,27 @@ def api_operativo_cierre_ciclo_gestionar():
                 c2.execute(ddl)
                 c2.close()
                 cols[col.lower()] = col
-        ensure_col('tip_super_1', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tip_super_1` VARCHAR(255) NULL")
-        ensure_col('tip_super_2', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tip_super_2` VARCHAR(255) NULL")
+        ensure_col('tip_super_1', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tip_super_1` TEXT NULL")
+        ensure_col('tip_super_2', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tip_super_2` TEXT NULL")
         ensure_col('observacion_super', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `observacion_super` TEXT NULL")
         ensure_col('cierre_super', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `cierre_super` TINYINT(1) NULL DEFAULT 0")
         ensure_col('fecha_gestion_super', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `fecha_gestion_super` DATETIME NULL")
+        try:
+            c2 = connection.cursor()
+            c2.execute(
+                """
+                SELECT column_name, data_type FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+                AND column_name IN ('tip_super_1','tip_super_2')
+                """,
+                (db_config.get('database'),)
+            )
+            for cname, dtype in c2.fetchall():
+                if str(dtype).lower().startswith('varchar'):
+                    c2.execute(f"ALTER TABLE `operaciones_actividades_diarias` MODIFY COLUMN `{cname}` TEXT NULL")
+            c2.close()
+        except Exception:
+            pass
         cur.execute(
             """
             SELECT COLUMN_NAME FROM information_schema.columns
