@@ -65,5 +65,45 @@
     <script src="{{ url_for('static', filename='js/global-utils.js') }}"></script>
     
     {% block scripts %}{% endblock %}
-</body>
+    <script>
+      (function(){
+        function showPendientes(data){
+          var items = data.items || [];
+          var html = '<div class="text-start">' +
+            '<div class="alert alert-warning mb-3">SERIALES PENDIENTES INVERSA POR FAVOR DEVOLVERLOS O SE BLOQUEARÁ PREOPERACIONAL EN 2 DÍAS</div>' +
+            '<div class="table-responsive"><table class="table table-sm table-striped">' +
+            '<thead><tr><th>serial_rr</th><th>cuenta</th><th>lapso</th><th>fecha</th><th>días restantes</th></tr></thead><tbody>';
+          for (var i=0;i<items.length;i++){
+            var r = items[i];
+            var fechaR = r.fecha_registro || r.created_at || '';
+            html += '<tr>'+
+              '<td>'+(r.serial_rr||'')+'</td>'+
+              '<td>'+(r.cuenta||'')+'</td>'+
+              '<td>'+(r.lapso||'')+'</td>'+
+              '<td>'+(fechaR||'')+'</td>'+
+              '<td>'+(r.dias_restantes!=null?r.dias_restantes:'')+'</td>'+
+            '</tr>';
+          }
+          html += '</tbody></table></div></div>';
+          Swal.fire({
+            title: 'Aviso',
+            icon: 'warning',
+            html: html,
+            width: 900,
+            confirmButtonText: 'Entendido'
+          });
+        }
+        document.addEventListener('DOMContentLoaded', function(){
+          fetch('/logistica/seriales_inversa/pending', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            cache: 'no-store'
+          })
+          .then(function(r){ return r.ok ? r.json() : r.json().catch(function(){ return {}; }); })
+          .then(function(j){ if (j && (j.count>0 || (j.items && j.items.length>0))){ showPendientes(j); } })
+          .catch(function(){});
+        });
+      })();
+    </script>
+  </body>
 </html>

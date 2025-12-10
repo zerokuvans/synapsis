@@ -152,6 +152,12 @@
             </select>
           </div>
         </div>
+        <div class="row g-3 mb-2 align-items-end">
+          <div class="col-md-6 d-flex align-items-center gap-2">
+            <input class="form-check-input" type="checkbox" id="enc-requiere-firma">
+            <label class="form-check-label" for="enc-requiere-firma">Requiere firma al finalizar</label>
+          </div>
+        </div>
         <button id="btn-crear-encuesta" class="btn btn-primary w-100">
           <i class="fas fa-plus me-1"></i>Crear encuesta
         </button>
@@ -378,6 +384,10 @@
             <div class="col-md-3 d-flex align-items-center gap-2">
               <input class="form-check-input" type="checkbox" id="edit-enc-anonima">
               <label class="form-check-label" for="edit-enc-anonima">Anónima</label>
+            </div>
+            <div class="col-md-3 d-flex align-items-center gap-2">
+              <input class="form-check-input" type="checkbox" id="edit-enc-requiere-firma">
+              <label class="form-check-label" for="edit-enc-requiere-firma">Requiere firma al finalizar</label>
             </div>
             <div class="col-md-3">
               <label class="form-label">Visibilidad</label>
@@ -639,6 +649,7 @@
   const permitirMultiples = document.getElementById('enc-permitir-multiples-respuestas');
   const modoMultiples = document.getElementById('enc-modo-multiples-respuestas');
   const modoMultiplesWrap = document.getElementById('enc-modo-multiples-wrap');
+  const requiereFirma = document.getElementById('enc-requiere-firma');
   const supervisoresContainer = document.getElementById('enc-supervisores-container');
   const supervisoresSelect = document.getElementById('enc-supervisores');
   const supervisoresBuscar = document.getElementById('enc-supervisores-buscar');
@@ -1324,6 +1335,7 @@
   const editFechaInicio = document.getElementById('edit-enc-fecha-inicio');
   const editFechaFin = document.getElementById('edit-enc-fecha-fin');
   const editEncConPuntaje = document.getElementById('edit-enc-con-puntaje');
+  const editEncRequiereFirma = document.getElementById('edit-enc-requiere-firma');
   const editPermitirMultiples = document.getElementById('edit-enc-permitir-multiples-respuestas');
   const editModoMultiples = document.getElementById('edit-enc-modo-multiples-respuestas');
   const editModoMultiplesWrap = document.getElementById('edit-enc-modo-multiples-wrap');
@@ -1494,6 +1506,7 @@
     editEncTitulo.value = encuestaSeleccionada.titulo || '';
     editEncDesc.value = encuestaSeleccionada.descripcion || '';
     editEncAnonima.checked = !!encuestaSeleccionada.anonima;
+    if (editEncRequiereFirma) editEncRequiereFirma.checked = !!(encuestaSeleccionada.requiere_firma === 1 || encuestaSeleccionada.requiere_firma === true);
     editEncVisibilidad.value = encuestaSeleccionada.visibilidad || 'privada';
     editEncEstado.value = encuestaSeleccionada.estado || 'borrador';
     if (editTipoEncuestaSel) editTipoEncuestaSel.value = encuestaSeleccionada.tipo_encuesta || 'encuesta';
@@ -1599,7 +1612,8 @@
       dirigida_a: editDirigidaA.value,
       fecha_inicio: editFechaInicio.value || null,
       fecha_fin: editFechaFin.value || null,
-      con_puntaje: !!(editEncConPuntaje && editEncConPuntaje.checked)
+      con_puntaje: !!(editEncConPuntaje && editEncConPuntaje.checked),
+      requiere_firma: !!(editEncRequiereFirma && editEncRequiereFirma.checked)
     };
     // Configuración de puntaje (edición)
     const editPorcentajeAprobacionInput = document.getElementById('edit-enc-porcentaje-aprobacion');
@@ -2064,7 +2078,8 @@
       estado: 'borrador',
       fecha_inicio: (fechaInicio && fechaInicio.value) ? fechaInicio.value : null,
       fecha_fin: (fechaFin && fechaFin.value) ? fechaFin.value : null,
-      con_puntaje: conPuntaje.checked
+      con_puntaje: conPuntaje.checked,
+      requiere_firma: !!(requiereFirma && requiereFirma.checked)
     };
     // Configuración de puntaje (creación)
     const porcentajeAprobacionInput = document.getElementById('enc-porcentaje-aprobacion');

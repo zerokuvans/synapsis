@@ -86,6 +86,7 @@
                           <li><a class="dropdown-item" href="/logistica/ferretero"><i class="fas fa-screwdriver me-2"></i>Material Ferretero</a></li>
                           <li><a class="dropdown-item" href="/logistica/computadores"><i class="fas fa-laptop me-2"></i>Computadores</a></li>
                           <li><a class="dropdown-item" href="/logistica/historial_seriales"><i class="fas fa-history me-2"></i>Historial de Seriales</a></li>
+                          <li><a class="dropdown-item" href="/logistica/seriales_inversa"><i class="fas fa-retweet me-2"></i>Seriales Inversa</a></li>
                           <li><a class="dropdown-item" href="/logistica/estadisticas_ferretero_page">
                                 <i class="fas fa-chart-line me-2"></i>Estadísticas Ferretero
                             </a></li>
@@ -302,6 +303,25 @@
                     <button id="btnEnviarEncuestaPopup" class="btn btn-primary">
                         <i class="fas fa-paper-plane me-1"></i>Enviar respuestas
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalFirmaEncuesta" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-pen-nib me-2"></i>Firma de conformidad</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2 text-muted">Dibuja tu firma en el recuadro</div>
+                    <canvas id="firmaCanvasEncuesta" width="400" height="200" style="border:1px solid #ddd; border-radius:6px; cursor:crosshair; width:100%; height:200px"></canvas>
+                </div>
+                <div class="modal-footer">
+                    <button id="btnLimpiarFirmaEncuesta" type="button" class="btn btn-outline-secondary">Limpiar</button>
+                    <button id="btnGuardarFirmaEncuesta" type="button" class="btn btn-primary">Guardar firma</button>
                 </div>
             </div>
         </div>
@@ -780,6 +800,9 @@
 
         let encuestaActual = null;
         let preguntasActuales = [];
+        let requiereFirmaEncuesta = false;
+        let ultimaRespuestaIdEncuesta = null;
+        let firmaCtxEncuesta, firmandoEncuesta = false;
         // Usuario actual en sesión (para asociar respuesta y ocultar encuestas ya respondidas)
         const usuarioId = {{ (session.get('user_id') or session.get('id_codigo_consumidor')) | tojson }};
 
@@ -824,6 +847,7 @@
                 const enc = d.encuesta || {};
                 const preguntas = d.preguntas || enc.preguntas || [];
                 const secciones = enc.secciones || [];
+                requiereFirmaEncuesta = !!(enc.requiere_firma === 1 || enc.requiere_firma === true || enc.requiereFirma || enc.requiereFirmaEncuesta);
                 // Normalizar campos desde nuestro builder
                 preguntasActuales = preguntas.map(p=>{
                     const mapTipo = (t)=>{
@@ -839,6 +863,7 @@
                     };
                 });
                 const titulo = enc.titulo || 'Encuesta';
+                const badgeFirma = requiereFirmaEncuesta ? '<span class="badge bg-warning text-dark ms-2"><i class="fas fa-pen-nib me-1"></i>Firma requerida</span>' : '';
 
                 // Mapear secciones por ID y agrupar preguntas por seccion_id
                 const seccionesById = Object.fromEntries((secciones || []).map(s => [s.id_seccion, s]));
@@ -876,7 +901,7 @@
                 };
 
                 // Construir HTML agrupado por secciones
-                let html = `<h5 class="mb-3">${titulo}</h5>`;
+                let html = `<h5 class="mb-3">${titulo} ${badgeFirma}</h5>`;
 
                 // Renderizar secciones definidas primero, en su orden
                 (secciones || []).forEach(sec => {
@@ -990,8 +1015,24 @@
             } catch(e){
                 Swal.fire('Gracias', 'Tus respuestas fueron enviadas.', 'success');
             }
+            ultimaRespuestaIdEncuesta = resultadoBackend && resultadoBackend.id_respuesta ? resultadoBackend.id_respuesta : null;
             const modalEl = document.getElementById('modalEncuestaActiva');
-            bootstrap.Modal.getInstance(modalEl)?.hide();
+            if (requiereFirmaEncuesta){
+                const mf = new bootstrap.Modal(document.getElementById('modalFirmaEncuesta'));
+                mf.show();
+                const c = document.getElementById('firmaCanvasEncuesta');
+                firmaCtxEncuesta = c.getContext('2d');
+                firmaCtxEncuesta.strokeStyle = '#222';
+                firmaCtxEncuesta.lineWidth = 2;
+                const pos = (e)=>{ const r = c.getBoundingClientRect(); const x = (e.touches? e.touches[0].clientX : e.clientX) - r.left; const y = (e.touches? e.touches[0].clientY : e.clientY) - r.top; return {x,y}; };
+                const start = (e)=>{ firmandoEncuesta = true; const p = pos(e); firmaCtxEncuesta.beginPath(); firmaCtxEncuesta.moveTo(p.x,p.y); e.preventDefault(); };
+                const move = (e)=>{ if(!firmandoEncuesta) return; const p = pos(e); firmaCtxEncuesta.lineTo(p.x,p.y); firmaCtxEncuesta.stroke(); e.preventDefault(); };
+                const end = ()=>{ firmandoEncuesta = false; };
+                c.addEventListener('mousedown', start); c.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+                c.addEventListener('touchstart', start, {passive:false}); c.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
+            } else {
+                bootstrap.Modal.getInstance(modalEl)?.hide();
+            }
         }
 
         function colectarRespuestasBackend(){
@@ -1032,6 +1073,29 @@
                 if (!modalEl) return;
                 const modal = new bootstrap.Modal(modalEl);
                 modal.show();
+            });
+            document.getElementById('btnLimpiarFirmaEncuesta')?.addEventListener('click', function(){
+                const c = document.getElementById('firmaCanvasEncuesta');
+                if (!c) return;
+                const ctx = c.getContext('2d');
+                ctx.clearRect(0,0,c.width,c.height);
+            });
+            document.getElementById('btnGuardarFirmaEncuesta')?.addEventListener('click', async function(){
+                const c = document.getElementById('firmaCanvasEncuesta');
+                if (!c || !ultimaRespuestaIdEncuesta || !encuestaActual) return;
+                const firma = c.toDataURL('image/png');
+                const res = await fetch(`/api/encuestas/${encuestaActual.id_encuesta}/respuestas/${ultimaRespuestaIdEncuesta}/firma`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ firma_imagen: firma }) });
+                const data = await res.json().catch(()=>({success:false}));
+                if (data && data.success) {
+                    const modalElFirma = document.getElementById('modalFirmaEncuesta');
+                    const modalFirma = bootstrap.Modal.getInstance(modalElFirma);
+                    if (modalFirma) modalFirma.hide();
+                    const modalElEncuesta = document.getElementById('modalEncuestaActiva');
+                    bootstrap.Modal.getInstance(modalElEncuesta)?.hide();
+                    Swal.fire('Firma registrada','Tu firma fue guardada','success');
+                } else {
+                    Swal.fire('Error', data.message || 'No se pudo guardar la firma','error');
+                }
             });
             cargarEncuestasActivasParaMi();
             console.log('[Encuestas] inicializado loader de encuestas activas');
@@ -1182,6 +1246,77 @@
         });
     })();
     </script>
+
+    {% if session.get('user_role') in ['tecnicos'] %}
+    <script>
+    (function(){
+        const path = window.location.pathname;
+        if (path.includes('/login')) return;
+        function showPendientes(data){
+            var items = data.items || [];
+            var table = '<div class="table-responsive d-none d-md-block"><table class="table table-sm table-striped">' +
+                '<thead><tr><th>serial_rr</th><th>cuenta</th><th>lapso</th><th>fecha</th><th>días restantes</th></tr></thead><tbody>';
+            for (var i=0;i<items.length;i++){
+                var r = items[i];
+                var fechaR = r.fecha_registro || r.created_at || '';
+                table += '<tr>'+
+                    '<td>'+(r.serial_rr||'')+'</td>'+
+                    '<td>'+(r.cuenta||'')+'</td>'+
+                    '<td>'+(r.lapso||'')+'</td>'+
+                    '<td>'+(fechaR||'')+'</td>'+
+                    '<td>'+(r.dias_restantes!=null?r.dias_restantes:'')+'</td>'+
+                '</tr>';
+            }
+            table += '</tbody></table></div>';
+            var cards = '<div class="d-block d-md-none">';
+            for (var j=0;j<items.length;j++){
+                var x = items[j];
+                var fecha = x.fecha_registro || x.created_at || '';
+                cards += '<div class="card mb-2">' +
+                    '<div class="card-body">' +
+                        '<div class="d-flex justify-content-between"><div class="fw-semibold">'+(x.serial_rr||'')+'</div><span class="badge bg-warning text-dark">'+(x.dias_restantes!=null?x.dias_restantes:'')+' día(s)</span></div>'+
+                        '<div class="mt-1 text-muted">Cuenta: '+(x.cuenta||'')+'</div>'+
+                        '<div class="text-muted">Lapso: '+(x.lapso||'')+'</div>'+
+                        (fecha ? '<div class="text-muted">Fecha: '+fecha+'</div>' : '')+
+                    '</div>'+
+                '</div>';
+            }
+            cards += '</div>';
+            var html = '<div class="text-start">' +
+                '<div class="alert alert-warning mb-3">SERIALES PENDIENTES INVERSA POR FAVOR DEVOLVERLOS O SE BLOQUEARÁ PREOPERACIONAL EN 2 DÍAS</div>' +
+                table + cards +
+            '</div>';
+            function modalAbierta(){
+                return !!document.querySelector('.modal.show');
+            }
+            function mostrar(){
+                Swal.fire({
+                    title: 'Aviso',
+                    icon: 'warning',
+                    html: html,
+                    width: 900,
+                    confirmButtonText: 'Entendido'
+                });
+            }
+            if (modalAbierta()){
+                setTimeout(function(){ if (!modalAbierta()) mostrar(); }, 700);
+            } else {
+                mostrar();
+            }
+        }
+        document.addEventListener('DOMContentLoaded', function(){
+            fetch('/logistica/seriales_inversa/pending', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+                cache: 'no-store'
+            })
+            .then(function(r){ return r.ok ? r.json() : r.json().catch(function(){ return {}; }); })
+            .then(function(j){ if (j && (j.count>0 || (j.items && j.items.length>0))){ showPendientes(j); } })
+            .catch(function(){});
+        });
+    })();
+    </script>
+    {% endif %}
 
     {% block extra_js %}
     {% endblock %}

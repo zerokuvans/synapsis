@@ -80,6 +80,7 @@ def ensure_encuestas_tables():
             ("encuestas", "anonima", "TINYINT(1) DEFAULT 0"),
             ("encuestas", "permitir_edicion_respuesta", "TINYINT(1) DEFAULT 0"),
             ("encuestas", "con_puntaje", "TINYINT(1) DEFAULT 0"),
+            ("encuestas", "requiere_firma", "TINYINT(1) DEFAULT 0"),
             ("encuestas", "visibilidad", "ENUM('privada','publica') DEFAULT 'privada'"),
             ("encuestas", "dirigida_a", "ENUM('todos','tecnicos','analistas','supervisores') DEFAULT 'todos'"),
             ("encuestas", "audiencia_carpetas", "TEXT NULL"),
@@ -253,8 +254,12 @@ def ensure_encuestas_tables():
                 cursor.execute("ALTER TABLE encuesta_respuestas ADD COLUMN aprobado TINYINT(1) NULL")
             if not column_exists("encuesta_respuestas", "porcentaje_obtenido"):
                 cursor.execute("ALTER TABLE encuesta_respuestas ADD COLUMN porcentaje_obtenido DECIMAL(5,2) NULL")
+            if not column_exists("encuesta_respuestas", "firma_imagen"):
+                cursor.execute("ALTER TABLE encuesta_respuestas ADD COLUMN firma_imagen MEDIUMTEXT NULL")
+            if not column_exists("encuesta_respuestas", "fecha_firma"):
+                cursor.execute("ALTER TABLE encuesta_respuestas ADD COLUMN fecha_firma DATETIME NULL")
         except mysql.connector.Error as e:
-            logger.warning(f"No se pudo agregar columnas a encuesta_respuestas (aprobado/porcentaje_obtenido): {e}")
+            logger.warning(f"No se pudo agregar columnas a encuesta_respuestas (aprobado/porcentaje_obtenido/firma): {e}")
 
         # Tabla detalles de respuestas
         cursor.execute(
@@ -435,6 +440,7 @@ def registrar_rutas_encuestas(app):
         estado = data.get('estado', 'borrador')
         anonima = 1 if data.get('anonima', False) else 0
         con_puntaje = 1 if data.get('con_puntaje', False) else 0
+        requiere_firma = 1 if data.get('requiere_firma', False) else 0
         porcentaje_aprobacion = None
         try:
             porcentaje_aprobacion = float(data.get('porcentaje_aprobacion')) if data.get('porcentaje_aprobacion') is not None else 90.0
@@ -496,16 +502,16 @@ def registrar_rutas_encuestas(app):
             cursor.execute(
                 """
                 INSERT INTO encuestas (
-                    titulo, descripcion, estado, anonima, con_puntaje, visibilidad, dirigida_a,
+                    titulo, descripcion, estado, anonima, con_puntaje, requiere_firma, visibilidad, dirigida_a,
                     audiencia_carpetas, audiencia_supervisores, audiencia_tecnicos,
                     fecha_inicio, fecha_fin, creado_por,
                     permitir_multiples_respuestas, modo_multiples_respuestas,
                     porcentaje_aprobacion, maximo_intentos
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
-                    titulo, descripcion, estado, anonima, con_puntaje, visibilidad, dirigida_a,
+                    titulo, descripcion, estado, anonima, con_puntaje, requiere_firma, visibilidad, dirigida_a,
                     audiencia_carpetas, audiencia_supervisores, audiencia_tecnicos,
                     fecha_inicio, fecha_fin, user_id,
                     1 if (data.get('permitir_multiples_respuestas') in (1, True)) else 0,
@@ -1310,6 +1316,9 @@ def registrar_rutas_encuestas(app):
         if 'con_puntaje' in data:
             campos.append('con_puntaje = %s')
             valores.append(1 if data.get('con_puntaje') else 0)
+        if 'requiere_firma' in data:
+            campos.append('requiere_firma = %s')
+            valores.append(1 if data.get('requiere_firma') else 0)
         if 'porcentaje_aprobacion' in data:
             try:
                 pa = float(data.get('porcentaje_aprobacion'))
@@ -2567,6 +2576,66 @@ def registrar_rutas_encuestas(app):
             return jsonify({'success': True, 'encuesta_id': encuesta_id, 'total': len(respuestas), 'respuestas': respuestas})
         except mysql.connector.Error as e:
             logger.error(f"Error listando respuestas: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            connection.close()
+
+    @app.route('/api/encuestas/<int:encuesta_id>/respuestas/<int:respuesta_id>/firma', methods=['POST'])
+    def guardar_firma_respuesta(encuesta_id, respuesta_id):
+        usuario_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        if not usuario_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+
+        data = request.get_json(silent=True) or {}
+        firma_imagen = data.get('firma_imagen') or data.get('firma') or data.get('firma_base64')
+        if not firma_imagen or not isinstance(firma_imagen, str) or len(firma_imagen.strip()) < 10:
+            return jsonify({'success': False, 'message': 'Firma inválida'}), 400
+
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+
+        try:
+            cursor = connection.cursor()
+            cursor.execute(
+                """
+                SELECT r.usuario_id, e.requiere_firma
+                FROM encuesta_respuestas r
+                JOIN encuestas e ON e.id_encuesta = r.encuesta_id
+                WHERE r.id_respuesta = %s AND r.encuesta_id = %s
+                """,
+                (respuesta_id, encuesta_id)
+            )
+            row = cursor.fetchone()
+            if not row:
+                cursor.close()
+                return jsonify({'success': False, 'message': 'Respuesta no encontrada'}), 404
+
+            resp_usuario_id = row[0]
+            requiere_flag = int(row[1]) if row[1] is not None else 0
+
+            admin_total = str(usuario_id) == '1988914'
+            if (str(usuario_id) != str(resp_usuario_id)) and not admin_total:
+                cursor.close()
+                return jsonify({'success': False, 'message': 'No tiene permisos para firmar esta respuesta'}), 403
+
+            if requiere_flag != 1:
+                cursor.close()
+                return jsonify({'success': False, 'message': 'La encuesta no requiere firma'}), 400
+
+            cursor.execute(
+                """
+                UPDATE encuesta_respuestas
+                SET firma_imagen = %s, fecha_firma = NOW()
+                WHERE id_respuesta = %s AND encuesta_id = %s
+                """,
+                (firma_imagen, respuesta_id, encuesta_id)
+            )
+            connection.commit()
+            cursor.close()
+            return jsonify({'success': True})
+        except mysql.connector.Error as e:
+            logger.error(f"Error guardando firma: {e}")
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
         finally:
             connection.close()

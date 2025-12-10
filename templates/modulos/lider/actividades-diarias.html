@@ -209,7 +209,7 @@ function renderTabla(){
       <td>${tecnico}</td>
       <td>${estadoBadge}</td>
       <td>
-        <button class="btn btn-sm btn-primary" ${isFin || bloqueado ? 'disabled' : ''} title="${bloqueado ? 'Bloqueado por corte de medio día' : ''}" onclick="abrirGestionActividad('${ot}','${cuenta}','${tecnico}')">
+        <button class="btn btn-sm btn-primary" ${isFin || bloqueado ? 'disabled' : ''} title="${bloqueado ? 'Bloqueado por corte de medio día' : ''}" onclick="abrirGestionActividad('${ot}','${cuenta}','${tecnico}','${item.external_id ?? ''}','${estado}','${item.actividad_id ?? ''}')">
           <i class="fas fa-tools me-1"></i>Gestionar
         </button>
         ${isFin ? '<span class="badge bg-success ms-2">Finalizado</span>' : ''}
@@ -712,10 +712,10 @@ function debeBloquearGestion(fechaRaw){
 </div>
 
 <script>
-let __gaContext = { ot: '', cuenta: '', tecnico: '' };
+let __gaContext = { ot: '', cuenta: '', tecnico: '', tecnicoId: '', estado: '', actividadId: '' };
 
-async function abrirGestionActividad(ot, cuenta, tecnico){
-  __gaContext = { ot, cuenta, tecnico };
+async function abrirGestionActividad(ot, cuenta, tecnico, tecnicoId, estado, actividadId){
+  __gaContext = { ot, cuenta, tecnico, tecnicoId, estado, actividadId };
   document.getElementById('gaOT').value = ot || '';
   document.getElementById('gaCuenta').value = cuenta || '';
   document.getElementById('gaTecnico').value = tecnico || '';
@@ -723,6 +723,9 @@ async function abrirGestionActividad(ot, cuenta, tecnico){
     const fecha = (document.getElementById('filtroFecha')?.value || '').trim();
     const qs = new URLSearchParams({ ot, cuenta });
     if(fecha) qs.append('fecha', fecha);
+    if (tecnicoId) qs.append('tecnico_id', String(tecnicoId));
+    if (estado) qs.append('estado', String(estado));
+    if (actividadId) qs.append('actividad_id', String(actividadId));
     const res = await fetch(`/api/analistas/actividad-detalle?${qs.toString()}`);
     const data = await res.json();
     const d = data && data.data ? data.data : {};

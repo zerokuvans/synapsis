@@ -2953,7 +2953,11 @@ def api_lider_cargar_actividades():
     except Error as e:
         return jsonify({'success': False, 'message': str(e)}), 500
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        try:
+            app.logger.error(f"Error en /logistica/seriales_inversa/pending: {e}")
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 200
 
 @app.route('/api/analistas/cargar-actividades', methods=['POST'])
 @login_required_api(role=['analistas','analista','lider'])
@@ -3017,6 +3021,7 @@ def api_analistas_actividades_diarias_list():
         col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'], approx=['numerodecuenta','cuenta'])
         col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'], approx=['fechaactividad','fechaorden'])
         col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'], approx=['external_id','exetrnal_id','idexterno','id_externo','cedula'])
+        col_act_id = pick(['actividad_id','id_actividad','id_actividad_diaria'])
         col_estado = pick(['estado'])
         col_final = pick(['estado_final','finalizado','final'])
         if not col_ot or not col_cuenta or not col_fecha or not col_ext:
@@ -3072,25 +3077,30 @@ def api_analistas_actividades_diarias_list():
             filtro_final_sql = ''
             if col_final and (user_role in ('analista','analistas')):
                 filtro_final_sql = f" AND (o.`{col_final}` IS NULL OR o.`{col_final}` = 0)"
-            sql = f"""
-                SELECT 
-                  o.`{col_ot}` AS orden_de_trabajo,
-                  o.`{col_cuenta}` AS numero_de_cuenta,
-                  o.`{col_ext}` AS external_id,
-                  o.`{col_fecha}` AS fecha
-                  {', o.`' + col_estado + '` AS estado' if col_estado else ''}
-                  {', o.`' + col_final + '` AS estado_final' if col_final else ''}
-                FROM operaciones_actividades_diarias o
-                WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_fecha_sql}{filtro_final_sql}
-                  AND o.`{col_cuenta}` IS NOT NULL
-                  AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
-                  AND o.`{col_cuenta}` REGEXP '^[0-9]+' 
-                  AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
-                  AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
-                  {" AND LOWER(TRIM(o.`" + col_estado + "`)) IN ('completado','no completado','cancelado')" if col_estado else ''}
-                ORDER BY o.`{col_fecha}` DESC
-                LIMIT 500
-            """
+            select_fields = [
+                f"o.`{col_ot}` AS orden_de_trabajo",
+                f"o.`{col_cuenta}` AS numero_de_cuenta",
+                f"o.`{col_ext}` AS external_id",
+                f"o.`{col_fecha}` AS fecha",
+            ]
+            if col_act_id:
+                select_fields.insert(3, f"o.`{col_act_id}` AS actividad_id")
+            if col_estado:
+                select_fields.append(f"o.`{col_estado}` AS estado")
+            if col_final:
+                select_fields.append(f"o.`{col_final}` AS estado_final")
+            sql = (
+                "SELECT " + ", ".join(select_fields) +
+                " FROM operaciones_actividades_diarias o" +
+                f" WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_fecha_sql}{filtro_final_sql}" +
+                f" AND o.`{col_cuenta}` IS NOT NULL" +
+                f" AND CAST(o.`{col_cuenta}` AS CHAR) <> ''" +
+                f" AND o.`{col_cuenta}` REGEXP '^[0-9]+'" +
+                f" AND CAST(o.`{col_cuenta}` AS SIGNED) > 0" +
+                f" AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6" +
+                (f" AND LOWER(TRIM(o.`{col_estado}`)) IN ('completado','no completado','cancelado')" if col_estado else '') +
+                f" ORDER BY o.`{col_fecha}` DESC LIMIT 500"
+            )
             cursor = connection.cursor(dictionary=True)
             cursor.execute(sql, tuple(cedulas) + tuple(params))
             base_rows = cursor.fetchall()
@@ -3100,6 +3110,8 @@ def api_analistas_actividades_diarias_list():
                 rows.append({
                     'orden_de_trabajo': r.get('orden_de_trabajo'),
                     'numero_de_cuenta': r.get('numero_de_cuenta'),
+                    'external_id': r.get('external_id'),
+                    'actividad_id': r.get('actividad_id'),
                     'tecnico': r.get('tecnico'),
                     'fecha': r.get('fecha'),
                     'estado': (r.get('estado') or '').strip() if col_estado else '',
@@ -3620,6 +3632,9 @@ def api_analistas_actividad_detalle():
     ot = request.args.get('ot', '').strip()
     cuenta = request.args.get('cuenta', '').strip()
     fecha = request.args.get('fecha', '').strip()
+    tecnico_id = request.args.get('tecnico_id', '').strip()
+    estado_filtro = (request.args.get('estado') or '').strip().lower()
+    actividad_id = request.args.get('actividad_id', '').strip()
     try:
         connection = get_db_connection()
         if connection is None:
@@ -3664,16 +3679,37 @@ def api_analistas_actividad_detalle():
         col_razon = pick(['razon','razón'])
         col_conf_evento = pick(['confirmacion_evento'])
         col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+        col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
+        col_act = pick(['actividad_id','id_actividad','id_actividad_diaria'])
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
         params = []
         where = []
+        if actividad_id and col_act:
+            try:
+                val_aid = str(int(str(actividad_id).split('.')[0]))
+            except Exception:
+                val_aid = str(actividad_id)
+            where.append(f"CAST(o.`{col_act}` AS CHAR) = %s")
+            params.append(val_aid)
         if ot:
             where.append(f"CAST(o.`{col_ot}` AS CHAR) = %s")
             params.append(str(int(str(ot).split('.')[0])) if str(ot).strip() else ot)
         if cuenta:
             where.append(f"CAST(o.`{col_cuenta}` AS CHAR) = %s")
             params.append(str(int(str(cuenta).split('.')[0])) if str(cuenta).strip() else cuenta)
+        # Filtrar por técnico si viene y existe la columna
+        if tecnico_id and col_ext:
+            try:
+                val_tid = str(int(str(tecnico_id).split('.')[0]))
+            except Exception:
+                val_tid = str(tecnico_id)
+            where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+            params.append(val_tid)
+        # Filtrar por estado si viene y existe la columna
+        if estado_filtro and col_estado:
+            where.append(f"LOWER(TRIM(o.`{col_estado}`)) = %s")
+            params.append(estado_filtro)
         sql = f"SELECT o.`{col_ot}` AS ot, o.`{col_cuenta}` AS cuenta"
         if col_estado: sql += f", o.`{col_estado}` AS estado"
         if col_nombre: sql += f", o.`{col_nombre}` AS nombre_completo"
@@ -3729,6 +3765,43 @@ def api_analistas_actividad_detalle():
         c = connection.cursor(dictionary=True)
         c.execute(sql, tuple(params))
         row = c.fetchone() or {}
+        if not row:
+            try:
+                where_fb = []
+                params_fb = []
+                if ot:
+                    where_fb.append(f"CAST(o.`{col_ot}` AS CHAR) = %s")
+                    params_fb.append(str(int(str(ot).split('.')[0])) if str(ot).strip() else ot)
+                if cuenta:
+                    where_fb.append(f"CAST(o.`{col_cuenta}` AS CHAR) = %s")
+                    params_fb.append(str(int(str(cuenta).split('.')[0])) if str(cuenta).strip() else cuenta)
+                if tecnico_id and col_ext:
+                    try:
+                        val_tid = str(int(str(tecnico_id).split('.')[0]))
+                    except Exception:
+                        val_tid = str(tecnico_id)
+                    where_fb.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                    params_fb.append(val_tid)
+                sql_fb = f"SELECT o.`{col_ot}` AS ot, o.`{col_cuenta}` AS cuenta"
+                if col_estado: sql_fb += f", o.`{col_estado}` AS estado"
+                if col_nombre: sql_fb += f", o.`{col_nombre}` AS nombre_completo"
+                if col_tipo: sql_fb += f", o.`{col_tipo}` AS tipo_de_actividad"
+                if col_dir: sql_fb += f", o.`{col_dir}` AS direccion_campo_1"
+                if col_tiempos: sql_fb += f", o.`{col_tiempos}` AS inicio_fin"
+                if col_duracion: sql_fb += f", o.`{col_duracion}` AS duracion"
+                if col_razon: sql_fb += f", o.`{col_razon}` AS razon"
+                if col_conf_evento: sql_fb += f", o.`{col_conf_evento}` AS confirmacion_evento"
+                sql_fb += " FROM operaciones_actividades_diarias o"
+                if where_fb:
+                    sql_fb += " WHERE " + " AND ".join(where_fb)
+                if col_fecha:
+                    sql_fb += f" ORDER BY o.`{col_fecha}` DESC LIMIT 1"
+                else:
+                    sql_fb += " ORDER BY 1 DESC LIMIT 1"
+                c.execute(sql_fb, tuple(params_fb))
+                row = c.fetchone() or {}
+            except Exception:
+                row = {}
         c.close(); connection.close()
         return jsonify({'success': True, 'data': row})
     except Exception as e:
@@ -19542,6 +19615,326 @@ def api_lider_presupuesto_supervisores():
 def historial_seriales():
     """Página principal del módulo de historial de seriales"""
     return render_template('modulos/logistica/historial_seriales.html')
+
+# Submódulo: Seriales Inversa
+def ensure_seriales_inversa_table():
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS seriales_inversa (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                lapso VARCHAR(32),
+                recurso_operativo_cedula VARCHAR(32),
+                cuenta VARCHAR(64),
+                dia INT,
+                mes INT,
+                descripcion TEXT,
+                observacion_diana TEXT,
+                serial_rr VARCHAR(128),
+                tecnico VARCHAR(128),
+                super VARCHAR(128),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_serial_rr (serial_rr),
+                INDEX idx_cuenta (cuenta),
+                INDEX idx_cedula (recurso_operativo_cedula)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        conn.commit()
+        cur.close(); conn.close()
+    except Exception:
+        pass
+
+ensure_seriales_inversa_table()
+
+@app.route('/logistica/seriales_inversa')
+@login_required()
+@role_required('logistica')
+def logistica_seriales_inversa():
+    return render_template('modulos/logistica/seriales_inversa.html')
+
+@app.route('/logistica/seriales_inversa/upload', methods=['POST'])
+@login_required_api(role='logistica')
+def logistica_seriales_inversa_upload():
+    connection = None
+    cursor = None
+    try:
+        if 'archivo' not in request.files:
+            return jsonify({'success': False, 'message': 'No se ha seleccionado ningún archivo'})
+        archivo = request.files['archivo']
+        if archivo.filename == '':
+            return jsonify({'success': False, 'message': 'No se ha seleccionado ningún archivo'})
+        extension = archivo.filename.lower().split('.')[-1]
+        if extension not in ['csv', 'xlsx', 'xls']:
+            return jsonify({'success': False, 'message': 'Formato no soportado. Use CSV o Excel'})
+        datos = []
+        try:
+            if extension == 'csv':
+                contenido_bytes = archivo.read()
+                contenido = None
+                for enc in ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']:
+                    try:
+                        contenido = contenido_bytes.decode(enc)
+                        break
+                    except Exception:
+                        continue
+                if contenido is None:
+                    return jsonify({'success': False, 'message': 'No se pudo decodificar el archivo CSV'})
+                reader = csv.DictReader(io.StringIO(contenido))
+                datos = list(reader)
+            else:
+                df = pd.read_excel(archivo)
+                datos = df.to_dict('records')
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'Error al leer el archivo: {str(e)}'})
+        if not datos:
+            return jsonify({'success': False, 'message': 'El archivo está vacío o no contiene datos válidos'})
+        columnas_requeridas = ['lapso','recurso_operativo_cedula','cuenta','dia','mes','descripcion','observacion_diana','serial_rr','tecnico','super']
+        columnas_archivo = list(datos[0].keys())
+        faltantes = [c for c in columnas_requeridas if c not in columnas_archivo]
+        if faltantes:
+            return jsonify({'success': False, 'message': 'Faltan columnas: ' + ', '.join(faltantes)})
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+        cursor = connection.cursor()
+        procesados = 0
+        insertados = 0
+        for i, fila in enumerate(datos, 1):
+            try:
+                lapso = str(fila.get('lapso', '')).strip()
+                cedula = str(fila.get('recurso_operativo_cedula', '')).strip()
+                cuenta = str(fila.get('cuenta', '')).strip()
+                dia = fila.get('dia')
+                mes = fila.get('mes')
+                descripcion = str(fila.get('descripcion', '')).strip()
+                observacion_diana = str(fila.get('observacion_diana', '')).strip()
+                serial_rr = str(fila.get('serial_rr', '')).strip()
+                tecnico = str(fila.get('tecnico', '')).strip()
+                superv = str(fila.get('super', '')).strip()
+                cursor.execute(
+                    """
+                    INSERT INTO seriales_inversa
+                    (lapso, recurso_operativo_cedula, cuenta, dia, mes, descripcion, observacion_diana, serial_rr, tecnico, super)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    """,
+                    (lapso, cedula, cuenta, dia, mes, descripcion, observacion_diana, serial_rr, tecnico, superv)
+                )
+                insertados += 1
+                procesados += 1
+            except Exception:
+                procesados += 1
+                continue
+        connection.commit()
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+        return jsonify({'success': True, 'message': 'Carga completada', 'procesados': procesados, 'insertados': insertados})
+    except Exception as e:
+        if cursor:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/logistica/seriales_inversa/list', methods=['GET'])
+@login_required_api(role='logistica')
+def logistica_seriales_inversa_list():
+    try:
+        draw = int(request.args.get('draw', '1'))
+        length = int(request.args.get('length', request.args.get('per_page', '10')))
+        start = int(request.args.get('start', '0'))
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT COUNT(*) AS total FROM seriales_inversa")
+        total = cur.fetchone()['total']
+        cur.execute(
+            """
+            SELECT lapso, recurso_operativo_cedula, cuenta, dia, mes, descripcion, observacion_diana, serial_rr, tecnico, super
+            FROM seriales_inversa
+            LIMIT %s OFFSET %s
+            """,
+            (length, start)
+        )
+        rows = cur.fetchall()
+        cur.close(); conn.close()
+        return jsonify({'draw': draw, 'recordsTotal': total, 'recordsFiltered': total, 'data': rows, 'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/logistica/seriales_inversa/pending', methods=['GET'])
+@login_required_api(role=['tecnicos','operativo','logistica','administrativo'])
+def logistica_seriales_inversa_pending():
+    try:
+        cedula = (session.get('user_cedula') or '').strip()
+        if not cedula:
+            try:
+                uid = session.get('id_codigo_consumidor')
+                if uid:
+                    conn0 = get_db_connection()
+                    if conn0:
+                        cur0 = conn0.cursor()
+                        cur0.execute("SELECT recurso_operativo_cedula FROM recurso_operativo WHERE id_codigo_consumidor=%s", (uid,))
+                        row0 = cur0.fetchone()
+                        if row0:
+                            cedula = str(row0[0]).strip()
+                        cur0.close(); conn0.close()
+            except Exception:
+                pass
+        try:
+            cedula_param = (request.args.get('cedula') or '').strip()
+            user_role = session.get('user_role')
+            if cedula_param and user_role in ('administrativo','logistica'):
+                cedula = cedula_param
+        except Exception:
+            pass
+        if not cedula:
+            return jsonify({'success': False, 'message': 'No se encontró cédula de usuario'}), 200
+
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 200
+        cur = conn.cursor(dictionary=True)
+        rows = []
+        has_fecha_registro = False
+        fr_upper = False
+        has_created_at = False
+        has_dia = False
+        has_mes = False
+        try:
+            cur_check = conn.cursor()
+            cur_check.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'FECHA_REGISTRO'")
+            fr_upper = cur_check.fetchone() is not None
+            if not fr_upper:
+                cur_check.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'fecha_registro'")
+                has_fecha_registro = cur_check.fetchone() is not None
+            else:
+                has_fecha_registro = True
+            cur_check.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'created_at'")
+            has_created_at = cur_check.fetchone() is not None
+            cur_check.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'dia'")
+            has_dia = cur_check.fetchone() is not None
+            cur_check.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'mes'")
+            has_mes = cur_check.fetchone() is not None
+            cur_check.close()
+        except Exception:
+            pass
+        cols = [
+            "si.serial_rr",
+            "si.cuenta",
+            "si.lapso",
+            "si.descripcion",
+            "si.observacion_diana"
+        ]
+        if has_fecha_registro:
+            cols.append(("si.FECHA_REGISTRO" if fr_upper else "si.fecha_registro") + " AS fecha_registro")
+        if has_created_at:
+            cols.append("si.created_at")
+        if has_dia:
+            cols.append("si.dia")
+        if has_mes:
+            cols.append("si.mes")
+        cols.append("ro.nombre AS tecnico_nombre")
+        sql = "SELECT " + ", ".join(cols) + """
+                FROM seriales_inversa AS si
+                JOIN recurso_operativo AS ro ON ro.recurso_operativo_cedula = si.recurso_operativo_cedula
+                WHERE si.recurso_operativo_cedula = %s
+                  AND (si.observacion_diana IS NULL OR UPPER(si.observacion_diana) LIKE '%%PENDIENTE%%')
+              """
+        cur.execute(sql, (cedula,))
+        rows = cur.fetchall()
+        cur.close(); conn.close()
+
+        items = []
+        from datetime import datetime, date
+        now = datetime.now()
+        for r in rows:
+            fr = r.get('fecha_registro')
+            created = r.get('created_at')
+            dias = 0
+            fr_dt = None
+            try:
+                if fr:
+                    if hasattr(fr, 'year'):
+                        fr_dt = fr.date() if hasattr(fr, 'hour') else fr
+                    else:
+                        s = str(fr).strip()
+                        fmts = ('%Y-%m-%d','%d/%m/%Y','%Y/%m/%d','%d-%m-%Y','%m/%d/%Y')
+                        for fmt in fmts:
+                            try:
+                                fr_dt = datetime.strptime(s, fmt).date()
+                                break
+                            except Exception:
+                                pass
+                        if fr_dt is None and s.isdigit() and len(s)==8:
+                            try:
+                                fr_dt = datetime.strptime(s, '%Y%m%d').date()
+                            except Exception:
+                                pass
+                if fr_dt:
+                    dias = max(0, (date.today() - fr_dt).days)
+            except Exception:
+                pass
+            if fr_dt is None:
+                try:
+                    if created:
+                        if hasattr(created, 'tzinfo') and created.tzinfo:
+                            created_naive = created.astimezone(None).replace(tzinfo=None)
+                        else:
+                            created_naive = created
+                        delta = now - created_naive
+                        dias = max(0, delta.days)
+                except Exception:
+                    pass
+            if fr_dt is None and not created:
+                try:
+                    d = int(r.get('dia') or 0)
+                    mes_txt = (r.get('mes') or '').strip().lower()
+                    meses = {
+                        'enero':1,'febrero':2,'marzo':3,'abril':4,'mayo':5,'junio':6,
+                        'julio':7,'agosto':8,'septiembre':9,'setiembre':9,'octubre':10,
+                        'noviembre':11,'diciembre':12
+                    }
+                    m = meses.get(mes_txt)
+                    if m and d:
+                        dt = date(datetime.now().year, m, d)
+                        dias = max(0, (date.today()-dt).days)
+                except Exception:
+                    pass
+            dias_restantes = max(0, 2 - dias)
+            items.append({
+                'serial_rr': r.get('serial_rr'),
+                'cuenta': r.get('cuenta'),
+                'lapso': r.get('lapso'),
+                'descripcion': r.get('descripcion'),
+                'observacion_diana': r.get('observacion_diana'),
+                'fecha_registro': fr_dt.isoformat() if fr_dt else (str(fr) if fr else None),
+                'created_at': r.get('created_at').isoformat() if r.get('created_at') else None,
+                'dias_restantes': dias_restantes,
+                'tecnico_nombre': r.get('tecnico_nombre')
+            })
+
+        return jsonify({
+            'success': True,
+            'count': len(items),
+            'items': items,
+            'message': 'SERIALES PENDIENTES INVERSA POR FAVOR DEVOLVERLOS O SE BLOQUEARÁ PREOPERACIONAL EN 2 DÍAS'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/logistica/buscar_serial', methods=['POST'])
 @login_required()
