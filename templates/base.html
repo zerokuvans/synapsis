@@ -65,6 +65,7 @@
     <script src="{{ url_for('static', filename='js/global-utils.js') }}"></script>
     
     {% block scripts %}{% endblock %}
+    {% if session.get('user_role') not in ['tecnicos','operativo'] %}
     <script>
       (function(){
         function showPendientes(data){
@@ -105,5 +106,6 @@
         });
       })();
     </script>
+    {% endif %}
   </body>
 </html>

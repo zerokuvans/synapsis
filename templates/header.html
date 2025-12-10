@@ -1247,45 +1247,80 @@
     })();
     </script>
 
-    {% if session.get('user_role') in ['tecnicos'] %}
+    {% if session.get('user_role') in ['tecnicos','operativo'] %}
     <script>
     (function(){
         const path = window.location.pathname;
         if (path.includes('/login')) return;
+        var isSupervisor = {{ 'true' if session.get('user_role') == 'operativo' else 'false' }};
+        var supervisorName = "{{ (session.get('user_name') or '')|e }}";
         function showPendientes(data){
             var items = data.items || [];
-            var table = '<div class="table-responsive d-none d-md-block"><table class="table table-sm table-striped">' +
-                '<thead><tr><th>serial_rr</th><th>cuenta</th><th>lapso</th><th>fecha</th><th>días restantes</th></tr></thead><tbody>';
-            for (var i=0;i<items.length;i++){
-                var r = items[i];
-                var fechaR = r.fecha_registro || r.created_at || '';
-                table += '<tr>'+
-                    '<td>'+(r.serial_rr||'')+'</td>'+
-                    '<td>'+(r.cuenta||'')+'</td>'+
-                    '<td>'+(r.lapso||'')+'</td>'+
-                    '<td>'+(fechaR||'')+'</td>'+
-                    '<td>'+(r.dias_restantes!=null?r.dias_restantes:'')+'</td>'+
-                '</tr>';
-            }
-            table += '</tbody></table></div>';
-            var cards = '<div class="d-block d-md-none">';
-            for (var j=0;j<items.length;j++){
-                var x = items[j];
-                var fecha = x.fecha_registro || x.created_at || '';
-                cards += '<div class="card mb-2">' +
-                    '<div class="card-body">' +
-                        '<div class="d-flex justify-content-between"><div class="fw-semibold">'+(x.serial_rr||'')+'</div><span class="badge bg-warning text-dark">'+(x.dias_restantes!=null?x.dias_restantes:'')+' día(s)</span></div>'+
-                        '<div class="mt-1 text-muted">Cuenta: '+(x.cuenta||'')+'</div>'+
-                        '<div class="text-muted">Lapso: '+(x.lapso||'')+'</div>'+
-                        (fecha ? '<div class="text-muted">Fecha: '+fecha+'</div>' : '')+
-                    '</div>'+
+            var html = '';
+            if (isSupervisor) {
+                var counts = {}, display = {};
+                for (var i=0;i<items.length;i++){
+                    var nm = (items[i].tecnico_nombre || '').trim();
+                    if (!nm) continue;
+                    var key = nm.toLowerCase();
+                    counts[key] = (counts[key] || 0) + 1;
+                    if (!display[key]) display[key] = nm;
+                }
+                var entries = Object.keys(counts).map(function(k){ return { name: display[k], count: counts[k] }; });
+                entries.sort(function(a,b){ return (b.count - a.count) || a.name.localeCompare(b.name); });
+                var table = '<div class="table-responsive d-none d-md-block"><table class="table table-sm table-striped">' +
+                    '<thead><tr><th>técnico</th><th>pendientes</th></tr></thead><tbody>';
+                entries.forEach(function(row){
+                    table += '<tr><td>'+row.name+'</td><td>'+row.count+'</td></tr>';
+                });
+                table += '</tbody></table></div>';
+                var cards = '<div class="d-block d-md-none">';
+                entries.forEach(function(row){
+                    cards += '<div class="card mb-2"><div class="card-body">'+
+                        '<div class="fw-semibold">'+row.name+'</div>'+ 
+                        '<div class="text-muted">Pendientes: '+row.count+'</div>'+ 
+                    '</div></div>';
+                });
+                cards += '</div>';
+                html = '<div class="text-start">' +
+                    '<div class="alert alert-warning mb-3">SERIALES PENDIENTES INVERSA. Si los días restantes llegan a 0 se bloqueará el preoperacional del técnico.</div>' +
+                    (supervisorName ? '<div class="mb-2 fw-semibold">Supervisor: '+supervisorName+'</div>' : '') +
+                    table + cards +
+                '</div>';
+            } else {
+                var table2 = '<div class="table-responsive d-none d-md-block"><table class="table table-sm table-striped">' +
+                    '<thead><tr><th>serial_rr</th><th>cuenta</th><th>lapso</th><th>fecha</th><th>días restantes</th></tr></thead><tbody>';
+                for (var i=0;i<items.length;i++){
+                    var r = items[i];
+                    var fechaR = r.fecha_registro || r.created_at || '';
+                    table2 += '<tr>'+
+                        '<td>'+(r.serial_rr||'')+'</td>'+
+                        '<td>'+(r.cuenta||'')+'</td>'+
+                        '<td>'+(r.lapso||'')+'</td>'+
+                        '<td>'+(fechaR||'')+'</td>'+
+                        '<td>'+(r.dias_restantes!=null?r.dias_restantes:'')+'</td>'+
+                    '</tr>';
+                }
+                table2 += '</tbody></table></div>';
+                var cards2 = '<div class="d-block d-md-none">';
+                for (var j=0;j<items.length;j++){
+                    var x = items[j];
+                    var fecha = x.fecha_registro || x.created_at || '';
+                    cards2 += '<div class="card mb-2">' +
+                        '<div class="card-body">' +
+                            '<div class="d-flex justify-content-between"><div class="fw-semibold">'+(x.serial_rr||'')+'</div><span class="badge bg-warning text-dark">'+(x.dias_restantes!=null?x.dias_restantes:'')+' día(s)</span></div>'+
+                            '<div class="mt-1 text-muted">Cuenta: '+(x.cuenta||'')+'</div>'+
+                            '<div class="text-muted">Lapso: '+(x.lapso||'')+'</div>'+
+                            (fecha ? '<div class="text-muted">Fecha: '+fecha+'</div>' : '')+
+                        '</div>'+
+                    '</div>';
+                }
+                cards2 += '</div>';
+                html = '<div class="text-start">' +
+                    '<div class="alert alert-warning mb-3">SERIALES PENDIENTES INVERSA. Si los días restantes llegan a 0 se bloqueará el preoperacional.</div>' +
+                    table2 + cards2 +
                 '</div>';
             }
-            cards += '</div>';
-            var html = '<div class="text-start">' +
-                '<div class="alert alert-warning mb-3">SERIALES PENDIENTES INVERSA POR FAVOR DEVOLVERLOS O SE BLOQUEARÁ PREOPERACIONAL EN 2 DÍAS</div>' +
-                table + cards +
-            '</div>';
             function modalAbierta(){
                 return !!document.querySelector('.modal.show');
             }
@@ -1304,6 +1339,39 @@
                 mostrar();
             }
         }
+        function updatePreoperacionalButtonStatus(data){
+            if (isSupervisor) return;
+            var items = (data && data.items) ? data.items : [];
+            var shouldDisable = items.some(function(x){ return x && Number(x.dias_restantes) === 0; });
+            var btn = document.getElementById('preoperacionalButton');
+            if (!btn) return;
+            if (shouldDisable){
+                if (!btn.dataset.originalToggle) btn.dataset.originalToggle = btn.getAttribute('data-bs-toggle') || '';
+                if (!btn.dataset.originalTarget) btn.dataset.originalTarget = btn.getAttribute('data-bs-target') || '';
+                btn.classList.add('disabled');
+                btn.setAttribute('aria-disabled','true');
+                btn.removeAttribute('data-bs-toggle');
+                btn.removeAttribute('data-bs-target');
+                btn.title = 'Seriales inversa pendientes con días 0';
+                if (!btn.dataset.disableHook){
+                    btn.addEventListener('click', function(e){
+                        if (btn.classList.contains('disabled')){
+                            e.preventDefault(); e.stopPropagation();
+                            Swal.fire({icon:'warning',title:'Aviso',text:'No disponible: Seriales inversa pendientes con días 0',confirmButtonText:'Entendido'});
+                        }
+                    }, true);
+                    btn.dataset.disableHook = '1';
+                }
+            } else {
+                btn.classList.remove('disabled');
+                btn.removeAttribute('aria-disabled');
+                btn.title = '';
+                var t = btn.dataset.originalToggle;
+                var tg = btn.dataset.originalTarget;
+                if (t) btn.setAttribute('data-bs-toggle', t);
+                if (tg) btn.setAttribute('data-bs-target', tg);
+            }
+        }
         document.addEventListener('DOMContentLoaded', function(){
             fetch('/logistica/seriales_inversa/pending', {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -1311,7 +1379,10 @@
                 cache: 'no-store'
             })
             .then(function(r){ return r.ok ? r.json() : r.json().catch(function(){ return {}; }); })
-            .then(function(j){ if (j && (j.count>0 || (j.items && j.items.length>0))){ showPendientes(j); } })
+            .then(function(j){
+                if (j && (j.count>0 || (j.items && j.items.length>0))){ showPendientes(j); }
+                updatePreoperacionalButtonStatus(j || {});
+            })
             .catch(function(){});
         });
     })();

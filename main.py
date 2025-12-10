@@ -19779,30 +19779,58 @@ def logistica_seriales_inversa_list():
 @login_required_api(role=['tecnicos','operativo','logistica','administrativo'])
 def logistica_seriales_inversa_pending():
     try:
-        cedula = (session.get('user_cedula') or '').strip()
-        if not cedula:
+        user_role = session.get('user_role')
+        cedulas_objetivo = []
+
+        if user_role == 'tecnicos':
+            cedula = (session.get('user_cedula') or '').strip()
+            if not cedula:
+                try:
+                    uid = session.get('id_codigo_consumidor')
+                    if uid:
+                        conn0 = get_db_connection()
+                        if conn0:
+                            cur0 = conn0.cursor()
+                            cur0.execute("SELECT recurso_operativo_cedula FROM recurso_operativo WHERE id_codigo_consumidor=%s", (uid,))
+                            row0 = cur0.fetchone()
+                            if row0:
+                                cedula = str(row0[0]).strip()
+                            cur0.close(); conn0.close()
+                except Exception:
+                    pass
+            if cedula:
+                cedulas_objetivo = [cedula]
+            else:
+                return jsonify({'success': False, 'message': 'No se encontró cédula de usuario'}), 200
+
+        elif user_role == 'operativo':
+            supervisor_nombre = (session.get('user_name') or '').strip()
+            if supervisor_nombre:
+                try:
+                    conn1 = get_db_connection()
+                    if conn1:
+                        cur1 = conn1.cursor()
+                        cur1.execute("SELECT recurso_operativo_cedula FROM recurso_operativo WHERE LOWER(TRIM(super)) = LOWER(TRIM(%s)) AND estado='Activo'", (supervisor_nombre,))
+                        cedulas_objetivo = [str(r[0]).strip() for r in cur1.fetchall() if r and r[0]]
+                        cur1.close(); conn1.close()
+                except Exception:
+                    cedulas_objetivo = []
+            if not cedulas_objetivo:
+                return jsonify({'success': True, 'count': 0, 'items': [], 'message': 'Sin técnicos a cargo o sin pendientes'}), 200
+
+        else:
             try:
-                uid = session.get('id_codigo_consumidor')
-                if uid:
-                    conn0 = get_db_connection()
-                    if conn0:
-                        cur0 = conn0.cursor()
-                        cur0.execute("SELECT recurso_operativo_cedula FROM recurso_operativo WHERE id_codigo_consumidor=%s", (uid,))
-                        row0 = cur0.fetchone()
-                        if row0:
-                            cedula = str(row0[0]).strip()
-                        cur0.close(); conn0.close()
+                cedula_param = (request.args.get('cedula') or '').strip()
+                if cedula_param:
+                    cedulas_objetivo = [cedula_param]
             except Exception:
                 pass
-        try:
-            cedula_param = (request.args.get('cedula') or '').strip()
-            user_role = session.get('user_role')
-            if cedula_param and user_role in ('administrativo','logistica'):
-                cedula = cedula_param
-        except Exception:
-            pass
-        if not cedula:
-            return jsonify({'success': False, 'message': 'No se encontró cédula de usuario'}), 200
+            if not cedulas_objetivo:
+                cedula = (session.get('user_cedula') or '').strip()
+                if cedula:
+                    cedulas_objetivo = [cedula]
+                else:
+                    return jsonify({'success': False, 'message': 'No se encontró cédula de usuario'}), 200
 
         conn = get_db_connection()
         if conn is None:
@@ -19848,13 +19876,19 @@ def logistica_seriales_inversa_pending():
         if has_mes:
             cols.append("si.mes")
         cols.append("ro.nombre AS tecnico_nombre")
-        sql = "SELECT " + ", ".join(cols) + """
+        base_sql = "SELECT " + ", ".join(cols) + """
                 FROM seriales_inversa AS si
                 JOIN recurso_operativo AS ro ON ro.recurso_operativo_cedula = si.recurso_operativo_cedula
-                WHERE si.recurso_operativo_cedula = %s
-                  AND (si.observacion_diana IS NULL OR UPPER(si.observacion_diana) LIKE '%%PENDIENTE%%')
+                WHERE (si.observacion_diana IS NULL OR UPPER(si.observacion_diana) LIKE '%%PENDIENTE%%')
               """
-        cur.execute(sql, (cedula,))
+        if len(cedulas_objetivo) == 1:
+            sql = base_sql + " AND si.recurso_operativo_cedula = %s"
+            params = (cedulas_objetivo[0],)
+        else:
+            placeholders = ",".join(["%s"] * len(cedulas_objetivo))
+            sql = base_sql + f" AND si.recurso_operativo_cedula IN ({placeholders})"
+            params = tuple(cedulas_objetivo)
+        cur.execute(sql, params)
         rows = cur.fetchall()
         cur.close(); conn.close()
 
