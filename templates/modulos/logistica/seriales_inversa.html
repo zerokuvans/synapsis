@@ -47,6 +47,23 @@
       <div class="card">
         <div class="card-header"><i class="fas fa-table me-2"></i>Registros</div>
         <div class="card-body">
+          <div class="row g-2 mb-3">
+            <div class="col-md-4">
+              <select id="filtroTecnico" class="form-select">
+                <option value="">Todos los técnicos</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <input id="filtroDesde" type="date" class="form-control" placeholder="Desde">
+            </div>
+            <div class="col-md-3">
+              <input id="filtroHasta" type="date" class="form-control" placeholder="Hasta">
+            </div>
+            <div class="col-md-2 d-grid d-md-block">
+              <button id="btnBuscar" class="btn btn-primary me-2"><i class="fas fa-search me-1"></i>Buscar</button>
+              <button id="btnLimpiar" class="btn btn-secondary"><i class="fas fa-eraser me-1"></i>Limpiar</button>
+            </div>
+          </div>
           <table id="tablaSerialesInversa" class="table table-striped table-bordered" style="width:100%">
             <thead>
               <tr>
@@ -60,6 +77,7 @@
                 <th>serial_rr</th>
                 <th>tecnico</th>
                 <th>super</th>
+                <th>acciones</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -83,7 +101,12 @@
         url: '/logistica/seriales_inversa/list',
         dataSrc: 'data',
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        data: function(d){ return d; }
+        data: function(d){
+          d.tecnico = document.getElementById('filtroTecnico').value || '';
+          d.fecha_desde = document.getElementById('filtroDesde').value || '';
+          d.fecha_hasta = document.getElementById('filtroHasta').value || '';
+          return d;
+        }
       },
       pageLength: 10,
       lengthMenu: [[10,25,50,100,200],[10,25,50,100,200]],
@@ -97,12 +120,42 @@
         { data: 'observacion_diana' },
         { data: 'serial_rr' },
         { data: 'tecnico' },
-        { data: 'super' }
+        { data: 'super' },
+        { data: 'id', orderable: false, searchable: false, render: function(data, type, row){
+            var hasId = (data !== null && data !== undefined && data !== '' && !isNaN(Number(data)));
+            return hasId ? '<button class="btn btn-sm btn-danger btn-del" data-id="'+data+'"><i class="fas fa-trash"></i></button>' : '';
+          } }
       ]
     });
   }
   document.addEventListener('DOMContentLoaded', function() {
     initTabla();
+    fetch('/logistica/seriales_inversa/tecnicos', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(r => r.json())
+      .then(j => { if (j && j.success && Array.isArray(j.tecnicos)){ var sel = document.getElementById('filtroTecnico'); j.tecnicos.forEach(function(n){ var opt = document.createElement('option'); opt.value=n; opt.textContent=n; sel.appendChild(opt); }); } });
+    document.getElementById('btnBuscar').addEventListener('click', function(){ dt.ajax.reload(); });
+    document.getElementById('btnLimpiar').addEventListener('click', function(){ document.getElementById('filtroTecnico').value=''; document.getElementById('filtroDesde').value=''; document.getElementById('filtroHasta').value=''; dt.ajax.reload(); });
+    document.getElementById('filtroTecnico').addEventListener('change', function(){ dt.ajax.reload(); });
+    document.getElementById('filtroDesde').addEventListener('change', function(){ dt.ajax.reload(); });
+    document.getElementById('filtroHasta').addEventListener('change', function(){ dt.ajax.reload(); });
+    $('#tablaSerialesInversa').on('click', '.btn-del', function(){
+      var id = this.getAttribute('data-id');
+      Swal.fire({
+        icon:'warning',
+        title:'Eliminar registro',
+        text:'Esta acción no se puede deshacer. ¿Continuar?',
+        showCancelButton:true,
+        confirmButtonText:'Eliminar',
+        cancelButtonText:'Cancelar'
+      }).then(function(res){
+        if (res.isConfirmed){
+          fetch('/logistica/seriales_inversa/delete', { method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify({id: id}) })
+            .then(r => r.json())
+            .then(j => { if (j && j.success){ dt.ajax.reload(null,false); Swal.fire('Eliminado','','success'); } else { Swal.fire('Error', (j && j.message) || 'No se pudo eliminar', 'error'); } })
+            .catch(() => Swal.fire('Error','Error de conexión','error'));
+        }
+      });
+    });
     var input = document.getElementById('archivoBase');
     var nombre = document.getElementById('archivoNombre');
     var btn = document.getElementById('btnEnviarArchivo');

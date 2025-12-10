@@ -17089,7 +17089,7 @@ def api_crear_novedad_rrhh():
             return jsonify({'success': False, 'message': 'Datos incompletos'}), 400
         conn = get_db_connection()
         if conn is None:
-            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            return jsonify({'draw': draw, 'recordsTotal': 0, 'recordsFiltered': 0, 'data': [], 'success': False, 'error': 'Error de conexión a la base de datos'})
         cur = conn.cursor(dictionary=True)
         cur.execute("SELECT codigo_tipificacion, nombre_tipificacion, zona FROM tipificacion_asistencia WHERE codigo_tipificacion = %s", (codigo_tipificacion,))
         tip = cur.fetchone()
@@ -19755,23 +19755,167 @@ def logistica_seriales_inversa_list():
         draw = int(request.args.get('draw', '1'))
         length = int(request.args.get('length', request.args.get('per_page', '10')))
         start = int(request.args.get('start', '0'))
+        tecnico = (request.args.get('tecnico') or '').strip()
+        fecha_desde = (request.args.get('fecha_desde') or '').strip()
+        fecha_hasta = (request.args.get('fecha_hasta') or '').strip()
+
         conn = get_db_connection()
         if conn is None:
-            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+            return jsonify({'draw': draw, 'recordsTotal': 0, 'recordsFiltered': 0, 'data': [], 'success': False, 'error': 'Error de conexión a la base de datos'})
         cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT COUNT(*) AS total FROM seriales_inversa")
+
+        date_col = None
+        try:
+            curc = conn.cursor()
+            curc.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'FECHA_REGISTRO'")
+            if curc.fetchone():
+                date_col = 'si.FECHA_REGISTRO'
+            else:
+                curc.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'fecha_registro'")
+                if curc.fetchone():
+                    date_col = 'si.fecha_registro'
+                else:
+                    date_col = 'si.created_at'
+            curc.close()
+        except Exception:
+            date_col = 'si.created_at'
+
+        pk_col = None
+        try:
+            curp = conn.cursor(dictionary=True)
+            curp.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'id'")
+            if curp.fetchone():
+                pk_col = 'si.id'
+            else:
+                curp.execute("SHOW KEYS FROM seriales_inversa WHERE Key_name='PRIMARY'")
+                pk = curp.fetchone()
+                if pk and pk.get('Column_name'):
+                    pk_col = 'si.' + pk['Column_name']
+                else:
+                    for alt in ('id_inversa','id_seriales_inversa','idseriales_inversa'):
+                        curp.execute(f"SHOW COLUMNS FROM seriales_inversa LIKE '{alt}'")
+                        if curp.fetchone():
+                            pk_col = 'si.' + alt
+                            break
+            curp.close()
+        except Exception:
+            pk_col = 'NULL'
+        if not pk_col:
+            pk_col = 'NULL'
+
+        where = []
+        params = []
+        if tecnico:
+            where.append("si.tecnico = %s")
+            params.append(tecnico)
+        if fecha_desde:
+            where.append(f"DATE({date_col}) >= %s")
+            params.append(fecha_desde)
+        if fecha_hasta:
+            where.append(f"DATE({date_col}) <= %s")
+            params.append(fecha_hasta)
+        where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+
+        cur.execute("SELECT COUNT(*) AS total FROM seriales_inversa AS si")
         total = cur.fetchone()['total']
+        cur.execute("SELECT COUNT(*) AS total FROM seriales_inversa AS si" + where_sql, tuple(params))
+        filtered = cur.fetchone()['total']
+        select_cols = f"{pk_col} AS id, lapso, recurso_operativo_cedula, cuenta, dia, mes, descripcion, observacion_diana, serial_rr, tecnico, super"
+        order_by = 'id'
+        if pk_col and pk_col.startswith('si.'):
+            order_by = pk_col.split('.',1)[1]
+        else:
+            try:
+                curo = conn.cursor()
+                for alt in ('created_at','fecha_registro','FECHA_REGISTRO','serial_rr','cuenta'):
+                    curo.execute(f"SHOW COLUMNS FROM seriales_inversa LIKE '{alt}'")
+                    if curo.fetchone():
+                        order_by = alt
+                        break
+                curo.close()
+            except Exception:
+                order_by = 'serial_rr'
         cur.execute(
-            """
-            SELECT lapso, recurso_operativo_cedula, cuenta, dia, mes, descripcion, observacion_diana, serial_rr, tecnico, super
-            FROM seriales_inversa
-            LIMIT %s OFFSET %s
-            """,
-            (length, start)
+            f"""
+            SELECT {select_cols}
+            FROM seriales_inversa AS si
+            """ + where_sql + f" ORDER BY {order_by} DESC LIMIT %s OFFSET %s",
+            tuple(params + [length, start])
         )
         rows = cur.fetchall()
         cur.close(); conn.close()
-        return jsonify({'draw': draw, 'recordsTotal': total, 'recordsFiltered': total, 'data': rows, 'success': True})
+        return jsonify({'draw': draw, 'recordsTotal': total, 'recordsFiltered': filtered, 'data': rows, 'success': True})
+    except Exception as e:
+        try:
+            d = int(request.args.get('draw', '1'))
+        except Exception:
+            d = 1
+        return jsonify({'draw': d, 'recordsTotal': 0, 'recordsFiltered': 0, 'data': [], 'success': False, 'error': str(e)})
+
+@app.route('/logistica/seriales_inversa/tecnicos', methods=['GET'])
+@login_required_api(role='logistica')
+def logistica_seriales_inversa_tecnicos():
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT tecnico FROM seriales_inversa WHERE tecnico IS NOT NULL AND TRIM(tecnico) != '' ORDER BY tecnico")
+        names = [r[0] for r in cur.fetchall() if r and r[0]]
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'tecnicos': names})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/logistica/seriales_inversa/delete', methods=['POST'])
+@login_required_api(role='logistica')
+def logistica_seriales_inversa_delete():
+    try:
+        rid = None
+        data = None
+        try:
+            data = request.get_json(silent=True) or {}
+        except Exception:
+            data = {}
+        rid = request.form.get('id') or data.get('id')
+        try:
+            rid = int(str(rid))
+        except Exception:
+            return jsonify({'success': False, 'message': 'ID inválido'}), 400
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        pk_name = None
+        try:
+            curp = conn.cursor(dictionary=True)
+            curp.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'id'")
+            if curp.fetchone():
+                pk_name = 'id'
+            else:
+                curp.execute("SHOW KEYS FROM seriales_inversa WHERE Key_name='PRIMARY'")
+                pk = curp.fetchone()
+                if pk and pk.get('Column_name'):
+                    pk_name = pk['Column_name']
+                else:
+                    for alt in ('id_inversa','id_seriales_inversa','idseriales_inversa'):
+                        curp.execute(f"SHOW COLUMNS FROM seriales_inversa LIKE '{alt}'")
+                        if curp.fetchone():
+                            pk_name = alt
+                            break
+            curp.close()
+        except Exception:
+            pk_name = None
+        if not pk_name:
+            return jsonify({'success': False, 'message': 'No se encontró columna identificadora en la tabla'}), 500
+        import re as _re
+        if not _re.match(r'^[A-Za-z0-9_]+$', pk_name):
+            return jsonify({'success': False, 'message': 'Columna PK inválida'}), 500
+        cur = conn.cursor()
+        cur.execute(f"DELETE FROM seriales_inversa WHERE {pk_name}=%s", (rid,))
+        deleted = cur.rowcount
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'deleted': deleted})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 

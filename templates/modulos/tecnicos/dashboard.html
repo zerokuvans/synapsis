@@ -788,6 +788,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 title: 'Fuera de Horario',
                 text: `Las inspecciones preoperacionales solo pueden registrarse hasta las ${window.horaLimitePreoperacional} (hora de Bogotá).`,
                 confirmButtonText: 'Entendido'
+            }).then(function(){
+                if (window.SI_mostrarSerialesInversaPopup) window.SI_mostrarSerialesInversaPopup();
             });
             
             // Deshabilitar el formulario
@@ -936,6 +938,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     title: 'Fuera de Horario',
                     text: `Las inspecciones preoperacionales solo pueden registrarse hasta las ${window.horaLimitePreoperacional} (hora de Bogotá).`,
                     confirmButtonText: 'Entendido'
+                }).then(function(){
+                    if (window.SI_mostrarSerialesInversaPopup) window.SI_mostrarSerialesInversaPopup();
                 });
                 return;
             }

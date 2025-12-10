@@ -1321,22 +1321,17 @@
                     table2 + cards2 +
                 '</div>';
             }
-            function modalAbierta(){
-                return !!document.querySelector('.modal.show');
-            }
-            function mostrar(){
-                Swal.fire({
-                    title: 'Aviso',
-                    icon: 'warning',
-                    html: html,
-                    width: 900,
-                    confirmButtonText: 'Entendido'
-                });
-            }
-            if (modalAbierta()){
-                setTimeout(function(){ if (!modalAbierta()) mostrar(); }, 700);
-            } else {
-                mostrar();
+            var ov = document.getElementById('si-inversa-overlay');
+            if (ov){
+                var head = '<div class="d-flex justify-content-between align-items-center mb-2"><div class="fw-semibold">Seriales de Inversa</div><button type="button" class="btn-close" id="si-inversa-close" aria-label="Close"></button></div>';
+                ov.innerHTML = '<div class="card shadow" style="max-width:900px;"><div class="card-body">'+ head + html +'</div></div>';
+                ov.style.display = 'block';
+                if (!ov.dataset.hook){
+                    ov.addEventListener('click', function(e){
+                        if (e.target && e.target.id === 'si-inversa-close'){ ov.style.display = 'none'; }
+                    }, true);
+                    ov.dataset.hook = '1';
+                }
             }
         }
         function updatePreoperacionalButtonStatus(data){
@@ -1372,7 +1367,7 @@
                 if (tg) btn.setAttribute('data-bs-target', tg);
             }
         }
-        document.addEventListener('DOMContentLoaded', function(){
+        window.SI_mostrarSerialesInversaPopup = function(){
             fetch('/logistica/seriales_inversa/pending', {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 credentials: 'same-origin',
@@ -1384,6 +1379,9 @@
                 updatePreoperacionalButtonStatus(j || {});
             })
             .catch(function(){});
+        };
+        document.addEventListener('DOMContentLoaded', function(){
+            window.SI_mostrarSerialesInversaPopup();
         });
     })();
     </script>
@@ -1456,11 +1454,14 @@
     .version-beta:hover {
         opacity: 0.8;
     }
+    #si-inversa-overlay{ position: fixed; top: 60px; right: 20px; z-index: 11000; max-width: 95vw; }
+    #si-inversa-overlay .card{ max-width: 900px; }
     </style>
 
     <!-- Etiqueta de Versión Beta -->
     <div class="version-beta">
         <i class="fas fa-flask me-1"></i>Versión Beta
     </div>
+    <div id="si-inversa-overlay" style="display:none"></div>
 </body>
 </html>
