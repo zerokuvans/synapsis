@@ -3913,6 +3913,25 @@ def api_analistas_actividad_cierre():
     fecha_franja = str(data.get('fecha_franja_cierre_ciclo') or '').strip()
     franja_cierre = str(data.get('franja_cierre_ciclo') or '').strip()
     alerta_cierre = str(data.get('alerta_cierre_ciclo') or '').strip()
+    cierre_flag = data.get('cierre_ciclo')
+    cierre_true = False
+    try:
+        cierre_true = (cierre_flag is not None) and (str(cierre_flag).strip().lower() in ('1','true','si','sí'))
+    except Exception:
+        cierre_true = False
+    tip_ok_upper = (tip_ok or '').strip().upper()
+    if cierre_true and tip_ok_upper == 'CLIENTE INCONFORME':
+        faltantes = []
+        if not observ:
+            faltantes.append('observacion')
+        if not fecha_franja:
+            faltantes.append('fecha_franja_cierre_ciclo')
+        if not franja_cierre:
+            faltantes.append('franja_cierre_ciclo')
+        if not alerta_cierre:
+            faltantes.append('alerta_cierre_ciclo')
+        if faltantes:
+            return jsonify({'success': False, 'code': 'VALIDATION_ERROR', 'missing': faltantes, 'error': 'Faltan campos requeridos para cierre de ciclo CLIENTE INCONFORME'}), 400
     try:
         connection = get_db_connection()
         if connection is None:

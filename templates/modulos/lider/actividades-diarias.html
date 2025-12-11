@@ -742,7 +742,36 @@ function debeBloquearGestion(fechaRaw){
 <script>
 let __gaContext = { ot: '', cuenta: '', tecnico: '', tecnicoId: '', estado: '', actividadId: '' };
 
+function resetGestionActividadForm(){
+  const setV = (id, v) => { try{ const el=document.getElementById(id); if(el) el.value=v; }catch(_){} };
+  setV('gaOT','');
+  setV('gaCuenta','');
+  setV('gaTecnico','');
+  setV('gaEstado','');
+  setV('gaNombre','');
+  setV('gaTipoActividad','');
+  setV('gaDireccion','');
+  setV('gaTiempoGestion','');
+  setV('gaDuracion','');
+  setV('gaTipoRazon','');
+  setV('gaTipificacionOk','');
+  setV('gaObservacionNovedad','');
+  try{ const b=document.getElementById('gaAgendaCierreBlock'); if(b) b.style.display='none'; }catch(_){}
+  setV('gaFechaAgendaCierre','');
+  setV('gaFranjaCierre','');
+  setV('gaAlertaCierre','');
+  try{ const el=document.getElementById('gaCierreNo'); if(el){ el.checked=true; } }catch(_){}
+  try{ const el=document.getElementById('subseccionCierre'); if(el){ el.style.display='none'; } }catch(_){}
+  try{ const r=document.getElementById('gaConfirmEventoOkNo'); if(r){ r.checked=true; } }catch(_){}
+  setV('gaRazonReal','');
+  setV('gaObservacionesRazon','');
+  try{ const r=document.getElementById('gaConfirmEventoNo'); if(r){ r.checked=true; } }catch(_){}
+  setV('gaCanceladoTipificacion','');
+  setV('gaCanceladoObservacion','');
+}
+
 async function abrirGestionActividad(ot, cuenta, tecnico, tecnicoId, estado, actividadId){
+  resetGestionActividadForm();
   __gaContext = { ot, cuenta, tecnico, tecnicoId, estado, actividadId };
   document.getElementById('gaOT').value = ot || '';
   document.getElementById('gaCuenta').value = cuenta || '';
@@ -800,6 +829,11 @@ document.getElementById('gaCierreNo').addEventListener('change', () => {
 });
 
 document.getElementById('btnFacturar').addEventListener('click', () => abrirFacturar());
+
+try{
+  const modalEl = document.getElementById('modalGestionActividad');
+  modalEl && modalEl.addEventListener('hidden.bs.modal', () => { resetGestionActividadForm(); });
+}catch(_){ }
 
 function abrirFacturar(){
   const bf = document.getElementById('btnFacturar');
@@ -1044,11 +1078,27 @@ async function finalizarCierre(){
     const obs = document.getElementById('gaObservacionNovedad').value.trim();
     const confValOk = (document.querySelector('input[name="gaConfirmEventoOk"]:checked') || {}).value || 'no';
     const confirmacion_evento = confValOk.toLowerCase() === 'si' ? 1 : 0;
+    const tipUpper = (ok||'').trim().toUpperCase();
+    let fechaAgenda = '';
+    let franja = '';
+    let alerta = '';
+    if(tipUpper === 'CLIENTE INCONFORME'){
+      fechaAgenda = (document.getElementById('gaFechaAgendaCierre')?.value || '').trim();
+      franja = (document.getElementById('gaFranjaCierre')?.value || '').trim();
+      alerta = (document.getElementById('gaAlertaCierre')?.value || '').trim();
+      const faltantes = [];
+      if(!obs) faltantes.push('Observación');
+      if(!fechaAgenda) faltantes.push('Fecha Agenda cierre ciclo');
+      if(!franja) faltantes.push('Franja de cierre de ciclo');
+      if(!alerta) faltantes.push('Nivel de Alerta');
+      if(faltantes.length > 0){
+        const msg = 'Campos requeridos: ' + faltantes.join(', ');
+        if(window.Swal){ Swal.fire({icon:'warning', title:'Datos incompletos', text: msg}); } else { alert(msg); }
+        return;
+      }
+    }
     const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, tipificacion_ok: ok || null, tipificacion_novedad: null, observacion: obs || null, confirmacion_evento, cierre_ciclo: 1 };
-    if((ok||'').trim().toUpperCase() === 'CLIENTE INCONFORME'){
-      const fechaAgenda = (document.getElementById('gaFechaAgendaCierre')?.value || '').trim();
-      const franja = (document.getElementById('gaFranjaCierre')?.value || '').trim();
-      const alerta = (document.getElementById('gaAlertaCierre')?.value || '').trim();
+    if(tipUpper === 'CLIENTE INCONFORME'){
       if(fechaAgenda) payload.fecha_franja_cierre_ciclo = fechaAgenda;
       if(franja) payload.franja_cierre_ciclo = franja;
       if(alerta) payload.alerta_cierre_ciclo = alerta;
