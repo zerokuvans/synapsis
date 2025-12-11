@@ -3149,8 +3149,27 @@ def api_analistas_actividades_diarias_list():
                             if ef_val != 1:
                                 try:
                                     cupd = connection.cursor()
-                                    sqlu = f"UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE CAST(`{col_ot}` AS CHAR)=%s AND CAST(`{col_cuenta}` AS CHAR)=%s AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
-                                    cupd.execute(sqlu, (str(r.get('orden_de_trabajo') or ''), str(r.get('numero_de_cuenta') or '')))
+                                    conds = f"CAST(`{col_ot}` AS CHAR)=%s AND CAST(`{col_cuenta}` AS CHAR)=%s"
+                                    params_u = [str(r.get('orden_de_trabajo') or ''), str(r.get('numero_de_cuenta') or '')]
+                                    if col_act_id and r.get('actividad_id') is not None:
+                                        conds += f" AND `{col_act_id}`=%s"
+                                        params_u.append(r.get('actividad_id'))
+                                    else:
+                                        vv = r.get('fecha')
+                                        try:
+                                            if isinstance(vv, datetime):
+                                                conds += f" AND DATE(`{col_fecha}`)=%s"
+                                                params_u.append(vv.date().strftime('%Y-%m-%d'))
+                                            else:
+                                                s0 = str(vv).strip()
+                                                m3 = re.match(r"^(\d{4}-\d{2}-\d{2})", s0)
+                                                if m3:
+                                                    conds += f" AND `{col_fecha}` LIKE %s"
+                                                    params_u.append(m3.group(1) + '%')
+                                        except Exception:
+                                            pass
+                                    sqlu = f"UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE {conds} AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
+                                    cupd.execute(sqlu, tuple(params_u))
                                     connection.commit()
                                     cupd.close()
                                 except Exception:
@@ -4139,8 +4158,24 @@ def api_analistas_actividad_cierre():
                     if now >= cutoff:
                         try:
                             c3 = connection.cursor()
-                            sqlb = "UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE " + " AND ".join(where) + " AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
-                            c3.execute(sqlb, tuple(params))
+                            fecha_cond = ""
+                            fecha_param = None
+                            try:
+                                if isinstance(v, datetime):
+                                    fecha_cond = f" AND DATE(`{col_fecha}`) = %s"
+                                    fecha_param = v.date().strftime('%Y-%m-%d')
+                                else:
+                                    s0 = str(v).strip()
+                                    m2 = re.match(r"^(\d{4}-\d{2}-\d{2})", s0)
+                                    if m2:
+                                        fecha_cond = f" AND `{col_fecha}` LIKE %s"
+                                        fecha_param = m2.group(1) + '%'
+                            except Exception:
+                                fecha_cond = ""
+                                fecha_param = None
+                            sqlb = "UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE " + " AND ".join(where) + fecha_cond + " AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
+                            p = tuple(params + ([fecha_param] if fecha_param else []))
+                            c3.execute(sqlb, p)
                             connection.commit()
                             c3.close()
                         except Exception:
@@ -4303,8 +4338,24 @@ def api_analistas_actividad_razon():
                     if now >= cutoff:
                         try:
                             c3 = connection.cursor()
-                            sqlb = "UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE " + " AND ".join(where) + " AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
-                            c3.execute(sqlb, tuple(params))
+                            fecha_cond = ""
+                            fecha_param = None
+                            try:
+                                if isinstance(v, datetime):
+                                    fecha_cond = f" AND DATE(`{col_fecha}`) = %s"
+                                    fecha_param = v.date().strftime('%Y-%m-%d')
+                                else:
+                                    s0 = str(v).strip()
+                                    m2 = re.match(r"^(\d{4}-\d{2}-\d{2})", s0)
+                                    if m2:
+                                        fecha_cond = f" AND `{col_fecha}` LIKE %s"
+                                        fecha_param = m2.group(1) + '%'
+                            except Exception:
+                                fecha_cond = ""
+                                fecha_param = None
+                            sqlb = "UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE " + " AND ".join(where) + fecha_cond + " AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
+                            p = tuple(params + ([fecha_param] if fecha_param else []))
+                            c3.execute(sqlb, p)
                             connection.commit()
                             c3.close()
                         except Exception:
@@ -4455,8 +4506,24 @@ def api_analistas_actividad_cancelado():
                     if now >= cutoff:
                         try:
                             c3 = connection.cursor()
-                            sqlb = "UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE " + " AND ".join(where) + " AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
-                            c3.execute(sqlb, tuple(params))
+                            fecha_cond = ""
+                            fecha_param = None
+                            try:
+                                if isinstance(v, datetime):
+                                    fecha_cond = f" AND DATE(`{col_fecha}`) = %s"
+                                    fecha_param = v.date().strftime('%Y-%m-%d')
+                                else:
+                                    s0 = str(v).strip()
+                                    m2 = re.match(r"^(\d{4}-\d{2}-\d{2})", s0)
+                                    if m2:
+                                        fecha_cond = f" AND `{col_fecha}` LIKE %s"
+                                        fecha_param = m2.group(1) + '%'
+                            except Exception:
+                                fecha_cond = ""
+                                fecha_param = None
+                            sqlb = "UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE " + " AND ".join(where) + fecha_cond + " AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
+                            p = tuple(params + ([fecha_param] if fecha_param else []))
+                            c3.execute(sqlb, p)
                             connection.commit()
                             c3.close()
                         except Exception:
