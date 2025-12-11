@@ -54,6 +54,11 @@
               </select>
             </div>
             <div class="col-md-3">
+              <select id="filtroObservacion" class="form-select">
+                <option value="">Todas las observaciones</option>
+              </select>
+            </div>
+            <div class="col-md-3">
               <input id="filtroDesde" type="date" class="form-control" placeholder="Desde">
             </div>
             <div class="col-md-3">
@@ -77,7 +82,6 @@
                 <th>serial_rr</th>
                 <th>tecnico</th>
                 <th>super</th>
-                <th>acciones</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -103,6 +107,7 @@
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
         data: function(d){
           d.tecnico = document.getElementById('filtroTecnico').value || '';
+          d.observacion_diana = document.getElementById('filtroObservacion').value || '';
           d.fecha_desde = document.getElementById('filtroDesde').value || '';
           d.fecha_hasta = document.getElementById('filtroHasta').value || '';
           return d;
@@ -120,11 +125,7 @@
         { data: 'observacion_diana' },
         { data: 'serial_rr' },
         { data: 'tecnico' },
-        { data: 'super' },
-        { data: 'id', orderable: false, searchable: false, render: function(data, type, row){
-            var hasId = (data !== null && data !== undefined && data !== '' && !isNaN(Number(data)));
-            return hasId ? '<button class="btn btn-sm btn-danger btn-del" data-id="'+data+'"><i class="fas fa-trash"></i></button>' : '';
-          } }
+        { data: 'super' }
       ]
     });
   }
@@ -133,29 +134,15 @@
     fetch('/logistica/seriales_inversa/tecnicos', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(r => r.json())
       .then(j => { if (j && j.success && Array.isArray(j.tecnicos)){ var sel = document.getElementById('filtroTecnico'); j.tecnicos.forEach(function(n){ var opt = document.createElement('option'); opt.value=n; opt.textContent=n; sel.appendChild(opt); }); } });
+    fetch('/logistica/seriales_inversa/observaciones', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(r => r.json())
+      .then(j => { if (j && j.success && Array.isArray(j.observaciones)){ var so = document.getElementById('filtroObservacion'); j.observaciones.forEach(function(o){ var opt = document.createElement('option'); opt.value=o; opt.textContent=o; so.appendChild(opt); }); } });
     document.getElementById('btnBuscar').addEventListener('click', function(){ dt.ajax.reload(); });
-    document.getElementById('btnLimpiar').addEventListener('click', function(){ document.getElementById('filtroTecnico').value=''; document.getElementById('filtroDesde').value=''; document.getElementById('filtroHasta').value=''; dt.ajax.reload(); });
+    document.getElementById('btnLimpiar').addEventListener('click', function(){ document.getElementById('filtroTecnico').value=''; document.getElementById('filtroObservacion').value=''; document.getElementById('filtroDesde').value=''; document.getElementById('filtroHasta').value=''; dt.ajax.reload(); });
     document.getElementById('filtroTecnico').addEventListener('change', function(){ dt.ajax.reload(); });
+    document.getElementById('filtroObservacion').addEventListener('change', function(){ dt.ajax.reload(); });
     document.getElementById('filtroDesde').addEventListener('change', function(){ dt.ajax.reload(); });
     document.getElementById('filtroHasta').addEventListener('change', function(){ dt.ajax.reload(); });
-    $('#tablaSerialesInversa').on('click', '.btn-del', function(){
-      var id = this.getAttribute('data-id');
-      Swal.fire({
-        icon:'warning',
-        title:'Eliminar registro',
-        text:'Esta acción no se puede deshacer. ¿Continuar?',
-        showCancelButton:true,
-        confirmButtonText:'Eliminar',
-        cancelButtonText:'Cancelar'
-      }).then(function(res){
-        if (res.isConfirmed){
-          fetch('/logistica/seriales_inversa/delete', { method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify({id: id}) })
-            .then(r => r.json())
-            .then(j => { if (j && j.success){ dt.ajax.reload(null,false); Swal.fire('Eliminado','','success'); } else { Swal.fire('Error', (j && j.message) || 'No se pudo eliminar', 'error'); } })
-            .catch(() => Swal.fire('Error','Error de conexión','error'));
-        }
-      });
-    });
     var input = document.getElementById('archivoBase');
     var nombre = document.getElementById('archivoNombre');
     var btn = document.getElementById('btnEnviarArchivo');

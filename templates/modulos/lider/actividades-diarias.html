@@ -212,10 +212,55 @@ function renderTabla(){
         <button class="btn btn-sm btn-primary" ${isFin || bloqueado ? 'disabled' : ''} title="${bloqueado ? 'Bloqueado por corte de medio día' : ''}" onclick="abrirGestionActividad('${ot}','${cuenta}','${tecnico}','${item.external_id ?? ''}','${estado}','${item.actividad_id ?? ''}')">
           <i class="fas fa-tools me-1"></i>Gestionar
         </button>
+        ${__canGestionado ? `<button class="btn btn-sm btn-secondary ms-2" onclick="abrirGestionado('${ot}','${cuenta}')"><i class=\"fas fa-eye me-1\"></i>Gestionado</button>` : ''}
         ${isFin ? '<span class="badge bg-success ms-2">Finalizado</span>' : ''}
       </td>`;
     tbody.appendChild(tr);
   });
+}
+
+async function abrirGestionado(ot, cuenta){
+  try{
+    const m = document.getElementById('modalGestionado');
+    const modal = new bootstrap.Modal(m);
+    const url = '/api/operativo/cierre-ciclo/detalle?' + new URLSearchParams({ ot, cuenta }).toString();
+    const res = await fetch(url, { credentials: 'include' });
+    const j = await res.json();
+    const d = (j && j.data) ? j.data : {};
+    document.getElementById('gdOT').textContent = ot || '';
+    document.getElementById('gdCuenta').textContent = cuenta || '';
+    document.getElementById('gdEstado').textContent = d.estado || '';
+    document.getElementById('gdTecnico').textContent = d.tecnico || '';
+    document.getElementById('gdAnalista').textContent = d.analista || '';
+    document.getElementById('gdSupervisor').textContent = d.supervisor || '';
+    document.getElementById('gaTipOk').value = d.tipificacion_ok || '';
+    document.getElementById('gaObs').value = d.observacion_cierre || '';
+    document.getElementById('gaCierre').value = (String(d.cierre_ciclo || '').trim() ? 'Sí' : 'No');
+    document.getElementById('gaFecha').value = d.fecha_franja_cierre_ciclo || '';
+    document.getElementById('gaFranja').value = d.franja_cierre_ciclo || '';
+    document.getElementById('gaAlerta').value = d.alerta_cierre_ciclo || '';
+    const cierreSuperVal = d.cierre_super;
+    const cierreSuperTxt = (cierreSuperVal === 1 || String(cierreSuperVal).toLowerCase() === 'true' || String(cierreSuperVal).toLowerCase() === 'completado') ? 'Sí' : (String(cierreSuperVal).trim() ? String(cierreSuperVal) : 'No');
+    document.getElementById('gsCierreSuper').value = cierreSuperTxt || '';
+    document.getElementById('gsTip1').value = d.tip_super_1 || '';
+    document.getElementById('gsTip2').value = d.tip_super_2 || '';
+    document.getElementById('gsFechaSuper').value = d.fecha_gestion_super || '';
+    const obsSupEl = document.getElementById('gsObservacionSuper');
+    if (obsSupEl) obsSupEl.value = d.observacion_super || '';
+    const recEl = document.getElementById('gsRecomendacion');
+    if (recEl) recEl.value = d.recomendacion_tecnico || '';
+    const imgF = document.getElementById('gsImgFalla');
+    const wrapF = document.getElementById('gsImgFallaWrap');
+    if (wrapF) wrapF.style.display = (d.imagen_falla && String(d.imagen_falla).trim()) ? 'block' : 'none';
+    if (imgF) { imgF.src = d.imagen_falla || ''; imgF.style.cursor = 'zoom-in'; imgF.onclick = () => abrirOverlayImagen(d.imagen_falla || '', 'Imagen Falla'); }
+    const imgS = document.getElementById('gsImgSol');
+    const wrapS = document.getElementById('gsImgSolWrap');
+    if (wrapS) wrapS.style.display = (d.imagen_solucion && String(d.imagen_solucion).trim()) ? 'block' : 'none';
+    if (imgS) { imgS.src = d.imagen_solucion || ''; imgS.style.cursor = 'zoom-in'; imgS.onclick = () => abrirOverlayImagen(d.imagen_solucion || '', 'Imagen Solución'); }
+    modal.show();
+  }catch(_){
+    try{ if(window.Swal){ Swal.fire({icon:'warning', title:'Sin datos', text:'No fue posible cargar el detalle gestionado'}); } }catch(__){}
+  }
 }
 
 function renderPaginador(){
@@ -600,17 +645,17 @@ function debeBloquearGestion(fechaRaw){
                       </select>
                     </div>
                     <div class="col-12">
-                      <label class="form-label">Observación</label>
+                      <label class="form-label">Observación <span id="reqObs" class="text-danger" style="display:none">*</span></label>
                       <input type="text" class="form-control" id="gaObservacionNovedad" placeholder="Observaciones...">
                     </div>
                     <div class="col-12" id="gaAgendaCierreBlock" style="display:none;">
                       <div class="row g-3">
                         <div class="col-md-6">
-                          <label class="form-label">Fecha Agenda cierre ciclo</label>
+                          <label class="form-label">Fecha Agenda cierre ciclo <span id="reqFecha" class="text-danger" style="display:none">*</span></label>
                           <input type="date" class="form-control" id="gaFechaAgendaCierre">
                         </div>
                         <div class="col-md-6">
-                          <label class="form-label">Franja de cierre de ciclo</label>
+                          <label class="form-label">Franja de cierre de ciclo <span id="reqFranja" class="text-danger" style="display:none">*</span></label>
                           <select class="form-select" id="gaFranjaCierre">
                             <option value="">Seleccione...</option>
                             <option>7:00:00 a. m. — 9:00:00 a. m.</option>
@@ -621,7 +666,7 @@ function debeBloquearGestion(fechaRaw){
                           </select>
                         </div>
                         <div class="col-md-6">
-                          <label class="form-label">Nivel de Alerta</label>
+                          <label class="form-label">Nivel de Alerta <span id="reqAlerta" class="text-danger" style="display:none">*</span></label>
                           <select class="form-select" id="gaAlertaCierre">
                             <option value="">Seleccione...</option>
                             <option value="BAJO">BAJO</option>
@@ -739,8 +784,69 @@ function debeBloquearGestion(fechaRaw){
   </div>
 </div>
 
+<!-- Modal Detalle Gestionado (Solo líder, informativo) -->
+<div class="modal fade" id="modalGestionado" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-secondary text-white">
+        <h5 class="modal-title"><i class="fas fa-eye me-2"></i>Detalle de Gestión</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="container-fluid">
+          <div class="card mb-3">
+            <div class="card-header fw-bold">Datos Actividad</div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-2"><label class="form-label">OT</label><div class="form-control" id="gdOT"></div></div>
+                <div class="col-md-3"><label class="form-label">Cuenta</label><div class="form-control" id="gdCuenta"></div></div>
+                <div class="col-md-3"><label class="form-label">Estado</label><div class="form-control" id="gdEstado"></div></div>
+                <div class="col-md-4"><label class="form-label">Técnico</label><div class="form-control" id="gdTecnico"></div></div>
+                <div class="col-md-6"><label class="form-label">Analista</label><div class="form-control" id="gdAnalista"></div></div>
+                <div class="col-md-6"><label class="form-label">Supervisor</label><div class="form-control" id="gdSupervisor"></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="card mb-3">
+            <div class="card-header fw-bold">Gestión Analista</div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-6"><label class="form-label">Tipificación OK</label><input type="text" class="form-control" id="gaTipOk" readonly></div>
+                <div class="col-md-6"><label class="form-label">Observación</label><input type="text" class="form-control" id="gaObs" readonly></div>
+                <div class="col-md-4"><label class="form-label">Cierre de ciclo</label><input type="text" class="form-control" id="gaCierre" readonly></div>
+                <div class="col-md-4"><label class="form-label">Fecha Agenda</label><input type="text" class="form-control" id="gaFecha" readonly></div>
+                <div class="col-md-4"><label class="form-label">Franja</label><input type="text" class="form-control" id="gaFranja" readonly></div>
+                <div class="col-md-4"><label class="form-label">Nivel de Alerta</label><input type="text" class="form-control" id="gaAlerta" readonly></div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header fw-bold">Gestión Supervisor</div>
+            <div class="card-body">
+              <div class="row g-3">
+                <div class="col-md-4"><label class="form-label">Cierre Supervisor</label><input type="text" class="form-control" id="gsCierreSuper" readonly></div>
+                <div class="col-md-4"><label class="form-label">Tipificación 1</label><input type="text" class="form-control" id="gsTip1" readonly></div>
+                <div class="col-md-4"><label class="form-label">Tipificación 2</label><input type="text" class="form-control" id="gsTip2" readonly></div>
+                <div class="col-md-6"><label class="form-label">Fecha Gestión Supervisor</label><input type="text" class="form-control" id="gsFechaSuper" readonly></div>
+                <div class="col-md-12"><label class="form-label">Observación Supervisor</label><input type="text" class="form-control" id="gsObservacionSuper" readonly></div>
+                <div class="col-md-12"><label class="form-label">Recomendación al Técnico</label><input type="text" class="form-control" id="gsRecomendacion" readonly></div>
+                <div class="col-md-6"><label class="form-label">Imagen Falla</label><div id="gsImgFallaWrap" style="display:none;"><img id="gsImgFalla" class="img-fluid rounded border" /></div></div>
+                <div class="col-md-6"><label class="form-label">Imagen Solución</label><div id="gsImgSolWrap" style="display:none;"><img id="gsImgSol" class="img-fluid rounded border" /></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 let __gaContext = { ot: '', cuenta: '', tecnico: '', tecnicoId: '', estado: '', actividadId: '' };
+const __canGestionado = {{ 'true' if session.get('user_role') in ['lider','administrativo'] else 'false' }};
 
 function resetGestionActividadForm(){
   const setV = (id, v) => { try{ const el=document.getElementById(id); if(el) el.value=v; }catch(_){} };
@@ -812,6 +918,34 @@ async function abrirGestionActividad(ot, cuenta, tecnico, tecnicoId, estado, act
   m.show();
 }
 
+function abrirOverlayImagen(src, titulo){
+  try{
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.right = '0';
+    overlay.style.bottom = '0';
+    overlay.style.background = 'rgba(0,0,0,0.8)';
+    overlay.style.zIndex = '1060';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.cursor = 'zoom-out';
+    overlay.onclick = () => { try{ document.body.removeChild(overlay); }catch(_){} };
+    const img = document.createElement('img');
+    img.src = src || '';
+    img.alt = titulo || '';
+    img.style.maxWidth = '90vw';
+    img.style.maxHeight = '90vh';
+    img.style.boxShadow = '0 0 10px rgba(0,0,0,0.5)';
+    img.style.borderRadius = '6px';
+    img.style.objectFit = 'contain';
+    overlay.appendChild(img);
+    document.body.appendChild(overlay);
+  }catch(_){ }
+}
+
 function mostrarSeccionesPorEstado(estado){
   const ok = document.getElementById('seccionOk');
   const rz = document.getElementById('seccionRazon');
@@ -823,12 +957,19 @@ function mostrarSeccionesPorEstado(estado){
 
 document.getElementById('gaCierreSi').addEventListener('change', () => {
   document.getElementById('subseccionCierre').style.display = 'block';
+  updateRequiredUI();
 });
 document.getElementById('gaCierreNo').addEventListener('change', () => {
   document.getElementById('subseccionCierre').style.display = 'none';
+  updateRequiredUI();
 });
 
 document.getElementById('btnFacturar').addEventListener('click', () => abrirFacturar());
+
+try{
+  const bindIds=['gaObservacionNovedad','gaFechaAgendaCierre','gaFranjaCierre','gaAlertaCierre'];
+  bindIds.forEach(id=>{ const el=document.getElementById(id); if(el){ el.addEventListener('input', updateRequiredUI); el.addEventListener('change', updateRequiredUI); } });
+}catch(_){}
 
 try{
   const modalEl = document.getElementById('modalGestionActividad');
@@ -1024,6 +1165,7 @@ function inicializarTipificaciones(){
     const toggleAgenda = () => {
       const val = (selOk.value || '').trim().toUpperCase();
       if(agendaBlock){ agendaBlock.style.display = val === 'CLIENTE INCONFORME' ? '' : 'none'; }
+      updateRequiredUI();
     };
     selOk.addEventListener('change', toggleAgenda);
     toggleAgenda();
@@ -1072,6 +1214,23 @@ function inicializarTipificaciones(){
   }
 }
 
+function setInvalid(id, invalid){ const el=document.getElementById(id); if(!el) return; if(invalid){ el.classList.add('is-invalid'); } else { el.classList.remove('is-invalid'); } }
+function updateRequiredUI(){
+  const cierreSi = !!document.getElementById('gaCierreSi')?.checked;
+  const okVal = (document.getElementById('gaTipificacionOk')?.value || '').trim().toUpperCase();
+  const active = cierreSi && okVal === 'CLIENTE INCONFORME';
+  const show = (id)=>{ const el=document.getElementById(id); if(el) el.style.display = active ? '' : 'none'; };
+  show('reqObs'); show('reqFecha'); show('reqFranja'); show('reqAlerta');
+  const obs = (document.getElementById('gaObservacionNovedad')?.value || '').trim();
+  const fecha = (document.getElementById('gaFechaAgendaCierre')?.value || '').trim();
+  const franja = (document.getElementById('gaFranjaCierre')?.value || '').trim();
+  const alerta = (document.getElementById('gaAlertaCierre')?.value || '').trim();
+  setInvalid('gaObservacionNovedad', active && !obs);
+  setInvalid('gaFechaAgendaCierre', active && !fecha);
+  setInvalid('gaFranjaCierre', active && !franja);
+  setInvalid('gaAlertaCierre', active && !alerta);
+}
+
 async function finalizarCierre(){
   try{
     const ok = document.getElementById('gaTipificacionOk').value;
@@ -1082,7 +1241,7 @@ async function finalizarCierre(){
     let fechaAgenda = '';
     let franja = '';
     let alerta = '';
-    if(tipUpper === 'CLIENTE INCONFORME'){
+  if(tipUpper === 'CLIENTE INCONFORME'){
       fechaAgenda = (document.getElementById('gaFechaAgendaCierre')?.value || '').trim();
       franja = (document.getElementById('gaFranjaCierre')?.value || '').trim();
       alerta = (document.getElementById('gaAlertaCierre')?.value || '').trim();
@@ -1092,6 +1251,10 @@ async function finalizarCierre(){
       if(!franja) faltantes.push('Franja de cierre de ciclo');
       if(!alerta) faltantes.push('Nivel de Alerta');
       if(faltantes.length > 0){
+        setInvalid('gaObservacionNovedad', !obs);
+        setInvalid('gaFechaAgendaCierre', !fechaAgenda);
+        setInvalid('gaFranjaCierre', !franja);
+        setInvalid('gaAlertaCierre', !alerta);
         const msg = 'Campos requeridos: ' + faltantes.join(', ');
         if(window.Swal){ Swal.fire({icon:'warning', title:'Datos incompletos', text: msg}); } else { alert(msg); }
         return;
@@ -1189,3 +1352,27 @@ async function finalizarCancelado(){
 }
 </script>
 {% endblock %}
+
+<div class="modal fade" id="modalImagenGestionado" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="gdImgTitulo"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <img id="gdImgAmpliada" class="img-fluid" style="max-height:80vh;" />
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function abrirModalImagen(src, titulo){
+  const im = document.getElementById('gdImgAmpliada');
+  const tt = document.getElementById('gdImgTitulo');
+  if (tt) tt.textContent = titulo || '';
+  if (im) im.src = src || '';
+  const m = new bootstrap.Modal(document.getElementById('modalImagenGestionado'));
+  m.show();
+}

@@ -272,28 +272,28 @@ async function cargarTipificaciones2(){
     }catch(e){}
 }
 async function guardarGestionSuper(){
+    const obs=(document.getElementById('gs_obs_super')?.value||'').trim();
+    const rec=(document.getElementById('gs_recomendacion_tecnico')?.value||'').trim();
+    const f=document.getElementById('gs_imagen_falla');
+    const s=document.getElementById('gs_imagen_solucion');
+    const fOk=!!(f && f.files && f.files[0]);
+    const sOk=!!(s && s.files && s.files[0]);
+    if(!obs || !rec || !fOk || !sOk){
+        const msg='Observación del super, recomendación al técnico e imágenes de falla y solución son obligatorias';
+        if(window.Swal){ window.Swal.fire({icon:'error',title:'Datos requeridos',text:msg}); } else { alert(msg); }
+        return;
+    }
     const fd=new FormData();
     fd.append('ot', document.getElementById('gs_ot').value);
     fd.append('cuenta', document.getElementById('gs_cuenta').value);
     fd.append('tip_super_1', document.getElementById('gs_tip1').value);
     fd.append('tip_super_2', document.getElementById('gs_tip2').value);
-    fd.append('observacion_super', document.getElementById('gs_obs_super').value);
-    try{
-        const fechaAgendaEl=document.getElementById('gs_fecha_agenda_cierre');
-        const fechaAgenda=(fechaAgendaEl?.value||'').trim();
-        if(fechaAgenda){ fd.append('fecha_franja_cierre_ciclo', fechaAgenda); }
-    }catch(e){}
-    try{
-        const franjaEl=document.getElementById('gs_franja_cierre');
-        const franja=(franjaEl?.value||'').trim();
-        if(franja){ fd.append('franja_cierre_ciclo', franja); }
-    }catch(e){}
-    const recEl=document.getElementById('gs_recomendacion_tecnico');
-    if(recEl){ fd.append('recomendacion_tecnico', recEl.value||''); }
-    const f=document.getElementById('gs_imagen_falla');
-    if(f && f.files && f.files[0]){ fd.append('imagen_falla', f.files[0]); }
-    const s=document.getElementById('gs_imagen_solucion');
-    if(s && s.files && s.files[0]){ fd.append('imagen_solucion', s.files[0]); }
+    fd.append('observacion_super', obs);
+    try{ const fechaAgendaEl=document.getElementById('gs_fecha_agenda_cierre'); const fechaAgenda=(fechaAgendaEl?.value||'').trim(); if(fechaAgenda){ fd.append('fecha_franja_cierre_ciclo', fechaAgenda); } }catch(e){}
+    try{ const franjaEl=document.getElementById('gs_franja_cierre'); const franja=(franjaEl?.value||'').trim(); if(franja){ fd.append('franja_cierre_ciclo', franja); } }catch(e){}
+    fd.append('recomendacion_tecnico', rec);
+    fd.append('imagen_falla', f.files[0]);
+    fd.append('imagen_solucion', s.files[0]);
     try{
         const res=await fetch('/api/operativo/cierre-ciclo/gestionar',{ method:'POST', credentials:'include', body: fd });
         const data=await res.json();
@@ -301,6 +301,9 @@ async function guardarGestionSuper(){
             const modalEl=document.getElementById('modalGestionSuper');
             bootstrap.Modal.getInstance(modalEl).hide();
             buscar();
+        } else {
+            const m=(data && data.message)?data.message:'No se pudo guardar la gestión';
+            if(window.Swal){ window.Swal.fire({icon:'error',title:'Error',text:m}); } else { alert(m); }
         }
     }catch(e){}
 }

@@ -1283,7 +1283,7 @@
                 });
                 cards += '</div>';
                 html = '<div class="text-start">' +
-                    '<div class="alert alert-warning mb-3">SERIALES PENDIENTES INVERSA. Si los días restantes llegan a 0 se bloqueará el preoperacional del técnico.</div>' +
+                    '<div class="alert alert-warning mb-3">SERIALES PENDIENTES INVERSA. Si los días restantes son negativos (días < 0) se bloqueará el preoperacional del técnico.</div>' +
                     (supervisorName ? '<div class="mb-2 fw-semibold">Supervisor: '+supervisorName+'</div>' : '') +
                     table + cards +
                 '</div>';
@@ -1317,7 +1317,7 @@
                 }
                 cards2 += '</div>';
                 html = '<div class="text-start">' +
-                    '<div class="alert alert-warning mb-3">SERIALES PENDIENTES INVERSA. Si los días restantes llegan a 0 se bloqueará el preoperacional.</div>' +
+                    '<div class="alert alert-warning mb-3">SERIALES PENDIENTES INVERSA. Si los días restantes son negativos (días < 0) se bloqueará el preoperacional.</div>' +
                     table2 + cards2 +
                 '</div>';
             }
@@ -1337,7 +1337,7 @@
         function updatePreoperacionalButtonStatus(data){
             if (isSupervisor) return;
             var items = (data && data.items) ? data.items : [];
-            var shouldDisable = items.some(function(x){ return x && Number(x.dias_restantes) === 0; });
+            var shouldDisable = items.some(function(x){ return x && Number(x.dias_restantes) < 0; });
             var btn = document.getElementById('preoperacionalButton');
             if (!btn) return;
             if (shouldDisable){
@@ -1347,12 +1347,12 @@
                 btn.setAttribute('aria-disabled','true');
                 btn.removeAttribute('data-bs-toggle');
                 btn.removeAttribute('data-bs-target');
-                btn.title = 'Seriales inversa pendientes con días 0';
+                btn.title = 'Seriales inversa pendientes con días negativos (< 0)';
                 if (!btn.dataset.disableHook){
                     btn.addEventListener('click', function(e){
                         if (btn.classList.contains('disabled')){
                             e.preventDefault(); e.stopPropagation();
-                            Swal.fire({icon:'warning',title:'Aviso',text:'No disponible: Seriales inversa pendientes con días 0',confirmButtonText:'Entendido'});
+                            Swal.fire({icon:'warning',title:'Aviso',text:'No disponible: Seriales inversa pendientes con días negativos (< 0)',confirmButtonText:'Entendido'});
                         }
                     }, true);
                     btn.dataset.disableHook = '1';

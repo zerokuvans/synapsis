@@ -3185,6 +3185,13 @@ def api_analistas_actividades_diarias_resumen():
         col_estado = pick(['estado'])
         col_final = pick(['estado_final','finalizado','final'])
         col_cierre = pick(['cierre_ciclo'])
+        col_fecha_franja = pick(['fecha_franja_cierre_ciclo'])
+        col_franja_cierre = pick(['franja_cierre_ciclo'])
+        col_alerta = pick(['alerta_cierre_ciclo','nivel_alerta','alerta'])
+        col_tip_super_1 = pick(['tip_super_1','tipificacion_super_1'])
+        col_tip_super_2 = pick(['tip_super_2','tipificacion_super_2'])
+        col_cierre_super = pick(['cierre_super','estado_super'])
+        col_fecha_gestion_super = pick(['fecha_gestion_super','fecha_super'])
         if not col_ot or not col_cuenta or not col_fecha or not col_ext:
             return jsonify({'success': False, 'resumen': {'completado': {'cantidad': 0, 'gestionada': 0}, 'no_completado': {'cantidad': 0, 'gestionada': 0}}}), 200
         cursor.execute(
@@ -3430,6 +3437,19 @@ def api_analistas_actividades_diarias_export():
             (db_config.get('database'),)
         )
         cols = {r[0].lower(): r[0] for r in c.fetchall()}
+        cols_type = {}
+        try:
+            c.execute(
+                """
+                SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+                """,
+                (db_config.get('database'),)
+            )
+            for r in c.fetchall() or []:
+                cols_type[str(r[0]).lower()] = str(r[1]).lower()
+        except Exception:
+            cols_type = {}
         def pick(names, approx=None):
             if approx is None:
                 approx = []
@@ -3457,6 +3477,13 @@ def api_analistas_actividades_diarias_export():
         col_estado = pick(['estado'])
         col_final = pick(['estado_final','finalizado','final'])
         col_cierre = pick(['cierre_ciclo'])
+        col_fecha_franja = pick(['fecha_franja_cierre_ciclo'])
+        col_franja_cierre = pick(['franja_cierre_ciclo'])
+        col_alerta = pick(['alerta_cierre_ciclo','nivel_alerta','alerta'])
+        col_tip_super_1 = pick(['tip_super_1','tipificacion_super_1'])
+        col_tip_super_2 = pick(['tip_super_2','tipificacion_super_2'])
+        col_cierre_super = pick(['cierre_super','estado_super'])
+        col_fecha_gestion_super = pick(['fecha_gestion_super','fecha_super'])
         opt_cols = []
         for opt in ['tipificacion_ok','tipificacion_novedad','observacion_cierre','tipificacion_razon','tipo_razon_aplica','observacion_razon','confirmacion_evento','cancelado_tipificacion','cancelado_opcion_texto','cancelado_observacion']:
             if opt.lower() in cols:
@@ -3560,8 +3587,26 @@ def api_analistas_actividades_diarias_export():
             select_parts.append(f"o.`{col_final}` AS estado_final")
         if col_cierre:
             select_parts.append(f"o.`{col_cierre}` AS cierre_ciclo")
+        if col_fecha_franja:
+            tipo_fecha_franja = cols_type.get(col_fecha_franja.lower())
+            if tipo_fecha_franja in ('datetime','timestamp','date'):
+                select_parts.append(f"DATE_FORMAT(o.`{col_fecha_franja}`, '%Y-%m-%d') AS fecha_franja_cierre_ciclo")
+            else:
+                select_parts.append(f"o.`{col_fecha_franja}` AS fecha_franja_cierre_ciclo")
+        if col_franja_cierre:
+            select_parts.append(f"o.`{col_franja_cierre}` AS franja_cierre_ciclo")
+        if col_alerta:
+            select_parts.append(f"o.`{col_alerta}` AS alerta_cierre_ciclo")
         for oc in opt_cols:
             select_parts.append(f"o.`{oc}` AS `{oc}`")
+        if col_cierre_super:
+            select_parts.append(f"o.`{col_cierre_super}` AS cierre_super")
+        if col_tip_super_1:
+            select_parts.append(f"o.`{col_tip_super_1}` AS tip_super_1")
+        if col_tip_super_2:
+            select_parts.append(f"o.`{col_tip_super_2}` AS tip_super_2")
+        if col_fecha_gestion_super:
+            select_parts.append(f"o.`{col_fecha_gestion_super}` AS fecha_gestion_super")
         sql = "SELECT " + ", ".join(select_parts) + " FROM operaciones_actividades_diarias o"
         if where:
             sql += " WHERE " + " AND ".join(where)
@@ -3616,7 +3661,7 @@ def api_analistas_actividades_diarias_export():
             if rows:
                 header = list(rows[0].keys())
             else:
-                header = ['orden_de_trabajo','numero_de_cuenta','tecnico_id','tecnico','analista','supervisor','fecha','estado','estado_final','cierre_ciclo'] + opt_cols
+                header = ['orden_de_trabajo','numero_de_cuenta','tecnico_id','tecnico','analista','supervisor','fecha','estado','estado_final','cierre_ciclo','fecha_franja_cierre_ciclo','franja_cierre_ciclo','alerta_cierre_ciclo','cierre_super','tip_super_1','tip_super_2','fecha_gestion_super'] + opt_cols
             w = csv.writer(si)
             w.writerow(header)
             for r in rows:
@@ -6267,7 +6312,7 @@ def api_operativo_cierre_ciclo():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/operativo/cierre-ciclo/detalle', methods=['GET'])
-@login_required_api(role=['operativo','tecnico','tecnicos'])
+@login_required_api(role=['operativo','tecnico','tecnicos','lider','administrativo'])
 def api_operativo_cierre_ciclo_detalle():
     ot = (request.args.get('ot') or '').strip()
     cuenta = (request.args.get('cuenta') or '').strip()
@@ -6306,6 +6351,14 @@ def api_operativo_cierre_ciclo_detalle():
         col_tip_ok = pick(['tipificacion_ok'])
         col_tip_nov = pick(['tipificacion_novedad'])
         col_observ = pick(['observacion_cierre'])
+        col_observ_super = pick(['observacion_super'])
+        col_recomendacion = pick(['recomendacion_tecnico'])
+        col_img_falla = pick(['imagen_falla'])
+        col_img_sol = pick(['imagen_solucion'])
+        col_cierre_super = pick(['cierre_super','estado_super'])
+        col_tip_super_1 = pick(['tip_super_1','tipificacion_super_1'])
+        col_tip_super_2 = pick(['tip_super_2','tipificacion_super_2'])
+        col_fecha_gestion_super = pick(['fecha_gestion_super','fecha_super'])
         col_fecha_franja = pick(['fecha_franja_cierre_ciclo'])
         col_franja_cierre = pick(['franja_cierre_ciclo'])
         col_alerta = pick(['alerta_cierre_ciclo','nivel_alerta','alerta'])
@@ -6360,6 +6413,22 @@ def api_operativo_cierre_ciclo_detalle():
             select_parts.append(f"o.`{col_tip_nov}` AS tipificacion_novedad")
         if col_observ:
             select_parts.append(f"o.`{col_observ}` AS observacion_cierre")
+        if col_observ_super:
+            select_parts.append(f"o.`{col_observ_super}` AS observacion_super")
+        if col_recomendacion:
+            select_parts.append(f"o.`{col_recomendacion}` AS recomendacion_tecnico")
+        if col_img_falla:
+            select_parts.append(f"o.`{col_img_falla}` AS imagen_falla")
+        if col_img_sol:
+            select_parts.append(f"o.`{col_img_sol}` AS imagen_solucion")
+        if col_cierre_super:
+            select_parts.append(f"o.`{col_cierre_super}` AS cierre_super")
+        if col_tip_super_1:
+            select_parts.append(f"o.`{col_tip_super_1}` AS tip_super_1")
+        if col_tip_super_2:
+            select_parts.append(f"o.`{col_tip_super_2}` AS tip_super_2")
+        if col_fecha_gestion_super:
+            select_parts.append(f"o.`{col_fecha_gestion_super}` AS fecha_gestion_super")
         if col_fecha_franja:
             if tipo_fecha_franja in ('datetime','timestamp','date'):
                 select_parts.append(f"DATE_FORMAT(o.`{col_fecha_franja}`, '%Y-%m-%d') AS fecha_franja_cierre_ciclo")
@@ -6664,6 +6733,8 @@ def api_operativo_cierre_ciclo_gestionar():
         col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'message': 'Columnas requeridas no encontradas'}), 200
+        if not observ or not recomendacion:
+            return jsonify({'success': False, 'message': 'Observación del super y recomendación al técnico son obligatorias'}), 200
 
         try:
             f1 = request.files.get('imagen_falla')
@@ -6673,6 +6744,8 @@ def api_operativo_cierre_ciclo_gestionar():
             f2 = request.files.get('imagen_solucion')
         except Exception:
             f2 = None
+        if not ((f1 and getattr(f1, 'filename', '')) and (f2 and getattr(f2, 'filename', ''))):
+            return jsonify({'success': False, 'message': 'Debe adjuntar imagen de falla y de solución'}), 200
         try:
             base_root = app.config.get('UPLOAD_FOLDER', 'static/uploads')
             base_dir = os.path.join(base_root, 'cierre_ciclo', str(cuenta or 'sin_cuenta'), str(ot or 'sin_ot'))
@@ -19998,6 +20071,7 @@ def logistica_seriales_inversa_list():
         length = int(request.args.get('length', request.args.get('per_page', '10')))
         start = int(request.args.get('start', '0'))
         tecnico = (request.args.get('tecnico') or '').strip()
+        observacion_diana = (request.args.get('observacion_diana') or '').strip()
         fecha_desde = (request.args.get('fecha_desde') or '').strip()
         fecha_hasta = (request.args.get('fecha_hasta') or '').strip()
 
@@ -20045,11 +20119,31 @@ def logistica_seriales_inversa_list():
         if not pk_col:
             pk_col = 'NULL'
 
+        # Detectar columna de observación (observacion_diana/opservacion_diana)
+        obs_col = None
+        try:
+            cur_obs = conn.cursor()
+            cur_obs.execute("SHOW COLUMNS FROM seriales_inversa")
+            cols_obs = [r[0] for r in cur_obs.fetchall()]
+            cur_obs.close()
+            for cname in cols_obs:
+                cn = str(cname or '').strip().lower()
+                if cn == 'observacion_diana' or cn == 'opservacion_diana':
+                    obs_col = cname
+                    break
+        except Exception:
+            obs_col = 'observacion_diana'
+        if not obs_col:
+            obs_col = 'observacion_diana'
+
         where = []
         params = []
         if tecnico:
             where.append("si.tecnico = %s")
             params.append(tecnico)
+        if observacion_diana:
+            where.append(f"si.{obs_col} = %s")
+            params.append(observacion_diana)
         if fecha_desde:
             where.append(f"DATE({date_col}) >= %s")
             params.append(fecha_desde)
@@ -20062,7 +20156,7 @@ def logistica_seriales_inversa_list():
         total = cur.fetchone()['total']
         cur.execute("SELECT COUNT(*) AS total FROM seriales_inversa AS si" + where_sql, tuple(params))
         filtered = cur.fetchone()['total']
-        select_cols = f"{pk_col} AS id, lapso, recurso_operativo_cedula, cuenta, dia, mes, descripcion, observacion_diana, serial_rr, tecnico, super"
+        select_cols = f"{pk_col} AS id, lapso, recurso_operativo_cedula, cuenta, dia, mes, descripcion, {obs_col} AS observacion_diana, serial_rr, tecnico, super"
         order_by = 'id'
         if pk_col and pk_col.startswith('si.'):
             order_by = pk_col.split('.',1)[1]
@@ -20106,6 +20200,34 @@ def logistica_seriales_inversa_tecnicos():
         names = [r[0] for r in cur.fetchall() if r and r[0]]
         cur.close(); conn.close()
         return jsonify({'success': True, 'tecnicos': names})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/logistica/seriales_inversa/observaciones', methods=['GET'])
+@login_required_api(role='logistica')
+def logistica_seriales_inversa_observaciones():
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        # Detectar nombre de columna correcto
+        obs_col = None
+        cur0 = conn.cursor()
+        cur0.execute("SHOW COLUMNS FROM seriales_inversa")
+        all_cols = [row[0] for row in cur0.fetchall()]
+        cur0.close()
+        for cname in all_cols:
+            cn = str(cname or '').strip().lower()
+            if cn == 'observacion_diana' or cn == 'opservacion_diana':
+                obs_col = cname
+                break
+        if not obs_col:
+            obs_col = 'observacion_diana'
+        cur = conn.cursor()
+        cur.execute(f"SELECT DISTINCT TRIM({obs_col}) AS obs FROM seriales_inversa WHERE {obs_col} IS NOT NULL AND TRIM({obs_col}) != '' ORDER BY obs")
+        values = [r[0] for r in cur.fetchall() if r and r[0]]
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'observaciones': values})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
@@ -20246,12 +20368,29 @@ def logistica_seriales_inversa_pending():
             cur_check.close()
         except Exception:
             pass
+        # Detectar columna de observación
+        obs_col = None
+        try:
+            cur_obs2 = conn.cursor()
+            cur_obs2.execute("SHOW COLUMNS FROM seriales_inversa")
+            cols_obs2 = [r[0] for r in cur_obs2.fetchall()]
+            cur_obs2.close()
+            for cname in cols_obs2:
+                cn = str(cname or '').strip().lower()
+                if cn == 'observacion_diana' or cn == 'opservacion_diana':
+                    obs_col = cname
+                    break
+        except Exception:
+            pass
+        if not obs_col:
+            obs_col = 'observacion_diana'
+
         cols = [
             "si.serial_rr",
             "si.cuenta",
             "si.lapso",
             "si.descripcion",
-            "si.observacion_diana"
+            f"si.{obs_col} AS observacion_diana"
         ]
         if has_fecha_registro:
             cols.append(("si.FECHA_REGISTRO" if fr_upper else "si.fecha_registro") + " AS fecha_registro")
@@ -20265,7 +20404,7 @@ def logistica_seriales_inversa_pending():
         base_sql = "SELECT " + ", ".join(cols) + """
                 FROM seriales_inversa AS si
                 JOIN recurso_operativo AS ro ON ro.recurso_operativo_cedula = si.recurso_operativo_cedula
-                WHERE (si.observacion_diana IS NULL OR UPPER(si.observacion_diana) LIKE '%%PENDIENTE%%')
+                WHERE (si.""" + obs_col + """ IS NULL OR UPPER(si.""" + obs_col + """) LIKE '%%PENDIENTE%%')
               """
         if len(cedulas_objetivo) == 1:
             sql = base_sql + " AND si.recurso_operativo_cedula = %s"
@@ -20334,7 +20473,7 @@ def logistica_seriales_inversa_pending():
                         dias = max(0, (date.today()-dt).days)
                 except Exception:
                     pass
-            dias_restantes = max(0, 2 - dias)
+            dias_restantes = 2 - dias
             items.append({
                 'serial_rr': r.get('serial_rr'),
                 'cuenta': r.get('cuenta'),
