@@ -1090,11 +1090,11 @@ async function verificarFacturacion(ot, cuenta){
     const qs = new URLSearchParams({ ot, cuenta });
     const res = await fetch(`/api/analistas/ot-existe?${qs.toString()}`);
     const data = await res.json();
-    if(data && data.exists){
+  if(data && data.exists){
       await fetch('/api/analistas/actividad-marcar-facturada', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ot, cuenta })
+        body: JSON.stringify({ ot, cuenta, actividad_id: __gaContext.actividadId })
       });
     }
   }catch(_){}
@@ -1260,7 +1260,7 @@ async function finalizarCierre(){
         return;
       }
     }
-    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, tipificacion_ok: ok || null, tipificacion_novedad: null, observacion: obs || null, confirmacion_evento, cierre_ciclo: 1 };
+    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, actividad_id: __gaContext.actividadId, tipificacion_ok: ok || null, tipificacion_novedad: null, observacion: obs || null, confirmacion_evento, cierre_ciclo: 1 };
     if(tipUpper === 'CLIENTE INCONFORME'){
       if(fechaAgenda) payload.fecha_franja_cierre_ciclo = fechaAgenda;
       if(franja) payload.franja_cierre_ciclo = franja;
@@ -1286,7 +1286,7 @@ async function finalizarSinCierre(){
   try{
     const confValOk = (document.querySelector('input[name="gaConfirmEventoOk"]:checked') || {}).value || 'no';
     const confirmacion_evento = confValOk.toLowerCase() === 'si' ? 1 : 0;
-    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, confirmacion_evento, cierre_ciclo: 0 };
+    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, actividad_id: __gaContext.actividadId, confirmacion_evento, cierre_ciclo: 0 };
     const res = await fetch('/api/analistas/actividad-cierre', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){
@@ -1311,7 +1311,7 @@ async function finalizarRazon(){
     const obs = document.getElementById('gaObservacionesRazon').value.trim();
     const confVal = (document.querySelector('input[name="gaConfirmEvento"]:checked') || {}).value || 'no';
     const confirmacion_evento = confVal.toLowerCase() === 'si' ? 1 : 0;
-    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, tipificacion_razon: razonReal || null, tipo_razon_aplica: aplica, observacion_razon: obs || null, confirmacion_evento };
+    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, actividad_id: __gaContext.actividadId, tipificacion_razon: razonReal || null, tipo_razon_aplica: aplica, observacion_razon: obs || null, confirmacion_evento };
     const res = await fetch('/api/analistas/actividad-razon', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){
@@ -1334,7 +1334,7 @@ async function finalizarCancelado(){
     const obsRaw = document.getElementById('gaCanceladoObservacion').value.trim();
     const tipUpper = (tip || '').trim().toUpperCase();
     const opcionTexto = tipUpper === 'OTRA' ? (obsRaw || null) : null;
-    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, cancelado_tipificacion: tip || null, cancelado_observacion: (obsRaw || null), cancelado_opcion_texto: opcionTexto };
+    const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, actividad_id: __gaContext.actividadId, cancelado_tipificacion: tip || null, cancelado_observacion: (obsRaw || null), cancelado_opcion_texto: opcionTexto };
     const res = await fetch('/api/analistas/actividad-cancelado', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){

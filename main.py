@@ -3966,6 +3966,7 @@ def api_analistas_actividad_marcar_facturada():
     data = request.get_json() or {}
     ot = str(data.get('ot') or '').strip()
     cuenta = str(data.get('cuenta') or '').strip()
+    actividad_id = str(data.get('actividad_id') or '').strip()
     try:
         connection = get_db_connection()
         if connection is None:
@@ -4002,6 +4003,8 @@ def api_analistas_actividad_marcar_facturada():
             return None
         col_ot = pick(['orden_de_trabajo','ot','orden','orden_trabajo'])
         col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
+        col_act_id = pick(['actividad_id','id_actividad','id_actividad_diaria'])
+        col_final = pick(['estado_final','finalizado','final'])
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
         where = []
@@ -4012,9 +4015,19 @@ def api_analistas_actividad_marcar_facturada():
         if cuenta:
             where.append(f"CAST(`{col_cuenta}` AS CHAR) = %s")
             params.append(str(int(str(cuenta).split('.')[0])) if str(cuenta).strip() else cuenta)
+        if actividad_id and col_act_id:
+            try:
+                val_aid = str(int(str(actividad_id).split('.')[0]))
+            except Exception:
+                val_aid = actividad_id
+            where.append(f"CAST(`{col_act_id}` AS CHAR) = %s")
+            params.append(val_aid)
         if not where:
             return jsonify({'success': False, 'error': 'Faltan OT/Cuenta'}), 400
-        sql = f"UPDATE `operaciones_actividades_diarias` SET `facturado_analista`=1 WHERE " + " AND ".join(where)
+        expired_cond = ''
+        if col_final:
+            expired_cond = f" AND (`{col_final}` IS NULL OR CAST(`{col_final}` AS SIGNED) <> 2)"
+        sql = f"UPDATE `operaciones_actividades_diarias` SET `facturado_analista`=1 WHERE " + " AND ".join(where) + expired_cond
         cur.execute(sql, tuple(params))
         connection.commit()
         cur.close(); connection.close()
@@ -4028,6 +4041,7 @@ def api_analistas_actividad_cierre():
     data = request.get_json() or {}
     ot = str(data.get('ot') or '').strip()
     cuenta = str(data.get('cuenta') or '').strip()
+    actividad_id = str(data.get('actividad_id') or '').strip()
     tip_ok = str(data.get('tipificacion_ok') or '').strip()
     tip_nov = str(data.get('tipificacion_novedad') or '').strip()
     observ = str(data.get('observacion') or '').strip()
@@ -4120,6 +4134,8 @@ def api_analistas_actividad_cierre():
         col_ot = pick(['orden_de_trabajo','ot','orden','orden_trabajo'])
         col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
         col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+        col_act_id = pick(['actividad_id','id_actividad','id_actividad_diaria'])
+        col_final = pick(['estado_final','finalizado','final'])
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
         where = []
@@ -4130,6 +4146,13 @@ def api_analistas_actividad_cierre():
         if cuenta:
             where.append(f"CAST(`{col_cuenta}` AS CHAR) = %s")
             params.append(str(int(str(cuenta).split('.')[0])) if str(cuenta).strip() else cuenta)
+        if actividad_id and col_act_id:
+            try:
+                val_aid = str(int(str(actividad_id).split('.')[0]))
+            except Exception:
+                val_aid = actividad_id
+            where.append(f"CAST(`{col_act_id}` AS CHAR) = %s")
+            params.append(val_aid)
         if not where:
             return jsonify({'success': False, 'error': 'Faltan OT/Cuenta'}), 400
         if col_fecha:
@@ -4219,7 +4242,10 @@ def api_analistas_actividad_cierre():
             set_parts.append("`alerta_cierre_ciclo`=NULL")
         # Marcar finalizado al concluir
         set_parts.append("`estado_final`=1")
-        sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where)
+        expired_cond = ''
+        if col_final:
+            expired_cond = f" AND (`{col_final}` IS NULL OR CAST(`{col_final}` AS SIGNED) <> 2)"
+        sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where) + expired_cond
         cur.execute(sql, tuple(set_vals + params))
         connection.commit()
         cur.close(); connection.close()
@@ -4233,6 +4259,7 @@ def api_analistas_actividad_razon():
     data = request.get_json() or {}
     ot = str(data.get('ot') or '').strip()
     cuenta = str(data.get('cuenta') or '').strip()
+    actividad_id = str(data.get('actividad_id') or '').strip()
     tip_razon = str(data.get('tipificacion_razon') or '').strip()
     aplica = data.get('tipo_razon_aplica')
     observ = str(data.get('observacion_razon') or '').strip()
@@ -4300,6 +4327,8 @@ def api_analistas_actividad_razon():
         col_ot = pick(['orden_de_trabajo','ot','orden','orden_trabajo'])
         col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
         col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+        col_act_id = pick(['actividad_id','id_actividad','id_actividad_diaria'])
+        col_final = pick(['estado_final','finalizado','final'])
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
         where = []
@@ -4310,6 +4339,13 @@ def api_analistas_actividad_razon():
         if cuenta:
             where.append(f"CAST(`{col_cuenta}` AS CHAR) = %s")
             params.append(str(int(str(cuenta).split('.')[0])) if str(cuenta).strip() else cuenta)
+        if actividad_id and col_act_id:
+            try:
+                val_aid = str(int(str(actividad_id).split('.')[0]))
+            except Exception:
+                val_aid = actividad_id
+            where.append(f"CAST(`{col_act_id}` AS CHAR) = %s")
+            params.append(val_aid)
         if not where:
             return jsonify({'success': False, 'error': 'Faltan OT/Cuenta'}), 400
         if col_fecha:
@@ -4384,7 +4420,10 @@ def api_analistas_actividad_razon():
         else:
             set_parts.append("`confirmacion_evento`=NULL")
         set_parts.append("`estado_final`=1")
-        sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where)
+        expired_cond = ''
+        if col_final:
+            expired_cond = f" AND (`{col_final}` IS NULL OR CAST(`{col_final}` AS SIGNED) <> 2)"
+        sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where) + expired_cond
         cur.execute(sql, tuple(set_vals + params))
         connection.commit()
         cur.close(); connection.close()
@@ -4398,6 +4437,7 @@ def api_analistas_actividad_cancelado():
     data = request.get_json() or {}
     ot = str(data.get('ot') or '').strip()
     cuenta = str(data.get('cuenta') or '').strip()
+    actividad_id = str(data.get('actividad_id') or '').strip()
     tip_cancelado = str(data.get('cancelado_tipificacion') or '').strip()
     texto_opcion = str(data.get('cancelado_opcion_texto') or '').strip()
     observ = str(data.get('cancelado_observacion') or '').strip()
@@ -4458,6 +4498,8 @@ def api_analistas_actividad_cancelado():
         col_ot = pick(['orden_de_trabajo','ot','orden','orden_trabajo'])
         col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
         col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+        col_act_id = pick(['actividad_id','id_actividad','id_actividad_diaria'])
+        col_final = pick(['estado_final','finalizado','final'])
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
         where = []
@@ -4478,6 +4520,13 @@ def api_analistas_actividad_cancelado():
             except Exception:
                 pass
             params.append(val_cta)
+        if actividad_id and col_act_id:
+            try:
+                val_aid = str(int(str(actividad_id).split('.')[0]))
+            except Exception:
+                val_aid = actividad_id
+            where.append(f"CAST(`{col_act_id}` AS CHAR) = %s")
+            params.append(val_aid)
         if not where:
             return jsonify({'success': False, 'error': 'Faltan OT/Cuenta'}), 400
         if col_fecha:
@@ -4556,7 +4605,10 @@ def api_analistas_actividad_cancelado():
                 set_parts.append("`cancelado_observacion`=NULL")
         if has_final:
             set_parts.append("`estado_final`=1")
-        sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where)
+        expired_cond = ''
+        if col_final:
+            expired_cond = f" AND (`{col_final}` IS NULL OR CAST(`{col_final}` AS SIGNED) <> 2)"
+        sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where) + expired_cond
         cur.execute(sql, tuple(set_vals + params))
         connection.commit()
         cur.close(); connection.close()
