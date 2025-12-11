@@ -212,7 +212,7 @@ function renderTabla(){
         <button class="btn btn-sm btn-primary" ${isFin || bloqueado ? 'disabled' : ''} title="${bloqueado ? 'Bloqueado por corte de medio día' : ''}" onclick="abrirGestionActividad('${ot}','${cuenta}','${tecnico}','${item.external_id ?? ''}','${estado}','${item.actividad_id ?? ''}')">
           <i class="fas fa-tools me-1"></i>Gestionar
         </button>
-        ${__canGestionado ? `<button class="btn btn-sm btn-secondary ms-2" onclick="abrirGestionado('${ot}','${cuenta}')"><i class=\"fas fa-eye me-1\"></i>Gestionado</button>` : ''}
+        ${__canGestionado ? (() => { const v = item.cierre_ciclo; const s = String(v ?? '').trim().toLowerCase(); const esCierre = (v === 1) || (s === '1') || (s === 'true'); const cls = esCierre ? 'btn-warning' : 'btn-secondary'; return `<button class="btn btn-sm ${cls} ms-2" onclick="abrirGestionado('${ot}','${cuenta}')"><i class=\"fas fa-eye me-1\"></i>Gestionado</button>`; })() : ''}
         ${isFin ? '<span class="badge bg-success ms-2">Finalizado</span>' : ''}
       </td>`;
     tbody.appendChild(tr);

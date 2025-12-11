@@ -3025,6 +3025,10 @@ def api_analistas_actividades_diarias_list():
         col_act_id = pick(['actividad_id','id_actividad','id_actividad_diaria'])
         col_estado = pick(['estado'])
         col_final = pick(['estado_final','finalizado','final'])
+        col_cierre = pick(['cierre_ciclo'])
+        col_fecha_franja = pick(['fecha_franja_cierre_ciclo'])
+        col_franja_cierre = pick(['franja_cierre_ciclo'])
+        col_alerta = pick(['alerta_cierre_ciclo','nivel_alerta','alerta'])
         if not col_ot or not col_cuenta or not col_fecha or not col_ext:
             return jsonify({'success': False, 'items': [], 'message': 'Columnas requeridas no encontradas'}), 200
         tipo_fecha = None
@@ -3090,6 +3094,14 @@ def api_analistas_actividades_diarias_list():
                 select_fields.append(f"o.`{col_estado}` AS estado")
             if col_final:
                 select_fields.append(f"o.`{col_final}` AS estado_final")
+            if col_cierre:
+                select_fields.append(f"o.`{col_cierre}` AS cierre_ciclo")
+            if col_fecha_franja:
+                select_fields.append(f"o.`{col_fecha_franja}` AS fecha_franja_cierre_ciclo")
+            if col_franja_cierre:
+                select_fields.append(f"o.`{col_franja_cierre}` AS franja_cierre_ciclo")
+            if col_alerta:
+                select_fields.append(f"o.`{col_alerta}` AS alerta_cierre_ciclo")
             sql = (
                 "SELECT " + ", ".join(select_fields) +
                 " FROM operaciones_actividades_diarias o" +
@@ -3116,7 +3128,11 @@ def api_analistas_actividades_diarias_list():
                     'tecnico': r.get('tecnico'),
                     'fecha': r.get('fecha'),
                     'estado': (r.get('estado') or '').strip() if col_estado else '',
-                    'estado_final': r.get('estado_final') if col_final else None
+                    'estado_final': r.get('estado_final') if col_final else None,
+                    'cierre_ciclo': r.get('cierre_ciclo') if col_cierre else None,
+                    'fecha_franja_cierre_ciclo': r.get('fecha_franja_cierre_ciclo') if col_fecha_franja else None,
+                    'franja_cierre_ciclo': r.get('franja_cierre_ciclo') if col_franja_cierre else None,
+                    'alerta_cierre_ciclo': r.get('alerta_cierre_ciclo') if col_alerta else None
                 })
         cursor.close()
         connection.close()
