@@ -344,6 +344,7 @@ def registrar_rutas_avisos(app):
     def api_avisos_para_mi():
         # No requiere admin: muestra avisos activos para cualquier usuario autenticado
         usuario_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        user_name = session.get('user_name') or ''
         if not usuario_id:
             return jsonify({'success': False, 'message': 'No autorizado'}), 401
         conn = get_db_connection()
@@ -351,7 +352,15 @@ def registrar_rutas_avisos(app):
             return jsonify({'success': False, 'message': 'Error de conexión'}), 500
         try:
             cur = conn.cursor(dictionary=True)
-            # Avisos activos y dentro de la ventana de tiempo, o sin fechas
+            fecha_nac = None
+            try:
+                cur.execute("SELECT fecha_cumpleanos FROM recurso_operativo WHERE id_codigo_consumidor = %s", (usuario_id,))
+                ruser = cur.fetchone()
+                if ruser and ruser.get('fecha_cumpleanos'):
+                    fecha_nac = ruser.get('fecha_cumpleanos')
+            except Exception:
+                fecha_nac = None
+
             cur.execute(
                 """
                 SELECT id, titulo, mensaje, imagen_url
@@ -359,11 +368,54 @@ def registrar_rutas_avisos(app):
                 WHERE activo = 1
                   AND (fecha_inicio IS NULL OR fecha_inicio <= NOW())
                   AND (fecha_fin IS NULL OR fecha_fin >= NOW())
+                  AND (titulo IS NULL OR titulo <> %s)
                 ORDER BY fecha_inicio IS NULL ASC, fecha_inicio DESC, fecha_creacion DESC
                 LIMIT 3
-                """
+                """,
+                ('Cumpleaños',)
             )
             rows = cur.fetchall()
+
+            if fecha_nac:
+                try:
+                    fn = None
+                    try:
+                        fn = datetime.strptime(str(fecha_nac)[:10], '%Y-%m-%d').date()
+                    except Exception:
+                        fn = None
+                    hoy = datetime.now().date()
+                    if fn and fn.month == hoy.month and fn.day == hoy.day:
+                        cur2 = conn.cursor(dictionary=True)
+                        cur2.execute(
+                            """
+                            SELECT id, titulo, mensaje, imagen_url
+                            FROM avisos
+                            WHERE activo = 1
+                              AND (fecha_inicio IS NULL OR fecha_inicio <= NOW())
+                              AND (fecha_fin IS NULL OR fecha_fin >= NOW())
+                              AND titulo = %s
+                            ORDER BY fecha_creacion DESC
+                            LIMIT 1
+                            """,
+                            ('Cumpleaños',)
+                        )
+                        b = cur2.fetchone()
+                        if b:
+                            try:
+                                if user_name:
+                                    m = b.get('mensaje') or ''
+                                    sep = '<br>' if m else ''
+                                    b['mensaje'] = m + sep + f"¡Feliz cumpleaños, {user_name}!"
+                            except Exception:
+                                pass
+                            rows.insert(0, b)
+                        try:
+                            cur2.close()
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
             return jsonify({'success': True, 'avisos': rows})
         except Exception as e:
             try:
