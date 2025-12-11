@@ -19704,6 +19704,28 @@ def logistica_seriales_inversa_upload():
         cursor = connection.cursor()
         procesados = 0
         insertados = 0
+        actualizados = 0
+        omitidos_iguales = 0
+        pk_col_name = None
+        try:
+            curp = connection.cursor(dictionary=True)
+            curp.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'id'")
+            if curp.fetchone():
+                pk_col_name = 'id'
+            else:
+                curp.execute("SHOW KEYS FROM seriales_inversa WHERE Key_name='PRIMARY'")
+                pk = curp.fetchone()
+                if pk and pk.get('Column_name'):
+                    pk_col_name = pk['Column_name']
+                else:
+                    for alt in ('id_inversa','id_seriales_inversa','idseriales_inversa'):
+                        curp.execute(f"SHOW COLUMNS FROM seriales_inversa LIKE '{alt}'")
+                        if curp.fetchone():
+                            pk_col_name = alt
+                            break
+            curp.close()
+        except Exception:
+            pk_col_name = None
         for i, fila in enumerate(datos, 1):
             try:
                 lapso = str(fila.get('lapso', '')).strip()
@@ -19716,15 +19738,85 @@ def logistica_seriales_inversa_upload():
                 serial_rr = str(fila.get('serial_rr', '')).strip()
                 tecnico = str(fila.get('tecnico', '')).strip()
                 superv = str(fila.get('super', '')).strip()
-                cursor.execute(
-                    """
-                    INSERT INTO seriales_inversa
-                    (lapso, recurso_operativo_cedula, cuenta, dia, mes, descripcion, observacion_diana, serial_rr, tecnico, super)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                    """,
-                    (lapso, cedula, cuenta, dia, mes, descripcion, observacion_diana, serial_rr, tecnico, superv)
-                )
-                insertados += 1
+                if not serial_rr:
+                    procesados += 1
+                    continue
+                cur_check = connection.cursor(dictionary=True)
+                order_col = pk_col_name or 'created_at'
+                try:
+                    cur_check.execute(f"SELECT {order_col} AS pk, observacion_diana FROM seriales_inversa WHERE serial_rr=%s ORDER BY {order_col} DESC LIMIT 1", (serial_rr,))
+                except Exception:
+                    cur_check.execute("SELECT observacion_diana FROM seriales_inversa WHERE serial_rr=%s LIMIT 1", (serial_rr,))
+                row = cur_check.fetchone()
+                cur_check.close()
+                if row:
+                    old_obs = None
+                    try:
+                        old_obs = str((row.get('observacion_diana') if isinstance(row, dict) else row[1]) or '').strip()
+                    except Exception:
+                        old_obs = None
+                    new_obs_norm = observacion_diana.strip()
+                    old_obs_norm = (old_obs or '').strip()
+                    set_parts = []
+                    params_up = []
+                    if new_obs_norm.lower() != old_obs_norm.lower():
+                        set_parts.append("observacion_diana=%s")
+                        params_up.append(observacion_diana)
+                    if tecnico:
+                        set_parts.append("tecnico=%s")
+                        params_up.append(tecnico)
+                    if superv:
+                        set_parts.append("super=%s")
+                        params_up.append(superv)
+                    if descripcion:
+                        set_parts.append("descripcion=%s")
+                        params_up.append(descripcion)
+                    if cuenta:
+                        set_parts.append("cuenta=%s")
+                        params_up.append(cuenta)
+                    if cedula:
+                        set_parts.append("recurso_operativo_cedula=%s")
+                        params_up.append(cedula)
+                    if lapso:
+                        set_parts.append("lapso=%s")
+                        params_up.append(lapso)
+                    try:
+                        dval = int(dia) if dia is not None and str(dia).strip() != '' else None
+                    except Exception:
+                        dval = None
+                    try:
+                        mval = int(mes) if mes is not None and str(mes).strip() != '' else None
+                    except Exception:
+                        mval = None
+                    if dval is not None:
+                        set_parts.append("dia=%s")
+                        params_up.append(dval)
+                    if mval is not None:
+                        set_parts.append("mes=%s")
+                        params_up.append(mval)
+                    if set_parts:
+                        set_sql = ", ".join(set_parts)
+                        cur_up = connection.cursor()
+                        if pk_col_name and isinstance(row, dict) and 'pk' in row:
+                            cur_up.execute(f"UPDATE seriales_inversa SET {set_sql} WHERE {pk_col_name}=%s", tuple(params_up + [row['pk']]))
+                        elif pk_col_name and not isinstance(row, dict):
+                            cur_up.execute(f"UPDATE seriales_inversa SET {set_sql} WHERE {pk_col_name}=%s", tuple(params_up + [row[0]]))
+                        else:
+                            cur_up.execute(f"UPDATE seriales_inversa SET {set_sql} WHERE serial_rr=%s", tuple(params_up + [serial_rr]))
+                        cur_up.close()
+                        actualizados += 1
+                    else:
+                        omitidos_iguales += 1
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO seriales_inversa
+                        (lapso, recurso_operativo_cedula, cuenta, dia, mes, descripcion, observacion_diana, serial_rr, tecnico, super)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        """,
+                        (lapso, cedula, cuenta, dia, mes, descripcion, observacion_diana, serial_rr, tecnico, superv)
+                    )
+                    insertados += 1
                 procesados += 1
             except Exception:
                 procesados += 1
@@ -19734,7 +19826,7 @@ def logistica_seriales_inversa_upload():
             cursor.close()
         if connection:
             connection.close()
-        return jsonify({'success': True, 'message': 'Carga completada', 'procesados': procesados, 'insertados': insertados})
+        return jsonify({'success': True, 'message': 'Carga completada', 'procesados': procesados, 'insertados': insertados, 'actualizados': actualizados, 'omitidos_iguales': omitidos_iguales})
     except Exception as e:
         if cursor:
             try:
@@ -25644,6 +25736,150 @@ def api_sstt_vencimientos_cursos():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/sstt/vencimientos-cursos/upload', methods=['POST'])
+@login_required()
+def api_sstt_vencimientos_cursos_upload():
+    connection = None
+    cursor = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sstt_vencimientos_cursos (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                sstt_vencimientos_cursos_nombre VARCHAR(200),
+                recurso_operativo_cedula VARCHAR(20),
+                sstt_vencimientos_cursos_tipo_curso VARCHAR(100) NOT NULL,
+                sstt_vencimientos_cursos_fecha DATE NOT NULL,
+                sstt_vencimientos_cursos_fecha_ven DATE NOT NULL,
+                sstt_vencimientos_cursos_observacion TEXT,
+                sstt_vencimientos_cursos_fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_cedula (recurso_operativo_cedula),
+                INDEX idx_tipo (sstt_vencimientos_cursos_tipo_curso),
+                INDEX idx_fecha_ven (sstt_vencimientos_cursos_fecha_ven)
+            )
+            """
+        )
+        cursor.close()
+        cursor = None
+        if 'archivo' not in request.files:
+            return jsonify({'success': False, 'message': 'No se ha seleccionado ningún archivo'})
+        archivo = request.files['archivo']
+        if archivo.filename == '':
+            return jsonify({'success': False, 'message': 'No se ha seleccionado ningún archivo'})
+        extension = archivo.filename.lower().split('.')[-1]
+        if extension not in ['csv', 'xlsx', 'xls']:
+            return jsonify({'success': False, 'message': 'Formato no soportado. Use CSV o Excel'})
+        datos = []
+        try:
+            if extension == 'csv':
+                contenido_bytes = archivo.read()
+                contenido = None
+                for enc in ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']:
+                    try:
+                        contenido = contenido_bytes.decode(enc)
+                        break
+                    except Exception:
+                        continue
+                if contenido is None:
+                    return jsonify({'success': False, 'message': 'No se pudo decodificar el archivo CSV'})
+                reader = csv.DictReader(io.StringIO(contenido))
+                datos = list(reader)
+            else:
+                df = pd.read_excel(archivo)
+                datos = df.to_dict('records')
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'Error al leer el archivo: {str(e)}'})
+        if not datos:
+            return jsonify({'success': False, 'message': 'El archivo está vacío o no contiene datos válidos'})
+        columnas_requeridas = ['recurso_operativo_cedula','sstt_vencimientos_cursos_tipo_curso','sstt_vencimientos_cursos_fecha','sstt_vencimientos_cursos_fecha_ven']
+        columnas_opcionales = ['id_codigo_consumidor','sstt_vencimientos_cursos_nombre','sstt_vencimientos_cursos_observacion']
+        columnas_archivo = list(datos[0].keys())
+        faltantes = [c for c in columnas_requeridas if c not in columnas_archivo]
+        if faltantes:
+            return jsonify({'success': False, 'message': 'Faltan columnas: ' + ', '.join(faltantes)})
+        cursor = connection.cursor()
+        procesados = 0
+        insertados = 0
+        def norm_fecha(s):
+            try:
+                if s is None:
+                    return None
+                txt = str(s).strip()
+                if not txt:
+                    return None
+                fmts = ('%Y-%m-%d','%d/%m/%Y','%Y/%m/%d','%d-%m-%Y','%m/%d/%Y','%Y-%m-%d %H:%M:%S')
+                from datetime import datetime
+                for fmt in fmts:
+                    try:
+                        return datetime.strptime(txt, fmt).strftime('%Y-%m-%d')
+                    except Exception:
+                        pass
+                return txt
+            except Exception:
+                return None
+        for fila in datos:
+            try:
+                cedula = str(fila.get('recurso_operativo_cedula') or '').strip()
+                tipo = str(fila.get('sstt_vencimientos_cursos_tipo_curso') or '').strip()
+                fecha = norm_fecha(fila.get('sstt_vencimientos_cursos_fecha'))
+                fecha_ven = norm_fecha(fila.get('sstt_vencimientos_cursos_fecha_ven'))
+                observ = str(fila.get('sstt_vencimientos_cursos_observacion') or '').strip()
+                idc = fila.get('id_codigo_consumidor')
+                nombre = str(fila.get('sstt_vencimientos_cursos_nombre') or '').strip()
+                if not cedula or not tipo or not fecha or not fecha_ven:
+                    procesados += 1
+                    continue
+                if not idc or str(idc).strip() == '':
+                    cur2 = connection.cursor()
+                    cur2.execute("SELECT id_codigo_consumidor, nombre FROM recurso_operativo WHERE recurso_operativo_cedula=%s", (cedula,))
+                    ru = cur2.fetchone()
+                    if ru:
+                        idc = ru[0]
+                        if not nombre:
+                            nombre = str(ru[1] or '')
+                    cur2.close()
+                cursor.execute(
+                    """
+                    INSERT INTO sstt_vencimientos_cursos (
+                        id_codigo_consumidor,
+                        sstt_vencimientos_cursos_nombre,
+                        recurso_operativo_cedula,
+                        sstt_vencimientos_cursos_tipo_curso,
+                        sstt_vencimientos_cursos_fecha,
+                        sstt_vencimientos_cursos_fecha_ven,
+                        sstt_vencimientos_cursos_observacion
+                    ) VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    """,
+                    (idc, nombre, cedula, tipo, fecha, fecha_ven, observ)
+                )
+                insertados += 1
+                procesados += 1
+            except Exception:
+                procesados += 1
+                continue
+        connection.commit()
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+        return jsonify({'success': True, 'message': 'Carga completada', 'procesados': procesados, 'insertados': insertados})
+    except Exception as e:
+        if cursor:
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+        return jsonify({'success': False, 'message': str(e)})
 @app.route('/api/sstt/capacitaciones', methods=['GET', 'POST'])
 @login_required()
 def api_sstt_capacitaciones():

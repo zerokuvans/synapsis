@@ -9,6 +9,19 @@
                         <i class="fas fa-book-open me-2"></i>Vencimientos de Cursos
                     </h3>
                 </div>
+
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <input id="archivoCursos" type="file" accept=".csv,.xlsx,.xls" class="form-control">
+                                <button id="btnEnviarCursos" class="btn btn-primary"><i class="fas fa-upload me-2"></i>Cargar base</button>
+                            </div>
+                            <div id="archivoCursosNombre" class="small text-muted mt-1"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <div class="d-flex gap-2">
@@ -149,6 +162,22 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('filtroFechaHasta').addEventListener('change', cargarVencimientos);
   document.getElementById('btnRegistrarCurso').addEventListener('click', registrarCurso);
   document.getElementById('btnRefrescar').addEventListener('click', cargarVencimientos);
+  var inputCursos = document.getElementById('archivoCursos');
+  var nombreCursos = document.getElementById('archivoCursosNombre');
+  var btnCargar = document.getElementById('btnEnviarCursos');
+  inputCursos.addEventListener('change', function(){ nombreCursos.textContent = inputCursos.files && inputCursos.files[0] ? inputCursos.files[0].name : ''; });
+  btnCargar.addEventListener('click', function(){
+    if (!inputCursos.files || !inputCursos.files[0]) { Swal.fire('Selecciona un archivo','','warning'); return; }
+    var fd = new FormData();
+    fd.append('archivo', inputCursos.files[0]);
+    fetch('/api/sstt/vencimientos-cursos/upload', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(j => {
+        if (j.success) { Swal.fire('Carga completada', j.message || '', 'success'); cargarVencimientos(); inputCursos.value=''; nombreCursos.textContent=''; }
+        else { Swal.fire('Error', j.message || 'Error al cargar', 'error'); }
+      })
+      .catch(() => Swal.fire('Error','Error de conexión','error'));
+  });
 });
 
 function cargarTiposCurso() {
