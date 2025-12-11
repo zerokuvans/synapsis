@@ -3120,9 +3120,47 @@ def api_analistas_actividades_diarias_list():
             cursor = connection.cursor(dictionary=True)
             cursor.execute(sql, tuple(cedulas) + tuple(params))
             base_rows = cursor.fetchall()
+            now = datetime.now(TIMEZONE)
+            bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 10, 12, 0, 0))
             for r in base_rows:
                 cid = str(r.get('external_id')) if r.get('external_id') is not None else ''
                 r['tecnico'] = nombres_map.get(cid, '')
+                should_hide = False
+                try:
+                    act_date = None
+                    v = r.get('fecha')
+                    if isinstance(v, datetime):
+                        act_date = v.date()
+                    else:
+                        s = str(v).strip()
+                        m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", s)
+                        if m:
+                            act_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
+                    if now >= bloqueo_inicio and act_date:
+                        dnext = act_date + timedelta(days=1)
+                        cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
+                        if now >= cutoff:
+                            ef = r.get('estado_final')
+                            ef_val = None
+                            try:
+                                ef_val = int(ef)
+                            except Exception:
+                                ef_val = None
+                            if ef_val != 1:
+                                try:
+                                    cupd = connection.cursor()
+                                    sqlu = f"UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE CAST(`{col_ot}` AS CHAR)=%s AND CAST(`{col_cuenta}` AS CHAR)=%s AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
+                                    cupd.execute(sqlu, (str(r.get('orden_de_trabajo') or ''), str(r.get('numero_de_cuenta') or '')))
+                                    connection.commit()
+                                    cupd.close()
+                                except Exception:
+                                    pass
+                                if user_role in ('analista','analistas'):
+                                    should_hide = True
+                except Exception:
+                    should_hide = False
+                if should_hide:
+                    continue
                 rows.append({
                     'orden_de_trabajo': r.get('orden_de_trabajo'),
                     'numero_de_cuenta': r.get('numero_de_cuenta'),
@@ -4099,6 +4137,14 @@ def api_analistas_actividad_cierre():
                     dnext = act_date + timedelta(days=1)
                     cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
                     if now >= cutoff:
+                        try:
+                            c3 = connection.cursor()
+                            sqlb = "UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE " + " AND ".join(where) + " AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
+                            c3.execute(sqlb, tuple(params))
+                            connection.commit()
+                            c3.close()
+                        except Exception:
+                            pass
                         return jsonify({'success': False, 'code': 'BLOCKED_BY_CUTOFF'}), 403
         set_parts = []
         set_vals = []
@@ -4255,6 +4301,14 @@ def api_analistas_actividad_razon():
                     dnext = act_date + timedelta(days=1)
                     cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
                     if now >= cutoff:
+                        try:
+                            c3 = connection.cursor()
+                            sqlb = "UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE " + " AND ".join(where) + " AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
+                            c3.execute(sqlb, tuple(params))
+                            connection.commit()
+                            c3.close()
+                        except Exception:
+                            pass
                         return jsonify({'success': False, 'code': 'BLOCKED_BY_CUTOFF'}), 403
         set_parts = []
         set_vals = []
@@ -4399,6 +4453,14 @@ def api_analistas_actividad_cancelado():
                     dnext = act_date + timedelta(days=1)
                     cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
                     if now >= cutoff:
+                        try:
+                            c3 = connection.cursor()
+                            sqlb = "UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE " + " AND ".join(where) + " AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
+                            c3.execute(sqlb, tuple(params))
+                            connection.commit()
+                            c3.close()
+                        except Exception:
+                            pass
                         return jsonify({'success': False, 'code': 'BLOCKED_BY_CUTOFF'}), 403
         set_parts = []
         set_vals = []
