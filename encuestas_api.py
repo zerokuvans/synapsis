@@ -771,6 +771,38 @@ def registrar_rutas_encuestas(app):
         finally:
             conn.close()
 
+    @app.route('/api/encuestas/pendientes-firma/para-mi', methods=['GET'])
+    def encuestas_pendientes_firma_para_mi():
+        usuario_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        if not usuario_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        try:
+            cur = conn.cursor(dictionary=True)
+            cur.execute(
+                """
+                SELECT r.id_respuesta, r.encuesta_id, e.titulo
+                FROM encuesta_respuestas r
+                JOIN encuestas e ON e.id_encuesta = r.encuesta_id
+                WHERE r.usuario_id = %s
+                  AND COALESCE(e.requiere_firma, 0) = 1
+                  AND r.estado = 'enviada'
+                  AND r.firma_imagen IS NULL
+                ORDER BY r.fecha_respuesta DESC
+                """,
+                (usuario_id,)
+            )
+            rows = cur.fetchall() or []
+            return jsonify({'success': True, 'pendientes': rows})
+        except mysql.connector.Error as e:
+            logger.error(f"Error consultando pendientes de firma: {e}")
+            return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
+        finally:
+            conn.close()
+
     @app.route('/api/encuestas/activas/diagnostico', methods=['GET'])
     def encuestas_activas_diagnostico():
         """Diagnóstico de por qué una encuesta se muestra u oculta para el usuario actual."""

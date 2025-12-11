@@ -1098,6 +1098,30 @@
                 }
             });
             cargarEncuestasActivasParaMi();
+            (async function cargarPendientesFirmaParaMi(){
+                try{
+                    const r = await fetch('/api/encuestas/pendientes-firma/para-mi');
+                    const d = await r.json();
+                    if (!d.success) return;
+                    const pendientes = d.pendientes || [];
+                    if (pendientes.length === 0) return;
+                    const primero = pendientes[0];
+                    encuestaActual = { id_encuesta: primero.encuesta_id, titulo: primero.titulo };
+                    ultimaRespuestaIdEncuesta = primero.id_respuesta;
+                    const mf = new bootstrap.Modal(document.getElementById('modalFirmaEncuesta'));
+                    mf.show();
+                    const c = document.getElementById('firmaCanvasEncuesta');
+                    firmaCtxEncuesta = c.getContext('2d');
+                    firmaCtxEncuesta.strokeStyle = '#222';
+                    firmaCtxEncuesta.lineWidth = 2;
+                    const pos = (e)=>{ const r = c.getBoundingClientRect(); const x = (e.touches? e.touches[0].clientX : e.clientX) - r.left; const y = (e.touches? e.touches[0].clientY : e.clientY) - r.top; return {x,y}; };
+                    const start = (e)=>{ firmandoEncuesta = true; const p = pos(e); firmaCtxEncuesta.beginPath(); firmaCtxEncuesta.moveTo(p.x,p.y); e.preventDefault(); };
+                    const move = (e)=>{ if(!firmandoEncuesta) return; const p = pos(e); firmaCtxEncuesta.lineTo(p.x,p.y); firmaCtxEncuesta.stroke(); e.preventDefault(); };
+                    const end = ()=>{ firmandoEncuesta = false; };
+                    c.addEventListener('mousedown', start); c.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+                    c.addEventListener('touchstart', start, {passive:false}); c.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
+                }catch(e){}
+            })();
             console.log('[Encuestas] inicializado loader de encuestas activas');
         });
     })();

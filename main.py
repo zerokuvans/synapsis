@@ -3025,6 +3025,7 @@ def api_analistas_actividades_diarias_list():
         col_act_id = pick(['actividad_id','id_actividad','id_actividad_diaria'])
         col_estado = pick(['estado'])
         col_final = pick(['estado_final','finalizado','final'])
+        col_tip_ok = pick(['tipificacion_ok'])
         col_cierre = pick(['cierre_ciclo'])
         col_fecha_franja = pick(['fecha_franja_cierre_ciclo'])
         col_franja_cierre = pick(['franja_cierre_ciclo'])
@@ -3094,6 +3095,8 @@ def api_analistas_actividades_diarias_list():
                 select_fields.append(f"o.`{col_estado}` AS estado")
             if col_final:
                 select_fields.append(f"o.`{col_final}` AS estado_final")
+            if col_tip_ok:
+                select_fields.append(f"o.`{col_tip_ok}` AS tipificacion_ok")
             if col_cierre:
                 select_fields.append(f"o.`{col_cierre}` AS cierre_ciclo")
             if col_fecha_franja:
@@ -3129,6 +3132,7 @@ def api_analistas_actividades_diarias_list():
                     'fecha': r.get('fecha'),
                     'estado': (r.get('estado') or '').strip() if col_estado else '',
                     'estado_final': r.get('estado_final') if col_final else None,
+                    'tipificacion_ok': r.get('tipificacion_ok') if col_tip_ok else None,
                     'cierre_ciclo': r.get('cierre_ciclo') if col_cierre else None,
                     'fecha_franja_cierre_ciclo': r.get('fecha_franja_cierre_ciclo') if col_fecha_franja else None,
                     'franja_cierre_ciclo': r.get('franja_cierre_ciclo') if col_franja_cierre else None,
