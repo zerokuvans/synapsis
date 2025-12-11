@@ -3,10 +3,6 @@
 <style>
     .btn.disabled{opacity:.6;cursor:not-allowed;pointer-events:none}
     .btn.disabled:hover{opacity:.6}
-    #tablaCierre{width:100%;}
-    #tablaCierre td:nth-child(3),
-    #tablaCierre td:nth-child(4),
-    #tablaCierre td:nth-child(5){white-space:nowrap}
     .cc-container{max-width:1500px;margin:0 auto}
 </style>
 <div class="container-fluid mt-5 cc-container">
@@ -39,27 +35,8 @@
                             <span class="ms-auto text-muted">Total: <span id="totalRegistros">0</span> • Pend. mes: <span id="pendMesBadge" class="badge bg-warning text-dark">0</span></span>
                         </div>
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-striped table-hover" id="tablaCierre">
-                            <thead class="table-secondary">
-                                <tr>
-                                    <th>OT</th>
-                                    <th>Cuenta</th>
-                                    <th>Técnico</th>
-                                    <th>Analista</th>
-                                    <th>Supervisor</th>
-                                    <th>Fecha</th>
-                                    <th>Estado</th>
-                                    <th>Estado Super</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tablaCierreBody">
-                                <tr>
-                                    <td colspan="9" class="text-center text-muted">Sin datos</td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="row g-3" id="cardsContainer">
+                        <div class="col-12 text-center text-muted">Sin datos</div>
                     </div>
                 </div>
             </div>
@@ -94,43 +71,99 @@ async function buscar(){
     if(tip)params.set('tipificacion',tip);
     const res=await fetch(apiUrl+'?'+params.toString(),{credentials:'include'});
     const data=await res.json();
-    const body=document.getElementById('tablaCierreBody');
+    const cardsContainer=document.getElementById('cardsContainer');
     if(!data.success){
-        body.innerHTML='<tr><td colspan="9" class="text-center text-danger">Error</td></tr>';
+        cardsContainer.innerHTML='<div class="col-12 text-center text-danger">Error</div>';
         document.getElementById('totalRegistros').textContent='0';
         return;
     }
     const rows=data.data||[];
     document.getElementById('totalRegistros').textContent=rows.length;
     if(rows.length===0){
-        body.innerHTML='<tr><td colspan="9" class="text-center text-muted">Sin datos</td></tr>';
+        cardsContainer.innerHTML='<div class="col-12 text-center text-muted">Sin datos</div>';
         return;
     }
-    body.innerHTML=rows.map(r=>{
+    cardsContainer.innerHTML=rows.map(r=>{
         const ot=r.orden_de_trabajo??'';
         const cuenta=r.numero_de_cuenta??'';
+        const alerta=(r.alerta_cierre_ciclo||'').trim().toUpperCase();
+        const headerClass=(alerta==='ALTO')?'bg-danger':(alerta==='MEDIO')?'bg-warning text-dark':(alerta==='BAJO')?'bg-success':'bg-secondary';
+        const cardBorder=(alerta==='ALTO')?'border-danger':(alerta==='MEDIO')?'border-warning':(alerta==='BAJO')?'border-success':'border-secondary';
         const estadoSuper = (r.estado_super||'') === 'Completado'
             ? '<span class="badge bg-success">Completado</span>'
             : '<span class="badge bg-warning text-dark">Pendiente</span>';
         const gestionCompletada = (r.estado_super||'') === 'Completado';
-        const disabledAttr = gestionCompletada ? 'disabled' : '';
-        const disabledClass = gestionCompletada ? 'disabled' : '';
+        let bloqueada48 = false;
+        let cutoffStr = '';
+        try{
+            const faStr = fmtFecha(r.fecha_franja_cierre_ciclo);
+            const franjaTxt = String(r.franja_cierre_ciclo||'').trim();
+            if(faStr){
+                const ymd = faStr.split('-');
+                if(ymd.length===3){
+                    const y = Number(ymd[0]);
+                    const m0 = Number(ymd[1]) - 1;
+                    const d = Number(ymd[2]);
+                    let endDate = null;
+                    try{
+                        const norm = franjaTxt.replace(/–|—/g,'-').replace(/\s+/g,' ').toLowerCase();
+                        const times = [];
+                        const re = /(\d{1,2}:\d{2}(?::\d{2})?)\s*(a\.?\s*m\.?|p\.?\s*m\.?|am|pm)?/gi;
+                        let mm;
+                        while((mm = re.exec(norm))){
+                            times.push([mm[1], mm[2]||'']);
+                        }
+                        if(times.length>0){
+                            const last = times[times.length-1];
+                            const tparts = last[0].split(':');
+                            let hh = Number(tparts[0]);
+                            let min = Number(tparts[1]);
+                            let ss = tparts[2] ? Number(tparts[2]) : 0;
+                            const mer = String(last[1]||'').replace(/\./g,'').replace(/\s+/g,'').toUpperCase();
+                            if(mer==='PM' && hh<12) hh += 12;
+                            if(mer==='AM' && hh===12) hh = 0;
+                            endDate = new Date(y, m0, d, hh, min, ss);
+                        }else{
+                            endDate = new Date(y, m0, d, 0, 0, 0);
+                        }
+                    }catch(e2){ endDate = new Date(y, m0, d, 0, 0, 0); }
+                    const cutoff = new Date(endDate.getTime() + 48 * 60 * 60 * 1000);
+                    bloqueada48 = (new Date()) >= cutoff;
+                    const pad=(n)=>String(n).padStart(2,'0');
+                    cutoffStr = `${cutoff.getFullYear()}-${pad(cutoff.getMonth()+1)}-${pad(cutoff.getDate())} ${pad(cutoff.getHours())}:${pad(cutoff.getMinutes())}`;
+                }
+            }
+        }catch(e){}
+        const disabledAttr = (gestionCompletada || bloqueada48) ? 'disabled' : '';
+        const disabledClass = (gestionCompletada || bloqueada48) ? 'disabled' : '';
+        let btnTitle = '';
+        if(gestionCompletada){ btnTitle = 'Cierre completado'; }
+        else if(bloqueada48){ btnTitle = cutoffStr ? ('Bloqueado por 48h (corte: '+cutoffStr+')') : 'Bloqueado por 48h'; }
         return `
-        <tr>
-            <td>${ot}</td>
-            <td>${cuenta}</td>
-            <td>${r.tecnico??''}</td>
-            <td>${r.analista??''}</td>
-            <td>${r.supervisor??''}</td>
-            <td>${fmtFecha(r.fecha)}</td>
-            <td>${r.estado??''}</td>
-            <td>${estadoSuper}</td>
-            <td>
-                <button class="btn btn-outline-secondary btn-sm ${disabledClass}" ${disabledAttr} onclick="abrirGestion('${ot}','${cuenta}')">
-                    <i class="fas fa-tools me-1"></i>Gestionar
-                </button>
-            </td>
-        </tr>`
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 ${cardBorder}">
+                <div class="card-header ${headerClass} text-white">
+                    <h5 class="card-title mb-0">OT: ${ot}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><strong>Cuenta:</strong> ${cuenta}</p>
+                    <p class="card-text"><strong>Técnico:</strong> ${r.tecnico??''}</p>
+                    <p class="card-text"><strong>Analista:</strong> ${r.analista??''}</p>
+                    <p class="card-text"><strong>Supervisor:</strong> ${r.supervisor??''}</p>
+                    <p class="card-text"><strong>Fecha:</strong> ${fmtFecha(r.fecha)}</p>
+                    <p class="card-text"><strong>Fecha Agenda cierre ciclo:</strong> ${fmtFecha(r.fecha_franja_cierre_ciclo)}</p>
+                    <p class="card-text"><strong>Franja cierre ciclo:</strong> ${r.franja_cierre_ciclo??''}</p>
+                    <p class="card-text"><strong>Nivel de Alerta:</strong> ${r.alerta_cierre_ciclo??''}</p>
+                    <p class="card-text"><strong>Estado:</strong> ${r.estado??''}</p>
+                    <p class="card-text"><strong>Estado Super:</strong> ${estadoSuper}</p>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-outline-secondary btn-sm ${disabledClass}" ${disabledAttr} title="${btnTitle}" onclick="abrirGestion('${ot}','${cuenta}')">
+                        <i class="fas fa-tools me-1"></i>Gestionar
+                    </button>
+                </div>
+            </div>
+        </div>`
     }).join('');
     await actualizarPendientesMes();
 }
@@ -174,6 +207,13 @@ async function abrirGestion(ot, cuenta){
     document.getElementById('gs_tip_ok').value='';
     document.getElementById('gs_tip_nov').value='';
     document.getElementById('gs_observ').value='';
+    try{ document.getElementById('gs_fecha_agenda_cierre').value=''; }catch(e){}
+    try{ document.getElementById('gs_franja_cierre').value=''; }catch(e){}
+    try{ document.getElementById('gs_alerta_cierre').value=''; }catch(e){}
+    try{ document.getElementById('gs_obs_super').value=''; }catch(e){}
+    try{ document.getElementById('gs_recomendacion_tecnico').value=''; }catch(e){}
+    try{ const f=document.getElementById('gs_imagen_falla'); if(f) f.value=''; }catch(e){}
+    try{ const s=document.getElementById('gs_imagen_solucion'); if(s) s.value=''; }catch(e){}
     await cargarTipificaciones1();
     try{
         const params=new URLSearchParams({ot:ot, cuenta:cuenta});
@@ -189,6 +229,9 @@ async function abrirGestion(ot, cuenta){
             document.getElementById('gs_tip_ok').value=r.tipificacion_ok||'';
             document.getElementById('gs_tip_nov').value=r.tipificacion_novedad||'';
             document.getElementById('gs_observ').value=r.observacion_cierre||'';
+            try{ document.getElementById('gs_fecha_agenda_cierre').value=fmtFecha(r.fecha_franja_cierre_ciclo)||''; }catch(e){}
+            try{ document.getElementById('gs_franja_cierre').value=r.franja_cierre_ciclo||''; }catch(e){}
+            try{ document.getElementById('gs_alerta_cierre').value=r.alerta_cierre_ciclo||''; }catch(e){}
         }
     }catch(e){}
     m.show();
@@ -229,20 +272,30 @@ async function cargarTipificaciones2(){
     }catch(e){}
 }
 async function guardarGestionSuper(){
-    const payload={
-        ot:document.getElementById('gs_ot').value,
-        cuenta:document.getElementById('gs_cuenta').value,
-        tip_super_1:document.getElementById('gs_tip1').value,
-        tip_super_2:document.getElementById('gs_tip2').value,
-        observacion_super:document.getElementById('gs_obs_super').value
-    };
+    const fd=new FormData();
+    fd.append('ot', document.getElementById('gs_ot').value);
+    fd.append('cuenta', document.getElementById('gs_cuenta').value);
+    fd.append('tip_super_1', document.getElementById('gs_tip1').value);
+    fd.append('tip_super_2', document.getElementById('gs_tip2').value);
+    fd.append('observacion_super', document.getElementById('gs_obs_super').value);
     try{
-        const res=await fetch('/api/operativo/cierre-ciclo/gestionar',{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            credentials:'include',
-            body:JSON.stringify(payload)
-        });
+        const fechaAgendaEl=document.getElementById('gs_fecha_agenda_cierre');
+        const fechaAgenda=(fechaAgendaEl?.value||'').trim();
+        if(fechaAgenda){ fd.append('fecha_franja_cierre_ciclo', fechaAgenda); }
+    }catch(e){}
+    try{
+        const franjaEl=document.getElementById('gs_franja_cierre');
+        const franja=(franjaEl?.value||'').trim();
+        if(franja){ fd.append('franja_cierre_ciclo', franja); }
+    }catch(e){}
+    const recEl=document.getElementById('gs_recomendacion_tecnico');
+    if(recEl){ fd.append('recomendacion_tecnico', recEl.value||''); }
+    const f=document.getElementById('gs_imagen_falla');
+    if(f && f.files && f.files[0]){ fd.append('imagen_falla', f.files[0]); }
+    const s=document.getElementById('gs_imagen_solucion');
+    if(s && s.files && s.files[0]){ fd.append('imagen_solucion', s.files[0]); }
+    try{
+        const res=await fetch('/api/operativo/cierre-ciclo/gestionar',{ method:'POST', credentials:'include', body: fd });
         const data=await res.json();
         if(data && data.success){
             const modalEl=document.getElementById('modalGestionSuper');
@@ -301,6 +354,25 @@ async function guardarGestionSuper(){
                         <label class="form-label">Observación Analista</label>
                         <textarea id="gs_observ" class="form-control" rows="2" readonly></textarea>
                     </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Fecha Agenda cierre ciclo</label>
+                        <input id="gs_fecha_agenda_cierre" type="date" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Franja de cierre de ciclo</label>
+                        <select id="gs_franja_cierre" class="form-select">
+                            <option value="">Seleccione...</option>
+                            <option>7:00:00 a. m. — 9:00:00 a. m.</option>
+                            <option>9:00:00 a. m. — 11:00:00 a. m.</option>
+                            <option>11:00:00 a. m. — 1:00:00 p. m.</option>
+                            <option>1:00:00 p. m. — 3:00:00 p. m.</option>
+                            <option>3:00:00 p. m. — 5:00:00 p. m.</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Nivel de Alerta</label>
+                        <input id="gs_alerta_cierre" class="form-control" readonly />
+                    </div>
                     <hr />
                     <div class="col-md-6">
                         <label class="form-label">Tipificación de cierre de ciclo 1</label>
@@ -313,6 +385,18 @@ async function guardarGestionSuper(){
                     <div class="col-12">
                         <label class="form-label">Observación Super</label>
                         <textarea id="gs_obs_super" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Recomendación al Técnico</label>
+                        <textarea id="gs_recomendacion_tecnico" class="form-control" rows="2"></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Imagen de Falla</label>
+                        <input id="gs_imagen_falla" type="file" class="form-control" accept="image/*" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Imagen de Solución</label>
+                        <input id="gs_imagen_solucion" type="file" class="form-control" accept="image/*" />
                     </div>
                 </div>
             </div>

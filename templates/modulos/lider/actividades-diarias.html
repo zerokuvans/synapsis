@@ -603,6 +603,34 @@ function debeBloquearGestion(fechaRaw){
                       <label class="form-label">Observación</label>
                       <input type="text" class="form-control" id="gaObservacionNovedad" placeholder="Observaciones...">
                     </div>
+                    <div class="col-12" id="gaAgendaCierreBlock" style="display:none;">
+                      <div class="row g-3">
+                        <div class="col-md-6">
+                          <label class="form-label">Fecha Agenda cierre ciclo</label>
+                          <input type="date" class="form-control" id="gaFechaAgendaCierre">
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Franja de cierre de ciclo</label>
+                          <select class="form-select" id="gaFranjaCierre">
+                            <option value="">Seleccione...</option>
+                            <option>7:00:00 a. m. — 9:00:00 a. m.</option>
+                            <option>9:00:00 a. m. — 11:00:00 a. m.</option>
+                            <option>11:00:00 a. m. — 1:00:00 p. m.</option>
+                            <option>1:00:00 p. m. — 3:00:00 p. m.</option>
+                            <option>3:00:00 p. m. — 5:00:00 p. m.</option>
+                          </select>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label">Nivel de Alerta</label>
+                          <select class="form-select" id="gaAlertaCierre">
+                            <option value="">Seleccione...</option>
+                            <option value="BAJO">BAJO</option>
+                            <option value="MEDIO">MEDIO</option>
+                            <option value="ALTO">ALTO</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div class="mt-3 d-flex justify-content-end">
@@ -958,6 +986,13 @@ function inicializarTipificaciones(){
     selOk.innerHTML = '<option value="">Seleccione...</option>';
     okOpts.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; selOk.appendChild(o); });
     if(current && okOpts.includes(current)) selOk.value = current;
+    const agendaBlock = document.getElementById('gaAgendaCierreBlock');
+    const toggleAgenda = () => {
+      const val = (selOk.value || '').trim().toUpperCase();
+      if(agendaBlock){ agendaBlock.style.display = val === 'CLIENTE INCONFORME' ? '' : 'none'; }
+    };
+    selOk.addEventListener('change', toggleAgenda);
+    toggleAgenda();
   }
   if(selRz){
     const currentR = selRz.value;
@@ -1010,7 +1045,15 @@ async function finalizarCierre(){
     const confValOk = (document.querySelector('input[name="gaConfirmEventoOk"]:checked') || {}).value || 'no';
     const confirmacion_evento = confValOk.toLowerCase() === 'si' ? 1 : 0;
     const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, tipificacion_ok: ok || null, tipificacion_novedad: null, observacion: obs || null, confirmacion_evento, cierre_ciclo: 1 };
-    const res = await fetch('/api/analistas/actividad-cierre', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if((ok||'').trim().toUpperCase() === 'CLIENTE INCONFORME'){
+      const fechaAgenda = (document.getElementById('gaFechaAgendaCierre')?.value || '').trim();
+      const franja = (document.getElementById('gaFranjaCierre')?.value || '').trim();
+      const alerta = (document.getElementById('gaAlertaCierre')?.value || '').trim();
+      if(fechaAgenda) payload.fecha_franja_cierre_ciclo = fechaAgenda;
+      if(franja) payload.franja_cierre_ciclo = franja;
+      if(alerta) payload.alerta_cierre_ciclo = alerta;
+    }
+    const res = await fetch('/api/analistas/actividad-cierre', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){
       if(window.Swal){ Swal.fire({icon:'success', title:'Guardado', text:'Cierre de ciclo actualizado'}); }
@@ -1018,7 +1061,8 @@ async function finalizarCierre(){
       mm && mm.hide();
       try{ await cargarLista(); }catch(_){}
     }else{
-      if(window.Swal){ Swal.fire({icon:'warning', title:'No guardado', text: data && data.error ? String(data.error) : 'Error al guardar'}); }
+      const msg = (data && data.code === 'BLOCKED_BY_CUTOFF') ? 'Fuera de ventana: cierre bloqueado después del corte' : (data && data.error ? String(data.error) : 'Error al guardar');
+      if(window.Swal){ Swal.fire({icon:'warning', title:'No guardado', text: msg}); }
     }
   }catch(e){
     if(window.Swal){ Swal.fire({icon:'error', title:'Error', text:'Error al guardar cierre de ciclo'}); }
@@ -1030,7 +1074,7 @@ async function finalizarSinCierre(){
     const confValOk = (document.querySelector('input[name="gaConfirmEventoOk"]:checked') || {}).value || 'no';
     const confirmacion_evento = confValOk.toLowerCase() === 'si' ? 1 : 0;
     const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, confirmacion_evento, cierre_ciclo: 0 };
-    const res = await fetch('/api/analistas/actividad-cierre', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const res = await fetch('/api/analistas/actividad-cierre', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){
       if(window.Swal){ Swal.fire({icon:'success', title:'Finalizado', text:'Actividad marcada como finalizada'}); }
@@ -1038,7 +1082,8 @@ async function finalizarSinCierre(){
       mm && mm.hide();
       try{ await cargarLista(); }catch(_){}
     }else{
-      if(window.Swal){ Swal.fire({icon:'warning', title:'No guardado', text: data && data.error ? String(data.error) : 'Error al finalizar'}); }
+      const msg = (data && data.code === 'BLOCKED_BY_CUTOFF') ? 'Fuera de ventana: cierre bloqueado después del corte' : (data && data.error ? String(data.error) : 'Error al finalizar');
+      if(window.Swal){ Swal.fire({icon:'warning', title:'No guardado', text: msg}); }
     }
   }catch(e){
     if(window.Swal){ Swal.fire({icon:'error', title:'Error', text:'Error al finalizar actividad'}); }
@@ -1054,7 +1099,7 @@ async function finalizarRazon(){
     const confVal = (document.querySelector('input[name="gaConfirmEvento"]:checked') || {}).value || 'no';
     const confirmacion_evento = confVal.toLowerCase() === 'si' ? 1 : 0;
     const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, tipificacion_razon: razonReal || null, tipo_razon_aplica: aplica, observacion_razon: obs || null, confirmacion_evento };
-    const res = await fetch('/api/analistas/actividad-razon', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const res = await fetch('/api/analistas/actividad-razon', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){
       if(window.Swal){ Swal.fire({icon:'success', title:'Guardado', text:'Razón guardada y actividad finalizada'}); }
@@ -1062,7 +1107,8 @@ async function finalizarRazon(){
       mm && mm.hide();
       try{ await cargarLista(); }catch(_){}
     }else{
-      if(window.Swal){ Swal.fire({icon:'warning', title:'No guardado', text: data && data.error ? String(data.error) : 'Error al guardar'}); }
+      const msg = (data && data.code === 'BLOCKED_BY_CUTOFF') ? 'Fuera de ventana: cierre bloqueado después del corte' : (data && data.error ? String(data.error) : 'Error al guardar');
+      if(window.Swal){ Swal.fire({icon:'warning', title:'No guardado', text: msg}); }
     }
   }catch(e){
     if(window.Swal){ Swal.fire({icon:'error', title:'Error', text:'Error al guardar razón'}); }
@@ -1076,7 +1122,7 @@ async function finalizarCancelado(){
     const tipUpper = (tip || '').trim().toUpperCase();
     const opcionTexto = tipUpper === 'OTRA' ? (obsRaw || null) : null;
     const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, cancelado_tipificacion: tip || null, cancelado_observacion: (obsRaw || null), cancelado_opcion_texto: opcionTexto };
-    const res = await fetch('/api/analistas/actividad-cancelado', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const res = await fetch('/api/analistas/actividad-cancelado', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){
       if(window.Swal){ Swal.fire({icon:'success', title:'Guardado', text:'Cancelado guardado y actividad finalizada'}); }
@@ -1084,7 +1130,8 @@ async function finalizarCancelado(){
       mm && mm.hide();
       try{ await cargarLista(); }catch(_){}
     }else{
-      if(window.Swal){ Swal.fire({icon:'warning', title:'No guardado', text: data && data.error ? String(data.error) : 'Error al guardar'}); }
+      const msg = (data && data.code === 'BLOCKED_BY_CUTOFF') ? 'Fuera de ventana: cierre bloqueado después del corte' : (data && data.error ? String(data.error) : 'Error al guardar');
+      if(window.Swal){ Swal.fire({icon:'warning', title:'No guardado', text: msg}); }
     }
   }catch(e){
     if(window.Swal){ Swal.fire({icon:'error', title:'Error', text:'Error al guardar cancelado'}); }

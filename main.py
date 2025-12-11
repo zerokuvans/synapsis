@@ -43,6 +43,7 @@ import re
 import logging
 from decimal import Decimal
 from pywebpush import webpush, WebPushException
+from werkzeug.utils import secure_filename
 #from models import Suministro  # Asegúrate de importar el modelo correcto
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 
@@ -3909,6 +3910,9 @@ def api_analistas_actividad_cierre():
     tip_nov = str(data.get('tipificacion_novedad') or '').strip()
     observ = str(data.get('observacion') or '').strip()
     conf_evento = data.get('confirmacion_evento')
+    fecha_franja = str(data.get('fecha_franja_cierre_ciclo') or '').strip()
+    franja_cierre = str(data.get('franja_cierre_ciclo') or '').strip()
+    alerta_cierre = str(data.get('alerta_cierre_ciclo') or '').strip()
     try:
         connection = get_db_connection()
         if connection is None:
@@ -3933,6 +3937,9 @@ def api_analistas_actividad_cierre():
         ensure_col('estado_final', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `estado_final` TINYINT(1) NULL DEFAULT 0")
         ensure_col('confirmacion_evento', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `confirmacion_evento` TINYINT(1) NULL")
         ensure_col('cierre_ciclo', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `cierre_ciclo` TINYINT(1) NULL DEFAULT 0")
+        ensure_col('fecha_franja_cierre_ciclo', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `fecha_franja_cierre_ciclo` DATE NULL")
+        ensure_col('franja_cierre_ciclo', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `franja_cierre_ciclo` TEXT NULL")
+        ensure_col('alerta_cierre_ciclo', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `alerta_cierre_ciclo` TEXT NULL")
         try:
             cur.execute(
                 """
@@ -4033,6 +4040,18 @@ def api_analistas_actividad_cierre():
         if cierre_ciclo is not None:
             set_parts.append("`cierre_ciclo`=%s")
             set_vals.append(1 if str(cierre_ciclo).strip() in ('1','true','si','Sí') else 0)
+        if fecha_franja:
+            set_parts.append("`fecha_franja_cierre_ciclo`=%s")
+            set_vals.append(fecha_franja)
+        if franja_cierre:
+            set_parts.append("`franja_cierre_ciclo`=%s")
+            set_vals.append(franja_cierre)
+        tip_ok_upper = (tip_ok or '').strip().upper()
+        if alerta_cierre:
+            set_parts.append("`alerta_cierre_ciclo`=%s")
+            set_vals.append(alerta_cierre)
+        elif tip_ok_upper and tip_ok_upper != 'CLIENTE INCONFORME':
+            set_parts.append("`alerta_cierre_ciclo`=NULL")
         # Marcar finalizado al concluir
         set_parts.append("`estado_final`=1")
         sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where)
@@ -5982,6 +6001,9 @@ def api_operativo_cierre_ciclo():
         col_tip_super_1 = pick(['tip_super_1','tipificacion_super_1'])
         col_tip_super_2 = pick(['tip_super_2','tipificacion_super_2'])
         col_fecha_gestion_super = pick(['fecha_gestion_super','fecha_super'])
+        col_fecha_franja = pick(['fecha_franja_cierre_ciclo'])
+        col_franja_cierre = pick(['franja_cierre_ciclo'])
+        col_alerta = pick(['alerta_cierre_ciclo','nivel_alerta','alerta'])
         if not col_ot or not col_cuenta or not col_fecha or not col_ext:
             return jsonify({'success': True, 'data': [], 'total': 0}), 200
         params = []
@@ -6107,6 +6129,16 @@ def api_operativo_cierre_ciclo():
             select_parts.append(f"o.`{col_tip_super_2}` AS tip_super_2")
         if col_fecha_gestion_super:
             select_parts.append(f"o.`{col_fecha_gestion_super}` AS fecha_gestion_super")
+        if col_fecha_franja:
+            tipo_fecha_franja = cols_type.get(col_fecha_franja.lower())
+            if tipo_fecha_franja in ('datetime','timestamp','date'):
+                select_parts.append(f"DATE_FORMAT(o.`{col_fecha_franja}`, '%Y-%m-%d') AS fecha_franja_cierre_ciclo")
+            else:
+                select_parts.append(f"o.`{col_fecha_franja}` AS fecha_franja_cierre_ciclo")
+        if col_franja_cierre:
+            select_parts.append(f"o.`{col_franja_cierre}` AS franja_cierre_ciclo")
+        if col_alerta:
+            select_parts.append(f"o.`{col_alerta}` AS alerta_cierre_ciclo")
         sql = "SELECT " + ", ".join(select_parts) + " FROM operaciones_actividades_diarias o"
         if where:
             sql += " WHERE " + " AND ".join(where)
@@ -6255,7 +6287,11 @@ def api_operativo_cierre_ciclo_detalle():
         col_tip_ok = pick(['tipificacion_ok'])
         col_tip_nov = pick(['tipificacion_novedad'])
         col_observ = pick(['observacion_cierre'])
+        col_fecha_franja = pick(['fecha_franja_cierre_ciclo'])
+        col_franja_cierre = pick(['franja_cierre_ciclo'])
+        col_alerta = pick(['alerta_cierre_ciclo','nivel_alerta','alerta'])
         tipo_fecha = None
+        tipo_fecha_franja = None
         if col_fecha:
             c.execute(
                 """
@@ -6269,6 +6305,19 @@ def api_operativo_cierre_ciclo_detalle():
                 tipo_fecha = str(rowt[0]).lower() if rowt and rowt[0] else None
             except Exception:
                 tipo_fecha = None
+        if col_fecha_franja:
+            c.execute(
+                """
+                SELECT DATA_TYPE FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='operaciones_actividades_diarias' AND column_name=%s
+                """,
+                (db_config.get('database'), col_fecha_franja)
+            )
+            rowtf = c.fetchone()
+            try:
+                tipo_fecha_franja = str(rowtf[0]).lower() if rowtf and rowtf[0] else None
+            except Exception:
+                tipo_fecha_franja = None
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'message': 'Columnas requeridas no encontradas'}), 200
         select_parts = [
@@ -6292,6 +6341,15 @@ def api_operativo_cierre_ciclo_detalle():
             select_parts.append(f"o.`{col_tip_nov}` AS tipificacion_novedad")
         if col_observ:
             select_parts.append(f"o.`{col_observ}` AS observacion_cierre")
+        if col_fecha_franja:
+            if tipo_fecha_franja in ('datetime','timestamp','date'):
+                select_parts.append(f"DATE_FORMAT(o.`{col_fecha_franja}`, '%Y-%m-%d') AS fecha_franja_cierre_ciclo")
+            else:
+                select_parts.append(f"o.`{col_fecha_franja}` AS fecha_franja_cierre_ciclo")
+        if col_franja_cierre:
+            select_parts.append(f"o.`{col_franja_cierre}` AS franja_cierre_ciclo")
+        if col_alerta:
+            select_parts.append(f"o.`{col_alerta}` AS alerta_cierre_ciclo")
         sql = "SELECT " + ", ".join(select_parts) + " FROM operaciones_actividades_diarias o WHERE 1=1"
         params = []
         sql += f" AND o.`{col_ot}` = %s"
@@ -6495,12 +6553,23 @@ def api_operativo_tipificaciones2():
 @app.route('/api/operativo/cierre-ciclo/gestionar', methods=['POST'])
 @login_required_api(role='operativo')
 def api_operativo_cierre_ciclo_gestionar():
-    data = request.get_json() or {}
-    ot = str(data.get('ot') or '').strip()
-    cuenta = str(data.get('cuenta') or '').strip()
-    tip1 = str(data.get('tip_super_1') or '').strip()
-    tip2 = str(data.get('tip_super_2') or '').strip()
-    observ = str(data.get('observacion_super') or '').strip()
+    data_json = None
+    try:
+        data_json = request.get_json(silent=True)
+    except Exception:
+        data_json = None
+    data_json = data_json or {}
+    form = request.form or {}
+    ot = str((data_json.get('ot') or form.get('ot') or '')).strip()
+    cuenta = str((data_json.get('cuenta') or form.get('cuenta') or '')).strip()
+    tip1 = str((data_json.get('tip_super_1') or form.get('tip_super_1') or '')).strip()
+    tip2 = str((data_json.get('tip_super_2') or form.get('tip_super_2') or '')).strip()
+    observ = str((data_json.get('observacion_super') or form.get('observacion_super') or '')).strip()
+    recomendacion = str((data_json.get('recomendacion_tecnico') or form.get('recomendacion_tecnico') or '')).strip()
+    fecha_franja = str((data_json.get('fecha_franja_cierre_ciclo') or form.get('fecha_franja_cierre_ciclo') or '')).strip()
+    franja_cierre = str((data_json.get('franja_cierre_ciclo') or form.get('franja_cierre_ciclo') or '')).strip()
+    img_falla_url = None
+    img_sol_url = None
     connection = None
     cur = None
     try:
@@ -6527,19 +6596,30 @@ def api_operativo_cierre_ciclo_gestionar():
         ensure_col('observacion_super', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `observacion_super` TEXT NULL")
         ensure_col('cierre_super', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `cierre_super` TINYINT(1) NULL DEFAULT 0")
         ensure_col('fecha_gestion_super', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `fecha_gestion_super` DATETIME NULL")
+        ensure_col('imagen_falla', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `imagen_falla` TEXT NULL")
+        ensure_col('imagen_solucion', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `imagen_solucion` TEXT NULL")
+        ensure_col('recomendacion_tecnico', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `recomendacion_tecnico` TEXT NULL")
+        ensure_col('fecha_franja_cierre_ciclo', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `fecha_franja_cierre_ciclo` DATE NULL")
+        ensure_col('franja_cierre_ciclo', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `franja_cierre_ciclo` TEXT NULL")
         try:
             c2 = connection.cursor()
             c2.execute(
                 """
                 SELECT column_name, data_type FROM information_schema.columns
                 WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
-                AND column_name IN ('tip_super_1','tip_super_2')
+                AND column_name IN ('tip_super_1','tip_super_2','imagen_falla','imagen_solucion','recomendacion_tecnico')
                 """,
                 (db_config.get('database'),)
             )
             for cname, dtype in c2.fetchall():
                 if str(dtype).lower().startswith('varchar'):
                     c2.execute(f"ALTER TABLE `operaciones_actividades_diarias` MODIFY COLUMN `{cname}` TEXT NULL")
+            c2.close()
+        except Exception:
+            pass
+        try:
+            c2 = connection.cursor()
+            c2.execute("ALTER TABLE `operaciones_actividades_diarias` ROW_FORMAT=DYNAMIC")
             c2.close()
         except Exception:
             pass
@@ -6565,6 +6645,37 @@ def api_operativo_cierre_ciclo_gestionar():
         col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'message': 'Columnas requeridas no encontradas'}), 200
+
+        try:
+            f1 = request.files.get('imagen_falla')
+        except Exception:
+            f1 = None
+        try:
+            f2 = request.files.get('imagen_solucion')
+        except Exception:
+            f2 = None
+        try:
+            base_root = app.config.get('UPLOAD_FOLDER', 'static/uploads')
+            base_dir = os.path.join(base_root, 'cierre_ciclo', str(cuenta or 'sin_cuenta'), str(ot or 'sin_ot'))
+            os.makedirs(base_dir, exist_ok=True)
+            if f1 and getattr(f1, 'filename', ''):
+                filename = secure_filename(getattr(f1, 'filename', '') or 'imagen_falla')
+                name, ext = os.path.splitext(filename)
+                ts = datetime.now().strftime('%Y%m%d%H%M%S%f')
+                final_name = f"falla_{ts}{ext or '.bin'}"
+                path = os.path.join(base_dir, final_name)
+                f1.save(path)
+                img_falla_url = '/' + path.replace('\\','/')
+            if f2 and getattr(f2, 'filename', ''):
+                filename2 = secure_filename(getattr(f2, 'filename', '') or 'imagen_solucion')
+                name2, ext2 = os.path.splitext(filename2)
+                ts2 = datetime.now().strftime('%Y%m%d%H%M%S%f')
+                final_name2 = f"solucion_{ts2}{ext2 or '.bin'}"
+                path2 = os.path.join(base_dir, final_name2)
+                f2.save(path2)
+                img_sol_url = '/' + path2.replace('\\','/')
+        except Exception:
+            pass
         tip2_norm = tip2.lower().strip()
         should_pending = (
             tip2_norm == 'en predio' or
@@ -6574,13 +6685,33 @@ def api_operativo_cierre_ciclo_gestionar():
             ('cliente no atiende' in tip2_norm)
         )
         set_parts = ["`tip_super_1`=%s","`tip_super_2`=%s","`observacion_super`=%s"]
+        if fecha_franja:
+            set_parts.append("`fecha_franja_cierre_ciclo`=%s")
+        if franja_cierre:
+            set_parts.append("`franja_cierre_ciclo`=%s")
         if should_pending:
             set_parts.append("`cierre_super`=0")
             set_parts.append("`fecha_gestion_super`=NULL")
         else:
             set_parts.append("`cierre_super`=1")
             set_parts.append("`fecha_gestion_super`=NOW()")
+        if recomendacion:
+            set_parts.append("`recomendacion_tecnico`=%s")
+        if img_falla_url:
+            set_parts.append("`imagen_falla`=%s")
+        if img_sol_url:
+            set_parts.append("`imagen_solucion`=%s")
         params = [tip1, tip2, observ]
+        if fecha_franja:
+            params.append(fecha_franja)
+        if franja_cierre:
+            params.append(franja_cierre)
+        if recomendacion:
+            params.append(recomendacion)
+        if img_falla_url:
+            params.append(img_falla_url)
+        if img_sol_url:
+            params.append(img_sol_url)
         sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE `{col_ot}`=%s AND `{col_cuenta}`=%s"
         params.extend([ot, cuenta])
         cur.execute(sql, tuple(params))
