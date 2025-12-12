@@ -1361,7 +1361,15 @@
         function updatePreoperacionalButtonStatus(data){
             if (isSupervisor) return;
             var items = (data && data.items) ? data.items : [];
-            var shouldDisable = items.some(function(x){ return x && Number(x.dias_restantes) < 0; });
+            // Excepción temporal: el 2025-12-13 (Bogotá) solo bloquear con días < -2
+            // Normal: bloquear con días < -1
+            var nowBog = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' }));
+            var y = nowBog.getFullYear();
+            var m = nowBog.getMonth() + 1; // 1-12
+            var d = nowBog.getDate();
+            var esExcepcion = (y === 2025 && m === 12 && d === 13);
+            var umbral = esExcepcion ? -2 : -1;
+            var shouldDisable = items.some(function(x){ return x && Number(x.dias_restantes) < umbral; });
             var btn = document.getElementById('preoperacionalButton');
             if (!btn) return;
             if (shouldDisable){

@@ -3404,6 +3404,7 @@ def api_export_vehiculos():
         from flask import Response
         import io, csv
         placa = (request.args.get('placa') or '').strip().upper()
+        tecnico = (request.args.get('tecnico') or '').strip()
         connection = get_db_connection()
         if connection is None:
             return jsonify({'error': 'Error de conexión a la base de datos'}), 500
