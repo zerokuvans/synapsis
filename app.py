@@ -2985,49 +2985,309 @@ def api_import_rutas_excel():
 @app.route('/api/mpa/rutas/tecnicos', methods=['GET'])
 @login_required
 def api_rutas_tecnicos():
-    if not current_user.has_role('administrativo'):
+    if not (current_user.has_role('administrativo') or current_user.has_role('operativo') or current_user.has_role('logistica')):
+        return jsonify({'error': 'Sin permisos'}), 403
+    estado = (request.args.get('estado') or '').strip()
+    periodo = (request.args.get('periodo') or 'dia').strip().lower()
+    fecha_in = (request.args.get('fecha') or '').strip()
+    solo_ot = (request.args.get('solo_ot', '1') or '1').strip().lower()
+    try:
+        from datetime import datetime, timedelta
+        base = None
+        if fecha_in:
+            try:
+                base = datetime.strptime(fecha_in, '%Y-%m-%d').date()
+            except Exception:
+                base = get_bogota_datetime().date()
+        else:
+            base = get_bogota_datetime().date()
+        start = base
+        end = base
+        if periodo == 'semana':
+            start = base - timedelta(days=6)
+            end = base
+        elif periodo == 'mes':
+            start = base.replace(day=1)
+            nm = start.replace(day=28) + timedelta(days=4)
+            end = nm - timedelta(days=nm.day)
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cur = conn.cursor(dictionary=True)
+        sql = (
+            "SELECT DISTINCT CAST(o.external_id AS CHAR) AS cedula, ro.nombre "
+            "FROM operaciones_actividades_diarias o "
+            "LEFT JOIN recurso_operativo ro ON CAST(o.external_id AS CHAR) = CAST(ro.recurso_operativo_cedula AS CHAR) "
+            "WHERE o.coordenada_x IS NOT NULL AND o.coordenada_y IS NOT NULL "
+            "AND DATE(o.fecha) BETWEEN %s AND %s"
+        )
+        params = [start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d')]
+        if estado:
+            en = estado.strip().lower()
+            if en != 'todos':
+                if en in ('cancelado'):
+                    sql += " AND UPPER(TRIM(o.estado)) = 'CANCELADO'"
+                elif en in ('completado','finalizado','terminado','ok'):
+                    sql += " AND UPPER(TRIM(o.estado)) IN ('COMPLETADO','OK')"
+                elif en in ('no_completado','no-completado','pendiente','sin_finalizar'):
+                    sql += " AND UPPER(TRIM(o.estado)) IN ('NO COMPLETADO','NO-COMPLETADO')"
+                else:
+                    sql += " AND UPPER(TRIM(o.estado)) = %s"
+                    params.append(estado.upper())
+        if solo_ot in ('1','true','yes','si','sí'):
+            sql += " AND o.orden_de_trabajo IS NOT NULL"
+        sql += " ORDER BY ro.nombre, cedula"
+        cur.execute(sql, params)
+        data = cur.fetchall() or []
+        if not data and periodo == 'dia':
+            sql_fb = (
+                "SELECT DISTINCT CAST(o.external_id AS CHAR) AS cedula, ro.nombre "
+                "FROM operaciones_actividades_diarias o "
+                "LEFT JOIN recurso_operativo ro ON CAST(o.external_id AS CHAR) = CAST(ro.recurso_operativo_cedula AS CHAR) "
+                "WHERE o.coordenada_x IS NOT NULL AND o.coordenada_y IS NOT NULL "
+                "AND DATE(o.fecha) BETWEEN %s AND %s"
+            )
+            params_fb = [ (base - timedelta(days=6)).strftime('%Y-%m-%d'), base.strftime('%Y-%m-%d') ]
+            en = (estado or '').strip().lower()
+            if en and en != 'todos':
+                if en in ('cancelado'):
+                    sql_fb += " AND UPPER(TRIM(o.estado)) = 'CANCELADO'"
+                elif en in ('completado','finalizado','terminado','ok'):
+                    sql_fb += " AND UPPER(TRIM(o.estado)) IN ('COMPLETADO','OK')"
+                elif en in ('no_completado','no-completado','pendiente','sin_finalizar'):
+                    sql_fb += " AND UPPER(TRIM(o.estado)) IN ('NO COMPLETADO','NO-COMPLETADO')"
+                else:
+                    sql_fb += " AND UPPER(TRIM(o.estado)) = %s"
+                    params_fb.append(estado.upper())
+            if solo_ot in ('1','true','yes','si','sí'):
+                sql_fb += " AND o.orden_de_trabajo IS NOT NULL"
+            sql_fb += " ORDER BY ro.nombre, cedula"
+            cur.execute(sql_fb, params_fb)
+            data = cur.fetchall() or []
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'tecnicos': data})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/mpa/rutas/estados', methods=['GET'])
+@login_required
+def api_rutas_estados():
+    if not (current_user.has_role('administrativo') or current_user.has_role('operativo') or current_user.has_role('logistica')):
         return jsonify({'error': 'Sin permisos'}), 403
     try:
         conn = get_db_connection()
         if conn is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
-        ensure_rutas_table(conn)
-        cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT DISTINCT cedula, nombre FROM mpa_rutas_tecnicos ORDER BY nombre")
-        data = cur.fetchall() or []
-        cur.close()
-        conn.close()
-        return jsonify({'success': True, 'tecnicos': data})
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT DISTINCT UPPER(TRIM(estado)) AS estado
+            FROM operaciones_actividades_diarias
+            WHERE estado IS NOT NULL AND TRIM(estado) <> ''
+            ORDER BY estado
+            """
+        )
+        estados = [r[0] for r in cur.fetchall()] or []
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'estados': estados})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/mpa/rutas/por-tecnico', methods=['GET'])
 @login_required
 def api_rutas_por_tecnico():
-    if not current_user.has_role('administrativo'):
+    if not (current_user.has_role('administrativo') or current_user.has_role('operativo') or current_user.has_role('logistica')):
         return jsonify({'error': 'Sin permisos'}), 403
     cedula = request.args.get('cedula')
     if not cedula:
         return jsonify({'success': False, 'message': 'Cedula requerida'}), 400
+    estado = (request.args.get('estado') or '').strip()
+    periodo = (request.args.get('periodo') or 'dia').strip().lower()
+    fecha_in = (request.args.get('fecha') or '').strip()
     try:
+        from datetime import datetime, timedelta
+        base = None
+        if fecha_in:
+            try:
+                base = datetime.strptime(fecha_in, '%Y-%m-%d').date()
+            except Exception:
+                base = get_bogota_datetime().date()
+        else:
+            base = get_bogota_datetime().date()
+        start = base
+        end = base
+        if periodo == 'semana':
+            start = base - timedelta(days=6)
+            end = base
+        elif periodo == 'mes':
+            start = base.replace(day=1)
+            nm = start.replace(day=28) + timedelta(days=4)
+            end = nm - timedelta(days=nm.day)
         conn = get_db_connection()
         if conn is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
-        ensure_rutas_table(conn)
         cur = conn.cursor(dictionary=True)
-        cur.execute(
-            """
-            SELECT id_ruta, cedula, nombre, lat_inicio, lon_inicio, lat_fin, lon_fin, fecha, created_at
-            FROM mpa_rutas_tecnicos
-            WHERE cedula = %s
-            ORDER BY created_at DESC
-            """,
-            (cedula,)
+        has_window = False
+        account_col = None
+        try:
+            cur_cols = conn.cursor()
+            cur_cols.execute("SELECT COLUMN_NAME FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name='operaciones_actividades_diarias'")
+            cols = [r[0] for r in cur_cols.fetchall()]
+            lc = {c.lower(): c for c in cols}
+            has_window = ('ventana_de_entrega' in lc)
+            cand_accounts = ['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta']
+            for n in cand_accounts:
+                if n in lc:
+                    account_col = lc[n]
+                    break
+            if not account_col:
+                for c in cols:
+                    for n in cand_accounts:
+                        if n in c.lower():
+                            account_col = c
+                            break
+                    if account_col:
+                        break
+            cur_cols.close()
+        except Exception:
+            pass
+        sel = "external_id, orden_de_trabajo, fecha, estado AS estado, coordenada_y AS lat, coordenada_x AS lon"
+        if has_window:
+            sel = "external_id, orden_de_trabajo, fecha, ventana_de_entrega AS ventana, estado AS estado, coordenada_y AS lat, coordenada_x AS lon"
+        if account_col:
+            sel += f", `{account_col}` AS cuenta"
+        sql = (
+            f"SELECT {sel} "
+            "FROM operaciones_actividades_diarias o "
+            "WHERE external_id = %s AND coordenada_x IS NOT NULL AND coordenada_y IS NOT NULL "
+            "AND DATE(fecha) BETWEEN %s AND %s"
         )
-        data = cur.fetchall() or []
+        params = [cedula, start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d')]
+        if estado:
+            en = estado.strip().lower()
+            if en != 'todos':
+                if en in ('cancelado'):
+                    sql += " AND UPPER(TRIM(o.estado)) = 'CANCELADO'"
+                elif en in ('completado','finalizado','terminado','ok'):
+                    sql += " AND UPPER(TRIM(o.estado)) IN ('COMPLETADO','OK')"
+                elif en in ('no_completado','no-completado','pendiente','sin_finalizar'):
+                    sql += " AND UPPER(TRIM(o.estado)) IN ('NO COMPLETADO','NO-COMPLETADO')"
+        solo_ot = (request.args.get('solo_ot', '1') or '1').strip().lower()
+        if solo_ot in ('1','true','yes','si','sí'):
+            sql += " AND orden_de_trabajo IS NOT NULL"
+        sql += " ORDER BY fecha ASC"
+        cur.execute(sql, params)
+        rows = cur.fetchall() or []
+        if not rows and periodo == 'dia':
+            cur = conn.cursor(dictionary=True)
+            sql_fb = (
+                f"SELECT {sel} "
+                "FROM operaciones_actividades_diarias o "
+                "WHERE external_id = %s AND coordenada_x IS NOT NULL AND coordenada_y IS NOT NULL "
+                "AND DATE(fecha) BETWEEN %s AND %s"
+            )
+            params_fb = [cedula, (base - timedelta(days=6)).strftime('%Y-%m-%d'), base.strftime('%Y-%m-%d')]
+            if estado:
+                en = estado.strip().lower()
+                if en != 'todos':
+                    if en in ('cancelado'):
+                        sql_fb += " AND UPPER(TRIM(o.estado)) = 'CANCELADO'"
+                    elif en in ('completado','finalizado','terminado','ok'):
+                        sql_fb += " AND UPPER(TRIM(o.estado)) IN ('COMPLETADO','OK')"
+                    elif en in ('no_completado','no-completado','pendiente','sin_finalizar'):
+                        sql_fb += " AND UPPER(TRIM(o.estado)) IN ('NO COMPLETADO','NO-COMPLETADO')"
+                    else:
+                        sql_fb += " AND UPPER(TRIM(o.estado)) = %s"
+                        params_fb.append(estado.upper())
+            if solo_ot in ('1','true','yes','si','sí'):
+                sql_fb += " AND orden_de_trabajo IS NOT NULL"
+            sql_fb += " ORDER BY fecha ASC"
+            cur.execute(sql_fb, params_fb)
+            rows = cur.fetchall() or []
         cur.close()
         conn.close()
-        return jsonify({'success': True, 'rutas': data})
+        rutas = []
+        prev = None
+        prev_day = None
+        empresa_lat = 4.680969
+        empresa_lon = -74.094884
+        for r in rows:
+            f = r['fecha']
+            d = f.date() if hasattr(f, 'date') else f
+            if prev is None:
+                tip = None
+                est = (r.get('estado') or '').strip().upper()
+                if est == 'CANCELADO':
+                    tip = 'Cancelado'
+                elif est in ('COMPLETADO','OK'):
+                    tip = 'Completado'
+                elif est in ('NO COMPLETADO','NO-COMPLETADO'):
+                    tip = 'No completado'
+                else:
+                    tip = ''
+                rutas.append({
+                    'lat_inicio': empresa_lat,
+                    'lon_inicio': empresa_lon,
+                    'lat_fin': float(r['lat']) if r['lat'] is not None else None,
+                    'lon_fin': float(r['lon']) if r['lon'] is not None else None,
+                    'fecha': d.strftime('%Y-%m-%d') if hasattr(d, 'strftime') else str(d),
+                    'hora': (r.get('ventana') or (f.strftime('%H:%M') if hasattr(f, 'strftime') else '')),
+                    'orden_de_trabajo': r.get('orden_de_trabajo'),
+                    'tip_estado': tip,
+                    'cuenta': r.get('cuenta')
+                })
+                prev = (r['lat'], r['lon'])
+                prev_day = d
+                continue
+            if prev_day != d:
+                tip = None
+                est = (r.get('estado') or '').upper()
+                conf = (r.get('conf') or '').upper()
+                cierre = (r.get('cierre') or '').upper()
+                if est == 'CANCELADO':
+                    tip = 'Cancelado'
+                elif est in ('OK','COMPLETADO','FINALIZADO') or conf in ('SI','SI ') or cierre in ('SI','SI '):
+                    tip = 'Completado'
+                else:
+                    tip = 'No completado'
+                rutas.append({
+                    'lat_inicio': empresa_lat,
+                    'lon_inicio': empresa_lon,
+                    'lat_fin': float(r['lat']) if r['lat'] is not None else None,
+                    'lon_fin': float(r['lon']) if r['lon'] is not None else None,
+                    'fecha': d.strftime('%Y-%m-%d') if hasattr(d, 'strftime') else str(d),
+                    'hora': (r.get('ventana') or (f.strftime('%H:%M') if hasattr(f, 'strftime') else '')),
+                    'orden_de_trabajo': r.get('orden_de_trabajo'),
+                    'tip_estado': tip,
+                    'cuenta': r.get('cuenta')
+                })
+                prev = (r['lat'], r['lon'])
+                prev_day = d
+                continue
+            tip = None
+            est = (r.get('estado') or '').strip().upper()
+            if est == 'CANCELADO':
+                tip = 'Cancelado'
+            elif est in ('COMPLETADO','OK'):
+                tip = 'Completado'
+            elif est in ('NO COMPLETADO','NO-COMPLETADO'):
+                tip = 'No completado'
+            else:
+                tip = ''
+            rutas.append({
+                'lat_inicio': float(prev[0]) if prev and prev[0] is not None else None,
+                'lon_inicio': float(prev[1]) if prev and prev[1] is not None else None,
+                'lat_fin': float(r['lat']) if r['lat'] is not None else None,
+                'lon_fin': float(r['lon']) if r['lon'] is not None else None,
+                'fecha': d.strftime('%Y-%m-%d') if hasattr(d, 'strftime') else str(d),
+                'hora': (r.get('ventana') or (f.strftime('%H:%M') if hasattr(f, 'strftime') else '')),
+                'orden_de_trabajo': r.get('orden_de_trabajo'),
+                'tip_estado': tip,
+                'cuenta': r.get('cuenta')
+            })
+            prev = (r['lat'], r['lon'])
+        
+        return jsonify({'success': True, 'rutas': rutas})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 

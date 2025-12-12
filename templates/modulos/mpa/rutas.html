@@ -31,6 +31,22 @@
                   </select>
                 </div>
                 <div>
+                  <label class="form-label">Estado</label>
+                  <select id="estadoSelect" class="form-select"></select>
+                </div>
+                <div>
+                  <label class="form-label">Período</label>
+                  <select id="periodoSelect" class="form-select">
+                    <option value="dia" selected>Día</option>
+                    <option value="semana">Semana</option>
+                    <option value="mes">Mes</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Fecha</label>
+                  <input type="date" id="fechaFiltro" class="form-control">
+                </div>
+                <div>
                   <label class="form-label">Accidente</label>
                   <select id="tipoAccSelect" class="form-select">
                     <option value="todos" selected>Todos</option>
@@ -38,15 +54,6 @@
                     <option value="automóvil">Automóvil</option>
                     <option value="bicicleta">Bicicleta</option>
                     <option value="peatón">Peatón</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="form-label">Meses</label>
-                  <select id="mesesSelect" class="form-select">
-                    <option value="3">3</option>
-                    <option value="6">6</option>
-                    <option value="12" selected>12</option>
-                    <option value="24">24</option>
                   </select>
                 </div>
                 <div>
@@ -87,7 +94,7 @@ function clearLayers() {
   layers.forEach(l => map.removeLayer(l));
   layers = [];
 }
-async function drawRoadRoute(start, end) {
+async function drawRoadRoute(start, end, isReturn = false) {
   const s = { lat: start[0], lon: start[1] };
   const e = { lat: end[0], lon: end[1] };
   const motor = document.getElementById('motorSelect').value;
@@ -98,7 +105,7 @@ async function drawRoadRoute(start, end) {
       const points = d.polyline || '';
       if (d.success && points) {
         const latlngs = decodePolyline(points).map(p => [p[0], p[1]]);
-        const pl = L.polyline(latlngs, { color: '#0d6efd', weight: 3, opacity: 0.9 });
+        const pl = L.polyline(latlngs, { color: (isReturn ? '#dc3545' : '#0d6efd'), weight: 3, opacity: 0.9 });
         pl.addTo(map);
         layers.push(pl);
         return true;
@@ -112,14 +119,14 @@ async function drawRoadRoute(start, end) {
       const coords = (d.routes && d.routes[0] && d.routes[0].geometry && d.routes[0].geometry.coordinates) || [];
       if (coords.length > 0) {
         const latlngs = coords.map(c => [c[1], c[0]]);
-        const pl = L.polyline(latlngs, { color: '#1f7a8c', weight: 3, opacity: 0.9 });
+        const pl = L.polyline(latlngs, { color: (isReturn ? '#dc3545' : '#1f7a8c'), weight: 3, opacity: 0.9 });
         pl.addTo(map);
         layers.push(pl);
         return true;
       }
     } catch (e) {}
   }
-  const line = L.polyline([start, end], { color: '#667eea', weight: 3, opacity: 0.7 });
+  const line = L.polyline([start, end], { color: (isReturn ? '#dc3545' : '#667eea'), weight: 3, opacity: 0.7 });
   line.addTo(map);
   layers.push(line);
   return false;
@@ -147,8 +154,42 @@ function decodePolyline(str) {
   }
   return coordinates;
 }
+async function loadEstados() {
+  try {
+    const res = await fetch('/api/mpa/rutas/estados');
+    const data = await res.json();
+    const sel = document.getElementById('estadoSelect');
+    sel.innerHTML = '';
+    const optAll = document.createElement('option');
+    optAll.value = '';
+    optAll.textContent = 'Todos';
+    sel.appendChild(optAll);
+    if (data.success && Array.isArray(data.estados) && data.estados.length) {
+      data.estados.forEach(e => {
+        const o = document.createElement('option');
+        o.value = e;
+        o.textContent = e;
+        sel.appendChild(o);
+      });
+    } else {
+      ['COMPLETADO','NO COMPLETADO','CANCELADO','OK'].forEach(e => {
+        const o = document.createElement('option');
+        o.value = e;
+        o.textContent = e;
+        sel.appendChild(o);
+      });
+    }
+  } catch (e) {}
+}
 async function loadTecnicos() {
-  const res = await fetch('/api/mpa/rutas/tecnicos');
+  const estado = document.getElementById('estadoSelect').value || '';
+  const periodo = document.getElementById('periodoSelect').value || 'dia';
+  const fecha = document.getElementById('fechaFiltro').value || '';
+  const params = new URLSearchParams({});
+  if (estado) params.set('estado', estado);
+  if (periodo) params.set('periodo', periodo);
+  if (fecha) params.set('fecha', fecha);
+  const res = await fetch(`/api/mpa/rutas/tecnicos?${params.toString()}`);
   const data = await res.json();
   const sel = document.getElementById('tecnicoSelect');
   sel.innerHTML = '';
@@ -165,21 +206,43 @@ async function verRutas() {
   const cedula = document.getElementById('tecnicoSelect').value;
   if (!cedula) return;
   document.getElementById('status').textContent = '';
-  const res = await fetch(`/api/mpa/rutas/por-tecnico?cedula=${encodeURIComponent(cedula)}`);
+  const estado = document.getElementById('estadoSelect').value || '';
+  const periodo = document.getElementById('periodoSelect').value || 'dia';
+  const fecha = document.getElementById('fechaFiltro').value || '';
+  const params = new URLSearchParams({ cedula });
+  if (estado) params.set('estado', estado);
+  if (periodo) params.set('periodo', periodo);
+  if (fecha) params.set('fecha', fecha);
+  const res = await fetch(`/api/mpa/rutas/por-tecnico?${params.toString()}`);
   const data = await res.json();
   clearLayers();
   if (data.success) {
     const modoVial = document.getElementById('modoVial').checked;
     const maxRutas = parseInt(document.getElementById('maxRutas').value || '50', 10);
     const lista = data.rutas.slice(0, Math.max(1, Math.min(300, maxRutas)));
+    const tecnicoSel = document.getElementById('tecnicoSelect');
+    const tecnicoName = tecnicoSel.selectedOptions && tecnicoSel.selectedOptions[0] ? (tecnicoSel.selectedOptions[0].textContent.split('(')[0].trim()) : '';
+    const totalPorDia = {};
+    for (const r of lista) {
+      const key = r.fecha;
+      totalPorDia[key] = (totalPorDia[key] || 0) + 1;
+    }
+    const visitasPorDia = {};
     for (const r of lista) {
       const start = [r.lat_inicio, r.lon_inicio];
       const end = [r.lat_fin, r.lon_fin];
-      const m1 = L.circleMarker(start, { radius: 5, color: '#28a745' });
-      const m2 = L.circleMarker(end, { radius: 5, color: '#dc3545' });
-      m1.addTo(map);
+      const key = r.fecha;
+      const idx = (visitasPorDia[key] || 0) + 1;
+      visitasPorDia[key] = idx;
+      const firstLast = (idx === 1 ? ' • Primera visita' : (idx === totalPorDia[key] ? ' • Última visita' : ''));
+      const isFirst = idx === 1;
+      const m2 = L.circleMarker(end, { radius: isFirst ? 7 : 6, color: isFirst ? '#ffc107' : '#dc3545', fillColor: isFirst ? '#ffc107' : '#dc3545', fillOpacity: 1, weight: isFirst ? 3 : 1 });
       m2.addTo(map);
-      layers.push(m1, m2);
+      layers.push(m2);
+      m2.bindTooltip(String(idx), { permanent: true, direction: 'center', className: isFirst ? 'visit-label-first' : 'visit-label' });
+      const contenido = `Visita ${idx}${firstLast}<br>OT: ${r.orden_de_trabajo || ''}<br>Cuenta: ${r.cuenta || ''}<br>Técnico: ${tecnicoName}<br>Fecha: ${r.fecha || ''}<br>Hora: ${r.hora || ''}<br>Estado: ${(r.tip_estado || r.estado || '')}`;
+      m2.bindPopup(contenido);
+      m2.on('click', () => m2.openPopup());
       if (modoVial) {
         await drawRoadRoute(start, end);
         await new Promise(res => setTimeout(res, 100));
@@ -203,7 +266,7 @@ async function toggleRiesgo() {
     heatLayer = null;
   }
   const bounds = map.getBounds();
-  const meses = document.getElementById('mesesSelect').value || 12;
+  const meses = 12;
   const params = new URLSearchParams({
     min_lat: bounds.getSouth(),
     min_lon: bounds.getWest(),
@@ -244,9 +307,15 @@ async function toggleRiesgo() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initMap();
-  loadTecnicos();
+  loadEstados().then(loadTecnicos);
   document.getElementById('verRutasBtn').addEventListener('click', verRutas);
   document.getElementById('cargarRutasBtn').addEventListener('click', cargarRutas);
+  const f = document.getElementById('fechaFiltro');
+  if (f && !f.value) { f.value = new Date().toISOString().slice(0,10); }
+  ['estadoSelect','periodoSelect','fechaFiltro'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', loadTecnicos);
+  });
   const riesgoBtn = document.createElement('button');
   riesgoBtn.id = 'riesgoBtn';
   riesgoBtn.className = 'btn btn-outline-danger';
@@ -256,23 +325,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelector('.col-md-4.d-flex.align-items-end.gap-2').appendChild(riesgoBtn);
   toggleRiesgo();
   document.getElementById('riesgoBtn').className = 'btn btn-danger';
-  document.getElementById('mesesSelect').addEventListener('change', () => { if (heatLayer) toggleRiesgo(); });
   document.getElementById('tipoAccSelect').addEventListener('change', () => { if (heatLayer) toggleRiesgo(); });
   document.getElementById('intensidadRange').addEventListener('input', () => { if (heatLayer) toggleRiesgo(); });
-  const locBtn = document.createElement('button');
-  locBtn.id = 'locBtn';
-  locBtn.className = 'btn btn-outline-danger';
-  locBtn.textContent = 'Riesgo por localidad';
-  locBtn.style.marginLeft = '8px';
-  locBtn.addEventListener('click', toggleLocalidadRisk);
-  document.querySelector('.col-md-4.d-flex.align-items-end.gap-2').appendChild(locBtn);
-  const bordersBtn = document.createElement('button');
-  bordersBtn.id = 'bordersBtn';
-  bordersBtn.className = 'btn btn-outline-secondary';
-  bordersBtn.textContent = 'Fronteras localidades';
-  bordersBtn.style.marginLeft = '8px';
-  bordersBtn.addEventListener('click', toggleLocalidadBorders);
-  document.querySelector('.col-md-4.d-flex.align-items-end.gap-2').appendChild(bordersBtn);
 });
 
 let localidadLayer = null;
@@ -417,4 +471,8 @@ async function cargarRutas() {
 }
 
 </script>
+<style>
+.leaflet-tooltip.visit-label{background:#0d6efd;color:#fff;border:none;border-radius:50%;box-shadow:none;font-weight:700;padding:2px 6px}
+.leaflet-tooltip.visit-label-first{background:#ffc107;color:#000;border:none;border-radius:50%;box-shadow:none;font-weight:700;padding:2px 6px}
+</style>
 {% endblock %}

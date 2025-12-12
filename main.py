@@ -138,7 +138,7 @@ from app import api_list_tecnico_mecanica, api_get_tecnico_mecanica, api_create_
 from app import api_list_licencias_conducir, api_get_licencia_conducir, api_create_licencia_conducir, api_update_licencia_conducir, api_delete_licencia_conducir
 from app import api_import_vehiculos_excel, api_import_tecnico_mecanica_excel, api_import_soat_excel, api_import_licencias_excel
 from app import api_cronograma_alerts_my
-from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas_por_tecnico, api_google_directions_route, api_riesgo_motos, api_riesgo_por_localidad, api_localidades, api_riesgo_importar
+from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas_por_tecnico, api_google_directions_route, api_riesgo_motos, api_riesgo_por_localidad, api_localidades, api_riesgo_importar, api_rutas_estados
 
 # Importar módulo de dotaciones
 from dotaciones_api import registrar_rutas_dotaciones
@@ -198,6 +198,7 @@ app.route('/api/mpa/cronograma/alerts-my', methods=['GET'])(api_cronograma_alert
 app.route('/api/mpa/categorias-mantenimiento/<tipo_vehiculo>', methods=['GET'])(api_get_categorias_mantenimiento)
 app.route('/api/mpa/mantenimientos/upload-image', methods=['POST'])(api_upload_mantenimiento_image)
 app.route('/api/mpa/vehiculos/import-excel', methods=['POST'])(api_import_vehiculos_excel)
+app.route('/api/mpa/rutas/estados', methods=['GET'])(api_rutas_estados)
 app.route('/api/mpa/tecnico_mecanica/import-excel', methods=['POST'])(api_import_tecnico_mecanica_excel)
 app.route('/api/mpa/soat/import-excel', methods=['POST'])(api_import_soat_excel)
 app.route('/api/mpa/licencias-conducir/import-excel', methods=['POST'])(api_import_licencias_excel)
