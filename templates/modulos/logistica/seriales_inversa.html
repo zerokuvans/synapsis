@@ -59,6 +59,11 @@
               </select>
             </div>
             <div class="col-md-3">
+              <select id="filtroSuper" class="form-select">
+                <option value="">Todos los supervisores</option>
+              </select>
+            </div>
+            <div class="col-md-3">
               <input id="filtroDesde" type="date" class="form-control" placeholder="Desde">
             </div>
             <div class="col-md-3">
@@ -108,6 +113,7 @@
         data: function(d){
           d.tecnico = document.getElementById('filtroTecnico').value || '';
           d.observacion_diana = document.getElementById('filtroObservacion').value || '';
+          d.supervisor = document.getElementById('filtroSuper').value || '';
           d.fecha_desde = document.getElementById('filtroDesde').value || '';
           d.fecha_hasta = document.getElementById('filtroHasta').value || '';
           return d;
@@ -137,10 +143,14 @@
     fetch('/logistica/seriales_inversa/observaciones', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(r => r.json())
       .then(j => { if (j && j.success && Array.isArray(j.observaciones)){ var so = document.getElementById('filtroObservacion'); j.observaciones.forEach(function(o){ var opt = document.createElement('option'); opt.value=o; opt.textContent=o; so.appendChild(opt); }); } });
+    fetch('/logistica/seriales_inversa/supervisores', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(r => r.json())
+      .then(j => { if (j && j.success && Array.isArray(j.supervisores)){ var ss = document.getElementById('filtroSuper'); j.supervisores.forEach(function(sv){ var opt = document.createElement('option'); opt.value=sv; opt.textContent=sv; ss.appendChild(opt); }); } });
     document.getElementById('btnBuscar').addEventListener('click', function(){ dt.ajax.reload(); });
-    document.getElementById('btnLimpiar').addEventListener('click', function(){ document.getElementById('filtroTecnico').value=''; document.getElementById('filtroObservacion').value=''; document.getElementById('filtroDesde').value=''; document.getElementById('filtroHasta').value=''; dt.ajax.reload(); });
+    document.getElementById('btnLimpiar').addEventListener('click', function(){ document.getElementById('filtroTecnico').value=''; document.getElementById('filtroObservacion').value=''; document.getElementById('filtroSuper').value=''; document.getElementById('filtroDesde').value=''; document.getElementById('filtroHasta').value=''; dt.ajax.reload(); });
     document.getElementById('filtroTecnico').addEventListener('change', function(){ dt.ajax.reload(); });
     document.getElementById('filtroObservacion').addEventListener('change', function(){ dt.ajax.reload(); });
+    document.getElementById('filtroSuper').addEventListener('change', function(){ dt.ajax.reload(); });
     document.getElementById('filtroDesde').addEventListener('change', function(){ dt.ajax.reload(); });
     document.getElementById('filtroHasta').addEventListener('change', function(){ dt.ajax.reload(); });
     var input = document.getElementById('archivoBase');

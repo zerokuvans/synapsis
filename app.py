@@ -3412,6 +3412,11 @@ def api_export_vehiculos():
         where = []
         params = []
         where.append("v.estado = 'Activo'")
+        presentado_dico_param = (request.args.get('presentado_dico') or request.args.get('presentados_dico') or '').strip().lower()
+        apply_presentados = presentado_dico_param in ('si','true','1','yes')
+        if apply_presentados:
+            where.append("ro.estado = 'Activo'")
+            where.append("ro.presentado_dico = 'SI'")
         if placa:
             where.append("v.placa = %s")
             params.append(placa)

@@ -28,6 +28,10 @@
                             </button>
                             <select id="filterTechnician" class="form-select" style="max-width:220px"></select>
                             <input type="text" id="exportPlaca" class="form-control" placeholder="Filtrar por placa" style="max-width:180px">
+                            <div class="form-check align-self-center me-2">
+                                <input class="form-check-input" type="checkbox" id="chkPresentadosDico">
+                                <label class="form-check-label" for="chkPresentadosDico">Presentados Dico</label>
+                            </div>
                             <button type="button" class="btn btn-outline-secondary" onclick="exportVehiclesCSV()">
                                 <i class="fas fa-file-csv me-2"></i>Exportar CSV
                             </button>
@@ -321,10 +325,12 @@ document.addEventListener('DOMContentLoaded', function() {
 function exportVehiclesCSV() {
     const placa = (document.getElementById('exportPlaca')?.value || '').trim().toUpperCase();
     const tecnico = (document.getElementById('filterTechnician')?.value || '').trim();
+    const presentados = !!document.getElementById('chkPresentadosDico')?.checked;
     let url = '/api/mpa/vehiculos/export';
     const params = [];
     if (placa) params.push(`placa=${encodeURIComponent(placa)}`);
     if (tecnico) params.push(`tecnico=${encodeURIComponent(tecnico)}`);
+    if (presentados) params.push(`presentado_dico=SI`);
     if (params.length) url += `?${params.join('&')}`;
     window.location.href = url;
 }

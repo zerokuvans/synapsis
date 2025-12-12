@@ -309,6 +309,16 @@
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
+                            <label for="edit_presentado_dico" class="form-label">Presentado Dico</label>
+                            <select class="form-select" id="edit_presentado_dico" name="presentado_dico">
+                                <option value="">Seleccione una opción</option>
+                                <option value="SI">Si</option>
+                                <option value="NO">No</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
                             <label for="edit_analista" class="form-label">Analista</label>
                             <select class="form-select" id="edit_analista" name="analista">
                                 <option value="">Seleccione un analista</option>
@@ -1285,6 +1295,7 @@
                 establecerValorDropdown('edit_ciudad', data.ciudad);
                 establecerValorDropdown('edit_super', data.super);
                 establecerValorDropdown('edit_analista', data.analista);
+                establecerValorDropdown('edit_presentado_dico', data.presentado_dico);
                 
                 // Establecer los valores de las fechas con validación mejorada
                 console.log('🗓️ Procesando fechas del usuario:', {

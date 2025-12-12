@@ -14594,7 +14594,8 @@ def obtener_usuario(id):
                 super,
                 analista,
                 fecha_ingreso,
-                fecha_retiro
+                fecha_retiro,
+                presentado_dico
             FROM recurso_operativo 
             WHERE id_codigo_consumidor = %s
         """, (id,))
@@ -14738,6 +14739,7 @@ def actualizar_usuario():
         analista = request.form.get('analista', '')
         fecha_ingreso = request.form.get('fecha_ingreso', '')
         fecha_retiro = request.form.get('fecha_retiro', '')
+        presentado_dico = request.form.get('presentado_dico', '')
         
         # Validar datos requeridos
         if not all([id_codigo_consumidor, recurso_operativo_cedula, nombre, id_roles]):
@@ -14763,7 +14765,8 @@ def actualizar_usuario():
             'super = %s',
             'analista = %s',
             'fecha_ingreso = %s',
-            'fecha_retiro = %s'
+            'fecha_retiro = %s',
+            'presentado_dico = %s'
         ]
         
         values = [
@@ -14778,7 +14781,8 @@ def actualizar_usuario():
             super_valor,
             analista,
             fecha_ingreso if fecha_ingreso else None,
-            fecha_retiro if fecha_retiro else None
+            fecha_retiro if fecha_retiro else None,
+            presentado_dico
         ]
         
         # Si se proporciona una nueva contraseña, agregarla a la actualización
@@ -20273,6 +20277,7 @@ def logistica_seriales_inversa_list():
         start = int(request.args.get('start', '0'))
         tecnico = (request.args.get('tecnico') or '').strip()
         observacion_diana = (request.args.get('observacion_diana') or '').strip()
+        supervisor = (request.args.get('supervisor') or request.args.get('super') or '').strip()
         fecha_desde = (request.args.get('fecha_desde') or '').strip()
         fecha_hasta = (request.args.get('fecha_hasta') or '').strip()
 
@@ -20345,6 +20350,9 @@ def logistica_seriales_inversa_list():
         if observacion_diana:
             where.append(f"si.{obs_col} = %s")
             params.append(observacion_diana)
+        if supervisor:
+            where.append("si.super = %s")
+            params.append(supervisor)
         if fecha_desde:
             where.append(f"DATE({date_col}) >= %s")
             params.append(fecha_desde)
@@ -20429,6 +20437,21 @@ def logistica_seriales_inversa_observaciones():
         values = [r[0] for r in cur.fetchall() if r and r[0]]
         cur.close(); conn.close()
         return jsonify({'success': True, 'observaciones': values})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/logistica/seriales_inversa/supervisores', methods=['GET'])
+@login_required_api(role='logistica')
+def logistica_seriales_inversa_supervisores():
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT super FROM seriales_inversa WHERE super IS NOT NULL AND TRIM(super) != '' ORDER BY super")
+        values = [r[0] for r in cur.fetchall() if r and r[0]]
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'supervisores': values})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
