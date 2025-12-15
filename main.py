@@ -3122,7 +3122,7 @@ def api_analistas_actividades_diarias_list():
             cursor.execute(sql, tuple(cedulas) + tuple(params))
             base_rows = cursor.fetchall()
             now = datetime.now(TIMEZONE)
-            bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 10, 12, 0, 0))
+            bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 16, 0, 0, 0))
             for r in base_rows:
                 cid = str(r.get('external_id')) if r.get('external_id') is not None else ''
                 r['tecnico'] = nombres_map.get(cid, '')
@@ -4175,7 +4175,7 @@ def api_analistas_actividad_cierre():
                 except Exception:
                     act_date = None
                 now = datetime.now(TIMEZONE)
-                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 10, 12, 0, 0))
+                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 16, 0, 0, 0))
                 if now >= bloqueo_inicio and act_date:
                     dnext = act_date + timedelta(days=1)
                     cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
@@ -4368,7 +4368,7 @@ def api_analistas_actividad_razon():
                 except Exception:
                     act_date = None
                 now = datetime.now(TIMEZONE)
-                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 10, 12, 0, 0))
+                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 16, 0, 0, 0))
                 if now >= bloqueo_inicio and act_date:
                     dnext = act_date + timedelta(days=1)
                     cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
@@ -4549,7 +4549,7 @@ def api_analistas_actividad_cancelado():
                 except Exception:
                     act_date = None
                 now = datetime.now(TIMEZONE)
-                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 10, 12, 0, 0))
+                bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 16, 0, 0, 0))
                 if now >= bloqueo_inicio and act_date:
                     dnext = act_date + timedelta(days=1)
                     cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
