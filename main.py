@@ -20496,6 +20496,84 @@ def logistica_seriales_inversa_supervisores():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/logistica/seriales_inversa/update_observacion', methods=['POST'])
+@login_required_api(role='logistica')
+def logistica_seriales_inversa_update_observacion():
+    try:
+        data = None
+        try:
+            data = request.get_json(silent=True) or {}
+        except Exception:
+            data = {}
+        rid = request.form.get('id') or data.get('id')
+        serial = request.form.get('serial_rr') or data.get('serial_rr')
+        obs = request.form.get('observacion_diana') or data.get('observacion_diana') or request.form.get('opservacion_diana') or data.get('opservacion_diana')
+        if not obs or str(obs).strip() == '':
+            return jsonify({'success': False, 'message': 'Observación requerida'}), 400
+        rid_val = None
+        try:
+            rid_val = int(str(rid).strip())
+        except Exception:
+            rid_val = None
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        pk_name = None
+        try:
+            curp = conn.cursor(dictionary=True)
+            curp.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'id'")
+            if curp.fetchone():
+                pk_name = 'id'
+            else:
+                curp.execute("SHOW KEYS FROM seriales_inversa WHERE Key_name='PRIMARY'")
+                pk = curp.fetchone()
+                if pk and pk.get('Column_name'):
+                    pk_name = pk['Column_name']
+                else:
+                    for alt in ('id_inversa','id_seriales_inversa','idseriales_inversa'):
+                        curp.execute(f"SHOW COLUMNS FROM seriales_inversa LIKE '{alt}'")
+                        if curp.fetchone():
+                            pk_name = alt
+                            break
+            curp.close()
+        except Exception:
+            pk_name = None
+        obs_col = None
+        try:
+            cur0 = conn.cursor()
+            cur0.execute("SHOW COLUMNS FROM seriales_inversa")
+            cols = [r[0] for r in cur0.fetchall()]
+            cur0.close()
+            for cname in cols:
+                cn = str(cname or '').strip().lower()
+                if cn == 'observacion_diana' or cn == 'opservacion_diana':
+                    obs_col = cname
+                    break
+        except Exception:
+            obs_col = None
+        if not obs_col:
+            obs_col = 'observacion_diana'
+        cur = conn.cursor()
+        updated = 0
+        if rid_val is not None and pk_name:
+            cur.execute(f"UPDATE seriales_inversa SET {obs_col}=%s WHERE {pk_name}=%s", (str(obs).strip(), rid_val))
+            updated = cur.rowcount
+        elif serial:
+            cur.execute(f"UPDATE seriales_inversa SET {obs_col}=%s WHERE serial_rr=%s", (str(obs).strip(), serial))
+            updated = cur.rowcount
+        else:
+            cur.close(); conn.close()
+            return jsonify({'success': False, 'message': 'ID o serial requerido'}), 400
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'updated': updated})
+    except Exception as e:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/logistica/seriales_inversa/delete', methods=['POST'])
 @login_required_api(role='logistica')
 def logistica_seriales_inversa_delete():
@@ -20881,6 +20959,64 @@ def logistica_seriales_inversa_pending_summary():
                 'unlock_expires_at': exp_str,
                 'extensiones_mes': int(r.get('extensiones_mes') or 0),
                 'ultimo_por': r.get('ultimo_por')
+            })
+        return jsonify({'success': True, 'items': data})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/logistica/seriales_inversa/supervisor_summary', methods=['GET'])
+@login_required_api(role='logistica')
+def logistica_seriales_inversa_supervisor_summary():
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        # Detectar columna de observación
+        obs_col = None
+        try:
+            cur0 = conn.cursor()
+            cur0.execute("SHOW COLUMNS FROM seriales_inversa")
+            all_cols = [row[0] for row in cur0.fetchall()]
+            cur0.close()
+            for cname in all_cols:
+                cn = str(cname or '').strip().lower()
+                if cn == 'observacion_diana' or cn == 'opservacion_diana':
+                    obs_col = cname
+                    break
+        except Exception:
+            obs_col = 'observacion_diana'
+        if not obs_col:
+            obs_col = 'observacion_diana'
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            f"""
+            SELECT 
+                COALESCE(TRIM(ro.super), '') AS supervisor,
+                COUNT(*) AS cantidad_total,
+                COUNT(DISTINCT CASE WHEN (si.{obs_col} IS NULL OR UPPER(si.{obs_col}) LIKE '%%PENDIENTE%%') THEN si.recurso_operativo_cedula END) AS tecnicos_con_pendientes,
+                SUM(CASE WHEN (si.{obs_col} IS NULL OR UPPER(si.{obs_col}) LIKE '%%PENDIENTE%%') THEN 1 ELSE 0 END) AS cantidad_pendientes,
+                SUM(CASE WHEN UPPER(si.{obs_col}) LIKE '%%ENTREG%%' OR UPPER(si.{obs_col}) LIKE '%%DEVUELT%%' THEN 1 ELSE 0 END) AS cantidad_entregado,
+                SUM(CASE WHEN UPPER(si.{obs_col}) LIKE '%%DESCONT%%' THEN 1 ELSE 0 END) AS cantidad_descontar,
+                SUM(CASE WHEN si.{obs_col} IS NOT NULL AND UPPER(si.{obs_col}) NOT LIKE '%%PENDIENTE%%' AND UPPER(si.{obs_col}) NOT LIKE '%%ENTREG%%' AND UPPER(si.{obs_col}) NOT LIKE '%%DEVUELT%%' AND UPPER(si.{obs_col}) NOT LIKE '%%DESCONT%%' THEN 1 ELSE 0 END) AS otros_estados
+            FROM seriales_inversa AS si
+            JOIN recurso_operativo AS ro ON ro.recurso_operativo_cedula = si.recurso_operativo_cedula
+            GROUP BY supervisor
+            ORDER BY cantidad_pendientes DESC, supervisor ASC
+            """
+        )
+        rows = cur.fetchall() or []
+        cur.close(); conn.close()
+        # Asegurar tipos enteros
+        data = []
+        for r in rows:
+            data.append({
+                'supervisor': r.get('supervisor') or '',
+                'cantidad_total': int(r.get('cantidad_total') or 0),
+                'tecnicos_con_pendientes': int(r.get('tecnicos_con_pendientes') or 0),
+                'cantidad_pendientes': int(r.get('cantidad_pendientes') or 0),
+                'cantidad_entregado': int(r.get('cantidad_entregado') or 0),
+                'cantidad_descontar': int(r.get('cantidad_descontar') or 0),
+                'otros_estados': int(r.get('otros_estados') or 0)
             })
         return jsonify({'success': True, 'items': data})
     except Exception as e:

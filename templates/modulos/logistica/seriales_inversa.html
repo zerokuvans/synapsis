@@ -87,6 +87,7 @@
                 <th>serial_rr</th>
                 <th>tecnico</th>
                 <th>super</th>
+                <th>acciones</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -110,17 +111,61 @@
                 <tbody></tbody>
               </table>
             </div>
+            
+          </div>
+          <div class="mt-4">
+            <h5 class="mb-3"><i class="fas fa-users me-2"></i>Cantidad x supervisor</h5>
+            <div class="table-responsive">
+              <table class="table table-sm table-striped" id="tablaResumenSupervisores">
+                <thead>
+                  <tr>
+                    <th>supervisor</th>
+                    <th>técnicos con pendientes</th>
+                    <th>cantidad total</th>
+                    <th>cantidad pendientes</th>
+                    <th>cantidad entregado</th>
+                    <th>cantidad descontar</th>
+                    <th>otros estados</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
           </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
   var dt;
+  var pendientesItems = [];
+  var dtPendientes;
+  var observacionesLista = [];
+  var editObsCurrent = { id: null, serial: null };
+  var modalEditar = null;
+  function initPendientes(){
+    if ($.fn.DataTable.isDataTable('#tablaPendientesTecnicos')) return;
+    dtPendientes = $('#tablaPendientesTecnicos').DataTable({
+      paging: true,
+      pageLength: 10,
+      lengthMenu: [[10,25,50,100,200],[10,25,50,100,200]],
+      order: [[2, 'desc']],
+      data: pendientesItems,
+      columns: [
+        { data: 'tecnico_nombre', defaultContent: '' },
+        { data: 'supervisor', defaultContent: '' },
+        { data: 'cantidad', render: function(d,type){ return (type==='sort'||type==='type') ? Number(d||0) : String(d||0); } },
+        { data: 'unlock_expires_at', render: function(d,type){ return (type==='sort'||type==='type') ? (d||'') : (d ? (d + ' (Bogotá)') : ''); } },
+        { data: 'extensiones_mes', render: function(d,type){ return (type==='sort'||type==='type') ? Number(d||0) : String(d||0); } },
+        { data: 'ultimo_por', defaultContent: '' },
+        { data: null, orderable: false, render: function(_d,_t,row){ var dis = ((row.extensiones_mes||0) >= 2) ? 'disabled title="Límite mensual alcanzado"' : ''; var ced = row.cedula || ''; return '<button class="btn btn-sm btn-warning btn-unlock" data-cedula="'+ced+'" '+dis+'>Extender +24h</button>'; } }
+      ]
+    });
+  }
   function initTabla() {
     $.fn.dataTable.ext.errMode = 'throw';
     dt = $('#tablaSerialesInversa').DataTable({
@@ -151,7 +196,8 @@
         { data: 'observacion_diana' },
         { data: 'serial_rr' },
         { data: 'tecnico' },
-        { data: 'super' }
+        { data: 'super' },
+        { data: null, orderable: false, searchable: false, render: function(d,t,r){ var id = r.id || ''; var serial = r.serial_rr || ''; var obs = (r.observacion_diana || '').replace(/"/g,'&quot;'); return '<button class="btn btn-sm btn-primary si-edit-obs" data-id="'+id+'" data-serial="'+serial+'" data-obs="'+obs+'"><i class="fas fa-edit me-1"></i>Editar</button>'; } }
       ]
     });
   }
@@ -162,7 +208,7 @@
       .then(j => { if (j && j.success && Array.isArray(j.tecnicos)){ var sel = document.getElementById('filtroTecnico'); j.tecnicos.forEach(function(n){ var opt = document.createElement('option'); opt.value=n; opt.textContent=n; sel.appendChild(opt); }); } });
     fetch('/logistica/seriales_inversa/observaciones', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(r => r.json())
-      .then(j => { if (j && j.success && Array.isArray(j.observaciones)){ var so = document.getElementById('filtroObservacion'); j.observaciones.forEach(function(o){ var opt = document.createElement('option'); opt.value=o; opt.textContent=o; so.appendChild(opt); }); } });
+      .then(j => { if (j && j.success && Array.isArray(j.observaciones)){ observacionesLista = j.observaciones; var so = document.getElementById('filtroObservacion'); observacionesLista.forEach(function(o){ var opt = document.createElement('option'); opt.value=o; opt.textContent=o; so.appendChild(opt); }); var sel = document.getElementById('selObservacion'); if (sel){ sel.innerHTML = '<option value="">Selecciona...</option>'; observacionesLista.forEach(function(o){ var opt = document.createElement('option'); opt.value=o; opt.textContent=o; sel.appendChild(opt); }); } } });
     fetch('/logistica/seriales_inversa/supervisores', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(r => r.json())
       .then(j => { if (j && j.success && Array.isArray(j.supervisores)){ var ss = document.getElementById('filtroSuper'); j.supervisores.forEach(function(sv){ var opt = document.createElement('option'); opt.value=sv; opt.textContent=sv; ss.appendChild(opt); }); } });
@@ -196,38 +242,68 @@
       fetch('/logistica/seriales_inversa/pending_summary?_=' + Date.now(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
         .then(r => r.json())
         .then(j => {
-          var tbody = document.querySelector('#tablaPendientesTecnicos tbody');
+          pendientesItems = (j && j.items) ? j.items : [];
+          if (dtPendientes) { dtPendientes.clear().rows.add(pendientesItems).draw(); }
+          else { initPendientes(); }
+        })
+        .catch(function(){});
+    }
+    function cargarResumenSupervisores(){
+      fetch('/logistica/seriales_inversa/supervisor_summary?_=' + Date.now(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
+        .then(r => r.json())
+        .then(j => {
+          var tbody = document.querySelector('#tablaResumenSupervisores tbody');
           if (!tbody) return;
           tbody.innerHTML = '';
-          var items = (j && j.items) ? j.items : [];
-          items.forEach(function(row){
+          var rows = (j && j.items) ? j.items : [];
+          rows.forEach(function(r){
             var tr = document.createElement('tr');
-            var tdTec = document.createElement('td'); tdTec.textContent = row.tecnico_nombre || '';
-            var tdSup = document.createElement('td'); tdSup.textContent = row.supervisor || '';
-            var tdCnt = document.createElement('td'); tdCnt.textContent = String(row.cantidad || 0);
-            var tdExp = document.createElement('td'); tdExp.textContent = row.unlock_expires_at ? (row.unlock_expires_at + ' (Bogotá)') : '';
-            var tdExt = document.createElement('td'); tdExt.textContent = String(row.extensiones_mes || 0);
-            var tdUlt = document.createElement('td'); tdUlt.textContent = row.ultimo_por || '';
-            var tdAcc = document.createElement('td');
-            var btn = document.createElement('button');
-            btn.className = 'btn btn-sm btn-warning';
-            btn.textContent = 'Extender +24h';
-            if ((row.extensiones_mes || 0) >= 2){ btn.disabled = true; btn.title = 'Límite mensual alcanzado'; }
-            btn.addEventListener('click', function(){
-              var fd = new FormData(); fd.append('cedula', row.cedula || '');
-              fetch('/logistica/seriales_inversa/unlock?_=' + Date.now(), { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(r => r.json())
-                .then(x => { if (x && x.success){ Swal.fire('Listo','Se concedieron 24h adicionales','success'); cargarPendientesTecnicos(); if (dt) dt.ajax.reload(null, false); try { window.dispatchEvent(new CustomEvent('SI_UNLOCK_DONE')); } catch(e){} } else { Swal.fire('Error', (x && x.message) ? x.message : 'No se pudo desbloquear','error'); } })
-                .catch(() => Swal.fire('Error','Error de conexión','error'));
-            });
-            tdAcc.appendChild(btn);
-            tr.appendChild(tdTec); tr.appendChild(tdSup); tr.appendChild(tdCnt); tr.appendChild(tdExp); tr.appendChild(tdExt); tr.appendChild(tdUlt); tr.appendChild(tdAcc);
+            var tdSup = document.createElement('td'); tdSup.textContent = r.supervisor || '';
+            var tdTec = document.createElement('td'); tdTec.textContent = String(r.tecnicos_con_pendientes || 0);
+            var tdTot = document.createElement('td'); tdTot.textContent = String(r.cantidad_total || 0);
+            var tdPend = document.createElement('td'); tdPend.textContent = String(r.cantidad_pendientes || 0);
+            var tdEnt = document.createElement('td'); tdEnt.textContent = String(r.cantidad_entregado || 0);
+            var tdDesc = document.createElement('td'); tdDesc.textContent = String(r.cantidad_descontar || 0);
+            var tdOtros = document.createElement('td'); tdOtros.textContent = String(r.otros_estados || 0);
+            tr.appendChild(tdSup); tr.appendChild(tdTec); tr.appendChild(tdTot); tr.appendChild(tdPend); tr.appendChild(tdEnt); tr.appendChild(tdDesc); tr.appendChild(tdOtros);
             tbody.appendChild(tr);
           });
         })
         .catch(function(){});
     }
     cargarPendientesTecnicos();
+    cargarResumenSupervisores();
+    window.addEventListener('SI_UNLOCK_DONE', function(){ cargarPendientesTecnicos(); cargarResumenSupervisores(); });
+    $('#tablaPendientesTecnicos').on('click', '.btn-unlock', function(){ var ced = this.getAttribute('data-cedula') || ''; if (!ced) return; var fd = new FormData(); fd.append('cedula', ced); fetch('/logistica/seriales_inversa/unlock?_=' + Date.now(), { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } }).then(function(r){ return r.json(); }).then(function(x){ if (x && x.success){ Swal.fire('Listo','Se concedieron 24h adicionales','success'); cargarPendientesTecnicos(); if (dt) dt.ajax.reload(null, false); cargarResumenSupervisores(); try { window.dispatchEvent(new CustomEvent('SI_UNLOCK_DONE')); } catch(e){} } else { Swal.fire('Error', (x && x.message) ? x.message : 'No se pudo desbloquear','error'); } }).catch(function(){ Swal.fire('Error','Error de conexión','error'); }); });
+
+    $('#tablaSerialesInversa').on('click', '.si-edit-obs', function(){ var id = this.getAttribute('data-id'); var serial = this.getAttribute('data-serial'); var obs = this.getAttribute('data-obs'); editObsCurrent.id = id || null; editObsCurrent.serial = serial || null; var sel = document.getElementById('selObservacion'); var inp = document.getElementById('inputObservacionLibre'); if (sel){ if (!sel.options.length){ sel.innerHTML = '<option value="">Selecciona...</option>'; (observacionesLista||[]).forEach(function(o){ var opt = document.createElement('option'); opt.value=o; opt.textContent=o; sel.appendChild(opt); }); } sel.value = ''; } if (inp){ inp.value = ''; } if (obs){ if ((observacionesLista||[]).indexOf(obs) >= 0){ if (sel) sel.value = obs; if (inp) inp.value = ''; } else { if (sel) sel.value = ''; if (inp) inp.value = obs; } } modalEditar = new bootstrap.Modal(document.getElementById('modalEditarObs')); modalEditar.show(); });
+
+    var btnGo = document.getElementById('btnGuardarObs');
+    if (btnGo){ btnGo.addEventListener('click', function(){ var vsel = (document.getElementById('selObservacion')||{value:''}).value.trim(); var vtxt = (document.getElementById('inputObservacionLibre')||{value:''}).value.trim(); var nuevo = vtxt || vsel; if (!nuevo){ Swal.fire('Dato requerido','Ingresa la observación','warning'); return; } var fd = new FormData(); if (editObsCurrent.id) fd.append('id', editObsCurrent.id); if (editObsCurrent.serial) fd.append('serial_rr', editObsCurrent.serial); fd.append('observacion_diana', nuevo); fetch('/logistica/seriales_inversa/update_observacion', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } }).then(function(r){ return r.json(); }).then(function(j){ if (j && j.success){ try { if (modalEditar) modalEditar.hide(); } catch(e){} Swal.fire('Actualizado','Observación actualizada','success'); dt.ajax.reload(null, false); } else { Swal.fire('Error', (j && j.message) ? j.message : 'No se pudo actualizar','error'); } }).catch(function(){ Swal.fire('Error','Error de conexión','error'); }); }); }
   });
 </script>
+<div class="modal fade" id="modalEditarObs" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar observación</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Selecciona de la lista</label>
+          <select id="selObservacion" class="form-select"></select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">O escribe manualmente</label>
+          <input id="inputObservacionLibre" type="text" class="form-control" placeholder="Observación" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnGuardarObs">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
