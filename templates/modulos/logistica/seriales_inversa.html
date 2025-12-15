@@ -91,6 +91,26 @@
             </thead>
             <tbody></tbody>
           </table>
+          <hr class="my-4">
+          <div class="mt-3">
+            <h5 class="mb-3"><i class="fas fa-user-clock me-2"></i>Técnicos con pendientes</h5>
+            <div class="table-responsive">
+              <table class="table table-sm table-striped" id="tablaPendientesTecnicos">
+                <thead>
+                  <tr>
+                    <th>técnico</th>
+                    <th>supervisor</th>
+                    <th>pendientes</th>
+                    <th>desbloqueo hasta</th>
+                    <th>extensiones mes</th>
+                    <th>último por</th>
+                    <th>acción</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -171,6 +191,43 @@
         })
         .catch(() => Swal.fire('Error','Error de conexión','error'));
     });
+
+    function cargarPendientesTecnicos(){
+      fetch('/logistica/seriales_inversa/pending_summary?_=' + Date.now(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
+        .then(r => r.json())
+        .then(j => {
+          var tbody = document.querySelector('#tablaPendientesTecnicos tbody');
+          if (!tbody) return;
+          tbody.innerHTML = '';
+          var items = (j && j.items) ? j.items : [];
+          items.forEach(function(row){
+            var tr = document.createElement('tr');
+            var tdTec = document.createElement('td'); tdTec.textContent = row.tecnico_nombre || '';
+            var tdSup = document.createElement('td'); tdSup.textContent = row.supervisor || '';
+            var tdCnt = document.createElement('td'); tdCnt.textContent = String(row.cantidad || 0);
+            var tdExp = document.createElement('td'); tdExp.textContent = row.unlock_expires_at ? (row.unlock_expires_at + ' (Bogotá)') : '';
+            var tdExt = document.createElement('td'); tdExt.textContent = String(row.extensiones_mes || 0);
+            var tdUlt = document.createElement('td'); tdUlt.textContent = row.ultimo_por || '';
+            var tdAcc = document.createElement('td');
+            var btn = document.createElement('button');
+            btn.className = 'btn btn-sm btn-warning';
+            btn.textContent = 'Extender +24h';
+            if ((row.extensiones_mes || 0) >= 2){ btn.disabled = true; btn.title = 'Límite mensual alcanzado'; }
+            btn.addEventListener('click', function(){
+              var fd = new FormData(); fd.append('cedula', row.cedula || '');
+              fetch('/logistica/seriales_inversa/unlock?_=' + Date.now(), { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.json())
+                .then(x => { if (x && x.success){ Swal.fire('Listo','Se concedieron 24h adicionales','success'); cargarPendientesTecnicos(); if (dt) dt.ajax.reload(null, false); try { window.dispatchEvent(new CustomEvent('SI_UNLOCK_DONE')); } catch(e){} } else { Swal.fire('Error', (x && x.message) ? x.message : 'No se pudo desbloquear','error'); } })
+                .catch(() => Swal.fire('Error','Error de conexión','error'));
+            });
+            tdAcc.appendChild(btn);
+            tr.appendChild(tdTec); tr.appendChild(tdSup); tr.appendChild(tdCnt); tr.appendChild(tdExp); tr.appendChild(tdExt); tr.appendChild(tdUlt); tr.appendChild(tdAcc);
+            tbody.appendChild(tr);
+          });
+        })
+        .catch(function(){});
+    }
+    cargarPendientesTecnicos();
   });
 </script>
 {% endblock %}

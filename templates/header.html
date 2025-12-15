@@ -1278,31 +1278,32 @@
         if (path.includes('/login')) return;
         var isSupervisor = {{ 'true' if session.get('user_role') == 'operativo' else 'false' }};
         var supervisorName = "{{ (session.get('user_name') or '')|e }}";
-        function showPendientes(data){
+        function showPendientes(data, summary){
             var items = data.items || [];
             var html = '';
             if (isSupervisor) {
-                var counts = {}, display = {};
-                for (var i=0;i<items.length;i++){
-                    var nm = (items[i].tecnico_nombre || '').trim();
-                    if (!nm) continue;
-                    var key = nm.toLowerCase();
-                    counts[key] = (counts[key] || 0) + 1;
-                    if (!display[key]) display[key] = nm;
-                }
-                var entries = Object.keys(counts).map(function(k){ return { name: display[k], count: counts[k] }; });
-                entries.sort(function(a,b){ return (b.count - a.count) || a.name.localeCompare(b.name); });
+                var rows = (summary && summary.items) ? summary.items.slice() : [];
+                rows.sort(function(a,b){ return (Number(b.cantidad||0) - Number(a.cantidad||0)) || (String(a.tecnico_nombre||'').localeCompare(String(b.tecnico_nombre||''))); });
                 var table = '<div class="table-responsive d-none d-md-block"><table class="table table-sm table-striped">' +
-                    '<thead><tr><th>técnico</th><th>pendientes</th></tr></thead><tbody>';
-                entries.forEach(function(row){
-                    table += '<tr><td>'+row.name+'</td><td>'+row.count+'</td></tr>';
+                    '<thead><tr><th>técnico</th><th>pendientes</th><th>desbloqueo hasta</th><th>extensiones mes</th><th>último por</th></tr></thead><tbody>';
+                rows.forEach(function(r){
+                    table += '<tr>'+
+                        '<td>'+(r.tecnico_nombre||'')+'</td>'+
+                        '<td>'+String(r.cantidad||0)+'</td>'+
+                        '<td>'+(r.unlock_expires_at? (r.unlock_expires_at+' (Bogotá)') : '')+'</td>'+
+                        '<td>'+String(r.extensiones_mes||0)+'</td>'+
+                        '<td>'+(r.ultimo_por||'')+'</td>'+
+                    '</tr>';
                 });
                 table += '</tbody></table></div>';
                 var cards = '<div class="d-block d-md-none">';
-                entries.forEach(function(row){
+                rows.forEach(function(r){
                     cards += '<div class="card mb-2"><div class="card-body">'+
-                        '<div class="fw-semibold">'+row.name+'</div>'+ 
-                        '<div class="text-muted">Pendientes: '+row.count+'</div>'+ 
+                        '<div class="fw-semibold">'+(r.tecnico_nombre||'')+'</div>'+ 
+                        '<div class="text-muted">Pendientes: '+String(r.cantidad||0)+'</div>'+ 
+                        (r.unlock_expires_at? '<div class="text-muted">Desbloqueo: '+r.unlock_expires_at+' (Bogotá)</div>' : '')+
+                        '<div class="text-muted">Extensiones mes: '+String(r.extensiones_mes||0)+'</div>'+ 
+                        (r.ultimo_por? '<div class="text-muted">Último por: '+r.ultimo_por+'</div>' : '')+
                     '</div></div>';
                 });
                 cards += '</div>';
@@ -1405,19 +1406,29 @@
             }
         }
         window.SI_mostrarSerialesInversaPopup = function(){
-            fetch('/logistica/seriales_inversa/pending', {
+            var reqPending = fetch('/logistica/seriales_inversa/pending?_=' + Date.now(), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 credentials: 'same-origin',
                 cache: 'no-store'
-            })
-            .then(function(r){ return r.ok ? r.json() : r.json().catch(function(){ return {}; }); })
-            .then(function(j){
-                if (j && (j.count>0 || (j.items && j.items.length>0))){ showPendientes(j); }
+            }).then(function(r){ return r.ok ? r.json() : r.json().catch(function(){ return {}; }); }).catch(function(){ return {}; });
+            var reqSummary = fetch('/logistica/seriales_inversa/pending_summary?_=' + Date.now(), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+                cache: 'no-store'
+            }).then(function(r){ return r.ok ? r.json() : r.json().catch(function(){ return {}; }); }).catch(function(){ return {}; });
+            Promise.all([reqPending, reqSummary]).then(function(results){
+                var j = results[0] || {};
+                var s = results[1] || {};
+                if ((j && (j.count>0 || (j.items && j.items.length>0))) || (s && s.items && s.items.length>0)){
+                    showPendientes(j || {}, s || {});
+                }
                 updatePreoperacionalButtonStatus(j || {});
-            })
-            .catch(function(){});
+            }).catch(function(){});
         };
         document.addEventListener('DOMContentLoaded', function(){
+            window.SI_mostrarSerialesInversaPopup();
+        });
+        window.addEventListener('SI_UNLOCK_DONE', function(){
             window.SI_mostrarSerialesInversaPopup();
         });
     })();

@@ -20080,6 +20080,46 @@ def ensure_seriales_inversa_table():
 
 ensure_seriales_inversa_table()
 
+def ensure_seriales_inversa_unlocks_table():
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS seriales_inversa_unlocks (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                cedula VARCHAR(32) NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                extension_days INT NOT NULL DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_cedula (cedula),
+                INDEX idx_expires (expires_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        conn.commit()
+        try:
+            cur_cols = conn.cursor()
+            cur_cols.execute("SHOW COLUMNS FROM seriales_inversa_unlocks")
+            existing = {str(r[0]).strip().lower() for r in cur_cols.fetchall()}
+            cur_cols.close()
+            if 'granted_by_id' not in existing:
+                cur.execute("ALTER TABLE seriales_inversa_unlocks ADD COLUMN granted_by_id VARCHAR(32) NULL")
+            if 'granted_by_name' not in existing:
+                cur.execute("ALTER TABLE seriales_inversa_unlocks ADD COLUMN granted_by_name VARCHAR(128) NULL")
+            if 'granted_by_role' not in existing:
+                cur.execute("ALTER TABLE seriales_inversa_unlocks ADD COLUMN granted_by_role VARCHAR(64) NULL")
+            conn.commit()
+        except Exception:
+            pass
+        cur.close(); conn.close()
+    except Exception:
+        pass
+
+ensure_seriales_inversa_unlocks_table()
+
 @app.route('/logistica/seriales_inversa')
 @login_required()
 @role_required('logistica')
@@ -20613,6 +20653,7 @@ def logistica_seriales_inversa_pending():
         cols = [
             "si.serial_rr",
             "si.cuenta",
+            "si.recurso_operativo_cedula AS cedula",
             "si.lapso",
             "si.descripcion",
             f"si.{obs_col} AS observacion_diana"
@@ -20640,6 +20681,18 @@ def logistica_seriales_inversa_pending():
             params = tuple(cedulas_objetivo)
         cur.execute(sql, params)
         rows = cur.fetchall()
+        ext_map = {}
+        try:
+            if cedulas_objetivo:
+                placeholders = ",".join(["%s"] * len(cedulas_objetivo))
+                cur_ext = conn.cursor()
+                cur_ext.execute(f"SELECT cedula, MAX(expires_at) FROM seriales_inversa_unlocks WHERE expires_at > UTC_TIMESTAMP() AND cedula IN ({placeholders}) GROUP BY cedula", tuple(cedulas_objetivo))
+                for r0 in cur_ext.fetchall() or []:
+                    if r0 and r0[0]:
+                        ext_map[str(r0[0]).strip()] = r0[1]
+                cur_ext.close()
+        except Exception:
+            ext_map = {}
         cur.close(); conn.close()
 
         items = []
@@ -20699,6 +20752,20 @@ def logistica_seriales_inversa_pending():
                 except Exception:
                     pass
             dias_restantes = 2 - dias
+            try:
+                cdl = str(r.get('cedula') or '').strip()
+                dt_exp = ext_map.get(cdl)
+                if cdl and dt_exp:
+                    from datetime import datetime as _dt
+                    try:
+                        delta = dt_exp - _dt.utcnow()
+                        secs = max(0, delta.total_seconds())
+                        add_days = int((secs + 86399) // 86400)
+                        dias_restantes += add_days
+                    except Exception:
+                        dias_restantes += 1
+            except Exception:
+                pass
             items.append({
                 'serial_rr': r.get('serial_rr'),
                 'cuenta': r.get('cuenta'),
@@ -20717,6 +20784,168 @@ def logistica_seriales_inversa_pending():
             'items': items,
             'message': 'SERIALES PENDIENTES INVERSA POR FAVOR DEVOLVERLOS O SE BLOQUEARÁ PREOPERACIONAL EN 2 DÍAS'
         })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/logistica/seriales_inversa/pending_summary', methods=['GET'])
+@login_required_api(role='logistica')
+def logistica_seriales_inversa_pending_summary():
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        obs_col = None
+        try:
+            cur0 = conn.cursor()
+            cur0.execute("SHOW COLUMNS FROM seriales_inversa")
+            all_cols = [row[0] for row in cur0.fetchall()]
+            cur0.close()
+            for cname in all_cols:
+                cn = str(cname or '').strip().lower()
+                if cn == 'observacion_diana' or cn == 'opservacion_diana':
+                    obs_col = cname
+                    break
+        except Exception:
+            obs_col = 'observacion_diana'
+        if not obs_col:
+            obs_col = 'observacion_diana'
+
+        now_bog = datetime.now(TIMEZONE)
+        start_month_bog = TIMEZONE.localize(datetime(now_bog.year, now_bog.month, 1, 0, 0, 0))
+        if now_bog.month == 12:
+            next_month_bog = TIMEZONE.localize(datetime(now_bog.year + 1, 1, 1, 0, 0, 0))
+        else:
+            next_month_bog = TIMEZONE.localize(datetime(now_bog.year, now_bog.month + 1, 1, 0, 0, 0))
+        start_utc = start_month_bog.astimezone(pytz.UTC).replace(tzinfo=None)
+        end_utc = next_month_bog.astimezone(pytz.UTC).replace(tzinfo=None)
+
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            f"""
+            SELECT 
+                ro.nombre AS tecnico_nombre,
+                ro.super AS supervisor,
+                COUNT(*) AS cantidad,
+                si.recurso_operativo_cedula AS cedula,
+                act.max_exp AS active_expires_at,
+                cnt.cnt AS extensiones_mes,
+                last.granted_by_name AS ultimo_por
+            FROM seriales_inversa AS si
+            JOIN recurso_operativo AS ro ON ro.recurso_operativo_cedula = si.recurso_operativo_cedula
+            LEFT JOIN (
+                SELECT cedula, MAX(expires_at) AS max_exp
+                FROM seriales_inversa_unlocks
+                WHERE expires_at > UTC_TIMESTAMP()
+                GROUP BY cedula
+            ) AS act ON act.cedula = si.recurso_operativo_cedula
+            LEFT JOIN (
+                SELECT cedula, COUNT(*) AS cnt
+                FROM seriales_inversa_unlocks
+                WHERE created_at >= %s AND created_at < %s
+                GROUP BY cedula
+            ) AS cnt ON cnt.cedula = si.recurso_operativo_cedula
+            LEFT JOIN (
+                SELECT u.cedula, u.granted_by_name
+                FROM seriales_inversa_unlocks u
+                JOIN (
+                    SELECT cedula, MAX(created_at) AS max_created
+                    FROM seriales_inversa_unlocks
+                    GROUP BY cedula
+                ) um ON um.cedula = u.cedula AND um.max_created = u.created_at
+            ) AS last ON last.cedula = si.recurso_operativo_cedula
+            WHERE (si.{obs_col} IS NULL OR UPPER(si.{obs_col}) LIKE '%%PENDIENTE%%')
+            GROUP BY ro.nombre, ro.super, si.recurso_operativo_cedula, act.max_exp, cnt.cnt, last.granted_by_name
+            ORDER BY cantidad DESC
+            """,
+            (start_utc, end_utc)
+        )
+        rows = cur.fetchall() or []
+        cur.close(); conn.close()
+        data = []
+        for r in rows:
+            exp_str = None
+            try:
+                exp_dt = r.get('active_expires_at')
+                if exp_dt:
+                    if getattr(exp_dt, 'tzinfo', None) is None:
+                        exp_dt = pytz.UTC.localize(exp_dt)
+                    exp_str = exp_dt.astimezone(TIMEZONE).strftime('%Y-%m-%d %H:%M')
+            except Exception:
+                exp_str = None
+            data.append({
+                'tecnico_nombre': r.get('tecnico_nombre'),
+                'supervisor': r.get('supervisor'),
+                'cantidad': int(r.get('cantidad') or 0),
+                'cedula': r.get('cedula'),
+                'extension_activa': bool(r.get('active_expires_at') is not None),
+                'unlock_expires_at': exp_str,
+                'extensiones_mes': int(r.get('extensiones_mes') or 0),
+                'ultimo_por': r.get('ultimo_por')
+            })
+        return jsonify({'success': True, 'items': data})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/logistica/seriales_inversa/unlock', methods=['POST'])
+@login_required_api(role='logistica')
+def logistica_seriales_inversa_unlock():
+    try:
+        cedula = None
+        data = None
+        try:
+            data = request.get_json(silent=True) or {}
+        except Exception:
+            data = {}
+        cedula = (request.form.get('cedula') or data.get('cedula') or '').strip()
+        if not cedula:
+            return jsonify({'success': False, 'message': 'Cédula requerida'}), 400
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        # Límite: máximo 2 extensiones por mes (zona horaria Bogotá)
+        try:
+            now_bog = datetime.now(TIMEZONE)
+            start_month_bog = now_bog.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            if now_bog.month == 12:
+                next_month_bog = TIMEZONE.localize(datetime(now_bog.year + 1, 1, 1, 0, 0, 0))
+            else:
+                next_month_bog = TIMEZONE.localize(datetime(now_bog.year, now_bog.month + 1, 1, 0, 0, 0))
+            start_utc = start_month_bog.astimezone(pytz.UTC).replace(tzinfo=None)
+            end_utc = next_month_bog.astimezone(pytz.UTC).replace(tzinfo=None)
+            cur_cnt = conn.cursor()
+            cur_cnt.execute("SELECT COUNT(*) FROM seriales_inversa_unlocks WHERE cedula=%s AND created_at >= %s AND created_at < %s", (cedula, start_utc, end_utc))
+            cnt = (cur_cnt.fetchone() or [0])[0]
+            cur_cnt.close()
+            try:
+                cnt_val = int(cnt)
+            except Exception:
+                cnt_val = 0
+            if cnt_val >= 2:
+                conn.close()
+                return jsonify({'success': False, 'message': 'Máximo 2 extensiones por mes'}), 200
+        except Exception:
+            pass
+        cur = conn.cursor()
+        cur_max = conn.cursor()
+        cur_max.execute("SELECT MAX(expires_at) FROM seriales_inversa_unlocks WHERE cedula=%s AND expires_at > UTC_TIMESTAMP()", (cedula,))
+        row = cur_max.fetchone()
+        cur_max.close()
+        from datetime import datetime as _dt, timedelta as _td
+        base = row[0] if row and row[0] else None
+        if base is None:
+            new_exp = _dt.utcnow() + _td(days=1)
+        else:
+            new_exp = base + _td(days=1)
+        granted_by_id = (session.get('user_cedula') or session.get('id_codigo_consumidor') or '')
+        granted_by_name = (session.get('user_name') or '')
+        granted_by_role = (session.get('user_role') or '')
+        cur.execute(
+            "INSERT INTO seriales_inversa_unlocks (cedula, expires_at, extension_days, granted_by_id, granted_by_name, granted_by_role) VALUES (%s, %s, 1, %s, %s, %s)",
+            (cedula, new_exp, granted_by_id, granted_by_name, granted_by_role)
+        )
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
