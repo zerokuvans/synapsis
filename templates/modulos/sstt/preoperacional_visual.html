@@ -26,12 +26,19 @@
               <input type="date" id="fechaInput" class="form-control" />
             </div>
             <div class="col-md-3 d-flex align-items-end">
-              <button class="btn btn-success w-100" id="btnConsultar"><i class="fas fa-eye me-2"></i>Consultar</button>
+              <div class="w-100 d-grid gap-2">
+                <button class="btn btn-success" id="btnConsultar"><i class="fas fa-eye me-2"></i>Consultar</button>
+                <button class="btn btn-outline-primary" id="btnConsultarUltimo"><i class="fas fa-clock me-2"></i>Ver Último</button>
+              </div>
             </div>
           </div>
           <div class="form-check form-switch mb-3">
             <input class="form-check-input" type="checkbox" id="soloConPreop" checked>
             <label class="form-check-label" for="soloConPreop">Listar sólo técnicos con preoperacional en la fecha</label>
+          </div>
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="usarUltimos">
+            <label class="form-check-label" for="usarUltimos">Usar últimos registros (sin fecha)</label>
           </div>
           <div class="card mb-3">
             <div class="card-body">
@@ -64,6 +71,7 @@ const fechaInput = document.getElementById('fechaInput');
 const btnConsultar = document.getElementById('btnConsultar');
 const resultado = document.getElementById('resultado');
 const soloConPreop = document.getElementById('soloConPreop');
+const usarUltimos = document.getElementById('usarUltimos');
 const tablaTecnicosBody = document.querySelector('#tablaTecnicos tbody');
 
 function formatoFecha(d) {
@@ -84,7 +92,10 @@ function renderOpcionesTecnicos(items) {
 function cargarTecnicos(q = '') {
   const fecha = fechaInput.value;
   if (soloConPreop.checked) {
-    const url = `/api/sstt/tecnicos-con-preoperacional?fecha=${encodeURIComponent(fecha)}&q=${encodeURIComponent(q)}&limit=500`;
+    const base = usarUltimos.checked
+      ? `/api/sstt/tecnicos-con-preoperacional?ultima=1`
+      : `/api/sstt/tecnicos-con-preoperacional?fecha=${encodeURIComponent(fecha)}`;
+    const url = `${base}&q=${encodeURIComponent(q)}&limit=500`;
     fetch(url)
       .then(r => r.json())
       .then(data => {
@@ -213,14 +224,34 @@ function consultar() {
     });
 }
 
+function consultarUltimo() {
+  const tecnicoId = tecnicoSelect.value;
+  if (!tecnicoId) return;
+  const url = `/api/sstt/preoperacional?tecnico_id=${encodeURIComponent(tecnicoId)}&ultimo=1`;
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      if (data.success && data.data) {
+        renderPreoperacional(data.data);
+      } else {
+        resultado.innerHTML = `<div class="alert alert-warning">No se encontraron registros para el técnico seleccionado.</div>`;
+      }
+    })
+    .catch(() => {
+      resultado.innerHTML = `<div class="alert alert-danger">Error consultando el último registro.</div>`;
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   fechaInput.value = formatoFecha(new Date());
   cargarTecnicos('');
 });
 
 soloConPreop.addEventListener('change', () => cargarTecnicos(buscarTecnico.value.trim()));
+usarUltimos.addEventListener('change', () => cargarTecnicos(buscarTecnico.value.trim()));
 
 btnBuscarTecnico.addEventListener('click', () => cargarTecnicos(buscarTecnico.value.trim()));
 btnConsultar.addEventListener('click', consultar);
+btnConsultarUltimo.addEventListener('click', consultarUltimo);
 </script>
 {% endblock %}

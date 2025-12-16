@@ -26873,18 +26873,32 @@ def api_sstt_preoperacional():
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor(dictionary=True)
         tecnico_id = (request.args.get('tecnico_id') or '').strip()
-        fecha = (request.args.get('fecha') or '').strip()
-        if not tecnico_id or not fecha:
+        ultimo = (request.args.get('ultimo') or '').strip().lower()
+        if not tecnico_id:
             cursor.close(); connection.close()
-            return jsonify({'success': False, 'message': 'Parámetros requeridos: tecnico_id y fecha'}), 400
-        cursor.execute(
-            """
-            SELECT * FROM preoperacional 
-            WHERE id_codigo_consumidor = %s AND DATE(fecha) = %s
-            ORDER BY fecha DESC LIMIT 1
-            """,
-            (tecnico_id, fecha)
-        )
+            return jsonify({'success': False, 'message': 'Parámetro requerido: tecnico_id'}), 400
+        if ultimo in ['1', 'true', 'yes', 'si']:
+            cursor.execute(
+                """
+                SELECT * FROM preoperacional 
+                WHERE id_codigo_consumidor = %s
+                ORDER BY fecha DESC LIMIT 1
+                """,
+                (tecnico_id,)
+            )
+        else:
+            fecha = (request.args.get('fecha') or '').strip()
+            if not fecha:
+                cursor.close(); connection.close()
+                return jsonify({'success': False, 'message': 'Parámetros requeridos: tecnico_id y fecha'}), 400
+            cursor.execute(
+                """
+                SELECT * FROM preoperacional 
+                WHERE id_codigo_consumidor = %s AND DATE(fecha) = %s
+                ORDER BY fecha DESC LIMIT 1
+                """,
+                (tecnico_id, fecha)
+            )
         row = cursor.fetchone()
         if not row:
             cursor.close(); connection.close()
@@ -26909,16 +26923,23 @@ def api_sstt_tecnicos_con_preoperacional():
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor(dictionary=True)
         fecha = (request.args.get('fecha') or '').strip()
-        if not fecha:
+        ultima = (request.args.get('ultima') or '').strip().lower()
+        if not fecha and ultima not in ['1', 'true', 'yes', 'si']:
             from datetime import datetime
             fecha = datetime.now().strftime('%Y-%m-%d')
         else:
             s = fecha
-            if '/' in s:
-                parts = s.split('/')
-                if len(parts) == 3:
-                    d, m, y = parts
-                    fecha = f"{y}-{m.zfill(2)}-{d.zfill(2)}"
+            if s:
+                if '/' in s:
+                    parts = s.split('/')
+                    if len(parts) == 3:
+                        d, m, y = parts
+                        fecha = f"{y}-{m.zfill(2)}-{d.zfill(2)}"
+                elif '-' in s:
+                    parts = s.split('-')
+                    if len(parts) == 3 and len(parts[0]) == 2:
+                        d, m, y = parts
+                        fecha = f"{y}-{m.zfill(2)}-{d.zfill(2)}"
         q = (request.args.get('q') or '').strip()
         limit_param = request.args.get('limit')
         try:
@@ -26926,8 +26947,10 @@ def api_sstt_tecnicos_con_preoperacional():
         except Exception:
             limit = 500
         params = []
-        where = ["DATE(p.fecha) = %s"]
-        params.append(fecha)
+        where = []
+        if ultima not in ['1', 'true', 'yes', 'si']:
+            where.append("DATE(p.fecha) = %s")
+            params.append(fecha)
         if q:
             where.append("(ro.recurso_operativo_cedula LIKE %s OR ro.nombre LIKE %s)")
             like = f"%{q}%"
@@ -26937,7 +26960,10 @@ def api_sstt_tecnicos_con_preoperacional():
             "MAX(p.fecha) AS fecha "
             "FROM preoperacional p "
             "JOIN recurso_operativo ro ON ro.id_codigo_consumidor = p.id_codigo_consumidor "
-            "WHERE " + " AND ".join(where) + " "
+        )
+        if where:
+            sql += "WHERE " + " AND ".join(where) + " "
+        sql += (
             "GROUP BY ro.id_codigo_consumidor, ro.recurso_operativo_cedula, ro.nombre "
             "ORDER BY ro.nombre ASC LIMIT %s"
         )
