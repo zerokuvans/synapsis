@@ -1,0 +1,172 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;">
+          <h3 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Visualización Preoperacional</h3>
+        </div>
+        <div class="card-body">
+          <div class="alert alert-info">
+            Consulta respuestas del preoperacional por técnico y fecha.
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label for="buscarTecnico" class="form-label">Buscar técnico</label>
+              <div class="input-group">
+                <input type="text" id="buscarTecnico" class="form-control" placeholder="Nombre o cédula" />
+                <button class="btn btn-outline-secondary" id="btnBuscarTecnico"><i class="fas fa-search"></i></button>
+              </div>
+              <small class="text-muted">Escribe para filtrar y selecciona un técnico.</small>
+              <select id="tecnicoSelect" class="form-select mt-2"></select>
+            </div>
+            <div class="col-md-3">
+              <label for="fechaInput" class="form-label">Fecha</label>
+              <input type="date" id="fechaInput" class="form-control" />
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+              <button class="btn btn-success w-100" id="btnConsultar"><i class="fas fa-eye me-2"></i>Consultar</button>
+            </div>
+          </div>
+          <div id="resultado" class="mt-4"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const tecnicoSelect = document.getElementById('tecnicoSelect');
+const buscarTecnico = document.getElementById('buscarTecnico');
+const btnBuscarTecnico = document.getElementById('btnBuscarTecnico');
+const fechaInput = document.getElementById('fechaInput');
+const btnConsultar = document.getElementById('btnConsultar');
+const resultado = document.getElementById('resultado');
+
+function formatoFecha(d) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function renderOpcionesTecnicos(items) {
+  tecnicoSelect.innerHTML = '';
+  items.forEach(it => {
+    const opt = document.createElement('option');
+    opt.value = it.id_codigo_consumidor;
+    opt.textContent = `${it.nombre} (${it.cedula})`;
+    tecnicoSelect.appendChild(opt);
+  });
+}
+
+function cargarTecnicos(q = '') {
+  const url = `/api/sstt/tecnicos?q=${encodeURIComponent(q)}&limit=50`;
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        renderOpcionesTecnicos(data.data);
+      }
+    })
+    .catch(() => {});
+}
+
+function renderPreoperacional(reg) {
+  const norm = v => {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'number') return String(v);
+    const s = String(v).trim();
+    if (s === '1') return 'Sí';
+    if (s === '0') return 'No';
+    return s;
+  };
+  const km = reg.kilometraje_actual ?? reg.kilometraje ?? '';
+  const resumen = [
+    {t:'Vehículo asistió operación', v:norm(reg.vehiculo_asistio_operacion)},
+    {t:'Tipo de vehículo', v:norm(reg.tipo_vehiculo)},
+    {t:'Placa', v:norm(reg.placa_vehiculo)},
+    {t:'Kilometraje', v:norm(km)},
+    {t:'Nivel de combustible', v:norm(reg.nivel_combustible)},
+    {t:'Observaciones', v:norm(reg.observaciones)}
+  ];
+  const vehiculoDocs = [
+    {t:'Modelo', v:norm(reg.modelo_vehiculo)},
+    {t:'Marca', v:norm(reg.marca_vehiculo)},
+    {t:'Licencia de conducción', v:norm(reg.licencia_conduccion)},
+    {t:'Vencimiento licencia', v:norm(reg.fecha_vencimiento_licencia)},
+    {t:'Vencimiento SOAT', v:norm(reg.fecha_vencimiento_soat)},
+    {t:'Vencimiento tecnomecánica', v:norm(reg.fecha_vencimiento_tecnomecanica)}
+  ];
+  const estadoVehiculo = [
+    {t:'Espejos', v:norm(reg.estado_espejos)},
+    {t:'Bocina/Pito', v:norm(reg.bocina_pito)},
+    {t:'Frenos', v:norm(reg.frenos)},
+    {t:'Encendido', v:norm(reg.encendido)},
+    {t:'Batería', v:norm(reg.estado_bateria)},
+    {t:'Amortiguadores', v:norm(reg.estado_amortiguadores)},
+    {t:'Llantas', v:norm(reg.estado_llantas)},
+    {t:'Luces altas/bajas', v:norm(reg.luces_altas_bajas)},
+    {t:'Direccionales', v:norm(reg.direccionales_delanteras_traseras)}
+  ];
+  const elementosSeguridad = [
+    {t:'Casco', v:norm(reg.elementos_prevencion_seguridad_vial_casco)},
+    {t:'Casco certificado', v:norm(reg.casco_certificado)},
+    {t:'Casco identificado', v:norm(reg.casco_identificado)},
+    {t:'Guantes', v:norm(reg.elementos_prevencion_seguridad_vial_guantes ?? reg.estado_guantes)},
+    {t:'Rodilleras', v:norm(reg.elementos_prevencion_seguridad_vial_rodilleras)},
+    {t:'Coderas', v:norm(reg.elementos_prevencion_seguridad_vial_coderas)},
+    {t:'Impermeable', v:norm(reg.elementos_prevencion_seguridad_vial_impermeable)},
+    {t:'Casco identificado placa', v:norm(reg.casco_identificado_placa)}
+  ];
+  const fecha = norm(reg.fecha);
+  let html = '';
+  html += `<div class="card"><div class="card-body">`;
+  html += `<div class="d-flex justify-content-between"><div><h5 class="card-title mb-1">Registro del ${fecha}</h5><p class="text-muted mb-3">ID técnico: ${norm(reg.id_codigo_consumidor)}</p></div></div>`;
+  html += `<div class="row">`;
+  resumen.forEach(c => { html += `<div class="col-md-4 mb-3"><div class="border rounded p-2"><div class="text-muted">${c.t}</div><div class="fw-semibold">${c.v}</div></div></div>`; });
+  html += `</div>`;
+  html += `<div class="mt-3"><h6 class="mb-2">Vehículo y documentos</h6><div class="row">`;
+  vehiculoDocs.forEach(c => { html += `<div class="col-md-4 mb-3"><div class="border rounded p-2"><div class="text-muted">${c.t}</div><div class="fw-semibold">${c.v}</div></div></div>`; });
+  html += `</div></div>`;
+  html += `<div class="mt-3"><h6 class="mb-2">Estado físico del vehículo</h6><div class="row">`;
+  estadoVehiculo.forEach(c => { html += `<div class="col-md-4 mb-3"><div class="border rounded p-2"><div class="text-muted">${c.t}</div><div class="fw-semibold">${c.v}</div></div></div>`; });
+  html += `</div></div>`;
+  html += `<div class="mt-3"><h6 class="mb-2">Elementos de prevención</h6><div class="row">`;
+  elementosSeguridad.forEach(c => { html += `<div class="col-md-4 mb-3"><div class="border rounded p-2"><div class="text-muted">${c.t}</div><div class="fw-semibold">${c.v}</div></div></div>`; });
+  html += `</div></div>`;
+  html += `<div class="mt-3">`;
+  html += `<button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#jsonCollapse">Ver JSON</button>`;
+  html += `<div id="jsonCollapse" class="collapse mt-2">`;
+  html += `<pre class="bg-light p-3 border rounded" style="max-height: 320px; overflow:auto">${JSON.stringify(reg, null, 2)}</pre>`;
+  html += `</div></div>`;
+  html += `</div></div>`;
+  resultado.innerHTML = html;
+}
+
+function consultar() {
+  const tecnicoId = tecnicoSelect.value;
+  const fecha = fechaInput.value;
+  if (!tecnicoId || !fecha) return;
+  const url = `/api/sstt/preoperacional?tecnico_id=${encodeURIComponent(tecnicoId)}&fecha=${encodeURIComponent(fecha)}`;
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      if (data.success && data.data) {
+        renderPreoperacional(data.data);
+      } else {
+        resultado.innerHTML = `<div class="alert alert-warning">No se encontraron registros para la fecha seleccionada.</div>`;
+      }
+    })
+    .catch(() => {
+      resultado.innerHTML = `<div class="alert alert-danger">Error consultando el registro.</div>`;
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  fechaInput.value = formatoFecha(new Date());
+  cargarTecnicos('');
+});
+
+btnBuscarTecnico.addEventListener('click', () => cargarTecnicos(buscarTecnico.value.trim()));
+btnConsultar.addEventListener('click', consultar);
+</script>
+{% endblock %}

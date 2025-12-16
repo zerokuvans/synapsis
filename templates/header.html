@@ -161,6 +161,9 @@
                             <li><a class="dropdown-item" href="/sstt/epp">
                                 <i class="fas fa-hard-hat me-2"></i>EPP
                             </a></li>
+                            <li><a class="dropdown-item" href="/sstt/preoperacional">
+                                <i class="fas fa-clipboard-check me-2"></i>Preoperacional
+                            </a></li>
                             {% endif %}
                             {% if session.get('user_role') in ['administrativo', 'logistica'] %}
                             <li><a class="dropdown-item" href="/logistica/epps">
@@ -182,7 +185,7 @@
                                 <i class="fas fa-car me-2"></i>Parque Automotor
                             </a></li>
                             {% endif %}
-                            {% if session.get('user_role') in ['administrativo', 'preoperacional'] %}
+                            {% if session.get('user_role') in ['preoperacional'] %}
                             <li><a class="dropdown-item" href="/preoperacional/listado">
                                 <i class="fas fa-clipboard-check me-2"></i>Preoperacional
                             </a></li>
@@ -1362,20 +1365,8 @@
         function updatePreoperacionalButtonStatus(data){
             if (isSupervisor) return;
             var items = (data && data.items) ? data.items : [];
-            var nowBog = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' }));
-            var y = nowBog.getFullYear();
-            var m = nowBog.getMonth() + 1; // 1-12
-            var d = nowBog.getDate();
-            var esExcepcion = (y === 2025 && m === 12 && d === 13);
-            var umbral;
-            if (y === 2025 && m === 12 && d === 15){
-                umbral = -3;
-            } else if (y === 2025 && m === 12 && d >= 16) {
-                umbral = -4;
-            } else {
-                umbral = esExcepcion ? -2 : -1;
-            }
-            var shouldDisable = items.some(function(x){ return x && Number(x.dias_restantes) < umbral; });
+            var umbral = -1;
+            var shouldDisable = items.some(function(x){ return x && Number(x.dias_restantes) <= umbral; });
             var btn = document.getElementById('preoperacionalButton');
             if (!btn) return;
             if (shouldDisable){

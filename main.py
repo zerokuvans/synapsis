@@ -17518,7 +17518,7 @@ def api_crear_novedad_rrhh():
             return jsonify({'success': False, 'message': 'Datos incompletos'}), 400
         conn = get_db_connection()
         if conn is None:
-            return jsonify({'draw': draw, 'recordsTotal': 0, 'recordsFiltered': 0, 'data': [], 'success': False, 'error': 'Error de conexión a la base de datos'})
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
         cur = conn.cursor(dictionary=True)
         cur.execute("SELECT codigo_tipificacion, nombre_tipificacion, zona FROM tipificacion_asistencia WHERE codigo_tipificacion = %s", (codigo_tipificacion,))
         tip = cur.fetchone()
@@ -26296,6 +26296,14 @@ def sstt_vencimientos_cursos():
         return redirect(url_for('dashboard'))
     return render_template('modulos/sstt/vencimientos_cursos.html')
 
+@app.route('/sstt/preoperacional')
+@login_required()
+def sstt_preoperacional_visual():
+    if session.get('user_role') not in ['sstt', 'administrativo']:
+        flash('No tienes permisos para acceder a este módulo', 'error')
+        return redirect(url_for('dashboard'))
+    return render_template('modulos/sstt/preoperacional_visual.html')
+
 # API Endpoints para SSTT
 
 @app.route('/api/sstt/tipos-riesgo', methods=['GET'])
@@ -26815,6 +26823,82 @@ def api_sstt_capacitaciones():
             cursor.close()
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
+
+@app.route('/api/sstt/tecnicos', methods=['GET'])
+@login_required()
+def api_sstt_tecnicos():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        q = (request.args.get('q') or '').strip()
+        limit_param = request.args.get('limit')
+        try:
+            limit = int(limit_param) if limit_param else 50
+        except Exception:
+            limit = 50
+        where = ["estado = 'Activo'", "id_roles = 2"]
+        params = []
+        if q:
+            where.append("(recurso_operativo_cedula LIKE %s OR nombre LIKE %s)")
+            like = f"%{q}%"
+            params.extend([like, like])
+        sql = (
+            "SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre "
+            "FROM recurso_operativo"
+        )
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        sql += " ORDER BY nombre ASC LIMIT %s"
+        params.append(limit)
+        cursor.execute(sql, tuple(params))
+        rows = cursor.fetchall() or []
+        data = [{
+            'id_codigo_consumidor': r.get('id_codigo_consumidor'),
+            'cedula': r.get('recurso_operativo_cedula'),
+            'nombre': r.get('nombre')
+        } for r in rows]
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'data': data, 'total': len(data)})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/sstt/preoperacional', methods=['GET'])
+@login_required()
+def api_sstt_preoperacional():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        tecnico_id = (request.args.get('tecnico_id') or '').strip()
+        fecha = (request.args.get('fecha') or '').strip()
+        if not tecnico_id or not fecha:
+            cursor.close(); connection.close()
+            return jsonify({'success': False, 'message': 'Parámetros requeridos: tecnico_id y fecha'}), 400
+        cursor.execute(
+            """
+            SELECT * FROM preoperacional 
+            WHERE id_codigo_consumidor = %s AND DATE(fecha) = %s
+            ORDER BY fecha DESC LIMIT 1
+            """,
+            (tecnico_id, fecha)
+        )
+        row = cursor.fetchone()
+        if not row:
+            cursor.close(); connection.close()
+            return jsonify({'success': True, 'data': None})
+        for k, v in list(row.items()):
+            try:
+                if hasattr(v, 'strftime'):
+                    row[k] = v.strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                pass
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'data': row})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/sstt/incidentes', methods=['GET', 'POST'])
 @login_required()
