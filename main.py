@@ -20939,9 +20939,16 @@ def logistica_seriales_inversa_pending():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/logistica/seriales_inversa/pending_summary', methods=['GET'])
-@login_required_api(role='logistica')
+@login_required_api(role=['logistica','operativo','administrativo','tecnicos'])
 def logistica_seriales_inversa_pending_summary():
     try:
+        supervisor_filter = (request.args.get('supervisor') or '').strip()
+        try:
+            user_role = session.get('user_role')
+            if user_role == 'operativo' and not supervisor_filter:
+                supervisor_filter = (session.get('user_name') or '').strip()
+        except Exception:
+            pass
         conn = get_db_connection()
         if conn is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
@@ -20971,6 +20978,11 @@ def logistica_seriales_inversa_pending_summary():
         end_utc = next_month_bog.astimezone(pytz.UTC).replace(tzinfo=None)
 
         cur = conn.cursor(dictionary=True)
+        params = [start_utc, end_utc]
+        where_sup = ""
+        if supervisor_filter:
+            where_sup = " AND LOWER(TRIM(ro.super)) = LOWER(TRIM(%s))"
+            params.append(supervisor_filter)
         cur.execute(
             f"""
             SELECT 
@@ -21004,16 +21016,21 @@ def logistica_seriales_inversa_pending_summary():
                     GROUP BY cedula
                 ) um ON um.cedula = u.cedula AND um.max_created = u.created_at
             ) AS last ON last.cedula = si.recurso_operativo_cedula
-            WHERE (si.{obs_col} IS NULL OR UPPER(si.{obs_col}) LIKE '%%PENDIENTE%%')
+            WHERE (si.{obs_col} IS NULL OR UPPER(si.{obs_col}) LIKE '%%PENDIENTE%%')""" + where_sup + """
             GROUP BY ro.nombre, ro.super, si.recurso_operativo_cedula, act.max_exp, cnt.cnt, last.granted_by_name
             ORDER BY cantidad DESC
             """,
-            (start_utc, end_utc)
+            tuple(params)
         )
         rows = cur.fetchall() or []
         cur.close(); conn.close()
         data = []
         for r in rows:
+            try:
+                if supervisor_filter and str(r.get('supervisor') or '').strip().lower() != supervisor_filter.strip().lower():
+                    continue
+            except Exception:
+                pass
             exp_str = None
             try:
                 exp_dt = r.get('active_expires_at')
@@ -26603,6 +26620,8 @@ def api_sstt_vencimientos_cursos():
             tipo = (request.args.get('tipo') or '').strip()
             fecha_desde = (request.args.get('fecha_desde') or '').strip()
             fecha_hasta = (request.args.get('fecha_hasta') or '').strip()
+            solo_activos_param = (request.args.get('solo_activos') or '1').strip().lower()
+            solo_activos = solo_activos_param in ['1', 'true', 't', 'yes', 'y']
             params = []
             where = []
             if cedula:
@@ -26617,10 +26636,12 @@ def api_sstt_vencimientos_cursos():
             if fecha_hasta:
                 where.append("sstt_vencimientos_cursos_fecha <= %s")
                 params.append(fecha_hasta)
-            sql = "SELECT id_codigo_consumidor, sstt_vencimientos_cursos_nombre, recurso_operativo_cedula, sstt_vencimientos_cursos_tipo_curso, sstt_vencimientos_cursos_fecha, sstt_vencimientos_cursos_fecha_ven, sstt_vencimientos_cursos_observacion FROM sstt_vencimientos_cursos"
+            sql = "SELECT vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, vc.recurso_operativo_cedula, vc.sstt_vencimientos_cursos_tipo_curso, vc.sstt_vencimientos_cursos_fecha, vc.sstt_vencimientos_cursos_fecha_ven, vc.sstt_vencimientos_cursos_observacion FROM sstt_vencimientos_cursos vc LEFT JOIN recurso_operativo ro ON vc.id_codigo_consumidor = ro.id_codigo_consumidor"
+            if solo_activos:
+                where.append("ro.estado = 'Activo'")
             if where:
                 sql += " WHERE " + " AND ".join(where)
-            sql += " ORDER BY sstt_vencimientos_cursos_fecha_ven ASC"
+            sql += " ORDER BY vc.sstt_vencimientos_cursos_fecha_ven ASC"
             cursor.execute(sql, tuple(params))
             rows = cursor.fetchall() or []
             hoy = datetime.now().date()

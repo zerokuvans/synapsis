@@ -248,6 +248,7 @@ function cargarVencimientos() {
   if (tipo) params.append('tipo', tipo);
   if (fechaDesde) params.append('fecha_desde', fechaDesde);
   if (fechaHasta) params.append('fecha_hasta', fechaHasta);
+  params.append('solo_activos', '1');
   fetch('/api/sstt/vencimientos-cursos' + (params.toString() ? ('?' + params.toString()) : ''))
     .then(r => r.json())
     .then(d => {
