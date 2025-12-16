@@ -26900,6 +26900,59 @@ def api_sstt_preoperacional():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/sstt/tecnicos-con-preoperacional', methods=['GET'])
+@login_required()
+def api_sstt_tecnicos_con_preoperacional():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        fecha = (request.args.get('fecha') or '').strip()
+        if not fecha:
+            from datetime import datetime
+            fecha = datetime.now().strftime('%Y-%m-%d')
+        else:
+            s = fecha
+            if '/' in s:
+                parts = s.split('/')
+                if len(parts) == 3:
+                    d, m, y = parts
+                    fecha = f"{y}-{m.zfill(2)}-{d.zfill(2)}"
+        q = (request.args.get('q') or '').strip()
+        limit_param = request.args.get('limit')
+        try:
+            limit = int(limit_param) if limit_param else 500
+        except Exception:
+            limit = 500
+        params = []
+        where = ["DATE(p.fecha) = %s"]
+        params.append(fecha)
+        if q:
+            where.append("(ro.recurso_operativo_cedula LIKE %s OR ro.nombre LIKE %s)")
+            like = f"%{q}%"
+            params.extend([like, like])
+        sql = (
+            "SELECT ro.id_codigo_consumidor, ro.recurso_operativo_cedula AS cedula, ro.nombre, "
+            "MAX(p.fecha) AS fecha "
+            "FROM preoperacional p "
+            "JOIN recurso_operativo ro ON ro.id_codigo_consumidor = p.id_codigo_consumidor "
+            "WHERE " + " AND ".join(where) + " "
+            "GROUP BY ro.id_codigo_consumidor, ro.recurso_operativo_cedula, ro.nombre "
+            "ORDER BY ro.nombre ASC LIMIT %s"
+        )
+        params.append(limit)
+        cursor.execute(sql, tuple(params))
+        rows = cursor.fetchall() or []
+        for r in rows:
+            f = r.get('fecha')
+            if hasattr(f, 'strftime'):
+                r['fecha'] = f.strftime('%Y-%m-%d %H:%M:%S')
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'data': rows, 'total': len(rows)})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/sstt/incidentes', methods=['GET', 'POST'])
 @login_required()
 def api_sstt_incidentes():

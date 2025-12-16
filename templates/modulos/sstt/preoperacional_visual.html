@@ -29,6 +29,27 @@
               <button class="btn btn-success w-100" id="btnConsultar"><i class="fas fa-eye me-2"></i>Consultar</button>
             </div>
           </div>
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="soloConPreop" checked>
+            <label class="form-check-label" for="soloConPreop">Listar sólo técnicos con preoperacional en la fecha</label>
+          </div>
+          <div class="card mb-3">
+            <div class="card-body">
+              <h6 class="mb-2">Técnicos con registro en la fecha</h6>
+              <div class="table-responsive">
+                <table class="table table-sm" id="tablaTecnicos">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Cédula</th>
+                      <th>Hora</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
           <div id="resultado" class="mt-4"></div>
         </div>
       </div>
@@ -42,6 +63,8 @@ const btnBuscarTecnico = document.getElementById('btnBuscarTecnico');
 const fechaInput = document.getElementById('fechaInput');
 const btnConsultar = document.getElementById('btnConsultar');
 const resultado = document.getElementById('resultado');
+const soloConPreop = document.getElementById('soloConPreop');
+const tablaTecnicosBody = document.querySelector('#tablaTecnicos tbody');
 
 function formatoFecha(d) {
   const pad = n => String(n).padStart(2, '0');
@@ -59,15 +82,44 @@ function renderOpcionesTecnicos(items) {
 }
 
 function cargarTecnicos(q = '') {
-  const url = `/api/sstt/tecnicos?q=${encodeURIComponent(q)}&limit=50`;
-  fetch(url)
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        renderOpcionesTecnicos(data.data);
-      }
-    })
-    .catch(() => {});
+  const fecha = fechaInput.value;
+  if (soloConPreop.checked) {
+    const url = `/api/sstt/tecnicos-con-preoperacional?fecha=${encodeURIComponent(fecha)}&q=${encodeURIComponent(q)}&limit=500`;
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          renderOpcionesTecnicos(data.data);
+          renderTablaTecnicos(data.data);
+        }
+      })
+      .catch(() => {});
+  } else {
+    const url = `/api/sstt/tecnicos?q=${encodeURIComponent(q)}&limit=500`;
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          renderOpcionesTecnicos(data.data);
+          renderTablaTecnicos([]);
+        }
+      })
+      .catch(() => {});
+  }
+}
+
+function renderTablaTecnicos(items) {
+  tablaTecnicosBody.innerHTML = '';
+  items.forEach(it => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${it.nombre}</td><td>${it.cedula}</td><td>${it.fecha || ''}</td>`;
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', () => {
+      tecnicoSelect.value = it.id_codigo_consumidor;
+      consultar();
+    });
+    tablaTecnicosBody.appendChild(tr);
+  });
 }
 
 function renderPreoperacional(reg) {
@@ -165,6 +217,8 @@ document.addEventListener('DOMContentLoaded', () => {
   fechaInput.value = formatoFecha(new Date());
   cargarTecnicos('');
 });
+
+soloConPreop.addEventListener('change', () => cargarTecnicos(buscarTecnico.value.trim()));
 
 btnBuscarTecnico.addEventListener('click', () => cargarTecnicos(buscarTecnico.value.trim()));
 btnConsultar.addEventListener('click', consultar);
