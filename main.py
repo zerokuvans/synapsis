@@ -20344,10 +20344,12 @@ def logistica_seriales_inversa_list():
                 if curc.fetchone():
                     date_col = 'si.fecha_registro'
                 else:
-                    date_col = 'si.created_at'
+                    curc.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'created_at'")
+                    if curc.fetchone():
+                        date_col = 'si.created_at'
             curc.close()
         except Exception:
-            date_col = 'si.created_at'
+            date_col = None
 
         pk_col = None
         try:
@@ -20400,19 +20402,31 @@ def logistica_seriales_inversa_list():
         if supervisor:
             where.append("si.super = %s")
             params.append(supervisor)
-        if fecha_desde:
-            where.append(f"DATE({date_col}) >= %s")
-            params.append(fecha_desde)
-        if fecha_hasta:
-            where.append(f"DATE({date_col}) <= %s")
-            params.append(fecha_hasta)
+        if date_col:
+            if fecha_desde:
+                where.append(f"DATE({date_col}) >= %s")
+                params.append(fecha_desde)
+            if fecha_hasta:
+                where.append(f"DATE({date_col}) <= %s")
+                params.append(fecha_hasta)
         where_sql = (" WHERE " + " AND ".join(where)) if where else ""
 
         cur.execute("SELECT COUNT(*) AS total FROM seriales_inversa AS si")
         total = cur.fetchone()['total']
         cur.execute("SELECT COUNT(*) AS total FROM seriales_inversa AS si" + where_sql, tuple(params))
         filtered = cur.fetchone()['total']
-        select_cols = f"{pk_col} AS id, lapso, recurso_operativo_cedula, cuenta, dia, mes, descripcion, {obs_col} AS observacion_diana, serial_rr, tecnico, super"
+        if date_col:
+            select_cols = f"{pk_col} AS id, lapso, recurso_operativo_cedula, cuenta, dia, mes, descripcion, {obs_col} AS observacion_diana, serial_rr, tecnico, super, DATE_FORMAT({date_col}, '%Y-%m-%d %H:%i:%S') AS fecha_registro"
+        else:
+            select_cols = (
+                f"{pk_col} AS id, lapso, recurso_operativo_cedula, cuenta, dia, mes, descripcion, {obs_col} AS observacion_diana, serial_rr, tecnico, super, "
+                "DATE_FORMAT(STR_TO_DATE(CONCAT(YEAR(CURDATE()), '-', "
+                "CASE LOWER(si.mes) "
+                "WHEN 'enero' THEN '01' WHEN 'febrero' THEN '02' WHEN 'marzo' THEN '03' WHEN 'abril' THEN '04' "
+                "WHEN 'mayo' THEN '05' WHEN 'junio' THEN '06' WHEN 'julio' THEN '07' WHEN 'agosto' THEN '08' "
+                "WHEN 'septiembre' THEN '09' WHEN 'setiembre' THEN '09' WHEN 'octubre' THEN '10' WHEN 'noviembre' THEN '11' WHEN 'diciembre' THEN '12' ELSE NULL END, "
+                "'-', LPAD(CAST(si.dia AS UNSIGNED), 2, '0')), '%Y-%m-%d'), '%Y-%m-%d %H:%i:%S') AS fecha_registro"
+            )
         order_by = 'id'
         if pk_col and pk_col.startswith('si.'):
             order_by = pk_col.split('.',1)[1]
@@ -20499,6 +20513,59 @@ def logistica_seriales_inversa_supervisores():
         values = [r[0] for r in cur.fetchall() if r and r[0]]
         cur.close(); conn.close()
         return jsonify({'success': True, 'supervisores': values})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/logistica/seriales_inversa/dias_con_registros', methods=['GET'])
+@login_required_api(role='logistica')
+def logistica_seriales_inversa_dias_con_registros():
+    try:
+        year = int(request.args.get('year', '0') or '0')
+        month = int(request.args.get('month', '0') or '0')
+        if year <= 0 or month <= 0 or month > 12:
+            from datetime import datetime
+            now = datetime.now()
+            year = now.year
+            month = now.month
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cur = conn.cursor(dictionary=True)
+        date_col = None
+        try:
+            curc = conn.cursor()
+            curc.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'FECHA_REGISTRO'")
+            if curc.fetchone():
+                date_col = 'si.FECHA_REGISTRO'
+            else:
+                curc.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'fecha_registro'")
+                if curc.fetchone():
+                    date_col = 'si.fecha_registro'
+                else:
+                    curc.execute("SHOW COLUMNS FROM seriales_inversa LIKE 'created_at'")
+                    if curc.fetchone():
+                        date_col = 'si.created_at'
+            curc.close()
+        except Exception:
+            date_col = None
+        rows = []
+        if date_col:
+            cur.execute(
+                f"SELECT DISTINCT DAY({date_col}) AS dia FROM seriales_inversa AS si WHERE YEAR({date_col})=%s AND MONTH({date_col})=%s ORDER BY dia",
+                (year, month)
+            )
+            rows = cur.fetchall() or []
+        else:
+            meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']
+            mname = meses[month-1]
+            if month == 9:
+                cur.execute("SELECT DISTINCT si.dia AS dia FROM seriales_inversa AS si WHERE LOWER(si.mes) IN ('septiembre','setiembre') ORDER BY si.dia")
+            else:
+                cur.execute("SELECT DISTINCT si.dia AS dia FROM seriales_inversa AS si WHERE LOWER(si.mes)=%s ORDER BY si.dia", (mname,))
+            rows = cur.fetchall() or []
+        cur.close(); conn.close()
+        dias = [{'dia': int(r.get('dia') or 0)} for r in rows if r and (r.get('dia') is not None)]
+        return jsonify({'success': True, 'year': year, 'month': month, 'dias': dias})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 

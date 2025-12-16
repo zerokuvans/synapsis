@@ -64,10 +64,7 @@
               </select>
             </div>
             <div class="col-md-3">
-              <input id="filtroDesde" type="date" class="form-control" placeholder="Desde">
-            </div>
-            <div class="col-md-3">
-              <input id="filtroHasta" type="date" class="form-control" placeholder="Hasta">
+              <input id="filtroFecha" type="date" class="form-control" placeholder="Fecha">
             </div>
             <div class="col-md-2 d-grid d-md-block">
               <button id="btnBuscar" class="btn btn-primary me-2"><i class="fas fa-search me-1"></i>Buscar</button>
@@ -87,6 +84,7 @@
                 <th>serial_rr</th>
                 <th>tecnico</th>
                 <th>super</th>
+                <th>fecha_registro</th>
                 <th>acciones</th>
               </tr>
             </thead>
@@ -179,9 +177,17 @@
           d.tecnico = document.getElementById('filtroTecnico').value || '';
           d.observacion_diana = document.getElementById('filtroObservacion').value || '';
           d.supervisor = document.getElementById('filtroSuper').value || '';
-          d.fecha_desde = document.getElementById('filtroDesde').value || '';
-          d.fecha_hasta = document.getElementById('filtroHasta').value || '';
+          var f = document.getElementById('filtroFecha').value || '';
+          d.fecha_desde = f;
+          d.fecha_hasta = f;
           return d;
+        },
+        error: function(xhr){
+          try {
+            var j = JSON.parse(xhr.responseText||'{}');
+            var msg = j.error || j.message || 'Error al cargar registros';
+            Swal.fire('Error', msg, 'error');
+          } catch(e){ Swal.fire('Error','No se pudo cargar registros','error'); }
         }
       },
       pageLength: 10,
@@ -197,6 +203,7 @@
         { data: 'serial_rr' },
         { data: 'tecnico' },
         { data: 'super' },
+        { data: 'fecha_registro' },
         { data: null, orderable: false, searchable: false, render: function(d,t,r){ var id = r.id || ''; var serial = r.serial_rr || ''; var obs = (r.observacion_diana || '').replace(/"/g,'&quot;'); return '<button class="btn btn-sm btn-primary si-edit-obs" data-id="'+id+'" data-serial="'+serial+'" data-obs="'+obs+'"><i class="fas fa-edit me-1"></i>Editar</button>'; } }
       ]
     });
@@ -213,12 +220,11 @@
       .then(r => r.json())
       .then(j => { if (j && j.success && Array.isArray(j.supervisores)){ var ss = document.getElementById('filtroSuper'); j.supervisores.forEach(function(sv){ var opt = document.createElement('option'); opt.value=sv; opt.textContent=sv; ss.appendChild(opt); }); } });
     document.getElementById('btnBuscar').addEventListener('click', function(){ dt.ajax.reload(); });
-    document.getElementById('btnLimpiar').addEventListener('click', function(){ document.getElementById('filtroTecnico').value=''; document.getElementById('filtroObservacion').value=''; document.getElementById('filtroSuper').value=''; document.getElementById('filtroDesde').value=''; document.getElementById('filtroHasta').value=''; dt.ajax.reload(); });
+    document.getElementById('btnLimpiar').addEventListener('click', function(){ document.getElementById('filtroTecnico').value=''; document.getElementById('filtroObservacion').value=''; document.getElementById('filtroSuper').value=''; var ff = document.getElementById('filtroFecha'); if (ff) ff.value=''; dt.ajax.reload(); renderCalendarFromInput(); });
     document.getElementById('filtroTecnico').addEventListener('change', function(){ dt.ajax.reload(); });
     document.getElementById('filtroObservacion').addEventListener('change', function(){ dt.ajax.reload(); });
     document.getElementById('filtroSuper').addEventListener('change', function(){ dt.ajax.reload(); });
-    document.getElementById('filtroDesde').addEventListener('change', function(){ dt.ajax.reload(); });
-    document.getElementById('filtroHasta').addEventListener('change', function(){ dt.ajax.reload(); });
+    document.getElementById('filtroFecha').addEventListener('change', function(){ dt.ajax.reload(); renderCalendarFromInput(); });
     var input = document.getElementById('archivoBase');
     var nombre = document.getElementById('archivoNombre');
     var btn = document.getElementById('btnEnviarArchivo');
@@ -273,6 +279,8 @@
     }
     cargarPendientesTecnicos();
     cargarResumenSupervisores();
+    initCalendarMini();
+    renderCalendarFromInput();
     window.addEventListener('SI_UNLOCK_DONE', function(){ cargarPendientesTecnicos(); cargarResumenSupervisores(); });
     $('#tablaPendientesTecnicos').on('click', '.btn-unlock', function(){ var ced = this.getAttribute('data-cedula') || ''; if (!ced) return; var fd = new FormData(); fd.append('cedula', ced); fetch('/logistica/seriales_inversa/unlock?_=' + Date.now(), { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } }).then(function(r){ return r.json(); }).then(function(x){ if (x && x.success){ Swal.fire('Listo','Se concedieron 24h adicionales','success'); cargarPendientesTecnicos(); if (dt) dt.ajax.reload(null, false); cargarResumenSupervisores(); try { window.dispatchEvent(new CustomEvent('SI_UNLOCK_DONE')); } catch(e){} } else { Swal.fire('Error', (x && x.message) ? x.message : 'No se pudo desbloquear','error'); } }).catch(function(){ Swal.fire('Error','Error de conexión','error'); }); });
 
@@ -281,6 +289,54 @@
     var btnGo = document.getElementById('btnGuardarObs');
     if (btnGo){ btnGo.addEventListener('click', function(){ var vsel = (document.getElementById('selObservacion')||{value:''}).value.trim(); var vtxt = (document.getElementById('inputObservacionLibre')||{value:''}).value.trim(); var nuevo = vtxt || vsel; if (!nuevo){ Swal.fire('Dato requerido','Ingresa la observación','warning'); return; } var fd = new FormData(); if (editObsCurrent.id) fd.append('id', editObsCurrent.id); if (editObsCurrent.serial) fd.append('serial_rr', editObsCurrent.serial); fd.append('observacion_diana', nuevo); fetch('/logistica/seriales_inversa/update_observacion', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } }).then(function(r){ return r.json(); }).then(function(j){ if (j && j.success){ try { if (modalEditar) modalEditar.hide(); } catch(e){} Swal.fire('Actualizado','Observación actualizada','success'); dt.ajax.reload(null, false); } else { Swal.fire('Error', (j && j.message) ? j.message : 'No se pudo actualizar','error'); } }).catch(function(){ Swal.fire('Error','Error de conexión','error'); }); }); }
   });
+</script>
+<style>
+.calendar-mini{display:grid;grid-template-columns:repeat(7,1fr);gap:.25rem;margin-top:.5rem}
+.calendar-mini .day{padding:.5rem;border:1px solid #dee2e6;border-radius:.25rem;text-align:center;cursor:pointer}
+.calendar-mini .muted{opacity:.5;cursor:default}
+.calendar-mini .has-data{background:#0d6efd;color:#fff}
+.calendar-mini .today{border-color:#0d6efd}
+</style>
+<script>
+function initCalendarMini(){
+  var cont = document.createElement('div');
+  cont.id = 'calendarMini';
+  cont.className = 'calendar-mini';
+  var target = document.getElementById('filtroFecha');
+  if (target && target.parentElement){
+    target.parentElement.appendChild(cont);
+  }
+}
+function renderCalendar(year, month, daysWithData){
+  var cont = document.getElementById('calendarMini');
+  if (!cont) return;
+  cont.innerHTML = '';
+  var today = new Date();
+  var arr = Array.isArray(daysWithData) ? daysWithData.slice().sort(function(a,b){ return a-b; }) : [];
+  for (var i=0;i<arr.length;i++){
+    var dnum = arr[i];
+    var el = document.createElement('div');
+    el.className = 'day has-data';
+    el.textContent = String(dnum);
+    if (today.getFullYear()===year && (today.getMonth()+1)===month && today.getDate()===dnum){ el.classList.add('today'); }
+    el.addEventListener('click', function(){ var v = year+'-'+String(month).padStart(2,'0')+'-'+String(this.textContent).padStart(2,'0'); var inp = document.getElementById('filtroFecha'); if (inp){ inp.value = v; inp.dispatchEvent(new Event('change')); } });
+    cont.appendChild(el);
+  }
+}
+function renderCalendarFromInput(){
+  var inp = document.getElementById('filtroFecha');
+  var v = inp && inp.value ? inp.value : '';
+  var dt = v ? new Date(v) : new Date();
+  var y = dt.getFullYear();
+  var m = dt.getMonth()+1;
+  cargarDiasConRegistros(y, m).then(function(days){ renderCalendar(y, m, days); });
+}
+function cargarDiasConRegistros(year, month){
+  return fetch('/logistica/seriales_inversa/dias_con_registros?year='+year+'&month='+month+'&_=' + Date.now(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(j){ var arr = []; var items = (j && j.dias)||[]; items.forEach(function(x){ var d = Number(x.dia||x); if (!isNaN(d)) arr.push(d); }); return arr; })
+    .catch(function(){ return []; });
+}
 </script>
 <div class="modal fade" id="modalEditarObs" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
