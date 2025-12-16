@@ -10,17 +10,7 @@
                     </h3>
                 </div>
 
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <div class="input-group">
-                                <input id="archivoCursos" type="file" accept=".csv,.xlsx,.xls" class="form-control">
-                                <button id="btnEnviarCursos" class="btn btn-primary"><i class="fas fa-upload me-2"></i>Cargar base</button>
-                            </div>
-                            <div id="archivoCursosNombre" class="small text-muted mt-1"></div>
-                        </div>
-                    </div>
-                </div>
+                
 
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -64,11 +54,19 @@
                                     <th>Fecha</th>
                                     <th>Fecha Vencimiento</th>
                                     <th>Días por vencer</th>
+                                    <th>Estado</th>
                                     <th>Observación</th>
+                                    <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="tablaVencimientosCursos"></tbody>
                         </table>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <div id="infoPaginacion" class="small text-muted"></div>
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0" id="paginacionCursos"></ul>
+                        </nav>
                     </div>
                 </div>
             </div>
@@ -131,11 +129,63 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalEditarCurso" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Curso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formEditarCurso">
+                    <input type="hidden" id="editIdInput">
+                    <input type="hidden" id="editOriginalCedula">
+                    <input type="hidden" id="editOriginalTipo">
+                    <input type="hidden" id="editOriginalFecha">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editCedulaInput" class="form-label">Cédula</label>
+                            <input type="text" class="form-control" id="editCedulaInput" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="tipoCursoEditSelect" class="form-label">Tipo de Curso</label>
+                            <select class="form-select" id="tipoCursoEditSelect" required>
+                                <option value="">Seleccionar tipo</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editFechaCursoInput" class="form-label">Fecha del Curso</label>
+                            <input type="date" class="form-control" id="editFechaCursoInput" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editFechaVencimientoInput" class="form-label">Fecha de Vencimiento</label>
+                            <input type="date" class="form-control" id="editFechaVencimientoInput" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editObservacionInput" class="form-label">Observación</label>
+                        <textarea class="form-control" id="editObservacionInput" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarEdicionCurso">Guardar cambios</button>
+            </div>
+        </div>
+    </div>
+    </div>
+
 <script>
 let vencimientos = [];
 let tiposCurso = [];
+let currentPage = 1;
+const pageSize = 20;
 const TIPOS_CURSO_PREDEF = [
-  'EXAMEN MEDICO',
+  'EXAMEN MEDICO INGRESO',
+  'EXAMEN MEDICO PERIODICO',
   'CURSO ALTURAS',
   'CURSO MANEJO DEFENSIVO',
   'CURSO INDUCCION SST',
@@ -156,28 +206,13 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   document.getElementById('modalRegistrarCurso').addEventListener('shown.bs.modal', function(){ cargarUsuarios(''); });
   document.getElementById('buscarVencimiento').addEventListener('input', aplicarBusquedaLocal);
-  document.getElementById('filtroCedula').addEventListener('input', cargarVencimientos);
-  document.getElementById('filtroTipo').addEventListener('change', cargarVencimientos);
-  document.getElementById('filtroFechaDesde').addEventListener('change', cargarVencimientos);
-  document.getElementById('filtroFechaHasta').addEventListener('change', cargarVencimientos);
+  document.getElementById('filtroCedula').addEventListener('input', () => { currentPage = 1; cargarVencimientos(); });
+  document.getElementById('filtroTipo').addEventListener('change', () => { currentPage = 1; cargarVencimientos(); });
+  document.getElementById('filtroFechaDesde').addEventListener('change', () => { currentPage = 1; cargarVencimientos(); });
+  document.getElementById('filtroFechaHasta').addEventListener('change', () => { currentPage = 1; cargarVencimientos(); });
   document.getElementById('btnRegistrarCurso').addEventListener('click', registrarCurso);
-  document.getElementById('btnRefrescar').addEventListener('click', cargarVencimientos);
-  var inputCursos = document.getElementById('archivoCursos');
-  var nombreCursos = document.getElementById('archivoCursosNombre');
-  var btnCargar = document.getElementById('btnEnviarCursos');
-  inputCursos.addEventListener('change', function(){ nombreCursos.textContent = inputCursos.files && inputCursos.files[0] ? inputCursos.files[0].name : ''; });
-  btnCargar.addEventListener('click', function(){
-    if (!inputCursos.files || !inputCursos.files[0]) { Swal.fire('Selecciona un archivo','','warning'); return; }
-    var fd = new FormData();
-    fd.append('archivo', inputCursos.files[0]);
-    fetch('/api/sstt/vencimientos-cursos/upload', { method: 'POST', body: fd })
-      .then(r => r.json())
-      .then(j => {
-        if (j.success) { Swal.fire('Carga completada', j.message || '', 'success'); cargarVencimientos(); inputCursos.value=''; nombreCursos.textContent=''; }
-        else { Swal.fire('Error', j.message || 'Error al cargar', 'error'); }
-      })
-      .catch(() => Swal.fire('Error','Error de conexión','error'));
-  });
+  document.getElementById('btnRefrescar').addEventListener('click', () => { currentPage = 1; cargarVencimientos(); });
+  document.getElementById('btnGuardarEdicionCurso').addEventListener('click', guardarEdicionCurso);
 });
 
 function cargarTiposCurso() {
@@ -187,15 +222,19 @@ function cargarTiposCurso() {
       tiposCurso = (d && d.success && Array.isArray(d.data) && d.data.length ? d.data : TIPOS_CURSO_PREDEF);
       const filtro = document.getElementById('filtroTipo');
       const select = document.getElementById('tipoCursoSelect');
+      const selectEdit = document.getElementById('tipoCursoEditSelect');
       filtro.innerHTML = '<option value="">Todos los tipos</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
       select.innerHTML = '<option value="">Seleccionar tipo</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
+      if (selectEdit) selectEdit.innerHTML = '<option value="">Seleccionar tipo</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
     })
     .catch(() => {
       tiposCurso = TIPOS_CURSO_PREDEF;
       const filtro = document.getElementById('filtroTipo');
       const select = document.getElementById('tipoCursoSelect');
+      const selectEdit = document.getElementById('tipoCursoEditSelect');
       filtro.innerHTML = '<option value="">Todos los tipos</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
       select.innerHTML = '<option value="">Seleccionar tipo</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
+      if (selectEdit) selectEdit.innerHTML = '<option value="">Seleccionar tipo</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
     });
 }
 
@@ -214,10 +253,11 @@ function cargarVencimientos() {
     .then(d => {
       if (!d.success) { Swal.fire('Error', d.message || 'No se pudo cargar la lista', 'error'); return; }
       vencimientos = d.data || [];
+      currentPage = 1;
       mostrarVencimientos(vencimientos);
       if ((d.total||0) === 0) {
         const tbody = document.getElementById('tablaVencimientosCursos');
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Sin registros</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Sin registros</td></tr>';
       }
     })
     .catch(() => {});
@@ -226,19 +266,36 @@ function cargarVencimientos() {
 function mostrarVencimientos(datos) {
   const tbody = document.getElementById('tablaVencimientosCursos');
   tbody.innerHTML = '';
-  datos.forEach(item => {
+  const total = datos.length;
+  const start = (currentPage - 1) * pageSize;
+  const pageItems = datos.slice(start, start + pageSize);
+  pageItems.forEach(item => {
     const tr = document.createElement('tr');
+    const dias = item.dias_por_vencer;
+    const estado = (dias == null) ? '' : (dias <= 0 ? 'VENCIDO' : (dias <= 30 ? 'PRÓXIMO A VENCER' : 'VIGENTE'));
+    const diasClass = (dias == null) ? '' : (dias <= 0 ? 'text-danger fw-bold' : (dias <= 30 ? 'text-warning fw-bold' : 'text-success fw-bold'));
+    const badgeClass = (dias == null) ? 'bg-secondary' : (dias <= 0 ? 'bg-danger' : (dias <= 30 ? 'bg-warning text-dark' : 'bg-success'));
     tr.innerHTML = `
       <td>${item.recurso_operativo_cedula || ''}</td>
       <td>${item.nombre || ''}</td>
       <td>${item.tipo_curso || ''}</td>
       <td>${item.fecha || ''}</td>
       <td>${item.fecha_vencimiento || ''}</td>
-      <td>${item.dias_por_vencer != null ? item.dias_por_vencer : ''}</td>
+      <td class="${diasClass}">${dias != null ? dias : ''}</td>
+      <td>${estado ? `<span class="badge ${badgeClass}">${estado}</span>` : ''}</td>
       <td>${item.observacion || ''}</td>
+      <td><button class="btn btn-sm btn-primary btnEditar" data-id="${item.id || ''}"><i class="fas fa-edit me-1"></i>Editar</button></td>
     `;
     tbody.appendChild(tr);
+    const btn = tr.querySelector('.btnEditar');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        const merged = Object.assign({}, item, { id: item.id || btn.getAttribute('data-id') });
+        abrirModalEditar(merged);
+      });
+    }
   });
+  renderPagination(total);
 }
 
 function aplicarBusquedaLocal() {
@@ -250,6 +307,7 @@ function aplicarBusquedaLocal() {
         || String(v.tipo_curso||'').toLowerCase().includes(q)
         || String(v.observacion||'').toLowerCase().includes(q);
   });
+  currentPage = 1;
   mostrarVencimientos(filtrados);
 }
 
@@ -293,6 +351,109 @@ function registrarCurso() {
   });
 }
 
+function abrirModalEditar(item){
+  document.getElementById('editIdInput').value = item.id || '';
+  document.getElementById('editOriginalCedula').value = item.recurso_operativo_cedula || '';
+  document.getElementById('editOriginalTipo').value = item.tipo_curso || '';
+  document.getElementById('editOriginalFecha').value = normalizeDateString(item.fecha);
+  document.getElementById('editCedulaInput').value = item.recurso_operativo_cedula || '';
+  const sel = document.getElementById('tipoCursoEditSelect');
+  if (sel) sel.value = item.tipo_curso || '';
+  document.getElementById('editFechaCursoInput').value = normalizeDateString(item.fecha);
+  document.getElementById('editFechaVencimientoInput').value = normalizeDateString(item.fecha_vencimiento);
+  document.getElementById('editObservacionInput').value = item.observacion || '';
+  const modalEl = document.getElementById('modalEditarCurso');
+  const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+  modal.show();
+}
+
+function guardarEdicionCurso(){
+  const id = document.getElementById('editIdInput').value;
+  const cedula = document.getElementById('editCedulaInput').value.trim();
+  const tipo = document.getElementById('tipoCursoEditSelect').value;
+  const fecha = document.getElementById('editFechaCursoInput').value;
+  const fechaVen = document.getElementById('editFechaVencimientoInput').value;
+  const observ = document.getElementById('editObservacionInput').value.trim();
+  if (!cedula || !tipo || !fecha || !fechaVen) { Swal.fire('Error','Completa los campos requeridos','error'); return; }
+  const payload = {
+    recurso_operativo_cedula: cedula,
+    sstt_vencimientos_cursos_tipo_curso: tipo,
+    sstt_vencimientos_cursos_fecha: fecha,
+    sstt_vencimientos_cursos_fecha_ven: fechaVen,
+    sstt_vencimientos_cursos_observacion: observ
+  };
+  const doSuccess = (d) => {
+    if (d && d.success && (d.updated === undefined || d.updated > 0)) {
+      Swal.fire('Éxito','Curso actualizado','success');
+      const modalEl = document.getElementById('modalEditarCurso');
+      const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+      modal.hide();
+      cargarVencimientos();
+    } else {
+      Swal.fire('Error', (d && d.message) || 'No se pudo actualizar','error');
+    }
+  };
+  if (id) {
+    fetch(`/api/sstt/vencimientos-cursos/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(doSuccess)
+    .catch(() => Swal.fire('Error','Error de conexión','error'));
+  } else {
+    const original = {
+      original_cedula: document.getElementById('editOriginalCedula').value,
+      original_tipo: document.getElementById('editOriginalTipo').value,
+      original_fecha: document.getElementById('editOriginalFecha').value
+    };
+    const body = Object.assign({}, payload, original);
+    fetch('/api/sstt/vencimientos-cursos/update-by', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    .then(r => r.json())
+    .then(doSuccess)
+    .catch(() => Swal.fire('Error','Error de conexión','error'));
+  }
+}
+
+function normalizeDateString(s){
+  if (!s) return '';
+  s = String(s).trim();
+  if (s.includes(' ')) s = s.split(' ')[0];
+  const parts = s.split('-');
+  if (parts.length !== 3) return '';
+  const y = parts[0];
+  let m = parts[1];
+  let d = parts[2];
+  m = m.padStart(2, '0');
+  d = d.padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function renderPagination(total){
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const ul = document.getElementById('paginacionCursos');
+  const info = document.getElementById('infoPaginacion');
+  if (!ul || !info) return;
+  info.textContent = `Página ${currentPage} de ${totalPages} — ${total} registros`;
+  ul.innerHTML = '';
+  const prevLi = document.createElement('li');
+  prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+  prevLi.innerHTML = `<a class="page-link" href="#">Anterior</a>`;
+  prevLi.addEventListener('click', (e) => { e.preventDefault(); if (currentPage > 1) { currentPage--; mostrarVencimientos(vencimientos); } });
+  ul.appendChild(prevLi);
+  const nextLi = document.createElement('li');
+  nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+  nextLi.innerHTML = `<a class="page-link" href="#">Siguiente</a>`;
+  nextLi.addEventListener('click', (e) => { e.preventDefault(); if (currentPage < totalPages) { currentPage++; mostrarVencimientos(vencimientos); } });
+  ul.appendChild(nextLi);
+}
+
 function cargarUsuarios(q){
   const params = new URLSearchParams();
   if (q) params.append('q', q);
@@ -304,16 +465,16 @@ function cargarUsuarios(q){
       if (!d.success) return;
       const sel = document.getElementById('usuarioSelect');
       sel.innerHTML = '';
-      (d.data || []).forEach(u => {
-        const opt = document.createElement('option');
-        opt.value = String(u.cedula || '');
-        opt.textContent = `${u.nombre || ''} — ${u.cedula || ''}`;
-        opt.setAttribute('data-nombre', String(u.nombre || ''));
-        opt.setAttribute('data-id', String(u.id_codigo_consumidor || ''));
-        sel.appendChild(opt);
-      });
-    })
-    .catch(() => {});
+  (d.data || []).forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = String(u.cedula || '');
+    opt.textContent = `${u.nombre || ''} — ${u.cedula || ''}`;
+    opt.setAttribute('data-nombre', String(u.nombre || ''));
+    opt.setAttribute('data-id', String(u.id_codigo_consumidor || ''));
+    sel.appendChild(opt);
+  });
+})
+.catch(() => {});
 }
 </script>
 {% endblock %}

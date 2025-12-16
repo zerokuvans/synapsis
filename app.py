@@ -2160,11 +2160,12 @@ def api_sstt_vencimientos_cursos_tipos():
         )
         _ = cursor.fetchall()
         tipos = [
-            'EXAMEN MEDICO',
-            'CURSO ALTURAS',
-            'CURSO MANEJO DEFENSIVO',
-            'CURSO INDUCCION SST',
-            'CURSO REINDUCCION SST'
+            'EXAMEN MEDICO INGRESO',
+  'EXAMEN MEDICO PERIODICO',
+  'CURSO ALTURAS',
+  'CURSO MANEJO DEFENSIVO',
+  'CURSO INDUCCION SST',
+  'CURSO REINDUCCION SST'
         ]
         cursor.close(); connection.close()
         return jsonify({'success': True, 'data': tipos})
@@ -2365,6 +2366,28 @@ def api_sstt_vencimientos_cursos():
             fecha_hasta = (request.args.get('fecha_hasta') or '').strip()
             params = []
             where = []
+            try:
+                cur_check = connection.cursor()
+                cur_check.execute(
+                    """
+                    SELECT COUNT(*) FROM information_schema.columns
+                    WHERE table_schema = DATABASE()
+                      AND table_name = 'sstt_vencimientos_cursos'
+                      AND column_name = 'id'
+                    """
+                )
+                has_id = (cur_check.fetchone() or [0])[0]
+                cur_check.close()
+                if not has_id:
+                    try:
+                        cur_alter = connection.cursor()
+                        cur_alter.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN id INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST")
+                        connection.commit()
+                        cur_alter.close()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             if cedula:
                 where.append("recurso_operativo_cedula = %s")
                 params.append(cedula)
@@ -2377,7 +2400,7 @@ def api_sstt_vencimientos_cursos():
             if fecha_hasta:
                 where.append("sstt_vencimientos_cursos_fecha <= %s")
                 params.append(fecha_hasta)
-            sql = "SELECT id_codigo_consumidor, sstt_vencimientos_cursos_nombre, recurso_operativo_cedula, sstt_vencimientos_cursos_tipo_curso, sstt_vencimientos_cursos_fecha, sstt_vencimientos_cursos_fecha_ven, sstt_vencimientos_cursos_observacion FROM sstt_vencimientos_cursos"
+            sql = "SELECT id, id_codigo_consumidor, sstt_vencimientos_cursos_nombre, recurso_operativo_cedula, sstt_vencimientos_cursos_tipo_curso, sstt_vencimientos_cursos_fecha, sstt_vencimientos_cursos_fecha_ven, sstt_vencimientos_cursos_observacion FROM sstt_vencimientos_cursos"
             if where:
                 sql += " WHERE " + " AND ".join(where)
             sql += " ORDER BY sstt_vencimientos_cursos_fecha_ven ASC"
@@ -2405,13 +2428,40 @@ def api_sstt_vencimientos_cursos():
                                         fv_date = None
                 except Exception:
                     fv_date = None
+                def _fmt_date(val):
+                    try:
+                        if not val:
+                            return ''
+                        if hasattr(val, 'strftime'):
+                            return val.strftime('%Y-%m-%d')
+                        s = str(val).strip()
+                        if not s:
+                            return ''
+                        try:
+                            dt = datetime.strptime(s, '%Y-%m-%d')
+                            return dt.strftime('%Y-%m-%d')
+                        except Exception:
+                            try:
+                                dt = datetime.strptime(s, '%Y-%m-%d %H:%M:%S')
+                                return dt.strftime('%Y-%m-%d')
+                            except Exception:
+                                parts = s.split('-')
+                                if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit() and parts[2].isdigit():
+                                    y = parts[0]; m = parts[1].zfill(2); d = parts[2].zfill(2)
+                                    return f"{y}-{m}-{d}"
+                                return s
+                    except Exception:
+                        return ''
+                f_str = _fmt_date(f)
+                fv_str = _fmt_date(fv)
                 dias = (fv_date - hoy).days if fv_date else None
                 out.append({
+                    'id': r.get('id'),
                     'recurso_operativo_cedula': r.get('recurso_operativo_cedula'),
                     'nombre': r.get('sstt_vencimientos_cursos_nombre'),
                     'tipo_curso': r.get('sstt_vencimientos_cursos_tipo_curso'),
-                    'fecha': (f.strftime('%Y-%m-%d') if hasattr(f, 'strftime') else f),
-                    'fecha_vencimiento': (fv.strftime('%Y-%m-%d') if hasattr(fv, 'strftime') else fv),
+                    'fecha': f_str,
+                    'fecha_vencimiento': fv_str,
                     'dias_por_vencer': dias,
                     'observacion': r.get('sstt_vencimientos_cursos_observacion')
                 })
@@ -2454,6 +2504,142 @@ def api_sstt_vencimientos_cursos():
             new_id = cursor.lastrowid
             cursor.close(); connection.close()
             return jsonify({'success': True, 'id': new_id})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/sstt/vencimientos-cursos/<int:item_id>', methods=['PUT'])
+@login_required
+def api_sstt_vencimientos_cursos_update(item_id):
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        data = request.get_json() or {}
+        cedula = (data.get('recurso_operativo_cedula') or '').strip()
+        tipo = (data.get('sstt_vencimientos_cursos_tipo_curso') or '').strip()
+        fecha = (data.get('sstt_vencimientos_cursos_fecha') or '').strip()
+        fecha_ven = (data.get('sstt_vencimientos_cursos_fecha_ven') or '').strip()
+        observ = (data.get('sstt_vencimientos_cursos_observacion') or '').strip()
+        campos = []
+        params = []
+        idc = None
+        nombre = None
+        if cedula:
+            cur2 = connection.cursor()
+            cur2.execute("SELECT id_codigo_consumidor, nombre FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+            ru = cur2.fetchone()
+            cur2.close()
+            if ru:
+                idc = ru[0]
+                nombre = ru[1]
+        if idc is not None:
+            campos.append("id_codigo_consumidor = %s")
+            params.append(idc)
+        if nombre is not None:
+            campos.append("sstt_vencimientos_cursos_nombre = %s")
+            params.append(nombre)
+        if cedula:
+            campos.append("recurso_operativo_cedula = %s")
+            params.append(cedula)
+        if tipo:
+            campos.append("sstt_vencimientos_cursos_tipo_curso = %s")
+            params.append(tipo)
+        if fecha:
+            campos.append("sstt_vencimientos_cursos_fecha = %s")
+            params.append(fecha)
+        if fecha_ven:
+            campos.append("sstt_vencimientos_cursos_fecha_ven = %s")
+            params.append(fecha_ven)
+        campos.append("sstt_vencimientos_cursos_observacion = %s")
+        params.append(observ)
+        if not campos:
+            connection.close()
+            return jsonify({'success': False, 'message': 'Sin cambios'}), 400
+        sql = "UPDATE sstt_vencimientos_cursos SET " + ", ".join(campos) + " WHERE id = %s"
+        params.append(item_id)
+        cur = connection.cursor()
+        cur.execute(sql, tuple(params))
+        connection.commit()
+        cur.close(); connection.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/sstt/vencimientos-cursos/update-by', methods=['PUT'])
+@login_required
+def api_sstt_vencimientos_cursos_update_by():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        data = request.get_json() or {}
+        oc = (data.get('original_cedula') or '').strip()
+        ot = (data.get('original_tipo') or '').strip()
+        of = (data.get('original_fecha') or '').strip()
+        cedula = (data.get('recurso_operativo_cedula') or '').strip()
+        tipo = (data.get('sstt_vencimientos_cursos_tipo_curso') or '').strip()
+        fecha = (data.get('sstt_vencimientos_cursos_fecha') or '').strip()
+        fecha_ven = (data.get('sstt_vencimientos_cursos_fecha_ven') or '').strip()
+        observ = (data.get('sstt_vencimientos_cursos_observacion') or '').strip()
+        if not oc or not ot or not of:
+            connection.close()
+            return jsonify({'success': False, 'message': 'Faltan claves originales'}), 400
+        if not cedula or not tipo or not fecha or not fecha_ven:
+            connection.close()
+            return jsonify({'success': False, 'message': 'Campos requeridos faltantes'}), 400
+        cur2 = connection.cursor()
+        cur2.execute("SELECT id_codigo_consumidor, nombre FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+        ru = cur2.fetchone()
+        cur2.close()
+        idc = ru[0] if ru else None
+        nombre = ru[1] if ru else None
+        params_set = []
+        set_parts = []
+        if idc is not None:
+            set_parts.append("id_codigo_consumidor = %s")
+            params_set.append(idc)
+        if nombre is not None:
+            set_parts.append("sstt_vencimientos_cursos_nombre = %s")
+            params_set.append(nombre)
+        set_parts.append("recurso_operativo_cedula = %s")
+        params_set.append(cedula)
+        set_parts.append("sstt_vencimientos_cursos_tipo_curso = %s")
+        params_set.append(tipo)
+        set_parts.append("sstt_vencimientos_cursos_fecha = %s")
+        params_set.append(fecha)
+        set_parts.append("sstt_vencimientos_cursos_fecha_ven = %s")
+        params_set.append(fecha_ven)
+        set_parts.append("sstt_vencimientos_cursos_observacion = %s")
+        params_set.append(observ)
+        sql = "UPDATE sstt_vencimientos_cursos SET " + ", ".join(set_parts) + " WHERE recurso_operativo_cedula = %s AND sstt_vencimientos_cursos_tipo_curso = %s AND sstt_vencimientos_cursos_fecha = %s LIMIT 1"
+        params = params_set + [oc, ot, of]
+        cur = connection.cursor()
+        cur.execute(sql, tuple(params))
+        connection.commit()
+        affected = cur.rowcount
+        # Fallback: comparar por DATE() si el primer intento no encontró filas
+        if affected == 0:
+            sql2 = (
+                "UPDATE sstt_vencimientos_cursos SET " + ", ".join(set_parts) +
+                " WHERE recurso_operativo_cedula = %s AND sstt_vencimientos_cursos_tipo_curso = %s AND DATE(sstt_vencimientos_cursos_fecha) = %s LIMIT 1"
+            )
+            params2 = params_set + [oc, ot, of]
+            cur.execute(sql2, tuple(params2))
+            connection.commit()
+            affected = cur.rowcount
+        if affected == 0:
+            sql3 = (
+                "UPDATE sstt_vencimientos_cursos SET " + ", ".join(set_parts) +
+                " WHERE TRIM(recurso_operativo_cedula) = %s AND TRIM(sstt_vencimientos_cursos_tipo_curso) = %s AND DATE(sstt_vencimientos_cursos_fecha) = %s LIMIT 1"
+            )
+            params3 = params_set + [oc, ot, of]
+            cur.execute(sql3, tuple(params3))
+            connection.commit()
+            affected = cur.rowcount
+        cur.close(); connection.close()
+        if affected == 0:
+            return jsonify({'success': False, 'message': 'No se encontró registro para actualizar'}), 404
+        return jsonify({'success': True, 'updated': affected})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 

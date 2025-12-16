@@ -140,6 +140,9 @@ from app import api_import_vehiculos_excel, api_import_tecnico_mecanica_excel, a
 from app import api_cronograma_alerts_my
 from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas_por_tecnico, api_google_directions_route, api_riesgo_motos, api_riesgo_por_localidad, api_localidades, api_riesgo_importar, api_rutas_estados
 
+# Importar solo la función de actualización por claves para SSTT desde app.py
+from app import api_sstt_vencimientos_cursos_update_by
+
 # Importar módulo de dotaciones
 from dotaciones_api import registrar_rutas_dotaciones
 from encuestas_api import registrar_rutas_encuestas
@@ -238,6 +241,9 @@ registrar_rutas_dotaciones(app)
 # Registrar rutas del módulo de encuestas
 registrar_rutas_encuestas(app)
 registrar_rutas_avisos(app)
+
+# Registrar solo la ruta faltante del módulo SSTT
+app.route('/api/sstt/vencimientos-cursos/update-by', methods=['PUT'])(api_sstt_vencimientos_cursos_update_by)
 
 # Database configuration
 db_config = {
@@ -26366,11 +26372,12 @@ def api_sstt_vencimientos_cursos_tipos():
         )
         _ = cursor.fetchall()
         tipos = [
-            'EXAMEN MEDICO',
-            'CURSO ALTURAS',
-            'CURSO MANEJO DEFENSIVO',
-            'CURSO INDUCCION SST',
-            'CURSO REINDUCCION SST'
+            'EXAMEN MEDICO INGRESO',
+  'EXAMEN MEDICO PERIODICO',
+  'CURSO ALTURAS',
+  'CURSO MANEJO DEFENSIVO',
+  'CURSO INDUCCION SST',
+  'CURSO REINDUCCION SST'
         ]
         cursor.close(); connection.close()
         return jsonify({'success': True, 'data': tipos})
