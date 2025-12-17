@@ -1365,8 +1365,7 @@
         function updatePreoperacionalButtonStatus(data){
             if (isSupervisor) return;
             var items = (data && data.items) ? data.items : [];
-            var umbral = -1;
-            var shouldDisable = items.some(function(x){ return x && Number(x.dias_restantes) <= umbral; });
+            var shouldDisable = false;
             var btn = document.getElementById('preoperacionalButton');
             if (!btn) return;
             if (shouldDisable){

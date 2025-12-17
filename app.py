@@ -2364,6 +2364,8 @@ def api_sstt_vencimientos_cursos():
             tipo = (request.args.get('tipo') or '').strip()
             fecha_desde = (request.args.get('fecha_desde') or '').strip()
             fecha_hasta = (request.args.get('fecha_hasta') or '').strip()
+            solo_activos_param = (request.args.get('solo_activos') or '1').strip().lower()
+            solo_activos = solo_activos_param in ['1', 'true', 't', 'yes', 'y']
             params = []
             where = []
             try:
@@ -2389,21 +2391,30 @@ def api_sstt_vencimientos_cursos():
             except Exception:
                 pass
             if cedula:
-                where.append("recurso_operativo_cedula = %s")
+                where.append("vc.recurso_operativo_cedula = %s")
                 params.append(cedula)
             if tipo:
-                where.append("sstt_vencimientos_cursos_tipo_curso = %s")
+                where.append("vc.sstt_vencimientos_cursos_tipo_curso = %s")
                 params.append(tipo)
             if fecha_desde:
-                where.append("sstt_vencimientos_cursos_fecha >= %s")
+                where.append("vc.sstt_vencimientos_cursos_fecha >= %s")
                 params.append(fecha_desde)
             if fecha_hasta:
-                where.append("sstt_vencimientos_cursos_fecha <= %s")
+                where.append("vc.sstt_vencimientos_cursos_fecha <= %s")
                 params.append(fecha_hasta)
-            sql = "SELECT id, id_codigo_consumidor, sstt_vencimientos_cursos_nombre, recurso_operativo_cedula, sstt_vencimientos_cursos_tipo_curso, sstt_vencimientos_cursos_fecha, sstt_vencimientos_cursos_fecha_ven, sstt_vencimientos_cursos_observacion FROM sstt_vencimientos_cursos"
+            sql = (
+                "SELECT vc.id, vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, "
+                "vc.recurso_operativo_cedula, vc.sstt_vencimientos_cursos_tipo_curso, "
+                "vc.sstt_vencimientos_cursos_fecha, vc.sstt_vencimientos_cursos_fecha_ven, "
+                "vc.sstt_vencimientos_cursos_observacion "
+                "FROM sstt_vencimientos_cursos vc "
+                "LEFT JOIN recurso_operativo ro ON vc.id_codigo_consumidor = ro.id_codigo_consumidor"
+            )
+            if solo_activos:
+                where.append("ro.estado = 'Activo'")
             if where:
                 sql += " WHERE " + " AND ".join(where)
-            sql += " ORDER BY sstt_vencimientos_cursos_fecha_ven ASC"
+            sql += " ORDER BY vc.sstt_vencimientos_cursos_fecha_ven ASC"
             cursor.execute(sql, tuple(params))
             rows = cursor.fetchall() or []
             hoy = date.today()
