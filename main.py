@@ -27424,6 +27424,23 @@ def api_sgis_preoperacional_epp():
             """
         )
         connection.cursor().execute(ddl)
+        try:
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS c
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'sgis_trabajos_seguridad_rutina'
+                  AND COLUMN_NAME = 'firma_supervisor'
+                """
+            )
+            col = cursor.fetchone() or {'c': 0}
+            if int(col.get('c') or 0) == 0:
+                connection.cursor().execute(
+                    "ALTER TABLE sgis_trabajos_seguridad_rutina ADD COLUMN firma_supervisor LONGTEXT"
+                )
+        except Exception:
+            pass
         cur_sys = connection.cursor(buffered=True)
         cur_sys.execute("SHOW COLUMNS FROM sgis_pre_proteccion_personal LIKE 'fecha_dia'")
         if not cur_sys.fetchone():
@@ -27917,7 +27934,7 @@ def api_sgis_reportes_tsr_matriz():
                    respuesta_8, respuesta_9, respuesta_10, respuesta_11, respuesta_12, respuesta_13, respuesta_14,
                    respuesta_15, respuesta_16, respuesta_17,
                    riesgo, peligro, consecuencia, control_propuesto,
-                   observaciones, firma_trabajador
+                   observaciones, firma_trabajador, firma_supervisor
             FROM sgis_trabajos_seguridad_rutina
             WHERE recurso_operativo_cedula = %s AND fecha_dia BETWEEN %s AND %s
             ORDER BY fecha_dia DESC, fecha_registro DESC
@@ -27928,46 +27945,47 @@ def api_sgis_reportes_tsr_matriz():
         ultimo_dia = fin.day
         def arr():
             return ['' for _ in range(31)]
-        evals = { 'res1': arr(), 'res2': arr(), 'res3': arr(), 'res4': arr(), 'res5': arr(), 'res6': arr(), 'res7': arr(), 'res8': arr(), 'res9': arr(), 'res10': arr(), 'res11': arr(), 'res12': arr(), 'res13': arr(), 'res14': arr(), 'res15': arr(), 'res16': arr(), 'res17': arr() }
+        def arr_visitas():
+            return [[] for _ in range(31)]
+        evals = { 'res1': arr_visitas(), 'res2': arr_visitas(), 'res3': arr_visitas(), 'res4': arr_visitas(), 'res5': arr_visitas(), 'res6': arr_visitas(), 'res7': arr_visitas(), 'res8': arr_visitas(), 'res9': arr_visitas(), 'res10': arr_visitas(), 'res11': arr_visitas(), 'res12': arr_visitas(), 'res13': arr_visitas(), 'res14': arr_visitas(), 'res15': arr_visitas(), 'res16': arr_visitas(), 'res17': arr_visitas() }
         riesgos = { 'riesgo': arr(), 'peligro': arr(), 'consecuencia': arr(), 'control': arr() }
         observaciones = arr()
         firmas = arr()
-        seen_day = set()
+        firmas_supervisor = arr()
+        by_day = {}
         for row in rows:
             d = row['fecha_dia'].day
-            if d in seen_day:
-                continue
-            seen_day.add(d)
+            by_day.setdefault(d, []).append(row)
+        for d, day_rows in by_day.items():
             idx = d - 1
             if 0 <= idx < 31:
-                evals['res1'][idx] = row.get('respuesta_1') or ''
-                evals['res2'][idx] = row.get('respuesta_2') or ''
-                evals['res3'][idx] = row.get('respuesta_3') or ''
-                evals['res4'][idx] = row.get('respuesta_4') or ''
-                evals['res5'][idx] = row.get('respuesta_5') or ''
-                evals['res6'][idx] = row.get('respuesta_6') or ''
-                evals['res7'][idx] = row.get('respuesta_7') or ''
-                evals['res8'][idx] = row.get('respuesta_8') or ''
-                evals['res9'][idx] = row.get('respuesta_9') or ''
-                evals['res10'][idx] = row.get('respuesta_10') or ''
-                evals['res11'][idx] = row.get('respuesta_11') or ''
-                evals['res12'][idx] = row.get('respuesta_12') or ''
-                evals['res13'][idx] = row.get('respuesta_13') or ''
-                evals['res14'][idx] = row.get('respuesta_14') or ''
-                evals['res15'][idx] = row.get('respuesta_15') or ''
-                evals['res16'][idx] = row.get('respuesta_16') or ''
-                evals['res17'][idx] = row.get('respuesta_17') or ''
-                riesgos['riesgo'][idx] = (row.get('riesgo') or '').strip()
-                riesgos['peligro'][idx] = (row.get('peligro') or '').strip()
-                riesgos['consecuencia'][idx] = (row.get('consecuencia') or '').strip()
-                riesgos['control'][idx] = (row.get('control_propuesto') or '').strip()
-                observaciones[idx] = (row.get('observaciones') or '').strip()
-                firmas[idx] = row.get('firma_trabajador') or ''
+                res_list = ['respuesta_1','respuesta_2','respuesta_3','respuesta_4','respuesta_5','respuesta_6','respuesta_7','respuesta_8','respuesta_9','respuesta_10','respuesta_11','respuesta_12','respuesta_13','respuesta_14','respuesta_15','respuesta_16','respuesta_17']
+                for i, key in enumerate(['res1','res2','res3','res4','res5','res6','res7','res8','res9','res10','res11','res12','res13','res14','res15','res16','res17']):
+                    vals = []
+                    for r in day_rows:
+                        v = r.get(res_list[i]) or ''
+                        vals.append(v)
+                        if len(vals) >= 7:
+                            break
+                    evals[key][idx] = vals
+                top = day_rows[0]
+                riesgos['riesgo'][idx] = (top.get('riesgo') or '').strip()
+                riesgos['peligro'][idx] = (top.get('peligro') or '').strip()
+                riesgos['consecuencia'][idx] = (top.get('consecuencia') or '').strip()
+                riesgos['control'][idx] = (top.get('control_propuesto') or '').strip()
+                obs_vals = []
+                for r in day_rows:
+                    t = (r.get('observaciones') or '').strip()
+                    if t:
+                        obs_vals.append(t)
+                observaciones[idx] = ' | '.join(obs_vals)
+                firmas[idx] = top.get('firma_trabajador') or ''
+                firmas_supervisor[idx] = top.get('firma_supervisor') or ''
         cursor.execute("SELECT nombre, cargo, carpeta FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
         u = cursor.fetchone() or {}
         info = { 'nombre': u.get('nombre') or '', 'cedula': cedula, 'cargo': u.get('cargo') or '', 'area': u.get('carpeta') or '' }
         matriz = { 'evaluacion': evals, 'riesgos_controles': riesgos }
-        return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'matriz': matriz, 'observaciones': observaciones, 'firmas': firmas})
+        return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'matriz': matriz, 'observaciones': observaciones, 'firmas': firmas, 'firmas_supervisor': firmas_supervisor})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
