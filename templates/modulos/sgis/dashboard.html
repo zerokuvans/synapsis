@@ -95,6 +95,9 @@
                     <button id="btnPreopEsc" type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEscaleras" {% if not habilitar_escaleras %}disabled title="Disponible solo para APOYO CAMIONETAS"{% endif %}>
                       <i class="fas fa-stairs me-2"></i>Pre-operacional de Escaleras
                     </button>
+                    <button id="btnTSR" type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalTSR">
+                      <i class="fas fa-clipboard-list me-2"></i>Trabajo Seguro Rutinario
+                    </button>
                     <button id="btnPreopCaidas" type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCaidas">
                       <i class="fas fa-user-shield me-2"></i>Pre-operacional Control Caídas
                     </button>
@@ -520,6 +523,131 @@
   </div>
 
 <!-- Modal Preoperacional Control Caídas -->
+<div class="modal fade" id="modalTSR" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-clipboard-list me-2"></i>Trabajo Seguro Rutinario</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <div class="row g-3">
+            <div class="col-md-3"><small class="text-muted">Nombre</small><div>{{ session.get('user_name') }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Cédula</small><div>{{ session.get('user_cedula') }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Cargo</small><div>{{ session.get('user_role') }}</div></div>
+            <div class="col-md-3"><small class="text-muted">Fecha</small><div id="fechaBogotaTSR"></div></div>
+          </div>
+        </div>
+        <hr>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Actividad asociada</label>
+            <div id="actividadGroupTSR">
+              <label class="me-2"><input type="radio" name="actividad_asociada" value="TRABAJO EN ALTURAS"> TRABAJO EN ALTURAS</label>
+              <label class="me-2"><input type="radio" name="actividad_asociada" value="TRABAJO EN ESPACIOS CONFINADOS"> TRABAJO EN ESPACIOS CONFINADOS</label>
+              <label class="me-2"><input type="radio" name="actividad_asociada" value="TRABAJOS CON ENERGIAS PELIGROSAS"> TRABAJOS CON ENERGIAS PELIGROSAS</label>
+              <label class="me-2"><input type="radio" name="actividad_asociada" value="TRABAJOS EN CALIENTE"> TRABAJOS EN CALIENTE</label>
+              <label><input type="radio" name="actividad_asociada" value="NINGUNO"> NINGUNO</label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Descripción de tareas</label>
+            <input id="descripcionTareasTSR" type="text" class="form-control" placeholder="Descripción breve de las tareas">
+          </div>
+        </div>
+        <div class="mb-3">
+          <h6 class="mb-2">Evaluación</h6>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <ul class="mb-0">
+                <li class="mb-2"><label class="form-label fw-bold mb-1">1. Planeación del trabajo</label><div><label class="me-2"><input type="radio" name="respuesta_1" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_1" value="NC"> NC</label><label><input type="radio" name="respuesta_1" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">2. Inspección del área</label><div><label class="me-2"><input type="radio" name="respuesta_2" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_2" value="NC"> NC</label><label><input type="radio" name="respuesta_2" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">3. Herramientas en buen estado</label><div><label class="me-2"><input type="radio" name="respuesta_3" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_3" value="NC"> NC</label><label><input type="radio" name="respuesta_3" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">4. EPP completo</label><div><label class="me-2"><input type="radio" name="respuesta_4" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_4" value="NC"> NC</label><label><input type="radio" name="respuesta_4" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">5. Riesgos identificados</label><div><label class="me-2"><input type="radio" name="respuesta_5" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_5" value="NC"> NC</label><label><input type="radio" name="respuesta_5" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">6. Señalización adecuada</label><div><label class="me-2"><input type="radio" name="respuesta_6" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_6" value="NC"> NC</label><label><input type="radio" name="respuesta_6" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">7. Orden y limpieza</label><div><label class="me-2"><input type="radio" name="respuesta_7" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_7" value="NC"> NC</label><label><input type="radio" name="respuesta_7" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">8. Condiciones ambientales seguras</label><div><label class="me-2"><input type="radio" name="respuesta_8" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_8" value="NC"> NC</label><label><input type="radio" name="respuesta_8" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">9. Riesgos eléctricos controlados</label><div><label class="me-2"><input type="radio" name="respuesta_9" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_9" value="NC"> NC</label><label><input type="radio" name="respuesta_9" value="N/A"> N/A</label></div></li>
+              </ul>
+            </div>
+            <div class="col-md-6">
+              <ul class="mb-0">
+                <li class="mb-2"><label class="form-label fw-bold mb-1">10. Trabajo en alturas seguro</label><div><label class="me-2"><input type="radio" name="respuesta_10" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_10" value="NC"> NC</label><label><input type="radio" name="respuesta_10" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">11. Riesgo de caídas controlado</label><div><label class="me-2"><input type="radio" name="respuesta_11" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_11" value="NC"> NC</label><label><input type="radio" name="respuesta_11" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">12. Uso correcto de herramientas manuales</label><div><label class="me-2"><input type="radio" name="respuesta_12" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_12" value="NC"> NC</label><label><input type="radio" name="respuesta_12" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">13. Estado físico para la tarea</label><div><label class="me-2"><input type="radio" name="respuesta_13" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_13" value="NC"> NC</label><label><input type="radio" name="respuesta_13" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">14. Comunicación clara con el equipo</label><div><label class="me-2"><input type="radio" name="respuesta_14" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_14" value="NC"> NC</label><label><input type="radio" name="respuesta_14" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">15. Ruta y desplazamiento seguro</label><div><label class="me-2"><input type="radio" name="respuesta_15" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_15" value="NC"> NC</label><label><input type="radio" name="respuesta_15" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">16. Integridad de materiales</label><div><label class="me-2"><input type="radio" name="respuesta_16" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_16" value="NC"> NC</label><label><input type="radio" name="respuesta_16" value="N/A"> N/A</label></div></li>
+                <li class="mb-2"><label class="form-label fw-bold mb-1">17. Control final antes de iniciar</label><div><label class="me-2"><input type="radio" name="respuesta_17" value="C"> C</label><label class="me-2"><input type="radio" name="respuesta_17" value="NC"> NC</label><label><input type="radio" name="respuesta_17" value="N/A"> N/A</label></div></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Riesgo</label>
+            <select id="selRiesgoTSR" class="form-select">
+              <option value="">Selecciona…</option>
+            </select>
+          </div>
+        </div>
+        <div class="row g-3 mt-2">
+          <div class="col-md-6">
+            <label class="form-label">Peligro</label>
+            <select id="selPeligroTSR" class="form-select">
+              <option value="">Selecciona…</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Consecuencia</label>
+            <select id="selConsecuenciaTSR" class="form-select">
+              <option value="">Selecciona…</option>
+            </select>
+          </div>
+        </div>
+        <div class="row g-3 mt-2">
+          <div class="col-md-6">
+            <label class="form-label">Controles</label>
+            <select id="selControlTSR" class="form-select">
+              <option value="">Selecciona…</option>
+            </select>
+          </div>
+        </div>
+        <div class="row g-3 mt-2">
+          <div class="col-12">
+            <label class="form-label">Observaciones</label>
+            <textarea id="observacionesTSR" class="form-control" rows="3" placeholder="Observaciones"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button id="btnFirmarEnviarTSR" type="button" class="btn btn-primary">Firmar y Enviar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalFirmaTSR" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-pen-nib me-2"></i>Firma</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <canvas id="firmaCanvasTSR" width="300" height="150" style="border:1px solid #ddd; border-radius:4px; cursor:crosshair"></canvas>
+        <div class="mt-2 d-flex gap-2">
+          <button id="btnLimpiarFirmaTSR" type="button" class="btn btn-outline-secondary btn-sm">Limpiar</button>
+          <button id="btnEnviarTSR" type="button" class="btn btn-success btn-sm">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="modal fade" id="modalCaidas" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl">
     <div class="modal-content">
@@ -1159,6 +1287,111 @@ document.addEventListener('DOMContentLoaded', function(){
     initFirmaCaidas();
   });
   document.getElementById('btnEnviarPreopCaidas').addEventListener('click', enviarConFirmaCaidas);
+  function setFechaBogotaTSR(){ try{ document.getElementById('fechaBogotaTSR').textContent = new Date().toLocaleString('es-CO',{ timeZone:'America/Bogota' }); }catch(e){} }
+  setFechaBogotaTSR();
+  function getValTSR(n){ const el = document.querySelector('#modalTSR input[name="'+n+'"]:checked'); return el ? el.value : ''; }
+  function construirPayloadTSR(){
+    const payload = { observaciones: (document.getElementById('observacionesTSR').value || '').trim() };
+    const actEl = document.querySelector('#modalTSR input[name="actividad_asociada"]:checked');
+    payload.actividad_asociada = actEl ? actEl.value : '';
+    payload.descripcion_tareas = (document.getElementById('descripcionTareasTSR').value || '').trim();
+    for(let i=1;i<=17;i++){ payload['respuesta_'+i] = getValTSR('respuesta_'+i); }
+    payload.riesgo = document.getElementById('selRiesgoTSR').value || '';
+    payload.peligro = document.getElementById('selPeligroTSR').value || '';
+    payload.consecuencia = document.getElementById('selConsecuenciaTSR').value || '';
+    payload.controles = document.getElementById('selControlTSR').value || '';
+    return payload;
+  }
+  function validarTSR(payload){
+    for(let i=1;i<=17;i++){ const v = (payload['respuesta_'+i]||'').toUpperCase(); if(!v || !(['C','NC','N/A'].includes(v))){ Swal.fire('Campos incompletos','Responde todas las preguntas','warning'); return false; } }
+    const anyNC = Array.from({length:17}).some((_,idx)=> (payload['respuesta_'+(idx+1)]||'').toUpperCase()==='NC');
+    if(anyNC && !payload.observaciones){ Swal.fire('Observaciones requeridas','Registra observaciones para los hallazgos en NC','warning'); return false; }
+    return true;
+  }
+  let firmaCtxTSR, firmandoTSR = false;
+  function initFirmaTSR(){
+    const c = document.getElementById('firmaCanvasTSR');
+    firmaCtxTSR = c.getContext('2d');
+    firmaCtxTSR.strokeStyle = '#222';
+    firmaCtxTSR.lineWidth = 2;
+    const pos = (e)=>{ const r = c.getBoundingClientRect(); const x = (e.touches? e.touches[0].clientX : e.clientX) - r.left; const y = (e.touches? e.touches[0].clientY : e.clientY) - r.top; return {x,y}; };
+    const start = (e)=>{ firmandoTSR = true; const p = pos(e); firmaCtxTSR.beginPath(); firmaCtxTSR.moveTo(p.x,p.y); e.preventDefault(); };
+    const move = (e)=>{ if(!firmandoTSR) return; const p = pos(e); firmaCtxTSR.lineTo(p.x,p.y); firmaCtxTSR.stroke(); e.preventDefault(); };
+    const end = ()=>{ firmandoTSR = false; };
+    c.addEventListener('mousedown', start); c.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+    c.addEventListener('touchstart', start, {passive:false}); c.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
+    document.getElementById('btnLimpiarFirmaTSR').addEventListener('click', ()=>{ firmaCtxTSR.clearRect(0,0,c.width,c.height); });
+    document.getElementById('btnEnviarTSR').addEventListener('click', enviarTSR);
+  }
+  function enviarTSR(){
+    const c = document.getElementById('firmaCanvasTSR');
+    const firma = c.toDataURL('image/png');
+    const payload = construirPayloadTSR();
+    if(!validarTSR(payload)) return;
+    payload.firma_base64 = firma;
+    fetch('/api/sgis/trabajo-seguridad-rutina', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+      .then(r=>r.json()).then(d=>{
+        if(d && d.success){
+          Swal.fire('Éxito','Trabajo Seguro Rutinario registrado','success');
+          const btn = document.getElementById('btnFirmarEnviarTSR'); if(btn){ btn.disabled = true; btn.textContent = 'Análisis diligenciado'; }
+          const mf = document.getElementById('modalFirmaTSR'); const modal = bootstrap.Modal.getInstance(mf); if(modal) modal.hide();
+          const me = document.getElementById('modalTSR'); const modal2 = bootstrap.Modal.getInstance(me); if(modal2) modal2.hide();
+        } else {
+          Swal.fire('Error', d.error || 'No se pudo registrar', 'error');
+        }
+      }).catch(()=>{ Swal.fire('Error','Error de red','error'); });
+  }
+  let tsrDataTSR = [];
+  function fillSelectTSR(sel, items){ sel.innerHTML = '<option value="">Selecciona…</option>'; items.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); }); }
+  function cargarRiesgosTSR(){
+    fetch('/api/sgis/trabajo-seguridad-rutina/riesgos').then(r=>r.json()).then(d=>{
+      if(d && d.success){
+        tsrDataTSR = Array.isArray(d.data)? d.data : [];
+        const riesgos = Array.from(new Set(tsrDataTSR.map(x=>x.riesgo).filter(Boolean)));
+        const sr = document.getElementById('selRiesgoTSR');
+        const sp = document.getElementById('selPeligroTSR');
+        const sc = document.getElementById('selConsecuenciaTSR');
+        const sctrl = document.getElementById('selControlTSR');
+        fillSelectTSR(sr, riesgos);
+        fillSelectTSR(sp, []);
+        fillSelectTSR(sc, []);
+        fillSelectTSR(sctrl, []);
+        sr.addEventListener('change', function(){
+          const r = this.value || '';
+          const peligros = Array.from(new Set(tsrDataTSR.filter(x=>x.riesgo===r).map(x=>x.peligro).filter(Boolean)));
+          fillSelectTSR(sp, peligros);
+          fillSelectTSR(sc, []);
+          fillSelectTSR(sctrl, []);
+        });
+        sp.addEventListener('change', function(){
+          const r = sr.value || '';
+          const p = this.value || '';
+          const consecuencias = Array.from(new Set(tsrDataTSR.filter(x=>x.riesgo===r && x.peligro===p).map(x=>x.consecuencia).filter(Boolean)));
+          fillSelectTSR(sc, consecuencias);
+          fillSelectTSR(sctrl, []);
+        });
+        sc.addEventListener('change', function(){
+          const r = sr.value || '';
+          const p = sp.value || '';
+          const c = this.value || '';
+          const controles = Array.from(new Set(tsrDataTSR.filter(x=>x.riesgo===r && x.peligro===p && x.consecuencia===c).map(x=>x.controles).filter(Boolean)));
+          fillSelectTSR(sctrl, controles);
+        });
+      }
+    }).catch(()=>{});
+  }
+  document.getElementById('btnFirmarEnviarTSR').addEventListener('click', function(){
+    const payload = construirPayloadTSR();
+    if(!validarTSR(payload)) return;
+    const mf = new bootstrap.Modal(document.getElementById('modalFirmaTSR'));
+    mf.show();
+    initFirmaTSR();
+  });
+  cargarRiesgosTSR();
+  fetch('/api/sgis/trabajo-seguro-rutinario/status').then(r=>r.json()).then(d=>{
+    const btn = document.getElementById('btnFirmarEnviarTSR');
+    if(d && d.success && d.limit_reached && btn){ btn.disabled = true; btn.textContent = 'Límite diario alcanzado (10)'; }
+  }).catch(()=>{});
 })
 </script>
 {% endblock %}

@@ -1,0 +1,144 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header text-white fw-bold" style="background: linear-gradient(135deg, #1e293b 0%, #06b6d4 100%) !important;">
+          <h4 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Reportes SGIS · Análisis de Trabajo Seguro Rutinario</h4>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label">Mes</label>
+              <input type="month" id="filtroMes" class="form-control">
+            </div>
+            <div class="col-md-4 align-self-end">
+              <button id="btnCargar" class="btn btn-info w-100"><i class="fas fa-sync me-2"></i>Cargar técnicos</button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-striped" id="tablaTecnicos">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Cédula</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalDetalleTSR" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-clipboard-list me-2"></i>Análisis mensual TSR</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <style>
+          .tpl-bar{background:#0f3d61;color:#fff;border-radius:4px;padding:.35rem .6rem;font-weight:600;letter-spacing:.2px}
+          .tpl-grid{border:1px solid #0f3d61;border-radius:6px;overflow:hidden}
+          .tpl-grid .row{margin:0}
+          .tpl-label{font-size:.8rem;color:#6c757d}
+          .tpl-box{border:1px solid #dee2e6;border-radius:4px;min-height:32px;padding:.25rem .5rem}
+          .tpl-seccion-title{display:flex;align-items:center;gap:.5rem;background:#0f3d61;color:#fff;padding:.4rem .6rem;border-radius:4px;margin:10px 0}
+          .tpl-head-days th{min-width:28px;text-align:center}
+          .tpl-firma{border-top:3px solid #0f3d61;margin-top:12px;padding-top:10px}
+          .tpl-firma .firma-box{border:1px solid #0f3d61;border-radius:4px;height:120px}
+          .firma-img{width:120px;height:120px;object-fit:contain}
+          .tpl-observ{border-top:3px solid #0f3d61;margin-top:12px;padding-top:8px}
+          .tpl-observ .observ-box{border:1px dashed #adb5bd;border-radius:4px;min-height:60px;padding:.5rem}
+          #modalDetalleTSR .modal-dialog{max-width:96vw}
+          #contenedorTSR{overflow-x:auto}
+          #contenedorTSR table{table-layout:auto;width:100%}
+          #contenedorTSR thead th:first-child{width:360px;text-align:left}
+          #contenedorTSR thead th:nth-child(n+2),#contenedorTSR tbody td{min-width:28px;text-align:center}
+          #contenedorTSR tbody th{font-weight:500}
+        </style>
+        <div class="tpl-grid p-3 mb-3">
+          <div class="tpl-bar mb-2">ANÁLISIS DE TRABAJO SEGURO RUTINARIO</div>
+          <div class="row g-2 mb-2">
+            <div class="col-sm-6">
+              <div class="tpl-label">Nombre y apellidos</div>
+              <div class="tpl-box" id="plantNombre"></div>
+            </div>
+            <div class="col-sm-3">
+              <div class="tpl-label">Identificación</div>
+              <div class="tpl-box" id="plantCedula"></div>
+            </div>
+            <div class="col-sm-3">
+              <div class="tpl-label">Mes</div>
+              <div class="tpl-box" id="plantMes"></div>
+            </div>
+          </div>
+          <div class="row g-2">
+            <div class="col-sm-3">
+              <div class="tpl-label">Cargo</div>
+              <div class="tpl-box" id="plantCargo"></div>
+            </div>
+            <div class="col-sm-3">
+              <div class="tpl-label">Área</div>
+              <div class="tpl-box" id="plantArea"></div>
+            </div>
+          </div>
+        </div>
+        <div id="contenedorTSR"></div>
+        <div class="tpl-observ">
+          <div class="tpl-bar mb-2">Observaciones por día</div>
+          <div class="observ-box" id="plantObservaciones"></div>
+        </div>
+        <div class="tpl-firma">
+          <div class="tpl-bar mb-2">Firma trabajador</div>
+          <div class="row g-2">
+            <div class="col-6 col-md-3"><div class="tpl-box firma-box d-flex align-items-center justify-content-center" id="firmaSemana1">SEMANA 1</div></div>
+            <div class="col-6 col-md-3"><div class="tpl-box firma-box d-flex align-items-center justify-content-center" id="firmaSemana2">SEMANA 2</div></div>
+            <div class="col-6 col-md-3"><div class="tpl-box firma-box d-flex align-items-center justify-content-center" id="firmaSemana3">SEMANA 3</div></div>
+            <div class="col-6 col-md-3"><div class="tpl-box firma-box d-flex align-items-center justify-content-center" id="firmaSemana4">SEMANA 4</div></div>
+          </div>
+        </div>
+        <div class="small text-muted mt-2">Leyenda: C = Cumple · NC = No Cumple · N/A = No Aplica</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-info" id="btnExportarPDF"><i class="fas fa-file-pdf me-2"></i>Exportar PDF</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+<script>
+let ultimoDetalle = null;
+let ultimoNoLaborales = null;
+function valorMesActual(){ const d = new Date(); const m = String(d.getMonth()+1).padStart(2,'0'); return `${d.getFullYear()}-${m}`; }
+function setMesInicial(){ const i = document.getElementById('filtroMes'); if(i && !i.value) i.value = valorMesActual(); }
+function cargarTecnicos(){ const mes = document.getElementById('filtroMes').value; fetch(`/api/sgis/reportes/tecnicos-mes?mes=${encodeURIComponent(mes)}`).then(r=>r.json()).then(d=>{ const tbody = document.querySelector('#tablaTecnicos tbody'); tbody.innerHTML=''; if(d && d.success && Array.isArray(d.data)){ d.data.forEach(t=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${t.nombre||''}</td><td>${t.cedula||''}</td><td><button class="btn btn-outline-info btn-sm" data-cedula="${t.cedula}" data-nombre="${t.nombre}"><i class="fas fa-clipboard-list me-1"></i>Analisis TSR</button></td>`; tbody.appendChild(tr); }); tbody.querySelectorAll('button').forEach(btn=>{ btn.addEventListener('click',()=>{ abrirDetalle(btn.getAttribute('data-cedula'), btn.getAttribute('data-nombre')); }); }); } else { Swal.fire('Sin datos','No hay técnicos con asistencia en el mes','info'); } }).catch(()=>{ Swal.fire('Error','No se pudo cargar técnicos','error'); }); }
+function renderHeaderDias(ultimoDia){ const tr=document.createElement('tr'); const thItem=document.createElement('th'); thItem.textContent='EVALUACIÓN'; tr.appendChild(thItem); for(let d=1; d<=31; d++){ const th=document.createElement('th'); th.textContent=d<=ultimoDia? d : ''; tr.appendChild(th); } return tr; }
+function renderFila(label, valores, ultimoDia){ const tr=document.createElement('tr'); const th=document.createElement('th'); th.innerHTML=`<span>${label}</span>`; tr.appendChild(th); for(let i=0;i<31;i++){ const td=document.createElement('td'); const day=i+1; let v=(valores[i]||'').trim(); if(day<=ultimoDia && !v && ultimoNoLaborales && ultimoNoLaborales.has(day)) v='N/A'; td.textContent=v; if(v==='NC') td.className='table-danger'; else if(v==='C') td.className='table-success'; else if(v==='N/A') td.className='table-secondary'; tr.appendChild(td); } return tr; }
+function renderSeccionEvaluacion(evals, ultimoDia){ const div=document.createElement('div'); div.className='mb-3'; const h6=document.createElement('h6'); h6.className='mb-2'; h6.textContent='EVALUACIÓN'; div.appendChild(h6); const table=document.createElement('table'); table.className='table table-bordered'; const thead=document.createElement('thead'); thead.appendChild(renderHeaderDias(ultimoDia)); table.appendChild(thead); const tbody=document.createElement('tbody'); const labels=[
+  '1. Planeación del trabajo','2. Inspección del área','3. Herramientas en buen estado','4. EPP completo','5. Riesgos identificados','6. Señalización adecuada','7. Orden y limpieza','8. Condiciones ambientales seguras','9. Riesgos eléctricos controlados','10. Trabajo en alturas seguro','11. Riesgo de caídas controlado','12. Uso correcto de herramientas manuales','13. Estado físico para la tarea','14. Comunicación clara con el equipo','15. Ruta y desplazamiento seguro','16. Integridad de materiales','17. Control final antes de iniciar'
+]; const keys=['res1','res2','res3','res4','res5','res6','res7','res8','res9','res10','res11','res12','res13','res14','res15','res16','res17']; keys.forEach((k, idx)=>{ tbody.appendChild(renderFila(labels[idx], evals[k]||[], ultimoDia)); }); table.appendChild(tbody); div.appendChild(table); return div; }
+function renderSeccionRiesgos(riesgos, ultimoDia){ const div=document.createElement('div'); div.className='mb-3'; const h6=document.createElement('h6'); h6.className='mb-2'; h6.textContent='RIESGOS Y CONTROLES'; div.appendChild(h6); const table=document.createElement('table'); table.className='table table-bordered'; const thead=document.createElement('thead'); const trh=document.createElement('tr'); const thItem=document.createElement('th'); thItem.textContent='GENERALIDADES'; trh.appendChild(thItem); for(let d=1; d<=31; d++){ const th=document.createElement('th'); th.textContent=d<=ultimoDia? d : ''; trh.appendChild(th); } thead.appendChild(trh); table.appendChild(thead); const tbody=document.createElement('tbody'); const filas=[
+  {label:'Riesgo', valores: riesgos.riesgo||[]},
+  {label:'Peligro', valores: riesgos.peligro||[]},
+  {label:'Consecuencia', valores: riesgos.consecuencia||[]},
+  {label:'Controles', valores: riesgos.control||[]}
+]; filas.forEach(f=>{ const tr=document.createElement('tr'); const th=document.createElement('th'); th.className='item-label'; th.innerHTML=`<span>${f.label}</span>`; tr.appendChild(th); for(let i=0;i<31;i++){ const td=document.createElement('td'); const day=i+1; let v=(f.valores[i]||'').trim(); if(day<=ultimoDia && !v && ultimoNoLaborales && ultimoNoLaborales.has(day)) v=''; td.textContent=v; tr.appendChild(td); } tbody.appendChild(tr); }); table.appendChild(tbody); div.appendChild(table); return div; }
+function colombiaFestivos(year){ const res=[]; res.push(new Date(year,0,1)); res.push(new Date(year,4,1)); res.push(new Date(year,6,20)); res.push(new Date(year,7,7)); res.push(new Date(year,11,8)); res.push(new Date(year,11,25)); return res; }
+function computeNoLaboralSet(mes, ultimoDia){ const parts=mes.split('-'); const year=Number(parts[0]); const month=Number(parts[1])-1; const hol=colombiaFestivos(year); const set=new Set(); for(let d=1; d<=ultimoDia; d++){ const dt=new Date(year, month, d); if(dt.getDay()===0) set.add(d); } hol.forEach(h=>{ if(h.getFullYear()===year && h.getMonth()===month) set.add(h.getDate()); }); return set; }
+function abrirDetalle(cedula, nombre){ const mes=document.getElementById('filtroMes').value; fetch(`/api/sgis/reportes/tsr-matriz?cedula=${encodeURIComponent(cedula)}&mes=${encodeURIComponent(mes)}`).then(r=>r.json()).then(d=>{ if(d && d.success){ const info=d.info||{}; document.getElementById('plantNombre').textContent=info.nombre||nombre||''; document.getElementById('plantCedula').textContent=info.cedula||cedula||''; document.getElementById('plantMes').textContent=d.mes||''; document.getElementById('plantCargo').textContent=info.cargo||''; document.getElementById('plantArea').textContent=info.area||''; const cont=document.getElementById('contenedorTSR'); cont.innerHTML=''; const u=d.ultimo_dia||new Date(Number(d.mes.split('-')[0]), Number(d.mes.split('-')[1]), 0).getDate(); const m=d.matriz||{}; const obs=Array.isArray(d.observaciones)? d.observaciones : []; const lines=[]; obs.forEach((txt, idx)=>{ const t=(txt||'').trim(); if(t){ lines.push(`Día ${idx+1}: ${t}`); } }); document.getElementById('plantObservaciones').innerHTML=lines.length? lines.join('<br>') : ''; ultimoDetalle={ mes:d.mes, ultimoDia:u, info:{ nombre: info.nombre||nombre||'', cedula: info.cedula||cedula||'', cargo: info.cargo||'', area: info.area||'' }, matriz:m, observaciones: obs, firmas: Array.isArray(d.firmas)? d.firmas : [] }; ultimoNoLaborales=computeNoLaboralSet(d.mes, u); cont.appendChild(renderSeccionEvaluacion(m.evaluacion||{}, u)); cont.appendChild(renderSeccionRiesgos(m.riesgos_controles||{}, u)); aplicarFirmasSemana(ultimoDetalle); const modal=new bootstrap.Modal(document.getElementById('modalDetalleTSR')); modal.show(); } else { Swal.fire('Sin datos','No hay registros para este técnico','info'); } }).catch(()=>{ Swal.fire('Error','No se pudo cargar detalle','error'); }); }
+function aplicarFirmasSemana(det){ const u=det.ultimoDia||new Date(Number(det.mes.split('-')[0]), Number(det.mes.split('-')[1]), 0).getDate(); const firmasArr=Array.isArray(det.firmas)? det.firmas : []; function normalizar(v){ const t=(v||'').trim(); if(!t) return ''; if(t.startsWith('data:image')) return t; if(/^https?:\/\//.test(t) || t.startsWith('/')) return t; if(/^[A-Za-z0-9+/=]+$/.test(t) && t.length>100) return 'data:image/png;base64,'+t; return ''; } const semanas=[ {ini:1, fin:Math.min(7,u)}, {ini:8, fin:Math.min(14,u)}, {ini:15, fin:Math.min(21,u)}, {ini:22, fin:u} ]; const resultados=semanas.map(s=>{ let src=''; let txt=''; for(let d=s.ini; d<=s.fin; d++){ const f=firmasArr[d-1]; const n=normalizar(f); if(n){ src=n; break; } } return { src, txt }; }); ['firmaSemana1','firmaSemana2','firmaSemana3','firmaSemana4'].forEach((id, i)=>{ const el=document.getElementById(id); if(el){ el.innerHTML=''; const cont=document.createElement('div'); cont.className='d-flex align-items-center justify-content-center gap-2'; const t=document.createElement('span'); t.textContent=`SEMANA ${i+1}`; cont.appendChild(t); const r=resultados[i]||{}; if(r.src){ const img=document.createElement('img'); img.className='firma-img'; img.src=r.src; if(!r.src.startsWith('data:')) img.crossOrigin='anonymous'; cont.appendChild(img); } el.appendChild(cont); } }); }
+function exportarPDF(){ if(!ultimoDetalle){ Swal.fire('Sin datos','Abre un técnico antes de exportar','info'); return; } const el=document.querySelector('#modalDetalleTSR .modal-content'); const nombre=(ultimoDetalle.info?.nombre||'').replace(/[^A-Za-z0-9_\- ]/g,''); const ced=(ultimoDetalle.info?.cedula||'').replace(/[^0-9]/g,''); const archivo=`TSR_${ced||nombre}_${ultimoDetalle.mes}.pdf`; const margin=5; const hasH2C=!!(window.html2canvas); const hasJspdf=!!((window.jspdf && window.jspdf.jsPDF) || window.jsPDF); if(hasH2C && hasJspdf){ window.html2canvas(el, { scale: 2, useCORS: true, scrollY: 0 }).then(canvas=>{ const jsPDFCtor=window.jspdf && window.jspdf.jsPDF ? window.jspdf.jsPDF : window.jsPDF; const pdf=new jsPDFCtor({ unit: 'pt', format: 'letter', orientation: 'landscape' }); const pdfW=pdf.internal.pageSize.getWidth(); const pdfH=pdf.internal.pageSize.getHeight(); const maxW=pdfW - margin*2; const maxH=pdfH - margin*2; const ratio=Math.min(maxW / canvas.width, maxH / canvas.height); const imgW=canvas.width * ratio; const imgH=canvas.height * ratio; const x=margin + (maxW - imgW) / 2; const y=margin + (maxH - imgH) / 2; const dataUrl=canvas.toDataURL('image/jpeg', 0.95); pdf.addImage(dataUrl, 'JPEG', x, y, imgW, imgH); pdf.save(archivo); }); } else if(window.html2pdf){ const opt={ margin: 10, filename: archivo, image: { type: 'jpeg', quality: 0.95 }, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { unit: 'pt', format: 'letter', orientation: 'landscape' }, pagebreak: { mode: ['avoid-all'] } }; window.html2pdf().from(el).set(opt).save(); } else { Swal.fire('Error','No se encontraron librerías de exportación','error'); } }
+document.addEventListener('DOMContentLoaded', function(){ setMesInicial(); cargarTecnicos(); document.getElementById('btnCargar').addEventListener('click', cargarTecnicos); const bp=document.getElementById('btnExportarPDF'); if(bp){ bp.addEventListener('click', exportarPDF); } });
+</script>
+{% endblock %}

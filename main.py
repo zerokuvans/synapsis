@@ -288,7 +288,28 @@ ensure_webpush_tables()
 # Función para obtener conexión a la base de datos
 def get_db_connection():
     try:
-        connection = mysql.connector.connect(**db_config)
+        host = os.getenv('MYSQL_HOST') or (db_config.get('host') or 'localhost')
+        user = os.getenv('MYSQL_USER') or (db_config.get('user') or 'root')
+        password = os.getenv('MYSQL_PASSWORD') or (db_config.get('password') or '732137A031E4b@')
+        database = os.getenv('MYSQL_DB') or (db_config.get('database') or 'capired')
+        try:
+            port = int(os.getenv('MYSQL_PORT') or (db_config.get('port') or 3306))
+        except Exception:
+            port = 3306
+        connection = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database,
+            port=port
+        )
+        try:
+            cur = connection.cursor()
+            tz = os.getenv('MYSQL_TIME_ZONE') or '+00:00'
+            cur.execute("SET time_zone = %s", (tz,))
+            cur.close()
+        except Exception:
+            pass
         return connection
     except Error as e:
         app.logger.error(f"Error de conexión a MySQL: {str(e)}")
@@ -27315,6 +27336,11 @@ def sgis_reportes_escaleras_page():
 def sgis_reportes_caidas_page():
     return render_template('modulos/sgis/reportes_caidas.html')
 
+@app.route('/sgis/reportes/tsr')
+@login_required(role='administrativo')
+def sgis_reportes_tsr_page():
+    return render_template('modulos/sgis/reportes_tsr.html')
+
 @app.route('/api/sgis/preoperacional-epp', methods=['POST'])
 @login_required_api()
 def api_sgis_preoperacional_epp():
@@ -27804,6 +27830,143 @@ def api_sgis_reportes_preop_matriz():
             'cargo': u.get('cargo') or '',
             'area': u.get('carpeta') or ''
         }
+        return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'matriz': matriz, 'observaciones': observaciones, 'firmas': firmas})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/reportes/tsr-matriz', methods=['GET'])
+@login_required_api(role='administrativo')
+def api_sgis_reportes_tsr_matriz():
+    try:
+        cedula = request.args.get('cedula')
+        mes = request.args.get('mes')
+        if not cedula:
+            return jsonify({'success': False, 'error': 'Cédula requerida'}), 400
+        if mes:
+            try:
+                inicio = datetime.strptime(mes + '-01', '%Y-%m-%d').date()
+            except ValueError:
+                inicio = get_bogota_datetime().date().replace(day=1)
+        else:
+            inicio = get_bogota_datetime().date().replace(day=1)
+        if inicio.month == 12:
+            fin = inicio.replace(year=inicio.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            fin = inicio.replace(month=inicio.month + 1, day=1) - timedelta(days=1)
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_trabajos_seguridad_rutina (
+                id_sgis_trabajo_seguridad_rutina INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                cargo VARCHAR(128) NULL,
+                ciudad VARCHAR(128) NULL,
+                placa VARCHAR(32) NULL,
+                actividad_asociada VARCHAR(64) NULL,
+                descripcion_tareas TEXT,
+                observaciones TEXT,
+                respuesta_1 VARCHAR(4),
+                respuesta_2 VARCHAR(4),
+                respuesta_3 VARCHAR(4),
+                respuesta_4 VARCHAR(4),
+                respuesta_5 VARCHAR(4),
+                respuesta_6 VARCHAR(4),
+                respuesta_7 VARCHAR(4),
+                respuesta_8 VARCHAR(4),
+                respuesta_9 VARCHAR(4),
+                respuesta_10 VARCHAR(4),
+                respuesta_11 VARCHAR(4),
+                respuesta_12 VARCHAR(4),
+                respuesta_13 VARCHAR(4),
+                respuesta_14 VARCHAR(4),
+                respuesta_15 VARCHAR(4),
+                respuesta_16 VARCHAR(4),
+                respuesta_17 VARCHAR(4),
+                riesgo VARCHAR(128) NULL,
+                peligro VARCHAR(128) NULL,
+                consecuencia TEXT,
+                control_propuesto TEXT,
+                firma_trabajador LONGTEXT,
+                fecha_registro DATETIME,
+                fecha_dia DATE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.cursor().execute(ddl)
+        cursor.execute(
+            """
+            SELECT fecha_dia, fecha_registro,
+                   respuesta_1, respuesta_2, respuesta_3, respuesta_4, respuesta_5, respuesta_6, respuesta_7,
+                   respuesta_8, respuesta_9, respuesta_10, respuesta_11, respuesta_12, respuesta_13, respuesta_14,
+                   respuesta_15, respuesta_16, respuesta_17,
+                   riesgo, peligro, consecuencia, control_propuesto,
+                   observaciones, firma_trabajador
+            FROM sgis_trabajos_seguridad_rutina
+            WHERE recurso_operativo_cedula = %s AND fecha_dia BETWEEN %s AND %s
+            ORDER BY fecha_dia DESC, fecha_registro DESC
+            """,
+            (cedula, inicio, fin)
+        )
+        rows = cursor.fetchall()
+        ultimo_dia = fin.day
+        def arr():
+            return ['' for _ in range(31)]
+        evals = { 'res1': arr(), 'res2': arr(), 'res3': arr(), 'res4': arr(), 'res5': arr(), 'res6': arr(), 'res7': arr(), 'res8': arr(), 'res9': arr(), 'res10': arr(), 'res11': arr(), 'res12': arr(), 'res13': arr(), 'res14': arr(), 'res15': arr(), 'res16': arr(), 'res17': arr() }
+        riesgos = { 'riesgo': arr(), 'peligro': arr(), 'consecuencia': arr(), 'control': arr() }
+        observaciones = arr()
+        firmas = arr()
+        seen_day = set()
+        for row in rows:
+            d = row['fecha_dia'].day
+            if d in seen_day:
+                continue
+            seen_day.add(d)
+            idx = d - 1
+            if 0 <= idx < 31:
+                evals['res1'][idx] = row.get('respuesta_1') or ''
+                evals['res2'][idx] = row.get('respuesta_2') or ''
+                evals['res3'][idx] = row.get('respuesta_3') or ''
+                evals['res4'][idx] = row.get('respuesta_4') or ''
+                evals['res5'][idx] = row.get('respuesta_5') or ''
+                evals['res6'][idx] = row.get('respuesta_6') or ''
+                evals['res7'][idx] = row.get('respuesta_7') or ''
+                evals['res8'][idx] = row.get('respuesta_8') or ''
+                evals['res9'][idx] = row.get('respuesta_9') or ''
+                evals['res10'][idx] = row.get('respuesta_10') or ''
+                evals['res11'][idx] = row.get('respuesta_11') or ''
+                evals['res12'][idx] = row.get('respuesta_12') or ''
+                evals['res13'][idx] = row.get('respuesta_13') or ''
+                evals['res14'][idx] = row.get('respuesta_14') or ''
+                evals['res15'][idx] = row.get('respuesta_15') or ''
+                evals['res16'][idx] = row.get('respuesta_16') or ''
+                evals['res17'][idx] = row.get('respuesta_17') or ''
+                riesgos['riesgo'][idx] = (row.get('riesgo') or '').strip()
+                riesgos['peligro'][idx] = (row.get('peligro') or '').strip()
+                riesgos['consecuencia'][idx] = (row.get('consecuencia') or '').strip()
+                riesgos['control'][idx] = (row.get('control_propuesto') or '').strip()
+                observaciones[idx] = (row.get('observaciones') or '').strip()
+                firmas[idx] = row.get('firma_trabajador') or ''
+        cursor.execute("SELECT nombre, cargo, carpeta FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+        u = cursor.fetchone() or {}
+        info = { 'nombre': u.get('nombre') or '', 'cedula': cedula, 'cargo': u.get('cargo') or '', 'area': u.get('carpeta') or '' }
+        matriz = { 'evaluacion': evals, 'riesgos_controles': riesgos }
         return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'matriz': matriz, 'observaciones': observaciones, 'firmas': firmas})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -30591,6 +30754,374 @@ def api_vencimientos_tecnicos_operativo():
         except Exception:
             pass
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+
+@app.route('/sgis/trabajo-seguro-rutinario')
+@login_required()
+def sgis_trabajo_seguro_rutinario_page():
+    if session.get('user_role') not in ['tecnicos', 'operativo', 'administrativo', 'sstt', 'SSTT', 'tecnico', 'Tecnico']:
+        flash('No tienes permisos para acceder a este módulo', 'error')
+        return redirect(url_for('dashboard'))
+    info = {}
+    try:
+        connection = get_db_connection()
+        if connection:
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(
+                """
+                SELECT 
+                    ro.nombre,
+                    ro.cargo,
+                    ro.carpeta AS area,
+                    ro.ciudad,
+                    ro.recurso_operativo_cedula AS cedula,
+                    (
+                        SELECT mv1.placa 
+                        FROM capired.mpa_vehiculos mv1 
+                        WHERE mv1.tecnico_asignado = ro.id_codigo_consumidor AND mv1.estado = 'Activo' 
+                        ORDER BY mv1.id_mpa_vehiculos DESC 
+                        LIMIT 1
+                    ) AS placa
+                FROM recurso_operativo ro
+                WHERE ro.recurso_operativo_cedula = %s
+                """,
+                (session.get('user_cedula'),)
+            )
+            info = cursor.fetchone() or {}
+            cursor.close()
+            connection.close()
+    except Exception:
+        pass
+    return render_template('modulos/sgis/trabajo_seguridad_rutina.html', info=info)
+
+@app.route('/api/sgis/trabajo-seguro-rutinario/status', methods=['GET'])
+@login_required_api()
+def api_sgis_tsr_status():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_trabajos_seguridad_rutina (
+                id_sgis_trabajo_seguridad_rutina INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                cargo VARCHAR(128) NULL,
+                ciudad VARCHAR(128) NULL,
+                placa VARCHAR(32) NULL,
+                actividad_asociada VARCHAR(64) NULL,
+                descripcion_tareas TEXT,
+                observaciones TEXT,
+                respuesta_1 VARCHAR(4),
+                respuesta_2 VARCHAR(4),
+                respuesta_3 VARCHAR(4),
+                respuesta_4 VARCHAR(4),
+                respuesta_5 VARCHAR(4),
+                respuesta_6 VARCHAR(4),
+                respuesta_7 VARCHAR(4),
+                respuesta_8 VARCHAR(4),
+                respuesta_9 VARCHAR(4),
+                respuesta_10 VARCHAR(4),
+                respuesta_11 VARCHAR(4),
+                respuesta_12 VARCHAR(4),
+                respuesta_13 VARCHAR(4),
+                respuesta_14 VARCHAR(4),
+                respuesta_15 VARCHAR(4),
+                respuesta_16 VARCHAR(4),
+                respuesta_17 VARCHAR(4),
+                riesgo VARCHAR(128) NULL,
+                peligro VARCHAR(128) NULL,
+                consecuencia TEXT,
+                control_propuesto TEXT,
+                firma_trabajador LONGTEXT,
+                firma_supervisor LONGTEXT,
+                fecha_registro DATETIME,
+                fecha_dia DATE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        cur_ddl = connection.cursor()
+        cur_ddl.execute(ddl)
+        try:
+            connection.commit()
+        except Exception:
+            pass
+        try:
+            cur_ddl.close()
+        except Exception:
+            pass
+        # Intentar eliminar índice único existente para permitir múltiples gestiones al día
+        try:
+            cur_idx = connection.cursor()
+            cur_idx.execute("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name='sgis_trabajos_seguridad_rutina' AND index_name='uq_tecnico_dia_rutina'")
+            has_idx = (cur_idx.fetchone() or [0])[0]
+            cur_idx.close()
+            if has_idx:
+                try:
+                    cur_drop = connection.cursor()
+                    cur_drop.execute("ALTER TABLE sgis_trabajos_seguridad_rutina DROP INDEX uq_tecnico_dia_rutina")
+                    connection.commit()
+                    cur_drop.close()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        uid = session.get('id_codigo_consumidor') or session.get('user_id')
+        hoy = get_bogota_datetime().date()
+        if not uid:
+            return jsonify({'success': True, 'already_today': False})
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT COUNT(*) AS c FROM sgis_trabajos_seguridad_rutina WHERE id_codigo_consumidor = %s AND fecha_dia = %s", (uid, hoy))
+        row = cursor.fetchone() or {}
+        c = int(row.get('c', 0) or 0)
+        return jsonify({'success': True, 'count_today': c, 'limit_reached': c >= 10, 'already_today': c >= 1})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/trabajo-seguridad-rutina/riesgos', methods=['GET'])
+@login_required_api()
+def api_sgis_tsr_riesgos():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur_ddl = connection.cursor()
+        cur_ddl.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sgis_riesgo_seguridad_rutina (
+                id_sgis_riesgo_seguridad_rutina INT AUTO_INCREMENT PRIMARY KEY,
+                riesgo VARCHAR(128) NOT NULL,
+                peligro VARCHAR(128) NULL,
+                consecuencia TEXT NULL,
+                controles TEXT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        try:
+            connection.commit()
+        except Exception:
+            pass
+        try:
+            cur_ddl.close()
+        except Exception:
+            pass
+        cursor = connection.cursor(dictionary=True)
+        try:
+            cursor.execute("SELECT id_sgis_riesgo_seguridad_rutina AS id, riesgo, peligro, consecuencia, controles FROM sgis_riesgo_seguridad_rutina")
+        except Exception:
+            try:
+                cursor.execute("SELECT id_sgis_riesgo_seguridad_rutina AS id, riesgo, peligro, consecuencia, controles FROM capired.sgis_riesgo_seguridad_rutina")
+            except Exception:
+                cursor.execute("SELECT id AS id, riesgo, peligro, consecuencia, controles FROM sgis_riesgo_seguridad_rutina")
+        rows = cursor.fetchall()
+        if not rows:
+            cur_seed = connection.cursor()
+            try:
+                cur_seed.executemany(
+                    "INSERT INTO sgis_riesgo_seguridad_rutina (riesgo, peligro, consecuencia, controles) VALUES (%s,%s,%s,%s)",
+                    [
+                        ('Caídas de altura', 'Alturas', 'Lesiones graves por caída', 'Uso de arnés, línea de vida, puntos de anclaje certificados'),
+                        ('Golpes por objetos', 'Impactos', 'Contusiones o fracturas', 'Orden y aseo, delimitación del área, uso de casco'),
+                        ('Electrocución', 'Energía eléctrica', 'Paro cardiorrespiratorio', 'Bloqueo y etiquetado, herramientas aisladas, verificación de desenergización'),
+                        ('Cortes y pinchazos', 'Herramientas', 'Heridas en extremidades', 'Uso de guantes y herramientas en buen estado'),
+                        ('Exposición a calor', 'Trabajo en caliente', 'Quemaduras', 'Avisos, extintor disponible, cortinas térmicas y EPP adecuado')
+                    ]
+                )
+                connection.commit()
+            except Exception:
+                pass
+            try:
+                cur_seed.close()
+            except Exception:
+                pass
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute("SELECT id_sgis_riesgo_seguridad_rutina AS id, riesgo, peligro, consecuencia, controles FROM sgis_riesgo_seguridad_rutina")
+            rows = cursor.fetchall()
+        data = []
+        for r in rows:
+            data.append({
+                'id': r.get('id'),
+                'riesgo': r.get('riesgo') or '',
+                'peligro': r.get('peligro') or '',
+                'consecuencia': r.get('consecuencia') or '',
+                'controles': r.get('controles') or ''
+            })
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/trabajo-seguridad-rutina', methods=['POST'])
+@login_required_api()
+def api_sgis_tsr_save():
+    try:
+        data = request.get_json() or {}
+        respuestas = []
+        for i in range(1, 18):
+            v = (str(data.get(f'respuesta_{i}') or '').strip().upper())
+            if v not in ('C','NC','N/A'):
+                return jsonify({'success': False, 'error': f'Respuesta inválida o faltante: respuesta_{i}'}), 400
+            respuestas.append(v)
+        obs = (data.get('observaciones') or '').strip()
+        any_nc = any(r == 'NC' for r in respuestas)
+        if any_nc and not obs:
+            return jsonify({'success': False, 'error': 'Observaciones requeridas por respuestas NC'}), 400
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        ddl = (
+            """
+            CREATE TABLE IF NOT EXISTS sgis_trabajos_seguridad_rutina (
+                id_sgis_trabajo_seguridad_rutina INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                recurso_operativo_cedula VARCHAR(20) NULL,
+                nombre VARCHAR(128) NULL,
+                cargo VARCHAR(128) NULL,
+                ciudad VARCHAR(128) NULL,
+                placa VARCHAR(32) NULL,
+                actividad_asociada VARCHAR(64) NULL,
+                descripcion_tareas TEXT,
+                observaciones TEXT,
+                respuesta_1 VARCHAR(4),
+                respuesta_2 VARCHAR(4),
+                respuesta_3 VARCHAR(4),
+                respuesta_4 VARCHAR(4),
+                respuesta_5 VARCHAR(4),
+                respuesta_6 VARCHAR(4),
+                respuesta_7 VARCHAR(4),
+                respuesta_8 VARCHAR(4),
+                respuesta_9 VARCHAR(4),
+                respuesta_10 VARCHAR(4),
+                respuesta_11 VARCHAR(4),
+                respuesta_12 VARCHAR(4),
+                respuesta_13 VARCHAR(4),
+                respuesta_14 VARCHAR(4),
+                respuesta_15 VARCHAR(4),
+                respuesta_16 VARCHAR(4),
+                respuesta_17 VARCHAR(4),
+                riesgo VARCHAR(128) NULL,
+                peligro VARCHAR(128) NULL,
+                consecuencia TEXT,
+                control_propuesto TEXT,
+                firma_trabajador LONGTEXT,
+                firma_supervisor LONGTEXT,
+                fecha_registro DATETIME,
+                fecha_dia DATE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        cur_ddl = connection.cursor()
+        cur_ddl.execute(ddl)
+        try:
+            connection.commit()
+        except Exception:
+            pass
+        try:
+            cur_ddl.close()
+        except Exception:
+            pass
+        cursor = connection.cursor(dictionary=True)
+        uid = session.get('id_codigo_consumidor')
+        ced = session.get('user_cedula')
+        cursor.execute("SELECT nombre, cargo, ciudad FROM recurso_operativo WHERE id_codigo_consumidor = %s", (uid,))
+        urow = cursor.fetchone() or {}
+        nombre = urow.get('nombre') or session.get('user_name')
+        cargo = urow.get('cargo') or session.get('user_role')
+        ciudad = urow.get('ciudad') or ''
+        cursor.execute(
+            """
+            SELECT mv.placa FROM capired.mpa_vehiculos mv 
+            WHERE mv.tecnico_asignado = %s AND mv.estado = 'Activo' 
+            ORDER BY mv.id_mpa_vehiculos DESC LIMIT 1
+            """,
+            (uid,)
+        )
+        vrow = cursor.fetchone() or {}
+        placa = vrow.get('placa') or ''
+        fecha = get_bogota_datetime()
+        fecha_dia = fecha.date()
+        cursor.execute("SELECT COUNT(*) AS c FROM sgis_trabajos_seguridad_rutina WHERE id_codigo_consumidor=%s AND fecha_dia=%s", (uid, fecha_dia))
+        row = cursor.fetchone() or {}
+        c = int(row.get('c',0) or 0)
+        if c >= 10:
+            return jsonify({'success': False, 'error': 'Límite diario alcanzado: máximo 10 gestiones'}), 409
+        firma_trabajador = data.get('firma_trabajador') or data.get('firma_base64') or None
+        actividad = (data.get('actividad_asociada') or '').strip()
+        desc_tareas = (data.get('descripcion_tareas') or '').strip()
+        riesgo_sel = data.get('riesgo') or ''
+        peligro_sel = data.get('peligro') or ''
+        consecuencia_txt = data.get('consecuencia') or ''
+        control_txt = data.get('control_propuesto') or data.get('controles') or ''
+        cursor.execute(
+            """
+            INSERT INTO sgis_trabajos_seguridad_rutina (
+                id_codigo_consumidor, recurso_operativo_cedula, nombre, cargo, ciudad, placa,
+                actividad_asociada, descripcion_tareas, observaciones,
+                respuesta_1, respuesta_2, respuesta_3, respuesta_4, respuesta_5, respuesta_6, respuesta_7,
+                respuesta_8, respuesta_9, respuesta_10, respuesta_11, respuesta_12, respuesta_13, respuesta_14,
+                respuesta_15, respuesta_16, respuesta_17,
+                riesgo, peligro, consecuencia, control_propuesto,
+                firma_trabajador, fecha_registro, fecha_dia
+            ) VALUES (
+                %s,%s,%s,%s,%s,%s,
+                %s,%s,%s,
+                %s,%s,%s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,%s,%s,
+                %s,%s,%s,
+                %s,%s,%s,%s,
+                %s,%s,%s
+            )
+            """,
+            (
+                uid, ced, nombre, cargo, ciudad, placa,
+                actividad, desc_tareas, obs,
+                respuestas[0], respuestas[1], respuestas[2], respuestas[3], respuestas[4], respuestas[5], respuestas[6],
+                respuestas[7], respuestas[8], respuestas[9], respuestas[10], respuestas[11], respuestas[12], respuestas[13],
+                respuestas[14], respuestas[15], respuestas[16],
+                riesgo_sel, peligro_sel, consecuencia_txt, control_txt,
+                firma_trabajador, fecha, fecha_dia
+            )
+        )
+        connection.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
 
 @app.route('/dev/login', methods=['POST'])
 def dev_login():

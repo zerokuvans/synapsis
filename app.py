@@ -8575,6 +8575,197 @@ def api_tecnologias_codigos_facturacion():
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
+@app.route('/api/sgis/trabajo-seguro-rutinario/status', methods=['GET'])
+@login_required
+def api_sgis_tsr_status():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'DB_UNAVAILABLE'}), 200
+        try:
+            ddl = (
+                """
+                CREATE TABLE IF NOT EXISTS sgis_trabajos_seguridad_rutina (
+                    id_sgis_trabajo_seguridad_rutina INT AUTO_INCREMENT PRIMARY KEY,
+                    id_codigo_consumidor INT NOT NULL,
+                    recurso_operativo_cedula VARCHAR(20) NULL,
+                    nombre VARCHAR(128) NULL,
+                    cargo VARCHAR(128) NULL,
+                    ciudad VARCHAR(128) NULL,
+                    placa VARCHAR(32) NULL,
+                    actividad_asociada VARCHAR(64) NULL,
+                    descripcion_tareas TEXT,
+                    observaciones TEXT,
+                    respuesta_1 VARCHAR(4),
+                    respuesta_2 VARCHAR(4),
+                    respuesta_3 VARCHAR(4),
+                    respuesta_4 VARCHAR(4),
+                    respuesta_5 VARCHAR(4),
+                    respuesta_6 VARCHAR(4),
+                    respuesta_7 VARCHAR(4),
+                    respuesta_8 VARCHAR(4),
+                    respuesta_9 VARCHAR(4),
+                    respuesta_10 VARCHAR(4),
+                    respuesta_11 VARCHAR(4),
+                    respuesta_12 VARCHAR(4),
+                    respuesta_13 VARCHAR(4),
+                    respuesta_14 VARCHAR(4),
+                    respuesta_15 VARCHAR(4),
+                    respuesta_16 VARCHAR(4),
+                    respuesta_17 VARCHAR(4),
+                    riesgo VARCHAR(128) NULL,
+                    peligro VARCHAR(128) NULL,
+                    consecuencia TEXT,
+                    control_propuesto TEXT,
+                    firma_trabajador LONGTEXT,
+                    firma_supervisor LONGTEXT,
+                    fecha_registro DATETIME,
+                    fecha_dia DATE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                """
+            )
+            cur_ddl = connection.cursor()
+            cur_ddl.execute(ddl)
+            try:
+                connection.commit()
+            except Exception:
+                pass
+            try:
+                cur_ddl.close()
+            except Exception:
+                pass
+        except Exception:
+            # Si no se puede crear la tabla por permisos, continuar y usar fallback en SELECT
+            pass
+        # Intentar eliminar índice único existente para permitir múltiples gestiones al día
+        try:
+            cur_idx = connection.cursor()
+            cur_idx.execute("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name='sgis_trabajos_seguridad_rutina' AND index_name='uq_tecnico_dia_rutina'")
+            has_idx = (cur_idx.fetchone() or [0])[0]
+            cur_idx.close()
+            if has_idx:
+                try:
+                    cur_drop = connection.cursor()
+                    cur_drop.execute("ALTER TABLE sgis_trabajos_seguridad_rutina DROP INDEX uq_tecnico_dia_rutina")
+                    connection.commit()
+                    cur_drop.close()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        uid = session.get('id_codigo_consumidor') or session.get('user_id') or getattr(current_user, 'id', None)
+        hoy = get_bogota_datetime().date()
+        if not uid:
+            return jsonify({'success': True, 'already_today': False})
+        cursor = connection.cursor(dictionary=True)
+        try:
+            cursor.execute("SELECT COUNT(*) AS c FROM sgis_trabajos_seguridad_rutina WHERE id_codigo_consumidor = %s AND fecha_dia = %s", (uid, hoy))
+        except Exception:
+            cursor.execute("SELECT COUNT(*) AS c FROM capired.sgis_trabajos_seguridad_rutina WHERE id_codigo_consumidor = %s AND fecha_dia = %s", (uid, hoy))
+        row = cursor.fetchone() or {}
+        c = int(row.get('c',0) or 0)
+        return jsonify({'success': True, 'count_today': c, 'limit_reached': c >= 10, 'already_today': c >= 1})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 200
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/trabajo-seguridad-rutina/riesgos', methods=['GET'])
+@login_required
+def api_sgis_tsr_riesgos():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'DB_UNAVAILABLE'}), 200
+        try:
+            cur_ddl = connection.cursor()
+            cur_ddl.execute(
+                """
+                CREATE TABLE IF NOT EXISTS sgis_riesgo_seguridad_rutina (
+                    id_sgis_riesgo_seguridad_rutina INT AUTO_INCREMENT PRIMARY KEY,
+                    riesgo VARCHAR(128) NOT NULL,
+                    peligro VARCHAR(128) NULL,
+                    consecuencia TEXT NULL,
+                    controles TEXT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                """
+            )
+            try:
+                connection.commit()
+            except Exception:
+                pass
+            try:
+                cur_ddl.close()
+            except Exception:
+                pass
+        except Exception:
+            # Si no se puede crear la tabla por permisos, continuar y usar fallback en SELECT
+            pass
+        cursor = connection.cursor(dictionary=True)
+        try:
+            cursor.execute("SELECT id_sgis_riesgo_seguridad_rutina AS id, riesgo, peligro, consecuencia, controles FROM sgis_riesgo_seguridad_rutina")
+        except Exception:
+            try:
+                cursor.execute("SELECT id_sgis_riesgo_seguridad_rutina AS id, riesgo, peligro, consecuencia, controles FROM capired.sgis_riesgo_seguridad_rutina")
+            except Exception:
+                cursor.execute("SELECT id AS id, riesgo, peligro, consecuencia, controles FROM sgis_riesgo_seguridad_rutina")
+        rows = cursor.fetchall()
+        if not rows:
+            try:
+                cur_seed = connection.cursor()
+                cur_seed.executemany(
+                    "INSERT INTO sgis_riesgo_seguridad_rutina (riesgo, peligro, consecuencia, controles) VALUES (%s,%s,%s,%s)",
+                    [
+                        ('Caídas de altura', 'Alturas', 'Lesiones graves por caída', 'Uso de arnés, línea de vida, puntos de anclaje certificados'),
+                        ('Golpes por objetos', 'Impactos', 'Contusiones o fracturas', 'Orden y aseo, delimitación del área, uso de casco'),
+                        ('Electrocución', 'Energía eléctrica', 'Paro cardiorrespiratorio', 'Bloqueo y etiquetado, herramientas aisladas, verificación de desenergización'),
+                        ('Cortes y pinchazos', 'Herramientas', 'Heridas en extremidades', 'Uso de guantes y herramientas en buen estado'),
+                        ('Exposición a calor', 'Trabajo en caliente', 'Quemaduras', 'Avisos, extintor disponible, cortinas térmicas y EPP adecuado')
+                    ]
+                )
+                connection.commit()
+                cur_seed.close()
+                cursor = connection.cursor(dictionary=True)
+                cursor.execute("SELECT id, riesgo, peligro, consecuencia, controles FROM sgis_riesgo_seguridad_rutina")
+                rows = cursor.fetchall()
+            except Exception:
+                # Si no se puede sembrar (por permisos), dejar lista vacía para no romper
+                rows = []
+        data = []
+        for r in rows:
+            data.append({
+                'id': r.get('id'),
+                'riesgo': r.get('riesgo') or '',
+                'peligro': r.get('peligro') or '',
+                'consecuencia': r.get('consecuencia') or '',
+                'controles': r.get('controles') or ''
+            })
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 200
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
 @app.route('/api/analistas/codigos/agrupaciones', methods=['GET'])
 @login_required
 def api_agrupaciones_codigos_facturacion():
