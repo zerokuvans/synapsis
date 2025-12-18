@@ -61,10 +61,16 @@ def login_required_api(role=None):
         def decorated_function(*args, **kwargs):
             if 'user_id' not in session:
                 return jsonify({'error': 'Autenticación requerida', 'code': 'AUTH_REQUIRED'}), 401
-            
-            if role and session.get('user_role') != role and session.get('user_role') != 'administrativo':
-                return jsonify({'error': 'Permisos insuficientes', 'code': 'INSUFFICIENT_PERMISSIONS'}), 403
-            
+            if role:
+                ur = str(session.get('user_role') or '').strip().lower()
+                if isinstance(role, (list, tuple, set)):
+                    roles_norm = {str(r).strip().lower() for r in role}
+                    if ur not in roles_norm and ur != 'administrativo':
+                        return jsonify({'error': 'Permisos insuficientes', 'code': 'INSUFFICIENT_PERMISSIONS'}), 403
+                else:
+                    req_role = str(role or '').strip().lower()
+                    if ur != req_role and ur != 'administrativo':
+                        return jsonify({'error': 'Permisos insuficientes', 'code': 'INSUFFICIENT_PERMISSIONS'}), 403
             return f(*args, **kwargs)
         return decorated_function
     return decorator

@@ -2403,12 +2403,12 @@ def api_sstt_vencimientos_cursos():
                 where.append("vc.sstt_vencimientos_cursos_fecha <= %s")
                 params.append(fecha_hasta)
             sql = (
-                "SELECT vc.id, vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, "
+                "SELECT vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, "
                 "vc.recurso_operativo_cedula, vc.sstt_vencimientos_cursos_tipo_curso, "
                 "vc.sstt_vencimientos_cursos_fecha, vc.sstt_vencimientos_cursos_fecha_ven, "
                 "vc.sstt_vencimientos_cursos_observacion "
                 "FROM sstt_vencimientos_cursos vc "
-                "LEFT JOIN recurso_operativo ro ON vc.id_codigo_consumidor = ro.id_codigo_consumidor"
+                "LEFT JOIN recurso_operativo ro ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula"
             )
             if solo_activos:
                 where.append("ro.estado = 'Activo'")
@@ -2466,6 +2466,12 @@ def api_sstt_vencimientos_cursos():
                 f_str = _fmt_date(f)
                 fv_str = _fmt_date(fv)
                 dias = (fv_date - hoy).days if fv_date else None
+                anio_val = None
+                try:
+                    if f_str and len(f_str) >= 4 and f_str[0:4].isdigit():
+                        anio_val = int(f_str[0:4])
+                except Exception:
+                    anio_val = None
                 out.append({
                     'id': r.get('id'),
                     'recurso_operativo_cedula': r.get('recurso_operativo_cedula'),
@@ -2474,8 +2480,64 @@ def api_sstt_vencimientos_cursos():
                     'fecha': f_str,
                     'fecha_vencimiento': fv_str,
                     'dias_por_vencer': dias,
-                    'observacion': r.get('sstt_vencimientos_cursos_observacion')
+                    'observacion': r.get('sstt_vencimientos_cursos_observacion'),
+                    'anio': anio_val
                 })
+
+            # Integración de encuesta 10 por usuario (por año presente)
+            if cedula:
+                cur_user = connection.cursor(dictionary=True)
+                cur_user.execute("SELECT id_codigo_consumidor, nombre, estado FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+                ru = cur_user.fetchone()
+                cur_user.close()
+                if ru and (not solo_activos or str(ru.get('estado') or '') == 'Activo'):
+                    idc = ru.get('id_codigo_consumidor')
+                    nombre_u = ru.get('nombre')
+                    cur_enc = connection.cursor(dictionary=True)
+                    try:
+                        cur_enc.execute(
+                            """
+                            SELECT DATE(fecha_respuesta) AS fecha
+                            FROM encuesta_respuestas
+                            WHERE encuesta_id = %s AND usuario_id = %s AND estado = 'enviada' AND YEAR(fecha_respuesta) = YEAR(CURDATE())
+                            ORDER BY fecha_respuesta DESC
+                            LIMIT 1
+                            """,
+                            (10, idc)
+                        )
+                        er = cur_enc.fetchone()
+                    except Exception:
+                        er = None
+                    finally:
+                        cur_enc.close()
+                    if er:
+                        fecha_enc = er.get('fecha')
+                        has_induccion = any((i.get('tipo_curso') == 'CURSO INDUCCION SST') for i in out)
+                        enc_year = None
+                        try:
+                            if hasattr(fecha_enc, 'year'):
+                                enc_year = int(fecha_enc.year)
+                            else:
+                                s = str(fecha_enc)
+                                enc_year = int(s[0:4]) if len(s) >= 4 and s[0:4].isdigit() else None
+                        except Exception:
+                            enc_year = None
+                        has_reinduccion_same_year = any((i.get('tipo_curso') == 'CURSO REINDUCCION SST') and (i.get('anio') == enc_year) for i in out)
+                        synthetic_item = {
+                            'recurso_operativo_cedula': cedula,
+                            'nombre': nombre_u,
+                            'tipo_curso': ('CURSO INDUCCION SST' if not has_induccion else 'CURSO REINDUCCION SST'),
+                            'fecha': (fecha_enc.strftime('%Y-%m-%d') if hasattr(fecha_enc, 'strftime') else str(fecha_enc)),
+                            'fecha_vencimiento': '',
+                            'dias_por_vencer': None,
+                            'observacion': 'Origen: Encuesta 10',
+                            'anio': enc_year
+                        }
+                        if not has_induccion:
+                            out.append(synthetic_item)
+                        elif not has_reinduccion_same_year:
+                            out.append(synthetic_item)
+
             cursor.close(); connection.close()
             return jsonify({'success': True, 'data': out, 'total': len(out)})
         else:
@@ -2651,6 +2713,56 @@ def api_sstt_vencimientos_cursos_update_by():
         if affected == 0:
             return jsonify({'success': False, 'message': 'No se encontró registro para actualizar'}), 404
         return jsonify({'success': True, 'updated': affected})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/sstt/vencimientos-cursos/resumen', methods=['GET'])
+@login_required
+def api_sstt_vencimientos_cursos_resumen():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cedula = (request.args.get('cedula') or '').strip()
+        q = (request.args.get('q') or '').strip()
+        solo_activos_param = (request.args.get('solo_activos') or '1').strip().lower()
+        solo_activos = solo_activos_param in ['1', 'true', 't', 'yes', 'y']
+        where = []
+        params = []
+        if solo_activos:
+            where.append("ro.estado = 'Activo'")
+        if cedula:
+            where.append('ro.recurso_operativo_cedula = %s')
+            params.append(cedula)
+        if q:
+            where.append('(ro.recurso_operativo_cedula LIKE %s OR ro.nombre LIKE %s)')
+            like = f"%{q}%"
+            params.extend([like, like])
+        sql = (
+            'SELECT '
+            'ro.recurso_operativo_cedula AS cedula, '
+            'ro.nombre AS nombre, '
+            'COUNT(*) AS total_cursos, '
+            "SUM(CASE WHEN vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() THEN 1 ELSE 0 END) AS vencidos, "
+            "SUM(CASE WHEN vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30 THEN 1 ELSE 0 END) AS por_vencer "
+            'FROM recurso_operativo ro '
+            'LEFT JOIN sstt_vencimientos_cursos vc ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula '
+        )
+        if where:
+            sql += ' WHERE ' + ' AND '.join(where)
+        sql += ' GROUP BY ro.recurso_operativo_cedula, ro.nombre ORDER BY ro.nombre ASC'
+        cursor.execute(sql, tuple(params))
+        rows = cursor.fetchall() or []
+        data = [{
+            'cedula': r.get('cedula'),
+            'nombre': r.get('nombre'),
+            'total_cursos': int(r.get('total_cursos') or 0),
+            'vencidos': int(r.get('vencidos') or 0),
+            'por_vencer': int(r.get('por_vencer') or 0)
+        } for r in rows]
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'data': data, 'total': len(data)})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 

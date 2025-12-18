@@ -49,13 +49,10 @@
                             <thead class="table-dark">
                                 <tr>
                                     <th>Cédula</th>
-                                    <th>Nombre Técnico</th>
-                                    <th>Tipo de Curso</th>
-                                    <th>Fecha</th>
-                                    <th>Fecha Vencimiento</th>
-                                    <th>Días por vencer</th>
-                                    <th>Estado</th>
-                                    <th>Observación</th>
+                                    <th>Nombre</th>
+                                    <th>Total Cursos</th>
+                                    <th>Vencidos</th>
+                                    <th>Por vencer</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -178,11 +175,96 @@
     </div>
     </div>
 
+<div class="modal fade" id="modalAccionesUsuario" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Acciones de Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="d-flex flex-wrap gap-3 align-items-center">
+                        <div class="fw-bold" id="accionesNombre"></div>
+                        <div class="text-muted" id="accionesCedula"></div>
+                        <div class="ms-auto d-flex gap-3">
+                            <span class="badge bg-secondary" id="accionesTotal">Total: 0</span>
+                            <span class="badge bg-danger" id="accionesVencidos">Vencidos: 0</span>
+                            <span class="badge bg-warning text-dark" id="accionesPorVencer">Por vencer: 0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion" id="accordionAcciones">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#accIngreso">Examen Médico Ingreso</button></h2>
+                        <div id="accIngreso" class="accordion-collapse collapse show" data-bs-parent="#accordionAcciones">
+                            <div class="accordion-body">
+                                <div class="d-flex justify-content-end mb-2"><button class="btn btn-sm btn-primary" id="btnAgregarIngreso">Agregar</button></div>
+                                <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Vence</th><th>Días</th><th>Estado</th><th>Año</th><th>Obs</th><th></th></tr></thead><tbody id="tbIngreso"></tbody></table></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accPeriodico">Examen Médico Periódico</button></h2>
+                        <div id="accPeriodico" class="accordion-collapse collapse" data-bs-parent="#accordionAcciones">
+                            <div class="accordion-body">
+                                <div class="d-flex justify-content-end mb-2"><button class="btn btn-sm btn-primary" id="btnAgregarPeriodico">Agregar</button></div>
+                                <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Vence</th><th>Días</th><th>Estado</th><th>Año</th><th>Obs</th><th></th></tr></thead><tbody id="tbPeriodico"></tbody></table></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accAlturas">Curso de Alturas</button></h2>
+                        <div id="accAlturas" class="accordion-collapse collapse" data-bs-parent="#accordionAcciones">
+                            <div class="accordion-body">
+                                <div class="d-flex justify-content-end mb-2"><button class="btn btn-sm btn-primary" id="btnAgregarAlturas">Agregar</button></div>
+                                <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Vence</th><th>Días</th><th>Estado</th><th>Año</th><th>Obs</th><th></th></tr></thead><tbody id="tbAlturas"></tbody></table></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accManejo">Curso de Manejo Defensivo</button></h2>
+                        <div id="accManejo" class="accordion-collapse collapse" data-bs-parent="#accordionAcciones">
+                            <div class="accordion-body">
+                                <div class="d-flex justify-content-end mb-2"><button class="btn btn-sm btn-primary" id="btnAgregarManejo">Agregar</button></div>
+                                <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Vence</th><th>Días</th><th>Estado</th><th>Año</th><th>Obs</th><th></th></tr></thead><tbody id="tbManejo"></tbody></table></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accInduccion">Curso de Inducción SST</button></h2>
+                        <div id="accInduccion" class="accordion-collapse collapse" data-bs-parent="#accordionAcciones">
+                            <div class="accordion-body">
+                                <div class="d-flex justify-content-end mb-2"><button class="btn btn-sm btn-primary" id="btnAgregarInduccion">Agregar</button></div>
+                                <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Vence</th><th>Días</th><th>Estado</th><th>Año</th><th>Obs</th><th></th></tr></thead><tbody id="tbInduccion"></tbody></table></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accReinduccion">Curso de Reinducción SST</button></h2>
+                        <div id="accReinduccion" class="accordion-collapse collapse" data-bs-parent="#accordionAcciones">
+                            <div class="accordion-body">
+                                <div class="d-flex justify-content-end mb-2"><button class="btn btn-sm btn-primary" id="btnAgregarReinduccion">Agregar</button></div>
+                                <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Vence</th><th>Días</th><th>Estado</th><th>Año</th><th>Obs</th><th></th></tr></thead><tbody id="tbReinduccion"></tbody></table></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 let vencimientos = [];
 let tiposCurso = [];
 let currentPage = 1;
 const pageSize = 20;
+let accionesCedulaActual = '';
+let accionesNombreActual = '';
 const TIPOS_CURSO_PREDEF = [
   'EXAMEN MEDICO INGRESO',
   'EXAMEN MEDICO PERIODICO',
@@ -213,6 +295,20 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('btnRegistrarCurso').addEventListener('click', registrarCurso);
   document.getElementById('btnRefrescar').addEventListener('click', () => { currentPage = 1; cargarVencimientos(); });
   document.getElementById('btnGuardarEdicionCurso').addEventListener('click', guardarEdicionCurso);
+  ['btnAgregarIngreso','btnAgregarPeriodico','btnAgregarAlturas','btnAgregarManejo','btnAgregarInduccion','btnAgregarReinduccion'].forEach(id=>{
+    const b = document.getElementById(id); if (b) b.addEventListener('click', ()=>{
+      if (!accionesCedulaActual) return;
+      const map = {
+        'btnAgregarIngreso':'EXAMEN MEDICO INGRESO',
+        'btnAgregarPeriodico':'EXAMEN MEDICO PERIODICO',
+        'btnAgregarAlturas':'CURSO ALTURAS',
+        'btnAgregarManejo':'CURSO MANEJO DEFENSIVO',
+        'btnAgregarInduccion':'CURSO INDUCCION SST',
+        'btnAgregarReinduccion':'CURSO REINDUCCION SST'
+      };
+      abrirAgregarCurso(map[id], accionesCedulaActual, accionesNombreActual);
+    });
+  });
 });
 
 function cargarTiposCurso() {
@@ -240,16 +336,10 @@ function cargarTiposCurso() {
 
 function cargarVencimientos() {
   const cedula = document.getElementById('filtroCedula').value.trim();
-  const tipo = document.getElementById('filtroTipo').value;
-  const fechaDesde = document.getElementById('filtroFechaDesde').value;
-  const fechaHasta = document.getElementById('filtroFechaHasta').value;
   const params = new URLSearchParams();
   if (cedula) params.append('cedula', cedula);
-  if (tipo) params.append('tipo', tipo);
-  if (fechaDesde) params.append('fecha_desde', fechaDesde);
-  if (fechaHasta) params.append('fecha_hasta', fechaHasta);
   params.append('solo_activos', '1');
-  fetch('/api/sstt/vencimientos-cursos' + (params.toString() ? ('?' + params.toString()) : ''))
+  fetch('/api/sstt/vencimientos-cursos/resumen' + (params.toString() ? ('?' + params.toString()) : ''))
     .then(r => r.json())
     .then(d => {
       if (!d.success) { Swal.fire('Error', d.message || 'No se pudo cargar la lista', 'error'); return; }
@@ -258,7 +348,7 @@ function cargarVencimientos() {
       mostrarVencimientos(vencimientos);
       if ((d.total||0) === 0) {
         const tbody = document.getElementById('tablaVencimientosCursos');
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Sin registros</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin registros</td></tr>';
       }
     })
     .catch(() => {});
@@ -272,27 +362,24 @@ function mostrarVencimientos(datos) {
   const pageItems = datos.slice(start, start + pageSize);
   pageItems.forEach(item => {
     const tr = document.createElement('tr');
-    const dias = item.dias_por_vencer;
-    const estado = (dias == null) ? '' : (dias <= 0 ? 'VENCIDO' : (dias <= 30 ? 'PRÓXIMO A VENCER' : 'VIGENTE'));
-    const diasClass = (dias == null) ? '' : (dias <= 0 ? 'text-danger fw-bold' : (dias <= 30 ? 'text-warning fw-bold' : 'text-success fw-bold'));
-    const badgeClass = (dias == null) ? 'bg-secondary' : (dias <= 0 ? 'bg-danger' : (dias <= 30 ? 'bg-warning text-dark' : 'bg-success'));
     tr.innerHTML = `
-      <td>${item.recurso_operativo_cedula || ''}</td>
+      <td>${item.cedula || ''}</td>
       <td>${item.nombre || ''}</td>
-      <td>${item.tipo_curso || ''}</td>
-      <td>${item.fecha || ''}</td>
-      <td>${item.fecha_vencimiento || ''}</td>
-      <td class="${diasClass}">${dias != null ? dias : ''}</td>
-      <td>${estado ? `<span class="badge ${badgeClass}">${estado}</span>` : ''}</td>
-      <td>${item.observacion || ''}</td>
-      <td><button class="btn btn-sm btn-primary btnEditar" data-id="${item.id || ''}"><i class="fas fa-edit me-1"></i>Editar</button></td>
+      <td>${item.total_cursos != null ? item.total_cursos : 0}</td>
+      <td class="${(item.vencidos||0) > 0 ? 'text-danger fw-bold' : ''}">${item.vencidos != null ? item.vencidos : 0}</td>
+      <td class="${(item.por_vencer||0) > 0 ? 'text-warning fw-bold' : ''}">${item.por_vencer != null ? item.por_vencer : 0}</td>
+      <td><button class="btn btn-sm btn-outline-primary btnAcciones" data-cedula="${item.cedula || ''}" data-nombre="${item.nombre || ''}" data-total="${item.total_cursos||0}" data-vencidos="${item.vencidos||0}" data-porvencer="${item.por_vencer||0}"><i class="fas fa-ellipsis-h me-1"></i>Acciones</button></td>
     `;
     tbody.appendChild(tr);
-    const btn = tr.querySelector('.btnEditar');
+    const btn = tr.querySelector('.btnAcciones');
     if (btn) {
       btn.addEventListener('click', () => {
-        const merged = Object.assign({}, item, { id: item.id || btn.getAttribute('data-id') });
-        abrirModalEditar(merged);
+        const ced = btn.getAttribute('data-cedula')||'';
+        const nom = btn.getAttribute('data-nombre')||'';
+        const total = parseInt(btn.getAttribute('data-total')||'0');
+        const venc = parseInt(btn.getAttribute('data-vencidos')||'0');
+        const pv = parseInt(btn.getAttribute('data-porvencer')||'0');
+        abrirAccionesUsuario({cedula: ced, nombre: nom, total: total, vencidos: venc, por_vencer: pv});
       });
     }
   });
@@ -303,10 +390,8 @@ function aplicarBusquedaLocal() {
   const q = document.getElementById('buscarVencimiento').value.toLowerCase().trim();
   if (!q) { mostrarVencimientos(vencimientos); return; }
   const filtrados = vencimientos.filter(v => {
-    return String(v.recurso_operativo_cedula||'').toLowerCase().includes(q)
-        || String(v.nombre||'').toLowerCase().includes(q)
-        || String(v.tipo_curso||'').toLowerCase().includes(q)
-        || String(v.observacion||'').toLowerCase().includes(q);
+    return String(v.cedula||'').toLowerCase().includes(q)
+        || String(v.nombre||'').toLowerCase().includes(q);
   });
   currentPage = 1;
   mostrarVencimientos(filtrados);
@@ -343,6 +428,7 @@ function registrarCurso() {
       const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
       modal.hide();
       cargarVencimientos();
+      if (accionesCedulaActual) cargarCursosUsuario(accionesCedulaActual);
     } else {
       Swal.fire('Error', d.message || 'No se pudo registrar', 'error');
     }
@@ -390,6 +476,7 @@ function guardarEdicionCurso(){
       const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
       modal.hide();
       cargarVencimientos();
+      if (accionesCedulaActual) cargarCursosUsuario(accionesCedulaActual);
     } else {
       Swal.fire('Error', (d && d.message) || 'No se pudo actualizar','error');
     }
@@ -477,5 +564,78 @@ function cargarUsuarios(q){
 })
 .catch(() => {});
 }
+function abrirAccionesUsuario(info){
+  accionesCedulaActual = info.cedula||'';
+  accionesNombreActual = info.nombre||'';
+  document.getElementById('accionesNombre').textContent = info.nombre||'';
+  document.getElementById('accionesCedula').textContent = info.cedula ? `(${info.cedula})` : '';
+  document.getElementById('accionesTotal').textContent = `Total: ${info.total||0}`;
+  document.getElementById('accionesVencidos').textContent = `Vencidos: ${info.vencidos||0}`;
+  document.getElementById('accionesPorVencer').textContent = `Por vencer: ${info.por_vencer||0}`;
+  const modalEl = document.getElementById('modalAccionesUsuario');
+  const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+  modal.show();
+  cargarCursosUsuario(accionesCedulaActual);
+}
+
+function cargarCursosUsuario(cedula){
+  if (!cedula) return;
+  const params = new URLSearchParams();
+  params.append('cedula', cedula);
+  params.append('solo_activos','1');
+  fetch('/api/sstt/vencimientos-cursos?' + params.toString())
+    .then(r=>r.json())
+    .then(d=>{
+      if (!d.success) return;
+      const items = d.data||[];
+      renderSeccionesUsuario(items);
+    })
+    .catch(()=>{});
+}
+
+function renderSeccionesUsuario(items){
+  const mapTipos = {
+    'EXAMEN MEDICO INGRESO': 'tbIngreso',
+    'EXAMEN MEDICO PERIODICO': 'tbPeriodico',
+    'CURSO ALTURAS': 'tbAlturas',
+    'CURSO MANEJO DEFENSIVO': 'tbManejo',
+    'CURSO INDUCCION SST': 'tbInduccion',
+    'CURSO REINDUCCION SST': 'tbReinduccion'
+  };
+  Object.values(mapTipos).forEach(id=>{ const el = document.getElementById(id); if (el) el.innerHTML=''; });
+  items.forEach(it=>{
+    const tbodyId = mapTipos[it.tipo_curso] || null;
+    if (!tbodyId) return;
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    const dias = it.dias_por_vencer;
+    const estado = (dias == null) ? '' : (dias <= 0 ? 'VENCIDO' : (dias <= 30 ? 'PRÓXIMO A VENCER' : 'VIGENTE'));
+    const badgeClass = (dias == null) ? 'bg-secondary' : (dias <= 0 ? 'bg-danger' : (dias <= 30 ? 'bg-warning text-dark' : 'bg-success'));
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${it.fecha||''}</td>
+      <td>${it.fecha_vencimiento||''}</td>
+      <td class="${(dias!=null && dias<=0)?'text-danger fw-bold':(dias!=null && dias<=30)?'text-warning fw-bold':'text-success fw-bold'}">${dias!=null?dias:''}</td>
+      <td>${estado?`<span class="badge ${badgeClass}">${estado}</span>`:''}</td>
+      <td>${(it.anio!=null)?it.anio:''}</td>
+      <td>${it.observacion||''}</td>
+      <td><button class="btn btn-sm btn-outline-primary" data-id="${it.id||''}">Editar</button></td>
+    `;
+    tbody.appendChild(tr);
+    const btn = tr.querySelector('button');
+    if (btn) btn.addEventListener('click', ()=> abrirModalEditar(it));
+  });
+}
+
+function abrirAgregarCurso(tipo, cedula, nombre){
+  const modalEl = document.getElementById('modalRegistrarCurso');
+  const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+  document.getElementById('cedulaInput').value = cedula||'';
+  document.getElementById('usuarioSeleccionadoInfo').textContent = nombre ? (`Seleccionado: ${nombre} (${cedula||''})`) : '';
+  const sel = document.getElementById('tipoCursoSelect');
+  if (sel) sel.value = tipo||'';
+  modal.show();
+}
+
 </script>
 {% endblock %}

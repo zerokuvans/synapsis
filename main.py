@@ -142,6 +142,7 @@ from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas
 
 # Importar solo la función de actualización por claves para SSTT desde app.py
 from app import api_sstt_vencimientos_cursos_update_by
+from app import api_sstt_vencimientos_cursos_resumen
 
 # Importar módulo de dotaciones
 from dotaciones_api import registrar_rutas_dotaciones
@@ -242,8 +243,9 @@ registrar_rutas_dotaciones(app)
 registrar_rutas_encuestas(app)
 registrar_rutas_avisos(app)
 
-# Registrar solo la ruta faltante del módulo SSTT
+# Registrar rutas faltantes del módulo SSTT
 app.route('/api/sstt/vencimientos-cursos/update-by', methods=['PUT'])(api_sstt_vencimientos_cursos_update_by)
+app.route('/api/sstt/vencimientos-cursos/resumen', methods=['GET'])(api_sstt_vencimientos_cursos_resumen)
 
 # Database configuration
 db_config = {
@@ -405,12 +407,13 @@ def login_required(role=None):
             user_role = session.get('user_role')
 
             # Si hay un rol requerido y el usuario no es administrativo
-            if role and user_role != 'administrativo':
+            if role and (str(user_role or '').strip().lower() != 'administrativo'):
                 if isinstance(role, list):
-                    if user_role not in role:
+                    roles_norm = [str(r).strip().lower() for r in role]
+                    if str(user_role or '').strip().lower() not in roles_norm:
                         flash("No tienes permisos para acceder a esta página.", 'danger')
                         return redirect(url_for('login'))
-                elif user_role != role:
+                elif str(user_role or '').strip().lower() != str(role or '').strip().lower():
                     flash("No tienes permisos para acceder a esta página.", 'danger')
                     return redirect(url_for('login'))
 
@@ -430,11 +433,14 @@ def login_required_api(role=None):
             
             if role:
                 user_role = session.get('user_role')
+                ur = str(user_role or '').strip().lower()
                 if isinstance(role, (list, tuple, set)):
-                    if user_role not in role and user_role != 'administrativo':
+                    roles_norm = {str(r).strip().lower() for r in role}
+                    if ur not in roles_norm and ur != 'administrativo':
                         return jsonify({'error': 'Permisos insuficientes', 'code': 'INSUFFICIENT_PERMISSIONS'}), 403
                 else:
-                    if user_role != role and user_role != 'administrativo':
+                    req_role = str(role or '').strip().lower()
+                    if ur != req_role and ur != 'administrativo':
                         return jsonify({'error': 'Permisos insuficientes', 'code': 'INSUFFICIENT_PERMISSIONS'}), 403
             
             return f(*args, **kwargs)
@@ -575,7 +581,7 @@ def login():
             
             # Buscar usuario
             app.logger.info(f"Consultando usuario con cedula: {username}")
-            cursor.execute("SELECT id_codigo_consumidor, id_roles, recurso_operativo_password, nombre, estado FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (username,))
+            cursor.execute("SELECT id_codigo_consumidor, id_roles, recurso_operativo_password, nombre, estado, carpeta FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (username,))
             user_data = cursor.fetchone()
 
             # Verificar si el usuario existe
@@ -616,10 +622,13 @@ def login():
                     app.logger.info(f"Inicio de sesión exitoso para: {username}")
                     
                     # Crear objeto User para Flask-Login
+                    role_calc = ROLES.get(str(user_data['id_roles']))
+                    if str(user_data.get('carpeta') or '').strip().upper() == 'SUPERVISORES':
+                        role_calc = 'operativo'
                     user = User(
                         id=user_data['id_codigo_consumidor'],
                         nombre=user_data['nombre'],
-                        role=ROLES.get(str(user_data['id_roles']))
+                        role=role_calc
                     )
                     
                     # Iniciar sesión con Flask-Login
@@ -629,7 +638,7 @@ def login():
                     session['user_id'] = user_data['id_codigo_consumidor']
                     session['id_codigo_consumidor'] = user_data['id_codigo_consumidor']  # Agregar para compatibilidad
                     session['user_cedula'] = username  # Guardar la cédula del usuario
-                    session['user_role'] = ROLES.get(str(user_data['id_roles']))
+                    session['user_role'] = role_calc
                     session['user_name'] = user_data['nombre']
                     
                     app.logger.info(f"Sesión establecida: ID={user_data['id_codigo_consumidor']}, Rol={ROLES.get(str(user_data['id_roles']))}")
@@ -26646,7 +26655,7 @@ def api_sstt_vencimientos_cursos():
             params = []
             where = []
             if cedula:
-                where.append("recurso_operativo_cedula = %s")
+                where.append("vc.recurso_operativo_cedula = %s")
                 params.append(cedula)
             if tipo:
                 where.append("sstt_vencimientos_cursos_tipo_curso = %s")
@@ -26657,7 +26666,7 @@ def api_sstt_vencimientos_cursos():
             if fecha_hasta:
                 where.append("sstt_vencimientos_cursos_fecha <= %s")
                 params.append(fecha_hasta)
-            sql = "SELECT vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, vc.recurso_operativo_cedula, vc.sstt_vencimientos_cursos_tipo_curso, vc.sstt_vencimientos_cursos_fecha, vc.sstt_vencimientos_cursos_fecha_ven, vc.sstt_vencimientos_cursos_observacion FROM sstt_vencimientos_cursos vc LEFT JOIN recurso_operativo ro ON vc.id_codigo_consumidor = ro.id_codigo_consumidor"
+            sql = "SELECT vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, vc.recurso_operativo_cedula, vc.sstt_vencimientos_cursos_tipo_curso, vc.sstt_vencimientos_cursos_fecha, vc.sstt_vencimientos_cursos_fecha_ven, vc.sstt_vencimientos_cursos_observacion FROM sstt_vencimientos_cursos vc LEFT JOIN recurso_operativo ro ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula"
             if solo_activos:
                 where.append("ro.estado = 'Activo'")
             if where:
@@ -26688,15 +26697,81 @@ def api_sstt_vencimientos_cursos():
                 except Exception:
                     fv_date = None
                 dias = (fv_date - hoy).days if fv_date else None
+                fecha_str = (f.strftime('%Y-%m-%d') if hasattr(f, 'strftime') else (str(f).strip() if f else ''))
+                fv_str = (fv.strftime('%Y-%m-%d') if hasattr(fv, 'strftime') else (str(fv).strip() if fv else ''))
+                anio_val = None
+                try:
+                    if fecha_str and len(fecha_str) >= 4 and fecha_str[0:4].isdigit():
+                        anio_val = int(fecha_str[0:4])
+                except Exception:
+                    anio_val = None
                 out.append({
                     'recurso_operativo_cedula': r.get('recurso_operativo_cedula'),
                     'nombre': r.get('sstt_vencimientos_cursos_nombre'),
                     'tipo_curso': r.get('sstt_vencimientos_cursos_tipo_curso'),
-                    'fecha': (f.strftime('%Y-%m-%d') if hasattr(f, 'strftime') else f),
-                    'fecha_vencimiento': (fv.strftime('%Y-%m-%d') if hasattr(fv, 'strftime') else fv),
+                    'fecha': fecha_str,
+                    'fecha_vencimiento': fv_str,
                     'dias_por_vencer': dias,
-                    'observacion': r.get('sstt_vencimientos_cursos_observacion')
+                    'observacion': r.get('sstt_vencimientos_cursos_observacion'),
+                    'anio': anio_val
                 })
+
+            # Incorporar encuesta_respuestas (encuesta_id=10) como Inducción/Reinducción del año presente
+            if cedula:
+                cur_user = connection.cursor(dictionary=True)
+                cur_user.execute("SELECT id_codigo_consumidor, nombre, estado FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+                ru = cur_user.fetchone()
+                cur_user.close()
+                if ru and (not solo_activos or str(ru.get('estado') or '') == 'Activo'):
+                    idc = ru.get('id_codigo_consumidor')
+                    nombre_u = ru.get('nombre')
+                    cur_enc = connection.cursor(dictionary=True)
+                    try:
+                        cur_enc.execute(
+                            """
+                            SELECT DATE(fecha_respuesta) AS fecha
+                            FROM encuesta_respuestas
+                            WHERE encuesta_id = %s AND usuario_id = %s AND estado = 'enviada' AND YEAR(fecha_respuesta) = YEAR(CURDATE())
+                            ORDER BY fecha_respuesta DESC
+                            LIMIT 1
+                            """,
+                            (10, idc)
+                        )
+                        er = cur_enc.fetchone()
+                    except Exception:
+                        er = None
+                    finally:
+                        cur_enc.close()
+                    if er:
+                        fecha_enc = er.get('fecha')
+                        # Determinar si ya tiene inducción registrada
+                        has_induccion = any((i.get('tipo_curso') == 'CURSO INDUCCION SST') for i in out)
+                        # Determinar si ya existe reinducción del mismo año
+                        enc_year = None
+                        try:
+                            if hasattr(fecha_enc, 'year'):
+                                enc_year = int(fecha_enc.year)
+                            else:
+                                s = str(fecha_enc)
+                                enc_year = int(s[0:4]) if len(s) >= 4 and s[0:4].isdigit() else None
+                        except Exception:
+                            enc_year = None
+                        has_reinduccion_same_year = any((i.get('tipo_curso') == 'CURSO REINDUCCION SST') and (i.get('anio') == enc_year) for i in out)
+                        synthetic_item = {
+                            'recurso_operativo_cedula': cedula,
+                            'nombre': nombre_u,
+                            'tipo_curso': ('CURSO INDUCCION SST' if not has_induccion else 'CURSO REINDUCCION SST'),
+                            'fecha': (fecha_enc.strftime('%Y-%m-%d') if hasattr(fecha_enc, 'strftime') else str(fecha_enc)),
+                            'fecha_vencimiento': '',
+                            'dias_por_vencer': None,
+                            'observacion': 'Origen: Encuesta 10',
+                            'anio': enc_year
+                        }
+                        if not has_induccion:
+                            out.append(synthetic_item)
+                        elif not has_reinduccion_same_year:
+                            out.append(synthetic_item)
+
             cursor.close(); connection.close()
             return jsonify({'success': True, 'data': out, 'total': len(out)})
         else:
@@ -27317,27 +27392,27 @@ def sgis_preoperacional_escaleras_page():
     return render_template('modulos/sgis/preoperacional_escaleras.html', info=info, mes=mes)
 
 @app.route('/sgis/reportes')
-@login_required(role='administrativo')
+@login_required(role=['administrativo','operativo'])
 def sgis_reportes_page():
     return render_template('modulos/sgis/reportes_menu.html')
 
 @app.route('/sgis/reportes/epp')
-@login_required(role='administrativo')
+@login_required(role=['administrativo','operativo'])
 def sgis_reportes_epp_page():
     return render_template('modulos/sgis/reportes.html')
 
 @app.route('/sgis/reportes/escaleras')
-@login_required(role='administrativo')
+@login_required(role=['administrativo','operativo'])
 def sgis_reportes_escaleras_page():
     return render_template('modulos/sgis/reportes_escaleras.html')
 
 @app.route('/sgis/reportes/caidas')
-@login_required(role='administrativo')
+@login_required(role=['administrativo','operativo'])
 def sgis_reportes_caidas_page():
     return render_template('modulos/sgis/reportes_caidas.html')
 
 @app.route('/sgis/reportes/tsr')
-@login_required(role='administrativo')
+@login_required(role=['administrativo','operativo'])
 def sgis_reportes_tsr_page():
     return render_template('modulos/sgis/reportes_tsr.html')
 
@@ -27550,12 +27625,166 @@ def api_sgis_preoperacional_epp():
             except Exception:
                 pass
 
+@app.route('/api/sgis/reportes/tsr-firmar-supervisor', methods=['POST'])
+@login_required_api(role=['administrativo','operativo'])
+def api_sgis_reportes_tsr_firmar_supervisor():
+    try:
+        data = request.get_json(force=True) or {}
+        cedula = str(data.get('cedula') or '').strip()
+        mes = str(data.get('mes') or '').strip()
+        dia = data.get('dia')
+        fecha_dia = data.get('fecha_dia')
+        firma = str(data.get('firma') or data.get('firma_base64') or '').strip()
+        if not cedula:
+            return jsonify({'success': False, 'error': 'Cédula requerida'}), 400
+        if not fecha_dia:
+            if not mes or not dia:
+                return jsonify({'success': False, 'error': 'Mes y día requeridos'}), 400
+            try:
+                fecha_dia = datetime.strptime(f"{mes}-{int(dia):02d}", '%Y-%m-%d').date()
+            except Exception:
+                return jsonify({'success': False, 'error': 'Fecha inválida'}), 400
+        else:
+            try:
+                fecha_dia = datetime.strptime(str(fecha_dia), '%Y-%m-%d').date()
+            except Exception:
+                return jsonify({'success': False, 'error': 'Fecha inválida'}), 400
+        if not firma:
+            return jsonify({'success': False, 'error': 'Firma requerida'}), 400
+        inicio = fecha_dia.replace(day=1)
+        if inicio.month == 12:
+            fin = inicio.replace(year=inicio.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            fin = inicio.replace(month=inicio.month + 1, day=1) - timedelta(days=1)
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        ur = session.get('user_role')
+        if str(ur or '').strip().lower() == 'operativo':
+            sup_name = (session.get('user_name') or '').strip()
+            supervised = False
+            try:
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS c 
+                    FROM recurso_operativo 
+                    WHERE recurso_operativo_cedula = %s 
+                      AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci
+                    """,
+                    (cedula, sup_name)
+                )
+                ro_c = cursor.fetchone() or {}
+                supervised = int(ro_c.get('c') or 0) > 0
+            except Exception:
+                supervised = False
+            if not supervised:
+                try:
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) AS c 
+                        FROM asistencia 
+                        WHERE cedula = %s 
+                          AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci 
+                          AND DATE(fecha_asistencia) BETWEEN %s AND %s
+                        """,
+                        (cedula, sup_name, inicio, fin)
+                    )
+                    c = cursor.fetchone() or {}
+                    supervised = int(c.get('c') or 0) > 0
+                except Exception:
+                    supervised = False
+            if not supervised:
+                return jsonify({'success': False, 'error': 'Permisos insuficientes para este técnico'}), 403
+        try:
+            c2 = connection.cursor()
+            c2.execute("SHOW COLUMNS FROM sgis_trabajos_seguridad_rutina LIKE 'firma_supervisor'")
+            if not c2.fetchone():
+                try:
+                    c2.execute("ALTER TABLE sgis_trabajos_seguridad_rutina ADD COLUMN firma_supervisor LONGTEXT NULL")
+                    connection.commit()
+                except Exception:
+                    pass
+            c2.execute("SHOW COLUMNS FROM sgis_trabajos_seguridad_rutina LIKE 'firma_supervisor_usuario'")
+            if not c2.fetchone():
+                try:
+                    c2.execute("ALTER TABLE sgis_trabajos_seguridad_rutina ADD COLUMN firma_supervisor_usuario VARCHAR(128) NULL")
+                    connection.commit()
+                except Exception:
+                    pass
+            c2.execute("SHOW COLUMNS FROM sgis_trabajos_seguridad_rutina LIKE 'firma_supervisor_cedula'")
+            if not c2.fetchone():
+                try:
+                    c2.execute("ALTER TABLE sgis_trabajos_seguridad_rutina ADD COLUMN firma_supervisor_cedula VARCHAR(20) NULL")
+                    connection.commit()
+                except Exception:
+                    pass
+            c2.execute("SHOW COLUMNS FROM sgis_trabajos_seguridad_rutina LIKE 'firma_supervisor_fecha'")
+            if not c2.fetchone():
+                try:
+                    c2.execute("ALTER TABLE sgis_trabajos_seguridad_rutina ADD COLUMN firma_supervisor_fecha DATETIME NULL")
+                    connection.commit()
+                except Exception:
+                    pass
+            c2.close()
+        except Exception:
+            pass
+        cursor.execute(
+            """
+            SELECT COUNT(*) AS c 
+            FROM sgis_trabajos_seguridad_rutina
+            WHERE recurso_operativo_cedula = %s AND fecha_dia = %s AND COALESCE(firma_trabajador,'') <> ''
+            """,
+            (cedula, fecha_dia)
+        )
+        row = cursor.fetchone() or {}
+        if int(row.get('c') or 0) == 0:
+            return jsonify({'success': False, 'error': 'No hay firma de técnico en el día seleccionado'}), 400
+        sup_user = (session.get('user_name') or '').strip()
+        sup_ced = (session.get('user_cedula') or '').strip()
+        cursor.execute(
+            """
+            UPDATE sgis_trabajos_seguridad_rutina
+            SET firma_supervisor = %s,
+                firma_supervisor_usuario = %s,
+                firma_supervisor_cedula = %s,
+                firma_supervisor_fecha = NOW()
+            WHERE recurso_operativo_cedula = %s 
+              AND fecha_dia = %s 
+              AND COALESCE(firma_trabajador,'') <> ''
+              AND COALESCE(firma_supervisor,'') = ''
+            ORDER BY fecha_registro DESC
+            LIMIT 1
+            """,
+            (firma, sup_user, sup_ced, cedula, fecha_dia)
+        )
+        connection.commit()
+        if cursor.rowcount == 0:
+            return jsonify({'success': False, 'error': 'Ya están firmados todos los registros de este día'}), 409
+        return jsonify({'success': True, 'fecha_dia': fecha_dia.strftime('%Y-%m-%d')})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
 @app.route('/api/sgis/reportes/tecnicos-mes', methods=['GET'])
-@login_required_api(role='administrativo')
+@login_required_api()
 def api_sgis_reportes_tecnicos_mes():
     try:
         mes = request.args.get('mes')
         supervisor = request.args.get('supervisor')
+        ur = session.get('user_role')
+        if str(ur or '').strip().lower() != 'administrativo':
+            supervisor = (session.get('user_name') or '').strip()
         if mes:
             try:
                 inicio = datetime.strptime(mes + '-01', '%Y-%m-%d').date()
@@ -27580,11 +27809,42 @@ def api_sgis_reportes_tecnicos_mes():
         """
         params = [inicio, fin]
         if supervisor:
-            query += " AND a.super = %s"
+            query += " AND TRIM(a.super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci"
             params.append(supervisor)
         query += " GROUP BY a.cedula, tecnico ORDER BY tecnico"
         cursor.execute(query, tuple(params))
         filas = cursor.fetchall()
+        if str(ur or '').strip().lower() != 'administrativo' and (not filas or len(filas) == 0):
+            try:
+                cursor.execute(
+                    """
+                    SELECT recurso_operativo_cedula AS cedula, nombre AS tecnico
+                    FROM recurso_operativo
+                    WHERE estado = 'Activo'
+                      AND (carpeta IS NULL OR carpeta <> 'SUPERVISORES')
+                      AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci
+                    ORDER BY nombre
+                    """,
+                    (supervisor,)
+                )
+                filas = cursor.fetchall()
+                if not filas:
+                    sup_prefix = ' '.join(str(supervisor or '').strip().split()[:2])
+                    if sup_prefix:
+                        cursor.execute(
+                            """
+                            SELECT recurso_operativo_cedula AS cedula, nombre AS tecnico
+                            FROM recurso_operativo
+                            WHERE estado = 'Activo'
+                              AND (carpeta IS NULL OR carpeta <> 'SUPERVISORES')
+                              AND TRIM(super) COLLATE utf8mb4_general_ci LIKE CONCAT('%', TRIM(%s), '%')
+                            ORDER BY nombre
+                            """,
+                            (sup_prefix,)
+                        )
+                        filas = cursor.fetchall()
+            except Exception:
+                filas = []
         data = [{'cedula': f['cedula'], 'nombre': f['tecnico']} for f in filas]
         return jsonify({'success': True, 'data': data, 'mes': inicio.strftime('%Y-%m')})
     except Exception as e:
@@ -27719,7 +27979,7 @@ def api_sgis_reportes_preop_detalle():
                 pass
 
 @app.route('/api/sgis/reportes/preop-matriz', methods=['GET'])
-@login_required_api(role='administrativo')
+@login_required_api()
 def api_sgis_reportes_preop_matriz():
     try:
         cedula = request.args.get('cedula')
@@ -27741,6 +28001,51 @@ def api_sgis_reportes_preop_matriz():
         if connection is None:
             return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor(dictionary=True)
+        ur = session.get('user_role')
+        if str(ur or '').strip().lower() != 'administrativo':
+            sup_name = (session.get('user_name') or '').strip()
+            supervised = False
+            try:
+                cursor.execute("SELECT super FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+                ro = cursor.fetchone() or {}
+                import unicodedata
+                def _norm(s):
+                    return ''.join(c for c in unicodedata.normalize('NFD', s or '') if unicodedata.category(c) != 'Mn').lower().strip()
+                if _norm(str(ro.get('super') or '')) == _norm(sup_name):
+                    supervised = True
+            except Exception:
+                supervised = False
+            if not supervised:
+                try:
+                    cursor.execute("""
+                        SELECT COUNT(*) AS c 
+                        FROM asistencia 
+                        WHERE cedula = %s 
+                          AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci 
+                          AND DATE(fecha_asistencia) BETWEEN %s AND %s
+                    """, (cedula, sup_name, inicio, fin))
+                    c = cursor.fetchone() or {}
+                    supervised = int(c.get('c') or 0) > 0
+                except Exception:
+                    supervised = False
+            if not supervised:
+                try:
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) AS c
+                        FROM recurso_operativo
+                        WHERE recurso_operativo_cedula = %s
+                          AND estado = 'Activo'
+                          AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci
+                        """,
+                        (cedula, sup_name)
+                    )
+                    c2 = cursor.fetchone() or {}
+                    supervised = int(c2.get('c') or 0) > 0
+                except Exception:
+                    supervised = False
+            if not supervised:
+                return jsonify({'success': False, 'error': 'Permisos insuficientes para este técnico'}), 403
         ddl = (
             """
             CREATE TABLE IF NOT EXISTS sgis_pre_proteccion_personal (
@@ -27863,7 +28168,7 @@ def api_sgis_reportes_preop_matriz():
                 pass
 
 @app.route('/api/sgis/reportes/tsr-matriz', methods=['GET'])
-@login_required_api(role='administrativo')
+@login_required_api(role=['administrativo','operativo'])
 def api_sgis_reportes_tsr_matriz():
     try:
         cedula = request.args.get('cedula')
@@ -27885,6 +28190,42 @@ def api_sgis_reportes_tsr_matriz():
         if connection is None:
             return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor(dictionary=True)
+        ur = session.get('user_role')
+        if str(ur or '').strip().lower() == 'operativo':
+            sup_name = (session.get('user_name') or '').strip()
+            supervised = False
+            try:
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS c 
+                    FROM recurso_operativo 
+                    WHERE recurso_operativo_cedula = %s 
+                      AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci
+                    """,
+                    (cedula, sup_name)
+                )
+                ro_c = cursor.fetchone() or {}
+                supervised = int(ro_c.get('c') or 0) > 0
+            except Exception:
+                supervised = False
+            if not supervised:
+                try:
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) AS c 
+                        FROM asistencia 
+                        WHERE cedula = %s 
+                          AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci 
+                          AND DATE(fecha_asistencia) BETWEEN %s AND %s
+                        """,
+                        (cedula, sup_name, inicio, fin)
+                    )
+                    c = cursor.fetchone() or {}
+                    supervised = int(c.get('c') or 0) > 0
+                except Exception:
+                    supervised = False
+            if not supervised:
+                return jsonify({'success': False, 'error': 'Permisos insuficientes para este técnico'}), 403
         ddl = (
             """
             CREATE TABLE IF NOT EXISTS sgis_trabajos_seguridad_rutina (
@@ -27952,6 +28293,7 @@ def api_sgis_reportes_tsr_matriz():
         observaciones = arr()
         firmas = arr()
         firmas_supervisor = arr()
+        pendientes_supervisor = arr()
         by_day = {}
         for row in rows:
             d = row['fecha_dia'].day
@@ -27981,11 +28323,18 @@ def api_sgis_reportes_tsr_matriz():
                 observaciones[idx] = ' | '.join(obs_vals)
                 firmas[idx] = top.get('firma_trabajador') or ''
                 firmas_supervisor[idx] = top.get('firma_supervisor') or ''
+                pend = 0
+                for r in day_rows:
+                    ft = (r.get('firma_trabajador') or '').strip()
+                    fs = (r.get('firma_supervisor') or '').strip()
+                    if ft and not fs:
+                        pend += 1
+                pendientes_supervisor[idx] = str(pend)
         cursor.execute("SELECT nombre, cargo, carpeta FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
         u = cursor.fetchone() or {}
         info = { 'nombre': u.get('nombre') or '', 'cedula': cedula, 'cargo': u.get('cargo') or '', 'area': u.get('carpeta') or '' }
         matriz = { 'evaluacion': evals, 'riesgos_controles': riesgos }
-        return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'matriz': matriz, 'observaciones': observaciones, 'firmas': firmas, 'firmas_supervisor': firmas_supervisor})
+        return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'matriz': matriz, 'observaciones': observaciones, 'firmas': firmas, 'firmas_supervisor': firmas_supervisor, 'pendientes_supervisor': pendientes_supervisor})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
@@ -28001,7 +28350,7 @@ def api_sgis_reportes_tsr_matriz():
                 pass
 
 @app.route('/api/sgis/reportes/preop-matriz-escaleras', methods=['GET'])
-@login_required_api(role='administrativo')
+@login_required_api(role=['administrativo','operativo'])
 def api_sgis_reportes_preop_matriz_escaleras():
     try:
         cedula = request.args.get('cedula')
@@ -28023,6 +28372,42 @@ def api_sgis_reportes_preop_matriz_escaleras():
         if connection is None:
             return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor(dictionary=True)
+        ur = session.get('user_role')
+        if str(ur or '').strip().lower() == 'operativo':
+            sup_name = (session.get('user_name') or '').strip()
+            supervised = False
+            try:
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS c 
+                    FROM recurso_operativo 
+                    WHERE recurso_operativo_cedula = %s 
+                      AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci
+                    """,
+                    (cedula, sup_name)
+                )
+                ro_c = cursor.fetchone() or {}
+                supervised = int(ro_c.get('c') or 0) > 0
+            except Exception:
+                supervised = False
+            if not supervised:
+                try:
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) AS c 
+                        FROM asistencia 
+                        WHERE cedula = %s 
+                          AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci 
+                          AND DATE(fecha_asistencia) BETWEEN %s AND %s
+                        """,
+                        (cedula, sup_name, inicio, fin)
+                    )
+                    c = cursor.fetchone() or {}
+                    supervised = int(c.get('c') or 0) > 0
+                except Exception:
+                    supervised = False
+            if not supervised:
+                return jsonify({'success': False, 'error': 'Permisos insuficientes para este técnico'}), 403
         ddl = (
             """
             CREATE TABLE IF NOT EXISTS sgis_pre_escaleras (
@@ -28139,7 +28524,7 @@ def api_sgis_reportes_preop_matriz_escaleras():
                 pass
 
 @app.route('/api/sgis/reportes/preop-matriz-caidas', methods=['GET'])
-@login_required_api(role='administrativo')
+@login_required_api(role=['administrativo','operativo'])
 def api_sgis_reportes_preop_matriz_caidas():
     try:
         cedula = request.args.get('cedula')
@@ -28161,6 +28546,42 @@ def api_sgis_reportes_preop_matriz_caidas():
         if connection is None:
             return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor(dictionary=True)
+        ur = session.get('user_role')
+        if str(ur or '').strip().lower() == 'operativo':
+            sup_name = (session.get('user_name') or '').strip()
+            supervised = False
+            try:
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS c 
+                    FROM recurso_operativo 
+                    WHERE recurso_operativo_cedula = %s 
+                      AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci
+                    """,
+                    (cedula, sup_name)
+                )
+                ro_c = cursor.fetchone() or {}
+                supervised = int(ro_c.get('c') or 0) > 0
+            except Exception:
+                supervised = False
+            if not supervised:
+                try:
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) AS c 
+                        FROM asistencia 
+                        WHERE cedula = %s 
+                          AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci 
+                          AND DATE(fecha_asistencia) BETWEEN %s AND %s
+                        """,
+                        (cedula, sup_name, inicio, fin)
+                    )
+                    c = cursor.fetchone() or {}
+                    supervised = int(c.get('c') or 0) > 0
+                except Exception:
+                    supervised = False
+            if not supervised:
+                return jsonify({'success': False, 'error': 'Permisos insuficientes para este técnico'}), 403
         ddl = (
             """
             CREATE TABLE IF NOT EXISTS sgis_pre_proteccion_caidas (
@@ -31153,6 +31574,7 @@ def dev_login():
         role = (data.get('user_role') or 'operativo').strip()
         if not name:
             return jsonify({'message': 'user_name requerido'}), 400
+        session['user_id'] = data.get('user_id') or cedula or 'dev'
         session['user_name'] = name
         session['user_cedula'] = cedula
         session['user_role'] = role

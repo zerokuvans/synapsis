@@ -209,7 +209,7 @@
                             <li><a class="dropdown-item" href="/sgis">
                                 <i class="fas fa-tachometer-alt me-2"></i>Dashboard
                             </a></li>
-                            {% if session.get('user_role') in ['administrativo'] %}
+                            {% if session.get('user_role') in ['administrativo', 'operativo', 'Operativo'] %}
                             <li><a class="dropdown-item" href="/sgis/reportes">
                                 <i class="fas fa-file-alt me-2"></i>Reportes
                             </a></li>
