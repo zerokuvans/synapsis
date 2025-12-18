@@ -2142,6 +2142,7 @@ def api_sstt_vencimientos_cursos_tipos():
                 sstt_vencimientos_cursos_fecha DATE NOT NULL,
                 sstt_vencimientos_cursos_fecha_ven DATE NOT NULL,
                 sstt_vencimientos_cursos_observacion TEXT,
+                sstt_vencimientos_cursos_validado TINYINT(1) DEFAULT 0,
                 sstt_vencimientos_cursos_fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_cedula (recurso_operativo_cedula),
                 INDEX idx_tipo (sstt_vencimientos_cursos_tipo_curso),
@@ -2352,6 +2353,7 @@ def api_sstt_vencimientos_cursos():
                 sstt_vencimientos_cursos_fecha DATE NOT NULL,
                 sstt_vencimientos_cursos_fecha_ven DATE NOT NULL,
                 sstt_vencimientos_cursos_observacion TEXT,
+                sstt_vencimientos_cursos_validado TINYINT(1) DEFAULT 0,
                 sstt_vencimientos_cursos_fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_cedula (recurso_operativo_cedula),
                 INDEX idx_tipo (sstt_vencimientos_cursos_tipo_curso),
@@ -2390,6 +2392,28 @@ def api_sstt_vencimientos_cursos():
                         pass
             except Exception:
                 pass
+            try:
+                cur_check2 = connection.cursor()
+                cur_check2.execute(
+                    """
+                    SELECT COUNT(*) FROM information_schema.columns
+                    WHERE table_schema = DATABASE()
+                      AND table_name = 'sstt_vencimientos_cursos'
+                      AND column_name = 'sstt_vencimientos_cursos_validado'
+                    """
+                )
+                has_validado = (cur_check2.fetchone() or [0])[0]
+                cur_check2.close()
+                if not has_validado:
+                    try:
+                        cur_alter2 = connection.cursor()
+                        cur_alter2.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN sstt_vencimientos_cursos_validado TINYINT(1) DEFAULT 0 AFTER sstt_vencimientos_cursos_observacion")
+                        connection.commit()
+                        cur_alter2.close()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             if cedula:
                 where.append("vc.recurso_operativo_cedula = %s")
                 params.append(cedula)
@@ -2403,10 +2427,10 @@ def api_sstt_vencimientos_cursos():
                 where.append("vc.sstt_vencimientos_cursos_fecha <= %s")
                 params.append(fecha_hasta)
             sql = (
-                "SELECT vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, "
+                "SELECT vc.id AS id, vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, "
                 "vc.recurso_operativo_cedula, vc.sstt_vencimientos_cursos_tipo_curso, "
                 "vc.sstt_vencimientos_cursos_fecha, vc.sstt_vencimientos_cursos_fecha_ven, "
-                "vc.sstt_vencimientos_cursos_observacion "
+                "vc.sstt_vencimientos_cursos_observacion, vc.sstt_vencimientos_cursos_validado "
                 "FROM sstt_vencimientos_cursos vc "
                 "LEFT JOIN recurso_operativo ro ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula"
             )
@@ -2481,7 +2505,8 @@ def api_sstt_vencimientos_cursos():
                     'fecha_vencimiento': fv_str,
                     'dias_por_vencer': dias,
                     'observacion': r.get('sstt_vencimientos_cursos_observacion'),
-                    'anio': anio_val
+                    'anio': anio_val,
+                    'validado': r.get('sstt_vencimientos_cursos_validado')
                 })
 
             # Integración de encuesta 10 por usuario (por año presente)
@@ -2593,6 +2618,7 @@ def api_sstt_vencimientos_cursos_update(item_id):
         fecha = (data.get('sstt_vencimientos_cursos_fecha') or '').strip()
         fecha_ven = (data.get('sstt_vencimientos_cursos_fecha_ven') or '').strip()
         observ = (data.get('sstt_vencimientos_cursos_observacion') or '').strip()
+        validado_val = data.get('sstt_vencimientos_cursos_validado')
         campos = []
         params = []
         idc = None
@@ -2625,6 +2651,13 @@ def api_sstt_vencimientos_cursos_update(item_id):
             params.append(fecha_ven)
         campos.append("sstt_vencimientos_cursos_observacion = %s")
         params.append(observ)
+        if validado_val is not None:
+            try:
+                v_int = 1 if str(validado_val).strip().lower() in ['1', 'true', 't', 'yes', 'y'] else 0
+            except Exception:
+                v_int = 0
+            campos.append("sstt_vencimientos_cursos_validado = %s")
+            params.append(v_int)
         if not campos:
             connection.close()
             return jsonify({'success': False, 'message': 'Sin cambios'}), 400
@@ -2654,6 +2687,7 @@ def api_sstt_vencimientos_cursos_update_by():
         fecha = (data.get('sstt_vencimientos_cursos_fecha') or '').strip()
         fecha_ven = (data.get('sstt_vencimientos_cursos_fecha_ven') or '').strip()
         observ = (data.get('sstt_vencimientos_cursos_observacion') or '').strip()
+        validado_val = data.get('sstt_vencimientos_cursos_validado')
         if not oc or not ot or not of:
             connection.close()
             return jsonify({'success': False, 'message': 'Faltan claves originales'}), 400
@@ -2684,6 +2718,13 @@ def api_sstt_vencimientos_cursos_update_by():
         params_set.append(fecha_ven)
         set_parts.append("sstt_vencimientos_cursos_observacion = %s")
         params_set.append(observ)
+        if validado_val is not None:
+            try:
+                v_int = 1 if str(validado_val).strip().lower() in ['1', 'true', 't', 'yes', 'y'] else 0
+            except Exception:
+                v_int = 0
+            set_parts.append("sstt_vencimientos_cursos_validado = %s")
+            params_set.append(v_int)
         sql = "UPDATE sstt_vencimientos_cursos SET " + ", ".join(set_parts) + " WHERE recurso_operativo_cedula = %s AND sstt_vencimientos_cursos_tipo_curso = %s AND sstt_vencimientos_cursos_fecha = %s LIMIT 1"
         params = params_set + [oc, ot, of]
         cur = connection.cursor()
@@ -2744,7 +2785,7 @@ def api_sstt_vencimientos_cursos_resumen():
             'ro.recurso_operativo_cedula AS cedula, '
             'ro.nombre AS nombre, '
             'COUNT(*) AS total_cursos, '
-            "SUM(CASE WHEN vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() THEN 1 ELSE 0 END) AS vencidos, "
+            "SUM(CASE WHEN vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() AND (vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0) THEN 1 ELSE 0 END) AS vencidos, "
             "SUM(CASE WHEN vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30 THEN 1 ELSE 0 END) AS por_vencer "
             'FROM recurso_operativo ro '
             'LEFT JOIN sstt_vencimientos_cursos vc ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula '

@@ -611,6 +611,7 @@ function renderSeccionesUsuario(items){
     const dias = it.dias_por_vencer;
     const estado = (dias == null) ? '' : (dias <= 0 ? 'VENCIDO' : (dias <= 30 ? 'PRÓXIMO A VENCER' : 'VIGENTE'));
     const badgeClass = (dias == null) ? 'bg-secondary' : (dias <= 0 ? 'bg-danger' : (dias <= 30 ? 'bg-warning text-dark' : 'bg-success'));
+    const esVencido = (dias != null && dias <= 0);
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${it.fecha||''}</td>
@@ -619,11 +620,22 @@ function renderSeccionesUsuario(items){
       <td>${estado?`<span class="badge ${badgeClass}">${estado}</span>`:''}</td>
       <td>${(it.anio!=null)?it.anio:''}</td>
       <td>${it.observacion||''}</td>
-      <td><button class="btn btn-sm btn-outline-primary" data-id="${it.id||''}">Editar</button></td>
+      <td>
+        <div class="d-flex align-items-center gap-2">
+          ${esVencido ? `<div class="form-check form-switch"><input class="form-check-input chkValidado" type="checkbox" ${String(it.validado||0) === '1' ? 'checked' : ''}></div>` : ''}
+          <button class="btn btn-sm btn-outline-primary" data-id="${it.id||''}">Editar</button>
+        </div>
+      </td>
     `;
     tbody.appendChild(tr);
     const btn = tr.querySelector('button');
     if (btn) btn.addEventListener('click', ()=> abrirModalEditar(it));
+    const chk = tr.querySelector('.chkValidado');
+    if (chk) {
+      chk.addEventListener('change', () => {
+        toggleValidado(it, !!chk.checked);
+      });
+    }
   });
 }
 
@@ -635,6 +647,44 @@ function abrirAgregarCurso(tipo, cedula, nombre){
   const sel = document.getElementById('tipoCursoSelect');
   if (sel) sel.value = tipo||'';
   modal.show();
+}
+
+function toggleValidado(item, valor){
+  const body = {};
+  body['sstt_vencimientos_cursos_validado'] = valor ? 1 : 0;
+  const doRefresh = () => {
+    cargarVencimientos();
+    if (accionesCedulaActual) cargarCursosUsuario(accionesCedulaActual);
+  };
+  if (item.id) {
+    fetch(`/api/sstt/vencimientos-cursos/${item.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    .then(r => r.json())
+    .then(d => { if (d && d.success) doRefresh(); })
+    .catch(() => {});
+  } else {
+    const body2 = Object.assign({}, body, {
+      original_cedula: item.recurso_operativo_cedula || '',
+      original_tipo: item.tipo_curso || '',
+      original_fecha: normalizeDateString(item.fecha),
+      recurso_operativo_cedula: item.recurso_operativo_cedula || '',
+      sstt_vencimientos_cursos_tipo_curso: item.tipo_curso || '',
+      sstt_vencimientos_cursos_fecha: normalizeDateString(item.fecha),
+      sstt_vencimientos_cursos_fecha_ven: normalizeDateString(item.fecha_vencimiento),
+      sstt_vencimientos_cursos_observacion: item.observacion || ''
+    });
+    fetch('/api/sstt/vencimientos-cursos/update-by', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body2)
+    })
+    .then(r => r.json())
+    .then(d => { if (d && d.success) doRefresh(); })
+    .catch(() => {});
+  }
 }
 
 </script>
