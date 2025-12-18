@@ -26729,9 +26729,9 @@ def api_sstt_vencimientos_cursos():
                     try:
                         cur_enc.execute(
                             """
-                            SELECT DATE(fecha_respuesta) AS fecha
+                            SELECT DATE(fecha_respuesta) AS fecha, sstt_vencimientos_cursos_fecha_ven AS fecha_ven
                             FROM encuesta_respuestas
-                            WHERE encuesta_id = %s AND usuario_id = %s AND estado = 'enviada' AND YEAR(fecha_respuesta) = YEAR(CURDATE())
+                            WHERE encuesta_id = %s AND usuario_id = %s AND estado IN ('enviada','respondida','finalizada') AND YEAR(fecha_respuesta) = YEAR(CURDATE())
                             ORDER BY fecha_respuesta DESC
                             LIMIT 1
                             """,
@@ -26744,8 +26744,9 @@ def api_sstt_vencimientos_cursos():
                         cur_enc.close()
                     if er:
                         fecha_enc = er.get('fecha')
+                        fecha_ven_enc = er.get('fecha_ven')
                         # Determinar si ya tiene inducción registrada
-                        has_induccion = any((i.get('tipo_curso') == 'CURSO INDUCCION SST') for i in out)
+                        has_induccion = any(('INDUCCION' in str(i.get('tipo_curso') or '').strip().upper().replace('Ó','O').replace('Ú','U').replace('Á','A').replace('É','E').replace('Í','I').replace('Ñ','N')) for i in out)
                         # Determinar si ya existe reinducción del mismo año
                         enc_year = None
                         try:
@@ -26756,14 +26757,38 @@ def api_sstt_vencimientos_cursos():
                                 enc_year = int(s[0:4]) if len(s) >= 4 and s[0:4].isdigit() else None
                         except Exception:
                             enc_year = None
-                        has_reinduccion_same_year = any((i.get('tipo_curso') == 'CURSO REINDUCCION SST') and (i.get('anio') == enc_year) for i in out)
+                        has_reinduccion_same_year = any(('REINDUCCION' in str(i.get('tipo_curso') or '').strip().upper().replace('Ó','O').replace('Ú','U').replace('Á','A').replace('É','E').replace('Í','I').replace('Ñ','N')) and (i.get('anio') == enc_year) for i in out)
+                        fv_date_enc = None
+                        fv_str_enc = ''
+                        try:
+                            if fecha_ven_enc:
+                                if hasattr(fecha_ven_enc, 'strftime'):
+                                    fv_date_enc = fecha_ven_enc
+                                    fv_str_enc = fecha_ven_enc.strftime('%Y-%m-%d')
+                                else:
+                                    s = str(fecha_ven_enc).strip()
+                                    if s:
+                                        try:
+                                            fv_date_enc = datetime.strptime(s, '%Y-%m-%d').date()
+                                            fv_str_enc = fv_date_enc.strftime('%Y-%m-%d')
+                                        except Exception:
+                                            try:
+                                                fv_date_enc = datetime.strptime(s, '%Y-%m-%d %H:%M:%S').date()
+                                                fv_str_enc = fv_date_enc.strftime('%Y-%m-%d')
+                                            except Exception:
+                                                fv_date_enc = None
+                                                fv_str_enc = ''
+                        except Exception:
+                            fv_date_enc = None
+                            fv_str_enc = ''
+                        dias_enc = (fv_date_enc - datetime.now().date()).days if fv_date_enc else None
                         synthetic_item = {
                             'recurso_operativo_cedula': cedula,
                             'nombre': nombre_u,
                             'tipo_curso': ('CURSO INDUCCION SST' if not has_induccion else 'CURSO REINDUCCION SST'),
                             'fecha': (fecha_enc.strftime('%Y-%m-%d') if hasattr(fecha_enc, 'strftime') else str(fecha_enc)),
-                            'fecha_vencimiento': '',
-                            'dias_por_vencer': None,
+                            'fecha_vencimiento': fv_str_enc,
+                            'dias_por_vencer': dias_enc,
                             'observacion': 'Origen: Encuesta 10',
                             'anio': enc_year
                         }
@@ -26811,6 +26836,66 @@ def api_sstt_vencimientos_cursos():
             new_id = cursor.lastrowid
             cursor.close(); connection.close()
             return jsonify({'success': True, 'id': new_id})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/sstt/vencimientos-cursos/encuesta-vto', methods=['PUT'])
+@login_required()
+def api_sstt_vencimientos_cursos_encuesta_vto():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        data = request.get_json() or {}
+        cedula = (data.get('cedula') or '').strip()
+        usuario_id = data.get('usuario_id')
+        encuesta_id = int(data.get('encuesta_id') or 10)
+        anio = data.get('anio')
+        fecha = (data.get('fecha') or '').strip()
+        fecha_vto = (data.get('fecha_vencimiento') or '').strip()
+        if not fecha_vto:
+            return jsonify({'success': False, 'message': 'Falta fecha_vencimiento'}), 400
+        cur = connection.cursor()
+        if not usuario_id:
+            if not cedula:
+                return jsonify({'success': False, 'message': 'Faltan parámetros de usuario'}), 400
+            cur.execute("SELECT id_codigo_consumidor FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+            ru = cur.fetchone()
+            if not ru:
+                return jsonify({'success': False, 'message': 'Usuario no encontrado'}), 404
+            usuario_id = ru[0]
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM information_schema.columns
+            WHERE table_schema = DATABASE() AND table_name = 'encuesta_respuestas' AND column_name = 'sstt_vencimientos_cursos_fecha_ven'
+            """
+        )
+        has_col = (cur.fetchone() or [0])[0]
+        if not has_col:
+            try:
+                cur.execute("ALTER TABLE encuesta_respuestas ADD COLUMN sstt_vencimientos_cursos_fecha_ven DATE NULL AFTER fecha_respuesta")
+                connection.commit()
+            except Exception:
+                pass
+        params = [fecha_vto, encuesta_id, usuario_id]
+        where_extra = ''
+        if anio:
+            where_extra = ' AND YEAR(fecha_respuesta) = %s'
+            params.append(int(anio))
+        elif fecha:
+            where_extra = ' AND DATE(fecha_respuesta) = %s'
+            params.append(fecha)
+        cur.execute(
+            "UPDATE encuesta_respuestas SET sstt_vencimientos_cursos_fecha_ven = %s WHERE encuesta_id = %s AND usuario_id = %s" + where_extra + " ORDER BY fecha_respuesta DESC LIMIT 1",
+            tuple(params)
+        )
+        connection.commit()
+        affected = cur.rowcount
+        cur.close(); connection.close()
+        if affected == 0:
+            return jsonify({'success': False, 'message': 'No se encontró respuesta para actualizar'}), 404
+        return jsonify({'success': True, 'updated': affected})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 

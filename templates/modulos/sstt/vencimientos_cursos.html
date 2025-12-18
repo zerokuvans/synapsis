@@ -613,15 +613,17 @@ function renderSeccionesUsuario(items){
     const badgeClass = (dias == null) ? 'bg-secondary' : (dias <= 0 ? 'bg-danger' : (dias <= 30 ? 'bg-warning text-dark' : 'bg-success'));
     const esVencido = (dias != null && dias <= 0);
     const tr = document.createElement('tr');
+    const esEncuesta = String(it.observacion||'').indexOf('Encuesta 10') !== -1;
     tr.innerHTML = `
       <td>${it.fecha||''}</td>
-      <td>${it.fecha_vencimiento||''}</td>
+      <td>${esEncuesta ? `<input type="date" class="form-control form-control-sm inpFven" value="${normalizeDateString(it.fecha_vencimiento)}">` : (it.fecha_vencimiento||'')}</td>
       <td class="${(dias!=null && dias<=0)?'text-danger fw-bold':(dias!=null && dias<=30)?'text-warning fw-bold':'text-success fw-bold'}">${dias!=null?dias:''}</td>
       <td>${estado?`<span class="badge ${badgeClass}">${estado}</span>`:''}</td>
       <td>${(it.anio!=null)?it.anio:''}</td>
       <td>${it.observacion||''}</td>
       <td>
         <div class="d-flex align-items-center gap-2">
+          ${esEncuesta ? `<button class="btn btn-sm btn-success btnGuardarEncuesta">Guardar Vto</button>` : ''}
           ${esVencido ? `<div class="form-check form-switch"><input class="form-check-input chkValidado" type="checkbox" ${String(it.validado||0) === '1' ? 'checked' : ''}></div>` : ''}
           <button class="btn btn-sm btn-outline-primary" data-id="${it.id||''}">Editar</button>
         </div>
@@ -634,6 +636,14 @@ function renderSeccionesUsuario(items){
     if (chk) {
       chk.addEventListener('change', () => {
         toggleValidado(it, !!chk.checked);
+      });
+    }
+    const btnGuardar = tr.querySelector('.btnGuardarEncuesta');
+    if (btnGuardar) {
+      btnGuardar.addEventListener('click', () => {
+        const inp = tr.querySelector('.inpFven');
+        const valor = inp ? inp.value : '';
+        guardarVencimientoEncuesta(it, valor);
       });
     }
   });
@@ -685,6 +695,32 @@ function toggleValidado(item, valor){
     .then(d => { if (d && d.success) doRefresh(); })
     .catch(() => {});
   }
+}
+
+function guardarVencimientoEncuesta(item, valor){
+  if (!valor) return;
+  const body = {
+    cedula: item.recurso_operativo_cedula || accionesCedulaActual || '',
+    encuesta_id: 10,
+    anio: item.anio || '',
+    fecha: normalizeDateString(item.fecha),
+    fecha_vencimiento: normalizeDateString(valor)
+  };
+  fetch('/api/sstt/vencimientos-cursos/encuesta-vto', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d && d.success) {
+      cargarVencimientos();
+      if (accionesCedulaActual) cargarCursosUsuario(accionesCedulaActual);
+    } else {
+      Swal.fire('Error', (d && d.message) || 'No se pudo actualizar', 'error');
+    }
+  })
+  .catch(() => {});
 }
 
 </script>
