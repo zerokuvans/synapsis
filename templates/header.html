@@ -1286,6 +1286,7 @@
             var html = '';
             if (isSupervisor) {
                 var rows = (summary && summary.items) ? summary.items.slice() : [];
+                if (!Array.isArray(rows) || rows.length === 0) { return; }
                 rows.sort(function(a,b){ return (Number(b.cantidad||0) - Number(a.cantidad||0)) || (String(a.tecnico_nombre||'').localeCompare(String(b.tecnico_nombre||''))); });
                 var table = '<div class="table-responsive d-none d-md-block"><table class="table table-sm table-striped">' +
                     '<thead><tr><th>técnico</th><th>pendientes</th><th>desbloqueo hasta</th><th>extensiones mes</th><th>último por</th></tr></thead><tbody>';
@@ -1316,6 +1317,7 @@
                     table + cards +
                 '</div>';
             } else {
+                if (!Array.isArray(items) || items.length === 0) { return; }
                 var table2 = '<div class="table-responsive d-none d-md-block"><table class="table table-sm table-striped">' +
                     '<thead><tr><th>serial_rr</th><th>cuenta</th><th>lapso</th><th>fecha</th><th>días restantes</th></tr></thead><tbody>';
                 for (var i=0;i<items.length;i++){
@@ -1409,7 +1411,9 @@
             Promise.all([reqPending, reqSummary]).then(function(results){
                 var j = results[0] || {};
                 var s = results[1] || {};
-                if ((j && (j.count>0 || (j.items && j.items.length>0))) || (s && s.items && s.items.length>0)){
+                var hasUserPending = Array.isArray(j.items) && j.items.length > 0;
+                var hasSummary = Array.isArray((s||{}).items) && s.items.length > 0;
+                if (isSupervisor ? hasSummary : hasUserPending) {
                     showPendientes(j || {}, s || {});
                 }
                 updatePreoperacionalButtonStatus(j || {});

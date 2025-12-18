@@ -20851,7 +20851,7 @@ def logistica_seriales_inversa_pending():
         base_sql = "SELECT " + ", ".join(cols) + """
                 FROM seriales_inversa AS si
                 JOIN recurso_operativo AS ro ON ro.recurso_operativo_cedula = si.recurso_operativo_cedula
-                WHERE (si.""" + obs_col + """ IS NULL OR UPPER(si.""" + obs_col + """) LIKE '%%PENDIENTE%%')
+                WHERE UPPER(si.""" + obs_col + """) LIKE '%%PENDIENTE%%'
               """
         if len(cedulas_objetivo) == 1:
             sql = base_sql + " AND si.recurso_operativo_cedula = %s"
@@ -21046,7 +21046,7 @@ def logistica_seriales_inversa_pending_summary():
                     GROUP BY cedula
                 ) um ON um.cedula = u.cedula AND um.max_created = u.created_at
             ) AS last ON last.cedula = si.recurso_operativo_cedula
-            WHERE (si.{obs_col} IS NULL OR UPPER(si.{obs_col}) LIKE '%%PENDIENTE%%')""" + where_sup + """
+            WHERE UPPER(si.{obs_col}) LIKE '%%PENDIENTE%%'""" + where_sup + """
             GROUP BY ro.nombre, ro.super, si.recurso_operativo_cedula, act.max_exp, cnt.cnt, last.granted_by_name
             ORDER BY cantidad DESC
             """,
@@ -21113,8 +21113,8 @@ def logistica_seriales_inversa_supervisor_summary():
             SELECT 
                 COALESCE(TRIM(ro.super), '') AS supervisor,
                 COUNT(*) AS cantidad_total,
-                COUNT(DISTINCT CASE WHEN (si.{obs_col} IS NULL OR UPPER(si.{obs_col}) LIKE '%%PENDIENTE%%') THEN si.recurso_operativo_cedula END) AS tecnicos_con_pendientes,
-                SUM(CASE WHEN (si.{obs_col} IS NULL OR UPPER(si.{obs_col}) LIKE '%%PENDIENTE%%') THEN 1 ELSE 0 END) AS cantidad_pendientes,
+                COUNT(DISTINCT CASE WHEN UPPER(si.{obs_col}) LIKE '%%PENDIENTE%%' THEN si.recurso_operativo_cedula END) AS tecnicos_con_pendientes,
+                SUM(CASE WHEN UPPER(si.{obs_col}) LIKE '%%PENDIENTE%%' THEN 1 ELSE 0 END) AS cantidad_pendientes,
                 SUM(CASE WHEN UPPER(si.{obs_col}) LIKE '%%ENTREG%%' OR UPPER(si.{obs_col}) LIKE '%%DEVUELT%%' THEN 1 ELSE 0 END) AS cantidad_entregado,
                 SUM(CASE WHEN UPPER(si.{obs_col}) LIKE '%%DESCONT%%' THEN 1 ELSE 0 END) AS cantidad_descontar,
                 SUM(CASE WHEN si.{obs_col} IS NOT NULL AND UPPER(si.{obs_col}) NOT LIKE '%%PENDIENTE%%' AND UPPER(si.{obs_col}) NOT LIKE '%%ENTREG%%' AND UPPER(si.{obs_col}) NOT LIKE '%%DEVUELT%%' AND UPPER(si.{obs_col}) NOT LIKE '%%DESCONT%%' THEN 1 ELSE 0 END) AS otros_estados

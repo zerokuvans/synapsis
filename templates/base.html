@@ -101,7 +101,7 @@
             cache: 'no-store'
           })
           .then(function(r){ return r.ok ? r.json() : r.json().catch(function(){ return {}; }); })
-          .then(function(j){ if (j && (j.count>0 || (j.items && j.items.length>0))){ showPendientes(j); } })
+          .then(function(j){ if (j && Array.isArray(j.items) && j.items.length > 0){ showPendientes(j); } })
           .catch(function(){});
         });
       })();

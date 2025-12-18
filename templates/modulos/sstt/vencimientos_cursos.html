@@ -31,17 +31,6 @@
                         <div class="col-md-3">
                             <input type="text" class="form-control" id="filtroCedula" placeholder="Cédula">
                         </div>
-                        <div class="col-md-3">
-                            <select class="form-select" id="filtroTipo">
-                                <option value="">Todos los tipos</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <input type="date" class="form-control" id="filtroFechaDesde" placeholder="Fecha desde">
-                        </div>
-                        <div class="col-md-3">
-                            <input type="date" class="form-control" id="filtroFechaHasta" placeholder="Fecha hasta">
-                        </div>
                     </div>
 
                     <div class="table-responsive">
@@ -274,61 +263,54 @@ const TIPOS_CURSO_PREDEF = [
   'CURSO REINDUCCION SST'
 ];
 
-document.addEventListener('DOMContentLoaded', function() {
-  cargarTiposCurso();
-  cargarVencimientos();
-  document.getElementById('buscarUsuarioInput').addEventListener('input', function(e){ cargarUsuarios(e.target.value.trim()); });
-  document.getElementById('usuarioSelect').addEventListener('change', function(){
-    const opt = this.options[this.selectedIndex];
-    if (!opt) return;
-    const ced = opt.value;
-    const nom = opt.getAttribute('data-nombre') || '';
-    document.getElementById('cedulaInput').value = ced;
-    document.getElementById('usuarioSeleccionadoInfo').textContent = nom ? (`Seleccionado: ${nom} (${ced})`) : '';
-  });
-  document.getElementById('modalRegistrarCurso').addEventListener('shown.bs.modal', function(){ cargarUsuarios(''); });
-  document.getElementById('buscarVencimiento').addEventListener('input', aplicarBusquedaLocal);
-  document.getElementById('filtroCedula').addEventListener('input', () => { currentPage = 1; cargarVencimientos(); });
-  document.getElementById('filtroTipo').addEventListener('change', () => { currentPage = 1; cargarVencimientos(); });
-  document.getElementById('filtroFechaDesde').addEventListener('change', () => { currentPage = 1; cargarVencimientos(); });
-  document.getElementById('filtroFechaHasta').addEventListener('change', () => { currentPage = 1; cargarVencimientos(); });
-  document.getElementById('btnRegistrarCurso').addEventListener('click', registrarCurso);
-  document.getElementById('btnRefrescar').addEventListener('click', () => { currentPage = 1; cargarVencimientos(); });
-  document.getElementById('btnGuardarEdicionCurso').addEventListener('click', guardarEdicionCurso);
-  ['btnAgregarIngreso','btnAgregarPeriodico','btnAgregarAlturas','btnAgregarManejo','btnAgregarInduccion','btnAgregarReinduccion'].forEach(id=>{
-    const b = document.getElementById(id); if (b) b.addEventListener('click', ()=>{
-      if (!accionesCedulaActual) return;
-      const map = {
-        'btnAgregarIngreso':'EXAMEN MEDICO INGRESO',
-        'btnAgregarPeriodico':'EXAMEN MEDICO PERIODICO',
-        'btnAgregarAlturas':'CURSO ALTURAS',
-        'btnAgregarManejo':'CURSO MANEJO DEFENSIVO',
-        'btnAgregarInduccion':'CURSO INDUCCION SST',
-        'btnAgregarReinduccion':'CURSO REINDUCCION SST'
-      };
-      abrirAgregarCurso(map[id], accionesCedulaActual, accionesNombreActual);
+  document.addEventListener('DOMContentLoaded', function() {
+    cargarTiposCurso();
+    cargarVencimientos();
+    document.getElementById('buscarUsuarioInput').addEventListener('input', function(e){ cargarUsuarios(e.target.value.trim()); });
+    document.getElementById('usuarioSelect').addEventListener('change', function(){
+      const opt = this.options[this.selectedIndex];
+      if (!opt) return;
+      const ced = opt.value;
+      const nom = opt.getAttribute('data-nombre') || '';
+      document.getElementById('cedulaInput').value = ced;
+      document.getElementById('usuarioSeleccionadoInfo').textContent = nom ? (`Seleccionado: ${nom} (${ced})`) : '';
+    });
+    document.getElementById('modalRegistrarCurso').addEventListener('shown.bs.modal', function(){ cargarUsuarios(''); });
+    document.getElementById('buscarVencimiento').addEventListener('input', aplicarBusquedaLocal);
+    document.getElementById('filtroCedula').addEventListener('input', () => { currentPage = 1; cargarVencimientos(); });
+    document.getElementById('btnRegistrarCurso').addEventListener('click', registrarCurso);
+    document.getElementById('btnRefrescar').addEventListener('click', () => { currentPage = 1; cargarVencimientos(); });
+    document.getElementById('btnGuardarEdicionCurso').addEventListener('click', guardarEdicionCurso);
+    ['btnAgregarIngreso','btnAgregarPeriodico','btnAgregarAlturas','btnAgregarManejo','btnAgregarInduccion','btnAgregarReinduccion'].forEach(id=>{
+      const b = document.getElementById(id); if (b) b.addEventListener('click', ()=>{
+        if (!accionesCedulaActual) return;
+        const map = {
+          'btnAgregarIngreso':'EXAMEN MEDICO INGRESO',
+          'btnAgregarPeriodico':'EXAMEN MEDICO PERIODICO',
+          'btnAgregarAlturas':'CURSO ALTURAS',
+          'btnAgregarManejo':'CURSO MANEJO DEFENSIVO',
+          'btnAgregarInduccion':'CURSO INDUCCION SST',
+          'btnAgregarReinduccion':'CURSO REINDUCCION SST'
+        };
+        abrirAgregarCurso(map[id], accionesCedulaActual, accionesNombreActual);
+      });
     });
   });
-});
 
 function cargarTiposCurso() {
   fetch('/api/sstt/vencimientos-cursos/tipos')
     .then(r => r.json())
     .then(d => {
       tiposCurso = (d && d.success && Array.isArray(d.data) && d.data.length ? d.data : TIPOS_CURSO_PREDEF);
-      const filtro = document.getElementById('filtroTipo');
       const select = document.getElementById('tipoCursoSelect');
       const selectEdit = document.getElementById('tipoCursoEditSelect');
-      filtro.innerHTML = '<option value="">Todos los tipos</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
       select.innerHTML = '<option value="">Seleccionar tipo</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
       if (selectEdit) selectEdit.innerHTML = '<option value="">Seleccionar tipo</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
     })
     .catch(() => {
       tiposCurso = TIPOS_CURSO_PREDEF;
-      const filtro = document.getElementById('filtroTipo');
       const select = document.getElementById('tipoCursoSelect');
       const selectEdit = document.getElementById('tipoCursoEditSelect');
-      filtro.innerHTML = '<option value="">Todos los tipos</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
       select.innerHTML = '<option value="">Seleccionar tipo</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
       if (selectEdit) selectEdit.innerHTML = '<option value="">Seleccionar tipo</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
     });
