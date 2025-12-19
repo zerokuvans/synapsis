@@ -28500,6 +28500,7 @@ def api_sgis_reportes_tsr_matriz():
         firmas = arr()
         firmas_supervisor = arr()
         pendientes_supervisor = arr()
+        visitas_programadas = ['0' for _ in range(31)]
         by_day = {}
         for row in rows:
             d = row['fecha_dia'].day
@@ -28536,11 +28537,71 @@ def api_sgis_reportes_tsr_matriz():
                     if ft and not fs:
                         pend += 1
                 pendientes_supervisor[idx] = str(pend)
-        cursor.execute("SELECT nombre, cargo, carpeta FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+        cursor.execute("SELECT nombre, cargo, carpeta, id_codigo_consumidor FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
         u = cursor.fetchone() or {}
-        info = { 'nombre': u.get('nombre') or '', 'cedula': cedula, 'cargo': u.get('cargo') or '', 'area': u.get('carpeta') or '' }
+        info = { 'nombre': u.get('nombre') or '', 'cedula': cedula, 'cargo': u.get('cargo') or '', 'area': u.get('carpeta') or '', 'id': u.get('id_codigo_consumidor') }
+        try:
+            dbn = connection.database
+            c2 = connection.cursor()
+            c2.execute(
+                """
+                SELECT COLUMN_NAME 
+                FROM information_schema.columns 
+                WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+                ORDER BY ORDINAL_POSITION
+                """,
+                (dbn,)
+            )
+            cols = [r[0] for r in c2.fetchall()]
+            lc = {c.lower(): c for c in cols}
+            def pick(cands):
+                for n in cands:
+                    if n.lower() in lc:
+                        return lc[n.lower()]
+                for c in cols:
+                    for n in cands:
+                        if n.lower() in c.lower():
+                            return c
+                return None
+            col_fecha = pick(['fecha_actividad','fecha','fecha_asignacion','fecha_orden'])
+            col_estado = pick(['estado','estado_actividad','estado_operacion','tipificacion','status'])
+            col_id = pick(['recurso_operativo_cedula','cedula','id_tecnico','id_codigo_consumidor','external_id'])
+            col_ot = pick(['orden_de_trabajo','ot','orden_trabajo','orden','orden_de_servicio'])
+            col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
+            col_pk = pick(['id','id_operacion','id_actividad','id_registro','id_orden'])
+            if col_fecha and col_estado and col_id:
+                id_val = cedula
+                if col_id.lower() == 'id_codigo_consumidor':
+                    id_val = info.get('id') or cedula
+                c3 = connection.cursor(dictionary=True)
+                distinct_expr = None
+                if col_ot:
+                    distinct_expr = f"`{col_ot}`"
+                elif col_cuenta:
+                    distinct_expr = f"`{col_cuenta}`"
+                elif col_pk:
+                    distinct_expr = f"`{col_pk}`"
+                count_expr = f"COUNT(DISTINCT {distinct_expr})" if distinct_expr else "COUNT(*)"
+                status_list = ['completado','completada']
+                placeholders = ','.join(['%s'] * len(status_list))
+                ot_required = f" AND `{col_ot}` IS NOT NULL AND TRIM(CAST(`{col_ot}` AS CHAR)) <> ''" if col_ot else ''
+                q = f"SELECT DATE(`{col_fecha}`) AS d, {count_expr} AS c FROM operaciones_actividades_diarias WHERE DATE(`{col_fecha}`) BETWEEN %s AND %s AND LOWER(REPLACE(TRIM(CAST(`{col_estado}` AS CHAR)),'_',' ')) IN ({placeholders}){ot_required} AND CAST(`{col_id}` AS CHAR) = %s GROUP BY DATE(`{col_fecha}`)"
+                params = (inicio, fin, *status_list, str(id_val))
+                c3.execute(q, params)
+                for r in c3.fetchall():
+                    try:
+                        day = r['d'].day if hasattr(r['d'], 'day') else datetime.strptime(str(r['d']), '%Y-%m-%d').date().day
+                        idx = day - 1
+                        if 0 <= idx < 31:
+                            visitas_programadas[idx] = str(int(r.get('c') or 0))
+                    except Exception:
+                        pass
+                c3.close()
+            c2.close()
+        except Exception:
+            pass
         matriz = { 'evaluacion': evals, 'riesgos_controles': riesgos }
-        return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'matriz': matriz, 'observaciones': observaciones, 'firmas': firmas, 'firmas_supervisor': firmas_supervisor, 'pendientes_supervisor': pendientes_supervisor})
+        return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'matriz': matriz, 'observaciones': observaciones, 'firmas': firmas, 'firmas_supervisor': firmas_supervisor, 'pendientes_supervisor': pendientes_supervisor, 'visitas_programadas': visitas_programadas})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
