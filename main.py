@@ -26877,6 +26877,90 @@ def api_sstt_vencimientos_cursos_export():
         sql += ' ORDER BY ro.nombre ASC, vc.sstt_vencimientos_cursos_fecha_ven ASC'
         cursor.execute(sql, tuple(params))
         rows = cursor.fetchall() or []
+        emp_where = []
+        emp_params = []
+        if solo_activos:
+            emp_where.append("estado = 'Activo'")
+        if cedula:
+            emp_where.append('recurso_operativo_cedula = %s')
+            emp_params.append(cedula)
+        emp_sql = 'SELECT recurso_operativo_cedula AS cedula, nombre, cargo FROM recurso_operativo'
+        if emp_where:
+            emp_sql += ' WHERE ' + ' AND '.join(emp_where)
+        cursor.execute(emp_sql, tuple(emp_params))
+        empleados = cursor.fetchall() or []
+        cedulas = [e.get('cedula') for e in empleados if e.get('cedula')]
+        present_map = {}
+        if cedulas:
+            placeholders = ','.join(['%s'] * len(cedulas))
+            cursor.execute(
+                f"SELECT recurso_operativo_cedula AS cedula, sstt_vencimientos_cursos_tipo_curso AS curso FROM sstt_vencimientos_cursos WHERE recurso_operativo_cedula IN ({placeholders})",
+                tuple(cedulas)
+            )
+            all_courses = cursor.fetchall() or []
+            import unicodedata
+            def normalize_txt(t):
+                s = str(t or '')
+                s = unicodedata.normalize('NFD', s)
+                s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
+                s = s.replace('\u00A0', ' ')
+                s = ' '.join(s.split())
+                return s.upper()
+            def norm_course(t):
+                s = normalize_txt(t)
+                if s == 'CURSO MANEJO DEFENSIVO':
+                    s = 'CURSO DE MANEJO DEFENSIVO'
+                return s
+            for ac in all_courses:
+                c = ac.get('cedula')
+                cur = norm_course(ac.get('curso'))
+                if not c or not cur:
+                    continue
+                present_map.setdefault(c, set()).add(cur)
+        import unicodedata
+        def normalize_txt2(t):
+            s = str(t or '')
+            s = unicodedata.normalize('NFD', s)
+            s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
+            s = s.replace('\u00A0', ' ')
+            s = ' '.join(s.split())
+            return s.upper()
+        required_common = {
+            'EXAMEN DE INGRESO',
+            'EXAMEN MEDICO PERIODICO',
+            'CURSO REINDUCCION SST',
+            'CURSO INDUCCION SST'
+        }
+        required_extra = {
+            'CURSO ALTURAS',
+            'CURSO DE MANEJO DEFENSIVO'
+        }
+        cargos_extra = {
+            normalize_txt2('TECNICO'),
+            normalize_txt2('SUPERVISORES'),
+            normalize_txt2('TECNICO CONDUCTOR'),
+            normalize_txt2('CONDUCTOR'),
+            normalize_txt2('TECNICO DE TELECOMUNICACIONES')
+        }
+        cargos_common = {
+            normalize_txt2('ANALISTA LOGISTICA'),
+            normalize_txt2('ADMINISTRADOR'),
+            normalize_txt2('ANALISTA')
+        }
+        cargos_all = cargos_common.union(cargos_extra)
+        for emp in empleados:
+            c = emp.get('cedula')
+            n = emp.get('nombre') or ''
+            cargo_norm = normalize_txt2(emp.get('cargo'))
+            if cargo_norm not in cargos_all:
+                continue
+            req = set(required_common)
+            if cargo_norm in cargos_extra:
+                req = req.union(required_extra)
+            presentes = present_map.get(c, set())
+            faltantes = [r for r in sorted(req) if r not in presentes]
+            for curso_req in faltantes:
+                rows.append({'cedula': c or '', 'nombre': n, 'curso': curso_req, 'vencimiento': 'pendiente'})
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(['cedula','nombre','curso','vencimiento'])
