@@ -21,6 +21,9 @@
                             <button type="button" class="btn btn-outline-secondary" id="btnRefrescar">
                                 <i class="fas fa-sync me-2"></i>Refrescar
                             </button>
+                            <button type="button" class="btn btn-success" id="btnExportar">
+                                <i class="fas fa-file-export me-2"></i>Exportar
+                            </button>
                         </div>
                         <div>
                             <input type="text" class="form-control" id="buscarVencimiento" placeholder="Buscar...">
@@ -280,6 +283,7 @@ const TIPOS_CURSO_PREDEF = [
     document.getElementById('filtroCedula').addEventListener('input', () => { currentPage = 1; cargarVencimientos(); });
     document.getElementById('btnRegistrarCurso').addEventListener('click', registrarCurso);
     document.getElementById('btnRefrescar').addEventListener('click', () => { currentPage = 1; cargarVencimientos(); });
+    document.getElementById('btnExportar').addEventListener('click', exportarVencimientos);
     document.getElementById('btnGuardarEdicionCurso').addEventListener('click', guardarEdicionCurso);
     ['btnAgregarIngreso','btnAgregarPeriodico','btnAgregarAlturas','btnAgregarManejo','btnAgregarInduccion','btnAgregarReinduccion'].forEach(id=>{
       const b = document.getElementById(id); if (b) b.addEventListener('click', ()=>{
@@ -314,6 +318,15 @@ function cargarTiposCurso() {
       select.innerHTML = '<option value="">Seleccionar tipo</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
       if (selectEdit) selectEdit.innerHTML = '<option value="">Seleccionar tipo</option>' + tiposCurso.map(t => `<option value="${t}">${t}</option>`).join('');
     });
+}
+
+function exportarVencimientos(){
+  const cedula = document.getElementById('filtroCedula').value.trim();
+  const params = new URLSearchParams();
+  if (cedula) params.append('cedula', cedula);
+  params.append('solo_activos','1');
+  const url = '/api/sstt/vencimientos-cursos/export' + (params.toString() ? ('?' + params.toString()) : '');
+  window.open(url, '_blank');
 }
 
 function cargarVencimientos() {

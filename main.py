@@ -26839,6 +26839,67 @@ def api_sstt_vencimientos_cursos():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/sstt/vencimientos-cursos/export', methods=['GET'])
+@login_required()
+def api_sstt_vencimientos_cursos_export():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return Response('Error de conexión a la base de datos', status=500)
+        cursor = connection.cursor(dictionary=True)
+        cedula = (request.args.get('cedula') or '').strip()
+        solo_activos_param = (request.args.get('solo_activos') or '1').strip().lower()
+        solo_activos = solo_activos_param in ['1', 'true', 't', 'yes', 'y']
+        where = [
+            "vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL",
+            "vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01')",
+            "vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01'",
+            "( DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() OR (DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30) )",
+            "(vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0)"
+        ]
+        params = []
+        if solo_activos:
+            where.append("ro.estado = 'Activo'")
+        if cedula:
+            where.append('ro.recurso_operativo_cedula = %s')
+            params.append(cedula)
+        sql = (
+            'SELECT '
+            'ro.recurso_operativo_cedula AS cedula, '
+            'ro.nombre AS nombre, '
+            'vc.sstt_vencimientos_cursos_tipo_curso AS curso, '
+            'DATE(vc.sstt_vencimientos_cursos_fecha_ven) AS vencimiento '
+            'FROM sstt_vencimientos_cursos vc '
+            'LEFT JOIN recurso_operativo ro ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula '
+        )
+        if where:
+            sql += ' WHERE ' + ' AND '.join(where)
+        sql += ' ORDER BY ro.nombre ASC, vc.sstt_vencimientos_cursos_fecha_ven ASC'
+        cursor.execute(sql, tuple(params))
+        rows = cursor.fetchall() or []
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['cedula','nombre','curso','vencimiento'])
+        for r in rows:
+            fv = r.get('vencimiento')
+            if hasattr(fv, 'strftime'):
+                fv_str = fv.strftime('%Y-%m-%d')
+            else:
+                s = str(fv).strip() if fv else ''
+                if s and ' ' in s:
+                    s = s.split(' ')[0]
+                fv_str = s
+            writer.writerow([r.get('cedula') or '', r.get('nombre') or '', r.get('curso') or '', fv_str])
+        csv_data = output.getvalue()
+        output.close()
+        cursor.close(); connection.close()
+        filename = f"vencimientos_cursos_export_{get_bogota_datetime().strftime('%Y%m%d')}\.csv"
+        resp = Response(csv_data, mimetype='text/csv')
+        resp.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return resp
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 
 @app.route('/api/sstt/vencimientos-cursos/encuesta-vto', methods=['PUT'])
 @login_required()
