@@ -26468,6 +26468,7 @@ def api_sstt_vencimientos_cursos_tipos():
                 sstt_vencimientos_cursos_fecha DATE NOT NULL,
                 sstt_vencimientos_cursos_fecha_ven DATE NOT NULL,
                 sstt_vencimientos_cursos_observacion TEXT,
+                sstt_vencimientos_cursos_pendiente TINYINT(1) NOT NULL DEFAULT 0,
                 sstt_vencimientos_cursos_fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_cedula (recurso_operativo_cedula),
                 INDEX idx_tipo (sstt_vencimientos_cursos_tipo_curso),
@@ -26638,6 +26639,7 @@ def api_sstt_vencimientos_cursos():
                 sstt_vencimientos_cursos_fecha DATE NOT NULL,
                 sstt_vencimientos_cursos_fecha_ven DATE NOT NULL,
                 sstt_vencimientos_cursos_observacion TEXT,
+                sstt_vencimientos_cursos_pendiente TINYINT(1) NOT NULL DEFAULT 0,
                 sstt_vencimientos_cursos_fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_cedula (recurso_operativo_cedula),
                 INDEX idx_tipo (sstt_vencimientos_cursos_tipo_curso),
@@ -26666,7 +26668,7 @@ def api_sstt_vencimientos_cursos():
             if fecha_hasta:
                 where.append("sstt_vencimientos_cursos_fecha <= %s")
                 params.append(fecha_hasta)
-            sql = "SELECT vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, vc.recurso_operativo_cedula, vc.sstt_vencimientos_cursos_tipo_curso, vc.sstt_vencimientos_cursos_fecha, vc.sstt_vencimientos_cursos_fecha_ven, vc.sstt_vencimientos_cursos_observacion FROM sstt_vencimientos_cursos vc LEFT JOIN recurso_operativo ro ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula"
+            sql = "SELECT vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, vc.recurso_operativo_cedula, vc.sstt_vencimientos_cursos_tipo_curso, vc.sstt_vencimientos_cursos_fecha, vc.sstt_vencimientos_cursos_fecha_ven, vc.sstt_vencimientos_cursos_observacion, vc.sstt_vencimientos_cursos_pendiente FROM sstt_vencimientos_cursos vc LEFT JOIN recurso_operativo ro ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula"
             if solo_activos:
                 where.append("ro.estado = 'Activo'")
             if where:
@@ -26713,7 +26715,8 @@ def api_sstt_vencimientos_cursos():
                     'fecha_vencimiento': fv_str,
                     'dias_por_vencer': dias,
                     'observacion': r.get('sstt_vencimientos_cursos_observacion'),
-                    'anio': anio_val
+                    'anio': anio_val,
+                    'pendiente': int(r.get('sstt_vencimientos_cursos_pendiente') or 0)
                 })
 
             # Incorporar encuesta_respuestas (encuesta_id=10) como Inducción/Reinducción del año presente
@@ -26806,7 +26809,36 @@ def api_sstt_vencimientos_cursos():
             fecha = (data.get('sstt_vencimientos_cursos_fecha') or '').strip()
             fecha_ven = (data.get('sstt_vencimientos_cursos_fecha_ven') or '').strip()
             observ = (data.get('sstt_vencimientos_cursos_observacion') or '').strip()
-            if not cedula or not tipo or not fecha or not fecha_ven:
+            pendiente_val = data.get('sstt_vencimientos_cursos_pendiente')
+            try:
+                pendiente_int = 1 if str(pendiente_val).strip().lower() in ['1','true','t','yes','y'] else 0
+            except Exception:
+                pendiente_int = 0
+            # Permitir creación de encabezado pendiente sin fechas
+            if pendiente_int == 1 and (not fecha or not fecha_ven):
+                try:
+                    cur_null = connection.cursor()
+                    cur_null.execute(
+                        """
+                        SELECT IS_NULLABLE
+                        FROM information_schema.columns
+                        WHERE table_schema = DATABASE() AND table_name = 'sstt_vencimientos_cursos' AND column_name = 'sstt_vencimientos_cursos_fecha_ven'
+                        """
+                    )
+                    res_v = cur_null.fetchone()
+                    if res_v and str(res_v[0]).upper() == 'NO':
+                        cur_alter_v = connection.cursor()
+                        cur_alter_v.execute("ALTER TABLE sstt_vencimientos_cursos MODIFY COLUMN sstt_vencimientos_cursos_fecha_ven DATE NULL DEFAULT NULL")
+                        connection.commit()
+                        cur_alter_v.close()
+                    cur_null.close()
+                except Exception:
+                    pass
+                # Valores por defecto para pendiente: fecha hoy, vencimiento NULL
+                from datetime import datetime as _dt
+                fecha = _dt.now().strftime('%Y-%m-%d') if not fecha else fecha
+                fecha_ven = None
+            if not cedula or not tipo or not fecha or (pendiente_int != 1 and not fecha_ven):
                 cursor.close(); connection.close()
                 return jsonify({'success': False, 'message': 'Campos requeridos faltantes'}), 400
             cur2 = connection.cursor()
@@ -26827,10 +26859,11 @@ def api_sstt_vencimientos_cursos():
                     sstt_vencimientos_cursos_tipo_curso,
                     sstt_vencimientos_cursos_fecha,
                     sstt_vencimientos_cursos_fecha_ven,
-                    sstt_vencimientos_cursos_observacion
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    sstt_vencimientos_cursos_observacion,
+                    sstt_vencimientos_cursos_pendiente
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
-                (idc, nombre, cedula, tipo, fecha, fecha_ven, observ)
+                (idc, nombre, cedula, tipo, fecha, fecha_ven, observ, pendiente_int)
             )
             connection.commit()
             new_id = cursor.lastrowid
@@ -26850,117 +26883,59 @@ def api_sstt_vencimientos_cursos_export():
         cedula = (request.args.get('cedula') or '').strip()
         solo_activos_param = (request.args.get('solo_activos') or '1').strip().lower()
         solo_activos = solo_activos_param in ['1', 'true', 't', 'yes', 'y']
-        where = [
-            "vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL",
-            "vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01')",
-            "vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01'",
-            "( DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() OR (DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30) )",
-            "(vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0)"
-        ]
         params = []
+        emp_filters = []
         if solo_activos:
-            where.append("ro.estado = 'Activo'")
+            emp_filters.append("ro.estado = 'Activo'")
         if cedula:
-            where.append('ro.recurso_operativo_cedula = %s')
+            emp_filters.append('ro.recurso_operativo_cedula = %s')
             params.append(cedula)
+        try:
+            cur_check = connection.cursor()
+            cur_check.execute(
+                """
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'sstt_vencimientos_cursos' AND column_name = 'sstt_vencimientos_cursos_validado'
+                """
+            )
+            has_validado = (cur_check.fetchone() or [0])[0]
+            cur_check.close()
+            if not has_validado:
+                try:
+                    cur_alter = connection.cursor()
+                    cur_alter.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN sstt_vencimientos_cursos_validado TINYINT(1) DEFAULT 0 AFTER sstt_vencimientos_cursos_observacion")
+                    connection.commit()
+                except Exception:
+                    pass
+                finally:
+                    cur_alter.close()
+        except Exception:
+            pass
+        date_cond = (
+            "vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND "
+            "vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND "
+            "vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND "
+            "( DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() OR (DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30) )"
+        )
+        validado_cond = "(vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0)"
+        pend_cond = "vc.sstt_vencimientos_cursos_pendiente = 1"
         sql = (
             'SELECT '
             'ro.recurso_operativo_cedula AS cedula, '
             'ro.nombre AS nombre, '
             'vc.sstt_vencimientos_cursos_tipo_curso AS curso, '
-            'DATE(vc.sstt_vencimientos_cursos_fecha_ven) AS vencimiento '
+            "CASE WHEN vc.sstt_vencimientos_cursos_pendiente = 1 THEN 'pendiente' ELSE DATE(vc.sstt_vencimientos_cursos_fecha_ven) END AS vencimiento "
             'FROM sstt_vencimientos_cursos vc '
             'LEFT JOIN recurso_operativo ro ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula '
         )
-        if where:
-            sql += ' WHERE ' + ' AND '.join(where)
+        filter_sql = ''
+        if emp_filters:
+            filter_sql += '( ' + ' AND '.join(emp_filters) + ' ) AND '
+        filter_sql += '( ( ' + date_cond + ' AND ' + validado_cond + ' ) OR ( ' + pend_cond + ' ) )'
+        sql += ' WHERE ' + filter_sql
         sql += ' ORDER BY ro.nombre ASC, vc.sstt_vencimientos_cursos_fecha_ven ASC'
         cursor.execute(sql, tuple(params))
         rows = cursor.fetchall() or []
-        emp_where = []
-        emp_params = []
-        if solo_activos:
-            emp_where.append("estado = 'Activo'")
-        if cedula:
-            emp_where.append('recurso_operativo_cedula = %s')
-            emp_params.append(cedula)
-        emp_sql = 'SELECT recurso_operativo_cedula AS cedula, nombre, cargo FROM recurso_operativo'
-        if emp_where:
-            emp_sql += ' WHERE ' + ' AND '.join(emp_where)
-        cursor.execute(emp_sql, tuple(emp_params))
-        empleados = cursor.fetchall() or []
-        cedulas = [e.get('cedula') for e in empleados if e.get('cedula')]
-        present_map = {}
-        if cedulas:
-            placeholders = ','.join(['%s'] * len(cedulas))
-            cursor.execute(
-                f"SELECT recurso_operativo_cedula AS cedula, sstt_vencimientos_cursos_tipo_curso AS curso FROM sstt_vencimientos_cursos WHERE recurso_operativo_cedula IN ({placeholders})",
-                tuple(cedulas)
-            )
-            all_courses = cursor.fetchall() or []
-            import unicodedata
-            def normalize_txt(t):
-                s = str(t or '')
-                s = unicodedata.normalize('NFD', s)
-                s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
-                s = s.replace('\u00A0', ' ')
-                s = ' '.join(s.split())
-                return s.upper()
-            def norm_course(t):
-                s = normalize_txt(t)
-                if s == 'CURSO MANEJO DEFENSIVO':
-                    s = 'CURSO DE MANEJO DEFENSIVO'
-                return s
-            for ac in all_courses:
-                c = ac.get('cedula')
-                cur = norm_course(ac.get('curso'))
-                if not c or not cur:
-                    continue
-                present_map.setdefault(c, set()).add(cur)
-        import unicodedata
-        def normalize_txt2(t):
-            s = str(t or '')
-            s = unicodedata.normalize('NFD', s)
-            s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
-            s = s.replace('\u00A0', ' ')
-            s = ' '.join(s.split())
-            return s.upper()
-        required_common = {
-            'EXAMEN DE INGRESO',
-            'EXAMEN MEDICO PERIODICO',
-            'CURSO REINDUCCION SST',
-            'CURSO INDUCCION SST'
-        }
-        required_extra = {
-            'CURSO ALTURAS',
-            'CURSO DE MANEJO DEFENSIVO'
-        }
-        cargos_extra = {
-            normalize_txt2('TECNICO'),
-            normalize_txt2('SUPERVISORES'),
-            normalize_txt2('TECNICO CONDUCTOR'),
-            normalize_txt2('CONDUCTOR'),
-            normalize_txt2('TECNICO DE TELECOMUNICACIONES')
-        }
-        cargos_common = {
-            normalize_txt2('ANALISTA LOGISTICA'),
-            normalize_txt2('ADMINISTRADOR'),
-            normalize_txt2('ANALISTA')
-        }
-        cargos_all = cargos_common.union(cargos_extra)
-        for emp in empleados:
-            c = emp.get('cedula')
-            n = emp.get('nombre') or ''
-            cargo_norm = normalize_txt2(emp.get('cargo'))
-            if cargo_norm not in cargos_all:
-                continue
-            req = set(required_common)
-            if cargo_norm in cargos_extra:
-                req = req.union(required_extra)
-            presentes = present_map.get(c, set())
-            faltantes = [r for r in sorted(req) if r not in presentes]
-            for curso_req in faltantes:
-                rows.append({'cedula': c or '', 'nombre': n, 'curso': curso_req, 'vencimiento': 'pendiente'})
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(['cedula','nombre','curso','vencimiento'])
@@ -26977,7 +26952,7 @@ def api_sstt_vencimientos_cursos_export():
         csv_data = output.getvalue()
         output.close()
         cursor.close(); connection.close()
-        filename = f"vencimientos_cursos_export_{get_bogota_datetime().strftime('%Y%m%d')}\.csv"
+        filename = f"vencimientos_cursos_export_{get_bogota_datetime().strftime('%Y%m%d')}.csv"
         resp = Response(csv_data, mimetype='text/csv')
         resp.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
         return resp
@@ -27065,6 +27040,7 @@ def api_sstt_vencimientos_cursos_upload():
                 sstt_vencimientos_cursos_fecha DATE NOT NULL,
                 sstt_vencimientos_cursos_fecha_ven DATE NOT NULL,
                 sstt_vencimientos_cursos_observacion TEXT,
+                sstt_vencimientos_cursos_pendiente TINYINT(1) NOT NULL DEFAULT 0,
                 sstt_vencimientos_cursos_fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_cedula (recurso_operativo_cedula),
                 INDEX idx_tipo (sstt_vencimientos_cursos_tipo_curso),

@@ -104,6 +104,35 @@ def ensure_mantenimiento_general_column(connection):
                 connection.commit()
             except Exception:
                 pass
+            try:
+                cur_null = connection.cursor()
+                cur_null.execute(
+                    """
+                    SELECT IS_NULLABLE FROM information_schema.columns
+                    WHERE table_schema = DATABASE() AND table_name = 'sstt_vencimientos_cursos' AND column_name = 'sstt_vencimientos_cursos_fecha'
+                    """
+                )
+                res_f = cur_null.fetchone()
+                if res_f and str(res_f[0]).upper() == 'NO':
+                    cur_alter_f = connection.cursor()
+                    cur_alter_f.execute("ALTER TABLE sstt_vencimientos_cursos MODIFY COLUMN sstt_vencimientos_cursos_fecha DATE NULL DEFAULT NULL")
+                    connection.commit()
+                    cur_alter_f.close()
+                cur_null.execute(
+                    """
+                    SELECT IS_NULLABLE FROM information_schema.columns
+                    WHERE table_schema = DATABASE() AND table_name = 'sstt_vencimientos_cursos' AND column_name = 'sstt_vencimientos_cursos_fecha_ven'
+                    """
+                )
+                res_v = cur_null.fetchone()
+                if res_v and str(res_v[0]).upper() == 'NO':
+                    cur_alter_v = connection.cursor()
+                    cur_alter_v.execute("ALTER TABLE sstt_vencimientos_cursos MODIFY COLUMN sstt_vencimientos_cursos_fecha_ven DATE NULL DEFAULT NULL")
+                    connection.commit()
+                    cur_alter_v.close()
+                cur_null.close()
+            except Exception:
+                pass
         cur.close()
     except Exception:
         try:
@@ -2139,10 +2168,11 @@ def api_sstt_vencimientos_cursos_tipos():
                 sstt_vencimientos_cursos_nombre VARCHAR(200),
                 recurso_operativo_cedula VARCHAR(20),
                 sstt_vencimientos_cursos_tipo_curso VARCHAR(100) NOT NULL,
-                sstt_vencimientos_cursos_fecha DATE NOT NULL,
-                sstt_vencimientos_cursos_fecha_ven DATE NOT NULL,
+                sstt_vencimientos_cursos_fecha DATE NULL DEFAULT NULL,
+                sstt_vencimientos_cursos_fecha_ven DATE NULL DEFAULT NULL,
                 sstt_vencimientos_cursos_observacion TEXT,
                 sstt_vencimientos_cursos_validado TINYINT(1) DEFAULT 0,
+                sstt_vencimientos_cursos_pendiente TINYINT(1) NOT NULL DEFAULT 0,
                 sstt_vencimientos_cursos_fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_cedula (recurso_operativo_cedula),
                 INDEX idx_tipo (sstt_vencimientos_cursos_tipo_curso),
@@ -2414,6 +2444,28 @@ def api_sstt_vencimientos_cursos():
                         pass
             except Exception:
                 pass
+            try:
+                cur_check_p = connection.cursor()
+                cur_check_p.execute(
+                    """
+                    SELECT COUNT(*) FROM information_schema.columns
+                    WHERE table_schema = DATABASE()
+                      AND table_name = 'sstt_vencimientos_cursos'
+                      AND column_name = 'sstt_vencimientos_cursos_pendiente'
+                    """
+                )
+                has_pendiente = (cur_check_p.fetchone() or [0])[0]
+                cur_check_p.close()
+                if not has_pendiente:
+                    try:
+                        cur_alter_p = connection.cursor()
+                        cur_alter_p.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN sstt_vencimientos_cursos_pendiente TINYINT(1) NOT NULL DEFAULT 0 AFTER sstt_vencimientos_cursos_observacion")
+                        connection.commit()
+                        cur_alter_p.close()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             if cedula:
                 where.append("vc.recurso_operativo_cedula = %s")
                 params.append(cedula)
@@ -2430,7 +2482,7 @@ def api_sstt_vencimientos_cursos():
                 "SELECT vc.id AS id, vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, "
                 "vc.recurso_operativo_cedula, vc.sstt_vencimientos_cursos_tipo_curso, "
                 "vc.sstt_vencimientos_cursos_fecha, vc.sstt_vencimientos_cursos_fecha_ven, "
-                "vc.sstt_vencimientos_cursos_observacion, vc.sstt_vencimientos_cursos_validado "
+                "vc.sstt_vencimientos_cursos_observacion, vc.sstt_vencimientos_cursos_validado, vc.sstt_vencimientos_cursos_pendiente "
                 "FROM sstt_vencimientos_cursos vc "
                 "LEFT JOIN recurso_operativo ro ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula"
             )
@@ -2490,6 +2542,15 @@ def api_sstt_vencimientos_cursos():
                 f_str = _fmt_date(f)
                 fv_str = _fmt_date(fv)
                 dias = (fv_date - hoy).days if fv_date else None
+                try:
+                    pend_val = int(r.get('sstt_vencimientos_cursos_pendiente') or 0)
+                except Exception:
+                    pend_val = 0
+                if pend_val == 1:
+                    f_str = ''
+                    fv_str = ''
+                    fv_date = None
+                    dias = None
                 anio_val = None
                 try:
                     if f_str and len(f_str) >= 4 and f_str[0:4].isdigit():
@@ -2506,7 +2567,8 @@ def api_sstt_vencimientos_cursos():
                     'dias_por_vencer': dias,
                     'observacion': r.get('sstt_vencimientos_cursos_observacion'),
                     'anio': anio_val,
-                    'validado': r.get('sstt_vencimientos_cursos_validado')
+                    'validado': r.get('sstt_vencimientos_cursos_validado'),
+                    'pendiente': pend_val
                 })
 
             # Integración de encuesta 10 por usuario (por año presente)
@@ -2596,8 +2658,13 @@ def api_sstt_vencimientos_cursos():
             tipo = (data.get('sstt_vencimientos_cursos_tipo_curso') or '').strip()
             fecha = (data.get('sstt_vencimientos_cursos_fecha') or '').strip()
             fecha_ven = (data.get('sstt_vencimientos_cursos_fecha_ven') or '').strip()
-            observ = (data.get('sstt_vencimientos_cursos_observacion') or '').strip()
-            if not cedula or not tipo or not fecha or not fecha_ven:
+            pendiente_val_pre = data.get('sstt_vencimientos_cursos_pendiente')
+            try:
+                p_int_pre = 1 if str(pendiente_val_pre).strip().lower() in ['1','true','t','yes','y'] else 0
+            except Exception:
+                p_int_pre = 0
+            observ = (data.get('sstt_vencimientos_cursos_observacion') or ('Pendiente' if p_int_pre == 1 else '')).strip()
+            if not cedula or not tipo or (p_int_pre != 1 and (not fecha or not fecha_ven)):
                 cursor.close(); connection.close()
                 return jsonify({'success': False, 'message': 'Campos requeridos faltantes'}), 400
             cur2 = connection.cursor()
@@ -2609,6 +2676,39 @@ def api_sstt_vencimientos_cursos():
             idc = ru[0]
             nombre = ru[1]
             cur2.close()
+            pendiente_val = pendiente_val_pre
+            p_int = p_int_pre
+            fecha_val = (fecha if fecha else None)
+            fecha_ven_val = (fecha_ven if fecha_ven else None)
+            try:
+                cur_null = connection.cursor()
+                cur_null.execute(
+                    """
+                    SELECT IS_NULLABLE FROM information_schema.columns
+                    WHERE table_schema = DATABASE() AND table_name = 'sstt_vencimientos_cursos' AND column_name = 'sstt_vencimientos_cursos_fecha'
+                    """
+                )
+                res_f = cur_null.fetchone()
+                if res_f and str(res_f[0]).upper() == 'NO':
+                    cur_alter_f = connection.cursor()
+                    cur_alter_f.execute("ALTER TABLE sstt_vencimientos_cursos MODIFY COLUMN sstt_vencimientos_cursos_fecha DATE NULL DEFAULT NULL")
+                    connection.commit()
+                    cur_alter_f.close()
+                cur_null.execute(
+                    """
+                    SELECT IS_NULLABLE FROM information_schema.columns
+                    WHERE table_schema = DATABASE() AND table_name = 'sstt_vencimientos_cursos' AND column_name = 'sstt_vencimientos_cursos_fecha_ven'
+                    """
+                )
+                res_v = cur_null.fetchone()
+                if res_v and str(res_v[0]).upper() == 'NO':
+                    cur_alter_v = connection.cursor()
+                    cur_alter_v.execute("ALTER TABLE sstt_vencimientos_cursos MODIFY COLUMN sstt_vencimientos_cursos_fecha_ven DATE NULL DEFAULT NULL")
+                    connection.commit()
+                    cur_alter_v.close()
+                cur_null.close()
+            except Exception:
+                pass
             cursor.execute(
                 """
                 INSERT INTO sstt_vencimientos_cursos (
@@ -2621,10 +2721,19 @@ def api_sstt_vencimientos_cursos():
                     sstt_vencimientos_cursos_observacion
                 ) VALUES (%s,%s,%s,%s,%s,%s,%s)
                 """,
-                (idc, nombre, cedula, tipo, fecha, fecha_ven, observ)
+                (idc, nombre, cedula, tipo, fecha_val, fecha_ven_val, observ)
             )
             connection.commit()
             new_id = cursor.lastrowid
+            if p_int == 1:
+                curp = connection.cursor()
+                try:
+                    curp.execute("UPDATE sstt_vencimientos_cursos SET sstt_vencimientos_cursos_pendiente = 1 WHERE id = %s", (new_id,))
+                    connection.commit()
+                except Exception:
+                    pass
+                finally:
+                    curp.close()
             cursor.close(); connection.close()
             return jsonify({'success': True, 'id': new_id})
     except Exception as e:
@@ -2644,6 +2753,7 @@ def api_sstt_vencimientos_cursos_update(item_id):
         fecha_ven = (data.get('sstt_vencimientos_cursos_fecha_ven') or '').strip()
         observ = (data.get('sstt_vencimientos_cursos_observacion') or '').strip()
         validado_val = data.get('sstt_vencimientos_cursos_validado')
+        pendiente_val = data.get('sstt_vencimientos_cursos_pendiente')
         campos = []
         params = []
         idc = None
@@ -2676,6 +2786,36 @@ def api_sstt_vencimientos_cursos_update(item_id):
             params.append(fecha_ven)
         campos.append("sstt_vencimientos_cursos_observacion = %s")
         params.append(observ)
+        try:
+            cur_check3 = connection.cursor()
+            cur_check3.execute(
+                """
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'sstt_vencimientos_cursos'
+                  AND column_name = 'sstt_vencimientos_cursos_pendiente'
+                """
+            )
+            has_pend2 = (cur_check3.fetchone() or [0])[0]
+            cur_check3.close()
+            if not has_pend2:
+                try:
+                    cur_alter3 = connection.cursor()
+                    cur_alter3.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN sstt_vencimientos_cursos_pendiente TINYINT(1) NOT NULL DEFAULT 0 AFTER sstt_vencimientos_cursos_observacion")
+                    connection.commit()
+                except Exception:
+                    pass
+                finally:
+                    cur_alter3.close()
+        except Exception:
+            pass
+        if pendiente_val is not None:
+            try:
+                p2_int = 1 if str(pendiente_val).strip().lower() in ['1','true','t','yes','y'] else 0
+            except Exception:
+                p2_int = 0
+            campos.append("sstt_vencimientos_cursos_pendiente = %s")
+            params.append(p2_int)
         if validado_val is not None:
             try:
                 v_int = 1 if str(validado_val).strip().lower() in ['1', 'true', 't', 'yes', 'y'] else 0
@@ -2743,6 +2883,35 @@ def api_sstt_vencimientos_cursos_update_by():
         params_set.append(fecha_ven)
         set_parts.append("sstt_vencimientos_cursos_observacion = %s")
         params_set.append(observ)
+        # Asegurar columna pendiente
+        try:
+            cur_check = connection.cursor()
+            cur_check.execute(
+                """
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'sstt_vencimientos_cursos' AND column_name = 'sstt_vencimientos_cursos_pendiente'
+                """
+            )
+            has_pend = (cur_check.fetchone() or [0])[0]
+            cur_check.close()
+            if not has_pend:
+                cur_alter = connection.cursor()
+                try:
+                    cur_alter.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN sstt_vencimientos_cursos_pendiente TINYINT(1) NOT NULL DEFAULT 0 AFTER sstt_vencimientos_cursos_observacion")
+                    connection.commit()
+                except Exception:
+                    pass
+                finally:
+                    cur_alter.close()
+        except Exception:
+            pass
+        if pendiente_val is not None:
+            try:
+                p_int = 1 if str(pendiente_val).strip().lower() in ['1','true','t','yes','y'] else 0
+            except Exception:
+                p_int = 0
+            set_parts.append("sstt_vencimientos_cursos_pendiente = %s")
+            params_set.append(p_int)
         if validado_val is not None:
             try:
                 v_int = 1 if str(validado_val).strip().lower() in ['1', 'true', 't', 'yes', 'y'] else 0
@@ -2843,117 +3012,38 @@ def api_sstt_vencimientos_cursos_export():
         cedula = (request.args.get('cedula') or '').strip()
         solo_activos_param = (request.args.get('solo_activos') or '1').strip().lower()
         solo_activos = solo_activos_param in ['1', 'true', 't', 'yes', 'y']
-        where = [
-            "vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL",
-            "vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01')",
-            "vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01'",
-            "( DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() OR (DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30) )",
-            "(vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0)"
-        ]
         params = []
+        emp_filters = []
         if solo_activos:
-            where.append("ro.estado = 'Activo'")
+            emp_filters.append("ro.estado = 'Activo'")
         if cedula:
-            where.append('ro.recurso_operativo_cedula = %s')
+            emp_filters.append('ro.recurso_operativo_cedula = %s')
             params.append(cedula)
+        date_cond = (
+            "vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND "
+            "vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND "
+            "vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND "
+            "( DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() OR (DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30) )"
+        )
+        validado_cond = "(vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0)"
+        pend_cond = "vc.sstt_vencimientos_cursos_pendiente = 1"
         sql = (
             'SELECT '
             'ro.recurso_operativo_cedula AS cedula, '
             'ro.nombre AS nombre, '
             'vc.sstt_vencimientos_cursos_tipo_curso AS curso, '
-            'DATE(vc.sstt_vencimientos_cursos_fecha_ven) AS vencimiento '
+            "CASE WHEN vc.sstt_vencimientos_cursos_pendiente = 1 THEN 'pendiente' ELSE DATE(vc.sstt_vencimientos_cursos_fecha_ven) END AS vencimiento "
             'FROM sstt_vencimientos_cursos vc '
             'LEFT JOIN recurso_operativo ro ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula '
         )
-        if where:
-            sql += ' WHERE ' + ' AND '.join(where)
+        filter_sql = ''
+        if emp_filters:
+            filter_sql += '( ' + ' AND '.join(emp_filters) + ' ) AND '
+        filter_sql += '( ( ' + date_cond + ' AND ' + validado_cond + ' ) OR ( ' + pend_cond + ' ) )'
+        sql += ' WHERE ' + filter_sql
         sql += ' ORDER BY ro.nombre ASC, vc.sstt_vencimientos_cursos_fecha_ven ASC'
         cursor.execute(sql, tuple(params))
         rows = cursor.fetchall() or []
-        emp_where = []
-        emp_params = []
-        if solo_activos:
-            emp_where.append("estado = 'Activo'")
-        if cedula:
-            emp_where.append('recurso_operativo_cedula = %s')
-            emp_params.append(cedula)
-        emp_sql = 'SELECT recurso_operativo_cedula AS cedula, nombre, cargo FROM recurso_operativo'
-        if emp_where:
-            emp_sql += ' WHERE ' + ' AND '.join(emp_where)
-        cursor.execute(emp_sql, tuple(emp_params))
-        empleados = cursor.fetchall() or []
-        cedulas = [e.get('cedula') for e in empleados if e.get('cedula')]
-        present_map = {}
-        if cedulas:
-            placeholders = ','.join(['%s'] * len(cedulas))
-            cursor.execute(
-                f"SELECT recurso_operativo_cedula AS cedula, sstt_vencimientos_cursos_tipo_curso AS curso FROM sstt_vencimientos_cursos WHERE recurso_operativo_cedula IN ({placeholders})",
-                tuple(cedulas)
-            )
-            all_courses = cursor.fetchall() or []
-            import unicodedata
-            def normalize_txt(t):
-                s = str(t or '')
-                s = unicodedata.normalize('NFD', s)
-                s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
-                s = s.replace('\u00A0', ' ')
-                s = ' '.join(s.split())
-                return s.upper()
-            def norm_course(t):
-                s = normalize_txt(t)
-                if s == 'CURSO MANEJO DEFENSIVO':
-                    s = 'CURSO DE MANEJO DEFENSIVO'
-                return s
-            for ac in all_courses:
-                c = ac.get('cedula')
-                cur = norm_course(ac.get('curso'))
-                if not c or not cur:
-                    continue
-                present_map.setdefault(c, set()).add(cur)
-        import unicodedata
-        def normalize_txt2(t):
-            s = str(t or '')
-            s = unicodedata.normalize('NFD', s)
-            s = ''.join(c for c in s if unicodedata.category(c) != 'Mn')
-            s = s.replace('\u00A0', ' ')
-            s = ' '.join(s.split())
-            return s.upper()
-        required_common = {
-            'EXAMEN DE INGRESO',
-            'EXAMEN MEDICO PERIODICO',
-            'CURSO REINDUCCION SST',
-            'CURSO INDUCCION SST'
-        }
-        required_extra = {
-            'CURSO ALTURAS',
-            'CURSO DE MANEJO DEFENSIVO'
-        }
-        cargos_extra = {
-            normalize_txt2('TECNICO'),
-            normalize_txt2('SUPERVISORES'),
-            normalize_txt2('TECNICO CONDUCTOR'),
-            normalize_txt2('CONDUCTOR'),
-            normalize_txt2('TECNICO DE TELECOMUNICACIONES')
-        }
-        cargos_common = {
-            normalize_txt2('ANALISTA LOGISTICA'),
-            normalize_txt2('ADMINISTRADOR'),
-            normalize_txt2('ANALISTA')
-        }
-        cargos_all = cargos_common.union(cargos_extra)
-        for emp in empleados:
-            c = emp.get('cedula')
-            n = emp.get('nombre') or ''
-            cargo_norm = normalize_txt2(emp.get('cargo'))
-            if cargo_norm not in cargos_all:
-                continue
-            req = set(required_common)
-            if cargo_norm in cargos_extra:
-                req = req.union(required_extra)
-            presentes = present_map.get(c, set())
-            faltantes = [r for r in sorted(req) if r not in presentes]
-            for curso_req in faltantes:
-                rows.append({'cedula': c or '', 'nombre': n, 'curso': curso_req, 'vencimiento': 'pendiente'})
         import csv, io
         output = io.StringIO()
         writer = csv.writer(output)

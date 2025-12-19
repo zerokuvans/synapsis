@@ -191,7 +191,13 @@
                         <h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#accIngreso">Examen Médico Ingreso</button></h2>
                         <div id="accIngreso" class="accordion-collapse collapse show" data-bs-parent="#accordionAcciones">
                             <div class="accordion-body">
-                                <div class="d-flex justify-content-end mb-2"><button class="btn btn-sm btn-primary" id="btnAgregarIngreso">Agregar</button></div>
+                                <div class="d-flex justify-content-end mb-2">
+                                  <div class="form-check form-switch me-2">
+                                    <input class="form-check-input" id="chkPendIngreso" type="checkbox">
+                                    <label class="form-check-label small" for="chkPendIngreso">Pendiente</label>
+                                  </div>
+                                  <button class="btn btn-sm btn-primary" id="btnAgregarIngreso">Agregar</button>
+                                </div>
                                 <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Vence</th><th>Días</th><th>Estado</th><th>Año</th><th>Obs</th><th></th></tr></thead><tbody id="tbIngreso"></tbody></table></div>
                             </div>
                         </div>
@@ -200,7 +206,13 @@
                         <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accPeriodico">Examen Médico Periódico</button></h2>
                         <div id="accPeriodico" class="accordion-collapse collapse" data-bs-parent="#accordionAcciones">
                             <div class="accordion-body">
-                                <div class="d-flex justify-content-end mb-2"><button class="btn btn-sm btn-primary" id="btnAgregarPeriodico">Agregar</button></div>
+                                <div class="d-flex justify-content-end mb-2">
+                                  <div class="form-check form-switch me-2">
+                                    <input class="form-check-input" id="chkPendPeriodico" type="checkbox">
+                                    <label class="form-check-label small" for="chkPendPeriodico">Pendiente</label>
+                                  </div>
+                                  <button class="btn btn-sm btn-primary" id="btnAgregarPeriodico">Agregar</button>
+                                </div>
                                 <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Vence</th><th>Días</th><th>Estado</th><th>Año</th><th>Obs</th><th></th></tr></thead><tbody id="tbPeriodico"></tbody></table></div>
                             </div>
                         </div>
@@ -209,7 +221,13 @@
                         <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accAlturas">Curso de Alturas</button></h2>
                         <div id="accAlturas" class="accordion-collapse collapse" data-bs-parent="#accordionAcciones">
                             <div class="accordion-body">
-                                <div class="d-flex justify-content-end mb-2"><button class="btn btn-sm btn-primary" id="btnAgregarAlturas">Agregar</button></div>
+                                <div class="d-flex justify-content-end mb-2">
+                                  <div class="form-check form-switch me-2">
+                                    <input class="form-check-input" id="chkPendAlturas" type="checkbox">
+                                    <label class="form-check-label small" for="chkPendAlturas">Pendiente</label>
+                                  </div>
+                                  <button class="btn btn-sm btn-primary" id="btnAgregarAlturas">Agregar</button>
+                                </div>
                                 <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Vence</th><th>Días</th><th>Estado</th><th>Año</th><th>Obs</th><th></th></tr></thead><tbody id="tbAlturas"></tbody></table></div>
                             </div>
                         </div>
@@ -218,7 +236,13 @@
                         <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accManejo">Curso de Manejo Defensivo</button></h2>
                         <div id="accManejo" class="accordion-collapse collapse" data-bs-parent="#accordionAcciones">
                             <div class="accordion-body">
-                                <div class="d-flex justify-content-end mb-2"><button class="btn btn-sm btn-primary" id="btnAgregarManejo">Agregar</button></div>
+                                <div class="d-flex justify-content-end mb-2">
+                                  <div class="form-check form-switch me-2">
+                                    <input class="form-check-input" id="chkPendManejo" type="checkbox">
+                                    <label class="form-check-label small" for="chkPendManejo">Pendiente</label>
+                                  </div>
+                                  <button class="btn btn-sm btn-primary" id="btnAgregarManejo">Agregar</button>
+                                </div>
                                 <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Vence</th><th>Días</th><th>Estado</th><th>Año</th><th>Obs</th><th></th></tr></thead><tbody id="tbManejo"></tbody></table></div>
                             </div>
                         </div>
@@ -227,7 +251,13 @@
                         <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accInduccion">Curso de Inducción SST</button></h2>
                         <div id="accInduccion" class="accordion-collapse collapse" data-bs-parent="#accordionAcciones">
                             <div class="accordion-body">
-                                <div class="d-flex justify-content-end mb-2"><button class="btn btn-sm btn-primary" id="btnAgregarInduccion">Agregar</button></div>
+                                <div class="d-flex justify-content-end mb-2">
+                                  <div class="form-check form-switch me-2">
+                                    <input class="form-check-input" id="chkPendInduccion" type="checkbox">
+                                    <label class="form-check-label small" for="chkPendInduccion">Pendiente</label>
+                                  </div>
+                                  <button class="btn btn-sm btn-primary" id="btnAgregarInduccion">Agregar</button>
+                                </div>
                                 <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Vence</th><th>Días</th><th>Estado</th><th>Año</th><th>Obs</th><th></th></tr></thead><tbody id="tbInduccion"></tbody></table></div>
                             </div>
                         </div>
@@ -236,7 +266,13 @@
                         <h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accReinduccion">Curso de Reinducción SST</button></h2>
                         <div id="accReinduccion" class="accordion-collapse collapse" data-bs-parent="#accordionAcciones">
                             <div class="accordion-body">
-                                <div class="d-flex justify-content-end mb-2"><button class="btn btn-sm btn-primary" id="btnAgregarReinduccion">Agregar</button></div>
+                                <div class="d-flex justify-content-end mb-2">
+                                  <div class="form-check form-switch me-2">
+                                    <input class="form-check-input" id="chkPendReinduccion" type="checkbox">
+                                    <label class="form-check-label small" for="chkPendReinduccion">Pendiente</label>
+                                  </div>
+                                  <button class="btn btn-sm btn-primary" id="btnAgregarReinduccion">Agregar</button>
+                                </div>
                                 <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Vence</th><th>Días</th><th>Estado</th><th>Año</th><th>Obs</th><th></th></tr></thead><tbody id="tbReinduccion"></tbody></table></div>
                             </div>
                         </div>
@@ -265,6 +301,20 @@ const TIPOS_CURSO_PREDEF = [
   'CURSO INDUCCION SST',
   'CURSO REINDUCCION SST'
 ];
+
+function normalizeTipoCurso(s){
+  if (!s) return '';
+  const up = String(s).toUpperCase();
+  return up
+    .replaceAll('Ó','O')
+    .replaceAll('Ú','U')
+    .replaceAll('Á','A')
+    .replaceAll('É','E')
+    .replaceAll('Í','I')
+    .replaceAll('Ñ','N')
+    .replaceAll('  ',' ')
+    .trim();
+}
 
   document.addEventListener('DOMContentLoaded', function() {
     cargarTiposCurso();
@@ -297,6 +347,22 @@ const TIPOS_CURSO_PREDEF = [
           'btnAgregarReinduccion':'CURSO REINDUCCION SST'
         };
         abrirAgregarCurso(map[id], accionesCedulaActual, accionesNombreActual);
+      });
+    });
+    const mapPend = {
+      'chkPendIngreso':'EXAMEN MEDICO INGRESO',
+      'chkPendPeriodico':'EXAMEN MEDICO PERIODICO',
+      'chkPendAlturas':'CURSO ALTURAS',
+      'chkPendManejo':'CURSO MANEJO DEFENSIVO',
+      'chkPendInduccion':'CURSO INDUCCION SST',
+      'chkPendReinduccion':'CURSO REINDUCCION SST'
+    };
+    Object.keys(mapPend).forEach(id=>{
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', ()=>{
+        if (!accionesCedulaActual) { el.checked = false; return; }
+        if (el.checked) crearPendienteHeader(mapPend[id]);
       });
     });
   });
@@ -597,9 +663,27 @@ function renderSeccionesUsuario(items){
     'CURSO INDUCCION SST': 'tbInduccion',
     'CURSO REINDUCCION SST': 'tbReinduccion'
   };
+  const mapPendChecks = {
+    'EXAMEN MEDICO INGRESO': 'chkPendIngreso',
+    'EXAMEN MEDICO PERIODICO': 'chkPendPeriodico',
+    'CURSO ALTURAS': 'chkPendAlturas',
+    'CURSO MANEJO DEFENSIVO': 'chkPendManejo',
+    'CURSO INDUCCION SST': 'chkPendInduccion',
+    'CURSO REINDUCCION SST': 'chkPendReinduccion'
+  };
+  const pendStatus = {
+    'EXAMEN MEDICO INGRESO': false,
+    'EXAMEN MEDICO PERIODICO': false,
+    'CURSO ALTURAS': false,
+    'CURSO MANEJO DEFENSIVO': false,
+    'CURSO INDUCCION SST': false,
+    'CURSO REINDUCCION SST': false
+  };
+  Object.values(mapPendChecks).forEach(id=>{ const el = document.getElementById(id); if (el) el.checked = false; });
   Object.values(mapTipos).forEach(id=>{ const el = document.getElementById(id); if (el) el.innerHTML=''; });
   items.forEach(it=>{
-    const tbodyId = mapTipos[it.tipo_curso] || null;
+    const key = normalizeTipoCurso(it.tipo_curso);
+    const tbodyId = mapTipos[key] || null;
     if (!tbodyId) return;
     const tbody = document.getElementById(tbodyId);
     if (!tbody) return;
@@ -609,6 +693,7 @@ function renderSeccionesUsuario(items){
     const esVencido = (dias != null && dias <= 0);
     const tr = document.createElement('tr');
     const esEncuesta = String(it.observacion||'').indexOf('Encuesta 10') !== -1;
+    if (String(it.pendiente||0) === '1') { pendStatus[key] = true; }
     tr.innerHTML = `
       <td>${it.fecha||''}</td>
       <td>${esEncuesta ? `<input type="date" class="form-control form-control-sm inpFven" value="${normalizeDateString(it.fecha_vencimiento)}">` : (it.fecha_vencimiento||'')}</td>
@@ -642,6 +727,10 @@ function renderSeccionesUsuario(items){
       });
     }
   });
+  Object.entries(mapPendChecks).forEach(([tipo, chkId]) => {
+    const el = document.getElementById(chkId);
+    if (el) el.checked = !!pendStatus[tipo];
+  });
 }
 
 function abrirAgregarCurso(tipo, cedula, nombre){
@@ -652,6 +741,32 @@ function abrirAgregarCurso(tipo, cedula, nombre){
   const sel = document.getElementById('tipoCursoSelect');
   if (sel) sel.value = tipo||'';
   modal.show();
+}
+
+function crearPendienteHeader(tipo){
+  const cedula = accionesCedulaActual;
+  if (!cedula || !tipo) return;
+  const payload = {
+    recurso_operativo_cedula: cedula,
+    sstt_vencimientos_cursos_tipo_curso: tipo,
+    sstt_vencimientos_cursos_observacion: 'Pendiente',
+    sstt_vencimientos_cursos_pendiente: 1
+  };
+  fetch('/api/sstt/vencimientos-cursos', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d && d.success) {
+      cargarVencimientos();
+      if (accionesCedulaActual) cargarCursosUsuario(accionesCedulaActual);
+    } else {
+      Swal.fire('Error', (d && d.message) || 'No se pudo crear pendiente','error');
+    }
+  })
+  .catch(()=>{});
 }
 
 function toggleValidado(item, valor){
@@ -716,6 +831,44 @@ function guardarVencimientoEncuesta(item, valor){
     }
   })
   .catch(() => {});
+}
+
+function togglePendiente(item, valor){
+  const body = {};
+  body['sstt_vencimientos_cursos_pendiente'] = valor ? 1 : 0;
+  const doRefresh = () => {
+    cargarVencimientos();
+    if (accionesCedulaActual) cargarCursosUsuario(accionesCedulaActual);
+  };
+  if (item.id) {
+    fetch(`/api/sstt/vencimientos-cursos/${item.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    .then(r => r.json())
+    .then(d => { if (d && d.success) doRefresh(); })
+    .catch(() => {});
+  } else {
+    const body2 = Object.assign({}, body, {
+      original_cedula: item.recurso_operativo_cedula || '',
+      original_tipo: item.tipo_curso || '',
+      original_fecha: normalizeDateString(item.fecha),
+      recurso_operativo_cedula: item.recurso_operativo_cedula || '',
+      sstt_vencimientos_cursos_tipo_curso: item.tipo_curso || '',
+      sstt_vencimientos_cursos_fecha: normalizeDateString(item.fecha),
+      sstt_vencimientos_cursos_fecha_ven: normalizeDateString(item.fecha_vencimiento),
+      sstt_vencimientos_cursos_observacion: item.observacion || ''
+    });
+    fetch('/api/sstt/vencimientos-cursos/update-by', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body2)
+    })
+    .then(r => r.json())
+    .then(d => { if (d && d.success) doRefresh(); })
+    .catch(() => {});
+  }
 }
 
 </script>
