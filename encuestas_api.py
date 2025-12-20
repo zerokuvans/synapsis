@@ -1390,8 +1390,8 @@ def registrar_rutas_encuestas(app):
                 td = int(data.get('timer_duracion_segundos'))
             except Exception:
                 td = None
-            if td is not None and td not in (30, 60, 90, 120):
-                td = 60
+            if td is not None and td not in (30, 60, 90, 120, 240):
+                td = 240
             campos.append('timer_duracion_segundos = %s')
             valores.append(td)
         if data.get('timer_iniciar'):
@@ -1399,8 +1399,8 @@ def registrar_rutas_encuestas(app):
                 td = int(data.get('timer_duracion_segundos') or 0)
             except Exception:
                 td = 0
-            if td not in (30, 60, 90, 120):
-                td = 60
+            if td not in (30, 60, 90, 120, 240):
+                td = 240
             now = datetime.now()
             fin = now + timedelta(seconds=td)
             campos.append('timer_inicio = %s')
@@ -1506,13 +1506,13 @@ def registrar_rutas_encuestas(app):
             valores.append(estado)
             if estado == 'activa':
                 campos.append('fecha_activacion = NOW()')
-                try:
-                    td_raw = data.get('timer_duracion_segundos')
-                    td = int(td_raw) if td_raw is not None else 120
-                except Exception:
-                    td = 120
-                if td not in (30, 60, 90, 120):
-                    td = 120
+            try:
+                td_raw = data.get('timer_duracion_segundos')
+                td = int(td_raw) if td_raw is not None else 240
+            except Exception:
+                td = 240
+            if td not in (30, 60, 90, 120, 240):
+                td = 240
                 campos.append('timer_duracion_segundos = %s')
                 valores.append(td)
                 now = datetime.now()
