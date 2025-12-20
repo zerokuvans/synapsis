@@ -1390,7 +1390,7 @@ def registrar_rutas_encuestas(app):
                 td = int(data.get('timer_duracion_segundos'))
             except Exception:
                 td = None
-            if td is not None and td not in (30, 60, 90):
+            if td is not None and td not in (30, 60, 90, 120):
                 td = 60
             campos.append('timer_duracion_segundos = %s')
             valores.append(td)
@@ -1399,7 +1399,7 @@ def registrar_rutas_encuestas(app):
                 td = int(data.get('timer_duracion_segundos') or 0)
             except Exception:
                 td = 0
-            if td not in (30, 60, 90):
+            if td not in (30, 60, 90, 120):
                 td = 60
             now = datetime.now()
             fin = now + timedelta(seconds=td)
@@ -1407,6 +1407,9 @@ def registrar_rutas_encuestas(app):
             valores.append(now.strftime('%Y-%m-%d %H:%M:%S'))
             campos.append('timer_fin = %s')
             valores.append(fin.strftime('%Y-%m-%d %H:%M:%S'))
+            campos.append('estado = %s')
+            valores.append('activa')
+            campos.append('fecha_activacion = NOW()')
         if data.get('timer_detener'):
             campos.append('timer_inicio = NULL')
             campos.append('timer_fin = NULL')
@@ -1501,20 +1504,23 @@ def registrar_rutas_encuestas(app):
                 return jsonify({'success': False, 'message': 'Estado inválido'}), 400
             campos.append('estado = %s')
             valores.append(estado)
-            try:
-                connection = get_db_connection()
-                if connection:
-                    cur0 = connection.cursor(dictionary=True)
-                    cur0.execute("SELECT estado, fecha_activacion FROM encuestas WHERE id_encuesta = %s", (encuesta_id,))
-                    row0 = cur0.fetchone() or {}
-                    prev_estado = (row0.get('estado') or '').strip().lower()
-                    prev_act = row0.get('fecha_activacion')
-                    if estado == 'activa' and prev_estado != 'activa' and not prev_act:
-                        campos.append('fecha_activacion = NOW()')
-                    cur0.close()
-                    connection.close()
-            except Exception:
-                pass
+            if estado == 'activa':
+                campos.append('fecha_activacion = NOW()')
+                try:
+                    td_raw = data.get('timer_duracion_segundos')
+                    td = int(td_raw) if td_raw is not None else 120
+                except Exception:
+                    td = 120
+                if td not in (30, 60, 90, 120):
+                    td = 120
+                campos.append('timer_duracion_segundos = %s')
+                valores.append(td)
+                now = datetime.now()
+                fin = now + timedelta(seconds=td)
+                campos.append('timer_inicio = %s')
+                valores.append(now.strftime('%Y-%m-%d %H:%M:%S'))
+                campos.append('timer_fin = %s')
+                valores.append(fin.strftime('%Y-%m-%d %H:%M:%S'))
 
         if not campos:
             return jsonify({'success': False, 'message': 'No hay campos para actualizar'}), 400
