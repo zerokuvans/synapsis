@@ -60,6 +60,7 @@
   let requiereFirma = false;
   let ultimaRespuestaId = null;
   let firmaCtx, firmando = false;
+  let startTime = Date.now();
 
   function showToast(title, text, icon='success'){
     if (window.Swal) Swal.fire({ title, text, icon, timer: 1500, showConfirmButton:false });
@@ -269,14 +270,15 @@
       return;
     }
     let res, data;
+    const durSeg = Math.round((Date.now() - startTime) / 1000);
     if (filesToSend.length > 0) {
       const fd = new FormData();
-      fd.append('payload', JSON.stringify({ respuestas, usuario_id: usuarioId }));
+      fd.append('payload', JSON.stringify({ respuestas, usuario_id: usuarioId, duracion_segundos: durSeg }));
       filesToSend.forEach(({key, file}) => fd.append(key, file));
       res = await fetch(`/api/encuestas/${encuestaId}/respuestas`, { method: 'POST', body: fd });
       data = await res.json();
     } else {
-      const payload = { respuestas, usuario_id: usuarioId };
+      const payload = { respuestas, usuario_id: usuarioId, duracion_segundos: durSeg };
       res = await fetch(`/api/encuestas/${encuestaId}/respuestas`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       data = await res.json();
     }
@@ -357,6 +359,7 @@
       const modal = bootstrap.Modal.getInstance(modalEl);
       if (modal) modal.hide();
       form.reset();
+      startTime = Date.now();
     } else {
       showToast('Error', data.message || 'No se pudo guardar la firma', 'error');
     }

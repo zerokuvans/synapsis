@@ -193,6 +193,9 @@
             <a id="btn-respuestas" class="btn btn-outline-success btn-sm" style="display:none;">
               <i class="fas fa-list-alt"></i> Ver respuestas
             </a>
+            <a id="btn-dashboard" class="btn btn-outline-info btn-sm" style="display:none;">
+              <i class="fas fa-tachometer-alt"></i> Ver dashboard
+            </a>
             <a id="btn-exportar-respuestas" class="btn btn-outline-secondary btn-sm" style="display:none;">
               <i class="fas fa-file-excel"></i> Exportar Excel
             </a>
@@ -671,6 +674,7 @@
   const btnPreview = document.getElementById('btn-preview');
   const btnRespuestas = document.getElementById('btn-respuestas');
   const btnExportar = document.getElementById('btn-exportar-respuestas');
+  const btnDashboard = document.getElementById('btn-dashboard');
   const btnEditarEncuesta = document.getElementById('btn-editar-encuesta');
   const btnAbrirCandidatos = document.getElementById('btn-abrir-candidatos');
   const btnGestionarCandidatos = document.getElementById('btn-gestionar-candidatos');
@@ -1086,6 +1090,7 @@
     btnPreview.href = `/lider/encuestas/${encuestaSeleccionada.id_encuesta}/preview`;
     btnRespuestas.style.display = '';
     btnRespuestas.href = `/lider/encuestas/${encuestaSeleccionada.id_encuesta}/respuestas`;
+    if (btnDashboard) { btnDashboard.style.display = ''; btnDashboard.href = `/lider/encuestas/${encuestaSeleccionada.id_encuesta}/respuestas`; }
     if (btnExportar) { btnExportar.style.display = 'none'; btnExportar.removeAttribute('href'); }
     if (btnEditarEncuesta) btnEditarEncuesta.style.display = '';
     

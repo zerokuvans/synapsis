@@ -61,13 +61,14 @@
             <th>Carpeta</th>
             <th>Fecha</th>
             <th>Estado</th>
+            <th>Tiempo (s)</th>
             <th>Puntaje</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="puntajes-body">
           <tr>
-            <td colspan="7" class="text-center text-muted py-4">
+            <td colspan="9" class="text-center text-muted py-4">
               <i class="fas fa-spinner fa-spin me-2"></i>Cargando puntajes...
             </td>
           </tr>
@@ -144,7 +145,7 @@
   // Función para cargar puntajes
   async function cargarPuntajes(){
     const puntajesBody = document.getElementById('puntajes-body');
-    puntajesBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Cargando puntajes...</td></tr>';
+    puntajesBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Cargando puntajes...</td></tr>';
     
     try {
       const res = await fetch(`/api/encuestas/${encuestaId}/puntajes`);
@@ -152,48 +153,82 @@
       
       if (!data.success) {
         if (data.message === 'Esta encuesta no tiene puntaje habilitado') {
-          puntajesBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-info-circle me-2"></i>Esta encuesta no tiene puntaje habilitado</td></tr>';
+          puntajesBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-info-circle me-2"></i>Esta encuesta no tiene puntaje habilitado</td></tr>';
           return;
         }
         showToast('Error', data.message || 'No se pudieron cargar los puntajes', 'error');
-        puntajesBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-exclamation-triangle me-2"></i>Error al cargar puntajes</td></tr>';
+        puntajesBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-exclamation-triangle me-2"></i>Error al cargar puntajes</td></tr>';
         return;
       }
       
       if (data.puntajes && data.puntajes.length > 0) {
-        puntajesBody.innerHTML = '';
-        data.puntajes.forEach((p, index) => {
-          const tr = document.createElement('tr');
-          const fecha = p.fecha_respuesta ? p.fecha_respuesta : '';
-          const estadoBadge = p.estado === 'enviada' ? '<span class="badge bg-success">OK</span>' : '<span class="badge bg-warning text-dark">Pendiente</span>';
-          const puntajeClass = p.puntaje_total >= 80 ? 'text-success fw-bold' : p.puntaje_total >= 60 ? 'text-primary' : 'text-danger';
-          
-          tr.innerHTML = `
-            <td><span class="badge bg-dark">${index + 1}</span></td>
-            <td>${p.tecnico ?? p.usuario_id}</td>
-            <td>${p.supervisor ?? ''}</td>
-            <td>${p.carpeta ?? ''}</td>
-            <td>${fecha}</td>
-            <td>${estadoBadge}</td>
-            <td class="${puntajeClass}">${p.puntaje_total ?? 0}</td>
-            <td>
-              <button class="btn btn-sm btn-outline-info btn-ver-respuestas" data-usuario-id="${p.usuario_id}" data-tecnico="${p.tecnico}">
-                <i class="fas fa-eye me-1"></i>Ver
-              </button>
-            </td>
-          `;
-          puntajesBody.appendChild(tr);
-        });
-        
-        // Mostrar la sección de puntajes
-        document.getElementById('seccion-puntajes').style.display = 'block';
+        renderPuntajes(data.puntajes);
       } else {
-        puntajesBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-info-circle me-2"></i>No hay puntajes disponibles</td></tr>';
+        puntajesBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-info-circle me-2"></i>No hay puntajes disponibles</td></tr>';
       }
     } catch (error) {
       console.error('Error cargando puntajes:', error);
-      puntajesBody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4"><i class="fas fa-exclamation-triangle me-2"></i>Error al cargar puntajes</td></tr>';
+      puntajesBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-exclamation-triangle me-2"></i>Error al cargar puntajes</td></tr>';
     }
+  }
+
+  function renderPuntajes(lista){
+    const puntajesBody = document.getElementById('puntajes-body');
+    puntajesBody.innerHTML = '';
+    lista.forEach((p, index) => {
+      const tr = document.createElement('tr');
+      const fecha = p.fecha_respuesta ? p.fecha_respuesta : '';
+      const estadoBadge = p.estado === 'enviada' ? '<span class="badge bg-success">OK</span>' : '<span class="badge bg-warning text-dark">Pendiente</span>';
+      const puntajeClass = p.puntaje_total >= 80 ? 'text-success fw-bold' : p.puntaje_total >= 60 ? 'text-primary' : 'text-danger';
+      const tiempo = (p.duracion_segundos !== undefined && p.duracion_segundos !== null) ? p.duracion_segundos : '';
+      tr.innerHTML = `
+        <td><span class="badge bg-dark">${index + 1}</span></td>
+        <td>${p.tecnico ?? p.usuario_id}</td>
+        <td>${p.supervisor ?? ''}</td>
+        <td>${p.carpeta ?? ''}</td>
+        <td>${fecha}</td>
+        <td>${estadoBadge}</td>
+        <td>${tiempo}</td>
+        <td class="${puntajeClass}">${p.puntaje_total ?? 0}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-info btn-ver-respuestas" data-usuario-id="${p.usuario_id}" data-tecnico="${p.tecnico}">
+            <i class="fas fa-eye me-1"></i>Ver
+          </button>
+        </td>
+      `;
+      puntajesBody.appendChild(tr);
+    });
+    document.getElementById('seccion-puntajes').style.display = 'block';
+  }
+
+  function suscribirPuntajes(){
+    if (window.EventSource) {
+      try {
+        const es = new EventSource(`/api/encuestas/${encuestaId}/puntajes/stream`);
+        es.onmessage = (e) => {
+          try {
+            const d = JSON.parse(e.data);
+            if (d && d.success && Array.isArray(d.puntajes)) {
+              renderPuntajes(d.puntajes);
+            }
+          } catch (_) {}
+        };
+        es.onerror = () => {
+          try { es.close(); } catch (_) {}
+          iniciarPolling();
+        };
+      } catch (_) {
+        iniciarPolling();
+      }
+    } else {
+      iniciarPolling();
+    }
+  }
+
+  function iniciarPolling(){
+    try {
+      setInterval(cargarPuntajes, 3000);
+    } catch (_) {}
   }
 
   // Event listener para el botón de refrescar puntajes
@@ -293,6 +328,7 @@
   cargarEncabezado();
   cargarRespuestas();
   cargarPuntajes(); // Cargar puntajes automáticamente
+  suscribirPuntajes();
 
   // Sin manejo de imágenes en esta vista (listado de estado por técnico)
 })();

@@ -2,8 +2,8 @@ import requests
 import json
 
 BASE = 'http://127.0.0.1:8080'
-ENCUESTA_ID = 1
-USUARIO_ID = 11
+ENCUESTA_ID = 16
+USUARIO_ID = 89
 
 def fetch_encuesta(encuesta_id):
     r = requests.get(f"{BASE}/api/encuestas/{encuesta_id}")
@@ -27,10 +27,11 @@ def construir_respuestas(preguntas):
             opciones = p.get('opciones') or []
             if opciones:
                 respuestas.append({'pregunta_id': pid, 'tipo': 'seleccion_unica', 'opcion_id': opciones[0]['id_opcion']})
-        elif tipo in ('opcion_multiple','checkbox'):
+        elif tipo in ('opcion_multiple','checkbox','seleccion_multiple'):
             opciones = p.get('opciones') or []
             if opciones:
-                respuestas.append({'pregunta_id': pid, 'tipo': 'opcion_multiple', 'opcion_ids': [opciones[0]['id_opcion']]})
+                t = 'opcion_multiple' if tipo in ('opcion_multiple','checkbox') else 'seleccion_multiple'
+                respuestas.append({'pregunta_id': pid, 'tipo': t, 'opcion_ids': [opciones[0]['id_opcion']]})
         elif tipo == 'imagen':
             # Simular archivo sencillo
             respuestas.append({'pregunta_id': pid, 'tipo': 'imagen'})

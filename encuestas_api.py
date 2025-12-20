@@ -6,13 +6,14 @@ Sistema - Capired
 """
 
 import mysql.connector
-from flask import jsonify, request, render_template, session, redirect, url_for, make_response
+from flask import jsonify, request, render_template, session, redirect, url_for, make_response, Response, stream_with_context
 from flask_login import login_required
 import os
 from datetime import datetime
 import json
 import logging
 from werkzeug.utils import secure_filename
+import time
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
@@ -90,6 +91,7 @@ def ensure_encuestas_tables():
             ("encuestas", "fecha_inicio", "DATETIME NULL"),
             ("encuestas", "fecha_fin", "DATETIME NULL"),
             ("encuestas", "fecha_actualizacion", "DATETIME NULL"),
+            ("encuestas", "fecha_activacion", "DATETIME NULL"),
             # Campos para sistema de votaciones
             ("encuestas", "tipo_encuesta", "ENUM('encuesta','votacion') DEFAULT 'encuesta'"),
             ("encuestas", "mostrar_resultados", "TINYINT(1) DEFAULT 0"),
@@ -1464,6 +1466,20 @@ def registrar_rutas_encuestas(app):
                 return jsonify({'success': False, 'message': 'Estado inválido'}), 400
             campos.append('estado = %s')
             valores.append(estado)
+            try:
+                connection = get_db_connection()
+                if connection:
+                    cur0 = connection.cursor(dictionary=True)
+                    cur0.execute("SELECT estado, fecha_activacion FROM encuestas WHERE id_encuesta = %s", (encuesta_id,))
+                    row0 = cur0.fetchone() or {}
+                    prev_estado = (row0.get('estado') or '').strip().lower()
+                    prev_act = row0.get('fecha_activacion')
+                    if estado == 'activa' and prev_estado != 'activa' and not prev_act:
+                        campos.append('fecha_activacion = NOW()')
+                    cur0.close()
+                    connection.close()
+            except Exception:
+                pass
 
         if not campos:
             return jsonify({'success': False, 'message': 'No hay campos para actualizar'}), 400
@@ -1551,7 +1567,7 @@ def registrar_rutas_encuestas(app):
             pregunta_id = cursor.lastrowid
 
             # Insertar opciones si aplica
-            tipos_con_opciones = {'opcion_multiple', 'seleccion_unica', 'checkbox', 'dropdown'}
+            tipos_con_opciones = {'opcion_multiple', 'seleccion_unica', 'seleccion_multiple', 'checkbox', 'dropdown'}
             if opciones and tipo in tipos_con_opciones:
                 for idx, op in enumerate(opciones):
                     texto_op = (op.get('texto') or '').strip()
@@ -1716,7 +1732,7 @@ def registrar_rutas_encuestas(app):
                     "DELETE FROM encuesta_opciones WHERE pregunta_id = %s",
                     (pregunta_id,)
                 )
-                tipos_con_opciones = {'opcion_multiple', 'seleccion_unica', 'checkbox', 'dropdown'}
+                tipos_con_opciones = {'opcion_multiple', 'seleccion_unica', 'seleccion_multiple', 'checkbox', 'dropdown'}
                 if tipo is None:
                     # Si no se envió tipo, obtener el actual para decidir si insertar opciones
                     cur2 = connection.cursor()
@@ -2132,6 +2148,23 @@ def registrar_rutas_encuestas(app):
 
             ip = request.headers.get('X-Forwarded-For', request.remote_addr)
             user_agent = request.headers.get('User-Agent')
+            duracion_val = None
+            try:
+                cursor.execute("SELECT fecha_activacion, fecha_inicio FROM encuestas WHERE id_encuesta = %s", (encuesta_id,))
+                row_act = cursor.fetchone()
+                inicio_ref = None
+                if row_act:
+                    try:
+                        inicio_ref = row_act[0] or row_act[1]
+                    except Exception:
+                        inicio_ref = None
+                if inicio_ref:
+                    cursor.execute("SELECT TIMESTAMPDIFF(SECOND, %s, NOW())", (inicio_ref,))
+                    diff_row = cursor.fetchone()
+                    if diff_row and diff_row[0] is not None:
+                        duracion_val = int(diff_row[0])
+            except Exception:
+                duracion_val = None
 
             # Validación de requeridos antes de crear cabecera
             cursor.execute(
@@ -2160,7 +2193,7 @@ def registrar_rutas_encuestas(app):
                         ok = (r.get('valor_numero') is not None and r.get('valor_numero') != '')
                     elif tipo in ('seleccion_unica','dropdown'):
                         ok = (r.get('opcion_id') is not None and r.get('opcion_id') != '')
-                    elif tipo in ('opcion_multiple','checkbox'):
+                    elif tipo in ('opcion_multiple','seleccion_multiple','checkbox'):
                         ids = r.get('opcion_ids') or []
                         ok = isinstance(ids, list) and len(ids) > 0
                     elif tipo == 'imagen':
@@ -2326,10 +2359,10 @@ def registrar_rutas_encuestas(app):
             # Crear cabecera de respuesta
             cursor.execute(
                 """
-                INSERT INTO encuesta_respuestas (encuesta_id, usuario_id, estado, ip, user_agent)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO encuesta_respuestas (encuesta_id, usuario_id, estado, ip, user_agent, duracion_segundos)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (encuesta_id, usuario_id, 'enviada', ip, user_agent)
+                (encuesta_id, usuario_id, 'enviada', ip, user_agent, duracion_val)
             )
             respuesta_id = cursor.lastrowid
 
@@ -2377,7 +2410,7 @@ def registrar_rutas_encuestas(app):
                         """,
                         (respuesta_id, pregunta_id, valor_numero)
                     )
-                elif tipo in ('seleccion_unica', 'dropdown', 'checkbox', 'opcion_multiple'):
+                elif tipo in ('seleccion_unica', 'dropdown', 'checkbox', 'opcion_multiple', 'seleccion_multiple'):
                     opcion_id = r.get('opcion_id')
                     opcion_ids = r.get('opcion_ids') or ([] if opcion_id is None else [opcion_id])
                     for oid in opcion_ids:
@@ -2419,12 +2452,12 @@ def registrar_rutas_encuestas(app):
             if con_puntaje_flag:
                 try:
                     # Contar preguntas evaluables (con opciones y al menos una correcta) y cuántas se respondieron correctamente
-                    tipos_con_opciones = ('opcion_multiple','seleccion_unica','checkbox','dropdown')
+                    tipos_con_opciones = ('opcion_multiple','seleccion_unica','seleccion_multiple','checkbox','dropdown')
                     cursor.execute(
                         """
                         SELECT id_pregunta, tipo
                         FROM encuesta_preguntas
-                        WHERE encuesta_id = %s AND tipo IN ('opcion_multiple','seleccion_unica','checkbox','dropdown')
+                        WHERE encuesta_id = %s AND tipo IN ('opcion_multiple','seleccion_unica','seleccion_multiple','checkbox','dropdown')
                         """,
                         (encuesta_id,)
                     )
@@ -2474,7 +2507,7 @@ def registrar_rutas_encuestas(app):
                             es_cor = int(row_sel[0]) if row_sel and row_sel[0] is not None else 0
                             if es_cor == 1:
                                 correctas += 1
-                        elif p_tipo in ('opcion_multiple','checkbox'):
+                        elif p_tipo in ('opcion_multiple','seleccion_multiple','checkbox'):
                             # Correcta si: seleccionó exactamente todas las opciones correctas y ninguna incorrecta
                             cursor.execute(
                                 """
@@ -3088,14 +3121,16 @@ def registrar_rutas_encuestas(app):
                     ro.carpeta,
                     DATE_FORMAT(r.fecha_respuesta, %s) AS fecha_respuesta,
                     r.estado,
+                    r.porcentaje_obtenido,
+                    r.duracion_segundos,
                     SUM(CASE WHEN o.puntaje IS NOT NULL THEN o.puntaje ELSE 0 END) AS puntaje_total
                 FROM encuesta_respuestas r
                 LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = r.usuario_id
                 LEFT JOIN encuesta_respuestas_detalle d ON d.respuesta_id = r.id_respuesta
                 LEFT JOIN encuesta_opciones o ON o.id_opcion = d.opcion_id
                 WHERE r.encuesta_id = %s
-                GROUP BY r.usuario_id, ro.nombre, ro.super, ro.carpeta, r.fecha_respuesta, r.estado
-                ORDER BY puntaje_total DESC, ro.nombre
+                GROUP BY r.usuario_id, ro.nombre, ro.super, ro.carpeta, r.fecha_respuesta, r.estado, r.porcentaje_obtenido, r.duracion_segundos
+                ORDER BY COALESCE(r.porcentaje_obtenido, 0) DESC, puntaje_total DESC, COALESCE(r.duracion_segundos, 999999) ASC, r.fecha_respuesta ASC
                 """,
                 ('%Y-%m-%d %H:%i:%s', encuesta_id)
             )
@@ -3111,6 +3146,60 @@ def registrar_rutas_encuestas(app):
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
         finally:
             conn.close()
+
+    @app.route('/api/encuestas/<int:encuesta_id>/puntajes/stream', methods=['GET'])
+    def puntajes_encuesta_stream(encuesta_id):
+        user_id = session.get('user_id') or session.get('id_codigo_consumidor')
+        if not user_id:
+            return jsonify({'success': False, 'message': 'No autorizado'}), 401
+
+        def gen():
+            conn = get_db_connection()
+            if not conn:
+                yield 'data: {"success": false, "message": "Error de conexión"}\n\n'
+                return
+            try:
+                cur = conn.cursor(dictionary=True)
+                while True:
+                    cur.execute("SELECT con_puntaje FROM encuestas WHERE id_encuesta = %s", (encuesta_id,))
+                    encuesta = cur.fetchone()
+                    if not encuesta or not encuesta.get('con_puntaje'):
+                        payload = json.dumps({'success': True, 'encuesta_id': encuesta_id, 'puntajes': []})
+                        yield f'data: {payload}\n\n'
+                    else:
+                        cur.execute(
+                            """
+                            SELECT 
+                                r.usuario_id,
+                                ro.nombre AS tecnico,
+                                ro.super AS supervisor,
+                                ro.carpeta,
+                                DATE_FORMAT(r.fecha_respuesta, %s) AS fecha_respuesta,
+                                r.estado,
+                                r.porcentaje_obtenido,
+                                r.duracion_segundos,
+                                SUM(CASE WHEN o.puntaje IS NOT NULL THEN o.puntaje ELSE 0 END) AS puntaje_total
+                            FROM encuesta_respuestas r
+                            LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = r.usuario_id
+                            LEFT JOIN encuesta_respuestas_detalle d ON d.respuesta_id = r.id_respuesta
+                            LEFT JOIN encuesta_opciones o ON o.id_opcion = d.opcion_id
+                            WHERE r.encuesta_id = %s
+                            GROUP BY r.usuario_id, ro.nombre, ro.super, ro.carpeta, r.fecha_respuesta, r.estado, r.porcentaje_obtenido, r.duracion_segundos
+                            ORDER BY COALESCE(r.porcentaje_obtenido, 0) DESC, puntaje_total DESC, COALESCE(r.duracion_segundos, 999999) ASC, r.fecha_respuesta ASC
+                            """,
+                            ('%Y-%m-%d %H:%i:%s', encuesta_id)
+                        )
+                        puntajes = cur.fetchall() or []
+                        payload = json.dumps({'success': True, 'encuesta_id': encuesta_id, 'puntajes': puntajes})
+                        yield f'data: {payload}\n\n'
+                    time.sleep(2)
+            finally:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+        return Response(stream_with_context(gen()), mimetype='text/event-stream')
 
     @app.route('/api/encuestas/<int:encuesta_id>/respuestas/<int:usuario_id>', methods=['GET'])
     def respuestas_usuario_encuesta(encuesta_id, usuario_id):
