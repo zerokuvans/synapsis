@@ -1506,13 +1506,13 @@ def registrar_rutas_encuestas(app):
             valores.append(estado)
             if estado == 'activa':
                 campos.append('fecha_activacion = NOW()')
-            try:
-                td_raw = data.get('timer_duracion_segundos')
-                td = int(td_raw) if td_raw is not None else 240
-            except Exception:
-                td = 240
-            if td not in (30, 60, 90, 120, 240):
-                td = 240
+                try:
+                    td_raw = data.get('timer_duracion_segundos')
+                    td = int(td_raw) if td_raw is not None else 240
+                except Exception:
+                    td = 240
+                if td not in (30, 60, 90, 120, 240):
+                    td = 240
                 campos.append('timer_duracion_segundos = %s')
                 valores.append(td)
                 now = datetime.now()
