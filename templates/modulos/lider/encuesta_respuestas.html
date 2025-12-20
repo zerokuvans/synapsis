@@ -46,9 +46,23 @@
   <div id="seccion-puntajes" class="resp-card p-3 mt-4" style="display: none;">
     <div class="d-flex align-items-center justify-content-between mb-3">
       <h5 class="mb-0"><i class="fas fa-star text-warning me-2"></i>Puntajes de la Encuesta</h5>
-      <button id="btn-refrescar-puntajes" class="btn btn-sm btn-outline-primary">
-        <i class="fas fa-sync-alt me-1"></i>Actualizar
-      </button>
+      <div class="d-flex align-items-center gap-2">
+        <div class="input-group input-group-sm" style="width: 220px;">
+          <label class="input-group-text" for="timer-select">Timer</label>
+          <select id="timer-select" class="form-select">
+            <option value="30">30s</option>
+            <option value="60" selected>60s</option>
+            <option value="90">90s</option>
+          </select>
+        </div>
+        <button id="btn-iniciar-timer" class="btn btn-sm btn-outline-danger">
+          <i class="fas fa-hourglass-start me-1"></i>Iniciar
+        </button>
+        <span id="timer-remaining" class="badge bg-secondary">—</span>
+        <button id="btn-refrescar-puntajes" class="btn btn-sm btn-outline-primary">
+          <i class="fas fa-sync-alt me-1"></i>Actualizar
+        </button>
+      </div>
     </div>
     
     <div class="table-responsive">
@@ -88,6 +102,11 @@
   const btnPreview = document.getElementById('btn-preview');
   const btnExportar = document.getElementById('btn-exportar');
   const btnExportarZip = document.getElementById('btn-exportar-zip');
+  const timerSelect = document.getElementById('timer-select');
+  const btnIniciarTimer = document.getElementById('btn-iniciar-timer');
+  const timerRemainingEl = document.getElementById('timer-remaining');
+  let timerInterval = null;
+  let timerEndMs = null;
 
   btnPreview.href = `/lider/encuestas/${encuestaId}/preview`;
 
@@ -115,6 +134,18 @@
         btnExportarZip.href = `/api/encuestas/${encuestaId}/respuestas/export?formato=zip`;
       }
     } catch (e) { console.warn('[respuestas] No se pudieron cargar estadísticas', e); }
+
+    try {
+      if (enc.timer_duracion_segundos && timerSelect) {
+        timerSelect.value = String(enc.timer_duracion_segundos);
+      }
+      if (enc.timer_fin) {
+        const df = new Date(enc.timer_fin.replace(' ', 'T'));
+        if (!isNaN(df.getTime())) {
+          iniciarCuentaRegresiva(df.getTime());
+        }
+      }
+    } catch (_) {}
   }
 
   async function cargarRespuestas(){
@@ -211,6 +242,9 @@
             if (d && d.success && Array.isArray(d.puntajes)) {
               renderPuntajes(d.puntajes);
             }
+            if (d && d.timer_remaining !== undefined && d.timer_remaining !== null) {
+              actualizarTimerDesdeServidor(d.timer_remaining);
+            }
           } catch (_) {}
         };
         es.onerror = () => {
@@ -233,6 +267,7 @@
 
   // Event listener para el botón de refrescar puntajes
   document.getElementById('btn-refrescar-puntajes').addEventListener('click', cargarPuntajes);
+  btnIniciarTimer.addEventListener('click', iniciarTemporizador);
 
   // Event listener para botones de ver respuestas individuales (delegación de eventos)
   document.getElementById('puntajes-body').addEventListener('click', function(e) {
@@ -329,6 +364,79 @@
   cargarRespuestas();
   cargarPuntajes(); // Cargar puntajes automáticamente
   suscribirPuntajes();
+
+  function iniciarTemporizador(){
+    const dur = parseInt(timerSelect.value, 10) || 60;
+    fetch(`/api/encuestas/${encuestaId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timer_duracion_segundos: dur, timer_iniciar: true })
+    }).then(r => r.json()).then(d => {
+      if (d && d.success) {
+        fetch(`/api/encuestas/${encuestaId}`).then(r2 => r2.json()).then(d2 => {
+          const enc = d2.encuesta;
+          if (enc && enc.timer_fin) {
+            const df = new Date(enc.timer_fin.replace(' ', 'T'));
+            if (!isNaN(df.getTime())) {
+              iniciarCuentaRegresiva(df.getTime());
+              showToast('Temporizador', 'Iniciado correctamente');
+            }
+          }
+        });
+      } else {
+        showToast('Error', (d && d.message) || 'No se pudo iniciar el temporizador', 'error');
+      }
+    }).catch(() => {
+      showToast('Error', 'No se pudo iniciar el temporizador', 'error');
+    });
+  }
+
+  function iniciarCuentaRegresiva(endMs){
+    timerEndMs = endMs;
+    if (timerInterval) { clearInterval(timerInterval); }
+    actualizarTimerLabel();
+    timerInterval = setInterval(() => {
+      actualizarTimerLabel();
+    }, 1000);
+  }
+
+  function actualizarTimerDesdeServidor(remaining){
+    if (typeof remaining === 'number') {
+      const now = Date.now();
+      timerEndMs = now + (remaining * 1000);
+      if (!timerInterval) {
+        timerInterval = setInterval(() => {
+          actualizarTimerLabel();
+        }, 1000);
+      }
+      actualizarTimerLabel();
+    }
+  }
+
+  function actualizarTimerLabel(){
+    if (!timerEndMs) { timerRemainingEl.textContent = '—'; return; }
+    const now = Date.now();
+    const diff = Math.max(0, Math.floor((timerEndMs - now) / 1000));
+    timerRemainingEl.textContent = `${diff}s`;
+    if (diff <= 0) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      desactivarEncuestaPorTiempo();
+    }
+  }
+
+  function desactivarEncuestaPorTiempo(){
+    fetch(`/api/encuestas/${encuestaId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado: 'borrador', timer_detener: true })
+    }).then(r => r.json()).then(d => {
+      if (d && d.success) {
+        showToast('Encuesta', 'Desactivada por tiempo');
+        cargarEncabezado();
+      }
+    }).catch(() => {});
+  }
 
   // Sin manejo de imágenes en esta vista (listado de estado por técnico)
 })();

@@ -9,7 +9,7 @@ import mysql.connector
 from flask import jsonify, request, render_template, session, redirect, url_for, make_response, Response, stream_with_context
 from flask_login import login_required
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import logging
 from werkzeug.utils import secure_filename
@@ -119,6 +119,16 @@ def ensure_encuestas_tables():
                 cursor.execute("ALTER TABLE encuestas ADD COLUMN maximo_intentos INT DEFAULT 2")
         except mysql.connector.Error as e:
             logger.warning(f"No se pudo agregar columnas de múltiples respuestas: {e}")
+
+        try:
+            if not column_exists("encuestas", "timer_duracion_segundos"):
+                cursor.execute("ALTER TABLE encuestas ADD COLUMN timer_duracion_segundos INT NULL")
+            if not column_exists("encuestas", "timer_inicio"):
+                cursor.execute("ALTER TABLE encuestas ADD COLUMN timer_inicio DATETIME NULL")
+            if not column_exists("encuestas", "timer_fin"):
+                cursor.execute("ALTER TABLE encuestas ADD COLUMN timer_fin DATETIME NULL")
+        except mysql.connector.Error as e:
+            logger.warning(f"No se pudo agregar columnas de temporizador: {e}")
 
         # Tabla de candidatos para votaciones
         cursor.execute(
@@ -1039,9 +1049,8 @@ def registrar_rutas_encuestas(app):
             except Exception:
                 pass
 
-            # Formatear fechas a string serializable
             try:
-                for k in ('fecha_inicio', 'fecha_fin', 'fecha_creacion', 'fecha_actualizacion'):
+                for k in ('fecha_inicio', 'fecha_fin', 'fecha_creacion', 'fecha_actualizacion', 'fecha_activacion', 'timer_inicio', 'timer_fin'):
                     if encuesta.get(k) is not None and not isinstance(encuesta.get(k), str):
                         dt = encuesta.get(k)
                         try:
@@ -1376,6 +1385,32 @@ def registrar_rutas_encuestas(app):
         if 'modo_multiples_respuestas' in data:
             campos.append('modo_multiples_respuestas = %s')
             valores.append(data.get('modo_multiples_respuestas'))
+        if 'timer_duracion_segundos' in data:
+            try:
+                td = int(data.get('timer_duracion_segundos'))
+            except Exception:
+                td = None
+            if td is not None and td not in (30, 60, 90):
+                td = 60
+            campos.append('timer_duracion_segundos = %s')
+            valores.append(td)
+        if data.get('timer_iniciar'):
+            try:
+                td = int(data.get('timer_duracion_segundos') or 0)
+            except Exception:
+                td = 0
+            if td not in (30, 60, 90):
+                td = 60
+            now = datetime.now()
+            fin = now + timedelta(seconds=td)
+            campos.append('timer_inicio = %s')
+            valores.append(now.strftime('%Y-%m-%d %H:%M:%S'))
+            campos.append('timer_fin = %s')
+            valores.append(fin.strftime('%Y-%m-%d %H:%M:%S'))
+        if data.get('timer_detener'):
+            campos.append('timer_inicio = NULL')
+            campos.append('timer_fin = NULL')
+            campos.append('timer_duracion_segundos = NULL')
         # Campos específicos de votaciones
         if 'tipo_encuesta' in data:
             tipo_encuesta = (data.get('tipo_encuesta') or '').strip()
@@ -3161,12 +3196,35 @@ def registrar_rutas_encuestas(app):
             try:
                 cur = conn.cursor(dictionary=True)
                 while True:
-                    cur.execute("SELECT con_puntaje FROM encuestas WHERE id_encuesta = %s", (encuesta_id,))
+                    cur.execute("SELECT con_puntaje, estado, timer_inicio, timer_fin, timer_duracion_segundos FROM encuestas WHERE id_encuesta = %s", (encuesta_id,))
                     encuesta = cur.fetchone()
                     if not encuesta or not encuesta.get('con_puntaje'):
                         payload = json.dumps({'success': True, 'encuesta_id': encuesta_id, 'puntajes': []})
                         yield f'data: {payload}\n\n'
                     else:
+                        try:
+                            est = (encuesta.get('estado') or '').strip().lower()
+                            ti = encuesta.get('timer_inicio')
+                            tf = encuesta.get('timer_fin')
+                            tr = None
+                            if tf:
+                                try:
+                                    now = datetime.now()
+                                    if isinstance(tf, str):
+                                        tf_dt = datetime.strptime(tf, '%Y-%m-%d %H:%M:%S')
+                                    else:
+                                        tf_dt = tf
+                                    delta = (tf_dt - now).total_seconds()
+                                    tr = int(delta) if delta > 0 else 0
+                                    if delta <= 0 and est == 'activa':
+                                        try:
+                                            cur.execute("UPDATE encuestas SET estado='borrador', timer_inicio=NULL, timer_fin=NULL, timer_duracion_segundos=NULL, fecha_actualizacion=NOW() WHERE id_encuesta=%s", (encuesta_id,))
+                                        except Exception:
+                                            pass
+                                except Exception:
+                                    tr = None
+                        except Exception:
+                            pass
                         cur.execute(
                             """
                             SELECT 
@@ -3190,7 +3248,15 @@ def registrar_rutas_encuestas(app):
                             ('%Y-%m-%d %H:%i:%s', encuesta_id)
                         )
                         puntajes = cur.fetchall() or []
-                        payload = json.dumps({'success': True, 'encuesta_id': encuesta_id, 'puntajes': puntajes})
+                        try:
+                            from decimal import Decimal
+                            puntajes = [
+                                {k: (float(v) if isinstance(v, Decimal) else (v.isoformat() if hasattr(v, 'isoformat') else v)) for k, v in row.items()}
+                                for row in puntajes
+                            ]
+                        except Exception:
+                            pass
+                        payload = json.dumps({'success': True, 'encuesta_id': encuesta_id, 'puntajes': puntajes, 'timer_remaining': tr}, default=str)
                         yield f'data: {payload}\n\n'
                     time.sleep(2)
             finally:
