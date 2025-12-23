@@ -247,6 +247,677 @@ registrar_rutas_avisos(app)
 app.route('/api/sstt/vencimientos-cursos/update-by', methods=['PUT'])(api_sstt_vencimientos_cursos_update_by)
 app.route('/api/sstt/vencimientos-cursos/resumen', methods=['GET'])(api_sstt_vencimientos_cursos_resumen)
 
+@app.route('/api/sgis/debug-urlmap', methods=['GET'])
+def api_sgis_debug_urlmap():
+    try:
+        return jsonify({'success': True, 'routes': [r.rule for r in app.url_map.iter_rules() if '/api/sgis/' in r.rule]})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/debug/urlmap', methods=['GET'])
+def debug_urlmap_general():
+    try:
+        return jsonify({'success': True, 'routes': [r.rule for r in app.url_map.iter_rules()]})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/sgis/permiso-trabajo', methods=['POST'])
+@login_required
+def api_sgis_permiso_trabajo_crear():
+    u = session.get('user_id') or session.get('id_codigo_consumidor')
+    if not u:
+        return jsonify({'success': False, 'message': 'No autenticado'}), 401
+    payload = request.get_json(silent=True) or {}
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'success': False, 'message': 'BD no disponible'}), 500
+    try:
+        cur = conn.cursor(dictionary=True)
+        try:
+            cur.execute(
+                """
+                SELECT nombre, cargo, recurso_operativo_cedula, super, cliente, ciudad
+                FROM recurso_operativo
+                WHERE id_codigo_consumidor = %s AND estado = 'Activo'
+                """,
+                (u,)
+            )
+            ro = cur.fetchone() or {}
+        except Exception:
+            cur.execute(
+                """
+                SELECT *
+                FROM recurso_operativo
+                WHERE id_codigo_consumidor = %s AND estado = 'Activo'
+                """,
+                (u,)
+            )
+            ro = cur.fetchone() or {}
+        hoy = get_bogota_datetime().date()
+        from datetime import timedelta
+        w = hoy.weekday()
+        fin = hoy + timedelta(days=6 - w)
+        try:
+            cur.execute(
+                """
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sgis_permiso_trabajo'
+                """
+            )
+            table_cols = {r['COLUMN_NAME'] if isinstance(r, dict) else r[0] for r in cur.fetchall()}
+        except Exception:
+            table_cols = set()
+
+        inicio_semana = hoy - timedelta(days=w)
+        fin_semana = inicio_semana + timedelta(days=6)
+        existing = None
+        try:
+            where_parts = []
+            params = []
+            if 'sgis_permiso_trabajo_fecha_finalizacion' in table_cols:
+                where_parts.append('sgis_permiso_trabajo_fecha_finalizacion = %s')
+                params.append(fin_semana)
+            if 'sgis_permiso_trabajo_fecha_emision' in table_cols:
+                where_parts.append('sgis_permiso_trabajo_fecha_emision BETWEEN %s AND %s')
+                params.extend([inicio_semana, fin_semana])
+            user_filters = []
+            uc = session.get('user_cedula')
+            if 'id_codigo_consumidor' in table_cols:
+                user_filters.append('id_codigo_consumidor = %s')
+                params.append(u)
+            if uc:
+                if 'recurso_operativo_cedula' in table_cols:
+                    user_filters.append('recurso_operativo_cedula = %s')
+                    params.append(uc)
+                if 'cedula' in table_cols:
+                    user_filters.append('cedula = %s')
+                    params.append(uc)
+            if user_filters:
+                where_parts.append('(' + ' OR '.join(user_filters) + ')')
+            sql = 'SELECT id_sgis_permiso_trabajo FROM sgis_permiso_trabajo'
+            if where_parts:
+                sql += ' WHERE ' + ' AND '.join(where_parts)
+            if 'id_sgis_permiso_trabajo' in table_cols:
+                sql += ' ORDER BY id_sgis_permiso_trabajo DESC'
+            sql += ' LIMIT 1'
+            cur.execute(sql, tuple(params))
+            existing = cur.fetchone()
+        except Exception:
+            try:
+                cur.execute(
+                    """
+                    SELECT id_sgis_permiso_trabajo
+                    FROM sgis_permiso_trabajo
+                    WHERE sgis_permiso_trabajo_fecha_finalizacion = %s
+                    ORDER BY id_sgis_permiso_trabajo DESC
+                    LIMIT 1
+                    """,
+                    (fin_semana,)
+                )
+                existing = cur.fetchone()
+            except Exception:
+                existing = None
+        def _tri(v):
+            if v is None:
+                return None
+            s = str(v).strip().upper()
+            if s in ('C','NC','NA','N.A','N/A'):
+                return 'NA' if s in ('NA','N.A','N/A') else s
+            return None
+        def _yn(v):
+            if v is None:
+                return None
+            s = str(v).strip().upper()
+            if s in ('SI','NO'):
+                return s
+            return None
+        def _ap(v):
+            if v is None:
+                return None
+            s = str(v).strip().upper().replace(' ','_')
+            if s in ('APLICA','NO_APLICA'):
+                return s
+            return None
+        fields = {
+            'id_codigo_consumidor': u,
+            'sgis_permiso_trabajo_fecha_emision': inicio_semana,
+            'sgis_permiso_trabajo_fecha_finalizacion': fin_semana,
+            'sgis_permiso_trabajo_trabajadores': 1,
+            'sgis_permiso_trabajo_emitido_por': ro.get('super'),
+            'sgis_permiso_trabajo_proyecto': ro.get('cliente'),
+            'sgis_permiso_trabajo_ciudad': ro.get('ciudad'),
+            'sgis_permiso_trabajo_responsable_trabajo': ro.get('nombre'),
+            'sgis_permiso_trabajo_cargo': ro.get('cargo'),
+            'nombre': ro.get('nombre'),
+            'cargo': ro.get('cargo'),
+            'cedula': ro.get('recurso_operativo_cedula'),
+            'recurso_operativo_cedula': ro.get('recurso_operativo_cedula'),
+            'sgis_permiso_trabajo_trabajo_ejecutar': payload.get('sgis_permiso_trabajo_trabajo_ejecutar'),
+            'sgis_permiso_trabajo_descripcion_tarea': payload.get('sgis_permiso_trabajo_descripcion_tarea'),
+            'sgis_permiso_trabajo_herramienta': payload.get('sgis_permiso_trabajo_herramienta'),
+            'sgis_permiso_trabajo_herramienta_electrica': _tri(payload.get('sgis_permiso_trabajo_herramienta_electrica')),
+            'sgis_permiso_trabajo_herramienta_manual': _tri(payload.get('sgis_permiso_trabajo_herramienta_manual')),
+            'sgis_permiso_trabajo_equipos_alturas': _tri(payload.get('sgis_permiso_trabajo_equipos_alturas')),
+            'sgis_permiso_trabajo_otros_herramientas': payload.get('sgis_permiso_trabajo_otros_herramientas'),
+            'sgis_permiso_trabajo_iluminacion': _tri(payload.get('sgis_permiso_trabajo_iluminacion')),
+            'sgis_permiso_trabajo_animales': _tri(payload.get('sgis_permiso_trabajo_animales')),
+            'sgis_permiso_trabajo_izaje_alturas': _tri(payload.get('sgis_permiso_trabajo_izaje_alturas')),
+            'sgis_permiso_trabajo_obstaculos_evacuacion': _tri(payload.get('sgis_permiso_trabajo_obstaculos_evacuacion')),
+            'sgis_permiso_trabajo_vehiculos_area': _tri(payload.get('sgis_permiso_trabajo_vehiculos_area')),
+            'sgis_permiso_trabajo_trabajo_alturas': _tri(payload.get('sgis_permiso_trabajo_trabajo_alturas')),
+            'sgis_permiso_trabajo_trabajo_piso_humedo': _tri(payload.get('sgis_permiso_trabajo_trabajo_piso_humedo')),
+            'sgis_permiso_trabajo_manejo_energia_peligrosa': _tri(payload.get('sgis_permiso_trabajo_manejo_energia_peligrosa')),
+            'sgis_permiso_trabajo_trabajo_manual': _tri(payload.get('sgis_permiso_trabajo_trabajo_manual')),
+            'sgis_permiso_trabajo_caida_objetos': _tri(payload.get('sgis_permiso_trabajo_caida_objetos')),
+            'sgis_permiso_trabajo_otros_area': payload.get('sgis_permiso_trabajo_otros_area'),
+            'sgis_permiso_trabajo_proyeccion_particulas': _tri(payload.get('sgis_permiso_trabajo_proyeccion_particulas')),
+            'sgis_permiso_trabajo_caidas_menor_2m': _tri(payload.get('sgis_permiso_trabajo_caidas_menor_2m')),
+            'sgis_permiso_trabajo_caidas_mayor_2m': _tri(payload.get('sgis_permiso_trabajo_caidas_mayor_2m')),
+            'sgis_permiso_trabajo_acceso_mal_estado': _tri(payload.get('sgis_permiso_trabajo_acceso_mal_estado')),
+            'sgis_permiso_trabajo_levantamiento_carga_mecanica': _tri(payload.get('sgis_permiso_trabajo_levantamiento_carga_mecanica')),
+            'sgis_permiso_trabajo_condicion_clima': _tri(payload.get('sgis_permiso_trabajo_condicion_clima')),
+            'sgis_permiso_trabajo_clima': payload.get('sgis_permiso_trabajo_clima'),
+            'sgis_permiso_trabajo_proxi_red_energizasa': _tri(payload.get('sgis_permiso_trabajo_proxi_red_energizasa')),
+            'sgis_permiso_trabajo_proxi_red': payload.get('sgis_permiso_trabajo_proxi_red'),
+            'sgis_permiso_trabajo_vibraciones': _tri(payload.get('sgis_permiso_trabajo_vibraciones')),
+            'sgis_permiso_trabajo_contacto_electrico': _tri(payload.get('sgis_permiso_trabajo_contacto_electrico')),
+            'sgis_permiso_trabajo_atrapamiento': _tri(payload.get('sgis_permiso_trabajo_atrapamiento')),
+            'sgis_permiso_trabajo_cable_expuesto': _tri(payload.get('sgis_permiso_trabajo_cable_expuesto')),
+            'sgis_permiso_trabajo_corte_no_visible': _tri(payload.get('sgis_permiso_trabajo_corte_no_visible')),
+            'sgis_permiso_trabajo_atmosfera_explosiva': _tri(payload.get('sgis_permiso_trabajo_atmosfera_explosiva')),
+            'sgis_permiso_trabajo_fuentes_ignicion': _tri(payload.get('sgis_permiso_trabajo_fuentes_ignicion')),
+            'sgis_permiso_trabajo_vapores': _tri(payload.get('sgis_permiso_trabajo_vapores')),
+            'sgis_permiso_trabajo_alta_temperatura': _tri(payload.get('sgis_permiso_trabajo_alta_temperatura')),
+            'sgis_permiso_trabajo_baja_temperatura': _tri(payload.get('sgis_permiso_trabajo_baja_temperatura')),
+            'sgis_permiso_trabajo_iluminacion_deficiente': _tri(payload.get('sgis_permiso_trabajo_iluminacion_deficiente')),
+            'sgis_permiso_trabajo_quemaduras': _tri(payload.get('sgis_permiso_trabajo_quemaduras')),
+            'sgis_permiso_trabajo_almacenamientos_quimicos': _tri(payload.get('sgis_permiso_trabajo_almacenamientos_quimicos')),
+            'sgis_permiso_trabajo_extensiones_mal_estado': _tri(payload.get('sgis_permiso_trabajo_extensiones_mal_estado')),
+            'sgis_permiso_trabajo_ruido': _tri(payload.get('sgis_permiso_trabajo_ruido')),
+            'sgis_permiso_trabajo_contacto_directo_indirecto': _tri(payload.get('sgis_permiso_trabajo_contacto_directo_indirecto')),
+            'sgis_permiso_trabajo_caida_objeto': _tri(payload.get('sgis_permiso_trabajo_caida_objeto')),
+            'sgis_permiso_trabajo_espacio_reducido': _tri(payload.get('sgis_permiso_trabajo_espacio_reducido')),
+            'sgis_permiso_trabajo_levantamiento_manual_cargas': _tri(payload.get('sgis_permiso_trabajo_levantamiento_manual_cargas')),
+            'sgis_permiso_trabajo_subestacion_inundada': _tri(payload.get('sgis_permiso_trabajo_subestacion_inundada')),
+            'sgis_permiso_trabajo_excavaciones': _tri(payload.get('sgis_permiso_trabajo_excavaciones')),
+            'sgis_permiso_trabajo_otros': payload.get('sgis_permiso_trabajo_otros'),
+            'sgis_permiso_trabajo_calzado_dielectrico': _tri(payload.get('sgis_permiso_trabajo_calzado_dielectrico')),
+            'sgis_permiso_trabajo_guantes_nitrilo': _tri(payload.get('sgis_permiso_trabajo_guantes_nitrilo')),
+            'sgis_permiso_trabajo_guantes_vaqueta': _tri(payload.get('sgis_permiso_trabajo_guantes_vaqueta')),
+            'sgis_permiso_trabajo_gafas_proteccion': _tri(payload.get('sgis_permiso_trabajo_gafas_proteccion')),
+            'sgis_permiso_trabajo_casco_dielectrico': _tri(payload.get('sgis_permiso_trabajo_casco_dielectrico')),
+            'sgis_permiso_trabajo_tie_off': _tri(payload.get('sgis_permiso_trabajo_tie_off')),
+            'sgis_permiso_trabajo_mosqueton': _tri(payload.get('sgis_permiso_trabajo_mosqueton')),
+            'sgis_permiso_trabajo_eslinga': _tri(payload.get('sgis_permiso_trabajo_eslinga')),
+            'sgis_permiso_trabajo_arrestador': _tri(payload.get('sgis_permiso_trabajo_arrestador')),
+            'sgis_permiso_trabajo_arnes': _tri(payload.get('sgis_permiso_trabajo_arnes')),
+            'sgis_permiso_trabajo_linea_vida': _tri(payload.get('sgis_permiso_trabajo_linea_vida')),
+            'sgis_permiso_trabajo_escalera_tijera': _tri(payload.get('sgis_permiso_trabajo_escalera_tijera')),
+            'sgis_permiso_trabajo_escalera_extensible': _tri(payload.get('sgis_permiso_trabajo_escalera_extensible')),
+            'sgis_permiso_trabajo_cinta_precaucion': _tri(payload.get('sgis_permiso_trabajo_cinta_precaucion')),
+            'sgis_permiso_trabajo_conos': _tri(payload.get('sgis_permiso_trabajo_conos')),
+            'sgis_permiso_trabajo_botiquin': _tri(payload.get('sgis_permiso_trabajo_botiquin')),
+            'sgis_permiso_trabajo_notificacion_trabajo': _yn(payload.get('sgis_permiso_trabajo_notificacion_trabajo')),
+            'sgis_permiso_trabajo_responsabilidades_permiso': _yn(payload.get('sgis_permiso_trabajo_responsabilidades_permiso')),
+            'sgis_permiso_trabajo_condicion_interrupcion': _yn(payload.get('sgis_permiso_trabajo_condicion_interrupcion')),
+            'sgis_permiso_trabajo_cambios_seguridad_trabajo': _yn(payload.get('sgis_permiso_trabajo_cambios_seguridad_trabajo')),
+            'sgis_permiso_trabajo_induccion_seguridad': _yn(payload.get('sgis_permiso_trabajo_induccion_seguridad')),
+            'sgis_permiso_trabajo_capacitacion_tema': _yn(payload.get('sgis_permiso_trabajo_capacitacion_tema')),
+            'sgis_permiso_trabajo_metodos_inspeccion': _yn(payload.get('sgis_permiso_trabajo_metodos_inspeccion')),
+            'sgis_permiso_trabajo_responsables_area': _yn(payload.get('sgis_permiso_trabajo_responsables_area')),
+            'sgis_permiso_trabajo_mecanismo_control_riesgo': _yn(payload.get('sgis_permiso_trabajo_mecanismo_control_riesgo')),
+            'sgis_permiso_trabajo_alarmas_puntos_reunion': _yn(payload.get('sgis_permiso_trabajo_alarmas_puntos_reunion')),
+            'sgis_permiso_trabajo_ubicacion_equipos_incendio': _yn(payload.get('sgis_permiso_trabajo_ubicacion_equipos_incendio')),
+            'sgis_permiso_trabajo_riesgos_trabajo_area': _yn(payload.get('sgis_permiso_trabajo_riesgos_trabajo_area')),
+            'sgis_permiso_trabajo_impacto_ambiental': _yn(payload.get('sgis_permiso_trabajo_impacto_ambiental')),
+            'sgis_permiso_trabajo_ats': _tri(payload.get('sgis_permiso_trabajo_ats')),
+            'sgis_permiso_trabajo_inspecciones_relizadas': _tri(payload.get('sgis_permiso_trabajo_inspecciones_relizadas')),
+            'sgis_permiso_trabajo_procedimientos_trabajo': _tri(payload.get('sgis_permiso_trabajo_procedimientos_trabajo')),
+            'sgis_permiso_trabajo_arl_afp_eps': _tri(payload.get('sgis_permiso_trabajo_arl_afp_eps')),
+            'sgis_permiso_trabajo_confinado_aplica': _ap(payload.get('sgis_permiso_trabajo_confinado_aplica')),
+            'sgis_permiso_trabajo_altura_aplica': _ap(payload.get('sgis_permiso_trabajo_altura_aplica'))
+        }
+        # Filtrar solo columnas existentes en la tabla para evitar errores 500 por columnas faltantes
+        cur.execute("""
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sgis_permiso_trabajo'
+        """)
+        existing_cols = {r['COLUMN_NAME'] if isinstance(r, dict) else r[0] for r in cur.fetchall()}
+        filtered_items = [(k, v) for k, v in fields.items() if k in existing_cols]
+        cols = ",".join([k for k, _ in filtered_items])
+        vals = tuple([v for _, v in filtered_items])
+        if existing:
+            pid = existing['id_sgis_permiso_trabajo']
+            set_stmt = ",".join([f"{k}=%s" for k, _ in filtered_items])
+            try:
+                cur.execute(
+                    """
+                    SELECT COLUMN_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sgis_permiso_trabajo'
+                    """
+                )
+                table_cols2 = {r['COLUMN_NAME'] if isinstance(r, dict) else r[0] for r in cur.fetchall()}
+            except Exception:
+                table_cols2 = set()
+            if 'updated_at' in table_cols2:
+                set_stmt = set_stmt + ", updated_at=NOW()"
+            cur.execute(f"UPDATE sgis_permiso_trabajo SET {set_stmt} WHERE id_sgis_permiso_trabajo=%s", vals + (pid,))
+            conn.commit()
+            return jsonify({'success': True, 'id_sgis_permiso_trabajo': pid, 'message': 'Actualizado'}), 200
+        cur.execute(f"INSERT INTO sgis_permiso_trabajo ({cols}) VALUES ({','.join(['%s']*len(filtered_items))})", vals)
+        conn.commit()
+        pid = cur.lastrowid
+        return jsonify({'success': True, 'id_sgis_permiso_trabajo': pid, 'message': 'Creado'}), 201
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+@app.route('/api/sgis/permiso-trabajo/current', methods=['GET'])
+@login_required
+def api_sgis_permiso_trabajo_actual():
+    u = session.get('user_id') or session.get('id_codigo_consumidor')
+    if not u:
+        return jsonify({'success': False, 'message': 'No autenticado'}), 401
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'success': False, 'message': 'BD no disponible'}), 500
+    try:
+        cur = conn.cursor(dictionary=True)
+        hoy = get_bogota_datetime().date()
+        from datetime import timedelta
+        w = hoy.weekday()
+        inicio_semana = hoy - timedelta(days=w)
+        fin_semana = inicio_semana + timedelta(days=6)
+        try:
+            cur.execute(
+                """
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sgis_permiso_trabajo'
+                """
+            )
+            table_cols = {r['COLUMN_NAME'] if isinstance(r, dict) else r[0] for r in cur.fetchall()}
+        except Exception:
+            table_cols = set()
+        row = None
+        try:
+            where_parts = []
+            params = []
+            if 'sgis_permiso_trabajo_fecha_finalizacion' in table_cols:
+                where_parts.append('sgis_permiso_trabajo_fecha_finalizacion = %s')
+                params.append(fin_semana)
+            if 'sgis_permiso_trabajo_fecha_emision' in table_cols:
+                where_parts.append('sgis_permiso_trabajo_fecha_emision BETWEEN %s AND %s')
+                params.extend([inicio_semana, fin_semana])
+            user_filters = []
+            uc = session.get('user_cedula')
+            if 'id_codigo_consumidor' in table_cols:
+                user_filters.append('id_codigo_consumidor = %s')
+                params.append(u)
+            if uc:
+                if 'recurso_operativo_cedula' in table_cols:
+                    user_filters.append('recurso_operativo_cedula = %s')
+                    params.append(uc)
+                if 'cedula' in table_cols:
+                    user_filters.append('cedula = %s')
+                    params.append(uc)
+            if user_filters:
+                where_parts.append('(' + ' OR '.join(user_filters) + ')')
+            sql = 'SELECT * FROM sgis_permiso_trabajo'
+            if where_parts:
+                sql += ' WHERE ' + ' AND '.join(where_parts)
+            if 'id_sgis_permiso_trabajo' in table_cols:
+                sql += ' ORDER BY id_sgis_permiso_trabajo DESC'
+            sql += ' LIMIT 1'
+            cur.execute(sql, tuple(params))
+            row = cur.fetchone()
+        except Exception:
+            try:
+                cur.execute(
+                    """
+                    SELECT * FROM sgis_permiso_trabajo
+                    WHERE sgis_permiso_trabajo_fecha_finalizacion=%s
+                    ORDER BY id_sgis_permiso_trabajo DESC
+                    LIMIT 1
+                    """,
+                    (fin_semana,)
+                )
+                row = cur.fetchone()
+            except Exception:
+                row = None
+        if not row:
+            try:
+                cur.execute(
+                    """
+                    SELECT nombre, cargo, recurso_operativo_cedula, super, cliente, ciudad
+                    FROM recurso_operativo
+                    WHERE id_codigo_consumidor = %s AND estado = 'Activo'
+                    """,
+                    (u,)
+                )
+                ro = cur.fetchone() or {}
+            except Exception:
+                cur.execute(
+                    """
+                    SELECT *
+                    FROM recurso_operativo
+                    WHERE id_codigo_consumidor = %s AND estado = 'Activo'
+                    """,
+                    (u,)
+                )
+                ro = cur.fetchone() or {}
+            row = {
+                'sgis_permiso_trabajo_emitido_por': ro.get('super'),
+                'sgis_permiso_trabajo_proyecto': ro.get('cliente'),
+                'sgis_permiso_trabajo_ciudad': ro.get('ciudad'),
+                'sgis_permiso_trabajo_responsable_trabajo': ro.get('nombre'),
+                'sgis_permiso_trabajo_cargo': ro.get('cargo'),
+                'recurso_operativo_cedula': ro.get('recurso_operativo_cedula'),
+                'nombre': ro.get('nombre'),
+                'cargo': ro.get('cargo'),
+                'cedula': ro.get('recurso_operativo_cedula')
+            }
+        return jsonify({'success': True, 'data': row})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+@app.route('/api/sgis/permiso-trabajo/historial/confinado', methods=['POST','GET'])
+@login_required
+def api_sgis_historial_confinado():
+    u = session.get('user_id') or session.get('id_codigo_consumidor')
+    if not u:
+        return jsonify({'success': False, 'message': 'No autenticado'}), 401
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'success': False, 'message': 'BD no disponible'}), 500
+    try:
+        cur = conn.cursor(dictionary=True)
+        if request.method == 'GET':
+            pid = request.args.get('id_sgis_permiso_trabajo', type=int)
+            if not pid:
+                return jsonify({'success': False, 'message': 'id_sgis_permiso_trabajo requerido'}), 400
+            cur.execute("""SELECT * FROM sgis_permiso_trabajo_historial_semanal_confinado WHERE id_sgis_permiso_trabajo=%s ORDER BY sgis_permiso_trabajo_historial_confinado_fecha ASC""", (pid,))
+            rows = cur.fetchall()
+            return jsonify({'success': True, 'data': rows})
+        data = request.get_json(silent=True) or {}
+        pid = data.get('id_sgis_permiso_trabajo')
+        if not pid:
+            return jsonify({'success': False, 'message': 'id_sgis_permiso_trabajo requerido'}), 400
+        fecha = data.get('sgis_permiso_trabajo_historial_confinado_fecha') or get_bogota_datetime().date()
+        try:
+            from datetime import datetime as _dt
+            if isinstance(fecha, str):
+                fecha_cmp = _dt.strptime(fecha, '%Y-%m-%d').date()
+            else:
+                fecha_cmp = fecha
+        except Exception:
+            fecha_cmp = get_bogota_datetime().date()
+        hoy_bogota = get_bogota_datetime().date()
+        if fecha_cmp != hoy_bogota:
+            return jsonify({'success': False, 'message': 'Solo se puede firmar el día actual'}), 400
+        # Obtener nombre del técnico para firma automática si no viene en payload
+        cur.execute("""
+            SELECT nombre
+            FROM recurso_operativo
+            WHERE id_codigo_consumidor = %s AND estado = 'Activo'
+        """, (u,))
+        ro = cur.fetchone() or {}
+        firma_tecnico = (data.get('sgis_permiso_trabajo_historial_confinado_firma_tecnico') or ro.get('nombre') or '')
+        fields = {
+            'id_sgis_permiso_trabajo': pid,
+            'id_codigo_consumidor': u,
+            'sgis_permiso_trabajo_historial_confinado_1': data.get('sgis_permiso_trabajo_historial_confinado_1'),
+            'sgis_permiso_trabajo_historial_confinado_2': data.get('sgis_permiso_trabajo_historial_confinado_2'),
+            'sgis_permiso_trabajo_historial_confinado_3': data.get('sgis_permiso_trabajo_historial_confinado_3'),
+            'sgis_permiso_trabajo_historial_confinado_4': data.get('sgis_permiso_trabajo_historial_confinado_4'),
+            'sgis_permiso_trabajo_historial_confinado_5': data.get('sgis_permiso_trabajo_historial_confinado_5'),
+            'sgis_permiso_trabajo_historial_confinado_6': data.get('sgis_permiso_trabajo_historial_confinado_6'),
+            'sgis_permiso_trabajo_historial_confinado_7': data.get('sgis_permiso_trabajo_historial_confinado_7'),
+            'sgis_permiso_trabajo_historial_confinado_8': data.get('sgis_permiso_trabajo_historial_confinado_8'),
+            'sgis_permiso_trabajo_historial_confinado_9': data.get('sgis_permiso_trabajo_historial_confinado_9'),
+            'sgis_permiso_trabajo_historial_confinado_10': data.get('sgis_permiso_trabajo_historial_confinado_10'),
+            'sgis_permiso_trabajo_historial_confinado_11': data.get('sgis_permiso_trabajo_historial_confinado_11'),
+            'sgis_permiso_trabajo_historial_confinado_fecha': fecha,
+            'sgis_permiso_trabajo_historial_confinado_firma_tecnico': firma_tecnico,
+            'sgis_permiso_trabajo_historial_confinado_firma_supervisor': data.get('sgis_permiso_trabajo_historial_confinado_firma_supervisor')
+        }
+        # Detectar si la petición es solo firma de supervisor (sin ítems del día)
+        try:
+            is_signature_only = (
+                data.get('sgis_permiso_trabajo_historial_confinado_firma_supervisor') is not None and
+                all(data.get(f'sgis_permiso_trabajo_historial_confinado_{i}') is None for i in range(1, 12))
+            )
+        except Exception:
+            is_signature_only = False
+        # Si ya existe registro para ese día, actualizar solo la firma del supervisor
+        try:
+            cur.execute(
+                """
+                SELECT id_sgis_permiso_trabajo_historial_semanal_confinado AS id
+                FROM sgis_permiso_trabajo_historial_semanal_confinado
+                WHERE id_sgis_permiso_trabajo=%s AND DATE(sgis_permiso_trabajo_historial_confinado_fecha)=%s
+                ORDER BY id_sgis_permiso_trabajo_historial_semanal_confinado ASC
+                LIMIT 1
+                """,
+                (pid, fecha_cmp)
+            )
+            existing_day = cur.fetchone()
+        except Exception:
+            existing_day = None
+        # Bloquear firma si no existe registro del día
+        if (not existing_day) and is_signature_only:
+            return jsonify({'success': False, 'message': 'Solo se puede firmar si ya existe registro del día'}), 400
+        if existing_day and (data.get('sgis_permiso_trabajo_historial_confinado_firma_supervisor') is not None):
+            try:
+                cur.execute(
+                    """
+                    UPDATE sgis_permiso_trabajo_historial_semanal_confinado
+                    SET sgis_permiso_trabajo_historial_confinado_firma_supervisor=%s
+                    WHERE id_sgis_permiso_trabajo_historial_semanal_confinado=%s
+                    """,
+                    (data.get('sgis_permiso_trabajo_historial_confinado_firma_supervisor'), existing_day.get('id') if isinstance(existing_day, dict) else existing_day[0])
+                )
+                conn.commit()
+                return jsonify({'success': True, 'updated': True}), 200
+            except Exception:
+                pass
+        try:
+            cur.execute("SELECT COALESCE(MAX(id_sgis_permiso_trabajo_historial_semanal_confinado),0)+1 AS next_id FROM sgis_permiso_trabajo_historial_semanal_confinado")
+            next_id_row = cur.fetchone()
+            next_id = (next_id_row['next_id'] if isinstance(next_id_row, dict) else next_id_row[0])
+        except Exception:
+            next_id = None
+        cur.execute(
+            """
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sgis_permiso_trabajo_historial_semanal_confinado'
+            """
+        )
+        existing_cols = {r['COLUMN_NAME'] if isinstance(r, dict) else r[0] for r in cur.fetchall()}
+        filtered_items = [(k, v) for k, v in fields.items() if k in existing_cols]
+        if 'id_sgis_permiso_trabajo_historial_semanal_confinado' in existing_cols:
+            filtered_items = [('id_sgis_permiso_trabajo_historial_semanal_confinado', next_id)] + filtered_items
+        cols = ",".join([k for k, _ in filtered_items])
+        vals = tuple([v for _, v in filtered_items])
+        cur.execute(f"INSERT INTO sgis_permiso_trabajo_historial_semanal_confinado ({cols}) VALUES ({','.join(['%s']*len(filtered_items))})", vals)
+        conn.commit()
+        return jsonify({'success': True, 'created': True}), 201
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+@app.route('/api/sgis/permiso-trabajo/historial/alturas', methods=['POST','GET'])
+@login_required
+def api_sgis_historial_alturas():
+    u = session.get('user_id') or session.get('id_codigo_consumidor')
+    if not u:
+        return jsonify({'success': False, 'message': 'No autenticado'}), 401
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'success': False, 'message': 'BD no disponible'}), 500
+    try:
+        cur = conn.cursor(dictionary=True)
+        if request.method == 'GET':
+            pid = request.args.get('id_sgis_permiso_trabajo', type=int)
+            if not pid:
+                return jsonify({'success': False, 'message': 'id_sgis_permiso_trabajo requerido'}), 400
+            cur.execute("""SELECT * FROM sgis_permiso_trabajo_historial_semanal_altura WHERE id_sgis_permiso_trabajo=%s ORDER BY sgis_permiso_trabajo_historial_altura_fecha ASC""", (pid,))
+            rows = cur.fetchall()
+            return jsonify({'success': True, 'data': rows})
+        data = request.get_json(silent=True) or {}
+        pid = data.get('id_sgis_permiso_trabajo')
+        if not pid:
+            return jsonify({'success': False, 'message': 'id_sgis_permiso_trabajo requerido'}), 400
+        fecha = data.get('sgis_permiso_trabajo_historial_altura_fecha') or get_bogota_datetime().date()
+        try:
+            from datetime import datetime as _dt
+            if isinstance(fecha, str):
+                fecha_cmp = _dt.strptime(fecha, '%Y-%m-%d').date()
+            else:
+                fecha_cmp = fecha
+        except Exception:
+            fecha_cmp = get_bogota_datetime().date()
+        hoy_bogota = get_bogota_datetime().date()
+        if fecha_cmp != hoy_bogota:
+            return jsonify({'success': False, 'message': 'Solo se puede firmar el día actual'}), 400
+        # Obtener nombre del técnico para firma automática si no viene en payload
+        cur.execute("""
+            SELECT nombre
+            FROM recurso_operativo
+            WHERE id_codigo_consumidor = %s AND estado = 'Activo'
+        """, (u,))
+        ro = cur.fetchone() or {}
+        firma_tecnico_alt = (data.get('sgis_permiso_trabajo_historial_semanal_altura_firma_tecnico') or ro.get('nombre') or '')
+        fields = {
+            'id_sgis_permiso_trabajo': pid,
+            'id_codigo_consumidor': u,
+            'sgis_permiso_trabajo_historial_altura_1': data.get('sgis_permiso_trabajo_historial_altura_1'),
+            'sgis_permiso_trabajo_historial_altura_2': data.get('sgis_permiso_trabajo_historial_altura_2'),
+            'sgis_permiso_trabajo_historial_altura_3': data.get('sgis_permiso_trabajo_historial_altura_3'),
+            'sgis_permiso_trabajo_historial_altura_4': data.get('sgis_permiso_trabajo_historial_altura_4'),
+            'sgis_permiso_trabajo_historial_altura_5': data.get('sgis_permiso_trabajo_historial_altura_5'),
+            'sgis_permiso_trabajo_historial_altura_6': data.get('sgis_permiso_trabajo_historial_altura_6'),
+            'sgis_permiso_trabajo_historial_altura_7': data.get('sgis_permiso_trabajo_historial_altura_7'),
+            'sgis_permiso_trabajo_historial_altura_8': data.get('sgis_permiso_trabajo_historial_altura_8'),
+            'sgis_permiso_trabajo_historial_altura_9': data.get('sgis_permiso_trabajo_historial_altura_9'),
+            'sgis_permiso_trabajo_historial_altura_10': data.get('sgis_permiso_trabajo_historial_altura_10'),
+            'sgis_permiso_trabajo_historial_altura_11': data.get('sgis_permiso_trabajo_historial_altura_11'),
+            'sgis_permiso_trabajo_historial_altura_12': data.get('sgis_permiso_trabajo_historial_altura_12'),
+            'sgis_permiso_trabajo_historial_altura_13': data.get('sgis_permiso_trabajo_historial_altura_13'),
+            'sgis_permiso_trabajo_historial_altura_14': data.get('sgis_permiso_trabajo_historial_altura_14'),
+            'sgis_permiso_trabajo_historial_altura_15': data.get('sgis_permiso_trabajo_historial_altura_15'),
+            'sgis_permiso_trabajo_historial_altura_16': data.get('sgis_permiso_trabajo_historial_altura_16'),
+            'sgis_permiso_trabajo_historial_altura_17': data.get('sgis_permiso_trabajo_historial_altura_17'),
+            'sgis_permiso_trabajo_historial_altura_18': data.get('sgis_permiso_trabajo_historial_altura_18'),
+            'sgis_permiso_trabajo_historial_altura_19': data.get('sgis_permiso_trabajo_historial_altura_19'),
+            'sgis_permiso_trabajo_historial_altura_20': data.get('sgis_permiso_trabajo_historial_altura_20'),
+            'sgis_permiso_trabajo_historial_altura_21': data.get('sgis_permiso_trabajo_historial_altura_21'),
+            'sgis_permiso_trabajo_historial_altura_22': data.get('sgis_permiso_trabajo_historial_altura_22'),
+            'sgis_permiso_trabajo_historial_altura_23': data.get('sgis_permiso_trabajo_historial_altura_23'),
+            'sgis_permiso_trabajo_historial_altura_24': data.get('sgis_permiso_trabajo_historial_altura_24'),
+            'sgis_permiso_trabajo_historial_altura_fecha': fecha,
+            'sgis_permiso_trabajo_historial_semanal_altura_firma_tecnico': firma_tecnico_alt,
+            'sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor': data.get('sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor')
+        }
+        # Detectar si la petición es solo firma de supervisor (sin ítems del día)
+        try:
+            is_signature_only_alt = (
+                data.get('sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor') is not None and
+                all(data.get(f'sgis_permiso_trabajo_historial_altura_{i}') is None for i in range(1, 25))
+            )
+        except Exception:
+            is_signature_only_alt = False
+        try:
+            cur.execute(
+                """
+                SELECT id_sgis_permiso_trabajo_historial_semanal_altura AS id
+                FROM sgis_permiso_trabajo_historial_semanal_altura
+                WHERE id_sgis_permiso_trabajo=%s AND DATE(sgis_permiso_trabajo_historial_altura_fecha)=%s
+                ORDER BY id_sgis_permiso_trabajo_historial_semanal_altura ASC
+                LIMIT 1
+                """,
+                (pid, fecha_cmp)
+            )
+            existing_day = cur.fetchone()
+        except Exception:
+            existing_day = None
+        # Bloquear firma si no existe registro del día
+        if (not existing_day) and is_signature_only_alt:
+            return jsonify({'success': False, 'message': 'Solo se puede firmar si ya existe registro del día'}), 400
+        if existing_day and (data.get('sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor') is not None):
+            try:
+                cur.execute(
+                    """
+                    UPDATE sgis_permiso_trabajo_historial_semanal_altura
+                    SET sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor=%s
+                    WHERE id_sgis_permiso_trabajo_historial_semanal_altura=%s
+                    """,
+                    (data.get('sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor'), existing_day.get('id') if isinstance(existing_day, dict) else existing_day[0])
+                )
+                conn.commit()
+                return jsonify({'success': True, 'updated': True}), 200
+            except Exception:
+                pass
+        cur.execute(
+            """
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sgis_permiso_trabajo_historial_semanal_altura'
+            """
+        )
+        existing_cols = {r['COLUMN_NAME'] if isinstance(r, dict) else r[0] for r in cur.fetchall()}
+        filtered_items = [(k, v) for k, v in fields.items() if k in existing_cols]
+        cols = ",".join([k for k, _ in filtered_items])
+        vals = tuple([v for _, v in filtered_items])
+        cur.execute(f"INSERT INTO sgis_permiso_trabajo_historial_semanal_altura ({cols}) VALUES ({','.join(['%s']*len(filtered_items))})", vals)
+        conn.commit()
+        return jsonify({'success': True, 'created': True}), 201
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+# Registro explícito de rutas SGIS Permiso de Trabajo
+try:
+    app.add_url_rule('/api/sgis/permiso-trabajo', view_func=api_sgis_permiso_trabajo_crear, methods=['POST'])
+    app.add_url_rule('/api/sgis/permiso-trabajo/current', view_func=api_sgis_permiso_trabajo_actual, methods=['GET'])
+    app.add_url_rule('/api/sgis/permiso-trabajo/historial/confinado', view_func=api_sgis_historial_confinado, methods=['POST','GET'])
+    app.add_url_rule('/api/sgis/permiso-trabajo/historial/alturas', view_func=api_sgis_historial_alturas, methods=['POST','GET'])
+except Exception:
+    pass
+
 # Database configuration
 db_config = {
     'host': os.getenv('MYSQL_HOST'),
@@ -27555,6 +28226,8 @@ def sgis_dashboard():
         flash('No tienes permisos para acceder a este módulo', 'error')
         return redirect(url_for('dashboard'))
     habilitar_escaleras = False
+    tiene_asistencia = False
+    ro_info = {}
     try:
         connection = get_db_connection()
         if connection:
@@ -27563,11 +28236,31 @@ def sgis_dashboard():
             row = cursor.fetchone() or {}
             carpeta = (row.get('carpeta') or '').strip().upper()
             habilitar_escaleras = carpeta == 'APOYO CAMIONETAS'
+            cursor.execute("SELECT nombre, cargo, recurso_operativo_cedula, super, cliente, ciudad FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (session.get('user_cedula'),))
+            ro_info = cursor.fetchone() or {}
+            cedula_usuario = session.get('user_cedula')
+            if cedula_usuario == '52912112':
+                tiene_asistencia = True
+            else:
+                fecha_hoy = get_bogota_datetime().strftime('%Y-%m-%d')
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) as registros_hoy
+                    FROM asistencia 
+                    WHERE id_codigo_consumidor = %s AND DATE(fecha_asistencia) = %s AND carpeta_dia != '0'
+                    """,
+                    (session.get('id_codigo_consumidor'), fecha_hoy)
+                )
+                reg = cursor.fetchone() or {}
+                try:
+                    tiene_asistencia = (reg.get('registros_hoy') or 0) > 0
+                except Exception:
+                    tiene_asistencia = False
             cursor.close()
             connection.close()
     except Exception:
         pass
-    return render_template('modulos/sgis/dashboard.html', habilitar_escaleras=habilitar_escaleras)
+    return render_template('modulos/sgis/dashboard.html', habilitar_escaleras=habilitar_escaleras, tiene_asistencia=tiene_asistencia, ro_info=ro_info)
 
 @app.route('/sgis/preoperacional-epp')
 @login_required()
@@ -27621,6 +28314,11 @@ def sgis_reportes_caidas_page():
 @login_required(role=['administrativo','operativo'])
 def sgis_reportes_tsr_page():
     return render_template('modulos/sgis/reportes_tsr.html')
+
+@app.route('/sgis/reportes/permiso-trabajo')
+@login_required(role=['administrativo','operativo'])
+def sgis_reportes_permiso_trabajo_page():
+    return render_template('modulos/sgis/reportes_permiso_trabajo.html')
 
 @app.route('/api/sgis/preoperacional-epp', methods=['POST'])
 @login_required_api()
@@ -28537,9 +29235,9 @@ def api_sgis_reportes_tsr_matriz():
                     if ft and not fs:
                         pend += 1
                 pendientes_supervisor[idx] = str(pend)
-        cursor.execute("SELECT nombre, cargo, carpeta, id_codigo_consumidor FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+        cursor.execute("SELECT nombre, cargo, carpeta, id_codigo_consumidor, super, cliente, ciudad FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
         u = cursor.fetchone() or {}
-        info = { 'nombre': u.get('nombre') or '', 'cedula': cedula, 'cargo': u.get('cargo') or '', 'area': u.get('carpeta') or '', 'id': u.get('id_codigo_consumidor') }
+        info = { 'nombre': u.get('nombre') or '', 'cedula': cedula, 'cargo': u.get('cargo') or '', 'area': u.get('carpeta') or '', 'id': u.get('id_codigo_consumidor'), 'super': u.get('super') or '', 'cliente': u.get('cliente') or '', 'ciudad': u.get('ciudad') or '' }
         try:
             dbn = connection.database
             c2 = connection.cursor()
@@ -28602,6 +29300,297 @@ def api_sgis_reportes_tsr_matriz():
             pass
         matriz = { 'evaluacion': evals, 'riesgos_controles': riesgos }
         return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'matriz': matriz, 'observaciones': observaciones, 'firmas': firmas, 'firmas_supervisor': firmas_supervisor, 'pendientes_supervisor': pendientes_supervisor, 'visitas_programadas': visitas_programadas})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/reportes/permiso-trabajo-matriz', methods=['GET'])
+@login_required_api(role=['administrativo','operativo'])
+def api_sgis_reportes_permiso_trabajo_matriz():
+    try:
+        cedula = request.args.get('cedula')
+        mes = request.args.get('mes')
+        if not cedula:
+            return jsonify({'success': False, 'error': 'Cédula requerida'}), 400
+        if mes:
+            try:
+                inicio = datetime.strptime(mes + '-01', '%Y-%m-%d').date()
+            except ValueError:
+                inicio = get_bogota_datetime().date().replace(day=1)
+        else:
+            inicio = get_bogota_datetime().date().replace(day=1)
+        if inicio.month == 12:
+            fin = inicio.replace(year=inicio.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            fin = inicio.replace(month=inicio.month + 1, day=1) - timedelta(days=1)
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        ur = session.get('user_role')
+        if str(ur or '').strip().lower() == 'operativo':
+            sup_name = (session.get('user_name') or '').strip()
+            supervised = False
+            try:
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) AS c 
+                    FROM recurso_operativo 
+                    WHERE recurso_operativo_cedula = %s 
+                      AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci
+                    """,
+                    (cedula, sup_name)
+                )
+                ro_c = cursor.fetchone() or {}
+                supervised = int(ro_c.get('c') or 0) > 0
+            except Exception:
+                supervised = False
+            if not supervised:
+                try:
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) AS c 
+                        FROM asistencia 
+                        WHERE cedula = %s 
+                          AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci 
+                          AND DATE(fecha_asistencia) BETWEEN %s AND %s
+                        """,
+                        (cedula, sup_name, inicio, fin)
+                    )
+                    c = cursor.fetchone() or {}
+                    supervised = int(c.get('c') or 0) > 0
+                except Exception:
+                    supervised = False
+            if not supervised:
+                return jsonify({'success': False, 'error': 'Permisos insuficientes para este técnico'}), 403
+        cursor.execute("SELECT nombre, cargo, carpeta, id_codigo_consumidor FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+        u = cursor.fetchone() or {}
+        info = { 'nombre': u.get('nombre') or '', 'cedula': cedula, 'cargo': u.get('cargo') or '', 'area': u.get('carpeta') or '', 'id': u.get('id_codigo_consumidor') }
+        semanas = []
+        try:
+            cursor.execute(
+                """
+                SELECT *
+                FROM sgis_permiso_trabajo
+                WHERE (recurso_operativo_cedula = %s OR cedula = %s)
+                  AND (
+                        DATE(sgis_permiso_trabajo_fecha_emision) BETWEEN %s AND %s
+                     OR DATE(sgis_permiso_trabajo_fecha_finalizacion) BETWEEN %s AND %s
+                  )
+                ORDER BY sgis_permiso_trabajo_fecha_emision
+                """,
+                (cedula, cedula, inicio, fin, inicio, fin)
+            )
+            rows = cursor.fetchall() or []
+            for row in rows:
+                fi = row.get('sgis_permiso_trabajo_fecha_emision')
+                ff = row.get('sgis_permiso_trabajo_fecha_finalizacion')
+                try:
+                    fi_str = fi.strftime('%Y-%m-%d') if fi else ''
+                except Exception:
+                    fi_str = str(fi or '')
+                try:
+                    ff_str = ff.strftime('%Y-%m-%d') if ff else ''
+                except Exception:
+                    ff_str = str(ff or '')
+                respuestas = {}
+                exclude = {
+                    'sgis_permiso_trabajo_fecha_emision','sgis_permiso_trabajo_fecha_finalizacion','sgis_permiso_trabajo_trabajadores',
+                    'sgis_permiso_trabajo_emitido_por','sgis_permiso_trabajo_proyecto','sgis_permiso_trabajo_ciudad',
+                    'sgis_permiso_trabajo_responsable_trabajo','sgis_permiso_trabajo_cargo','id_codigo_consumidor',
+                    'nombre','cargo','cedula','recurso_operativo_cedula','sgis_permiso_trabajo_confinado_aplica','sgis_permiso_trabajo_altura_aplica'
+                }
+                for k, v in row.items():
+                    if k.startswith('sgis_permiso_trabajo_') and k not in exclude:
+                        respuestas[k] = v
+                semanas.append({'id': row.get('id_sgis_permiso_trabajo'), 'fecha_emision': fi_str, 'fecha_finalizacion': ff_str, 'respuestas': respuestas})
+        except Exception:
+            semanas = []
+        permiso_ids = []
+        try:
+            permiso_ids = [r.get('id_sgis_permiso_trabajo') for r in rows if r.get('id_sgis_permiso_trabajo')]
+        except Exception:
+            permiso_ids = []
+        ultimo_dia = fin.day
+        def arr(n=31):
+            return ['' for _ in range(n)]
+        matriz_conf_items = {str(i): arr() for i in range(1, 12)}
+        firmas_conf_tecnico = arr()
+        firmas_conf_supervisor = arr()
+        try:
+            rows_c = []
+            if permiso_ids:
+                placeholders = ','.join(['%s'] * len(permiso_ids))
+                sql_c = f"""
+                SELECT sgis_permiso_trabajo_historial_confinado_fecha,
+                       sgis_permiso_trabajo_historial_confinado_1,
+                       sgis_permiso_trabajo_historial_confinado_2,
+                       sgis_permiso_trabajo_historial_confinado_3,
+                       sgis_permiso_trabajo_historial_confinado_4,
+                       sgis_permiso_trabajo_historial_confinado_5,
+                       sgis_permiso_trabajo_historial_confinado_6,
+                       sgis_permiso_trabajo_historial_confinado_7,
+                       sgis_permiso_trabajo_historial_confinado_8,
+                       sgis_permiso_trabajo_historial_confinado_9,
+                       sgis_permiso_trabajo_historial_confinado_10,
+                       sgis_permiso_trabajo_historial_confinado_11,
+                       sgis_permiso_trabajo_historial_confinado_firma_tecnico,
+                       sgis_permiso_trabajo_historial_confinado_firma_supervisor
+                FROM sgis_permiso_trabajo_historial_semanal_confinado
+                WHERE id_sgis_permiso_trabajo IN ({placeholders})
+                  AND DATE(sgis_permiso_trabajo_historial_confinado_fecha) BETWEEN %s AND %s
+                ORDER BY sgis_permiso_trabajo_historial_confinado_fecha
+                """
+                params_c = tuple(permiso_ids) + (inicio, fin)
+                cursor.execute(sql_c, params_c)
+                rows_c = cursor.fetchall() or []
+            else:
+                cursor.execute(
+                    """
+                    SELECT sgis_permiso_trabajo_historial_confinado_fecha,
+                           sgis_permiso_trabajo_historial_confinado_1,
+                           sgis_permiso_trabajo_historial_confinado_2,
+                           sgis_permiso_trabajo_historial_confinado_3,
+                           sgis_permiso_trabajo_historial_confinado_4,
+                           sgis_permiso_trabajo_historial_confinado_5,
+                           sgis_permiso_trabajo_historial_confinado_6,
+                           sgis_permiso_trabajo_historial_confinado_7,
+                           sgis_permiso_trabajo_historial_confinado_8,
+                           sgis_permiso_trabajo_historial_confinado_9,
+                           sgis_permiso_trabajo_historial_confinado_10,
+                           sgis_permiso_trabajo_historial_confinado_11,
+                           sgis_permiso_trabajo_historial_confinado_firma_tecnico,
+                           sgis_permiso_trabajo_historial_confinado_firma_supervisor
+                    FROM sgis_permiso_trabajo_historial_semanal_confinado
+                    WHERE id_codigo_consumidor = %s AND DATE(sgis_permiso_trabajo_historial_confinado_fecha) BETWEEN %s AND %s
+                    ORDER BY sgis_permiso_trabajo_historial_confinado_fecha
+                    """,
+                    (info.get('id'), inicio, fin)
+                )
+                rows_c = cursor.fetchall() or []
+            for r in rows_c:
+                try:
+                    d = r.get('sgis_permiso_trabajo_historial_confinado_fecha')
+                    day = d.day if hasattr(d, 'day') else datetime.strptime(str(d), '%Y-%m-%d').day
+                    idx = day - 1
+                    if 0 <= idx < 31:
+                        for i in range(1, 12):
+                            key = f'sgis_permiso_trabajo_historial_confinado_{i}'
+                            matriz_conf_items[str(i)][idx] = r.get(key) or ''
+                        firmas_conf_tecnico[idx] = (r.get('sgis_permiso_trabajo_historial_confinado_firma_tecnico') or '').strip()
+                        firmas_conf_supervisor[idx] = (r.get('sgis_permiso_trabajo_historial_confinado_firma_supervisor') or '').strip()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        matriz_alt_items = {str(i): arr() for i in range(1, 25)}
+        firmas_alt_tecnico = arr()
+        firmas_alt_supervisor = arr()
+        try:
+            rows_a = []
+            if permiso_ids:
+                placeholders = ','.join(['%s'] * len(permiso_ids))
+                sql_a = f"""
+                SELECT sgis_permiso_trabajo_historial_altura_fecha,
+                       sgis_permiso_trabajo_historial_altura_1,
+                       sgis_permiso_trabajo_historial_altura_2,
+                       sgis_permiso_trabajo_historial_altura_3,
+                       sgis_permiso_trabajo_historial_altura_4,
+                       sgis_permiso_trabajo_historial_altura_5,
+                       sgis_permiso_trabajo_historial_altura_6,
+                       sgis_permiso_trabajo_historial_altura_7,
+                       sgis_permiso_trabajo_historial_altura_8,
+                       sgis_permiso_trabajo_historial_altura_9,
+                       sgis_permiso_trabajo_historial_altura_10,
+                       sgis_permiso_trabajo_historial_altura_11,
+                       sgis_permiso_trabajo_historial_altura_12,
+                       sgis_permiso_trabajo_historial_altura_13,
+                       sgis_permiso_trabajo_historial_altura_14,
+                       sgis_permiso_trabajo_historial_altura_15,
+                       sgis_permiso_trabajo_historial_altura_16,
+                       sgis_permiso_trabajo_historial_altura_17,
+                       sgis_permiso_trabajo_historial_altura_18,
+                       sgis_permiso_trabajo_historial_altura_19,
+                       sgis_permiso_trabajo_historial_altura_20,
+                       sgis_permiso_trabajo_historial_altura_21,
+                       sgis_permiso_trabajo_historial_altura_22,
+                       sgis_permiso_trabajo_historial_altura_23,
+                       sgis_permiso_trabajo_historial_altura_24,
+                       sgis_permiso_trabajo_historial_semanal_altura_firma_tecnico,
+                       sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor
+                FROM sgis_permiso_trabajo_historial_semanal_altura
+                WHERE id_sgis_permiso_trabajo IN ({placeholders})
+                  AND DATE(sgis_permiso_trabajo_historial_altura_fecha) BETWEEN %s AND %s
+                ORDER BY sgis_permiso_trabajo_historial_altura_fecha
+                """
+                params_a = tuple(permiso_ids) + (inicio, fin)
+                cursor.execute(sql_a, params_a)
+                rows_a = cursor.fetchall() or []
+            else:
+                cursor.execute(
+                    """
+                    SELECT sgis_permiso_trabajo_historial_altura_fecha,
+                           sgis_permiso_trabajo_historial_altura_1,
+                           sgis_permiso_trabajo_historial_altura_2,
+                           sgis_permiso_trabajo_historial_altura_3,
+                           sgis_permiso_trabajo_historial_altura_4,
+                           sgis_permiso_trabajo_historial_altura_5,
+                           sgis_permiso_trabajo_historial_altura_6,
+                           sgis_permiso_trabajo_historial_altura_7,
+                           sgis_permiso_trabajo_historial_altura_8,
+                           sgis_permiso_trabajo_historial_altura_9,
+                           sgis_permiso_trabajo_historial_altura_10,
+                           sgis_permiso_trabajo_historial_altura_11,
+                           sgis_permiso_trabajo_historial_altura_12,
+                           sgis_permiso_trabajo_historial_altura_13,
+                           sgis_permiso_trabajo_historial_altura_14,
+                           sgis_permiso_trabajo_historial_altura_15,
+                           sgis_permiso_trabajo_historial_altura_16,
+                           sgis_permiso_trabajo_historial_altura_17,
+                           sgis_permiso_trabajo_historial_altura_18,
+                           sgis_permiso_trabajo_historial_altura_19,
+                           sgis_permiso_trabajo_historial_altura_20,
+                           sgis_permiso_trabajo_historial_altura_21,
+                           sgis_permiso_trabajo_historial_altura_22,
+                           sgis_permiso_trabajo_historial_altura_23,
+                           sgis_permiso_trabajo_historial_altura_24,
+                           sgis_permiso_trabajo_historial_semanal_altura_firma_tecnico,
+                           sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor
+                    FROM sgis_permiso_trabajo_historial_semanal_altura
+                    WHERE id_codigo_consumidor = %s AND DATE(sgis_permiso_trabajo_historial_altura_fecha) BETWEEN %s AND %s
+                    ORDER BY sgis_permiso_trabajo_historial_altura_fecha
+                    """,
+                    (info.get('id'), inicio, fin)
+                )
+                rows_a = cursor.fetchall() or []
+            for r in rows_a:
+                try:
+                    d = r.get('sgis_permiso_trabajo_historial_altura_fecha')
+                    day = d.day if hasattr(d, 'day') else datetime.strptime(str(d), '%Y-%m-%d').day
+                    idx = day - 1
+                    if 0 <= idx < 31:
+                        for i in range(1, 25):
+                            key = f'sgis_permiso_trabajo_historial_altura_{i}'
+                            matriz_alt_items[str(i)][idx] = r.get(key) or ''
+                        firmas_alt_tecnico[idx] = (r.get('sgis_permiso_trabajo_historial_semanal_altura_firma_tecnico') or '').strip()
+                        firmas_alt_supervisor[idx] = (r.get('sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor') or '').strip()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        mat_conf = { 'items': matriz_conf_items }
+        mat_alt = { 'items': matriz_alt_items }
+        return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'ultimo_dia': ultimo_dia, 'info': info, 'permiso': {'semanas': semanas}, 'matriz_confinado': mat_conf, 'matriz_altura': mat_alt, 'firmas_confinado_tecnico': firmas_conf_tecnico, 'firmas_confinado_supervisor': firmas_conf_supervisor, 'firmas_altura_tecnico': firmas_alt_tecnico, 'firmas_altura_supervisor': firmas_alt_supervisor})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:

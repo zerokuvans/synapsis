@@ -1313,7 +1313,7 @@ def registrar_rutas_encuestas(app):
                     'nombre': t.get('nombre'),
                     'carpeta': t.get('carpeta'),
                     'supervisor': t.get('super'),
-                    'fecha': fecha.strftime('%Y-%m-%d') if isinstance(fecha, datetime) else (fecha.split(' ')[0] if isinstance(fecha, str) and ' ' in fecha else (fecha if fecha else None)),
+                    'fecha': fecha.strftime('%Y-%m-%d %H:%M:%S') if isinstance(fecha, datetime) else (fecha if fecha else None),
                     'estado': estado
                 })
 
@@ -1506,13 +1506,13 @@ def registrar_rutas_encuestas(app):
             valores.append(estado)
             if estado == 'activa':
                 campos.append('fecha_activacion = NOW()')
-                try:
-                    td_raw = data.get('timer_duracion_segundos')
-                    td = int(td_raw) if td_raw is not None else 240
-                except Exception:
-                    td = 240
-                if td not in (30, 60, 90, 120, 240):
-                    td = 240
+            try:
+                td_raw = data.get('timer_duracion_segundos')
+                td = int(td_raw) if td_raw is not None else 240
+            except Exception:
+                td = 240
+            if td not in (30, 60, 90, 120, 240):
+                td = 240
                 campos.append('timer_duracion_segundos = %s')
                 valores.append(td)
                 now = datetime.now()
@@ -3173,7 +3173,7 @@ def registrar_rutas_encuestas(app):
                 GROUP BY r.usuario_id, ro.nombre, ro.super, ro.carpeta, r.fecha_respuesta, r.estado, r.porcentaje_obtenido, r.duracion_segundos
                 ORDER BY COALESCE(r.porcentaje_obtenido, 0) DESC, puntaje_total DESC, COALESCE(r.duracion_segundos, 999999) ASC, r.fecha_respuesta ASC
                 """,
-                ('%Y-%m-%d', encuesta_id)
+                ('%Y-%m-%d %H:%i:%s', encuesta_id)
             )
             puntajes = cur.fetchall() or []
 
@@ -3251,7 +3251,7 @@ def registrar_rutas_encuestas(app):
                             GROUP BY r.usuario_id, ro.nombre, ro.super, ro.carpeta, r.fecha_respuesta, r.estado, r.porcentaje_obtenido, r.duracion_segundos
                             ORDER BY COALESCE(r.porcentaje_obtenido, 0) DESC, puntaje_total DESC, COALESCE(r.duracion_segundos, 999999) ASC, r.fecha_respuesta ASC
                             """,
-                            ('%Y-%m-%d', encuesta_id)
+                            ('%Y-%m-%d %H:%i:%s', encuesta_id)
                         )
                         puntajes = cur.fetchall() or []
                         try:

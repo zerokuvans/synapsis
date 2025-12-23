@@ -9,6 +9,7 @@ from datetime import date, datetime
 import bcrypt
 import json
 
+import requests
 app = Flask(__name__)
 app.secret_key = 'synapsis-secret-key-2024-production-secure-key-12345'
 db = SQLAlchemy()
@@ -209,6 +210,205 @@ def ensure_riesgo_table():
         pass
 
 ensure_riesgo_table()
+
+def ensure_sgis_permiso_trabajo_tables():
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sgis_permiso_trabajo (
+                id_sgis_permiso_trabajo INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                sgis_permiso_trabajo_fecha_emision DATE NOT NULL,
+                sgis_permiso_trabajo_fecha_finalizacion DATE NOT NULL,
+                sgis_permiso_trabajo_trabajadores INT DEFAULT 1,
+                sgis_permiso_trabajo_emitido_por VARCHAR(128) NULL,
+                sgis_permiso_trabajo_proyecto VARCHAR(128) NULL,
+                sgis_permiso_trabajo_ciudad VARCHAR(128) NULL,
+                sgis_permiso_trabajo_responsable_trabajo VARCHAR(128) NULL,
+                sgis_permiso_trabajo_cargo VARCHAR(128) NULL,
+                nombre VARCHAR(128) NULL,
+                cargo VARCHAR(128) NULL,
+                cedula VARCHAR(32) NULL,
+                recurso_operativo_cedula VARCHAR(32) NULL,
+                sgis_permiso_trabajo_trabajo_ejecutar VARCHAR(255) NULL,
+                sgis_permiso_trabajo_descripcion_tarea TEXT NULL,
+                sgis_permiso_trabajo_herramienta TEXT NULL,
+                sgis_permiso_trabajo_herramienta_electrica ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_herramienta_manual ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_equipos_alturas ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_otros_herramientas VARCHAR(255) NULL,
+                sgis_permiso_trabajo_iluminacion ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_animales ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_izaje_alturas ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_obstaculos_evacuacion ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_vehiculos_area ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_trabajo_alturas ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_trabajo_piso_humedo ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_manejo_energia_peligrosa ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_trabajo_manual ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_caida_objetos ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_otros_area VARCHAR(255) NULL,
+                sgis_permiso_trabajo_proyeccion_particulas ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_caidas_menor_2m ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_caidas_mayor_2m ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_acceso_mal_estado ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_levantamiento_carga_mecanica ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_condicion_clima ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_clima VARCHAR(255) NULL,
+                sgis_permiso_trabajo_proxi_red_energizasa ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_proxi_red VARCHAR(255) NULL,
+                sgis_permiso_trabajo_vibraciones ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_contacto_electrico ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_atrapamiento ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_cable_expuesto ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_corte_no_visible ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_atmosfera_explosiva ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_fuentes_ignicion ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_vapores ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_alta_temperatura ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_baja_temperatura ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_iluminacion_deficiente ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_quemaduras ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_almacenamientos_quimicos ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_extensiones_mal_estado ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_ruido ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_contacto_directo_indirecto ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_caida_objeto ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_espacio_reducido ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_levantamiento_manual_cargas ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_subestacion_inundada ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_excavaciones ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_otros VARCHAR(255) NULL,
+                sgis_permiso_trabajo_calzado_dielectrico ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_guantes_nitrilo ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_guantes_vaqueta ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_gafas_proteccion ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_casco_dielectrico ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_tie_off ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_mosqueton ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_eslinga ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_arrestador ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_arnes ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_linea_vida ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_escalera_tijera ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_escalera_extensible ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_cinta_precaucion ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_conos ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_botiquin ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_notificacion_trabajo ENUM('SI','NO') NULL,
+                sgis_permiso_trabajo_responsabilidades_permiso ENUM('SI','NO') NULL,
+                sgis_permiso_trabajo_condicion_interrupcion ENUM('SI','NO') NULL,
+                sgis_permiso_trabajo_cambios_seguridad_trabajo ENUM('SI','NO') NULL,
+                sgis_permiso_trabajo_induccion_seguridad ENUM('SI','NO') NULL,
+                sgis_permiso_trabajo_capacitacion_tema ENUM('SI','NO') NULL,
+                sgis_permiso_trabajo_metodos_inspeccion ENUM('SI','NO') NULL,
+                sgis_permiso_trabajo_responsables_area ENUM('SI','NO') NULL,
+                sgis_permiso_trabajo_mecanismo_control_riesgo ENUM('SI','NO') NULL,
+                sgis_permiso_trabajo_alarmas_puntos_reunion ENUM('SI','NO') NULL,
+                sgis_permiso_trabajo_ubicacion_equipos_incendio ENUM('SI','NO') NULL,
+                sgis_permiso_trabajo_riesgos_trabajo_area ENUM('SI','NO') NULL,
+                sgis_permiso_trabajo_impacto_ambiental ENUM('SI','NO') NULL,
+                sgis_permiso_trabajo_ats ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_inspecciones_relizadas ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_procedimientos_trabajo ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_arl_afp_eps ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_confinado_aplica ENUM('APLICA','NO_APLICA') NULL,
+                sgis_permiso_trabajo_altura_aplica ENUM('APLICA','NO_APLICA') NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NULL DEFAULT NULL,
+                INDEX idx_permiso_usuario (id_codigo_consumidor),
+                INDEX idx_permiso_emision (sgis_permiso_trabajo_fecha_emision),
+                INDEX idx_permiso_finalizacion (sgis_permiso_trabajo_fecha_finalizacion)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sgis_permiso_trabajo_historial_semanal_confinado (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                id_sgis_permiso_trabajo INT NOT NULL,
+                id_codigo_consumidor INT NOT NULL,
+                sgis_permiso_trabajo_historial_confinado_1 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_confinado_2 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_confinado_3 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_confinado_4 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_confinado_5 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_confinado_6 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_confinado_7 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_confinado_8 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_confinado_9 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_confinado_10 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_confinado_11 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_confinado_fecha DATE NULL,
+                sgis_permiso_trabajo_historial_confinado_firma_tecnico LONGTEXT NULL,
+                sgis_permiso_trabajo_historial_confinado_firma_supervisor LONGTEXT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_conf_permiso (id_sgis_permiso_trabajo),
+                INDEX idx_conf_usuario (id_codigo_consumidor),
+                INDEX idx_conf_fecha (sgis_permiso_trabajo_historial_confinado_fecha)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sgis_permiso_trabajo_historial_semanal_altura (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                id_sgis_permiso_trabajo INT NOT NULL,
+                id_codigo_consumidor INT NOT NULL,
+                sgis_permiso_trabajo_historial_altura_1 VARCHAR(64) NULL,
+                sgis_permiso_trabajo_historial_altura_2 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_3 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_4 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_5 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_6 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_7 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_8 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_9 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_10 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_11 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_12 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_13 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_14 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_15 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_16 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_17 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_18 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_19 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_20 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_21 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_22 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_23 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_24 ENUM('C','NC','NA') NULL,
+                sgis_permiso_trabajo_historial_altura_fecha DATE NULL,
+                sgis_permiso_trabajo_historial_semanal_altura_firma_tecnico LONGTEXT NULL,
+                sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor LONGTEXT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_alt_permiso (id_sgis_permiso_trabajo),
+                INDEX idx_alt_usuario (id_codigo_consumidor),
+                INDEX idx_alt_fecha (sgis_permiso_trabajo_historial_altura_fecha)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        conn.commit()
+        cur.close(); conn.close()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+
+ensure_sgis_permiso_trabajo_tables()
+
+def _fecha_finalizacion_domingo(fecha_base):
+    from datetime import timedelta
+    d = fecha_base
+    w = d.weekday()
+    delta = 6 - w
+    return d + timedelta(days=delta)
 
 def import_riesgo_from_shapefile():
     try:
@@ -9284,6 +9484,406 @@ def api_agrupaciones_codigos_facturacion():
             cursor.close()
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
+
+APITUDE_BASE_URL = 'https://apitude.co'
+APITUDE_SIMIT_ENDPOINT = '/api/v1.0/requests/simit-co/'
+
+def apitude_simit_create_request(document_type, document_number):
+    api_key = os.getenv('APITUDE_API_KEY')
+    if not api_key:
+        return {'success': False, 'error': 'CONFIG', 'message': 'API key no configurada'}
+    url = f"{APITUDE_BASE_URL}{APITUDE_SIMIT_ENDPOINT}"
+    headers = {'x-api-key': api_key, 'Content-Type': 'application/json'}
+    payload = {'document_type': document_type, 'document_number': document_number}
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=30)
+        if r.status_code >= 400:
+            return {'success': False, 'status_code': r.status_code, 'error': 'HTTP', 'response': r.text}
+        data = r.json()
+        return {'success': True, 'data': data}
+    except Exception as e:
+        return {'success': False, 'error': 'EXCEPTION', 'message': str(e)}
+
+@app.route('/api/mpa/simit/request', methods=['POST'])
+@login_required
+def api_mpa_simit_request():
+    data = request.get_json(silent=True) or {}
+    document_type = data.get('document_type') or request.form.get('document_type')
+    document_number = data.get('document_number') or request.form.get('document_number')
+    if not document_type or not document_number:
+        return jsonify({'success': False, 'message': 'document_type y document_number requeridos'}), 400
+    result = apitude_simit_create_request(document_type, document_number)
+    if not result.get('success'):
+        status = result.get('status_code') or 500
+        return jsonify(result), status
+    d = result.get('data') or {}
+    return jsonify({'success': True, 'message': d.get('message'), 'url': d.get('url'), 'request_id': d.get('request_id')})
+
+@app.route('/api/mpa/simit/result/<request_id>', methods=['GET'])
+@login_required
+def api_mpa_simit_result(request_id):
+    api_key = os.getenv('APITUDE_API_KEY')
+    if not api_key:
+        return jsonify({'success': False, 'message': 'API key no configurada'}), 500
+    path = f"/api/v1.0/requests/simit-co/{request_id}/"
+    url = f"{APITUDE_BASE_URL}{path}"
+    headers = {'x-api-key': api_key, 'Accept': 'application/json'}
+    try:
+        r = requests.get(url, headers=headers, timeout=30)
+        content_type = r.headers.get('Content-Type') or ''
+        data = r.json() if 'application/json' in content_type else {'raw': r.text}
+        if r.status_code >= 400:
+            return jsonify({'success': False, 'status_code': r.status_code, 'data': data}), r.status_code
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/sgis/permiso-trabajo', methods=['POST'])
+@login_required
+def api_sgis_permiso_trabajo_crear():
+    u = session.get('user_id') or session.get('id_codigo_consumidor')
+    if not u:
+        return jsonify({'success': False, 'message': 'No autenticado'}), 401
+    payload = request.get_json(silent=True) or {}
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'success': False, 'message': 'BD no disponible'}), 500
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("""
+            SELECT nombre, cargo, recurso_operativo_cedula, super, cliente, ciudad
+            FROM recurso_operativo
+            WHERE id_codigo_consumidor = %s AND estado = 'Activo'
+        """, (u,))
+        ro = cur.fetchone() or {}
+        hoy = get_bogota_datetime().date()
+        fin = _fecha_finalizacion_domingo(hoy)
+        cur.execute("""
+            SELECT id_sgis_permiso_trabajo
+            FROM sgis_permiso_trabajo
+            WHERE id_codigo_consumidor = %s AND sgis_permiso_trabajo_fecha_emision = %s AND sgis_permiso_trabajo_fecha_finalizacion = %s
+        """, (u, hoy, fin))
+        existing = cur.fetchone()
+        def _tri(v):
+            if v is None:
+                return None
+            s = str(v).strip().upper()
+            if s in ('C','NC','NA','N.A','N/A'):
+                return 'NA' if s in ('NA','N.A','N/A') else s
+            return None
+        def _yn(v):
+            if v is None:
+                return None
+            s = str(v).strip().upper()
+            if s in ('SI','NO'):
+                return s
+            return None
+        def _ap(v):
+            if v is None:
+                return None
+            s = str(v).strip().upper().replace(' ','_')
+            if s in ('APLICA','NO_APLICA'):
+                return s
+            return None
+        fields = {
+            'id_codigo_consumidor': u,
+            'sgis_permiso_trabajo_fecha_emision': hoy,
+            'sgis_permiso_trabajo_fecha_finalizacion': fin,
+            'sgis_permiso_trabajo_trabajadores': 1,
+            'sgis_permiso_trabajo_emitido_por': ro.get('super'),
+            'sgis_permiso_trabajo_proyecto': ro.get('cliente'),
+            'sgis_permiso_trabajo_ciudad': ro.get('ciudad'),
+            'sgis_permiso_trabajo_responsable_trabajo': ro.get('nombre'),
+            'sgis_permiso_trabajo_cargo': ro.get('cargo'),
+            'nombre': ro.get('nombre'),
+            'cargo': ro.get('cargo'),
+            'cedula': ro.get('recurso_operativo_cedula'),
+            'recurso_operativo_cedula': ro.get('recurso_operativo_cedula'),
+            'sgis_permiso_trabajo_trabajo_ejecutar': payload.get('sgis_permiso_trabajo_trabajo_ejecutar'),
+            'sgis_permiso_trabajo_descripcion_tarea': payload.get('sgis_permiso_trabajo_descripcion_tarea'),
+            'sgis_permiso_trabajo_herramienta': payload.get('sgis_permiso_trabajo_herramienta'),
+            'sgis_permiso_trabajo_herramienta_electrica': _tri(payload.get('sgis_permiso_trabajo_herramienta_electrica')),
+            'sgis_permiso_trabajo_herramienta_manual': _tri(payload.get('sgis_permiso_trabajo_herramienta_manual')),
+            'sgis_permiso_trabajo_equipos_alturas': _tri(payload.get('sgis_permiso_trabajo_equipos_alturas')),
+            'sgis_permiso_trabajo_otros_herramientas': payload.get('sgis_permiso_trabajo_otros_herramientas'),
+            'sgis_permiso_trabajo_iluminacion': _tri(payload.get('sgis_permiso_trabajo_iluminacion')),
+            'sgis_permiso_trabajo_animales': _tri(payload.get('sgis_permiso_trabajo_animales')),
+            'sgis_permiso_trabajo_izaje_alturas': _tri(payload.get('sgis_permiso_trabajo_izaje_alturas')),
+            'sgis_permiso_trabajo_obstaculos_evacuacion': _tri(payload.get('sgis_permiso_trabajo_obstaculos_evacuacion')),
+            'sgis_permiso_trabajo_vehiculos_area': _tri(payload.get('sgis_permiso_trabajo_vehiculos_area')),
+            'sgis_permiso_trabajo_trabajo_alturas': _tri(payload.get('sgis_permiso_trabajo_trabajo_alturas')),
+            'sgis_permiso_trabajo_trabajo_piso_humedo': _tri(payload.get('sgis_permiso_trabajo_trabajo_piso_humedo')),
+            'sgis_permiso_trabajo_manejo_energia_peligrosa': _tri(payload.get('sgis_permiso_trabajo_manejo_energia_peligrosa')),
+            'sgis_permiso_trabajo_trabajo_manual': _tri(payload.get('sgis_permiso_trabajo_trabajo_manual')),
+            'sgis_permiso_trabajo_caida_objetos': _tri(payload.get('sgis_permiso_trabajo_caida_objetos')),
+            'sgis_permiso_trabajo_otros_area': payload.get('sgis_permiso_trabajo_otros_area'),
+            'sgis_permiso_trabajo_proyeccion_particulas': _tri(payload.get('sgis_permiso_trabajo_proyeccion_particulas')),
+            'sgis_permiso_trabajo_caidas_menor_2m': _tri(payload.get('sgis_permiso_trabajo_caidas_menor_2m')),
+            'sgis_permiso_trabajo_caidas_mayor_2m': _tri(payload.get('sgis_permiso_trabajo_caidas_mayor_2m')),
+            'sgis_permiso_trabajo_acceso_mal_estado': _tri(payload.get('sgis_permiso_trabajo_acceso_mal_estado')),
+            'sgis_permiso_trabajo_levantamiento_carga_mecanica': _tri(payload.get('sgis_permiso_trabajo_levantamiento_carga_mecanica')),
+            'sgis_permiso_trabajo_condicion_clima': _tri(payload.get('sgis_permiso_trabajo_condicion_clima')),
+            'sgis_permiso_trabajo_clima': payload.get('sgis_permiso_trabajo_clima'),
+            'sgis_permiso_trabajo_proxi_red_energizasa': _tri(payload.get('sgis_permiso_trabajo_proxi_red_energizasa')),
+            'sgis_permiso_trabajo_proxi_red': payload.get('sgis_permiso_trabajo_proxi_red'),
+            'sgis_permiso_trabajo_vibraciones': _tri(payload.get('sgis_permiso_trabajo_vibraciones')),
+            'sgis_permiso_trabajo_contacto_electrico': _tri(payload.get('sgis_permiso_trabajo_contacto_electrico')),
+            'sgis_permiso_trabajo_atrapamiento': _tri(payload.get('sgis_permiso_trabajo_atrapamiento')),
+            'sgis_permiso_trabajo_cable_expuesto': _tri(payload.get('sgis_permiso_trabajo_cable_expuesto')),
+            'sgis_permiso_trabajo_corte_no_visible': _tri(payload.get('sgis_permiso_trabajo_corte_no_visible')),
+            'sgis_permiso_trabajo_atmosfera_explosiva': _tri(payload.get('sgis_permiso_trabajo_atmosfera_explosiva')),
+            'sgis_permiso_trabajo_fuentes_ignicion': _tri(payload.get('sgis_permiso_trabajo_fuentes_ignicion')),
+            'sgis_permiso_trabajo_vapores': _tri(payload.get('sgis_permiso_trabajo_vapores')),
+            'sgis_permiso_trabajo_alta_temperatura': _tri(payload.get('sgis_permiso_trabajo_alta_temperatura')),
+            'sgis_permiso_trabajo_baja_temperatura': _tri(payload.get('sgis_permiso_trabajo_baja_temperatura')),
+            'sgis_permiso_trabajo_iluminacion_deficiente': _tri(payload.get('sgis_permiso_trabajo_iluminacion_deficiente')),
+            'sgis_permiso_trabajo_quemaduras': _tri(payload.get('sgis_permiso_trabajo_quemaduras')),
+            'sgis_permiso_trabajo_almacenamientos_quimicos': _tri(payload.get('sgis_permiso_trabajo_almacenamientos_quimicos')),
+            'sgis_permiso_trabajo_extensiones_mal_estado': _tri(payload.get('sgis_permiso_trabajo_extensiones_mal_estado')),
+            'sgis_permiso_trabajo_ruido': _tri(payload.get('sgis_permiso_trabajo_ruido')),
+            'sgis_permiso_trabajo_contacto_directo_indirecto': _tri(payload.get('sgis_permiso_trabajo_contacto_directo_indirecto')),
+            'sgis_permiso_trabajo_caida_objeto': _tri(payload.get('sgis_permiso_trabajo_caida_objeto')),
+            'sgis_permiso_trabajo_espacio_reducido': _tri(payload.get('sgis_permiso_trabajo_espacio_reducido')),
+            'sgis_permiso_trabajo_levantamiento_manual_cargas': _tri(payload.get('sgis_permiso_trabajo_levantamiento_manual_cargas')),
+            'sgis_permiso_trabajo_subestacion_inundada': _tri(payload.get('sgis_permiso_trabajo_subestacion_inundada')),
+            'sgis_permiso_trabajo_excavaciones': _tri(payload.get('sgis_permiso_trabajo_excavaciones')),
+            'sgis_permiso_trabajo_otros': payload.get('sgis_permiso_trabajo_otros'),
+            'sgis_permiso_trabajo_calzado_dielectrico': _tri(payload.get('sgis_permiso_trabajo_calzado_dielectrico')),
+            'sgis_permiso_trabajo_guantes_nitrilo': _tri(payload.get('sgis_permiso_trabajo_guantes_nitrilo')),
+            'sgis_permiso_trabajo_guantes_vaqueta': _tri(payload.get('sgis_permiso_trabajo_guantes_vaqueta')),
+            'sgis_permiso_trabajo_gafas_proteccion': _tri(payload.get('sgis_permiso_trabajo_gafas_proteccion')),
+            'sgis_permiso_trabajo_casco_dielectrico': _tri(payload.get('sgis_permiso_trabajo_casco_dielectrico')),
+            'sgis_permiso_trabajo_tie_off': _tri(payload.get('sgis_permiso_trabajo_tie_off')),
+            'sgis_permiso_trabajo_mosqueton': _tri(payload.get('sgis_permiso_trabajo_mosqueton')),
+            'sgis_permiso_trabajo_eslinga': _tri(payload.get('sgis_permiso_trabajo_eslinga')),
+            'sgis_permiso_trabajo_arrestador': _tri(payload.get('sgis_permiso_trabajo_arrestador')),
+            'sgis_permiso_trabajo_arnes': _tri(payload.get('sgis_permiso_trabajo_arnes')),
+            'sgis_permiso_trabajo_linea_vida': _tri(payload.get('sgis_permiso_trabajo_linea_vida')),
+            'sgis_permiso_trabajo_escalera_tijera': _tri(payload.get('sgis_permiso_trabajo_escalera_tijera')),
+            'sgis_permiso_trabajo_escalera_extensible': _tri(payload.get('sgis_permiso_trabajo_escalera_extensible')),
+            'sgis_permiso_trabajo_cinta_precaucion': _tri(payload.get('sgis_permiso_trabajo_cinta_precaucion')),
+            'sgis_permiso_trabajo_conos': _tri(payload.get('sgis_permiso_trabajo_conos')),
+            'sgis_permiso_trabajo_botiquin': _tri(payload.get('sgis_permiso_trabajo_botiquin')),
+            'sgis_permiso_trabajo_notificacion_trabajo': _yn(payload.get('sgis_permiso_trabajo_notificacion_trabajo')),
+            'sgis_permiso_trabajo_responsabilidades_permiso': _yn(payload.get('sgis_permiso_trabajo_responsabilidades_permiso')),
+            'sgis_permiso_trabajo_condicion_interrupcion': _yn(payload.get('sgis_permiso_trabajo_condicion_interrupcion')),
+            'sgis_permiso_trabajo_cambios_seguridad_trabajo': _yn(payload.get('sgis_permiso_trabajo_cambios_seguridad_trabajo')),
+            'sgis_permiso_trabajo_induccion_seguridad': _yn(payload.get('sgis_permiso_trabajo_induccion_seguridad')),
+            'sgis_permiso_trabajo_capacitacion_tema': _yn(payload.get('sgis_permiso_trabajo_capacitacion_tema')),
+            'sgis_permiso_trabajo_metodos_inspeccion': _yn(payload.get('sgis_permiso_trabajo_metodos_inspeccion')),
+            'sgis_permiso_trabajo_responsables_area': _yn(payload.get('sgis_permiso_trabajo_responsables_area')),
+            'sgis_permiso_trabajo_mecanismo_control_riesgo': _yn(payload.get('sgis_permiso_trabajo_mecanismo_control_riesgo')),
+            'sgis_permiso_trabajo_alarmas_puntos_reunion': _yn(payload.get('sgis_permiso_trabajo_alarmas_puntos_reunion')),
+            'sgis_permiso_trabajo_ubicacion_equipos_incendio': _yn(payload.get('sgis_permiso_trabajo_ubicacion_equipos_incendio')),
+            'sgis_permiso_trabajo_riesgos_trabajo_area': _yn(payload.get('sgis_permiso_trabajo_riesgos_trabajo_area')),
+            'sgis_permiso_trabajo_impacto_ambiental': _yn(payload.get('sgis_permiso_trabajo_impacto_ambiental')),
+            'sgis_permiso_trabajo_ats': _tri(payload.get('sgis_permiso_trabajo_ats')),
+            'sgis_permiso_trabajo_inspecciones_relizadas': _tri(payload.get('sgis_permiso_trabajo_inspecciones_relizadas')),
+            'sgis_permiso_trabajo_procedimientos_trabajo': _tri(payload.get('sgis_permiso_trabajo_procedimientos_trabajo')),
+            'sgis_permiso_trabajo_arl_afp_eps': _tri(payload.get('sgis_permiso_trabajo_arl_afp_eps')),
+            'sgis_permiso_trabajo_confinado_aplica': _ap(payload.get('sgis_permiso_trabajo_confinado_aplica')),
+            'sgis_permiso_trabajo_altura_aplica': _ap(payload.get('sgis_permiso_trabajo_altura_aplica'))
+        }
+        cols = ",".join(fields.keys())
+        vals = tuple(fields.values())
+        if existing:
+            pid = existing['id_sgis_permiso_trabajo']
+            set_stmt = ",".join([f"{k}=%s" for k in fields.keys()])
+            cur.execute(f"UPDATE sgis_permiso_trabajo SET {set_stmt}, updated_at=NOW() WHERE id_sgis_permiso_trabajo=%s", vals + (pid,))
+            conn.commit()
+            return jsonify({'success': True, 'id_sgis_permiso_trabajo': pid, 'message': 'Actualizado'}), 200
+        cur.execute(f"INSERT INTO sgis_permiso_trabajo ({cols}) VALUES ({','.join(['%s']*len(fields))})", vals)
+        conn.commit()
+        pid = cur.lastrowid
+        return jsonify({'success': True, 'id_sgis_permiso_trabajo': pid, 'message': 'Creado'}), 201
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+@app.route('/api/sgis/permiso-trabajo/current', methods=['GET'])
+@login_required
+def api_sgis_permiso_trabajo_actual():
+    u = session.get('user_id') or session.get('id_codigo_consumidor')
+    if not u:
+        return jsonify({'success': False, 'message': 'No autenticado'}), 401
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'success': False, 'message': 'BD no disponible'}), 500
+    try:
+        cur = conn.cursor(dictionary=True)
+        hoy = get_bogota_datetime().date()
+        fin = _fecha_finalizacion_domingo(hoy)
+        cur.execute("""
+            SELECT * FROM sgis_permiso_trabajo
+            WHERE id_codigo_consumidor=%s AND sgis_permiso_trabajo_fecha_emision=%s AND sgis_permiso_trabajo_fecha_finalizacion=%s
+        """, (u, hoy, fin))
+        row = cur.fetchone()
+        if not row:
+            cur.execute(
+                """
+                SELECT nombre, cargo, recurso_operativo_cedula, super, cliente, ciudad
+                FROM recurso_operativo
+                WHERE id_codigo_consumidor = %s AND estado = 'Activo'
+                """,
+                (u,)
+            )
+            ro = cur.fetchone() or {}
+            row = {
+                'sgis_permiso_trabajo_emitido_por': ro.get('super'),
+                'sgis_permiso_trabajo_proyecto': ro.get('cliente'),
+                'sgis_permiso_trabajo_ciudad': ro.get('ciudad'),
+                'sgis_permiso_trabajo_responsable_trabajo': ro.get('nombre'),
+                'sgis_permiso_trabajo_cargo': ro.get('cargo'),
+                'recurso_operativo_cedula': ro.get('recurso_operativo_cedula'),
+                'nombre': ro.get('nombre'),
+                'cargo': ro.get('cargo'),
+                'cedula': ro.get('recurso_operativo_cedula')
+            }
+        return jsonify({'success': True, 'data': row})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+@app.route('/api/sgis/permiso-trabajo/historial/confinado', methods=['POST','GET'])
+@login_required
+def api_sgis_historial_confinado():
+    u = session.get('user_id') or session.get('id_codigo_consumidor')
+    if not u:
+        return jsonify({'success': False, 'message': 'No autenticado'}), 401
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'success': False, 'message': 'BD no disponible'}), 500
+    try:
+        cur = conn.cursor(dictionary=True)
+        if request.method == 'GET':
+            pid = request.args.get('id_sgis_permiso_trabajo', type=int)
+            if not pid:
+                return jsonify({'success': False, 'message': 'id_sgis_permiso_trabajo requerido'}), 400
+            cur.execute("""SELECT * FROM sgis_permiso_trabajo_historial_semanal_confinado WHERE id_sgis_permiso_trabajo=%s ORDER BY sgis_permiso_trabajo_historial_confinado_fecha ASC""", (pid,))
+            rows = cur.fetchall()
+            return jsonify({'success': True, 'data': rows})
+        data = request.get_json(silent=True) or {}
+        pid = data.get('id_sgis_permiso_trabajo')
+        if not pid:
+            return jsonify({'success': False, 'message': 'id_sgis_permiso_trabajo requerido'}), 400
+        fecha = data.get('sgis_permiso_trabajo_historial_confinado_fecha') or get_bogota_datetime().date()
+        cols = [
+            'id_sgis_permiso_trabajo','id_codigo_consumidor','sgis_permiso_trabajo_historial_confinado_1','sgis_permiso_trabajo_historial_confinado_2','sgis_permiso_trabajo_historial_confinado_3','sgis_permiso_trabajo_historial_confinado_4','sgis_permiso_trabajo_historial_confinado_5','sgis_permiso_trabajo_historial_confinado_6','sgis_permiso_trabajo_historial_confinado_7','sgis_permiso_trabajo_historial_confinado_8','sgis_permiso_trabajo_historial_confinado_9','sgis_permiso_trabajo_historial_confinado_10','sgis_permiso_trabajo_historial_confinado_11','sgis_permiso_trabajo_historial_confinado_fecha','sgis_permiso_trabajo_historial_confinado_firma_tecnico','sgis_permiso_trabajo_historial_confinado_firma_supervisor'
+        ]
+        vals = [
+            pid, u,
+            data.get('sgis_permiso_trabajo_historial_confinado_1'),
+            data.get('sgis_permiso_trabajo_historial_confinado_2'),
+            data.get('sgis_permiso_trabajo_historial_confinado_3'),
+            data.get('sgis_permiso_trabajo_historial_confinado_4'),
+            data.get('sgis_permiso_trabajo_historial_confinado_5'),
+            data.get('sgis_permiso_trabajo_historial_confinado_6'),
+            data.get('sgis_permiso_trabajo_historial_confinado_7'),
+            data.get('sgis_permiso_trabajo_historial_confinado_8'),
+            data.get('sgis_permiso_trabajo_historial_confinado_9'),
+            data.get('sgis_permiso_trabajo_historial_confinado_10'),
+            data.get('sgis_permiso_trabajo_historial_confinado_11'),
+            fecha,
+            data.get('sgis_permiso_trabajo_historial_confinado_firma_tecnico'),
+            data.get('sgis_permiso_trabajo_historial_confinado_firma_supervisor')
+        ]
+        cur.execute(f"INSERT INTO sgis_permiso_trabajo_historial_semanal_confinado ({','.join(cols)}) VALUES ({','.join(['%s']*len(cols))})", tuple(vals))
+        conn.commit()
+        return jsonify({'success': True}), 201
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
+
+@app.route('/api/sgis/permiso-trabajo/historial/alturas', methods=['POST','GET'])
+@login_required
+def api_sgis_historial_alturas():
+    u = session.get('user_id') or session.get('id_codigo_consumidor')
+    if not u:
+        return jsonify({'success': False, 'message': 'No autenticado'}), 401
+    conn = get_db_connection()
+    if conn is None:
+        return jsonify({'success': False, 'message': 'BD no disponible'}), 500
+    try:
+        cur = conn.cursor(dictionary=True)
+        if request.method == 'GET':
+            pid = request.args.get('id_sgis_permiso_trabajo', type=int)
+            if not pid:
+                return jsonify({'success': False, 'message': 'id_sgis_permiso_trabajo requerido'}), 400
+            cur.execute("""SELECT * FROM sgis_permiso_trabajo_historial_semanal_altura WHERE id_sgis_permiso_trabajo=%s ORDER BY sgis_permiso_trabajo_historial_altura_fecha ASC""", (pid,))
+            rows = cur.fetchall()
+            return jsonify({'success': True, 'data': rows})
+        data = request.get_json(silent=True) or {}
+        pid = data.get('id_sgis_permiso_trabajo')
+        if not pid:
+            return jsonify({'success': False, 'message': 'id_sgis_permiso_trabajo requerido'}), 400
+        fecha = data.get('sgis_permiso_trabajo_historial_altura_fecha') or get_bogota_datetime().date()
+        cols = [
+            'id_sgis_permiso_trabajo','id_codigo_consumidor','sgis_permiso_trabajo_historial_altura_1','sgis_permiso_trabajo_historial_altura_2','sgis_permiso_trabajo_historial_altura_3','sgis_permiso_trabajo_historial_altura_4','sgis_permiso_trabajo_historial_altura_5','sgis_permiso_trabajo_historial_altura_6','sgis_permiso_trabajo_historial_altura_7','sgis_permiso_trabajo_historial_altura_8','sgis_permiso_trabajo_historial_altura_9','sgis_permiso_trabajo_historial_altura_10','sgis_permiso_trabajo_historial_altura_11','sgis_permiso_trabajo_historial_altura_12','sgis_permiso_trabajo_historial_altura_13','sgis_permiso_trabajo_historial_altura_14','sgis_permiso_trabajo_historial_altura_15','sgis_permiso_trabajo_historial_altura_16','sgis_permiso_trabajo_historial_altura_17','sgis_permiso_trabajo_historial_altura_18','sgis_permiso_trabajo_historial_altura_19','sgis_permiso_trabajo_historial_altura_20','sgis_permiso_trabajo_historial_altura_21','sgis_permiso_trabajo_historial_altura_22','sgis_permiso_trabajo_historial_altura_23','sgis_permiso_trabajo_historial_altura_24','sgis_permiso_trabajo_historial_altura_fecha','sgis_permiso_trabajo_historial_semanal_altura_firma_tecnico','sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor'
+        ]
+        vals = [
+            pid, u,
+            data.get('sgis_permiso_trabajo_historial_altura_1'),
+            data.get('sgis_permiso_trabajo_historial_altura_2'),
+            data.get('sgis_permiso_trabajo_historial_altura_3'),
+            data.get('sgis_permiso_trabajo_historial_altura_4'),
+            data.get('sgis_permiso_trabajo_historial_altura_5'),
+            data.get('sgis_permiso_trabajo_historial_altura_6'),
+            data.get('sgis_permiso_trabajo_historial_altura_7'),
+            data.get('sgis_permiso_trabajo_historial_altura_8'),
+            data.get('sgis_permiso_trabajo_historial_altura_9'),
+            data.get('sgis_permiso_trabajo_historial_altura_10'),
+            data.get('sgis_permiso_trabajo_historial_altura_11'),
+            data.get('sgis_permiso_trabajo_historial_altura_12'),
+            data.get('sgis_permiso_trabajo_historial_altura_13'),
+            data.get('sgis_permiso_trabajo_historial_altura_14'),
+            data.get('sgis_permiso_trabajo_historial_altura_15'),
+            data.get('sgis_permiso_trabajo_historial_altura_16'),
+            data.get('sgis_permiso_trabajo_historial_altura_17'),
+            data.get('sgis_permiso_trabajo_historial_altura_18'),
+            data.get('sgis_permiso_trabajo_historial_altura_19'),
+            data.get('sgis_permiso_trabajo_historial_altura_20'),
+            data.get('sgis_permiso_trabajo_historial_altura_21'),
+            data.get('sgis_permiso_trabajo_historial_altura_22'),
+            data.get('sgis_permiso_trabajo_historial_altura_23'),
+            data.get('sgis_permiso_trabajo_historial_altura_24'),
+            fecha,
+            data.get('sgis_permiso_trabajo_historial_semanal_altura_firma_tecnico'),
+            data.get('sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor')
+        ]
+        cur.execute(f"INSERT INTO sgis_permiso_trabajo_historial_semanal_altura ({','.join(cols)}) VALUES ({','.join(['%s']*len(cols))})", tuple(vals))
+        conn.commit()
+        return jsonify({'success': True}), 201
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cur.close(); conn.close()
+        except Exception:
+            pass
 
 if __name__ == '__main__':
     print(f"🚀 Iniciando servidor Flask...")

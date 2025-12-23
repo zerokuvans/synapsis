@@ -1,0 +1,155 @@
+	1. INFORMACIÓN GENERAL				
+sgis_permiso_trabajo_fecha_emision	fecha en que se crea el permiso de trabajo 				
+sgis_permiso_trabajo_fecha_finalizacion	fecha en que termina el permiso creado seria los dias domingos ya que cada semana debre crear uno nuevo				
+sgis_permiso_trabajo_trabajadores	sera siempre 1				
+sgis_permiso_trabajo_emitido_por	sera el nombre del supervisor que tiene asignado el tecnico que registra el permiso				
+sgis_permiso_trabajo_proyecto	recurso_operativo columna cliente				
+sgis_permiso_trabajo_ciudad	recurso_operativo columna ciudad				
+sgis_permiso_trabajo_responsable_trabajo	recurso_operativo nombre				
+sgis_permiso_trabajo_cargo	recurso_operativo cargo				
+	2. DESCRIPCIÓN DE LA TAREA Y UBICACIÓN / EQUIPO-HERRAMIENTA A UTILIZAR (Listarlo)				
+sgis_permiso_trabajo_descripcion_tarea					
+sgis_permiso_trabajo_herramienta					
+	3. VERIFICAR EL USO DE LAS SIGUIENTES HERRAMIENTAS (Formatos de Inspección)  Cumple "C", No cumple "NC", No aplica "N.A"				
+sgis_permiso_trabajo_herramienta_electrica	check 	Herramienta eléctrica y/o mecanica.			
+sgis_permiso_trabajo_herramienta_manual	check	Herramienta manual			
+sgis_permiso_trabajo_equipos_alturas	check	Equipos Alturas			
+sgis_permiso_trabajo_otros_herramientas	campo input	Otros (especifique)			
+	4. VERIFICAR LA PRESENCIA DE LAS SIGUIENTES CONDICIONES EN EL ÁREA DE TRABAJO Cumple "C", No cumple "NC", No aplica "N.A"				
+sgis_permiso_trabajo_iluminacion	check	Iluminación (Exceso o Deficiencia)			
+sgis_permiso_trabajo_animales	check	Presencia de vectores y/o Animales			
+sgis_permiso_trabajo_izaje_alturas	check	Trabajo Izaje de cargas			
+sgis_permiso_trabajo_obstaculos_evacuacion	check	Obstáculos sobre las Rutas de Evacuación 			
+sgis_permiso_trabajo_vehiculos_area	check	Tránsito de vehiculos en el área			
+sgis_permiso_trabajo_trabajo_alturas	check	Trabajos en altura			
+sgis_permiso_trabajo_trabajo_piso_humedo	check	Trabajo sobre piso húmedo			
+sgis_permiso_trabajo_manejo_energia_peligrosa	check	Manejo de energias peligrosas			
+sgis_permiso_trabajo_trabajo_manual	check	Trabajo manual			
+sgis_permiso_trabajo_caida_objetos	check	Caída de Objetos			
+sgis_permiso_trabajo_otros_area	check	Otros (especifique)			
+	5. IDENTIFICACIÓN DE PELIGROS (Aquellos producidos por las herramientas/tareas indicadas en el numeral 2) Cumple "C", No cumple "NC", No aplica "N.A"				
+sgis_permiso_trabajo_proyeccion_particulas	check	Proyección de partículas			
+sgis_permiso_trabajo_caidas_menor_2m	check	Caídas menores a 2 m			
+sgis_permiso_trabajo_caidas_mayor_2m	check	Caídas mayores a 2 m			
+sgis_permiso_trabajo_acceso_mal_estado	check	Medios de acceso en mal estado			
+sgis_permiso_trabajo_levantamiento_carga_mecanica	check	Levantamiento de Carga Mecánico			
+sgis_permiso_trabajo_condicion_clima	check	Condiciones climáticas adversas:			
+sgis_permiso_trabajo_clima	input	Que condiciones climaticas:			
+sgis_permiso_trabajo_proxi_red_energizasa	check	Proximidad red energizada Dist. Min:			
+sgis_permiso_trabajo_proxi_red	input	Que red energizada que proximidad:			
+sgis_permiso_trabajo_vibraciones	check	Vibraciones			
+sgis_permiso_trabajo_contacto_electrico	check	Contacto eléctrico			
+sgis_permiso_trabajo_atrapamiento	check	Atrapamiento			
+sgis_permiso_trabajo_cable_expuesto	check	Cables expuestos			
+sgis_permiso_trabajo_corte_no_visible	check	Corte no visible			
+sgis_permiso_trabajo_atmosfera_explosiva	check	Atmósfera explosiva			
+sgis_permiso_trabajo_fuentes_ignicion	check	Fuentes de Ignición			
+sgis_permiso_trabajo_vapores	check	Vapores, emisiones, polvo			
+sgis_permiso_trabajo_alta_temperatura	check	Altas temperaturas			
+sgis_permiso_trabajo_baja_temperatura	check	Bajas temperaturas			
+sgis_permiso_trabajo_iluminacion_deficiente	check	Deficiencias de Iluminación			
+sgis_permiso_trabajo_quemaduras	check	Quemaduras (Herramientas y/o Materiales)			
+sgis_permiso_trabajo_almacenamientos_quimicos	check	Almacenamiento de químicos			
+sgis_permiso_trabajo_extensiones_mal_estado	check	Extensiones en mal estado			
+sgis_permiso_trabajo_ruido	check	Ruido			
+sgis_permiso_trabajo_contacto_directo_indirecto	check	Contacto directo/indirecto			
+sgis_permiso_trabajo_caida_objeto	check	Caída de objetos			
+sgis_permiso_trabajo_espacio_reducido	check	Espacio reducido			
+sgis_permiso_trabajo_levantamiento_manual_cargas	check	Levantamiento manual de cargas 			
+sgis_permiso_trabajo_subestacion_inundada	check	Subestación Inundada			
+sgis_permiso_trabajo_excavaciones	check	Excavaciones			
+sgis_permiso_trabajo_otros	input	Otros peligros (especifique)			
+	 6. ELEMENTOS DE PROTECCIÓN REQUERIDOS Cumple "C", No cumple "NC", No aplica "N.A"				
+sgis_permiso_trabajo_calzado_dielectrico	check	Calzado de seguridad Dieléctrico			
+sgis_permiso_trabajo_guantes_nitrilo	check	 Guantes de Nitrilo			
+sgis_permiso_trabajo_guantes_vaqueta	check	 Guantes de Vaqueta			
+sgis_permiso_trabajo_gafas_proteccion	check	Gafas de protección (Oscura o Clara)			
+sgis_permiso_trabajo_casco_dielectrico	check	Casco Dialectrico + Barbuquejo			
+sgis_permiso_trabajo_tie_off	check	 Tie Off			
+sgis_permiso_trabajo_mosqueton	check	Mosqueton			
+sgis_permiso_trabajo_eslinga	check	Eslinga de posicionamiento			
+sgis_permiso_trabajo_arrestador	check	Arrestador 			
+sgis_permiso_trabajo_arnes	check	Arnés de Seguridad			
+sgis_permiso_trabajo_linea_vida	check	Línea de vida:			
+sgis_permiso_trabajo_escalera_tijera	check	Escalera tipo tijera			
+sgis_permiso_trabajo_escalera_extensible	check	Escalera extensible			
+sgis_permiso_trabajo_cinta_precaucion	check	Cinta plástica de precaución			
+sgis_permiso_trabajo_conos	check	Conos			
+sgis_permiso_trabajo_botiquin	check	Botiquín de primeros auxilios			
+	7. PERSONAL AUTORIZADO				
+nombre	recurso_operativo nombre				
+cargo	recurso_operativo cargo				
+cedula	recurso_operativo cedula				
+recurso_operativo_cedula	recurso_operativo recurso_operativo_cedula				
+sgis_permiso_trabajo_trabajo_ejecutar	input	Trabajo a ejecutar (Pulidora, Caliente, Eléctrico, Alturas, Espacios Confinados, Excavación)			
+	8. Comunicación de los riesgos al personal involucrado en el trabajo de riesgo (Marque con X)				
+sgis_permiso_trabajo_notificacion_trabajo	check si/no	El personal fue notificado del trabajo a realizar			
+sgis_permiso_trabajo_responsabilidades_permiso	check si/no	Fueron comunicadas las responsabilidades del permiso			
+sgis_permiso_trabajo_condicion_interrupcion	check si/no	Se le informó al trabajador las condiciones para interrumpir el permiso			
+sgis_permiso_trabajo_cambios_seguridad_trabajo	check si/no	Se le informó al trabajador de los cambios que afectan la seguridad del trabajo			
+	El responsable del permiso asegurará que todos los trabajadores que participen en el mismo lo conozcan. Para ello, a continuacion se verifica la divulgación de lo siguiente: (Marque con una X)				
+sgis_permiso_trabajo_induccion_seguridad	check si/no	La inducción de seguridad			
+sgis_permiso_trabajo_capacitacion_tema	check si/no	Ha recibido capacitacion en el tema?			
+sgis_permiso_trabajo_metodos_inspeccion	check si/no	Métodos de inspección a utilizar			
+sgis_permiso_trabajo_responsables_area	check si/no	Los responsables del área de trabajo			
+sgis_permiso_trabajo_mecanismo_control_riesgo	check si/no	Los mecanismos de control de los riesgos			
+sgis_permiso_trabajo_alarmas_puntos_reunion	check si/no	El sistema de alarmas y los puntos de reunión			
+sgis_permiso_trabajo_ubicacion_equipos_incendio	check si/no	La ubicación de los equipos contra incendios			
+sgis_permiso_trabajo_riesgos_trabajo_area	check si/no	Los riesgos específicos del trabajo y del área			
+sgis_permiso_trabajo_impacto_ambiental	check si/no	El posible impacto ambiental del trabajo a realizar			
+	9. Verificacion de Documentacion ___Cumple, ___No cumple, _N.A__No aplica				
+sgis_permiso_trabajo_ats	CHECK	 ATS diligenciado			
+sgis_permiso_trabajo_inspecciones_relizadas	CHECK	 Inspecciones realizadas			
+sgis_permiso_trabajo_procedimientos_trabajo	CHECK	Procedimientos de Trabajo			
+sgis_permiso_trabajo_arl_afp_eps	CHECK	Afiliación ARL, AFP y EPS			
+	TRABAJOS EN ALTURA 				
+					
+sgis_permiso_trabajo_confinado_aplica	CHECK	NO APLICA	APLICA		
+	FAVOR DILIGENCIE EN LAS CASILLAS DE LOS DÍAS DE LA SEMANA:  Cumple "C", No cumple "NC", No aplica "N.A" SEGÚN CORRESPONDA PARA SU VALIDACIÓN				
+id_sgis_permiso_trabajo	ID DEL PERMISO DE TRABAJO				
+sgis_permiso_trabajo_historial_confinado_1	CHECK	El sitio esta aislado de energía.			
+sgis_permiso_trabajo_historial_confinado_2	CHECK	Se cuenta con ventilación adecuada o se requiere de ventilación mecánica y se encuentra operando adecuadamente.			
+sgis_permiso_trabajo_historial_confinado_3	CHECK	Existe vigilancia permanente de personal, contando  con sistema de comunicación entre el equipo que ejecuta la actividad y el equipo de soporte parte exterior.			
+sgis_permiso_trabajo_historial_confinado_4	CHECK	Existe iluminación suficiente en el área y  si se requiere por las condiciones del trabajo, la iluminacion es antiexplosiva.			
+sgis_permiso_trabajo_historial_confinado_5	CHECK	Si se requiere equipos de trabajo en alturas para el ingreso y salida de los trabajadores que ejecutan la actividad, se encuentran en buen estado.			
+sgis_permiso_trabajo_historial_confinado_6	CHECK	Se conoce el procedimiento de rescate en espacios confinados.			
+sgis_permiso_trabajo_historial_confinado_7	CHECK	Se requiere de 2 o mas trabajadores para la realización de este trabajo.			
+sgis_permiso_trabajo_historial_confinado_8	CHECK	Es necesario cortar el suministro de cualquier sustancia al espacio confinado.			
+sgis_permiso_trabajo_historial_confinado_9	CHECK	Es necesario cortar la energía eléctrica.			
+sgis_permiso_trabajo_historial_confinado_10	CHECK	El trabajador que entra al lugar, esta consciente de los riesgos a los que estará expuesto.			
+sgis_permiso_trabajo_historial_confinado_11	CHECK	En términos generales, ¿las condiciones de trabajo y de salud del personal que ingresará al espacio confinado es adecuada para la realización de la labor?			
+sgis_permiso_trabajo_historial_confinado_fecha	FECHA				
+sgis_permiso_trabajo_historial_confinado_firma_tecnico	FIRMA DEL TECNICO				
+sgis_permiso_trabajo_historial_confinado_firma_supervisor	FIRMA DEL SUPERVISOR				
+					
+					
+sgis_permiso_trabajo_altura_aplica	CHECK	NO APLICA	APLICA		
+					
+id_sgis_permiso_trabajo	ID DEL PERMISO DE TRABAJO				
+sgis_permiso_trabajo_historial_altura_1	CHECK	Escriba la altura aproximada a la cual se va a realizar el trabajo (por día).____________________			
+sgis_permiso_trabajo_historial_altura_2	CHECK	Señalizar y aislar la zona de trabajo con cinta de advertencia y/o conos.			
+sgis_permiso_trabajo_historial_altura_3	CHECK	Esta libre de obstáculos el área de trabajo.			
+sgis_permiso_trabajo_historial_altura_4	CHECK	Se tiene definido el procedimiento de trabajo seguro.			
+sgis_permiso_trabajo_historial_altura_5	CHECK	Los elementos de protección contra caídas están en buenas condiciones y libres de remiendos, nudos y uniones.			
+sgis_permiso_trabajo_historial_altura_6	CHECK	El personal que participará en la actividad es físicamente apto y está capacitado para trabajo en alturas (Certificado de competencia).  			
+sgis_permiso_trabajo_historial_altura_7	CHECK	El arnés a utilizar esta en optimas condiciones; material adecuado, con capacidad de 5.000 Lb o más y es de cuerpo completo. 			
+sgis_permiso_trabajo_historial_altura_8	CHECK	La línea de vida y/o eslinga a utilizar está en óptimas condiciones; es de material sintético y con capacidad para 5.000 Lb o más.			
+sgis_permiso_trabajo_historial_altura_9	CHECK	Se verificó si aplica un sistema de absorción de energía (Eslinga con absorbedor) en la línea de seguridad o eslinga (si aplica, debe disponerse). 			
+sgis_permiso_trabajo_historial_altura_10	CHECK	La eslinga y/o línea de vida está anclada a un soporte diferente a la estructura donde se van a parar los trabajadores.			
+sgis_permiso_trabajo_historial_altura_11	CHECK	El conector del arnés a la cuerda se encuentra en buenas condiciones y es de ajuste rápido. (Mosquetón)			
+sgis_permiso_trabajo_historial_altura_12	CHECK	Se cuenta con conexión a una línea de vida, tie off o punto de anclaje.			
+sgis_permiso_trabajo_historial_altura_13	CHECK	Se revisaron condiciones de los sistemas de acceso como escaleras, andamios, silla colgante, plataformas, etc. (según procedimientos  de la organización)			
+sgis_permiso_trabajo_historial_altura_14	CHECK	Se realizó la inspeccion del andamio (Fijo/Colgante) y es apto para su uso.			
+sgis_permiso_trabajo_historial_altura_15	CHECK	Se realizó la inspeccion de la escalera y es apto para su uso.			
+sgis_permiso_trabajo_historial_altura_16	CHECK	Se requiere de una línea de vida adicional.			
+sgis_permiso_trabajo_historial_altura_17	CHECK	Se ha dispuesto de portaherramientas o algún sistema de sujeción para las herramientas; los materiales y equipos se encuentran asegurados no permitiendo la caida.			
+sgis_permiso_trabajo_historial_altura_18	CHECK	La proximidad a los puntos de energía (eléctrica, mecánica, neumática, térmica, etc) fueron analizados.			
+sgis_permiso_trabajo_historial_altura_19	CHECK	Se verifican las condiciones ambientales (lluvía, velocidad del viento, iluminación).			
+sgis_permiso_trabajo_historial_altura_20	CHECK	¿El punto de anclaje esta en una posición tal que si la persona se cae no se golpea contra estructuras inferiores o adyacentes?			
+sgis_permiso_trabajo_historial_altura_21	CHECK	Se elaboró el procedimiento escrito para el rescate. 			
+sgis_permiso_trabajo_historial_altura_22	CHECK	Se cuenta con Brigadista que active el procedimiento de rescate			
+sgis_permiso_trabajo_historial_altura_23	CHECK	Se realizó el análisis de riesgos y se verificó el cumplimiento de los controles.			
+sgis_permiso_trabajo_historial_altura_24	CHECK	En términos generales, ¿las condiciones de trabajo y de salud del personal que hará el trabajo en alturas es adecuada para la realización de la labor?			
+sgis_permiso_trabajo_historial_altura_fecha	FECHA				
+sgis_permiso_trabajo_historial_semanal_altura_firma_tecnico	FIRMA DEL TECNICO				
+sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor	FIRMA DEL SUPERVISOR				

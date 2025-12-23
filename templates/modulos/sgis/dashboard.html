@@ -101,6 +101,9 @@
                     <button id="btnPreopCaidas" type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCaidas">
                       <i class="fas fa-user-shield me-2"></i>Pre-operacional Control Caídas
                     </button>
+                    <button id="btnPermisoTrabajo" type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#permisoTrabajoModal" {% if not tiene_asistencia %}disabled title="Debe registrar asistencia primero"{% endif %}>
+                      <i class="fas fa-file-signature me-2"></i>Permiso de Trabajo
+                    </button>
                   </div>
                 </div>
               </div>
@@ -130,6 +133,531 @@
   </div>
 </div>
 
+<div class="modal fade" id="permisoTrabajoModal" tabindex="-1" aria-labelledby="permisoTrabajoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="permisoTrabajoModalLabel">Permiso de Trabajo SGIS</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="permisoTrabajoAlert" class="mb-3" style="display:none"></div>
+        <form id="permisoTrabajoForm">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Supervisor</label>
+              <input type="text" class="form-control" id="emitido_por" value="{{ ro_info.super or '' }}" readonly>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Proyecto</label>
+              <input type="text" class="form-control" id="proyecto" value="{{ ro_info.cliente or '' }}" readonly>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Ciudad</label>
+              <input type="text" class="form-control" id="ciudad_permiso" value="{{ ro_info.ciudad or '' }}" readonly>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Responsable</label>
+              <input type="text" class="form-control" id="responsable_trabajo" value="{{ ro_info.nombre or '' }}" readonly>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Cargo</label>
+              <input type="text" class="form-control" id="cargo_resp" value="{{ ro_info.cargo or '' }}" readonly>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Cédula</label>
+              <input type="text" class="form-control" id="cedula_resp" value="{{ ro_info.recurso_operativo_cedula or '' }}" readonly>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Trabajo a ejecutar</label>
+              <input type="text" class="form-control" id="trabajo_ejecutar">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Herramienta</label>
+              <input type="text" class="form-control" id="herramienta">
+            </div>
+            <div class="col-12 mb-3">
+              <label class="form-label">Descripción de la tarea</label>
+              <textarea class="form-control" id="descripcion_tarea" rows="3"></textarea>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-12"><hr></div>
+            <div class="col-12">
+              <div class="accordion" id="sgisPermisoAccordion">
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="accHerr">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHerr" aria-expanded="false" aria-controls="collapseHerr">Verificación de herramientas</button>
+                  </h2>
+                  <div id="collapseHerr" class="accordion-collapse collapse" aria-labelledby="accHerr" data-bs-parent="#sgisPermisoAccordion">
+                    <div class="accordion-body">
+                      <div class="row">
+                        <div class="col-md-4 mb-3">
+                          <label class="form-label">Herramienta eléctrica/mecánica</label>
+                          <select class="form-select" id="sgis_permiso_trabajo_herramienta_electrica"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                          <label class="form-label">Herramienta manual</label>
+                          <select class="form-select" id="sgis_permiso_trabajo_herramienta_manual"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                          <label class="form-label">Equipos Alturas</label>
+                          <select class="form-select" id="sgis_permiso_trabajo_equipos_alturas"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select>
+                        </div>
+                        <div class="col-12 mb-3">
+                          <label class="form-label">Otros (especifique)</label>
+                          <input type="text" class="form-control" id="sgis_permiso_trabajo_otros_herramientas">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="accCond">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCond" aria-expanded="false" aria-controls="collapseCond">Condiciones en el área de trabajo</button>
+                  </h2>
+                  <div id="collapseCond" class="accordion-collapse collapse" aria-labelledby="accCond" data-bs-parent="#sgisPermisoAccordion">
+                    <div class="accordion-body">
+                      <div class="row">
+                        <div class="col-md-4 mb-3"><label class="form-label">Iluminación</label><select class="form-select" id="sgis_permiso_trabajo_iluminacion"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Vectores/Animales</label><select class="form-select" id="sgis_permiso_trabajo_animales"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Izaje de cargas</label><select class="form-select" id="sgis_permiso_trabajo_izaje_alturas"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Obstáculos evacuación</label><select class="form-select" id="sgis_permiso_trabajo_obstaculos_evacuacion"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Tránsito de vehículos</label><select class="form-select" id="sgis_permiso_trabajo_vehiculos_area"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Trabajos en altura</label><select class="form-select" id="sgis_permiso_trabajo_trabajo_alturas"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Piso húmedo</label><select class="form-select" id="sgis_permiso_trabajo_trabajo_piso_humedo"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Energías peligrosas</label><select class="form-select" id="sgis_permiso_trabajo_manejo_energia_peligrosa"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Trabajo manual</label><select class="form-select" id="sgis_permiso_trabajo_trabajo_manual"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Caída de objetos</label><select class="form-select" id="sgis_permiso_trabajo_caida_objetos"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-12 mb-3"><label class="form-label">Otros (especifique)</label><input type="text" class="form-control" id="sgis_permiso_trabajo_otros_area"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="accPeligros">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePeligros" aria-expanded="false" aria-controls="collapsePeligros">Identificación de peligros</button>
+                  </h2>
+                  <div id="collapsePeligros" class="accordion-collapse collapse" aria-labelledby="accPeligros" data-bs-parent="#sgisPermisoAccordion">
+                    <div class="accordion-body">
+                      <div class="row">
+                        <div class="col-md-4 mb-3"><label class="form-label">Proyección de partículas</label><select class="form-select" id="sgis_permiso_trabajo_proyeccion_particulas"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Caídas menores a 2 m</label><select class="form-select" id="sgis_permiso_trabajo_caidas_menor_2m"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Caídas mayores a 2 m</label><select class="form-select" id="sgis_permiso_trabajo_caidas_mayor_2m"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Acceso en mal estado</label><select class="form-select" id="sgis_permiso_trabajo_acceso_mal_estado"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Levantamiento carga mecánico</label><select class="form-select" id="sgis_permiso_trabajo_levantamiento_carga_mecanica"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Condiciones climáticas</label><select class="form-select" id="sgis_permiso_trabajo_condicion_clima"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Qué condiciones climáticas</label><input type="text" class="form-control" id="sgis_permiso_trabajo_clima"></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Proximidad red energizada (Dist. Min)</label><select class="form-select" id="sgis_permiso_trabajo_proxi_red_energizasa"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Qué red energizada y proximidad</label><input type="text" class="form-control" id="sgis_permiso_trabajo_proxi_red"></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Vibraciones</label><select class="form-select" id="sgis_permiso_trabajo_vibraciones"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Contacto eléctrico</label><select class="form-select" id="sgis_permiso_trabajo_contacto_electrico"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Atrapamiento</label><select class="form-select" id="sgis_permiso_trabajo_atrapamiento"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Cables expuestos</label><select class="form-select" id="sgis_permiso_trabajo_cable_expuesto"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Corte no visible</label><select class="form-select" id="sgis_permiso_trabajo_corte_no_visible"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Atmósfera explosiva</label><select class="form-select" id="sgis_permiso_trabajo_atmosfera_explosiva"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Fuentes de ignición</label><select class="form-select" id="sgis_permiso_trabajo_fuentes_ignicion"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Vapores/emisiones/polvo</label><select class="form-select" id="sgis_permiso_trabajo_vapores"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Altas temperaturas</label><select class="form-select" id="sgis_permiso_trabajo_alta_temperatura"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Bajas temperaturas</label><select class="form-select" id="sgis_permiso_trabajo_baja_temperatura"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Deficiencias de iluminación</label><select class="form-select" id="sgis_permiso_trabajo_iluminacion_deficiente"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Quemaduras</label><select class="form-select" id="sgis_permiso_trabajo_quemaduras"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Almacenamiento de químicos</label><select class="form-select" id="sgis_permiso_trabajo_almacenamientos_quimicos"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Extensiones en mal estado</label><select class="form-select" id="sgis_permiso_trabajo_extensiones_mal_estado"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Ruido</label><select class="form-select" id="sgis_permiso_trabajo_ruido"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Contacto directo/indirecto</label><select class="form-select" id="sgis_permiso_trabajo_contacto_directo_indirecto"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Caída de objetos</label><select class="form-select" id="sgis_permiso_trabajo_caida_objeto"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Espacio reducido</label><select class="form-select" id="sgis_permiso_trabajo_espacio_reducido"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Levantamiento manual de cargas</label><select class="form-select" id="sgis_permiso_trabajo_levantamiento_manual_cargas"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Subestación inundada</label><select class="form-select" id="sgis_permiso_trabajo_subestacion_inundada"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Excavaciones</label><select class="form-select" id="sgis_permiso_trabajo_excavaciones"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-12 mb-3"><label class="form-label">Otros peligros (especifique)</label><input type="text" class="form-control" id="sgis_permiso_trabajo_otros"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="accEpp">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseEpp" aria-expanded="false" aria-controls="collapseEpp">Elementos de protección requeridos</button>
+                  </h2>
+                  <div id="collapseEpp" class="accordion-collapse collapse" aria-labelledby="accEpp" data-bs-parent="#sgisPermisoAccordion">
+                    <div class="accordion-body">
+                      <div class="row">
+                        <div class="col-md-4 mb-3"><label class="form-label">Calzado dieléctrico</label><select class="form-select" id="sgis_permiso_trabajo_calzado_dielectrico"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Guantes de Nitrilo</label><select class="form-select" id="sgis_permiso_trabajo_guantes_nitrilo"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Guantes de Vaqueta</label><select class="form-select" id="sgis_permiso_trabajo_guantes_vaqueta"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Gafas de protección</label><select class="form-select" id="sgis_permiso_trabajo_gafas_proteccion"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Casco dieléctrico + Barbuquejo</label><select class="form-select" id="sgis_permiso_trabajo_casco_dielectrico"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Tie Off</label><select class="form-select" id="sgis_permiso_trabajo_tie_off"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Mosquetón</label><select class="form-select" id="sgis_permiso_trabajo_mosqueton"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Eslinga</label><select class="form-select" id="sgis_permiso_trabajo_eslinga"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Arrestador</label><select class="form-select" id="sgis_permiso_trabajo_arrestador"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Arnés de seguridad</label><select class="form-select" id="sgis_permiso_trabajo_arnes"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Línea de vida</label><select class="form-select" id="sgis_permiso_trabajo_linea_vida"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Escalera tipo tijera</label><select class="form-select" id="sgis_permiso_trabajo_escalera_tijera"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Escalera extensible</label><select class="form-select" id="sgis_permiso_trabajo_escalera_extensible"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Cinta de precaución</label><select class="form-select" id="sgis_permiso_trabajo_cinta_precaucion"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Conos</label><select class="form-select" id="sgis_permiso_trabajo_conos"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Botiquín</label><select class="form-select" id="sgis_permiso_trabajo_botiquin"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="accComunicacion">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseComunicacion" aria-expanded="false" aria-controls="collapseComunicacion">Comunicación de riesgos</button>
+                  </h2>
+                  <div id="collapseComunicacion" class="accordion-collapse collapse" aria-labelledby="accComunicacion" data-bs-parent="#sgisPermisoAccordion">
+                    <div class="accordion-body">
+                      <div class="row">
+                        <div class="col-md-4 mb-3"><label class="form-label">Notificación del trabajo</label><select class="form-select" id="sgis_permiso_trabajo_notificacion_trabajo"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Responsabilidades del permiso</label><select class="form-select" id="sgis_permiso_trabajo_responsabilidades_permiso"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Condiciones para interrumpir</label><select class="form-select" id="sgis_permiso_trabajo_condicion_interrupcion"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Cambios que afectan seguridad</label><select class="form-select" id="sgis_permiso_trabajo_cambios_seguridad_trabajo"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Inducción de seguridad</label><select class="form-select" id="sgis_permiso_trabajo_induccion_seguridad"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Capacitación en el tema</label><select class="form-select" id="sgis_permiso_trabajo_capacitacion_tema"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Métodos de inspección</label><select class="form-select" id="sgis_permiso_trabajo_metodos_inspeccion"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Responsables del área</label><select class="form-select" id="sgis_permiso_trabajo_responsables_area"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Mecanismos de control</label><select class="form-select" id="sgis_permiso_trabajo_mecanismo_control_riesgo"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Alarmas y puntos de reunión</label><select class="form-select" id="sgis_permiso_trabajo_alarmas_puntos_reunion"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Ubicación equipos contra incendios</label><select class="form-select" id="sgis_permiso_trabajo_ubicacion_equipos_incendio"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Riesgos del trabajo y área</label><select class="form-select" id="sgis_permiso_trabajo_riesgos_trabajo_area"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                        <div class="col-md-4 mb-3"><label class="form-label">Impacto ambiental</label><select class="form-select" id="sgis_permiso_trabajo_impacto_ambiental"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="accDocumentacion">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDocumentacion" aria-expanded="false" aria-controls="collapseDocumentacion">Verificación de documentación</button>
+                  </h2>
+                  <div id="collapseDocumentacion" class="accordion-collapse collapse" aria-labelledby="accDocumentacion" data-bs-parent="#sgisPermisoAccordion">
+                    <div class="accordion-body">
+                      <div class="row">
+                        <div class="col-md-3 mb-3"><label class="form-label">ATS diligenciado</label><select class="form-select" id="sgis_permiso_trabajo_ats"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-3 mb-3"><label class="form-label">Inspecciones realizadas</label><select class="form-select" id="sgis_permiso_trabajo_inspecciones_relizadas"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-3 mb-3"><label class="form-label">Procedimientos de trabajo</label><select class="form-select" id="sgis_permiso_trabajo_procedimientos_trabajo"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-3 mb-3"><label class="form-label">Afiliación ARL/AFP/EPS</label><select class="form-select" id="sgis_permiso_trabajo_arl_afp_eps"><option value="">Seleccione</option><option value="C">C</option><option value="NC">NC</option><option value="NA">NA</option></select></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Espacios confinados</label><select class="form-select" id="sgis_permiso_trabajo_confinado_aplica"><option value="">Seleccione</option><option value="APLICA">APLICA</option><option value="NO_APLICA">NO_APLICA</option></select></div>
+                        <div class="col-md-6 mb-3"><label class="form-label">Trabajos en altura</label><select class="form-select" id="sgis_permiso_trabajo_altura_aplica"><option value="">Seleccione</option><option value="APLICA">APLICA</option><option value="NO_APLICA">NO_APLICA</option></select></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12" id="secConfinado" style="display:none">
+              <hr>
+              <div class="mb-2"><strong>Espacios Confinados</strong></div>
+              <div class="row">
+                <div class="col-md-4 mb-3"><label class="form-label">El sitio está aislado de energía</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_1" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_1" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_confinado_1" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Ventilación adecuada u operando</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_2" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_2" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_confinado_2" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Vigilancia y comunicación permanente</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_3" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_3" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_confinado_3" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Iluminación suficiente/antiexplosiva</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_4" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_4" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_confinado_4" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Equipos de acceso en buen estado</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_5" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_5" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_confinado_5" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Procedimiento de rescate conocido</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_6" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_6" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_confinado_6" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Se requieren 2 o más trabajadores</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_7" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_7" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_confinado_7" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Cortar suministro de sustancias</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_8" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_8" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_confinado_8" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Cortar energía eléctrica</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_9" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_9" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_confinado_9" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Trabajador consciente de riesgos</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_10" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_confinado_10" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_confinado_10" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Condiciones de trabajo/salud adecuadas</label><select class="form-select" id="sgis_permiso_trabajo_historial_confinado_11"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                <div class="col-md-4 mb-3 d-none"><label class="form-label">Fecha</label><input type="date" class="form-control" id="sgis_permiso_trabajo_historial_confinado_fecha" readonly></div>
+                <div class="col-md-4 mb-3 d-none"><label class="form-label">Firma técnico</label><input type="text" class="form-control" id="sgis_permiso_trabajo_historial_confinado_firma_tecnico" readonly></div>
+                <div class="col-md-4 mb-3 d-none"><label class="form-label">Firma supervisor</label><input type="text" class="form-control" id="sgis_permiso_trabajo_historial_confinado_firma_supervisor"></div>
+                <div class="col-12 mb-3"><button type="button" class="btn btn-outline-dark" id="guardarHistorialConfinado">Guardar Espacios Confinados</button></div>
+              </div>
+            </div>
+            <div class="col-12" id="secAltura" style="display:none">
+              <hr>
+              <div class="mb-2"><strong>Trabajos en Altura</strong></div>
+              <div class="row">
+                <div class="col-md-6 mb-3"><label class="form-label">Altura aproximada del trabajo</label><input type="text" class="form-control" id="sgis_permiso_trabajo_historial_altura_1"></div>
+                <div class="col-md-6 mb-3 d-none"><label class="form-label">Fecha</label><input type="date" class="form-control" id="sgis_permiso_trabajo_historial_altura_fecha" readonly></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Señalizar y aislar la zona</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_2" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_2" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_2" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Área libre de obstáculos</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_3" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_3" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_3" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Procedimiento de trabajo seguro</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_4" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_4" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_4" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">EPCC en buenas condiciones</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_5" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_5" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_5" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Personal apto y capacitado</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_6" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_6" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_6" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Arnés en óptimas condiciones</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_7" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_7" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_7" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Línea de vida/eslinga óptima</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_8" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_8" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_8" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Absorbedor de energía aplica</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_9" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_9" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_9" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Anclaje distinto a estructura soporte</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_10" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_10" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_10" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Conector en buen estado</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_11" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_11" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_11" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Conexión a punto de anclaje</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_12" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_12" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_12" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Sistemas de acceso verificados</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_13" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_13" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_13" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Andamio apto</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_14" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_14" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_14" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Escalera apta</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_15" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_15" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_15" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Línea de vida adicional</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_16" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_16" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_16" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Herramientas/materiales asegurados</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_17" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_17" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_17" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Proximidad a puntos de energía analizada</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_18" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_18" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_18" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Se verifican las condiciones ambientales (lluvía, velocidad del viento, iluminación).</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_19" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_19" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_19" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">¿El punto de anclaje está en una posición segura para evitar golpes contra estructuras?</label><select class="form-select" id="sgis_permiso_trabajo_historial_altura_20"><option value="">Seleccione</option><option value="SI">SI</option><option value="NO">NO</option></select></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Se elaboró el procedimiento escrito para el rescate.</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_21" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_21" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_21" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Se cuenta con Brigadista que active el procedimiento de rescate.</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_22" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_22" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_22" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">Se realizó el análisis de riesgos y se verificó el cumplimiento de los controles.</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_23" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_23" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_23" value="NA"> N/A</label></div></div>
+                <div class="col-md-4 mb-3"><label class="form-label">En general, ¿las condiciones de trabajo y salud del personal son adecuadas para la labor?</label><div><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_24" value="C"> C</label><label class="me-2"><input type="radio" name="sgis_permiso_trabajo_historial_altura_24" value="NC"> NC</label><label><input type="radio" name="sgis_permiso_trabajo_historial_altura_24" value="NA"> N/A</label></div></div>
+                <div class="col-md-6 mb-3 d-none"><label class="form-label">Firma técnico</label><input type="text" class="form-control" id="sgis_permiso_trabajo_historial_semanal_altura_firma_tecnico" readonly></div>
+                <div class="col-md-6 mb-3 d-none"><label class="form-label">Firma supervisor</label><input type="text" class="form-control" id="sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor"></div>
+                <div class="col-12 mb-3"><button type="button" class="btn btn-outline-dark" id="guardarHistorialAltura">Guardar Trabajos en Altura</button></div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-dark" id="guardarPermisoTrabajo">Guardar</button>
+      </div>
+    </div>
+  </div>
+ </div>
+
+<script>
+const TRI_FIELDS=['sgis_permiso_trabajo_herramienta_electrica','sgis_permiso_trabajo_herramienta_manual','sgis_permiso_trabajo_equipos_alturas','sgis_permiso_trabajo_iluminacion','sgis_permiso_trabajo_animales','sgis_permiso_trabajo_izaje_alturas','sgis_permiso_trabajo_obstaculos_evacuacion','sgis_permiso_trabajo_vehiculos_area','sgis_permiso_trabajo_trabajo_alturas','sgis_permiso_trabajo_trabajo_piso_humedo','sgis_permiso_trabajo_manejo_energia_peligrosa','sgis_permiso_trabajo_trabajo_manual','sgis_permiso_trabajo_caida_objetos','sgis_permiso_trabajo_proyeccion_particulas','sgis_permiso_trabajo_caidas_menor_2m','sgis_permiso_trabajo_caidas_mayor_2m','sgis_permiso_trabajo_acceso_mal_estado','sgis_permiso_trabajo_levantamiento_carga_mecanica','sgis_permiso_trabajo_condicion_clima','sgis_permiso_trabajo_proxi_red_energizasa','sgis_permiso_trabajo_vibraciones','sgis_permiso_trabajo_contacto_electrico','sgis_permiso_trabajo_atrapamiento','sgis_permiso_trabajo_cable_expuesto','sgis_permiso_trabajo_corte_no_visible','sgis_permiso_trabajo_atmosfera_explosiva','sgis_permiso_trabajo_fuentes_ignicion','sgis_permiso_trabajo_vapores','sgis_permiso_trabajo_alta_temperatura','sgis_permiso_trabajo_baja_temperatura','sgis_permiso_trabajo_iluminacion_deficiente','sgis_permiso_trabajo_quemaduras','sgis_permiso_trabajo_almacenamientos_quimicos','sgis_permiso_trabajo_extensiones_mal_estado','sgis_permiso_trabajo_ruido','sgis_permiso_trabajo_contacto_directo_indirecto','sgis_permiso_trabajo_caida_objeto','sgis_permiso_trabajo_espacio_reducido','sgis_permiso_trabajo_levantamiento_manual_cargas','sgis_permiso_trabajo_subestacion_inundada','sgis_permiso_trabajo_excavaciones','sgis_permiso_trabajo_calzado_dielectrico','sgis_permiso_trabajo_guantes_nitrilo','sgis_permiso_trabajo_guantes_vaqueta','sgis_permiso_trabajo_gafas_proteccion','sgis_permiso_trabajo_casco_dielectrico','sgis_permiso_trabajo_tie_off','sgis_permiso_trabajo_mosqueton','sgis_permiso_trabajo_eslinga','sgis_permiso_trabajo_arrestador','sgis_permiso_trabajo_arnes','sgis_permiso_trabajo_linea_vida','sgis_permiso_trabajo_escalera_tijera','sgis_permiso_trabajo_escalera_extensible','sgis_permiso_trabajo_cinta_precaucion','sgis_permiso_trabajo_conos','sgis_permiso_trabajo_botiquin','sgis_permiso_trabajo_ats','sgis_permiso_trabajo_inspecciones_relizadas','sgis_permiso_trabajo_procedimientos_trabajo','sgis_permiso_trabajo_arl_afp_eps'];
+const YN_FIELDS=['sgis_permiso_trabajo_notificacion_trabajo','sgis_permiso_trabajo_responsabilidades_permiso','sgis_permiso_trabajo_condicion_interrupcion','sgis_permiso_trabajo_cambios_seguridad_trabajo','sgis_permiso_trabajo_induccion_seguridad','sgis_permiso_trabajo_capacitacion_tema','sgis_permiso_trabajo_metodos_inspeccion','sgis_permiso_trabajo_responsables_area','sgis_permiso_trabajo_mecanismo_control_riesgo','sgis_permiso_trabajo_alarmas_puntos_reunion','sgis_permiso_trabajo_ubicacion_equipos_incendio','sgis_permiso_trabajo_riesgos_trabajo_area','sgis_permiso_trabajo_impacto_ambiental'];
+const TEXT_FIELDS=['sgis_permiso_trabajo_otros_herramientas','sgis_permiso_trabajo_otros_area','sgis_permiso_trabajo_clima','sgis_permiso_trabajo_proxi_red','sgis_permiso_trabajo_otros'];
+const AP_FIELDS=['sgis_permiso_trabajo_confinado_aplica','sgis_permiso_trabajo_altura_aplica'];
+let currentPermisoId=null;
+function getTri(id){var rs=document.querySelectorAll('input[name="'+id+'"]');for(var i=0;i<rs.length;i++){if(rs[i].checked)return rs[i].value;}return ''}
+function setTri(id,val){var v=(val||'').toUpperCase();var rs=document.querySelectorAll('input[name="'+id+'"]');for(var i=0;i<rs.length;i++){rs[i].checked=(rs[i].value===v)}}
+function renderTriAsRadios(id){var sel=document.getElementById(id);if(!sel)return;var parent=sel.parentNode;var name=id;var v=(sel.value||'').toUpperCase();var div=document.createElement('div');div.innerHTML='<label class="me-2"><input type="radio" name="'+name+'" value="C"> C</label><label class="me-2"><input type="radio" name="'+name+'" value="NC"> NC</label><label><input type="radio" name="'+name+'" value="NA"> N/A</label>';parent.replaceChild(div, sel);setTri(id,v)}
+function cargarPermisoTrabajoActual(){
+  fetch('/api/sgis/permiso-trabajo/current').then(r=>r.json()).then(d=>{
+    if(d && d.success && d.data){
+      const x=d.data;
+      currentPermisoId = x.id_sgis_permiso_trabajo || null;
+      document.getElementById('emitido_por').value=x.sgis_permiso_trabajo_emitido_por||'';
+      document.getElementById('proyecto').value=x.sgis_permiso_trabajo_proyecto||'';
+      document.getElementById('ciudad_permiso').value=x.sgis_permiso_trabajo_ciudad||'';
+      document.getElementById('responsable_trabajo').value=x.sgis_permiso_trabajo_responsable_trabajo||x.nombre||'';
+      document.getElementById('cargo_resp').value=x.sgis_permiso_trabajo_cargo||x.cargo||'';
+      document.getElementById('cedula_resp').value=x.recurso_operativo_cedula||x.cedula||'';
+      document.getElementById('trabajo_ejecutar').value=x.sgis_permiso_trabajo_trabajo_ejecutar||'';
+      document.getElementById('herramienta').value=x.sgis_permiso_trabajo_herramienta||'';
+      document.getElementById('descripcion_tarea').value=x.sgis_permiso_trabajo_descripcion_tarea||'';
+      TRI_FIELDS.forEach(function(id){setTri(id,x[id]||'')});
+      YN_FIELDS.forEach(function(id){var el=document.getElementById(id); if(el){el.value=(x[id]||'');}});
+      TEXT_FIELDS.forEach(function(id){var el=document.getElementById(id); if(el){el.value=(x[id]||'');}});
+      AP_FIELDS.forEach(function(id){var el=document.getElementById(id); if(el){el.value=(x[id]||'');}});
+      var ftc=document.getElementById('sgis_permiso_trabajo_historial_confinado_firma_tecnico');
+      if(ftc && !ftc.value){ftc.value=x.nombre||''}
+      var fta=document.getElementById('sgis_permiso_trabajo_historial_semanal_altura_firma_tecnico');
+      if(fta && !fta.value){fta.value=x.nombre||''}
+      if(currentPermisoId){
+        var t=document.getElementById('trabajo_ejecutar'); if(t){t.readOnly=true}
+        var h=document.getElementById('herramienta'); if(h){h.readOnly=true}
+        var dt=document.getElementById('descripcion_tarea'); if(dt){dt.readOnly=true}
+        TRI_FIELDS.forEach(function(id){var rs=document.querySelectorAll('input[name="'+id+'"]'); for(var i=0;i<rs.length;i++){rs[i].disabled=true}});
+        YN_FIELDS.forEach(function(id){var el=document.getElementById(id); if(el){el.disabled=true}});
+        TEXT_FIELDS.forEach(function(id){var el=document.getElementById(id); if(el){el.readOnly=true}});
+        var gp=document.getElementById('guardarPermisoTrabajo'); if(gp){gp.disabled=true}
+      }
+      toggleSeccionesAplica();
+      cargarHistorialesDelDia();
+    }
+  });
+}
+function showPermisoAlert(msg,cls){
+  const a=document.getElementById('permisoTrabajoAlert');
+  a.className='alert '+cls;
+  a.textContent=msg;
+  a.style.display='block';
+}
+function guardarPermisoTrabajo(){
+  const body={
+    sgis_permiso_trabajo_trabajo_ejecutar:document.getElementById('trabajo_ejecutar').value,
+    sgis_permiso_trabajo_descripcion_tarea:document.getElementById('descripcion_tarea').value,
+    sgis_permiso_trabajo_herramienta:document.getElementById('herramienta').value
+  };
+  TRI_FIELDS.forEach(function(id){body[id]=getTri(id)});
+  YN_FIELDS.forEach(function(id){var el=document.getElementById(id); body[id]=el?el.value:''});
+  TEXT_FIELDS.forEach(function(id){var el=document.getElementById(id); body[id]=el?el.value:''});
+  AP_FIELDS.forEach(function(id){var el=document.getElementById(id); body[id]=el?el.value:''});
+  fetch('/api/sgis/permiso-trabajo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()).then(d=>{
+    if(d && d.success){
+      showPermisoAlert('Permiso guardado','alert-success');
+      currentPermisoId = d.id_sgis_permiso_trabajo || currentPermisoId;
+      toggleSeccionesAplica();
+      cargarPermisoTrabajoActual();
+    }else{
+      showPermisoAlert((d&&d.message)||'Error','alert-danger');
+    }
+  }).catch(()=>{showPermisoAlert('Error','alert-danger');});
+}
+function toggleSeccionesAplica(){
+  var c=document.getElementById('sgis_permiso_trabajo_confinado_aplica');
+  var a=document.getElementById('sgis_permiso_trabajo_altura_aplica');
+  var sc=document.getElementById('secConfinado');
+  var sa=document.getElementById('secAltura');
+  var cv=c?c.value:'';
+  var av=a?a.value:'';
+  if(cv==='APLICA' && av==='APLICA' && a){a.value='NO_APLICA'; av='NO_APLICA'}
+  if(sc){sc.style.display=(cv==='APLICA')?'block':'none'}
+  if(sa){sa.style.display=(av==='APLICA')?'block':'none'}
+  var dc=document.getElementById('sgis_permiso_trabajo_historial_confinado_fecha');
+  var da=document.getElementById('sgis_permiso_trabajo_historial_altura_fecha');
+  var today=new Date();
+  var iso=today.toISOString().slice(0,10);
+  if(dc){dc.value=iso; dc.readOnly=true}
+  if(da){da.value=iso; da.readOnly=true}
+  var acc=document.getElementById('collapseDocumentacion');
+  if(acc){var cInst=new bootstrap.Collapse(acc,{toggle:false}); cInst.show()}
+}
+function hoyIso(){var t=new Date();return t.toISOString().slice(0,10)}
+function cargarHistorialesDelDia(){
+  if(!currentPermisoId){return}
+  var iso=hoyIso();
+  fetch('/api/sgis/permiso-trabajo/historial/confinado?id_sgis_permiso_trabajo='+currentPermisoId).then(r=>r.json()).then(d=>{
+    if(d && d.success && Array.isArray(d.data)){
+      var row=null; for(var i=0;i<d.data.length;i++){var fe=(d.data[i].sgis_permiso_trabajo_historial_confinado_fecha||''); if(String(fe).slice(0,10)===iso){row=d.data[i]; break}}
+      var btn=document.getElementById('guardarHistorialConfinado');
+      if(row){for(var j=1;j<=11;j++){if(j===11){var el=document.getElementById('sgis_permiso_trabajo_historial_confinado_11'); if(el){el.value=row['sgis_permiso_trabajo_historial_confinado_11']||''}} else {setTri('sgis_permiso_trabajo_historial_confinado_'+j,row['sgis_permiso_trabajo_historial_confinado_'+j])}} if(btn){btn.disabled=true}}
+      else{if(btn){btn.disabled=false}}
+    }
+  });
+  fetch('/api/sgis/permiso-trabajo/historial/alturas?id_sgis_permiso_trabajo='+currentPermisoId).then(r=>r.json()).then(d=>{
+    if(d && d.success && Array.isArray(d.data)){
+      var row=null; for(var i=0;i<d.data.length;i++){var fe=(d.data[i].sgis_permiso_trabajo_historial_altura_fecha||''); if(String(fe).slice(0,10)===iso){row=d.data[i]; break}}
+      var btn=document.getElementById('guardarHistorialAltura');
+      if(row){var h1=document.getElementById('sgis_permiso_trabajo_historial_altura_1'); if(h1){h1.value=row.sgis_permiso_trabajo_historial_altura_1||''} for(var j=2;j<=24;j++){if(j===20){var el=document.getElementById('sgis_permiso_trabajo_historial_altura_20'); if(el){el.value=row['sgis_permiso_trabajo_historial_altura_20']||''}} else {setTri('sgis_permiso_trabajo_historial_altura_'+j,row['sgis_permiso_trabajo_historial_altura_'+j])}} if(btn){btn.disabled=true}}
+      else{if(btn){btn.disabled=false}}
+    }
+  });
+}
+function guardarHistorialConfinado(){
+  if(!currentPermisoId){showPermisoAlert('Primero guarde el permiso semanal','alert-warning');return}
+  openFirmaModal(function(sig){
+    var iso=hoyIso();
+    var body={id_sgis_permiso_trabajo: currentPermisoId,
+      sgis_permiso_trabajo_historial_confinado_1:getTri('sgis_permiso_trabajo_historial_confinado_1'),
+      sgis_permiso_trabajo_historial_confinado_2:getTri('sgis_permiso_trabajo_historial_confinado_2'),
+      sgis_permiso_trabajo_historial_confinado_3:getTri('sgis_permiso_trabajo_historial_confinado_3'),
+      sgis_permiso_trabajo_historial_confinado_4:getTri('sgis_permiso_trabajo_historial_confinado_4'),
+      sgis_permiso_trabajo_historial_confinado_5:getTri('sgis_permiso_trabajo_historial_confinado_5'),
+      sgis_permiso_trabajo_historial_confinado_6:getTri('sgis_permiso_trabajo_historial_confinado_6'),
+      sgis_permiso_trabajo_historial_confinado_7:getTri('sgis_permiso_trabajo_historial_confinado_7'),
+      sgis_permiso_trabajo_historial_confinado_8:getTri('sgis_permiso_trabajo_historial_confinado_8'),
+      sgis_permiso_trabajo_historial_confinado_9:getTri('sgis_permiso_trabajo_historial_confinado_9'),
+      sgis_permiso_trabajo_historial_confinado_10:getTri('sgis_permiso_trabajo_historial_confinado_10'),
+      sgis_permiso_trabajo_historial_confinado_11:document.getElementById('sgis_permiso_trabajo_historial_confinado_11')?document.getElementById('sgis_permiso_trabajo_historial_confinado_11').value:'',
+      sgis_permiso_trabajo_historial_confinado_fecha:iso,
+      sgis_permiso_trabajo_historial_confinado_firma_tecnico:sig,
+      sgis_permiso_trabajo_historial_confinado_firma_supervisor:document.getElementById('sgis_permiso_trabajo_historial_confinado_firma_supervisor')?document.getElementById('sgis_permiso_trabajo_historial_confinado_firma_supervisor').value:''
+    };
+    fetch('/api/sgis/permiso-trabajo/historial/confinado',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()).then(d=>{
+      if(d && d.success){showPermisoAlert('Historial de confinados guardado','alert-success'); cargarHistorialesDelDia()} else {showPermisoAlert((d&&d.message)||'Error','alert-danger')}
+    }).catch(()=>{showPermisoAlert('Error','alert-danger')});
+  });
+}
+function guardarHistorialAltura(){
+  if(!currentPermisoId){showPermisoAlert('Primero guarde el permiso semanal','alert-warning');return}
+  openFirmaModal(function(sig){
+    var iso=hoyIso();
+    var body={id_sgis_permiso_trabajo: currentPermisoId,
+      sgis_permiso_trabajo_historial_altura_1:document.getElementById('sgis_permiso_trabajo_historial_altura_1')?document.getElementById('sgis_permiso_trabajo_historial_altura_1').value:'',
+      sgis_permiso_trabajo_historial_altura_2:getTri('sgis_permiso_trabajo_historial_altura_2'),
+      sgis_permiso_trabajo_historial_altura_3:getTri('sgis_permiso_trabajo_historial_altura_3'),
+      sgis_permiso_trabajo_historial_altura_4:getTri('sgis_permiso_trabajo_historial_altura_4'),
+      sgis_permiso_trabajo_historial_altura_5:getTri('sgis_permiso_trabajo_historial_altura_5'),
+      sgis_permiso_trabajo_historial_altura_6:getTri('sgis_permiso_trabajo_historial_altura_6'),
+      sgis_permiso_trabajo_historial_altura_7:getTri('sgis_permiso_trabajo_historial_altura_7'),
+      sgis_permiso_trabajo_historial_altura_8:getTri('sgis_permiso_trabajo_historial_altura_8'),
+      sgis_permiso_trabajo_historial_altura_9:getTri('sgis_permiso_trabajo_historial_altura_9'),
+      sgis_permiso_trabajo_historial_altura_10:getTri('sgis_permiso_trabajo_historial_altura_10'),
+      sgis_permiso_trabajo_historial_altura_11:getTri('sgis_permiso_trabajo_historial_altura_11'),
+      sgis_permiso_trabajo_historial_altura_12:getTri('sgis_permiso_trabajo_historial_altura_12'),
+      sgis_permiso_trabajo_historial_altura_13:getTri('sgis_permiso_trabajo_historial_altura_13'),
+      sgis_permiso_trabajo_historial_altura_14:getTri('sgis_permiso_trabajo_historial_altura_14'),
+      sgis_permiso_trabajo_historial_altura_15:getTri('sgis_permiso_trabajo_historial_altura_15'),
+      sgis_permiso_trabajo_historial_altura_16:getTri('sgis_permiso_trabajo_historial_altura_16'),
+      sgis_permiso_trabajo_historial_altura_17:getTri('sgis_permiso_trabajo_historial_altura_17'),
+      sgis_permiso_trabajo_historial_altura_18:getTri('sgis_permiso_trabajo_historial_altura_18'),
+      sgis_permiso_trabajo_historial_altura_19:getTri('sgis_permiso_trabajo_historial_altura_19'),
+      sgis_permiso_trabajo_historial_altura_20:document.getElementById('sgis_permiso_trabajo_historial_altura_20')?document.getElementById('sgis_permiso_trabajo_historial_altura_20').value:'',
+      sgis_permiso_trabajo_historial_altura_21:getTri('sgis_permiso_trabajo_historial_altura_21'),
+      sgis_permiso_trabajo_historial_altura_22:getTri('sgis_permiso_trabajo_historial_altura_22'),
+      sgis_permiso_trabajo_historial_altura_23:getTri('sgis_permiso_trabajo_historial_altura_23'),
+      sgis_permiso_trabajo_historial_altura_24:getTri('sgis_permiso_trabajo_historial_altura_24'),
+      sgis_permiso_trabajo_historial_altura_fecha:iso,
+      sgis_permiso_trabajo_historial_semanal_altura_firma_tecnico:sig,
+      sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor:document.getElementById('sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor')?document.getElementById('sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor').value:''
+    };
+    fetch('/api/sgis/permiso-trabajo/historial/alturas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()).then(d=>{
+      if(d && d.success){showPermisoAlert('Historial de alturas guardado','alert-success'); cargarHistorialesDelDia()} else {showPermisoAlert((d&&d.message)||'Error','alert-danger')}
+    }).catch(()=>{showPermisoAlert('Error','alert-danger')});
+  });
+}
+document.addEventListener('DOMContentLoaded',function(){
+  const m=document.getElementById('permisoTrabajoModal');
+  if(m){m.addEventListener('shown.bs.modal',cargarPermisoTrabajoActual);}    
+  const g=document.getElementById('guardarPermisoTrabajo');
+  if(g){g.addEventListener('click',guardarPermisoTrabajo);}    
+  TRI_FIELDS.forEach(renderTriAsRadios);
+  cargarPermisoTrabajoActual();
+  var c=document.getElementById('sgis_permiso_trabajo_confinado_aplica');
+  var a=document.getElementById('sgis_permiso_trabajo_altura_aplica');
+  function aplicaChange(e){
+    var cv=c?c.value:'';
+    var av=a?a.value:'';
+    var t=e && e.target;
+    if(t===c){
+      if(cv==='APLICA' && a){a.value='NO_APLICA'}
+      else if(cv==='NO_APLICA' && a){a.value='APLICA'}
+    } else if(t===a){
+      if(av==='APLICA' && c){c.value='NO_APLICA'}
+      else if(av==='NO_APLICA' && c){c.value='APLICA'}
+    }
+    toggleSeccionesAplica();
+  }
+  if(c){c.addEventListener('change',aplicaChange)}
+  if(a){a.addEventListener('change',aplicaChange)}
+  var gc=document.getElementById('guardarHistorialConfinado');
+  var ga=document.getElementById('guardarHistorialAltura');
+  if(gc){gc.addEventListener('click',guardarHistorialConfinado)}
+  if(ga){ga.addEventListener('click',guardarHistorialAltura)}
+});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+<script>
+function openFirmaModal(onSave){
+  var el=document.getElementById('modalFirmaSgis');
+  var modal=new bootstrap.Modal(el);
+  var canvas=document.getElementById('sgis-signature-pad');
+  var pad=new SignaturePad(canvas);
+  function resize(){var ratio=Math.max(window.devicePixelRatio||1,1);canvas.width=canvas.offsetWidth*ratio;canvas.height=canvas.offsetHeight*ratio;canvas.getContext('2d').scale(ratio,ratio);pad.clear()}
+  el.addEventListener('shown.bs.modal', function(){resize()}, { once: true });
+  window.onresize=resize;
+  var clearBtn=document.getElementById('sgis-firma-clear');
+  var saveBtn=document.getElementById('sgis-firma-save');
+  if(clearBtn){clearBtn.onclick=function(){pad.clear()}}
+  if(saveBtn){saveBtn.onclick=function(){if(pad.isEmpty()){return} var data=pad.toDataURL('image/png'); modal.hide(); onSave(data)}}
+  modal.show();
+}
+</script>
+<div class="modal fade" id="modalFirmaSgis" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Firma técnico</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <canvas id="sgis-signature-pad" style="width:100%;height:200px;border:1px solid #ccc;border-radius:.25rem;"></canvas>
+        <div class="mt-2">
+          <button type="button" class="btn btn-outline-secondary me-2" id="sgis-firma-clear">Limpiar</button>
+          <button type="button" class="btn btn-dark" id="sgis-firma-save">Guardar Firma</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- Modal Preoperacional -->
 <div class="modal fade" id="modalPreop" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
