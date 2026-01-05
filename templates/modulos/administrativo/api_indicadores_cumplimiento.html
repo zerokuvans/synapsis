@@ -863,6 +863,20 @@ function inicializarSelectorMesVehiculos() {
     }
 }
 
+function inicializarSelectorAnio() {
+    const selector = document.getElementById('selector-anio');
+    const currentYear = new Date().getFullYear();
+    const startYear = 2023;
+    selector.innerHTML = '';
+    for (let y = startYear; y <= currentYear; y++) {
+        const option = document.createElement('option');
+        option.value = String(y);
+        option.textContent = String(y);
+        if (y === currentYear) option.selected = true;
+        selector.appendChild(option);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     try {
         addLog('Página cargada correctamente', 'success');
@@ -897,6 +911,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Configurar evento de cambio para el filtro de mes de vehículos
         document.getElementById('filtro-mes-vehiculos').addEventListener('change', cargarEstadoVehiculos);
         
+        inicializarSelectorAnio();
         // Establecer fecha actual en los selectores
         const fechaActual = new Date();
         const fechaString = fechaActual.toISOString().split('T')[0]; // Formato YYYY-MM-DD

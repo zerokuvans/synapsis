@@ -15495,9 +15495,8 @@ def actualizar_usuario():
         
         # Si se proporciona una nueva contraseña, agregarla a la actualización
         if password and password.strip():
-            # Encriptar la nueva contraseña con bcrypt
-            hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-            query_fields.append('password = %s')
+            hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            query_fields.append('recurso_operativo_password = %s')
             values.append(hashed_password)
         
         # Agregar el ID al final para la cláusula WHERE
