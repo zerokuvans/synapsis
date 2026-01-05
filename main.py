@@ -143,6 +143,7 @@ from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas
 # Importar solo la función de actualización por claves para SSTT desde app.py
 from app import api_sstt_vencimientos_cursos_update_by
 from app import api_sstt_vencimientos_cursos_resumen
+from app import api_sstt_vencimientos_cursos_delete_by
 
 # Importar módulo de dotaciones
 from dotaciones_api import registrar_rutas_dotaciones
@@ -246,6 +247,7 @@ registrar_rutas_avisos(app)
 # Registrar rutas faltantes del módulo SSTT
 app.route('/api/sstt/vencimientos-cursos/update-by', methods=['PUT'])(api_sstt_vencimientos_cursos_update_by)
 app.route('/api/sstt/vencimientos-cursos/resumen', methods=['GET'])(api_sstt_vencimientos_cursos_resumen)
+app.route('/api/sstt/vencimientos-cursos/delete-by', methods=['DELETE'])(api_sstt_vencimientos_cursos_delete_by)
 
 @app.route('/api/sgis/debug-urlmap', methods=['GET'])
 def api_sgis_debug_urlmap():
@@ -19121,6 +19123,60 @@ def indicadores_api():
     return render_template('modulos/administrativo/api_indicadores_cumplimiento.html', 
                           supervisores=supervisores)
 
+@app.route('/admin/cumpleanos', methods=['GET'])
+@login_required(role='administrativo')
+def admin_cumpleanos():
+    return render_template('modulos/administrativo/cumpleanos.html')
+
+@app.route('/api/admin/cumpleanos', methods=['GET'])
+@login_required_api(role='administrativo')
+def api_admin_cumpleanos():
+    try:
+        mes = request.args.get('mes', type=int)
+        if not mes or mes < 1 or mes > 12:
+            mes = get_bogota_datetime().month
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT nombre, fecha_cumpleanos
+            FROM recurso_operativo
+            WHERE fecha_cumpleanos IS NOT NULL
+              AND MONTH(fecha_cumpleanos) = %s
+              AND (estado IS NULL OR estado = 'Activo')
+            ORDER BY DAY(fecha_cumpleanos) ASC, nombre ASC
+            """,
+            (mes,)
+        )
+        rows = cursor.fetchall()
+        data = []
+        for r in rows:
+            f = r.get('fecha_cumpleanos')
+            fecha_iso = None
+            fecha_mostrar = None
+            try:
+                s = str(f)
+                fecha_iso = s[:10]
+                partes = fecha_iso.split('-')
+                if len(partes) == 3:
+                    fecha_mostrar = f"{partes[2]}/{partes[1]}"
+            except Exception:
+                fecha_iso = None
+                fecha_mostrar = None
+            data.append({'nombre': r.get('nombre'), 'fecha': fecha_iso, 'fecha_mostrar': fecha_mostrar})
+        return jsonify({'success': True, 'mes': mes, 'cumpleanos': data})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cursor.close()
+            if connection and connection.is_connected():
+                connection.close()
+        except Exception:
+            pass
+
 
 
 
@@ -27120,7 +27176,7 @@ def api_sstt_tipos_riesgo():
             connection.close()
 
 @app.route('/api/sstt/vencimientos-cursos/tipos', methods=['GET'])
-@login_required()
+@login_required_api()
 def api_sstt_vencimientos_cursos_tipos():
     try:
         connection = get_db_connection()
@@ -27291,7 +27347,7 @@ def api_sstt_usuarios():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/sstt/vencimientos-cursos', methods=['GET', 'POST'])
-@login_required()
+@login_required_api()
 def api_sstt_vencimientos_cursos():
     try:
         connection = get_db_connection()
@@ -27326,6 +27382,50 @@ def api_sstt_vencimientos_cursos():
             solo_activos = solo_activos_param in ['1', 'true', 't', 'yes', 'y']
             params = []
             where = []
+            try:
+                cur_check_id = connection.cursor()
+                cur_check_id.execute("SHOW COLUMNS FROM sstt_vencimientos_cursos LIKE 'id'")
+                has_id_col = bool(cur_check_id.fetchone())
+                cur_check_id.close()
+                if not has_id_col:
+                    try:
+                        cur_pk = connection.cursor()
+                        cur_pk.execute("SHOW KEYS FROM sstt_vencimientos_cursos WHERE Key_name = 'PRIMARY'")
+                        has_pk = bool(cur_pk.fetchone())
+                        cur_pk.close()
+                        cur_alter_id = connection.cursor()
+                        if has_pk:
+                            cur_alter_id.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN id INT NOT NULL AUTO_INCREMENT FIRST")
+                            cur_alter_id.execute("ALTER TABLE sstt_vencimientos_cursos ADD UNIQUE KEY idx_sstt_vc_id (id)")
+                        else:
+                            cur_alter_id.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN id INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST")
+                        connection.commit()
+                        cur_alter_id.close()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            try:
+                cur_check_valid = connection.cursor()
+                cur_check_valid.execute(
+                    """
+                    SELECT COUNT(*) FROM information_schema.columns
+                    WHERE table_schema = DATABASE() AND table_name = 'sstt_vencimientos_cursos' AND column_name = 'sstt_vencimientos_cursos_validado'
+                    """
+                )
+                has_validado = (cur_check_valid.fetchone() or [0])[0]
+                cur_check_valid.close()
+                if not has_validado:
+                    cur_alter_valid = connection.cursor()
+                    try:
+                        cur_alter_valid.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN sstt_vencimientos_cursos_validado TINYINT(1) DEFAULT 0 AFTER sstt_vencimientos_cursos_observacion")
+                        connection.commit()
+                    except Exception:
+                        pass
+                    finally:
+                        cur_alter_valid.close()
+            except Exception:
+                pass
             if cedula:
                 where.append("vc.recurso_operativo_cedula = %s")
                 params.append(cedula)
@@ -27338,7 +27438,14 @@ def api_sstt_vencimientos_cursos():
             if fecha_hasta:
                 where.append("sstt_vencimientos_cursos_fecha <= %s")
                 params.append(fecha_hasta)
-            sql = "SELECT vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, vc.recurso_operativo_cedula, vc.sstt_vencimientos_cursos_tipo_curso, vc.sstt_vencimientos_cursos_fecha, vc.sstt_vencimientos_cursos_fecha_ven, vc.sstt_vencimientos_cursos_observacion, vc.sstt_vencimientos_cursos_pendiente FROM sstt_vencimientos_cursos vc LEFT JOIN recurso_operativo ro ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula"
+            select_id_prefix = "vc.id AS id, " if has_id_col else "NULL AS id, "
+            sql = (
+                "SELECT " + select_id_prefix +
+                "vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, vc.recurso_operativo_cedula, "
+                "vc.sstt_vencimientos_cursos_tipo_curso, vc.sstt_vencimientos_cursos_fecha, vc.sstt_vencimientos_cursos_fecha_ven, "
+                "vc.sstt_vencimientos_cursos_observacion, vc.sstt_vencimientos_cursos_validado, vc.sstt_vencimientos_cursos_pendiente "
+                "FROM sstt_vencimientos_cursos vc LEFT JOIN recurso_operativo ro ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula"
+            )
             if solo_activos:
                 where.append("ro.estado = 'Activo'")
             if where:
@@ -27378,6 +27485,7 @@ def api_sstt_vencimientos_cursos():
                 except Exception:
                     anio_val = None
                 out.append({
+                    'id': r.get('id'),
                     'recurso_operativo_cedula': r.get('recurso_operativo_cedula'),
                     'nombre': r.get('sstt_vencimientos_cursos_nombre'),
                     'tipo_curso': r.get('sstt_vencimientos_cursos_tipo_curso'),
@@ -27386,6 +27494,7 @@ def api_sstt_vencimientos_cursos():
                     'dias_por_vencer': dias,
                     'observacion': r.get('sstt_vencimientos_cursos_observacion'),
                     'anio': anio_val,
+                    'validado': r.get('sstt_vencimientos_cursos_validado'),
                     'pendiente': int(r.get('sstt_vencimientos_cursos_pendiente') or 0)
                 })
 
@@ -27400,6 +27509,27 @@ def api_sstt_vencimientos_cursos():
                     nombre_u = ru.get('nombre')
                     cur_enc = connection.cursor(dictionary=True)
                     try:
+                        try:
+                            cur_chk_enc = connection.cursor()
+                            cur_chk_enc.execute(
+                                """
+                                SELECT COUNT(*) FROM information_schema.columns
+                                WHERE table_schema = DATABASE() AND table_name = 'encuesta_respuestas' AND column_name = 'sstt_vencimientos_cursos_fecha_ven'
+                                """
+                            )
+                            has_er_col = (cur_chk_enc.fetchone() or [0])[0]
+                            cur_chk_enc.close()
+                            if not has_er_col:
+                                cur_alt_enc = connection.cursor()
+                                try:
+                                    cur_alt_enc.execute("ALTER TABLE encuesta_respuestas ADD COLUMN sstt_vencimientos_cursos_fecha_ven DATE NULL AFTER fecha_respuesta")
+                                    connection.commit()
+                                except Exception:
+                                    pass
+                                finally:
+                                    cur_alt_enc.close()
+                        except Exception:
+                            pass
                         cur_enc.execute(
                             """
                             SELECT DATE(fecha_respuesta) AS fecha, sstt_vencimientos_cursos_fecha_ven AS fecha_ven
@@ -27543,7 +27673,7 @@ def api_sstt_vencimientos_cursos():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/sstt/vencimientos-cursos/export', methods=['GET'])
-@login_required()
+@login_required_api()
 def api_sstt_vencimientos_cursos_export():
     try:
         connection = get_db_connection()
@@ -27630,8 +27760,144 @@ def api_sstt_vencimientos_cursos_export():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/api/sstt/vencimientos-cursos/<int:item_id>', methods=['PUT'])
+@login_required_api()
+def api_sstt_vencimientos_cursos_update(item_id):
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        data = request.get_json() or {}
+        cedula = (data.get('recurso_operativo_cedula') or '').strip()
+        tipo = (data.get('sstt_vencimientos_cursos_tipo_curso') or '').strip()
+        fecha = (data.get('sstt_vencimientos_cursos_fecha') or '').strip()
+        fecha_ven = (data.get('sstt_vencimientos_cursos_fecha_ven') or '').strip()
+        observ = (data.get('sstt_vencimientos_cursos_observacion') or '').strip()
+        validado_val = data.get('sstt_vencimientos_cursos_validado')
+        pendiente_val = data.get('sstt_vencimientos_cursos_pendiente')
+        campos = []
+        params = []
+        idc = None
+        nombre = None
+        if cedula:
+            cur2 = connection.cursor()
+            cur2.execute("SELECT id_codigo_consumidor, nombre FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
+            ru = cur2.fetchone()
+            cur2.close()
+            if ru:
+                idc = ru[0]
+                nombre = ru[1]
+        if idc is not None:
+            campos.append("id_codigo_consumidor = %s")
+            params.append(idc)
+        if nombre is not None:
+            campos.append("sstt_vencimientos_cursos_nombre = %s")
+            params.append(nombre)
+        if cedula:
+            campos.append("recurso_operativo_cedula = %s")
+            params.append(cedula)
+        if tipo:
+            campos.append("sstt_vencimientos_cursos_tipo_curso = %s")
+            params.append(tipo)
+        if fecha:
+            campos.append("sstt_vencimientos_cursos_fecha = %s")
+            params.append(fecha)
+        if fecha_ven:
+            campos.append("sstt_vencimientos_cursos_fecha_ven = %s")
+            params.append(fecha_ven)
+        campos.append("sstt_vencimientos_cursos_observacion = %s")
+        params.append(observ)
+        try:
+            cur_check3 = connection.cursor()
+            cur_check3.execute(
+                """
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'sstt_vencimientos_cursos'
+                  AND column_name = 'sstt_vencimientos_cursos_pendiente'
+                """
+            )
+            has_pend2 = (cur_check3.fetchone() or [0])[0]
+            cur_check3.close()
+            if not has_pend2:
+                try:
+                    cur_alter3 = connection.cursor()
+                    cur_alter3.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN sstt_vencimientos_cursos_pendiente TINYINT(1) NOT NULL DEFAULT 0 AFTER sstt_vencimientos_cursos_observacion")
+                    connection.commit()
+                except Exception:
+                    pass
+                finally:
+                    cur_alter3.close()
+        except Exception:
+            pass
+        if pendiente_val is not None:
+            try:
+                p2_int = 1 if str(pendiente_val).strip().lower() in ['1','true','t','yes','y'] else 0
+            except Exception:
+                p2_int = 0
+            campos.append("sstt_vencimientos_cursos_pendiente = %s")
+            params.append(p2_int)
+        if validado_val is not None:
+            try:
+                v_int = 1 if str(validado_val).strip().lower() in ['1', 'true', 't', 'yes', 'y'] else 0
+            except Exception:
+                v_int = 0
+            try:
+                cur_checkv = connection.cursor()
+                cur_checkv.execute(
+                    """
+                    SELECT COUNT(*) FROM information_schema.columns
+                    WHERE table_schema = DATABASE() AND table_name = 'sstt_vencimientos_cursos' AND column_name = 'sstt_vencimientos_cursos_validado'
+                    """
+                )
+                has_val = (cur_checkv.fetchone() or [0])[0]
+                cur_checkv.close()
+                if not has_val:
+                    cur_alterv = connection.cursor()
+                    try:
+                        cur_alterv.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN sstt_vencimientos_cursos_validado TINYINT(1) DEFAULT 0 AFTER sstt_vencimientos_cursos_observacion")
+                        connection.commit()
+                    except Exception:
+                        pass
+                    finally:
+                        cur_alterv.close()
+            except Exception:
+                pass
+            campos.append("sstt_vencimientos_cursos_validado = %s")
+            params.append(v_int)
+        if not campos:
+            connection.close()
+            return jsonify({'success': False, 'message': 'Sin cambios'}), 400
+        sql = "UPDATE sstt_vencimientos_cursos SET " + ", ".join(campos) + " WHERE id = %s"
+        params.append(item_id)
+        cur = connection.cursor()
+        cur.execute(sql, tuple(params))
+        connection.commit()
+        cur.close(); connection.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/sstt/vencimientos-cursos/<int:item_id>', methods=['DELETE'])
+@login_required_api()
+def api_sstt_vencimientos_cursos_delete(item_id):
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        cur.execute("DELETE FROM sstt_vencimientos_cursos WHERE id = %s", (item_id,))
+        connection.commit()
+        affected = cur.rowcount
+        cur.close(); connection.close()
+        if affected == 0:
+            return jsonify({'success': False, 'message': 'Registro no encontrado'}), 404
+        return jsonify({'success': True, 'deleted': affected})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/sstt/vencimientos-cursos/encuesta-vto', methods=['PUT'])
-@login_required()
+@login_required_api()
 def api_sstt_vencimientos_cursos_encuesta_vto():
     try:
         connection = get_db_connection()
@@ -27690,7 +27956,7 @@ def api_sstt_vencimientos_cursos_encuesta_vto():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/sstt/vencimientos-cursos/upload', methods=['POST'])
-@login_required()
+@login_required_api()
 def api_sstt_vencimientos_cursos_upload():
     connection = None
     cursor = None

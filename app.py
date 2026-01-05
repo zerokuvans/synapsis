@@ -10,6 +10,7 @@ import bcrypt
 import json
 
 import requests
+from api_reportes import login_required_api
 app = Flask(__name__)
 app.secret_key = 'synapsis-secret-key-2024-production-secure-key-12345'
 db = SQLAlchemy()
@@ -2353,7 +2354,7 @@ def api_sstt_tipos_riesgo():
             connection.close()
 
 @app.route('/api/sstt/vencimientos-cursos/tipos', methods=['GET'])
-@login_required
+@login_required_api()
 def api_sstt_vencimientos_cursos_tipos():
     try:
         connection = get_db_connection()
@@ -2565,7 +2566,7 @@ def api_sstt_tecnicos():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/sstt/vencimientos-cursos', methods=['GET', 'POST'])
-@login_required
+@login_required_api()
 def api_sstt_vencimientos_cursos():
     try:
         connection = get_db_connection()
@@ -2602,20 +2603,21 @@ def api_sstt_vencimientos_cursos():
             where = []
             try:
                 cur_check = connection.cursor()
-                cur_check.execute(
-                    """
-                    SELECT COUNT(*) FROM information_schema.columns
-                    WHERE table_schema = DATABASE()
-                      AND table_name = 'sstt_vencimientos_cursos'
-                      AND column_name = 'id'
-                    """
-                )
-                has_id = (cur_check.fetchone() or [0])[0]
+                cur_check.execute("SHOW COLUMNS FROM sstt_vencimientos_cursos LIKE 'id'")
+                has_id = bool(cur_check.fetchone())
                 cur_check.close()
                 if not has_id:
                     try:
+                        cur_pk = connection.cursor()
+                        cur_pk.execute("SHOW KEYS FROM sstt_vencimientos_cursos WHERE Key_name = 'PRIMARY'")
+                        has_pk = bool(cur_pk.fetchone())
+                        cur_pk.close()
                         cur_alter = connection.cursor()
-                        cur_alter.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN id INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST")
+                        if has_pk:
+                            cur_alter.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN id INT NOT NULL AUTO_INCREMENT FIRST")
+                            cur_alter.execute("ALTER TABLE sstt_vencimientos_cursos ADD UNIQUE KEY idx_sstt_vc_id (id)")
+                        else:
+                            cur_alter.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN id INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST")
                         connection.commit()
                         cur_alter.close()
                     except Exception:
@@ -2678,8 +2680,9 @@ def api_sstt_vencimientos_cursos():
             if fecha_hasta:
                 where.append("vc.sstt_vencimientos_cursos_fecha <= %s")
                 params.append(fecha_hasta)
+            select_id_prefix = "vc.id AS id, " if has_id else "NULL AS id, "
             sql = (
-                "SELECT vc.id AS id, vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, "
+                "SELECT " + select_id_prefix + "vc.id_codigo_consumidor, vc.sstt_vencimientos_cursos_nombre, "
                 "vc.recurso_operativo_cedula, vc.sstt_vencimientos_cursos_tipo_curso, "
                 "vc.sstt_vencimientos_cursos_fecha, vc.sstt_vencimientos_cursos_fecha_ven, "
                 "vc.sstt_vencimientos_cursos_observacion, vc.sstt_vencimientos_cursos_validado, vc.sstt_vencimientos_cursos_pendiente "
@@ -2782,6 +2785,27 @@ def api_sstt_vencimientos_cursos():
                     nombre_u = ru.get('nombre')
                     cur_enc = connection.cursor(dictionary=True)
                     try:
+                        try:
+                            cur_chk_enc = connection.cursor()
+                            cur_chk_enc.execute(
+                                """
+                                SELECT COUNT(*) FROM information_schema.columns
+                                WHERE table_schema = DATABASE() AND table_name = 'encuesta_respuestas' AND column_name = 'sstt_vencimientos_cursos_fecha_ven'
+                                """
+                            )
+                            has_er_col = (cur_chk_enc.fetchone() or [0])[0]
+                            cur_chk_enc.close()
+                            if not has_er_col:
+                                cur_alt_enc = connection.cursor()
+                                try:
+                                    cur_alt_enc.execute("ALTER TABLE encuesta_respuestas ADD COLUMN sstt_vencimientos_cursos_fecha_ven DATE NULL AFTER fecha_respuesta")
+                                    connection.commit()
+                                except Exception:
+                                    pass
+                                finally:
+                                    cur_alt_enc.close()
+                        except Exception:
+                            pass
                         cur_enc.execute(
                             """
                             SELECT DATE(fecha_respuesta) AS fecha, sstt_vencimientos_cursos_fecha_ven AS fecha_ven
@@ -2940,7 +2964,7 @@ def api_sstt_vencimientos_cursos():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/sstt/vencimientos-cursos/<int:item_id>', methods=['PUT'])
-@login_required
+@login_required_api()
 def api_sstt_vencimientos_cursos_update(item_id):
     try:
         connection = get_db_connection()
@@ -3036,8 +3060,65 @@ def api_sstt_vencimientos_cursos_update(item_id):
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/sstt/vencimientos-cursos/<int:item_id>', methods=['DELETE'])
+@login_required_api()
+def api_sstt_vencimientos_cursos_delete(item_id):
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        cur.execute("DELETE FROM sstt_vencimientos_cursos WHERE id = %s", (item_id,))
+        connection.commit()
+        affected = cur.rowcount
+        cur.close(); connection.close()
+        if affected == 0:
+            return jsonify({'success': False, 'message': 'Registro no encontrado'}), 404
+        return jsonify({'success': True, 'deleted': affected})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/sstt/vencimientos-cursos/delete-by', methods=['DELETE'])
+@login_required_api()
+def api_sstt_vencimientos_cursos_delete_by():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        data = request.get_json() or {}
+        oc = (data.get('original_cedula') or '').strip()
+        ot = (data.get('original_tipo') or '').strip()
+        of = (data.get('original_fecha') or '').strip()
+        if not oc or not ot or not of:
+            connection.close()
+            return jsonify({'success': False, 'message': 'Faltan claves originales'}), 400
+        cur = connection.cursor()
+        sql1 = "DELETE FROM sstt_vencimientos_cursos WHERE recurso_operativo_cedula = %s AND sstt_vencimientos_cursos_tipo_curso = %s AND sstt_vencimientos_cursos_fecha = %s LIMIT 1"
+        params1 = (oc, ot, of)
+        cur.execute(sql1, params1)
+        connection.commit()
+        affected = cur.rowcount
+        if affected == 0:
+            sql2 = "DELETE FROM sstt_vencimientos_cursos WHERE recurso_operativo_cedula = %s AND sstt_vencimientos_cursos_tipo_curso = %s AND DATE(sstt_vencimientos_cursos_fecha) = %s LIMIT 1"
+            params2 = (oc, ot, of)
+            cur.execute(sql2, params2)
+            connection.commit()
+            affected = cur.rowcount
+        if affected == 0:
+            sql3 = "DELETE FROM sstt_vencimientos_cursos WHERE TRIM(recurso_operativo_cedula) = %s AND TRIM(sstt_vencimientos_cursos_tipo_curso) = %s AND DATE(sstt_vencimientos_cursos_fecha) = %s LIMIT 1"
+            params3 = (oc, ot, of)
+            cur.execute(sql3, params3)
+            connection.commit()
+            affected = cur.rowcount
+        cur.close(); connection.close()
+        if affected == 0:
+            return jsonify({'success': False, 'message': 'No se encontró registro para eliminar'}), 404
+        return jsonify({'success': True, 'deleted': affected})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/sstt/vencimientos-cursos/update-by', methods=['PUT'])
-@login_required
+@login_required_api()
 def api_sstt_vencimientos_cursos_update_by():
     try:
         connection = get_db_connection()
@@ -3152,7 +3233,7 @@ def api_sstt_vencimientos_cursos_update_by():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/sstt/vencimientos-cursos/resumen', methods=['GET'])
-@login_required
+@login_required_api()
 def api_sstt_vencimientos_cursos_resumen():
     try:
         connection = get_db_connection()
@@ -3202,7 +3283,7 @@ def api_sstt_vencimientos_cursos_resumen():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/sstt/vencimientos-cursos/export', methods=['GET'])
-@login_required
+@login_required_api()
 def api_sstt_vencimientos_cursos_export():
     try:
         connection = get_db_connection()
@@ -3269,7 +3350,7 @@ def api_sstt_vencimientos_cursos_export():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/sstt/vencimientos-cursos/encuesta-vto', methods=['PUT'])
-@login_required
+@login_required_api()
 def api_sstt_vencimientos_cursos_encuesta_vto():
     try:
         connection = get_db_connection()

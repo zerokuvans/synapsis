@@ -401,7 +401,16 @@ function cargarVencimientos() {
   if (cedula) params.append('cedula', cedula);
   params.append('solo_activos', '1');
   fetch('/api/sstt/vencimientos-cursos/resumen' + (params.toString() ? ('?' + params.toString()) : ''))
-    .then(r => r.json())
+    .then(r => {
+      if (!r.ok) {
+        if (r.status === 401) {
+          Swal.fire('Autenticación requerida', 'Inicia sesión para ver los vencimientos', 'warning');
+          throw new Error('AUTH_REQUIRED');
+        }
+        return r.text().then(t => { throw new Error('HTTP ' + r.status); });
+      }
+      return r.json();
+    })
     .then(d => {
       if (!d.success) { Swal.fire('Error', d.message || 'No se pudo cargar la lista', 'error'); return; }
       vencimientos = d.data || [];
@@ -645,7 +654,16 @@ function cargarCursosUsuario(cedula){
   params.append('cedula', cedula);
   params.append('solo_activos','1');
   fetch('/api/sstt/vencimientos-cursos?' + params.toString())
-    .then(r=>r.json())
+    .then(r => {
+      if (!r.ok) {
+        if (r.status === 401) {
+          Swal.fire('Autenticación requerida', 'Tu sesión expiró. Inicia sesión nuevamente.', 'warning');
+          throw new Error('AUTH_REQUIRED');
+        }
+        return r.text().then(t => { throw new Error('HTTP ' + r.status); });
+      }
+      return r.json();
+    })
     .then(d=>{
       if (!d.success) return;
       const items = d.data||[];
@@ -705,13 +723,31 @@ function renderSeccionesUsuario(items){
         <div class="d-flex align-items-center gap-2">
           ${esEncuesta ? `<button class="btn btn-sm btn-success btnGuardarEncuesta">Guardar Vto</button>` : ''}
           ${esVencido ? `<div class="form-check form-switch"><input class="form-check-input chkValidado" type="checkbox" ${String(it.validado||0) === '1' ? 'checked' : ''}></div>` : ''}
-          <button class="btn btn-sm btn-outline-primary" data-id="${it.id||''}">Editar</button>
+          <button class="btn btn-sm btn-outline-primary btnEditar" data-id="${it.id||''}">Editar</button>
+          <button class="btn btn-sm btn-outline-danger btnEliminar" data-id="${it.id||''}" data-original-cedula="${it.recurso_operativo_cedula||''}" data-original-tipo="${it.tipo_curso||''}" data-original-fecha="${normalizeDateString(it.fecha)}">Eliminar</button>
         </div>
       </td>
     `;
     tbody.appendChild(tr);
-    const btn = tr.querySelector('button');
-    if (btn) btn.addEventListener('click', ()=> abrirModalEditar(it));
+    const btnEditar = tr.querySelector('.btnEditar');
+    if (btnEditar) btnEditar.addEventListener('click', ()=> abrirModalEditar(it));
+    const btnEliminar = tr.querySelector('.btnEliminar');
+    if (btnEliminar) {
+      btnEliminar.addEventListener('click', () => {
+        Swal.fire({
+          title: 'Eliminar curso',
+          text: 'Esta acción no se puede deshacer. ¿Deseas eliminar este registro?',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, eliminar',
+          cancelButtonText: 'Cancelar'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            eliminarCurso(it);
+          }
+        });
+      });
+    }
     const chk = tr.querySelector('.chkValidado');
     if (chk) {
       chk.addEventListener('change', () => {
@@ -868,6 +904,51 @@ function togglePendiente(item, valor){
     .then(r => r.json())
     .then(d => { if (d && d.success) doRefresh(); })
     .catch(() => {});
+  }
+}
+
+function eliminarCurso(item){
+  if (!item) return;
+  const doRefresh = () => {
+    Swal.fire('Eliminado', 'Curso eliminado correctamente', 'success');
+    cargarVencimientos();
+    if (accionesCedulaActual) cargarCursosUsuario(accionesCedulaActual);
+  };
+  if (item.id) {
+    fetch(`/api/sstt/vencimientos-cursos/${item.id}`, { method: 'DELETE' })
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.success) {
+          doRefresh();
+        } else {
+          Swal.fire('Error', (d && d.message) || 'No se pudo eliminar', 'error');
+        }
+      })
+      .catch(() => {
+        Swal.fire('Error', 'Fallo de conexión al eliminar', 'error');
+      });
+  } else {
+    const body = {
+      original_cedula: item.recurso_operativo_cedula || '',
+      original_tipo: item.tipo_curso || '',
+      original_fecha: normalizeDateString(item.fecha)
+    };
+    fetch('/api/sstt/vencimientos-cursos/delete-by', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d && d.success) {
+        doRefresh();
+      } else {
+        Swal.fire('Error', (d && d.message) || 'No se pudo eliminar', 'error');
+      }
+    })
+    .catch(() => {
+      Swal.fire('Error', 'Fallo de conexión al eliminar', 'error');
+    });
   }
 }
 
