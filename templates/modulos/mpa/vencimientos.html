@@ -142,17 +142,23 @@
 <script>
 let vencimientosData = [];
 let vencimientosFiltrados = [];
+let vehiculosEstados = {};
 
 // Cargar datos al inicializar la página y cada 5 minutos
-document.addEventListener('DOMContentLoaded', function() {
-    loadVencimientos();
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        await loadVehiculosEstados();
+        await loadVencimientos();
+    } catch (e) {
+        console.warn('Inicialización de vencimientos:', e);
+    }
     
     // Recargar datos cada 5 minutos
     setInterval(loadVencimientos, 5 * 60 * 1000);
 });
 
 // Cargar lista de vencimientos
-function loadVencimientos() {
+async function loadVencimientos() {
     // Mostrar indicador de carga
     const loadingIndicator = document.createElement('div');
     loadingIndicator.id = 'loadingIndicator';
@@ -167,38 +173,52 @@ function loadVencimientos() {
     `;
     document.body.appendChild(loadingIndicator);
 
-    fetch('/api/mpa/vencimientos')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+    try {
+        const response = await fetch('/api/mpa/vencimientos');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        if (data.success) {
+            vencimientosData = (data.data || []).filter(v => {
+                const placa = v.placa;
+                if (!placa) return true; // Licencias no tienen placa
+                const estadoVehiculo = vehiculosEstados[placa];
+                return (estadoVehiculo || '').toUpperCase().trim() === 'ACTIVO';
+            });
+            vencimientosFiltrados = [...vencimientosData];
+            renderVencimientos();
+            actualizarEstadisticas();
+            cargarTecnicosEnFiltro();
+            showAlert('Datos de vencimientos actualizados correctamente', 'success');
+        } else {
+            showAlert('Error al cargar datos de vencimientos: ' + (data.error || 'Error desconocido'), 'danger');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showAlert('Error al cargar datos de vencimientos: ' + error.message, 'danger');
+    } finally {
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        if (loadingIndicator) loadingIndicator.remove();
+    }
+}
+
+// Precargar estados de vehículos para filtrar inactivos en frontend
+async function loadVehiculosEstados() {
+    try {
+        const resp = await fetch('/api/mpa/vehiculos');
+        if (!resp.ok) return;
+        const json = await resp.json();
+        const lista = (json.data || []);
+        vehiculosEstados = {};
+        for (const v of lista) {
+            if (v.placa && vehiculosEstados[v.placa] === undefined) {
+                vehiculosEstados[v.placa] = v.estado || '';
             }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                vencimientosData = data.data || [];
-                vencimientosFiltrados = [...vencimientosData];
-                renderVencimientos();
-                actualizarEstadisticas();
-                cargarTecnicosEnFiltro();
-                
-                // Mostrar mensaje de éxito
-                showAlert('Datos de vencimientos actualizados correctamente', 'success');
-            } else {
-                showAlert('Error al cargar datos de vencimientos: ' + (data.error || 'Error desconocido'), 'danger');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showAlert('Error al cargar datos de vencimientos: ' + error.message, 'danger');
-        })
-        .finally(() => {
-            // Remover indicador de carga
-            const loadingIndicator = document.getElementById('loadingIndicator');
-            if (loadingIndicator) {
-                loadingIndicator.remove();
-            }
-        });
+        }
+    } catch (e) {
+        console.warn('No se pudo cargar estados de vehículos:', e);
+    }
 }
 
 // Renderizar tabla de vencimientos

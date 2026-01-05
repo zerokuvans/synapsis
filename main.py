@@ -8430,7 +8430,6 @@ def registrar_preoperacional():
 
         cursor = connection.cursor(dictionary=True)
         
-        # Verificar si ya existe un registro para el día actual
         id_codigo_consumidor = session['id_codigo_consumidor']
         fecha_actual = get_bogota_datetime().date()
         
@@ -8450,6 +8449,29 @@ def registrar_preoperacional():
                 'status': 'error',
                 'message': 'Ya has registrado un preoperacional para el día de hoy.'
             }), 400
+
+        try:
+            cursor.execute("SELECT cargo FROM recurso_operativo WHERE id_codigo_consumidor = %s", (id_codigo_consumidor,))
+            cargo_row = cursor.fetchone()
+            cargo_usuario = (cargo_row.get('cargo') if cargo_row else '') or ''
+            if cargo_usuario.strip().upper() == 'CONDUCTOR':
+                limite_str = '09:00'
+            else:
+                cursor.execute("""
+                    SELECT hora_limite_preoperacional
+                    FROM hora_preoperacional 
+                    ORDER BY id_hora_preoperacional DESC 
+                    LIMIT 1
+                """)
+                r = cursor.fetchone()
+                limite_base = str(r['hora_limite_preoperacional']) if r and r.get('hora_limite_preoperacional') else '10:00:00'
+                limite_str = limite_base[:5]
+            ahora = get_bogota_datetime()
+            h_lim, m_lim = tuple(map(int, limite_str.split(':')))
+            if (ahora.hour > h_lim) or (ahora.hour == h_lim and ahora.minute > m_lim):
+                return jsonify({'status': 'error', 'message': f'Fuera de horario. Permitido hasta las {limite_str} (hora de Bogotá).'}), 400
+        except Exception:
+            pass
 
         # Obtener datos del formulario
         data = {
@@ -8695,7 +8717,6 @@ def registrar_preoperacional_operativo():
 
         cursor = connection.cursor(dictionary=True)
         
-        # Verificar si ya existe un registro para el día actual
         id_codigo_consumidor = request.form.get('id_codigo_consumidor')
         app.logger.info(f"ID código consumidor: {id_codigo_consumidor}")
         
@@ -8715,6 +8736,29 @@ def registrar_preoperacional_operativo():
                 'status': 'error',
                 'message': 'Ya has registrado un preoperacional para el día de hoy.'
             }), 400
+
+        try:
+            cursor.execute("SELECT cargo FROM recurso_operativo WHERE id_codigo_consumidor = %s", (id_codigo_consumidor,))
+            cargo_row = cursor.fetchone()
+            cargo_usuario = (cargo_row.get('cargo') if cargo_row else '') or ''
+            if cargo_usuario.strip().upper() == 'CONDUCTOR':
+                limite_str = '09:00'
+            else:
+                cursor.execute("""
+                    SELECT hora_limite_preoperacional
+                    FROM hora_preoperacional 
+                    ORDER BY id_hora_preoperacional DESC 
+                    LIMIT 1
+                """)
+                r = cursor.fetchone()
+                limite_base = str(r['hora_limite_preoperacional']) if r and r.get('hora_limite_preoperacional') else '10:00:00'
+                limite_str = limite_base[:5]
+            ahora = get_bogota_datetime()
+            h_lim, m_lim = tuple(map(int, limite_str.split(':')))
+            if (ahora.hour > h_lim) or (ahora.hour == h_lim and ahora.minute > m_lim):
+                return jsonify({'status': 'error', 'message': f'Fuera de horario. Permitido hasta las {limite_str} (hora de Bogotá).'}), 400
+        except Exception:
+            pass
 
         # Obtener datos del formulario
         data = {
@@ -15305,6 +15349,7 @@ def obtener_usuario(id):
                 analista,
                 fecha_ingreso,
                 fecha_retiro,
+                fecha_cumpleanos,
                 presentado_dico
             FROM recurso_operativo 
             WHERE id_codigo_consumidor = %s
@@ -15323,6 +15368,12 @@ def obtener_usuario(id):
         if usuario['fecha_retiro']:
             if isinstance(usuario['fecha_retiro'], datetime):
                 usuario['fecha_retiro'] = usuario['fecha_retiro'].strftime('%Y-%m-%d')
+        if usuario.get('fecha_cumpleanos'):
+            try:
+                s = str(usuario['fecha_cumpleanos'])
+                usuario['fecha_cumpleanos'] = s.split(' ')[0]
+            except Exception:
+                usuario['fecha_cumpleanos'] = None
         
         return jsonify(usuario)
         
@@ -15449,6 +15500,7 @@ def actualizar_usuario():
         analista = request.form.get('analista', '')
         fecha_ingreso = request.form.get('fecha_ingreso', '')
         fecha_retiro = request.form.get('fecha_retiro', '')
+        fecha_cumpleanos = request.form.get('fecha_cumpleanos', '')
         presentado_dico = request.form.get('presentado_dico', '')
         
         # Validar datos requeridos
@@ -15476,6 +15528,7 @@ def actualizar_usuario():
             'analista = %s',
             'fecha_ingreso = %s',
             'fecha_retiro = %s',
+            'fecha_cumpleanos = %s',
             'presentado_dico = %s'
         ]
         
@@ -15492,6 +15545,7 @@ def actualizar_usuario():
             analista,
             fecha_ingreso if fecha_ingreso else None,
             fecha_retiro if fecha_retiro else None,
+            fecha_cumpleanos if fecha_cumpleanos else None,
             presentado_dico
         ]
         
@@ -25856,26 +25910,35 @@ def obtener_hora_preoperacional():
         
         cursor = connection.cursor(dictionary=True)
         
-        # Obtener la hora límite actual
         cursor.execute("""
             SELECT id_hora_preoperacional, hora_limite_preoperacional
             FROM hora_preoperacional 
             ORDER BY id_hora_preoperacional DESC 
             LIMIT 1
         """)
-        
         resultado = cursor.fetchone()
-        
         if resultado:
-            # Convertir time a string para JSON
-            hora_limite = str(resultado['hora_limite_preoperacional'])
-            
+            hora_base = str(resultado['hora_limite_preoperacional'])
+            hora_base_fmt = hora_base[:5]
+            hora_final = hora_base
+            hora_final_fmt = hora_base_fmt
+            try:
+                user_id = session.get('id_codigo_consumidor')
+                if user_id:
+                    cursor.execute("SELECT cargo FROM recurso_operativo WHERE id_codigo_consumidor = %s", (user_id,))
+                    row = cursor.fetchone()
+                    cargo = (row.get('cargo') if row else '') or ''
+                    if cargo.strip().upper() == 'CONDUCTOR':
+                        hora_final = '09:00:00'
+                        hora_final_fmt = '09:00'
+            except Exception:
+                pass
             return jsonify({
                 'success': True,
                 'data': {
                     'id': resultado['id_hora_preoperacional'],
-                    'hora_limite': hora_limite,
-                    'hora_limite_formatted': hora_limite[:5]  # HH:MM format
+                    'hora_limite': hora_final,
+                    'hora_limite_formatted': hora_final_fmt
                 }
             })
         else:

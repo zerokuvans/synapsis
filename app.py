@@ -7065,9 +7065,17 @@ def api_vencimientos_consolidados():
             s.estado
         FROM mpa_soat s
         LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor
+        JOIN mpa_vehiculos v2 ON v2.placa = s.placa
+            AND v2.id_mpa_vehiculos = (
+                SELECT MAX(v3.id_mpa_vehiculos)
+                FROM mpa_vehiculos v3
+                WHERE v3.placa = s.placa
+            )
         WHERE s.fecha_vencimiento IS NOT NULL
           AND s.fecha_vencimiento NOT LIKE '0000-00-00%'
           AND s.fecha_vencimiento > '1900-01-01'
+          AND s.estado = 'Activo'
+          AND UPPER(TRIM(COALESCE(v2.estado, ''))) = 'ACTIVO'
           AND (
               s.tecnico_asignado IS NULL
               OR TRIM(s.tecnico_asignado) = ''
@@ -7101,9 +7109,17 @@ def api_vencimientos_consolidados():
             tm.estado
         FROM mpa_tecnico_mecanica tm
         LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor
+        JOIN mpa_vehiculos v2 ON v2.placa = tm.placa
+            AND v2.id_mpa_vehiculos = (
+                SELECT MAX(v3.id_mpa_vehiculos)
+                FROM mpa_vehiculos v3
+                WHERE v3.placa = tm.placa
+            )
         WHERE tm.fecha_vencimiento IS NOT NULL
           AND tm.fecha_vencimiento NOT LIKE '0000-00-00%'
           AND tm.fecha_vencimiento > '1900-01-01'
+          AND tm.estado = 'Activo'
+          AND UPPER(TRIM(COALESCE(v2.estado, ''))) = 'ACTIVO'
           AND (
               tm.tecnico_asignado IS NULL
               OR TRIM(tm.tecnico_asignado) = ''
@@ -7153,11 +7169,33 @@ def api_vencimientos_consolidados():
             vencimientos_consolidados.append({
                 'id': lc['id'],
                 'tipo': 'Licencia de Conducir',
-                'placa': None,  # Las licencias no tienen placa
+                'placa': None,
                 'fecha_vencimiento': lc['fecha_vencimiento'].strftime('%Y-%m-%d') if lc['fecha_vencimiento'] else None,
                 'tecnico_nombre': lc['tecnico_nombre'] or 'Sin asignar',
-                'estado_original': None  # Las licencias no tienen campo estado
+                'estado_original': None
             })
+
+        # Filtro adicional por estado del vehículo usando el último registro por placa
+        try:
+            cursor.execute(
+                """
+                SELECT v1.placa, v1.estado
+                FROM mpa_vehiculos v1
+                JOIN (
+                    SELECT placa, MAX(id_mpa_vehiculos) AS max_id
+                    FROM mpa_vehiculos
+                    GROUP BY placa
+                ) t ON t.placa = v1.placa AND v1.id_mpa_vehiculos = t.max_id
+                """
+            )
+            estados_vehiculos_rows = cursor.fetchall() or []
+            estados_vehiculos = { (r.get('placa') or '').strip().upper(): (r.get('estado') or '').strip().upper() for r in estados_vehiculos_rows }
+            vencimientos_consolidados = [
+                v for v in vencimientos_consolidados
+                if (v.get('placa') is None) or estados_vehiculos.get((v.get('placa') or '').strip().upper()) == 'ACTIVO'
+            ]
+        except Exception:
+            pass
         
         # 4. Calcular días restantes y estado para todos los vencimientos
         from datetime import datetime, date

@@ -339,6 +339,12 @@
                             <div class="form-text">Fecha en que el empleado se retiró (opcional).</div>
                         </div>
                     </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="edit_fecha_cumpleanos" class="form-label">Fecha de Cumpleaños</label>
+                            <input type="date" class="form-control" id="edit_fecha_cumpleanos" name="fecha_cumpleanos">
+                        </div>
+                    </div>
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle me-2"></i> Los campos marcados con * son obligatorios.
                     </div>
@@ -1308,6 +1314,7 @@
                 // Buscar campos de fecha con múltiples intentos
                 let fechaIngresoField = document.getElementById('edit_fecha_ingreso');
                 let fechaRetiroField = document.getElementById('edit_fecha_retiro');
+                let fechaCumpleField = document.getElementById('edit_fecha_cumpleanos');
                 
                 // Si no se encuentran, esperar un poco y volver a intentar
                 if (!fechaIngresoField || !fechaRetiroField) {
@@ -1315,6 +1322,7 @@
                     setTimeout(() => {
                         fechaIngresoField = document.getElementById('edit_fecha_ingreso');
                         fechaRetiroField = document.getElementById('edit_fecha_retiro');
+                        fechaCumpleField = document.getElementById('edit_fecha_cumpleanos');
                         
                         console.log('🔍 Segundo intento - Campos encontrados:', {
                             fechaIngresoField: !!fechaIngresoField,
@@ -1366,6 +1374,23 @@
                         fechaRetiroField.dispatchEvent(new Event('change'));
                     } else {
                         console.error('❌ Campo edit_fecha_retiro no encontrado después de reintentos');
+                    }
+
+                    // Procesar fecha de cumpleaños
+                    if (fechaCumpleField) {
+                        let fechaCumple = '';
+                        if (data.fecha_cumpleanos) {
+                            if (typeof data.fecha_cumpleanos === 'string') {
+                                fechaCumple = data.fecha_cumpleanos.split(' ')[0];
+                            } else {
+                                fechaCumple = data.fecha_cumpleanos;
+                            }
+                        }
+                        fechaCumpleField.value = fechaCumple;
+                        console.log('✅ Fecha cumpleaños asignada:', fechaCumple, '-> Campo value:', fechaCumpleField.value);
+                        fechaCumpleField.dispatchEvent(new Event('change'));
+                    } else {
+                        console.error('❌ Campo edit_fecha_cumpleanos no encontrado después de reintentos');
                     }
                 }
                 
