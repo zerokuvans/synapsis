@@ -450,7 +450,7 @@
                     <div class="col-12 mb-3">
                         <h5 class="text-cumplimiento"><i class="fas fa-sync-alt me-2"></i>Cierre de Ciclo</h5>
                     </div>
-                    <div class="col-lg-6 col-md-6 mb-3">
+                    <div class="col-lg-4 col-md-6 mb-3">
                         <div class="card metric-card card-cumplimiento">
                             <div class="card-body">
                                 <div class="metric-icon text-warning">
@@ -462,7 +462,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-6 col-md-6 mb-3">
+                    <div class="col-lg-4 col-md-6 mb-3">
                         <div class="card metric-card card-cumplimiento">
                             <div class="card-body">
                                 <div class="metric-icon text-success">
@@ -471,6 +471,18 @@
                                 <h6 class="metric-title">Cierre Ciclo (Mes)</h6>
                                 <div class="metric-value text-success" id="cierreCicloMes">0</div>
                                 <p class="metric-subtitle">% sobre meta: <span id="cierreCicloPorcentaje">0%</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card metric-card card-cumplimiento">
+                            <div class="card-body">
+                                <div class="metric-icon text-info">
+                                    <i class="fas fa-award"></i>
+                                </div>
+                                <h6 class="metric-title">Calidad Cierre de Ciclo (Mes)</h6>
+                                <div class="metric-value text-info" id="cierreCicloCalidadMes">0</div>
+                                <p class="metric-subtitle">% sobre OTs cierre: <span id="cierreCicloCalidadPorcentaje">0%</span></p>
                             </div>
                         </div>
                     </div>
@@ -713,6 +725,16 @@ function actualizarMetricas(data) {
                 tbody.innerHTML = '';
             }
         }
+    }
+
+    if (data.cierre_ciclo_calidad) {
+        const ccCal = data.cierre_ciclo_calidad;
+        const vCal = typeof ccCal.con_calidad_mes === 'number' ? ccCal.con_calidad_mes : (Number(ccCal.con_calidad_mes) || 0);
+        const pCal = typeof ccCal.porcentaje_mensual === 'number' ? ccCal.porcentaje_mensual : (Number(ccCal.porcentaje_mensual) || 0);
+        const mEl = document.getElementById('cierreCicloCalidadMes');
+        const pEl = document.getElementById('cierreCicloCalidadPorcentaje');
+        if (mEl) mEl.textContent = vCal;
+        if (pEl) pEl.textContent = pCal + '%';
     }
 }
 

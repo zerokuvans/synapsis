@@ -1,0 +1,454 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #343a40 0%, #212529 100%) !important;">
+          <h3 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Inspecciones Vehiculares - MPA</h3>
+        </div>
+        <div class="card-body">
+          <div class="mb-3 d-flex flex-wrap gap-2 align-items-end">
+            <div class="me-2" style="min-width:220px;">
+              <label for="filtroPlaca" class="form-label">Placa</label>
+              <input id="filtroPlaca" type="text" class="form-control" placeholder="Ej. ABC123">
+            </div>
+            <div class="me-2" style="min-width:260px;">
+              <label for="filtroTecnico" class="form-label">Técnico</label>
+              <select id="filtroTecnico" class="form-select">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="ms-auto d-flex gap-2">
+              <button id="btnBuscar" class="btn btn-outline-dark"><i class="fas fa-search me-1"></i>Aplicar filtros</button>
+              <button id="btnNuevaInspeccion" class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#modalInspeccion"><i class="fas fa-plus me-1"></i>Nueva inspección</button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle" id="tablaInspecciones">
+              <thead class="table-dark">
+                <tr>
+                  <th>Fecha</th>
+                  <th>Técnico</th>
+                  <th>Placa</th>
+                  <th>Hallazgos</th>
+                  <th>Observaciones</th>
+                  <th>Firmas</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+              </tbody>
+            </table>
+          </div>
+
+          <div id="emptyState" class="text-center text-muted py-4" style="display:none;">Sin inspecciones registradas</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalInspeccion" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-clipboard-check me-2"></i>Nueva inspección</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formInspeccion">
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Técnico</label>
+              <select id="insTecnico" class="form-select" required></select>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Placa</label>
+              <input id="insPlaca" type="text" class="form-control" placeholder="Ej. ABC123">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Observaciones</label>
+              <input id="insObservaciones" type="text" class="form-control">
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-12 mb-3">
+              <div class="card">
+                <div class="card-header"><i class="fas fa-car-side me-1"></i>Detalles del vehículo</div>
+                <div class="card-body">
+                  <div class="row" id="vehiculoDetalles">
+                    <div class="col-sm-6 col-lg-3 mb-2"><div class="small text-muted">Marca</div><div class="fw-semibold" id="detMarca">-</div></div>
+                    <div class="col-sm-6 col-lg-3 mb-2"><div class="small text-muted">Línea</div><div class="fw-semibold" id="detLinea">-</div></div>
+                    <div class="col-sm-6 col-lg-2 mb-2"><div class="small text-muted">Modelo</div><div class="fw-semibold" id="detModelo">-</div></div>
+                    <div class="col-sm-6 col-lg-2 mb-2"><div class="small text-muted">Color</div><div class="fw-semibold" id="detColor">-</div></div>
+                    <div class="col-sm-6 col-lg-2 mb-2"><div class="small text-muted">Cilindraje</div><div class="fw-semibold" id="detCilindraje">-</div></div>
+                  </div>
+                  <div class="row" id="vencimientosDetalles">
+                    <div class="col-sm-6 col-lg-4 mb-2"><div class="small text-muted">Venc. Licencia</div><div class="fw-semibold" id="detVLicencia">-</div></div>
+                    <div class="col-sm-6 col-lg-4 mb-2"><div class="small text-muted">Venc. SOAT</div><div class="fw-semibold" id="detVSoat">-</div></div>
+                    <div class="col-sm-6 col-lg-4 mb-2"><div class="small text-muted">Venc. Tecnicomecánica</div><div class="fw-semibold" id="detVTm">-</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-12">
+              <div class="card">
+                <div class="card-header"><i class="fas fa-tools me-1"></i>Revisión</div>
+                <div class="card-body">
+                  <div class="row" id="bmFieldsContainer"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="btnGuardarInspeccion" type="button" class="btn btn-dark"><i class="fas fa-save me-1"></i>Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalFirma" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-pen-nib me-2"></i>Firma</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <canvas id="firmaCanvas" width="800" height="300" style="border:1px solid #ddd; border-radius:6px; cursor:crosshair; width:100%; height:300px"></canvas>
+      </div>
+      <div class="modal-footer">
+        <button id="btnLimpiarFirma" type="button" class="btn btn-outline-secondary">Limpiar</button>
+        <button id="btnGuardarFirma" type="button" class="btn btn-dark">Guardar firma</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let tecnicos = []
+let inspecciones = []
+let firmaTarget = { id: null, tipo: null }
+
+const bmGroups = {
+  'Estado físico': [
+    ['estado_fisico_espejos_laterales','Espejos laterales'],
+    ['estado_fisico_pito','Pito'],
+    ['estado_fisico_freno_servicio','Freno servicio'],
+    ['estado_fisico_manillares','Manillares'],
+    ['estado_fisico_guayas','Guayas'],
+    ['estado_fisico_tanque_combustible','Tanque de combustible'],
+    ['estado_fisico_encendido','Encendido'],
+    ['estado_fisico_pedales','Pedales'],
+    ['estado_fisico_guardabarros','Guardabarros'],
+    ['estado_fisico_sillin_tapiceria','Sillín/Tapicería'],
+    ['estado_fisico_tablero','Tablero'],
+    ['estado_fisico_mofle_silenciador','Mofle/Silenciador'],
+    ['estado_fisico_kit_arrastre','Kit de arrastre'],
+    ['estado_fisico_reposa_pies','Reposa pies'],
+    ['estado_fisico_pata_lateral_central','Pata lateral/central'],
+    ['estado_fisico_tijera_amortiguador','Tijera/Amortiguador'],
+    ['estado_fisico_bateria','Batería']
+  ],
+  'Luces': [
+    ['luces_altas_bajas','Luces altas/bajas'],
+    ['luces_direccionales_delanteros','Direccionales delanteros'],
+    ['luces_direccionales_traseros','Direccionales traseros'],
+    ['luces_luz_placa','Luz placa'],
+    ['luces_stop','Stop']
+  ],
+  'Prevención': [
+    ['prevension_casco','Casco'],
+    ['prevension_guantes','Guantes'],
+    ['prevension_rodilleras','Rodilleras'],
+    ['prevension_coderas','Coderas']
+  ],
+  'Llantas': [
+    ['llantas_labrado_llantas','Labrado de llantas'],
+    ['llantas_rines','Rines'],
+    ['llantas_presion_aire','Presión de aire']
+  ],
+  'Otros': [
+    ['otros_aceite','Aceite'],
+    ['otros_suspension_direccion','Suspensión/Dirección'],
+    ['otros_caja_cambios','Caja de cambios'],
+    ['otros_conexiones_electricas','Conexiones eléctricas']
+  ]
+}
+const bmFieldNames = Object.values(bmGroups).flat().map(([n]) => n)
+
+function optionBM(name, labelText){
+  const wrap = document.createElement('div')
+  wrap.className = 'col-12 col-md-6 col-lg-4 mb-3'
+  const label = document.createElement('div')
+  label.className = 'form-label'
+  label.textContent = labelText
+  const group = document.createElement('div')
+  group.className = 'd-flex gap-3 align-items-center'
+  group.innerHTML = `
+    <div class="form-check form-check-inline">
+      <input class="form-check-input bm-input" type="radio" name="bm_${name}" id="bm_${name}_B" value="B">
+      <label class="form-check-label" for="bm_${name}_B">B</label>
+    </div>
+    <div class="form-check form-check-inline">
+      <input class="form-check-input bm-input" type="radio" name="bm_${name}" id="bm_${name}_M" value="M">
+      <label class="form-check-label" for="bm_${name}_M">M</label>
+    </div>
+  `
+  wrap.appendChild(label)
+  wrap.appendChild(group)
+  return wrap
+}
+
+function renderBMFields(){
+  const cont = document.getElementById('bmFieldsContainer')
+  cont.innerHTML = ''
+  Object.keys(bmGroups).forEach(groupName => {
+    const card = document.createElement('div')
+    card.className = 'mb-3'
+    const header = document.createElement('div')
+    header.className = 'fw-semibold mb-2 border-bottom pb-1'
+    header.textContent = groupName
+    const row = document.createElement('div')
+    row.className = 'row'
+    bmGroups[groupName].forEach(([name, label]) => row.appendChild(optionBM(name, label)))
+    card.appendChild(header)
+    card.appendChild(row)
+    cont.appendChild(card)
+  })
+}
+
+async function cargarTecnicos(){
+  const res = await fetch('/api/mpa/tecnicos', { credentials: 'include' })
+  const data = await res.json()
+  tecnicos = (data && data.success) ? (data.tecnicos || data.data || []) : []
+  const fill = (selectEl) => {
+    selectEl.innerHTML = '<option value="">Todos</option>'
+    tecnicos.forEach(t => {
+      const opt = document.createElement('option')
+      opt.value = t.id_codigo_consumidor || t.id
+      opt.textContent = t.nombre || `${t.id_codigo_consumidor}`
+      selectEl.appendChild(opt)
+    })
+  }
+  fill(document.getElementById('filtroTecnico'))
+  const insSel = document.getElementById('insTecnico')
+  insSel.innerHTML = ''
+  tecnicos.forEach(t => {
+    const opt = document.createElement('option')
+    opt.value = t.id_codigo_consumidor || t.id
+    opt.textContent = t.nombre || `${t.id_codigo_consumidor}`
+    insSel.appendChild(opt)
+  })
+}
+
+function contarMalos(r){
+  let c = 0
+  bmFieldNames.forEach(k => { if ((r[k] || '').toUpperCase() === 'M') c++ })
+  return c
+}
+
+function renderTabla(){
+  const tbody = document.querySelector('#tablaInspecciones tbody')
+  tbody.innerHTML = ''
+  if (!inspecciones.length){
+    document.getElementById('emptyState').style.display = 'block'
+    return
+  }
+  document.getElementById('emptyState').style.display = 'none'
+  inspecciones.forEach(r => {
+    const tr = document.createElement('tr')
+    const fecha = r.fecha_inspeccion || ''
+    const firmaT = r.firma_trabajador ? '<span class="badge bg-dark">Trabajador</span>' : ''
+    const firmaI = r.firma_inspector ? '<span class="badge bg-secondary">Inspector</span>' : ''
+    const btnTrabDisabled = r.firma_trabajador ? 'disabled' : ''
+    const btnInspDisabled = r.firma_inspector ? 'disabled' : ''
+    tr.innerHTML = `
+      <td>${fecha}</td>
+      <td>${r.tecnico_nombre || r.nombre || ''}</td>
+      <td>${r.placa || ''}</td>
+      <td>${contarMalos(r)}</td>
+      <td>${r.observaciones || ''}</td>
+      <td class="text-nowrap">${firmaT} ${firmaI}</td>
+      <td class="text-end">
+        <div class="btn-group">
+          <button class="btn btn-outline-dark btn-sm" ${btnTrabDisabled} title="${r.firma_trabajador ? 'Ya firmada por el trabajador' : ''}" data-action="firma-trabajador" data-id="${r.id_mpa_inspeccion_vehiculo}"><i class="fas fa-pen me-1"></i>Firma trabajador</button>
+          <button class="btn btn-outline-secondary btn-sm" ${btnInspDisabled} title="${r.firma_inspector ? 'Ya firmada por el inspector' : ''}" data-action="firma-inspector" data-id="${r.id_mpa_inspeccion_vehiculo}"><i class="fas fa-pen-fancy me-1"></i>Firma inspector</button>
+        </div>
+      </td>
+    `
+    tbody.appendChild(tr)
+  })
+}
+
+async function cargarInspecciones(){
+  const placa = (document.getElementById('filtroPlaca').value || '').trim().toUpperCase()
+  const tecnico_id = document.getElementById('filtroTecnico').value || ''
+  let url = '/api/mpa/inspecciones'
+  const qs = []
+  if (placa) qs.push('placa='+encodeURIComponent(placa))
+  if (tecnico_id) qs.push('tecnico_id='+encodeURIComponent(tecnico_id))
+  if (qs.length) url += ('?'+qs.join('&'))
+  const res = await fetch(url, { credentials: 'include' })
+  const data = await res.json()
+  inspecciones = (data && data.success) ? (data.data || []) : []
+  renderTabla()
+}
+
+async function guardarInspeccion(){
+  const tecnico_id = document.getElementById('insTecnico').value
+  const placa = (document.getElementById('insPlaca').value || '').trim().toUpperCase()
+  const observaciones = document.getElementById('insObservaciones').value || ''
+  const payload = { tecnico_id, placa, observaciones }
+  bmFieldNames.forEach(fname => {
+    const checked = document.querySelector(`input[name="bm_${fname}"]:checked`)
+    payload[fname] = checked ? checked.value : ''
+  })
+  const res = await fetch('/api/mpa/inspecciones', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload), credentials: 'include' })
+  const data = await res.json()
+  if (data && data.success){
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalInspeccion'))
+    modal && modal.hide()
+    await cargarInspecciones()
+  } else {
+    alert((data && data.error) || 'Error al crear la inspección')
+  }
+}
+
+function initFirmaCanvas(){
+  const canvas = document.getElementById('firmaCanvas')
+  const ctx = canvas.getContext('2d')
+  ctx.strokeStyle = '#000'
+  ctx.lineWidth = 2
+  let drawing = false
+  let last = null
+  const pos = (e) => {
+    const rect = canvas.getBoundingClientRect()
+    return { x: (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left, y: (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top }
+  }
+  const start = (e) => { drawing = true; last = pos(e) }
+  const move = (e) => { if (!drawing) return; const p = pos(e); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p }
+  const end = () => { drawing = false; last = null }
+  canvas.addEventListener('mousedown', start)
+  canvas.addEventListener('mousemove', move)
+  canvas.addEventListener('mouseup', end)
+  canvas.addEventListener('mouseleave', end)
+  canvas.addEventListener('touchstart', (e) => { e.preventDefault(); start(e) }, false)
+  canvas.addEventListener('touchmove', (e) => { e.preventDefault(); move(e) }, false)
+  canvas.addEventListener('touchend', (e) => { e.preventDefault(); end() }, false)
+  document.getElementById('btnLimpiarFirma').addEventListener('click', () => { ctx.clearRect(0,0,canvas.width,canvas.height) })
+}
+
+async function guardarFirma(){
+  if (!firmaTarget.id || !firmaTarget.tipo) return
+  const canvas = document.getElementById('firmaCanvas')
+  const dataUrl = canvas.toDataURL('image/png')
+  let endpoint = 'firma-trabajador'
+  if (firmaTarget.tipo !== 'trabajador') endpoint = 'firma-inspector'
+  const urlFirma = `/api/mpa/inspecciones/${firmaTarget.id}/${endpoint}`
+  const res = await fetch(urlFirma, { method:'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ firma: dataUrl }), credentials: 'include' })
+  const d = await res.json()
+  if (d && d.success){
+    const modal = bootstrap.Modal.getInstance(document.getElementById('modalFirma'))
+    modal && modal.hide()
+    await cargarInspecciones()
+  } else {
+    alert((d && d.error) || 'Error al guardar la firma')
+  }
+}
+
+function abrirModalFirma(tipo, id){
+  firmaTarget = { tipo, id }
+  const modal = new bootstrap.Modal(document.getElementById('modalFirma'))
+  const canvas = document.getElementById('firmaCanvas')
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0,0,canvas.width,canvas.height)
+  modal.show()
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  renderBMFields()
+  await cargarTecnicos()
+  await cargarInspecciones()
+  document.getElementById('btnBuscar').addEventListener('click', cargarInspecciones)
+  document.getElementById('btnGuardarInspeccion').addEventListener('click', guardarInspeccion)
+  initFirmaCanvas()
+  document.getElementById('btnGuardarFirma').addEventListener('click', guardarFirma)
+  document.getElementById('insPlaca').addEventListener('blur', async () => {
+    const placa = (document.getElementById('insPlaca').value || '').trim().toUpperCase()
+    if (!placa) return
+    try{
+      const [rVeh, rSoat, rTm] = await Promise.all([
+        fetch('/api/mpa/vehiculos?placa='+encodeURIComponent(placa), { credentials: 'include' }),
+        fetch('/api/mpa/soat?placa='+encodeURIComponent(placa), { credentials: 'include' }),
+        fetch('/api/mpa/tecnico_mecanica?placa='+encodeURIComponent(placa), { credentials: 'include' })
+      ])
+      const dVeh = await rVeh.json();
+      console.log('vehiculos', dVeh)
+      let v = {}
+      if (dVeh && dVeh.success){
+        const arr = dVeh.data || dVeh.vehiculos || []
+        v = arr[0] || {}
+      }
+      document.getElementById('detMarca').textContent = v.marca || '-'
+      document.getElementById('detLinea').textContent = v.linea || '-'
+      document.getElementById('detModelo').textContent = v.modelo || '-'
+      document.getElementById('detColor').textContent = v.color || '-'
+      document.getElementById('detCilindraje').textContent = v.cilindraje || v.cilindraje_cc || '-'
+      const dSoat = await rSoat.json();
+      console.log('soat', dSoat)
+      let s = {}
+      if (dSoat && dSoat.success){
+        const arrS = dSoat.data || []
+        s = arrS[0] || {}
+      }
+      document.getElementById('detVSoat').textContent = s.fecha_vencimiento || '-'
+      const dTm = await rTm.json();
+      console.log('tecnico_mecanica', dTm)
+      let t = {}
+      if (dTm && dTm.success){
+        const arrT = dTm.data || []
+        t = arrT[0] || {}
+      }
+      document.getElementById('detVTm').textContent = t.fecha_vencimiento || '-'
+    }catch(e){ }
+    try{
+      const tecnico_id = document.getElementById('insTecnico').value
+      if (tecnico_id){
+        const rLic = await fetch('/api/mpa/licencias-conducir?tecnico_id='+encodeURIComponent(tecnico_id), { credentials: 'include' })
+        const dLic = await rLic.json()
+        console.log('licencias', dLic)
+        let l = {}
+        if (dLic && dLic.success){
+          const arrL = dLic.data || []
+          arrL.sort((a,b)=> {
+            const tb = new Date(b.fecha_vencimiento||'1900-01-01')
+            const ta = new Date(a.fecha_vencimiento||'1900-01-01')
+            return tb - ta
+          })
+          l = arrL[0] || {}
+        }
+        document.getElementById('detVLicencia').textContent = l.fecha_vencimiento || '-'
+      }
+    }catch(e){ }
+  })
+  document.querySelector('#tablaInspecciones tbody').addEventListener('click', (e) => {
+    const btn = e.target.closest('button')
+    if (!btn) return
+    const id = btn.dataset.id
+    const action = btn.dataset.action
+    if (action === 'firma-trabajador') abrirModalFirma('trabajador', id)
+    if (action === 'firma-inspector') abrirModalFirma('inspector', id)
+  })
+})
+</script>
+{% endblock %}

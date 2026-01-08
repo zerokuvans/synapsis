@@ -84,12 +84,15 @@ def load_user(user_id):
 # Función para obtener conexión a la base de datos
 def get_db_connection():
     try:
-        connection = mysql.connector.connect(
-            host='localhost',
-            user='root',
-            password='732137A031E4b@',
-            database='capired'
-        )
+        host = os.getenv('MYSQL_HOST') or 'localhost'
+        user = os.getenv('MYSQL_USER') or 'root'
+        password = os.getenv('MYSQL_PASSWORD') or '732137A031E4b@'
+        database = os.getenv('MYSQL_DB') or os.getenv('MYSQL_DATABASE') or 'capired'
+        port_val = os.getenv('MYSQL_PORT')
+        if port_val:
+            connection = mysql.connector.connect(host=host, user=user, password=password, database=database, port=int(port_val))
+        else:
+            connection = mysql.connector.connect(host=host, user=user, password=password, database=database)
         return connection
     except mysql.connector.Error as e:
         print(f"Error al conectar a la base de datos: {e}")
@@ -403,6 +406,85 @@ def ensure_sgis_permiso_trabajo_tables():
             pass
 
 ensure_sgis_permiso_trabajo_tables()
+
+def ensure_mpa_inspeccion_vehiculo_table():
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mpa_inspeccion_vehiculo (
+                id_mpa_inspeccion_vehiculo INT AUTO_INCREMENT PRIMARY KEY,
+                id_codigo_consumidor INT NOT NULL,
+                nombre VARCHAR(128) NULL,
+                recurso_operativo_cedula VARCHAR(32) NULL,
+                fecha_inspeccion DATETIME NULL,
+                placa VARCHAR(16) NULL,
+                marca VARCHAR(64) NULL,
+                linea VARCHAR(64) NULL,
+                modelo VARCHAR(64) NULL,
+                color VARCHAR(32) NULL,
+                cilindraje VARCHAR(64) NULL,
+                estado_fisico_espejos_laterales ENUM('B','M') NULL,
+                estado_fisico_pito ENUM('B','M') NULL,
+                estado_fisico_freno_servicio ENUM('B','M') NULL,
+                estado_fisico_manillares ENUM('B','M') NULL,
+                estado_fisico_guayas ENUM('B','M') NULL,
+                estado_fisico_tanque_combustible ENUM('B','M') NULL,
+                estado_fisico_encendido ENUM('B','M') NULL,
+                estado_fisico_pedales ENUM('B','M') NULL,
+                estado_fisico_guardabarros ENUM('B','M') NULL,
+                estado_fisico_sillin_tapiceria ENUM('B','M') NULL,
+                estado_fisico_tablero ENUM('B','M') NULL,
+                estado_fisico_mofle_silenciador ENUM('B','M') NULL,
+                estado_fisico_kit_arrastre ENUM('B','M') NULL,
+                estado_fisico_reposa_pies ENUM('B','M') NULL,
+                estado_fisico_pata_lateral_central ENUM('B','M') NULL,
+                estado_fisico_tijera_amortiguador ENUM('B','M') NULL,
+                estado_fisico_bateria ENUM('B','M') NULL,
+                luces_altas_bajas ENUM('B','M') NULL,
+                luces_direccionales_delanteros ENUM('B','M') NULL,
+                luces_direccionales_traseros ENUM('B','M') NULL,
+                luces_luz_placa ENUM('B','M') NULL,
+                luces_stop ENUM('B','M') NULL,
+                prevension_casco ENUM('B','M') NULL,
+                prevension_guantes ENUM('B','M') NULL,
+                prevension_rodilleras ENUM('B','M') NULL,
+                prevension_coderas ENUM('B','M') NULL,
+                llantas_labrado_llantas ENUM('B','M') NULL,
+                llantas_rines ENUM('B','M') NULL,
+                llantas_presion_aire ENUM('B','M') NULL,
+                otros_aceite ENUM('B','M') NULL,
+                otros_suspension_direccion ENUM('B','M') NULL,
+                otros_caja_cambios ENUM('B','M') NULL,
+                otros_conexiones_electricas ENUM('B','M') NULL,
+                vencimiento_licencia DATE NULL,
+                vencimiento_soat DATE NULL,
+                vencimiento_tecnicomecanica DATE NULL,
+                firma_trabajador LONGTEXT NULL,
+                firma_trabajador_fecha DATETIME NULL,
+                firma_inspector LONGTEXT NULL,
+                firma_inspector_fecha DATETIME NULL,
+                observaciones TEXT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NULL DEFAULT NULL,
+                INDEX idx_inspec_usuario (id_codigo_consumidor),
+                INDEX idx_inspec_placa (placa),
+                INDEX idx_inspec_fecha (fecha_inspeccion)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        conn.commit()
+        cur.close(); conn.close()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+
+ensure_mpa_inspeccion_vehiculo_table()
 
 def _fecha_finalizacion_domingo(fecha_base):
     from datetime import timedelta
@@ -4628,51 +4710,87 @@ def api_get_vehiculos():
         
         placa = (request.args.get('placa') or '').strip().upper()
         tecnico = (request.args.get('tecnico') or '').strip()
-        tecnico = (request.args.get('tecnico') or '').strip()
         where_parts = []
         params = []
-        # Consulta para obtener vehículos con información del técnico asignado
+        cursor.execute("SHOW TABLES LIKE 'mpa_vehiculos'")
+        if not cursor.fetchone():
+            return jsonify({'success': True, 'data': []})
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+
+        cursor.execute("DESCRIBE mpa_vehiculos")
+        cols_info = cursor.fetchall() or []
+        col_names = set()
+        for ci in cols_info:
+            try:
+                col_names.add(ci.get('Field') or ci.get('field') or ci[0])
+            except Exception:
+                pass
+
+        select_cols = [
+            "v.id_mpa_vehiculos",
+            "v.placa",
+            "v.tipo_vehiculo",
+            "v.vin",
+            "v.estado",
+            "v.marca",
+            "v.linea",
+            "v.modelo",
+            "v.color",
+            "v.kilometraje_actual",
+            "v.fecha_creacion",
+            "v.tecnico_asignado",
+            "v.observaciones"
+        ]
+
+        if 'numero_motor' in col_names:
+            select_cols.append("v.numero_motor")
+        elif 'numero_de_motor' in col_names:
+            select_cols.append("v.numero_de_motor AS numero_motor")
+
+        if 'cilindraje' in col_names:
+            select_cols.append("v.cilindraje")
+        elif 'cilindraje_cc' in col_names:
+            select_cols.append("v.cilindraje_cc AS cilindraje")
+
+        if 'fecha_matricula' in col_names:
+            select_cols.append("v.fecha_matricula AS fecha_de_matricula")
+        elif 'fecha_de_matricula' in col_names:
+            select_cols.append("v.fecha_de_matricula")
+        if ro_exists:
+            select_cols.append("ro.nombre as tecnico_nombre")
+        else:
+            select_cols.append("CAST(v.tecnico_asignado AS CHAR) as tecnico_nombre")
+
+        joins = []
+        if ro_exists:
+            joins.append("LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor")
+
         query = """
-        SELECT 
-            v.id_mpa_vehiculos,
-            v.cedula_propietario,
-            v.nombre_propietario,
-            v.placa,
-            v.tipo_vehiculo,
-            v.vin,
-            v.numero_de_motor,
-            v.fecha_de_matricula,
-            v.estado,
-            v.marca,
-            v.linea,
-            v.modelo,
-            v.color,
-            v.kilometraje_actual,
-            v.fecha_creacion,
-            v.tecnico_asignado,
-            v.observaciones,
-            ro.nombre as tecnico_nombre
+        SELECT {select_cols}
         FROM mpa_vehiculos v
-        LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+        {joins}
         {where_clause}
         ORDER BY v.fecha_creacion DESC
         """
         if placa:
-            where_parts.append("v.placa = %s")
+            where_parts.append("UPPER(TRIM(v.placa)) = %s")
             params.append(placa)
         if tecnico:
             where_parts.append("v.tecnico_asignado = %s")
             params.append(tecnico)
         where_clause = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
-        query = query.format(where_clause=where_clause)
+        query = query.format(select_cols=', '.join(select_cols), joins=' '.join(joins), where_clause=where_clause)
+        print(f"/api/mpa/vehiculos placa={placa} tecnico={tecnico} where={where_clause}")
         cursor.execute(query, params)
         vehiculos = cursor.fetchall()
+        print(f"/api/mpa/vehiculos resultados={len(vehiculos)}")
         
         # Formatear fechas para el frontend
         for vehiculo in vehiculos:
-            if vehiculo['fecha_de_matricula']:
+            if vehiculo.get('fecha_de_matricula'):
                 vehiculo['fecha_de_matricula'] = vehiculo['fecha_de_matricula'].strftime('%Y-%m-%d')
-            if vehiculo['fecha_creacion']:
+            if vehiculo.get('fecha_creacion'):
                 vehiculo['fecha_creacion'] = vehiculo['fecha_creacion'].strftime('%Y-%m-%d %H:%M:%S')
         
         return jsonify({
@@ -5997,14 +6115,10 @@ def mpa_licencias():
 @app.route('/mpa/inspecciones')
 @login_required
 def mpa_inspecciones():
-    """Módulo de gestión de inspecciones vehiculares"""
     if not current_user.has_role('administrativo'):
         flash('No tienes permisos para acceder a este módulo.', 'error')
         return redirect(url_for('mpa_dashboard'))
-    
-    # TODO: Implementar página de inspecciones
-    flash('Módulo en desarrollo', 'info')
-    return redirect(url_for('mpa_dashboard'))
+    return render_template('modulos/mpa/inspecciones.html')
 
 @app.route('/mpa/siniestros')
 @login_required
@@ -6648,6 +6762,324 @@ def api_get_categorias_mantenimiento(tipo_vehiculo):
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
+@app.route('/api/mpa/inspecciones', methods=['GET'])
+@login_required
+def api_list_inspecciones():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        try:
+            cursor.execute("SHOW TABLES LIKE 'mpa_inspeccion_vehiculo'")
+            if not cursor.fetchone():
+                return jsonify({'success': True, 'data': []})
+        except Exception:
+            return jsonify({'success': True, 'data': []})
+        placa = (request.args.get('placa') or '').strip().upper()
+        tecnico_id = (request.args.get('tecnico_id') or '').strip()
+
+        cursor.execute("DESCRIBE mpa_inspeccion_vehiculo")
+        cols_info = cursor.fetchall() or []
+        col_names = set()
+        for ci in cols_info:
+            try:
+                col_names.add(ci.get('Field') or ci.get('field') or ci[0])
+            except Exception:
+                pass
+
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+
+        col_placa = 'placa' if 'placa' in col_names else None
+        posibles_tecnico_fk = ['id_codigo_consumidor','tecnico_id','tecnico','id_tecnico']
+        col_tecnico_fk = next((c for c in posibles_tecnico_fk if c in col_names), None)
+        col_nombre = 'nombre' if 'nombre' in col_names else None
+
+        where = []
+        params = []
+        if col_placa and placa:
+            where.append(f"UPPER(TRIM(i.{col_placa})) = %s")
+            params.append(placa)
+        if col_tecnico_fk and tecnico_id:
+            where.append(f"i.{col_tecnico_fk} = %s")
+            params.append(tecnico_id)
+
+        if ro_exists and col_tecnico_fk:
+            tecnico_select = f"COALESCE(ro.nombre, CAST(i.{col_tecnico_fk} AS CHAR)) AS tecnico_nombre"
+            joins = f"LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = i.{col_tecnico_fk}"
+        elif col_nombre:
+            tecnico_select = "i.nombre AS tecnico_nombre"
+            joins = ""
+        elif col_tecnico_fk:
+            tecnico_select = f"CAST(i.{col_tecnico_fk} AS CHAR) AS tecnico_nombre"
+            joins = ""
+        else:
+            tecnico_select = "NULL AS tecnico_nombre"
+            joins = ""
+
+        query = """
+        SELECT i.*, {tecnico_select}
+        FROM mpa_inspeccion_vehiculo i
+        {joins}
+        {where_clause}
+        ORDER BY i.fecha_inspeccion DESC
+        """
+        where_clause = ("WHERE " + " AND ".join(where)) if where else ""
+        query = query.format(tecnico_select=tecnico_select, joins=joins, where_clause=where_clause)
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+        for r in rows:
+            fi = r.get('fecha_inspeccion')
+            if fi:
+                try:
+                    r['fecha_inspeccion'] = fi.strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    pass
+            vl = r.get('vencimiento_licencia')
+            vs = r.get('vencimiento_soat')
+            vt = r.get('vencimiento_tecnicomecanica')
+            for k in ('vencimiento_licencia','vencimiento_soat','vencimiento_tecnicomecanica'):
+                v = r.get(k)
+                if v:
+                    try:
+                        r[k] = v.strftime('%Y-%m-%d')
+                    except Exception:
+                        pass
+        return jsonify({'success': True, 'data': rows})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/mpa/inspecciones/<int:inspeccion_id>', methods=['GET'])
+@login_required
+def api_get_inspeccion(inspeccion_id):
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT i.*, COALESCE(ro.nombre, i.nombre) AS tecnico_nombre
+            FROM mpa_inspeccion_vehiculo i
+            LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = i.id_codigo_consumidor
+            WHERE i.id_mpa_inspeccion_vehiculo = %s
+            """,
+            (inspeccion_id,)
+        )
+        r = cursor.fetchone()
+        if not r:
+            return jsonify({'success': False, 'error': 'Inspección no encontrada'}), 404
+        fi = r.get('fecha_inspeccion')
+        if fi:
+            try:
+                r['fecha_inspeccion'] = fi.strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                pass
+        for k in ('vencimiento_licencia','vencimiento_soat','vencimiento_tecnicomecanica'):
+            v = r.get(k)
+            if v:
+                try:
+                    r[k] = v.strftime('%Y-%m-%d')
+                except Exception:
+                    pass
+        return jsonify({'success': True, 'data': r})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/mpa/inspecciones', methods=['POST'])
+@login_required
+def api_create_inspeccion():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        data = request.get_json(silent=True) or {}
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        try:
+            cursor.execute("SHOW TABLES LIKE 'mpa_inspeccion_vehiculo'")
+            if not cursor.fetchone():
+                try:
+                    ensure_mpa_inspeccion_vehiculo_table()
+                    cursor.execute("SHOW TABLES LIKE 'mpa_inspeccion_vehiculo'")
+                    if not cursor.fetchone():
+                        return jsonify({'success': False, 'error': 'Tabla de inspecciones no disponible'}), 500
+                except Exception:
+                    return jsonify({'success': False, 'error': 'Tabla de inspecciones no disponible'}), 500
+        except Exception:
+            return jsonify({'success': False, 'error': 'Tabla de inspecciones no disponible'}), 500
+        tecnico_id = data.get('tecnico_id')
+        placa = (data.get('placa') or '').strip().upper()
+        ro = None
+        if tecnico_id:
+            cursor.execute("SELECT id_codigo_consumidor, nombre, recurso_operativo_cedula FROM recurso_operativo WHERE id_codigo_consumidor=%s AND estado='Activo'", (tecnico_id,))
+            ro = cursor.fetchone()
+        if not placa and tecnico_id:
+            cursor.execute("SELECT placa FROM mpa_vehiculos WHERE tecnico_asignado=%s ORDER BY fecha_creacion DESC LIMIT 1", (tecnico_id,))
+            rowp = cursor.fetchone()
+            placa = (rowp or {}).get('placa') if rowp else placa
+        veh = None
+        if placa:
+            cursor.execute("DESCRIBE mpa_vehiculos")
+            cols_info_v = cursor.fetchall() or []
+            v_cols = set()
+            for ci in cols_info_v:
+                try:
+                    v_cols.add(ci.get('Field') or ci.get('field') or ci[0])
+                except Exception:
+                    pass
+            sel_cols = ["marca","linea","modelo","color"]
+            if 'cilindraje' in v_cols:
+                sel_cols.append("cilindraje")
+            elif 'cilindraje_cc' in v_cols:
+                sel_cols.append("cilindraje_cc AS cilindraje")
+            else:
+                sel_cols.append("NULL AS cilindraje")
+            cursor.execute(f"SELECT {', '.join(sel_cols)} FROM mpa_vehiculos WHERE placa=%s", (placa,))
+            veh = cursor.fetchone()
+        fecha_inspeccion = get_bogota_datetime().replace(tzinfo=None)
+        venc_lic = None
+        venc_soat = None
+        venc_tm = None
+        if tecnico_id:
+            cursor.execute("SELECT fecha_vencimiento FROM mpa_licencia_conducir WHERE tecnico=%s AND fecha_vencimiento IS NOT NULL AND fecha_vencimiento > '1900-01-01' ORDER BY fecha_vencimiento DESC LIMIT 1", (tecnico_id,))
+            rl = cursor.fetchone()
+            venc_lic = (rl or {}).get('fecha_vencimiento')
+        if placa:
+            cursor.execute("SELECT fecha_vencimiento FROM mpa_soat WHERE placa=%s AND fecha_vencimiento IS NOT NULL AND fecha_vencimiento > '1900-01-01' ORDER BY fecha_vencimiento DESC LIMIT 1", (placa,))
+            rs = cursor.fetchone()
+            venc_soat = (rs or {}).get('fecha_vencimiento')
+            cursor.execute("SELECT fecha_vencimiento FROM mpa_tecnico_mecanica WHERE placa=%s AND fecha_vencimiento IS NOT NULL AND fecha_vencimiento > '1900-01-01' ORDER BY fecha_vencimiento DESC LIMIT 1", (placa,))
+            rt = cursor.fetchone()
+            venc_tm = (rt or {}).get('fecha_vencimiento')
+        def bm(v):
+            s = str(v or '').strip().upper()
+            return 'B' if s in ('B','BUENO') else ('M' if s in ('M','MALO') else None)
+        bm_fields = [
+            'estado_fisico_espejos_laterales','estado_fisico_pito','estado_fisico_freno_servicio','estado_fisico_manillares','estado_fisico_guayas','estado_fisico_tanque_combustible','estado_fisico_encendido','estado_fisico_pedales','estado_fisico_guardabarros','estado_fisico_sillin_tapiceria','estado_fisico_tablero','estado_fisico_mofle_silenciador','estado_fisico_kit_arrastre','estado_fisico_reposa_pies','estado_fisico_pata_lateral_central','estado_fisico_tijera_amortiguador','estado_fisico_bateria','luces_altas_bajas','luces_direccionales_delanteros','luces_direccionales_traseros','luces_luz_placa','luces_stop','prevension_casco','prevension_guantes','prevension_rodilleras','prevension_coderas','llantas_labrado_llantas','llantas_rines','llantas_presion_aire','otros_aceite','otros_suspension_direccion','otros_caja_cambios','otros_conexiones_electricas'
+        ]
+        fields = {
+            'id_codigo_consumidor': tecnico_id,
+            'nombre': (ro or {}).get('nombre') or data.get('nombre'),
+            'recurso_operativo_cedula': (ro or {}).get('recurso_operativo_cedula') or data.get('cedula'),
+            'fecha_inspeccion': fecha_inspeccion,
+            'placa': placa or data.get('placa'),
+            'marca': (veh or {}).get('marca'),
+            'linea': (veh or {}).get('linea'),
+            'modelo': (veh or {}).get('modelo'),
+            'color': (veh or {}).get('color'),
+            'cilindraje': (veh or {}).get('cilindraje'),
+            'vencimiento_licencia': venc_lic,
+            'vencimiento_soat': venc_soat,
+            'vencimiento_tecnicomecanica': venc_tm,
+            'observaciones': data.get('observaciones')
+        }
+        for k in bm_fields:
+            fields[k] = bm(data.get(k))
+        cursor.execute(
+            """
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mpa_inspeccion_vehiculo'
+            """
+        )
+        existing_cols = {r['COLUMN_NAME'] if isinstance(r, dict) else r[0] for r in cursor.fetchall()}
+        filtered = [(k, v) for k, v in fields.items() if k in existing_cols]
+        cols = ",".join([k for k, _ in filtered])
+        vals = tuple([v for _, v in filtered])
+        set_stmt = ",".join([f"{k}=%s" for k, _ in filtered])
+        cursor.execute(f"INSERT INTO mpa_inspeccion_vehiculo ({cols}) VALUES ({','.join(['%s']*len(filtered))})", vals)
+        connection.commit()
+        nid = cursor.lastrowid
+        return jsonify({'success': True, 'id_mpa_inspeccion_vehiculo': nid})
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/mpa/inspecciones/<int:inspeccion_id>/firma-trabajador', methods=['PUT'])
+@login_required
+def api_inspecciones_firma_trabajador(inspeccion_id):
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        data = request.get_json(silent=True) or {}
+        firma = data.get('firma')
+        if not firma:
+            return jsonify({'success': False, 'error': 'Firma requerida'}), 400
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        cursor.execute("UPDATE mpa_inspeccion_vehiculo SET firma_trabajador=%s, firma_trabajador_fecha=NOW() WHERE id_mpa_inspeccion_vehiculo=%s", (firma, inspeccion_id))
+        connection.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        try:
+            cursor.close(); connection.close()
+        except Exception:
+            pass
+
+@app.route('/api/mpa/inspecciones/<int:inspeccion_id>/firma-inspector', methods=['PUT'])
+@login_required
+def api_inspecciones_firma_inspector(inspeccion_id):
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        data = request.get_json(silent=True) or {}
+        firma = data.get('firma')
+        if not firma:
+            return jsonify({'success': False, 'error': 'Firma requerida'}), 400
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        cursor.execute("UPDATE mpa_inspeccion_vehiculo SET firma_inspector=%s, firma_inspector_fecha=NOW() WHERE id_mpa_inspeccion_vehiculo=%s", (firma, inspeccion_id))
+        connection.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        if 'connection' in locals() and connection:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        try:
+            cursor.close(); connection.close()
+        except Exception:
+            pass
 # API para subir imágenes de mantenimiento
 @app.route('/api/mpa/mantenimientos/upload-image', methods=['POST'])
 @login_required
@@ -6724,32 +7156,54 @@ def api_get_soat():
         params = [fecha_bogota]
 
         if placa:
-            where.append("s.placa = %s")
-            params.append(placa)
+            where.append("UPPER(TRIM(s.placa)) = %s")
+            params.append((placa or '').strip().upper())
         if estado:
             where.append("s.estado = %s")
             params.append(estado)
 
+        cursor.execute("SHOW TABLES LIKE 'mpa_soat'")
+        if not cursor.fetchone():
+            return jsonify({'success': True, 'data': []})
+        cursor.execute("SHOW TABLES LIKE 'mpa_vehiculos'")
+        veh_exists = cursor.fetchone() is not None
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+
+        select_cols = [
+            "s.id_mpa_soat",
+            "s.placa",
+            "s.numero_poliza",
+            "s.aseguradora",
+            "s.fecha_inicio",
+            "s.fecha_vencimiento",
+            "s.valor_prima",
+            "s.tecnico_asignado",
+            "s.estado",
+            "s.observaciones",
+            "s.fecha_creacion",
+            "s.fecha_actualizacion",
+            "DATEDIFF(s.fecha_vencimiento, %s) as dias_vencimiento"
+        ]
+        if veh_exists:
+            select_cols.append("v.tipo_vehiculo")
+        else:
+            select_cols.append("NULL as tipo_vehiculo")
+        if ro_exists:
+            select_cols.append("COALESCE(ro.nombre, CAST(s.tecnico_asignado AS CHAR)) as tecnico_nombre")
+        else:
+            select_cols.append("CAST(s.tecnico_asignado AS CHAR) as tecnico_nombre")
+
+        joins = []
+        if veh_exists:
+            joins.append("LEFT JOIN mpa_vehiculos v ON s.placa = v.placa")
+        if ro_exists:
+            joins.append("LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor")
+
         query = f"""
-        SELECT 
-            s.id_mpa_soat,
-            s.placa,
-            s.numero_poliza,
-            s.aseguradora,
-            s.fecha_inicio,
-            s.fecha_vencimiento,
-            s.valor_prima,
-            s.tecnico_asignado,
-            s.estado,
-            s.observaciones,
-            s.fecha_creacion,
-            s.fecha_actualizacion,
-            v.tipo_vehiculo,
-            COALESCE(ro.nombre, CAST(s.tecnico_asignado AS CHAR)) as tecnico_nombre,
-            DATEDIFF(s.fecha_vencimiento, %s) as dias_vencimiento
+        SELECT {', '.join(select_cols)}
         FROM mpa_soat s
-        LEFT JOIN mpa_vehiculos v ON s.placa = v.placa
-        LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor
+        {' '.join(joins)}
         {('WHERE ' + ' AND '.join(where)) if where else ''}
         ORDER BY s.fecha_vencimiento DESC
         """
@@ -6799,26 +7253,48 @@ def api_get_soat_by_id(soat_id):
         # Obtener fecha actual de Bogotá
         fecha_bogota = get_bogota_datetime().date()
         
-        query = """
-        SELECT 
-            s.id_mpa_soat,
-            s.placa,
-            s.numero_poliza,
-            s.aseguradora,
-            s.fecha_inicio,
-            s.fecha_vencimiento,
-            s.valor_prima,
-            s.tecnico_asignado,
-            s.estado,
-            s.observaciones,
-            s.fecha_creacion,
-            s.fecha_actualizacion,
-            v.tipo_vehiculo,
-            COALESCE(ro.nombre, CAST(s.tecnico_asignado AS CHAR)) as tecnico_nombre,
-            DATEDIFF(s.fecha_vencimiento, %s) as dias_vencimiento
+        cursor.execute("SHOW TABLES LIKE 'mpa_soat'")
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'error': 'SOAT no encontrado'}), 404
+        cursor.execute("SHOW TABLES LIKE 'mpa_vehiculos'")
+        veh_exists = cursor.fetchone() is not None
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+
+        select_cols = [
+            "s.id_mpa_soat",
+            "s.placa",
+            "s.numero_poliza",
+            "s.aseguradora",
+            "s.fecha_inicio",
+            "s.fecha_vencimiento",
+            "s.valor_prima",
+            "s.tecnico_asignado",
+            "s.estado",
+            "s.observaciones",
+            "s.fecha_creacion",
+            "s.fecha_actualizacion",
+            "DATEDIFF(s.fecha_vencimiento, %s) as dias_vencimiento"
+        ]
+        if veh_exists:
+            select_cols.append("v.tipo_vehiculo")
+        else:
+            select_cols.append("NULL as tipo_vehiculo")
+        if ro_exists:
+            select_cols.append("COALESCE(ro.nombre, CAST(s.tecnico_asignado AS CHAR)) as tecnico_nombre")
+        else:
+            select_cols.append("CAST(s.tecnico_asignado AS CHAR) as tecnico_nombre")
+
+        joins = []
+        if veh_exists:
+            joins.append("LEFT JOIN mpa_vehiculos v ON s.placa = v.placa")
+        if ro_exists:
+            joins.append("LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor")
+
+        query = f"""
+        SELECT {', '.join(select_cols)}
         FROM mpa_soat s
-        LEFT JOIN mpa_vehiculos v ON s.placa = v.placa
-        LEFT JOIN recurso_operativo ro ON s.tecnico_asignado = ro.id_codigo_consumidor
+        {' '.join(joins)}
         WHERE s.id_mpa_soat = %s
         """
         
@@ -7426,30 +7902,53 @@ def api_list_tecnico_mecanica():
         params = []
 
         if placa:
-            where.append("tm.placa = %s")
-            params.append(placa)
+            where.append("UPPER(TRIM(tm.placa)) = %s")
+            params.append((placa or '').strip().upper())
         if estado:
             where.append("tm.estado = %s")
             params.append(estado)
 
+        cursor.execute("SHOW TABLES LIKE 'mpa_tecnico_mecanica'")
+        if not cursor.fetchone():
+            return jsonify({'success': True, 'data': []})
+        cursor.execute("SHOW TABLES LIKE 'mpa_vehiculos'")
+        veh_exists = cursor.fetchone() is not None
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+
+        select_cols = [
+            "tm.id_mpa_tecnico_mecanica",
+            "tm.placa",
+            "tm.fecha_inicio",
+            "tm.fecha_vencimiento",
+            "tm.tecnico_asignado",
+            "tm.estado",
+            "tm.observaciones",
+            "tm.fecha_creacion",
+            "tm.fecha_actualizacion",
+            "tm.tipo_vehiculo"
+        ]
+        if veh_exists:
+            select_cols.append("v.tipo_vehiculo as vehiculo_tipo")
+            select_cols.append("v.tecnico_asignado as vehiculo_tecnico")
+        else:
+            select_cols.append("NULL as vehiculo_tipo")
+            select_cols.append("NULL as vehiculo_tecnico")
+        if ro_exists:
+            select_cols.append("ro.nombre as tecnico_nombre")
+        else:
+            select_cols.append("CAST(tm.tecnico_asignado AS CHAR) as tecnico_nombre")
+
+        joins = []
+        if veh_exists:
+            joins.append("LEFT JOIN mpa_vehiculos v ON tm.placa = v.placa")
+        if ro_exists:
+            joins.append("LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor")
+
         query = f"""
-        SELECT 
-            tm.id_mpa_tecnico_mecanica,
-            tm.placa,
-            tm.fecha_inicio,
-            tm.fecha_vencimiento,
-            tm.tecnico_asignado,
-            tm.estado,
-            tm.observaciones,
-            tm.fecha_creacion,
-            tm.fecha_actualizacion,
-            tm.tipo_vehiculo,
-            v.tipo_vehiculo as vehiculo_tipo,
-            v.tecnico_asignado as vehiculo_tecnico,
-            ro.nombre as tecnico_nombre
+        SELECT {', '.join(select_cols)}
         FROM mpa_tecnico_mecanica tm
-        LEFT JOIN mpa_vehiculos v ON tm.placa = v.placa
-        LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor
+        {' '.join(joins)}
         {('WHERE ' + ' AND '.join(where)) if where else ''}
         ORDER BY tm.fecha_creacion DESC
         """
@@ -7522,24 +8021,47 @@ def api_get_tecnico_mecanica(tm_id):
             
         cursor = connection.cursor(dictionary=True)
         
-        query = """
-        SELECT 
-            tm.id_mpa_tecnico_mecanica,
-            tm.placa,
-            tm.fecha_inicio,
-            tm.fecha_vencimiento,
-            tm.tecnico_asignado,
-            tm.estado,
-            tm.observaciones,
-            tm.fecha_creacion,
-            tm.fecha_actualizacion,
-            tm.tipo_vehiculo,
-            v.tipo_vehiculo as vehiculo_tipo,
-            v.tecnico_asignado as vehiculo_tecnico,
-            ro.nombre as tecnico_nombre
+        cursor.execute("SHOW TABLES LIKE 'mpa_tecnico_mecanica'")
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'error': 'Técnico mecánica no encontrada'}), 404
+        cursor.execute("SHOW TABLES LIKE 'mpa_vehiculos'")
+        veh_exists = cursor.fetchone() is not None
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+
+        select_cols = [
+            "tm.id_mpa_tecnico_mecanica",
+            "tm.placa",
+            "tm.fecha_inicio",
+            "tm.fecha_vencimiento",
+            "tm.tecnico_asignado",
+            "tm.estado",
+            "tm.observaciones",
+            "tm.fecha_creacion",
+            "tm.fecha_actualizacion",
+            "tm.tipo_vehiculo"
+        ]
+        if veh_exists:
+            select_cols.append("v.tipo_vehiculo as vehiculo_tipo")
+            select_cols.append("v.tecnico_asignado as vehiculo_tecnico")
+        else:
+            select_cols.append("NULL as vehiculo_tipo")
+            select_cols.append("NULL as vehiculo_tecnico")
+        if ro_exists:
+            select_cols.append("ro.nombre as tecnico_nombre")
+        else:
+            select_cols.append("CAST(tm.tecnico_asignado AS CHAR) as tecnico_nombre")
+
+        joins = []
+        if veh_exists:
+            joins.append("LEFT JOIN mpa_vehiculos v ON tm.placa = v.placa")
+        if ro_exists:
+            joins.append("LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor")
+
+        query = f"""
+        SELECT {', '.join(select_cols)}
         FROM mpa_tecnico_mecanica tm
-        LEFT JOIN mpa_vehiculos v ON tm.placa = v.placa
-        LEFT JOIN recurso_operativo ro ON tm.tecnico_asignado = ro.id_codigo_consumidor
+        {' '.join(joins)}
         WHERE tm.id_mpa_tecnico_mecanica = %s
         """
         
@@ -7832,20 +8354,36 @@ def api_list_licencias_conducir():
         if tecnico_id:
             where.append("lc.tecnico = %s")
             params.append(tecnico_id)
+        cursor.execute("SHOW TABLES LIKE 'mpa_licencia_conducir'")
+        if not cursor.fetchone():
+            return jsonify({'success': True, 'data': []})
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+
+        select_cols = [
+            "lc.id_mpa_licencia_conducir as id",
+            "lc.tecnico as tecnico_id",
+            "lc.tipo_licencia",
+            "lc.fecha_inicio as fecha_inicial",
+            "lc.fecha_vencimiento",
+            "lc.observacion as observaciones",
+            "lc.fecha_creacion as created_at",
+            "lc.fecha_actualizacion as updated_at",
+            "DATEDIFF(lc.fecha_vencimiento, %s) as dias_vencimiento"
+        ]
+        if ro_exists:
+            select_cols.append("COALESCE(ro.nombre, lc.tecnico) as tecnico_nombre")
+        else:
+            select_cols.append("CAST(lc.tecnico AS CHAR) as tecnico_nombre")
+
+        joins = []
+        if ro_exists:
+            joins.append("LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor")
+
         query = f"""
-        SELECT 
-            lc.id_mpa_licencia_conducir as id,
-            lc.tecnico as tecnico_id,
-            lc.tipo_licencia,
-            lc.fecha_inicio as fecha_inicial,
-            lc.fecha_vencimiento,
-            lc.observacion as observaciones,
-            lc.fecha_creacion as created_at,
-            lc.fecha_actualizacion as updated_at,
-            COALESCE(ro.nombre, lc.tecnico) as tecnico_nombre,
-            DATEDIFF(lc.fecha_vencimiento, %s) as dias_vencimiento
+        SELECT {', '.join(select_cols)}
         FROM mpa_licencia_conducir lc
-        LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor
+        {' '.join(joins)}
         {('WHERE ' + ' AND '.join(where)) if where else ''}
         ORDER BY lc.fecha_vencimiento DESC
         """
@@ -7930,20 +8468,36 @@ def api_get_licencia_conducir(licencia_id):
         # Obtener fecha actual de Bogotá
         fecha_bogota = get_bogota_datetime().date()
         
-        query = """
-        SELECT 
-            lc.id_mpa_licencia_conducir as id,
-            lc.tecnico as tecnico_id,
-            lc.tipo_licencia,
-            lc.fecha_inicio as fecha_inicial,
-            lc.fecha_vencimiento,
-            lc.observacion as observaciones,
-            lc.fecha_creacion as created_at,
-            lc.fecha_actualizacion as updated_at,
-            COALESCE(ro.nombre, lc.tecnico) as tecnico_nombre,
-            DATEDIFF(lc.fecha_vencimiento, %s) as dias_vencimiento
+        cursor.execute("SHOW TABLES LIKE 'mpa_licencia_conducir'")
+        if not cursor.fetchone():
+            return jsonify({'success': False, 'message': 'Licencia no encontrada'}), 404
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+
+        select_cols = [
+            "lc.id_mpa_licencia_conducir as id",
+            "lc.tecnico as tecnico_id",
+            "lc.tipo_licencia",
+            "lc.fecha_inicio as fecha_inicial",
+            "lc.fecha_vencimiento",
+            "lc.observacion as observaciones",
+            "lc.fecha_creacion as created_at",
+            "lc.fecha_actualizacion as updated_at",
+            "DATEDIFF(lc.fecha_vencimiento, %s) as dias_vencimiento"
+        ]
+        if ro_exists:
+            select_cols.append("COALESCE(ro.nombre, lc.tecnico) as tecnico_nombre")
+        else:
+            select_cols.append("CAST(lc.tecnico AS CHAR) as tecnico_nombre")
+
+        joins = []
+        if ro_exists:
+            joins.append("LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor")
+
+        query = f"""
+        SELECT {', '.join(select_cols)}
         FROM mpa_licencia_conducir lc
-        LEFT JOIN recurso_operativo ro ON lc.tecnico = ro.id_codigo_consumidor
+        {' '.join(joins)}
         WHERE lc.id_mpa_licencia_conducir = %s
         """
         

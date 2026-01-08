@@ -62,6 +62,7 @@ TIMEZONE = pytz.timezone('America/Bogota')
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config.setdefault('PREFERRED_URL_SCHEME', 'http')
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
@@ -138,6 +139,7 @@ from app import api_list_tecnico_mecanica, api_get_tecnico_mecanica, api_create_
 from app import api_list_licencias_conducir, api_get_licencia_conducir, api_create_licencia_conducir, api_update_licencia_conducir, api_delete_licencia_conducir
 from app import api_import_vehiculos_excel, api_import_tecnico_mecanica_excel, api_import_soat_excel, api_import_licencias_excel
 from app import api_cronograma_alerts_my
+from app import api_list_inspecciones, api_get_inspeccion, api_create_inspeccion, api_inspecciones_firma_trabajador, api_inspecciones_firma_inspector
 from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas_por_tecnico, api_google_directions_route, api_riesgo_motos, api_riesgo_por_localidad, api_localidades, api_riesgo_importar, api_rutas_estados
 
 # Importar solo la función de actualización por claves para SSTT desde app.py
@@ -215,6 +217,12 @@ app.route('/api/mpa/rutas/riesgo-motos', methods=['GET'])(api_riesgo_motos)
 app.route('/api/mpa/rutas/riesgo-por-localidad', methods=['GET'])(api_riesgo_por_localidad)
 app.route('/api/mpa/localidades', methods=['GET'])(api_localidades)
 app.route('/api/mpa/rutas/riesgo-importar', methods=['POST'])(api_riesgo_importar)
+
+app.route('/api/mpa/inspecciones', methods=['GET'])(api_list_inspecciones)
+app.route('/api/mpa/inspecciones/<int:inspeccion_id>', methods=['GET'])(api_get_inspeccion)
+app.route('/api/mpa/inspecciones', methods=['POST'])(api_create_inspeccion)
+app.route('/api/mpa/inspecciones/<int:inspeccion_id>/firma-trabajador', methods=['PUT'])(api_inspecciones_firma_trabajador)
+app.route('/api/mpa/inspecciones/<int:inspeccion_id>/firma-inspector', methods=['PUT'])(api_inspecciones_firma_inspector)
 
 # Registrar rutas de la API de SOAT MPA
 app.route('/api/mpa/soat', methods=['GET'])(api_get_soat)
@@ -3460,6 +3468,24 @@ def lider_actividades_diarias():
         flash(f'Error al cargar actividades diarias: {str(e)}', 'danger')
         return redirect(url_for('lider_dashboard'))
 
+@app.route('/lider/calidad')
+@login_required_lider()
+def lider_calidad():
+    try:
+        return render_template('modulos/lider/calidad.html', api_endpoint='/api/lider/cargar-calidad')
+    except Exception as e:
+        flash(f'Error al cargar módulo de calidad: {str(e)}', 'danger')
+        return redirect(url_for('lider_dashboard'))
+
+@app.route('/lider/facturacion')
+@login_required_lider()
+def lider_facturacion():
+    try:
+        return render_template('modulos/lider/facturacion.html', api_endpoint='/api/lider/cargar-facturacion')
+    except Exception as e:
+        flash(f'Error al cargar módulo de facturación: {str(e)}', 'danger')
+        return redirect(url_for('lider_dashboard'))
+
 @app.route('/api/lider/cargar-actividades', methods=['POST'])
 @login_required_lider_api()
 def api_lider_cargar_actividades():
@@ -3674,6 +3700,815 @@ def api_lider_cargar_actividades():
 @login_required_api(role=['analistas','analista','lider'])
 def api_analistas_cargar_actividades():
     return api_lider_cargar_actividades()
+
+@app.route('/api/lider/cargar-calidad', methods=['POST'])
+@login_required_lider_api()
+def api_lider_cargar_calidad():
+    file = request.files.get('file')
+    if not file or not file.filename:
+        return jsonify({'success': False, 'message': 'Archivo no proporcionado'}), 400
+    name = file.filename.lower()
+    data = file.read()
+    try:
+        if name.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(data))
+        elif name.endswith('.xlsx') or name.endswith('.xls'):
+            df = pd.read_excel(io.BytesIO(data))
+        else:
+            return jsonify({'success': False, 'message': 'Formato no soportado'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+    def nrm(s):
+        try:
+            return re.sub(r"[^a-z0-9]", "", str(s).lower())
+        except Exception:
+            return str(s).lower()
+
+    cols_map = {nrm(c): c for c in df.columns}
+    def pick(names):
+        for n in names:
+            k = nrm(n)
+            if k in cols_map:
+                return cols_map[k]
+        for k0, v0 in cols_map.items():
+            for n in names:
+                if nrm(n) in k0:
+                    return v0
+        return None
+
+    col_cuenta = pick(['cuenta','numero_de_cuenta','num_cuenta','nro_cuenta'])
+    col_ot = pick(['ot','orden_de_trabajo','orden','orden_trabajo'])
+    col_garantia = pick(['garantia','garantía'])
+    col_causa = pick(['causa','motivo'])
+    col_lider = pick(['lider','líder','supervisor'])
+    col_agenda = pick(['agenda','franja'])
+    col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+    col_cedula = pick(['cedula','documento','recurso_operativo_cedula','id_codigo_consumidor'])
+
+    required = [col_cuenta, col_ot, col_garantia, col_causa, col_lider, col_agenda, col_fecha, col_cedula]
+    if any(c is None for c in required):
+        missing = []
+        names = ['Cuenta','OT','Garantia','Causa','Lider','Agenda','Fecha','Cedula']
+        for i, c in enumerate(required):
+            if c is None:
+                missing.append(names[i])
+        return jsonify({'success': False, 'message': f'Columnas faltantes: {", ".join(missing)}'}), 400
+
+    def to_date(val):
+        try:
+            if isinstance(val, pd.Timestamp):
+                return val.to_pydatetime().date()
+            if isinstance(val, datetime):
+                return val.date()
+            return pd.to_datetime(val).date()
+        except Exception:
+            return None
+
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS operaciones_calidad (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                cuenta VARCHAR(64) NULL,
+                ot VARCHAR(64) NULL,
+                garantia VARCHAR(64) NULL,
+                causa TEXT NULL,
+                lider VARCHAR(128) NULL,
+                agenda VARCHAR(128) NULL,
+                fecha DATE NULL,
+                periodo_year INT NULL,
+                periodo_month INT NULL,
+                cedula VARCHAR(32) NULL,
+                carpeta VARCHAR(128) NULL,
+                super VARCHAR(128) NULL,
+                analista VARCHAR(128) NULL,
+                tecnico_nombre VARCHAR(128) NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_ot (ot),
+                INDEX idx_cuenta (cuenta),
+                INDEX idx_cedula (cedula),
+                INDEX idx_fecha (fecha)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+
+        schema = None
+        try:
+            cur_db = connection.cursor()
+            cur_db.execute("SELECT DATABASE()")
+            schema = (cur_db.fetchone() or [None])[0]
+            cur_db.close()
+        except Exception:
+            pass
+        if not schema:
+            schema = os.getenv('MYSQL_DB') or (db_config.get('database') or 'capired')
+        try:
+            cursor.execute(
+                """
+                SELECT COLUMN_NAME FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='operaciones_calidad'
+                """,
+                (schema,)
+            )
+            existing_cols = {r[0] if isinstance(r, tuple) else list(r.values())[0] for r in cursor.fetchall() or []}
+            if 'carpeta' not in existing_cols:
+                cursor.execute("ALTER TABLE operaciones_calidad ADD COLUMN carpeta VARCHAR(128) NULL")
+            if 'periodo_year' not in existing_cols:
+                cursor.execute("ALTER TABLE operaciones_calidad ADD COLUMN periodo_year INT NULL")
+            if 'periodo_month' not in existing_cols:
+                cursor.execute("ALTER TABLE operaciones_calidad ADD COLUMN periodo_month INT NULL")
+            try:
+                cursor.execute(
+                    """
+                    SELECT COUNT(*) FROM information_schema.statistics
+                    WHERE table_schema=%s AND table_name='operaciones_calidad' AND index_name='uniq_ot_periodo' AND NON_UNIQUE=0
+                    """,
+                    (schema,)
+                )
+                idx_exists = (cursor.fetchone() or [0])[0] > 0
+                if not idx_exists:
+                    try:
+                        cursor.execute("ALTER TABLE operaciones_calidad ADD UNIQUE KEY uniq_ot_periodo (ot, periodo_year, periodo_month)")
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        inserted = 0
+        updated = 0
+        periodo_sel = (request.form.get('periodo') or '').strip()
+        now_bog = datetime.now(TIMEZONE)
+        p_year = now_bog.year
+        p_month = now_bog.month
+        if periodo_sel:
+            try:
+                parts = periodo_sel.split('-')
+                if len(parts) == 2:
+                    yy = int(parts[0]); mm = int(parts[1])
+                    if 1 <= mm <= 12:
+                        p_year = yy; p_month = mm
+            except Exception:
+                pass
+        cur_ro = connection.cursor(dictionary=True)
+        for r in range(len(df)):
+            cuenta_v = df.iloc[r][col_cuenta]
+            ot_v = df.iloc[r][col_ot]
+            garantia_v = df.iloc[r][col_garantia]
+            causa_v = df.iloc[r][col_causa]
+            lider_v = df.iloc[r][col_lider]
+            agenda_v = df.iloc[r][col_agenda]
+            fecha_v = to_date(df.iloc[r][col_fecha])
+            cedula_raw = df.iloc[r][col_cedula]
+            cedula_v = None
+            try:
+                s = str(cedula_raw).strip()
+                cedula_v = s if s else None
+            except Exception:
+                cedula_v = None
+
+            super_v = None
+            analista_v = None
+            tecnico_v = None
+            carpeta_v = None
+            if cedula_v:
+                try:
+                    cur_ro.execute("SELECT nombre, super, analista, carpeta FROM recurso_operativo WHERE recurso_operativo_cedula = %s LIMIT 1", (cedula_v,))
+                    ro = cur_ro.fetchone()
+                    if ro:
+                        tecnico_v = ro.get('nombre')
+                        super_v = ro.get('super')
+                        analista_v = ro.get('analista')
+                        carpeta_v = ro.get('carpeta')
+                except Exception:
+                    pass
+
+            ot_str = None if pd.isna(ot_v) else str(ot_v).strip()
+            if ot_str:
+                cursor.execute(
+                    "SELECT 1 FROM operaciones_calidad WHERE ot=%s AND periodo_year=%s AND periodo_month=%s LIMIT 1",
+                    (ot_str, p_year, p_month)
+                )
+                exists_row = cursor.fetchone()
+                if exists_row:
+                    cursor.execute(
+                        """
+                        UPDATE operaciones_calidad SET
+                            cuenta=%s, garantia=%s, causa=%s, lider=%s, agenda=%s, fecha=%s, cedula=%s, carpeta=%s, super=%s, analista=%s, tecnico_nombre=%s
+                        WHERE ot=%s AND periodo_year=%s AND periodo_month=%s
+                        """,
+                        (
+                            None if pd.isna(cuenta_v) else str(cuenta_v),
+                            None if pd.isna(garantia_v) else str(garantia_v),
+                            None if pd.isna(causa_v) else str(causa_v),
+                            None if pd.isna(lider_v) else str(lider_v),
+                            None if pd.isna(agenda_v) else str(agenda_v),
+                            fecha_v,
+                            cedula_v,
+                            None if pd.isna(carpeta_v) else str(carpeta_v),
+                            None if pd.isna(super_v) else str(super_v),
+                            None if pd.isna(analista_v) else str(analista_v),
+                            None if pd.isna(tecnico_v) else str(tecnico_v),
+                            ot_str,
+                            p_year,
+                            p_month
+                        )
+                    )
+                    updated += 1
+                else:
+                    cursor.execute(
+                        """
+                        INSERT INTO operaciones_calidad (
+                            cuenta, ot, garantia, causa, lider, agenda, fecha, periodo_year, periodo_month, cedula, carpeta, super, analista, tecnico_nombre
+                        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        """,
+                        (
+                            None if pd.isna(cuenta_v) else str(cuenta_v),
+                            ot_str,
+                            None if pd.isna(garantia_v) else str(garantia_v),
+                            None if pd.isna(causa_v) else str(causa_v),
+                            None if pd.isna(lider_v) else str(lider_v),
+                            None if pd.isna(agenda_v) else str(agenda_v),
+                            fecha_v,
+                            p_year,
+                            p_month,
+                            cedula_v,
+                            None if pd.isna(carpeta_v) else str(carpeta_v),
+                            None if pd.isna(super_v) else str(super_v),
+                            None if pd.isna(analista_v) else str(analista_v),
+                            None if pd.isna(tecnico_v) else str(tecnico_v)
+                        )
+                    )
+                    inserted += 1
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO operaciones_calidad (
+                        cuenta, ot, garantia, causa, lider, agenda, fecha, periodo_year, periodo_month, cedula, carpeta, super, analista, tecnico_nombre
+                    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    """,
+                    (
+                        None if pd.isna(cuenta_v) else str(cuenta_v),
+                        None if pd.isna(ot_v) else str(ot_v),
+                        None if pd.isna(garantia_v) else str(garantia_v),
+                        None if pd.isna(causa_v) else str(causa_v),
+                        None if pd.isna(lider_v) else str(lider_v),
+                        None if pd.isna(agenda_v) else str(agenda_v),
+                        fecha_v,
+                        p_year,
+                        p_month,
+                        cedula_v,
+                        None if pd.isna(carpeta_v) else str(carpeta_v),
+                        None if pd.isna(super_v) else str(super_v),
+                        None if pd.isna(analista_v) else str(analista_v),
+                        None if pd.isna(tecnico_v) else str(tecnico_v)
+                    )
+                )
+                inserted += 1
+
+        connection.commit()
+        try:
+            cur_ro.close()
+        except Exception:
+            pass
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'rows_inserted': inserted, 'rows_updated': updated, 'periodo_year': p_year, 'periodo_month': p_month, 'message': f"{inserted} insertadas, {updated} actualizadas"})
+    except Error as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    except Exception as e:
+        try:
+            app.logger.error(f"Error en cargue de calidad: {e}")
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 200
+
+@app.route('/api/lider/cargar-facturacion', methods=['POST'])
+@login_required_lider_api()
+def api_lider_cargar_facturacion():
+    file = request.files.get('file')
+    if not file or not file.filename:
+        return jsonify({'success': False, 'message': 'Archivo no proporcionado'}), 400
+    name = file.filename.lower()
+    data = file.read()
+    try:
+        if name.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(data))
+        elif name.endswith('.xlsx') or name.endswith('.xls'):
+            df = pd.read_excel(io.BytesIO(data))
+        else:
+            return jsonify({'success': False, 'message': 'Formato no soportado'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+    def nrm(s):
+        try:
+            return re.sub(r"[^a-z0-9]", "", str(s).lower())
+        except Exception:
+            return str(s).lower()
+
+    cmap = {nrm(c): c for c in df.columns}
+    def pick(names):
+        for n in names:
+            k = nrm(n)
+            if k in cmap:
+                return cmap[k]
+        for k0, v0 in cmap.items():
+            for n in names:
+                if nrm(n) in k0:
+                    return v0
+        return None
+
+    col_tecnico = pick(['tecnico_nombre','tecnico'])
+    col_deberiair = pick(['deberiair'])
+    col_puntos = pick(['puntos'])
+    col_nivel = pick(['niveltecnico','nivel_tecnico'])
+    col_mediaot = pick(['mediaot','media_ot'])
+    col_oks = pick(['oks'])
+    col_abiertas = pick(['abiertas'])
+    col_fact_pdte = pick(['fact-pdte','fact_pdte'])
+    col_fact_sinsubir = pick(['fact-sinsubir','fact_sinsubir'])
+    col_vehiculo = pick(['vehiculo'])
+    col_cedula = pick(['cedula','documento','recurso_operativo_cedula'])
+
+    required = [col_cedula]
+    if any(c is None for c in required):
+        return jsonify({'success': False, 'message': 'Falta columna cedula en el archivo'}), 400
+
+    periodo_sel = (request.form.get('periodo') or '').strip()
+    now_bog = datetime.now(TIMEZONE)
+    p_year = now_bog.year
+    p_month = now_bog.month
+    if periodo_sel:
+        try:
+            parts = periodo_sel.split('-')
+            if len(parts) == 2:
+                yy = int(parts[0]); mm = int(parts[1])
+                if 1 <= mm <= 12:
+                    p_year = yy; p_month = mm
+        except Exception:
+            pass
+
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS operaciones_facturacion (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                periodo_year INT NOT NULL,
+                periodo_month INT NOT NULL,
+                cedula VARCHAR(32) NOT NULL,
+                tecnico_nombre VARCHAR(128) NULL,
+                deberiair DECIMAL(20,6) NULL,
+                puntos DECIMAL(20,6) NULL,
+                niveltecnico VARCHAR(64) NULL,
+                mediaot DECIMAL(20,6) NULL,
+                oks INT NULL,
+                abiertas INT NULL,
+                fact_pdte INT NULL,
+                fact_sinsubir INT NULL,
+                vehiculo VARCHAR(64) NULL,
+                super VARCHAR(128) NULL,
+                analista VARCHAR(128) NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uniq_cedula_periodo (cedula, periodo_year, periodo_month),
+                INDEX idx_cedula (cedula),
+                INDEX idx_periodo (periodo_year, periodo_month)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+
+        schema = None
+        try:
+            cur_db = connection.cursor()
+            cur_db.execute("SELECT DATABASE()")
+            schema = (cur_db.fetchone() or [None])[0]
+            cur_db.close()
+        except Exception:
+            pass
+        if not schema:
+            schema = os.getenv('MYSQL_DB') or (db_config.get('database') or 'capired')
+        cursor.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_facturacion'
+            """,
+            (schema,)
+        )
+        existing_cols = {r[0] if isinstance(r, tuple) else list(r.values())[0] for r in cursor.fetchall() or []}
+        expected = {
+            'periodo_year': 'INT NOT NULL',
+            'periodo_month': 'INT NOT NULL',
+            'cedula': 'VARCHAR(32) NOT NULL',
+            'tecnico_nombre': 'VARCHAR(128) NULL',
+            'deberiair': 'DECIMAL(20,6) NULL',
+            'puntos': 'DECIMAL(20,6) NULL',
+            'niveltecnico': 'VARCHAR(64) NULL',
+            'mediaot': 'DECIMAL(20,6) NULL',
+            'oks': 'INT NULL',
+            'abiertas': 'INT NULL',
+            'fact_pdte': 'INT NULL',
+            'fact_sinsubir': 'INT NULL',
+            'vehiculo': 'VARCHAR(64) NULL',
+            'super': 'VARCHAR(128) NULL',
+            'analista': 'VARCHAR(128) NULL'
+        }
+        for col, ddl in expected.items():
+            if col not in existing_cols:
+                cursor.execute(f"ALTER TABLE operaciones_facturacion ADD COLUMN {col} {ddl}")
+        try:
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM information_schema.statistics
+                WHERE table_schema=%s AND table_name='operaciones_facturacion' AND index_name='uniq_cedula_periodo' AND NON_UNIQUE=0
+                """,
+                (schema,)
+            )
+            idx_exists = (cursor.fetchone() or [0])[0] > 0
+            if not idx_exists:
+                try:
+                    cursor.execute("ALTER TABLE operaciones_facturacion ADD UNIQUE KEY uniq_cedula_periodo (cedula, periodo_year, periodo_month)")
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        inserted = 0
+        updated = 0
+        cur_ro = connection.cursor(dictionary=True)
+        from decimal import Decimal as D
+        import numpy as np
+        def to_dec(v):
+            try:
+                if v is None or (isinstance(v, float) and not np.isfinite(v)) or pd.isna(v):
+                    return None
+            except Exception:
+                if v is None:
+                    return None
+            try:
+                return D(str(v))
+            except Exception:
+                try:
+                    return D(int(v))
+                except Exception:
+                    return None
+        def to_int(v):
+            try:
+                if v is None or pd.isna(v):
+                    return None
+            except Exception:
+                if v is None:
+                    return None
+            try:
+                return int(float(str(v)))
+            except Exception:
+                try:
+                    return int(v)
+                except Exception:
+                    return None
+        def to_str(v):
+            try:
+                return None if pd.isna(v) else str(v)
+            except Exception:
+                return None if v is None else str(v)
+        for r in range(len(df)):
+            cedula_raw = df.iloc[r][col_cedula]
+            cedula_v = None
+            try:
+                s = str(cedula_raw).strip()
+                cedula_v = s if s else None
+            except Exception:
+                cedula_v = None
+            if not cedula_v:
+                continue
+
+            t_nombre_file = None if col_tecnico is None else df.iloc[r][col_tecnico]
+            t_nombre = None
+            super_v = None
+            analista_v = None
+            try:
+                cur_ro.execute("SELECT nombre, super, analista FROM recurso_operativo WHERE recurso_operativo_cedula = %s LIMIT 1", (cedula_v,))
+                ro = cur_ro.fetchone()
+                if ro:
+                    t_nombre = ro.get('nombre')
+                    super_v = ro.get('super')
+                    analista_v = ro.get('analista')
+            except Exception:
+                pass
+            if not t_nombre:
+                t_nombre = to_str(t_nombre_file)
+            super_v = to_str(super_v)
+            analista_v = to_str(analista_v)
+
+            v_deberiair = to_dec(None if col_deberiair is None else df.iloc[r][col_deberiair])
+            v_puntos = to_dec(None if col_puntos is None else df.iloc[r][col_puntos])
+            v_nivel = to_str(None if col_nivel is None else df.iloc[r][col_nivel])
+            v_mediaot = to_dec(None if col_mediaot is None else df.iloc[r][col_mediaot])
+            v_oks = to_int(None if col_oks is None else df.iloc[r][col_oks])
+            v_abiertas = to_int(None if col_abiertas is None else df.iloc[r][col_abiertas])
+            v_fact_pdte = to_int(None if col_fact_pdte is None else df.iloc[r][col_fact_pdte])
+            v_fact_sinsubir = to_int(None if col_fact_sinsubir is None else df.iloc[r][col_fact_sinsubir])
+            v_vehiculo = to_str(None if col_vehiculo is None else df.iloc[r][col_vehiculo])
+
+            cursor.execute(
+                "SELECT 1 FROM operaciones_facturacion WHERE cedula=%s AND periodo_year=%s AND periodo_month=%s LIMIT 1",
+                (cedula_v, p_year, p_month)
+            )
+            exists_row = cursor.fetchone()
+            if exists_row:
+                cursor.execute(
+                    "UPDATE operaciones_facturacion SET tecnico_nombre=%s, deberiair=%s, puntos=%s, niveltecnico=%s, mediaot=%s, oks=%s, abiertas=%s, fact_pdte=%s, fact_sinsubir=%s, vehiculo=%s, super=%s, analista=%s WHERE cedula=%s AND periodo_year=%s AND periodo_month=%s",
+                    (t_nombre, v_deberiair, v_puntos, v_nivel, v_mediaot, v_oks, v_abiertas, v_fact_pdte, v_fact_sinsubir, v_vehiculo, super_v, analista_v, cedula_v, p_year, p_month)
+                )
+                updated += 1
+            else:
+                cursor.execute(
+                    "INSERT INTO operaciones_facturacion (periodo_year, periodo_month, cedula, tecnico_nombre, deberiair, puntos, niveltecnico, mediaot, oks, abiertas, fact_pdte, fact_sinsubir, vehiculo, super, analista) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (p_year, p_month, cedula_v, t_nombre, v_deberiair, v_puntos, v_nivel, v_mediaot, v_oks, v_abiertas, v_fact_pdte, v_fact_sinsubir, v_vehiculo, super_v, analista_v)
+                )
+                inserted += 1
+
+        connection.commit()
+        try:
+            cur_ro.close()
+        except Exception:
+            pass
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'rows_inserted': inserted, 'rows_updated': updated, 'message': f"{inserted} insertadas, {updated} actualizadas"})
+    except Error as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    except Exception as e:
+        try:
+            app.logger.error(f"Error en cargue de facturación: {e}")
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 200
+
+@app.route('/api/lider/facturacion/list', methods=['GET'])
+@login_required_lider_api()
+def api_lider_facturacion_list():
+    periodo = request.args.get('periodo', '').strip()
+    cedula = request.args.get('cedula', '').strip()
+    analista = request.args.get('analista', '').strip()
+    superv = request.args.get('super', '').strip()
+    try:
+        now_bog = datetime.now(TIMEZONE)
+        year = now_bog.year
+        month = now_bog.month
+        if periodo:
+            try:
+                parts = periodo.split('-')
+                if len(parts) == 2:
+                    year = int(parts[0])
+                    month = int(parts[1])
+            except Exception:
+                pass
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        base_sql = (
+            "SELECT cedula, tecnico_nombre, deberiair, puntos, niveltecnico, mediaot, oks, abiertas, fact_pdte, fact_sinsubir, vehiculo "
+            "FROM operaciones_facturacion WHERE periodo_year=%s AND periodo_month=%s"
+        )
+        params = [year, month]
+        if cedula:
+            base_sql += " AND cedula = %s"
+            params.append(cedula)
+        if analista:
+            base_sql += " AND analista = %s"
+            params.append(analista)
+        if superv:
+            base_sql += " AND super = %s"
+            params.append(superv)
+        base_sql += " ORDER BY tecnico_nombre ASC"
+        cursor.execute(base_sql, tuple(params))
+        items = cursor.fetchall() or []
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'items': items})
+    except Error as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/lider/facturacion/resumen', methods=['GET'])
+@login_required_lider_api()
+def api_lider_facturacion_resumen():
+    periodo = request.args.get('periodo', '').strip()
+    analista = request.args.get('analista', '').strip()
+    superv = request.args.get('super', '').strip()
+    try:
+        now_bog = datetime.now(TIMEZONE)
+        year = now_bog.year
+        month = now_bog.month
+        if periodo:
+            try:
+                parts = periodo.split('-')
+                if len(parts) == 2:
+                    year = int(parts[0])
+                    month = int(parts[1])
+            except Exception:
+                pass
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        sql = (
+            "SELECT COUNT(*) as cantidad, "
+            "SUM(COALESCE(deberiair,0)) as deberiair, "
+            "SUM(COALESCE(puntos,0)) as puntos, "
+            "AVG(COALESCE(mediaot,0)) as mediaot, "
+            "SUM(COALESCE(oks,0)) as oks, "
+            "SUM(COALESCE(abiertas,0)) as abiertas, "
+            "SUM(COALESCE(fact_pdte,0)) as fact_pdte, "
+            "SUM(COALESCE(fact_sinsubir,0)) as fact_sinsubir "
+            "FROM operaciones_facturacion WHERE periodo_year=%s AND periodo_month=%s"
+        )
+        params = [year, month]
+        if analista:
+            sql += " AND analista = %s"
+            params.append(analista)
+        if superv:
+            sql += " AND super = %s"
+            params.append(superv)
+        cursor.execute(sql, tuple(params))
+        resumen = cursor.fetchone() or {}
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'resumen': resumen})
+    except Error as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/lider/facturacion/opciones', methods=['GET'])
+@login_required_lider_api()
+def api_lider_facturacion_opciones():
+    periodo = request.args.get('periodo', '').strip()
+    try:
+        now_bog = datetime.now(TIMEZONE)
+        year = now_bog.year
+        month = now_bog.month
+        if periodo:
+            try:
+                parts = periodo.split('-')
+                if len(parts) == 2:
+                    year = int(parts[0])
+                    month = int(parts[1])
+            except Exception:
+                pass
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT DISTINCT analista FROM operaciones_facturacion WHERE periodo_year=%s AND periodo_month=%s AND analista IS NOT NULL AND TRIM(analista) <> '' ORDER BY analista",
+            (year, month)
+        )
+        analistas = [r[0] for r in cursor.fetchall() or []]
+        cursor.execute(
+            "SELECT DISTINCT super FROM operaciones_facturacion WHERE periodo_year=%s AND periodo_month=%s AND super IS NOT NULL AND TRIM(super) <> '' ORDER BY super",
+            (year, month)
+        )
+        supervisores = [r[0] for r in cursor.fetchall() or []]
+        if not analistas or not supervisores:
+            try:
+                cur2 = connection.cursor()
+                if not analistas:
+                    cur2.execute("SELECT DISTINCT analista FROM recurso_operativo WHERE analista IS NOT NULL AND TRIM(analista) <> '' ORDER BY analista")
+                    analistas = [x[0] for x in cur2.fetchall() or []]
+                if not supervisores:
+                    cur2.execute("SELECT DISTINCT super FROM recurso_operativo WHERE super IS NOT NULL AND TRIM(super) <> '' ORDER BY super")
+                    supervisores = [x[0] for x in cur2.fetchall() or []]
+                cur2.close()
+            except Exception:
+                pass
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'analistas': analistas, 'supervisores': supervisores})
+    except Error as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/lider/calidad/list', methods=['GET'])
+@login_required_lider_api()
+def api_lider_calidad_list():
+    periodo = request.args.get('periodo', '').strip()
+    try:
+        now_bog = datetime.now(TIMEZONE)
+        year = now_bog.year
+        month = now_bog.month
+        if periodo:
+            try:
+                parts = periodo.split('-')
+                if len(parts) == 2:
+                    year = int(parts[0])
+                    month = int(parts[1])
+            except Exception:
+                pass
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT cedula, tecnico_nombre, agenda, fecha, carpeta, ot, periodo_year, periodo_month
+            FROM operaciones_calidad
+            """
+        )
+        rows = cur.fetchall() or []
+        cur2 = connection.cursor()
+
+        meses = {
+            'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4, 'mayo': 5, 'junio': 6,
+            'julio': 7, 'agosto': 8, 'septiembre': 9, 'setiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
+        }
+        def parse_agenda(a, f):
+            y = None
+            m = None
+            s = (a or '').strip().lower()
+            if not s:
+                return None, None
+            try:
+                m1 = re.search(r"(\d{4})\D+(\d{1,2})", s)
+                if m1:
+                    y = int(m1.group(1)); m = int(m1.group(2))
+                else:
+                    m2 = re.search(r"(\d{1,2})\D+(\d{4})", s)
+                    if m2:
+                        m = int(m2.group(1)); y = int(m2.group(2))
+                if not y or not m:
+                    for k,v in meses.items():
+                        if k in s:
+                            m = v
+                            break
+                    if m:
+                        y_search = re.search(r"(\d{4})", s)
+                        if y_search:
+                            y = int(y_search.group(1))
+                        elif f:
+                            try:
+                                if isinstance(f, datetime):
+                                    y = f.year
+                                else:
+                                    y = pd.to_datetime(f).year
+                            except Exception:
+                                y = None
+            except Exception:
+                y = None; m = None
+            if not y or not m:
+                return None, None
+            if m < 1 or m > 12:
+                return None, None
+            return y, m
+
+        grupos = {}
+        for r in rows:
+            py = r.get('periodo_year'); pm = r.get('periodo_month')
+            yx = None; mx = None
+            try:
+                if py is not None and pm is not None:
+                    yx = int(py); mx = int(pm)
+            except Exception:
+                yx = None; mx = None
+            if yx is None or mx is None:
+                yx, mx = parse_agenda(r.get('agenda'), r.get('fecha'))
+            if yx != year or mx != month:
+                continue
+            ced = r.get('cedula') or ''
+            tec = r.get('tecnico_nombre') or ''
+            car = r.get('carpeta') or ''
+            otv = r.get('ot')
+            if ced not in grupos:
+                grupos[ced] = {'carpeta': car, 'tecnico_nombre': tec, 'ots': set()}
+            if otv is not None and str(otv).strip():
+                grupos[ced]['ots'].add(str(otv).strip())
+
+        items = []
+        for ced, info in grupos.items():
+            cur2.execute(
+                "SELECT COALESCE(oks,0) FROM operaciones_facturacion WHERE cedula=%s AND periodo_year=%s AND periodo_month=%s LIMIT 1",
+                (ced, year, month)
+            )
+            row = cur2.fetchone()
+            oks = int(row[0]) if row and row[0] is not None else 0
+            calidad = len(info['ots'])
+            pct = (100.0 - (calidad * 100.0 / oks)) if oks > 0 else 0.0
+            items.append({
+                'cedula': ced,
+                'carpeta': info['carpeta'],
+                'tecnico_nombre': info['tecnico_nombre'],
+                'oks': oks,
+                'calidad': calidad,
+                'porcentaje_calidad': round(pct, 2)
+            })
+
+        cur2.close(); cur.close(); connection.close()
+        items.sort(key=lambda x: (str(x['carpeta'] or ''), str(x['tecnico_nombre'] or '')))
+        return jsonify({'success': True, 'items': items})
+    except Error as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/analistas/actividades-diarias', methods=['GET'])
 @login_required_analistas_or_lider_api()
@@ -5906,6 +6741,9 @@ def api_inicio_operacion_datos():
         cierre_ciclo_gestionado_mes = 0
         cierre_ciclo_porcentaje_mes = 0.0
         cierre_ciclo_detalle = []
+        cierre_ciclo_ots_mes = 0
+        cierre_ciclo_calidad_mes = 0
+        cierre_ciclo_calidad_porcentaje = 0.0
         try:
             c2 = connection.cursor()
             c2.execute(
@@ -5924,6 +6762,7 @@ def api_inicio_operacion_datos():
             col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
             col_estado = pick(['estado'])
             col_cierre = pick(['cierre_ciclo'])
+            col_ot = pick(['orden_de_trabajo','ot','orden_trabajo','orden','orden_de_servicio'])
             col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
             where_parts = []
             params_cc = []
@@ -5996,6 +6835,26 @@ def api_inicio_operacion_datos():
             row_cnt = c2.fetchone()
             cierre_ciclo_gestionado_mes = int(row_cnt[0]) if row_cnt and row_cnt[0] is not None else 0
             cierre_ciclo_porcentaje_mes = round((cierre_ciclo_gestionado_mes / cierre_ciclo_meta * 100), 1) if cierre_ciclo_meta > 0 else 0.0
+
+            if col_ot:
+                sql_ots = "SELECT COUNT(DISTINCT CAST(o.`" + col_ot + "` AS CHAR)) FROM operaciones_actividades_diarias o"
+                if where_parts:
+                    sql_ots += " WHERE " + " AND ".join(where_parts)
+                c2.execute(sql_ots, tuple(params_cc))
+                r_ots = c2.fetchone()
+                cierre_ciclo_ots_mes = int(r_ots[0]) if r_ots and r_ots[0] is not None else 0
+
+                sql_cal = (
+                    "SELECT COUNT(DISTINCT CAST(o.`" + col_ot + "` AS CHAR)) "
+                    "FROM operaciones_actividades_diarias o "
+                    "WHERE " + (" AND ".join(where_parts) if where_parts else "1=1") +
+                    " AND EXISTS (SELECT 1 FROM operaciones_calidad oc "
+                    "WHERE oc.ot = CAST(o.`" + col_ot + "` AS CHAR) AND oc.periodo_year = %s AND oc.periodo_month = %s)"
+                )
+                c2.execute(sql_cal, tuple(params_cc) + (base_dt.year, base_dt.month))
+                r_cal = c2.fetchone()
+                cierre_ciclo_calidad_mes = int(r_cal[0]) if r_cal and r_cal[0] is not None else 0
+                cierre_ciclo_calidad_porcentaje = round((100.0 - (cierre_ciclo_calidad_mes / cierre_ciclo_ots_mes * 100.0)), 1) if cierre_ciclo_ots_mes > 0 else 0.0
 
             # Detalle por analista (solo si se filtró por analistas y existe columna de ID externo)
             if analistas and col_ext:
@@ -6070,6 +6929,11 @@ def api_inicio_operacion_datos():
                     'gestionado_mes': cierre_ciclo_gestionado_mes,
                     'porcentaje_mensual': cierre_ciclo_porcentaje_mes,
                     'detalle': cierre_ciclo_detalle
+                },
+                'cierre_ciclo_calidad': {
+                    'ots_mes': cierre_ciclo_ots_mes,
+                    'con_calidad_mes': cierre_ciclo_calidad_mes,
+                    'porcentaje_mensual': cierre_ciclo_calidad_porcentaje
                 },
                 'tabla_asistencia': asistencia_data,
                 'debug_info': {
@@ -12090,6 +12954,7 @@ def estadisticas_ferretero():
         mes = request.args.get('mes', '')
         material = request.args.get('material', '')
         area = request.args.get('area', '')
+        anio = request.args.get('anio', '')
         
         connection = get_db_connection()
         if connection is None:
@@ -12131,8 +12996,13 @@ def estadisticas_ferretero():
                 # Continuar sin filtro de mes si hay error
                 pass
             
-        # Asegurarse de que se muestren datos incluso si son de años futuros
-        # No filtrar por año para permitir ver datos de cualquier año
+        if anio and anio != 'todos':
+            try:
+                anio_numero = int(anio)
+                query += " AND YEAR(f.fecha_asignacion) = %s"
+                params.append(anio_numero)
+            except ValueError:
+                pass
         
         # Aplicar filtro por área
         if area and area != 'todos':
@@ -12298,6 +13168,7 @@ def exportar_estadisticas_ferretero():
         mes = request.args.get('mes', '')
         material = request.args.get('material', '')
         area = request.args.get('area', '')
+        anio = request.args.get('anio', '')
         
         connection = get_db_connection()
         if connection is None:
@@ -12336,8 +13207,13 @@ def exportar_estadisticas_ferretero():
                 # Continuar sin filtro de mes si hay error
                 pass
             
-        # Asegurarse de que se muestren datos incluso si son de años futuros
-        # No filtrar por año para permitir ver datos de cualquier año
+        if anio and anio != 'todos':
+            try:
+                anio_numero = int(anio)
+                query += " AND YEAR(f.fecha_asignacion) = %s"
+                params.append(anio_numero)
+            except ValueError:
+                pass
         
         # Aplicar filtro por área
         if area and area != 'todos':
@@ -12487,9 +13363,11 @@ def exportar_estadisticas_ferretero():
         # Preparar respuesta
         output.seek(0)
         
-        # Generar nombre de archivo con fecha actual
         fecha_actual = datetime.now().strftime("%d-%m-%Y")
-        nombre_archivo = f'Estadisticas_Ferretero_{fecha_actual}.xlsx'
+        nombre_archivo = (
+            f"Estadisticas_Ferretero_{anio}_{fecha_actual}.xlsx" if anio and anio != 'todos'
+            else f"Estadisticas_Ferretero_{fecha_actual}.xlsx"
+        )
         
         return send_file(
             output,
@@ -32514,39 +33392,43 @@ def api_mis_vencimientos():
 
         vencimientos_items = []
 
-        # SOAT desde mpa_soat por técnico asignado
-        query_soat = """
-            SELECT 
-                s.placa,
-                s.fecha_vencimiento,
-                DATEDIFF(s.fecha_vencimiento, CURDATE()) AS dias_soat
-            FROM mpa_soat s
-            WHERE s.tecnico_asignado = %s
-              AND s.fecha_vencimiento IS NOT NULL
-              AND s.fecha_vencimiento NOT LIKE '0000-00-00%'
-              AND s.fecha_vencimiento > '1900-01-01'
-              AND s.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY)
-            ORDER BY s.fecha_vencimiento ASC
-        """
-        cursor.execute(query_soat, (user_id, dias_anticipacion))
-        soats = cursor.fetchall()
+        cursor.execute("SHOW TABLES LIKE 'mpa_soat'")
+        soats = []
+        if cursor.fetchone():
+            query_soat = """
+                SELECT 
+                    s.placa,
+                    s.fecha_vencimiento,
+                    DATEDIFF(s.fecha_vencimiento, CURDATE()) AS dias_soat
+                FROM mpa_soat s
+                WHERE s.tecnico_asignado = %s
+                  AND s.fecha_vencimiento IS NOT NULL
+                  AND s.fecha_vencimiento NOT LIKE '0000-00-00%'
+                  AND s.fecha_vencimiento > '1900-01-01'
+                  AND s.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY)
+                ORDER BY s.fecha_vencimiento ASC
+            """
+            cursor.execute(query_soat, (user_id, dias_anticipacion))
+            soats = cursor.fetchall()
 
-        # Tecnomecánica desde mpa_tecnico_mecanica por técnico asignado
-        query_tm = """
-            SELECT 
-                tm.placa,
-                tm.fecha_vencimiento,
-                DATEDIFF(tm.fecha_vencimiento, CURDATE()) AS dias_tm
-            FROM mpa_tecnico_mecanica tm
-            WHERE tm.tecnico_asignado = %s
-              AND tm.fecha_vencimiento IS NOT NULL
-              AND tm.fecha_vencimiento NOT LIKE '0000-00-00%'
-              AND tm.fecha_vencimiento > '1900-01-01'
-              AND tm.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY)
-            ORDER BY tm.fecha_vencimiento ASC
-        """
-        cursor.execute(query_tm, (user_id, dias_anticipacion))
-        tecnomecanicas = cursor.fetchall()
+        cursor.execute("SHOW TABLES LIKE 'mpa_tecnico_mecanica'")
+        tecnomecanicas = []
+        if cursor.fetchone():
+            query_tm = """
+                SELECT 
+                    tm.placa,
+                    tm.fecha_vencimiento,
+                    DATEDIFF(tm.fecha_vencimiento, CURDATE()) AS dias_tm
+                FROM mpa_tecnico_mecanica tm
+                WHERE tm.tecnico_asignado = %s
+                  AND tm.fecha_vencimiento IS NOT NULL
+                  AND tm.fecha_vencimiento NOT LIKE '0000-00-00%'
+                  AND tm.fecha_vencimiento > '1900-01-01'
+                  AND tm.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY)
+                ORDER BY tm.fecha_vencimiento ASC
+            """
+            cursor.execute(query_tm, (user_id, dias_anticipacion))
+            tecnomecanicas = cursor.fetchall()
 
         def estado_desde_dias(dias:int) -> str:
             if dias is None:
@@ -32583,21 +33465,23 @@ def api_mis_vencimientos():
                 'estado': estado_desde_dias(dias)
             })
 
-        # Licencia de conducir del usuario
-        query_lic = """
-            SELECT 
-                lc.tipo_licencia,
-                lc.fecha_vencimiento,
-                DATEDIFF(lc.fecha_vencimiento, CURDATE()) as dias_licencia
-            FROM mpa_licencia_conducir lc
-            WHERE lc.tecnico = %s
-              AND lc.fecha_vencimiento IS NOT NULL
-              AND lc.fecha_vencimiento NOT IN ('0000-00-00', '1900-01-01')
-              AND lc.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY)
-            ORDER BY lc.fecha_vencimiento ASC
-        """
-        cursor.execute(query_lic, (user_id, dias_anticipacion))
-        licencias = cursor.fetchall()
+        cursor.execute("SHOW TABLES LIKE 'mpa_licencia_conducir'")
+        licencias = []
+        if cursor.fetchone():
+            query_lic = """
+                SELECT 
+                    lc.tipo_licencia,
+                    lc.fecha_vencimiento,
+                    DATEDIFF(lc.fecha_vencimiento, CURDATE()) as dias_licencia
+                FROM mpa_licencia_conducir lc
+                WHERE lc.tecnico = %s
+                  AND lc.fecha_vencimiento IS NOT NULL
+                  AND lc.fecha_vencimiento NOT IN ('0000-00-00', '1900-01-01')
+                  AND lc.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL %s DAY)
+                ORDER BY lc.fecha_vencimiento ASC
+            """
+            cursor.execute(query_lic, (user_id, dias_anticipacion))
+            licencias = cursor.fetchall()
 
         for lc in licencias:
             dias = lc.get('dias_licencia')
@@ -33323,10 +34207,32 @@ if __name__ == '__main__':
         except Exception:
             return 'Método no permitido', 405
 
+    @app.after_request
+    def add_security_headers(response):
+        try:
+            if request.is_secure:
+                response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+                csp = response.headers.get('Content-Security-Policy', '')
+                if 'upgrade-insecure-requests' not in csp:
+                    response.headers['Content-Security-Policy'] = (csp + ' ' if csp else '') + 'upgrade-insecure-requests'
+        except Exception:
+            pass
+        return response
+
     # Deshabilitar modo debug por defecto para evitar fugas de información
     import os
     debug_mode = os.environ.get('FLASK_DEBUG', '0') == '1'
-    app.run(debug=debug_mode, host='0.0.0.0', port=8080)
+
+    ssl_cert = os.environ.get('SSL_CERT_FILE')
+    ssl_key = os.environ.get('SSL_KEY_FILE')
+
+    if ssl_cert and ssl_key and os.path.exists(ssl_cert) and os.path.exists(ssl_key):
+        app.config['PREFERRED_URL_SCHEME'] = 'https'
+        app.config['SESSION_COOKIE_SECURE'] = True
+        app.config['REMEMBER_COOKIE_SECURE'] = True
+        app.run(debug=debug_mode, host='0.0.0.0', port=8080, ssl_context=(ssl_cert, ssl_key))
+    else:
+        app.run(debug=debug_mode, host='0.0.0.0', port=8080)
 # Alias para analistas (mismo comportamiento)
 @app.route('/analistas/ordenes', methods=['GET'])
 @app.route('/api/analistas/ordenes', methods=['GET'])

@@ -1,0 +1,365 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-success text-white">
+          <h3 class="mb-0"><i class="fas fa-file-invoice-dollar me-2"></i>Operaciones de Facturación</h3>
+        </div>
+        <div class="card-body">
+          <p class="text-muted mb-3">Cargar base mensual con columnas: deberiair, puntos, niveltecnico, mediaot, oks, abiertas, fact-pdte, fact-sinsubir, vehiculo, cedula.</p>
+          <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCargarFacturacion">
+            <i class="fas fa-upload me-2"></i>Subir facturación
+          </button>
+          <div class="row mt-3">
+            <div class="col-md-4">
+              <label class="form-label">Periodo</label>
+              <input type="month" class="form-control" id="filtroPeriodo" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Cédula</label>
+              <input type="text" class="form-control" id="filtroCedula" placeholder="Filtrar por cédula" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Analista</label>
+              <input type="text" class="form-control" id="filtroAnalista" placeholder="Filtrar por analista" list="listaAnalistasFact" />
+              <datalist id="listaAnalistasFact"></datalist>
+            </div>
+            <div class="col-md-4 mt-3">
+              <label class="form-label">Super</label>
+              <input type="text" class="form-control" id="filtroSuper" placeholder="Filtrar por super" list="listaSuperFact" />
+              <datalist id="listaSuperFact"></datalist>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <button class="btn btn-outline-success w-100" id="btnFiltrarPeriodo"><i class="fas fa-filter me-2"></i>Filtrar</button>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <button class="btn btn-outline-secondary w-100" id="btnLimpiarFiltros"><i class="fas fa-broom me-2"></i>Limpiar</button>
+            </div>
+            <div class="col d-flex align-items-end justify-content-end">
+              <div id="resumenTop" class="d-flex gap-2"></div>
+            </div>
+          </div>
+          <div class="table-responsive mt-3" id="resumenEstado"></div>
+          <div class="table-responsive mt-4">
+            <table class="table table-striped table-hover" id="tablaFacturacion">
+              <thead>
+                <tr>
+                  <th>Cédula</th>
+                  <th>Técnico</th>
+                  <th>Debería ir</th>
+                  <th>Puntos</th>
+                  <th>Nivel</th>
+                  <th>Media OT</th>
+                  <th>OKs</th>
+                  <th>Abiertas</th>
+                  <th>Fact. Pdte</th>
+                  <th>Fact. Sin Subir</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mt-2" id="paginadorFacturacion">
+            <div class="small text-muted" id="paginadorInfo"></div>
+            <ul class="pagination pagination-sm mb-0" id="paginadorControles"></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalCargarFacturacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fas fa-file-excel me-2"></i>Subir archivo de facturación</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formCargarFacturacion">
+            <div class="mb-3">
+              <label class="form-label">Archivo</label>
+              <input type="file" class="form-control" id="archivoFacturacion" accept=".xlsx,.xls,.csv" required />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Periodo (mes)</label>
+              <input type="month" class="form-control" id="periodoCargaFacturacion" required />
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+          <button type="button" class="btn btn-success" id="btnSubirFacturacion">Subir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const __btnSubirFact = document.getElementById('btnSubirFacturacion');
+if(__btnSubirFact){
+__btnSubirFact.addEventListener('click', async function(){
+  const input = document.getElementById('archivoFacturacion');
+  if (!input.files || !input.files[0]) {
+    Swal.fire({icon:'warning', title:'Seleccione un archivo'});
+    return;
+  }
+  const formData = new FormData();
+  formData.append('file', input.files[0]);
+  try {
+    const endpoint = "{{ api_endpoint or '/api/lider/cargar-facturacion' }}";
+    let periodo = document.getElementById('periodoCargaFacturacion')?.value || '';
+    if(!periodo){
+      const pf = document.getElementById('filtroPeriodo')?.value || '';
+      periodo = pf;
+    }
+    if(periodo){ formData.append('periodo', periodo); }
+    const res = await fetch(endpoint, { method:'POST', body: formData });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      const msg = data.message || `Insertadas: ${data.rows_inserted || 0} • Actualizadas: ${data.rows_updated || 0}`;
+      Swal.fire({icon:'success', title:'Cargado', text: msg});
+      const modal = bootstrap.Modal.getInstance(document.getElementById('modalCargarFacturacion'));
+      modal && modal.hide();
+      document.getElementById('formCargarFacturacion').reset();
+    } else {
+      Swal.fire({icon:'error', title:'Error', text:data.message || 'Error al cargar'});
+    }
+  } catch (e) {
+    Swal.fire({icon:'error', title:'Error de red'});
+  }
+});
+}
+
+async function cargarListaFacturacion(){
+  const periodo = document.getElementById('filtroPeriodo')?.value || '';
+  const cedula = (document.getElementById('filtroCedula')?.value || '').trim();
+  const analista = (document.getElementById('filtroAnalista')?.value || '').trim();
+  const superv = (document.getElementById('filtroSuper')?.value || '').trim();
+  let url = '/api/lider/facturacion/list';
+  const p = [];
+  if(periodo) p.push(`periodo=${encodeURIComponent(periodo)}`);
+  if(cedula) p.push(`cedula=${encodeURIComponent(cedula)}`);
+  if(analista) p.push(`analista=${encodeURIComponent(analista)}`);
+  if(superv) p.push(`super=${encodeURIComponent(superv)}`);
+  if(p.length) url += `?${p.join('&')}`;
+  try{
+    const res = await fetch(url);
+    const data = await res.json();
+    const items = Array.isArray(data.items) ? data.items : [];
+    __items = items;
+    __page = 1;
+    renderTabla();
+    renderPaginador();
+    await renderResumen();
+  }catch(_){ }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const inputPeriodo = document.getElementById('filtroPeriodo');
+  const periodoCarga = document.getElementById('periodoCargaFacturacion');
+  try{
+    if(inputPeriodo && !inputPeriodo.value){
+      const nowStr = new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' });
+      const now = new Date(nowStr);
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth()+1).padStart(2,'0');
+      inputPeriodo.value = `${yyyy}-${mm}`;
+    }
+    if(periodoCarga && !periodoCarga.value){
+      const nowStr = new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' });
+      const now = new Date(nowStr);
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth()+1).padStart(2,'0');
+      periodoCarga.value = `${yyyy}-${mm}`;
+    }
+  }catch(_){ }
+  cargarOpciones();
+  cargarListaFacturacion();
+});
+const __btnFiltro = document.getElementById('btnFiltrarPeriodo');
+if(__btnFiltro){ __btnFiltro.addEventListener('click', cargarListaFacturacion); }
+const __btnLimpiar = document.getElementById('btnLimpiarFiltros');
+if(__btnLimpiar){ __btnLimpiar.addEventListener('click', limpiarFiltros); }
+document.getElementById('filtroPeriodo')?.addEventListener('change', cargarOpciones);
+
+let __items = [];
+let __page = 1;
+const __pageSize = 10;
+
+function renderTabla(){
+  const tbody = document.querySelector('#tablaFacturacion tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+  const start = (__page - 1) * __pageSize;
+  const end = start + __pageSize;
+  const pageItems = __items.slice(start, end);
+  pageItems.forEach(it => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${it.cedula ?? ''}</td>
+      <td>${it.tecnico_nombre ?? ''}</td>
+      <td>${fmtCOP(it.deberiair)}</td>
+      <td>${fmtCOP(it.puntos)}</td>
+      <td>${it.niveltecnico ?? ''}</td>
+      <td>${fmtNumber(it.mediaot)}</td>
+      <td>${fmtInt(it.oks)}</td>
+      <td>${fmtInt(it.abiertas)}</td>
+      <td>${fmtCOP(it.fact_pdte)}</td>
+      <td>${fmtCOP(it.fact_sinsubir)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function fmtNumber(v){
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(2) : '';
+}
+function fmtInt(v){
+  const n = Number(v);
+  return Number.isFinite(n) ? String(Math.round(n)) : '';
+}
+function fmtCOP(v){
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }) : '';
+}
+
+function renderPaginador(){
+  const info = document.getElementById('paginadorInfo');
+  const ctrls = document.getElementById('paginadorControles');
+  if(!info || !ctrls) return;
+  const total = __items.length;
+  const totalPages = Math.max(1, Math.ceil(total / __pageSize));
+  const start = total === 0 ? 0 : (__page - 1) * __pageSize + 1;
+  const end = Math.min(total, __page * __pageSize);
+  info.textContent = `Mostrando ${start}–${end} de ${total}`;
+  let html = '';
+  const prevDisabled = __page <= 1 ? ' disabled' : '';
+  html += `<li class="page-item${prevDisabled}"><a class="page-link" href="#" data-page="prev">Anterior</a></li>`;
+  const windowSize = 5;
+  let startPage = Math.max(1, __page - Math.floor(windowSize/2));
+  let endPage = Math.min(totalPages, startPage + windowSize - 1);
+  startPage = Math.max(1, endPage - windowSize + 1);
+  for(let p = startPage; p <= endPage; p++){
+    const active = p === __page ? ' active' : '';
+    html += `<li class="page-item${active}"><a class="page-link" href="#" data-page="${p}">${p}</a></li>`;
+  }
+  const nextDisabled = __page >= totalPages ? ' disabled' : '';
+  html += `<li class="page-item${nextDisabled}"><a class="page-link" href="#" data-page="next">Siguiente</a></li>`;
+  ctrls.innerHTML = html;
+  ctrls.querySelectorAll('a.page-link').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const p = a.getAttribute('data-page');
+      if(p === 'prev' && __page > 1) { __page--; }
+      else if(p === 'next' && __page < totalPages) { __page++; }
+      else {
+        const np = parseInt(p, 10);
+        if(Number.isFinite(np)) __page = np;
+      }
+      renderTabla();
+      renderPaginador();
+    });
+  });
+}
+
+async function renderResumen(){
+  const cont = document.getElementById('resumenEstado');
+  if(!cont) return;
+  const periodo = document.getElementById('filtroPeriodo')?.value || '';
+  const analista = (document.getElementById('filtroAnalista')?.value || '').trim();
+  const superv = (document.getElementById('filtroSuper')?.value || '').trim();
+  let url = '/api/lider/facturacion/resumen';
+  const params = [];
+  if(periodo) params.push(`periodo=${encodeURIComponent(periodo)}`);
+  if(analista) params.push(`analista=${encodeURIComponent(analista)}`);
+  if(superv) params.push(`super=${encodeURIComponent(superv)}`);
+  if(params.length) url += `?${params.join('&')}`;
+  try{
+    const res = await fetch(url);
+    if(res.ok){
+      const data = await res.json();
+      if(data && data.success){
+        const r = data.resumen || {};
+        const top = document.getElementById('resumenTop');
+        if(top){
+          top.classList.add('flex-column');
+          top.innerHTML = `
+            <div class="d-flex gap-2 justify-content-end mb-1">
+              <div class="badge bg-secondary p-2">Registros (mes): <span class="fw-bold">${r.cantidad || 0}</span></div>
+              <div class="badge bg-info p-2">OKs: <span class="fw-bold">${r.oks || 0}</span></div>
+              <div class="badge bg-warning p-2">Abiertas: <span class="fw-bold">${r.abiertas || 0}</span></div>
+            </div>
+            <div class="d-flex gap-2 justify-content-end mb-1">
+              <div class="badge bg-danger p-2">Fact. Pdte: <span class="fw-bold">${fmtCOP(r.fact_pdte || 0)}</span></div>
+              <div class="badge bg-danger p-2">Fact. Sin Subir: <span class="fw-bold">${fmtCOP(r.fact_sinsubir || 0)}</span></div>
+            </div>
+            <div class="d-flex gap-2 justify-content-end">
+              <div class="badge bg-dark p-2">Media OT: <span class="fw-bold">${fmtNumber(r.mediaot || 0)}</span></div>
+              <div class="badge bg-primary p-2">Puntos: <span class="fw-bold">${fmtCOP(r.puntos || 0)}</span></div>
+            </div>
+          `;
+        }
+        cont.innerHTML = `
+          <table class="table table-sm table-bordered mb-0">
+            <thead class="table-success">
+              <tr>
+                <th>Métrica</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Debería ir</td><td>${fmtCOP(r.deberiair || 0)}</td></tr>
+              <tr><td>Puntos</td><td>${fmtCOP(r.puntos || 0)}</td></tr>
+              <tr><td>Media OT</td><td>${fmtNumber(r.mediaot || 0)}</td></tr>
+              <tr><td>OKs</td><td>${fmtInt(r.oks || 0)}</td></tr>
+              <tr><td>Abiertas</td><td>${fmtInt(r.abiertas || 0)}</td></tr>
+              <tr><td>Fact. Pdte</td><td>${fmtCOP(r.fact_pdte || 0)}</td></tr>
+              <tr><td>Fact. Sin Subir</td><td>${fmtCOP(r.fact_sinsubir || 0)}</td></tr>
+            </tbody>
+          </table>
+        `;
+        return;
+      }
+    }
+  }catch(_){ }
+}
+
+async function cargarOpciones(){
+  const periodo = document.getElementById('filtroPeriodo')?.value || '';
+  try{
+    const url = '/api/lider/facturacion/opciones' + (periodo ? `?periodo=${encodeURIComponent(periodo)}` : '');
+    const res = await fetch(url);
+    if(!res.ok) return;
+    const data = await res.json();
+    const analistas = Array.isArray(data.analistas) ? data.analistas : [];
+    const supervisores = Array.isArray(data.supervisores) ? data.supervisores : [];
+    const da = document.getElementById('listaAnalistasFact');
+    const ds = document.getElementById('listaSuperFact');
+    if(da){ da.innerHTML = analistas.map(a => `<option value="${a}"></option>`).join(''); }
+    if(ds){ ds.innerHTML = supervisores.map(s => `<option value="${s}"></option>`).join(''); }
+  }catch(_){ }
+}
+
+function limpiarFiltros(){
+  try{
+    const ids = ['filtroCedula','filtroAnalista','filtroSuper'];
+    ids.forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+    const inputPeriodo = document.getElementById('filtroPeriodo');
+    if(inputPeriodo){
+      const nowStr = new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' });
+      const now = new Date(nowStr);
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth()+1).padStart(2,'0');
+      inputPeriodo.value = `${yyyy}-${mm}`;
+    }
+  }catch(_){ }
+  cargarOpciones();
+  cargarListaFacturacion();
+}
+</script>
+{% endblock %}
