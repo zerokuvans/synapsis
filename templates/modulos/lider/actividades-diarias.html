@@ -646,13 +646,13 @@ async function renderResumen(){
           const monedaImg = document.getElementById('cardMonedaImg');
           if(monedaImg){
             const p = Number(cal.porcentaje_mensual || 0);
-            let img = '';
+            let img = '/static/moneda/0pesos.png';
             if(p >= 96){ img = '/static/moneda/400pesos.png'; }
             else if(p >= 94){ img = '/static/moneda/300pesos.png'; }
             else if(p >= 92){ img = '/static/moneda/200pesos.png'; }
             else if(p >= 90){ img = '/static/moneda/100pesos.png'; }
-            monedaImg.style.display = img ? 'inline-block' : 'none';
-            if(img){ monedaImg.src = img; }
+            monedaImg.style.display = 'inline-block';
+            monedaImg.src = img;
           }
         }
         cont.innerHTML = `
@@ -991,9 +991,10 @@ async function getReconMoneda(analista, periodo, seccion, valor){
 async function setReconByTabla(imgEl, analista, periodo, seccion, valor){
   if(!imgEl) return;
   const m = await getReconMoneda(analista, periodo, seccion, valor);
-  const src = m ? `/static/moneda/${m}.png` : '';
-  imgEl.style.display = src ? 'inline-block' : 'none';
-  if(src) imgEl.src = src;
+  const moneda = m || '0pesos';
+  const src = `/static/moneda/${moneda}.png`;
+  imgEl.style.display = 'inline-block';
+  imgEl.src = src;
 }
 
 function debeBloquearGestion(fechaRaw){

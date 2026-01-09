@@ -176,6 +176,40 @@
   </div>
 </div>
 
+<!-- Modal: Calidades aplicadas (Estadísticas) -->
+<div class="modal fade" id="modalCalidadesDetalleStats" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:95vw">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-list-check me-2"></i>Calidades aplicadas</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-striped table-hover" id="tablaCalidadesStats">
+            <thead>
+              <tr>
+                <th>Cédula</th>
+                <th>Carpeta</th>
+                <th>Técnico</th>
+                <th>OT</th>
+                <th>Cuenta</th>
+                <th>Agenda</th>
+                <th>Fecha</th>
+                <th>Causa</th>
+              </tr>
+            </thead>
+            <tbody id="tablaCalidadesBodyStats"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+ </div>
+
 <script>
 document.addEventListener('DOMContentLoaded', async () => {
   const inputPeriodo = document.getElementById('filtroPeriodoStats');
@@ -236,6 +270,24 @@ async function cargarOpcionesStats(){
   }catch(_){ }
 }
 
+function formatYMDStats(v){
+  try{
+    if(!v) return '';
+    const s = String(v).trim();
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s|T|$)/);
+    if(m){ return `${m[3]}/${m[2]}/${m[1]}`; }
+    const d = new Date(s);
+    if(!isNaN(d.getTime())){
+      const parts = new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d);
+      const day = parts.find(p=>p.type==='day').value;
+      const month = parts.find(p=>p.type==='month').value;
+      const year = parts.find(p=>p.type==='year').value;
+      return `${day}/${month}/${year}`;
+    }
+    return s;
+  }catch(_){ return v ?? ''; }
+}
+
 async function getReconMonedaStats(analista, periodo, seccion, valor){
   try{
     let url = '/api/administrativo/porcentajes-analistas';
@@ -261,9 +313,10 @@ async function getReconMonedaStats(analista, periodo, seccion, valor){
 async function setReconByTablaStats(imgEl, analista, periodo, seccion, valor){
   if(!imgEl) return;
   const m = await getReconMonedaStats(analista, periodo, seccion, valor);
-  const src = m ? `/static/moneda/${m}.png` : '';
-  imgEl.style.display = src ? 'inline-block' : 'none';
-  if(src) imgEl.src = src;
+  const moneda = m || '0pesos';
+  const src = `/static/moneda/${moneda}.png`;
+  imgEl.style.display = 'inline-block';
+  imgEl.src = src;
 }
 
 async function renderEfectividadStats(){
@@ -403,6 +456,45 @@ async function renderCierreStats(){
       if(calPctEl) calPctEl.textContent = fmt(typeof cal.porcentaje_mensual === 'number' ? cal.porcentaje_mensual : (Number(cal.porcentaje_mensual) || 0));
       if(calBaseEl) calBaseEl.textContent = `sobre ${cal.ots_mes || 0} cierres`;
       if(calAplEl) calAplEl.textContent = `calidades aplicadas: ${cal.calidades_aplicadas || cal.con_calidad_mes || 0}`;
+      if(calAplEl){
+        calAplEl.onclick = async function(){
+          try{
+            const periodoSel = document.getElementById('filtroPeriodoStats')?.value || '';
+            const analistaSel = (document.getElementById('filtroAnalistaStats')?.value || '').trim();
+            let fechaSel = '';
+            try{ if(periodoSel && /^\d{4}-\d{2}$/.test(periodoSel)) fechaSel = `${periodoSel}-01`; }catch(_){}
+            let detUrl = '/api/analistas/actividades-diarias/calidad-detalle';
+            const paramsDet = [];
+            if(fechaSel) paramsDet.push(`fecha=${encodeURIComponent(fechaSel)}`);
+            if(analistaSel) paramsDet.push(`analista=${encodeURIComponent(analistaSel)}`);
+            if(paramsDet.length) detUrl += `?${paramsDet.join('&')}`;
+            const detRes = await fetch(detUrl);
+            if(detRes.ok){
+              const detData = await detRes.json();
+              const items = Array.isArray(detData.items) ? detData.items : [];
+              const tbody = document.getElementById('tablaCalidadesBodyStats');
+              if(tbody){
+                tbody.innerHTML = items.map(it => {
+                  const f = formatYMDStats(it.fecha);
+                  const a = formatYMDStats(it.agenda);
+                  return `<tr>
+                    <td>${it.cedula ?? ''}</td>
+                    <td>${it.carpeta ?? ''}</td>
+                    <td>${it.tecnico ?? ''}</td>
+                    <td>${it.ot ?? ''}</td>
+                    <td>${it.cuenta ?? ''}</td>
+                    <td>${a}</td>
+                    <td>${f}</td>
+                    <td>${(it.causa ?? '').toString().slice(0,200)}</td>
+                  </tr>`;
+                }).join('');
+              }
+              const modal = new bootstrap.Modal(document.getElementById('modalCalidadesDetalleStats'));
+              modal.show();
+            }
+          }catch(_){ }
+        };
+      }
       const monedaImg = document.getElementById('cardMonedaImgStats');
       if(monedaImg){ await setReconByTablaStats(monedaImg, analista, periodo, 'efectividad', cal.porcentaje_mensual || 0); }
     }
