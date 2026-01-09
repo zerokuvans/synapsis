@@ -15,18 +15,21 @@
             </div>
             <div class="col-md-3">
               <label class="form-label">Analista</label>
-              <input type="text" class="form-control" id="filtroAnalistaStats" list="listaAnalistasStats" />
-              <datalist id="listaAnalistasStats"></datalist>
+              <select class="form-select" id="filtroAnalistaStats">
+                <option value="">Todos</option>
+              </select>
             </div>
             <div class="col-md-3">
               <label class="form-label">Supervisor</label>
-              <input type="text" class="form-control" id="filtroSuperStats" list="listaSuperStats" />
-              <datalist id="listaSuperStats"></datalist>
+              <select class="form-select" id="filtroSuperStats">
+                <option value="">Todos</option>
+              </select>
             </div>
             <div class="col-md-3">
               <label class="form-label">Carpeta</label>
-              <input type="text" class="form-control" id="filtroCarpetaStats" list="listaCarpetasStats" />
-              <datalist id="listaCarpetasStats"></datalist>
+              <select class="form-select" id="filtroCarpetaStats">
+                <option value="">Todas</option>
+              </select>
             </div>
           </div>
           <div class="row mb-3">
@@ -38,28 +41,131 @@
             </div>
           </div>
 
-          <div class="row g-3">
-            <div class="col-lg-4 col-md-6">
-              <div class="card h-100">
-                <div class="card-body">
-                  <h6 class="mb-2">Calidad</h6>
-                  <div id="statsCalidad" class="text-muted">Sin datos</div>
+          <div class="accordion" id="accordionStats">
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="accCierreHeaderStats">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#accCierreStats" aria-expanded="true" aria-controls="accCierreStats">
+                  Cierre de Ciclo
+                </button>
+              </h2>
+              <div id="accCierreStats" class="accordion-collapse collapse show" aria-labelledby="accCierreHeaderStats" data-bs-parent="#accordionStats">
+                <div class="accordion-body">
+                  <div id="statsMetricCards" class="row g-3 mt-2">
+                    <div class="col-md-3">
+                      <div class="card h-100"><div class="card-body">
+                        <h6 class="text-muted mb-1">Meta mensual</h6>
+                        <div class="d-flex align-items-baseline gap-2">
+                          <span class="fs-3 fw-bold" id="cardMetaValorStats">260</span>
+                          <span class="badge bg-dark" id="cardMetaLabelStats">Cierre de ciclo</span>
+                        </div>
+                      </div></div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="card h-100"><div class="card-body">
+                        <h6 class="text-muted mb-1">Gestionado</h6>
+                        <div class="d-flex align-items-baseline gap-2">
+                          <span class="fs-3 fw-bold" id="cardGestionadaValorStats">0</span>
+                          <span class="badge bg-primary" id="cardGestionadaPctStats">0%</span>
+                        </div>
+                      </div></div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="card h-100"><div class="card-body">
+                        <h6 class="text-muted mb-1">Calidad cierre de ciclo</h6>
+                        <div class="d-flex align-items-baseline gap-2">
+                          <span class="fs-3 fw-bold" id="cardCalidadPctStats">0%</span>
+                          <span class="badge bg-secondary" id="cardCalidadBaseStats">sobre 0 cierres</span>
+                        </div>
+                        <div class="mt-2">
+                          <span class="badge bg-info" id="cardCalidadesAplicadasStats">calidades aplicadas: 0</span>
+                        </div>
+                      </div></div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="card h-100"><div class="card-body">
+                        <h6 class="text-muted mb-1">Reconocimiento</h6>
+                        <div class="d-flex align-items-center justify-content-start">
+                          <img id="cardMonedaImgStats" src="" alt="Reconocimiento" style="height:96px; display:none;" />
+                        </div>
+                      </div></div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="col-lg-4 col-md-6">
-              <div class="card h-100">
-                <div class="card-body">
-                  <h6 class="mb-2">Facturación</h6>
-                  <div id="statsFacturacion" class="text-muted">Sin datos</div>
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="accEfectHeaderStats">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accEfectStats" aria-expanded="false" aria-controls="accEfectStats">
+                  Efectividad
+                </button>
+              </h2>
+              <div id="accEfectStats" class="accordion-collapse collapse" aria-labelledby="accEfectHeaderStats" data-bs-parent="#accordionStats">
+                <div class="accordion-body">
+                  <div id="efectividadCardsStats" class="row g-3 mt-2">
+                    <div class="col-md-2"><div class="card h-100"><div class="card-body">
+                      <h6 class="text-muted mb-1">Agenda</h6>
+                      <div class="d-flex align-items-baseline gap-2"><span class="fs-3 fw-bold" id="cardEfectAgendaValStats">0%</span></div>
+                      <div class="mt-1"><span class="badge bg-dark" id="cardEfectAgendaLblStats">Efectividad agenda</span></div>
+                    </div></div></div>
+                    <div class="col-md-2"><div class="card h-100"><div class="card-body">
+                      <h6 class="text-muted mb-1">OKs</h6>
+                      <div class="d-flex align-items-baseline gap-2"><span class="fs-3 fw-bold" id="cardEfectOKsValStats">0%</span></div>
+                      <div class="mt-1"><span class="badge bg-primary" id="cardEfectOKsLblStats">OKs efectivos</span></div>
+                    </div></div></div>
+                    <div class="col-md-2"><div class="card h-100"><div class="card-body">
+                      <h6 class="text-muted mb-1">Razón</h6>
+                      <div class="d-flex align-items-baseline gap-2"><span class="fs-3 fw-bold" id="cardEfectRazonValStats">0%</span></div>
+                      <div class="mt-1"><span class="badge bg-secondary" id="cardEfectRazonLblStats">Razón efectiva</span></div>
+                    </div></div></div>
+                    <div class="col-md-2"><div class="card h-100"><div class="card-body">
+                      <h6 class="text-muted mb-1">KPI</h6>
+                      <div class="d-flex align-items-baseline gap-2"><span class="fs-3 fw-bold" id="cardEfectKPIVAlStats">0%</span></div>
+                      <div class="mt-1"><span class="badge bg-info" id="cardEfectKPILblStats">KPI efectivo</span></div>
+                    </div></div></div>
+                    <div class="col-md-4"><div class="card h-100"><div class="card-body">
+                      <h6 class="text-muted mb-1">Reconocimiento</h6>
+                      <div class="d-flex align-items-center justify-content-start"><img id="cardEfectReconImgStats" src="" alt="Reconocimiento" style="height:96px; display:none;" /></div>
+                      <div class="mt-2" id="efectReconListaStats"></div>
+                    </div></div></div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="col-lg-4 col-md-6">
-              <div class="card h-100">
-                <div class="card-body">
-                  <h6 class="mb-2">Efectividad</h6>
-                  <div id="statsEfectividad" class="text-muted">Sin datos</div>
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="accPresHeaderStats">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accPresStats" aria-expanded="false" aria-controls="accPresStats">
+                  Presupuesto
+                </button>
+              </h2>
+              <div id="accPresStats" class="accordion-collapse collapse" aria-labelledby="accPresHeaderStats" data-bs-parent="#accordionStats">
+                <div class="accordion-body">
+                  <div id="presupuestoCardsStats" class="row g-3 mt-2">
+                    <div class="col-md-2"><div class="card h-100"><div class="card-body">
+                      <h6 class="text-muted mb-1">Objetivo mes</h6>
+                      <div class="d-flex align-items-baseline gap-2"><span class="fs-3 fw-bold" id="cardPresObjValStats">0</span></div>
+                      <div class="mt-1"><span class="badge bg-dark" id="cardPresObjLblStats">Meta mensual</span></div>
+                    </div></div></div>
+                    <div class="col-md-2"><div class="card h-100"><div class="card-body">
+                      <h6 class="text-muted mb-1">Debería ir</h6>
+                      <div class="d-flex align-items-baseline gap-2"><span class="fs-3 fw-bold" id="cardPresDebValStats">0</span></div>
+                      <div class="mt-1"><span class="badge bg-dark" id="cardPresDebLblStats">Base</span></div>
+                    </div></div></div>
+                    <div class="col-md-2"><div class="card h-100"><div class="card-body">
+                      <h6 class="text-muted mb-1">Acumulado</h6>
+                      <div class="d-flex align-items-baseline gap-2"><span class="fs-3 fw-bold" id="cardPresAcumValStats">0</span></div>
+                      <div class="mt-1"><span class="badge bg-primary" id="cardPresAcumLblStats">Puntos actuales</span></div>
+                    </div></div></div>
+                    <div class="col-md-2"><div class="card h-100"><div class="card-body">
+                      <h6 class="text-muted mb-1">Cumplimiento</h6>
+                      <div class="d-flex align-items-baseline gap-2"><span class="fs-3 fw-bold" id="cardPresCumplValStats">0%</span></div>
+                      <div class="mt-1"><span class="badge bg-secondary" id="cardPresCumplLblStats">% sobre meta</span></div>
+                    </div></div></div>
+                    <div class="col-md-4"><div class="card h-100"><div class="card-body">
+                      <h6 class="text-muted mb-1">Reconocimiento</h6>
+                      <div class="d-flex align-items-center justify-content-start"><img id="cardPresReconImgStats" src="" alt="Reconocimiento" style="height:96px; display:none;" /></div>
+                      <div class="mt-2" id="presReconListaStats"></div>
+                    </div></div></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -71,7 +177,7 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const inputPeriodo = document.getElementById('filtroPeriodoStats');
   try{
     if(inputPeriodo && !inputPeriodo.value){
@@ -82,9 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
       inputPeriodo.value = `${yyyy}-${mm}`;
     }
   }catch(_){ }
+  await cargarOpcionesStats();
+  await renderCierreStats();
+  await renderEfectividadStats();
+  await renderPresupuestoStats();
 });
 
-document.getElementById('btnLimpiarStats')?.addEventListener('click', () => {
+document.getElementById('btnLimpiarStats')?.addEventListener('click', async () => {
   try{
     const a = document.getElementById('filtroAnalistaStats');
     const s = document.getElementById('filtroSuperStats');
@@ -93,10 +203,210 @@ document.getElementById('btnLimpiarStats')?.addEventListener('click', () => {
     if(s) s.value = '';
     if(c) c.value = '';
   }catch(_){ }
+  await renderCierreStats();
+  await renderEfectividadStats();
+  await renderPresupuestoStats();
 });
 
-document.getElementById('btnFiltrarStats')?.addEventListener('click', () => {
-  // Placeholder para aplicar filtros cuando definamos las consultas
+document.getElementById('btnFiltrarStats')?.addEventListener('click', async () => {
+  await renderCierreStats();
+  await renderEfectividadStats();
+  await renderPresupuestoStats();
 });
+
+async function cargarOpcionesStats(){
+  try{
+    const periodo = document.getElementById('filtroPeriodoStats')?.value || '';
+    const url = '/api/lider/efectividad/opciones' + (periodo ? `?periodo=${encodeURIComponent(periodo)}` : '');
+    const res = await fetch(url);
+    if(!res.ok) return;
+    const data = await res.json();
+    const analistas = Array.isArray(data.analistas) ? data.analistas : [];
+    const supervisores = Array.isArray(data.supervisores) ? data.supervisores : [];
+    const carpetas = Array.isArray(data.carpetas) ? data.carpetas : [];
+    const sa = document.getElementById('filtroAnalistaStats');
+    const ss = document.getElementById('filtroSuperStats');
+    const sc = document.getElementById('filtroCarpetaStats');
+    const ca = sa?.value || '';
+    const cs = ss?.value || '';
+    const cc = sc?.value || '';
+    if(sa){ sa.innerHTML = '<option value="">Todos</option>' + analistas.map(a => `<option value="${a}">${a}</option>`).join(''); sa.value = ca; }
+    if(ss){ ss.innerHTML = '<option value="">Todos</option>' + supervisores.map(s => `<option value="${s}">${s}</option>`).join(''); ss.value = cs; }
+    if(sc){ sc.innerHTML = '<option value="">Todas</option>' + carpetas.map(c => `<option value="${c}">${c}</option>`).join(''); sc.value = cc; }
+  }catch(_){ }
+}
+
+async function getReconMonedaStats(analista, periodo, seccion, valor){
+  try{
+    let url = '/api/administrativo/porcentajes-analistas';
+    const qs = [];
+    if(periodo) qs.push(`periodo=${encodeURIComponent(periodo)}`);
+    if(analista) qs.push(`analista=${encodeURIComponent(analista)}`);
+    if(seccion) qs.push(`seccion=${encodeURIComponent(seccion)}`);
+    if(qs.length) url += `?${qs.join('&')}`;
+    const res = await fetch(url, { credentials:'include' });
+    if(!res.ok) return '';
+    const data = await res.json();
+    const items = Array.isArray(data.items) ? data.items : [];
+    items.sort((a,b)=> Number(a.porcentaje||0) - Number(b.porcentaje||0));
+    let pick = '';
+    for(const it of items){
+      const pct = Number(it.porcentaje||0);
+      if(Number(valor||0) >= pct){ pick = String(it.moneda||'').trim(); }
+    }
+    return pick;
+  }catch(_){ return ''; }
+}
+
+async function setReconByTablaStats(imgEl, analista, periodo, seccion, valor){
+  if(!imgEl) return;
+  const m = await getReconMonedaStats(analista, periodo, seccion, valor);
+  const src = m ? `/static/moneda/${m}.png` : '';
+  imgEl.style.display = src ? 'inline-block' : 'none';
+  if(src) imgEl.src = src;
+}
+
+async function renderEfectividadStats(){
+  const cont = document.getElementById('efectividadCardsStats');
+  if(!cont) return;
+  const periodo = document.getElementById('filtroPeriodoStats')?.value || '';
+  const analista = (document.getElementById('filtroAnalistaStats')?.value || '').trim();
+  const superv = (document.getElementById('filtroSuperStats')?.value || '').trim();
+  const carpeta = (document.getElementById('filtroCarpetaStats')?.value || '').trim();
+  let url = '/api/lider/efectividad/list';
+  const params = [];
+  if(periodo) params.push(`periodo=${encodeURIComponent(periodo)}`);
+  if(analista) params.push(`analista=${encodeURIComponent(analista)}`);
+  if(superv) params.push(`super=${encodeURIComponent(superv)}`);
+  if(carpeta) params.push(`carpeta=${encodeURIComponent(carpeta)}`);
+  if(params.length) url += `?${params.join('&')}`;
+  try{
+    const res = await fetch(url);
+    if(res.ok){
+      const data = await res.json();
+      const items = Array.isArray(data.items) ? data.items : [];
+      let count = items.length;
+      let sAgenda = 0, sOK = 0, sRazon = 0, sKPI = 0;
+      const num = (v)=>{const n = Number(v); return isNaN(n) ? 0 : n;};
+      for(const it of items){ sAgenda += num(it.agenda); sOK += num(it.ok); sRazon += num(it.razon); sKPI += num(it.kpi); }
+      const avgKPI = count ? (sKPI / count) : 0;
+      const clampPct = (v)=> Math.max(0, Math.min(100, v));
+      const fmtPct = (v)=> `${clampPct(v).toFixed(1)}%`;
+      const fmtNum = (v)=>{ try{ return Number(v).toLocaleString('es-CO', { maximumFractionDigits: 0 }); }catch(_){ return String(v); } };
+      const setTxt = (id, val)=>{ const el = document.getElementById(id); if(el) el.textContent = val; };
+      setTxt('cardEfectAgendaValStats', fmtNum(sAgenda));
+      setTxt('cardEfectOKsValStats', fmtNum(sOK));
+      setTxt('cardEfectRazonValStats', fmtNum(sRazon));
+      setTxt('cardEfectKPIVAlStats', fmtPct(avgKPI));
+      const img = document.getElementById('cardEfectReconImgStats');
+      if(img){ await setReconByTablaStats(img, analista, periodo, 'efectividad', avgKPI); }
+      const list = document.getElementById('efectReconListaStats');
+      if(list){ list.innerHTML = ''; list.style.display = 'none'; }
+    }
+  }catch(_){ }
+}
+
+async function renderPresupuestoStats(){
+  const cont = document.getElementById('presupuestoCardsStats');
+  if(!cont) return;
+  const periodo = document.getElementById('filtroPeriodoStats')?.value || '';
+  const analista = (document.getElementById('filtroAnalistaStats')?.value || '').trim();
+  const superv = (document.getElementById('filtroSuperStats')?.value || '').trim();
+  let url = '/api/lider/facturacion/resumen';
+  const params = [];
+  if(periodo) params.push(`periodo=${encodeURIComponent(periodo)}`);
+  if(analista) params.push(`analista=${encodeURIComponent(analista)}`);
+  if(superv) params.push(`super=${encodeURIComponent(superv)}`);
+  if(params.length) url += `?${params.join('&')}`;
+  try{
+    const res = await fetch(url);
+    if(res.ok){
+      const data = await res.json();
+      const r = (data && data.resumen) ? data.resumen : {};
+      const n = (v)=>{ const x = Number(v); return isNaN(x) ? 0 : x; };
+      const deberDia = n(r.deberiair);
+      const puntos = n(r.puntos);
+      let diasUsados = n(r.dias || r.dias_mes || r.diasmes || r.dias_periodo);
+      if(diasUsados <= 0){
+        try{
+          let urlListDias = '/api/lider/facturacion/list';
+          const pl2 = [];
+          if(periodo) pl2.push(`periodo=${encodeURIComponent(periodo)}`);
+          if(analista) pl2.push(`analista=${encodeURIComponent(analista)}`);
+          if(superv) pl2.push(`super=${encodeURIComponent(superv)}`);
+          if(pl2.length) urlListDias += `?${pl2.join('&')}`;
+          const resList2 = await fetch(urlListDias);
+          if(resList2.ok){
+            const dataList2 = await resList2.json();
+            const items2 = Array.isArray(dataList2.items) ? dataList2.items : [];
+            let maxDias = 0;
+            items2.forEach(it => { const d = Number(it.dias || it.dias_mes || it.diasmes || it.dias_periodo) || 0; if(d > maxDias) maxDias = d; });
+            diasUsados = maxDias > 0 ? maxDias : 0;
+          }
+        }catch(_){ }
+      }
+      if(diasUsados <= 0){
+        try{
+          if(periodo && /^\d{4}-\d{2}$/.test(periodo)){
+            const parts = periodo.split('-'); const y = parseInt(parts[0],10); const m = parseInt(parts[1],10);
+            diasUsados = new Date(y, m, 0).getDate();
+          }
+        }catch(_){ diasUsados = 30; }
+      }
+      const objetivo = diasUsados > 0 ? (deberDia / diasUsados) * 26 : (deberDia * 26);
+      const cumpl = deberDia > 0 ? (puntos * 100) / deberDia : 0;
+      const fmtNum = (v)=>{ try{ return Number(v).toLocaleString('es-CO', { maximumFractionDigits: 0 }); }catch(_){ return String(v); } };
+      const fmtPct = (v)=> `${Number(v).toFixed(1)}%`;
+      const setTxt = (id, val)=>{ const el = document.getElementById(id); if(el) el.textContent = val; };
+      setTxt('cardPresDebValStats', fmtNum(deberDia));
+      setTxt('cardPresObjValStats', fmtNum(objetivo));
+      setTxt('cardPresAcumValStats', fmtNum(puntos));
+      setTxt('cardPresCumplValStats', fmtPct(cumpl));
+      const img = document.getElementById('cardPresReconImgStats');
+      if(img){ await setReconByTablaStats(img, analista, periodo, 'presupuesto', cumpl); }
+      const list = document.getElementById('presReconListaStats');
+      if(list){ list.innerHTML = ''; list.style.display = 'none'; }
+    }
+  }catch(_){ }
+}
+
+async function renderCierreStats(){
+  const periodo = document.getElementById('filtroPeriodoStats')?.value || '';
+  const analista = (document.getElementById('filtroAnalistaStats')?.value || '').trim();
+  let fecha = '';
+  try{ if(periodo && /^\d{4}-\d{2}$/.test(periodo)) fecha = `${periodo}-01`; }catch(_){}
+  let url = '/api/analistas/actividades-diarias/resumen';
+  const p = [];
+  if(fecha) p.push(`fecha=${encodeURIComponent(fecha)}`);
+  if(analista) p.push(`analista=${encodeURIComponent(analista)}`);
+  if(p.length) url += `?${p.join('&')}`;
+  try{
+    const res = await fetch(url);
+    if(res.ok){
+      const data = await res.json();
+      const r = data.mensual || { cantidad: 0, gestionada: 0 };
+      const cc = data.cierre_ciclo || { meta_mensual: 260, gestionada: 0, porcentaje_meta: 0 };
+      const cal = data.cierre_ciclo_calidad || { ots_mes: 0, con_calidad_mes: 0, porcentaje_mensual: 0 };
+      const ccMeta = typeof cc.meta_mensual === 'number' ? cc.meta_mensual : (Number(cc.meta_mensual) || 260);
+      const ccGest = typeof cc.gestionada === 'number' ? cc.gestionada : (Number(cc.gestionada) || 0);
+      const ccPct = typeof cc.porcentaje_meta === 'number' ? cc.porcentaje_meta : (Number(cc.porcentaje_meta) || 0);
+      const metaEl = document.getElementById('cardMetaValorStats');
+      const gestEl = document.getElementById('cardGestionadaValorStats');
+      const gestPctEl = document.getElementById('cardGestionadaPctStats');
+      const calPctEl = document.getElementById('cardCalidadPctStats');
+      const calBaseEl = document.getElementById('cardCalidadBaseStats');
+      const calAplEl = document.getElementById('cardCalidadesAplicadasStats');
+      if(metaEl) metaEl.textContent = ccMeta;
+      if(gestEl) gestEl.textContent = ccGest;
+      const fmt = (v)=> `${Number(v).toFixed(1)}%`;
+      if(gestPctEl) gestPctEl.textContent = fmt(ccPct);
+      if(calPctEl) calPctEl.textContent = fmt(typeof cal.porcentaje_mensual === 'number' ? cal.porcentaje_mensual : (Number(cal.porcentaje_mensual) || 0));
+      if(calBaseEl) calBaseEl.textContent = `sobre ${cal.ots_mes || 0} cierres`;
+      if(calAplEl) calAplEl.textContent = `calidades aplicadas: ${cal.calidades_aplicadas || cal.con_calidad_mes || 0}`;
+      const monedaImg = document.getElementById('cardMonedaImgStats');
+      if(monedaImg){ await setReconByTablaStats(monedaImg, analista, periodo, 'efectividad', cal.porcentaje_mensual || 0); }
+    }
+  }catch(_){ }
+}
 </script>
 {% endblock %}
