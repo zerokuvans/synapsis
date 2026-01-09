@@ -8,6 +8,221 @@
           <h3 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Actividades Diarias</h3>
         </div>
         <div class="card-body">
+          {% if not mostrar_cargue %}
+          <div class="accordion" id="accordionAnalistas">
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="accCierreHeader">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#accCierre" aria-expanded="true" aria-controls="accCierre">
+                  Cierre de Ciclo
+                </button>
+              </h2>
+              <div id="accCierre" class="accordion-collapse collapse show" aria-labelledby="accCierreHeader" data-bs-parent="#accordionAnalistas">
+                <div class="accordion-body">
+                  <div id="analistasMetricCards" class="row g-3 mt-2">
+                    <div class="col-md-3">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">Meta mensual</h6>
+                          <div class="d-flex align-items-baseline gap-2">
+                            <span class="fs-3 fw-bold" id="cardMetaValor">260</span>
+                            <span class="badge bg-dark" id="cardMetaLabel">Cierre de ciclo</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">Gestionado</h6>
+                          <div class="d-flex align-items-baseline gap-2">
+                            <span class="fs-3 fw-bold" id="cardGestionadaValor">0</span>
+                            <span class="badge bg-primary" id="cardGestionadaPct">0%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">Calidad cierre de ciclo</h6>
+                          <div class="d-flex align-items-baseline gap-2">
+                            <span class="fs-3 fw-bold" id="cardCalidadPct">0%</span>
+                            <span class="badge bg-secondary" id="cardCalidadBase">sobre 0 cierres</span>
+                          </div>
+                          <div class="mt-2">
+                            <span class="badge bg-info" id="cardCalidadesAplicadas" style="cursor:pointer">calidades aplicadas: 0</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">Reconocimiento</h6>
+                          <div class="d-flex align-items-center justify-content-start">
+                            <img id="cardMonedaImg" src="" alt="Reconocimiento" style="height:96px; display:none;" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="accEfectHeader">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accEfect" aria-expanded="false" aria-controls="accEfect">
+                  Efectividad
+                </button>
+              </h2>
+              <div id="accEfect" class="accordion-collapse collapse" aria-labelledby="accEfectHeader" data-bs-parent="#accordionAnalistas">
+                <div class="accordion-body">
+                  <div id="efectividadCards" class="row g-3 mt-2">
+                    <div class="col-md-2">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">Agenda</h6>
+                          <div class="d-flex align-items-baseline gap-2">
+                            <span class="fs-3 fw-bold" id="cardEfectAgendaVal">0%</span>
+                          </div>
+                          <div class="mt-1">
+                            <span class="badge bg-dark" id="cardEfectAgendaLbl">Efectividad agenda</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-2">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">OKs</h6>
+                          <div class="d-flex align-items-baseline gap-2">
+                            <span class="fs-3 fw-bold" id="cardEfectOKsVal">0%</span>
+                          </div>
+                          <div class="mt-1">
+                            <span class="badge bg-primary" id="cardEfectOKsLbl">OKs efectivos</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-2">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">Razón</h6>
+                          <div class="d-flex align-items-baseline gap-2">
+                            <span class="fs-3 fw-bold" id="cardEfectRazonVal">0%</span>
+                          </div>
+                          <div class="mt-1">
+                            <span class="badge bg-secondary" id="cardEfectRazonLbl">Razón efectiva</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-2">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">KPI</h6>
+                          <div class="d-flex align-items-baseline gap-2">
+                            <span class="fs-3 fw-bold" id="cardEfectKPIVAl">0%</span>
+                          </div>
+                          <div class="mt-1">
+                            <span class="badge bg-info" id="cardEfectKPILbl">KPI efectivo</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">Reconocimiento</h6>
+                          <div class="d-flex align-items-center justify-content-start">
+                            <img id="cardEfectReconImg" src="" alt="Reconocimiento" style="height:96px; display:none;" />
+                          </div>
+                          <div class="mt-2" id="efectReconLista"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="accPresHeader">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#accPres" aria-expanded="false" aria-controls="accPres">
+                  Presupuesto
+                </button>
+              </h2>
+              <div id="accPres" class="accordion-collapse collapse" aria-labelledby="accPresHeader" data-bs-parent="#accordionAnalistas">
+                <div class="accordion-body">
+                  <div id="presupuestoCards" class="row g-3 mt-2">
+                    <div class="col-md-2">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">Objetivo mes</h6>
+                          <div class="d-flex align-items-baseline gap-2">
+                            <span class="fs-3 fw-bold" id="cardPresObjVal">0</span>
+                          </div>
+                          <div class="mt-1">
+                            <span class="badge bg-dark" id="cardPresObjLbl">Meta mensual</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-2">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">Debería ir</h6>
+                          <div class="d-flex align-items-baseline gap-2">
+                            <span class="fs-3 fw-bold" id="cardPresDebVal">0</span>
+                          </div>
+                          <div class="mt-1">
+                            <span class="badge bg-dark" id="cardPresDebLbl">Base</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-2">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">Acumulado</h6>
+                          <div class="d-flex align-items-baseline gap-2">
+                            <span class="fs-3 fw-bold" id="cardPresAcumVal">0</span>
+                          </div>
+                          <div class="mt-1">
+                            <span class="badge bg-primary" id="cardPresAcumLbl">Puntos actuales</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-2">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">Cumplimiento</h6>
+                          <div class="d-flex align-items-baseline gap-2">
+                            <span class="fs-3 fw-bold" id="cardPresCumplVal">0%</span>
+                          </div>
+                          <div class="mt-1">
+                            <span class="badge bg-secondary" id="cardPresCumplLbl">% sobre meta</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="card h-100">
+                        <div class="card-body">
+                          <h6 class="text-muted mb-1">Reconocimiento</h6>
+                          <div class="d-flex align-items-center justify-content-start">
+                            <img id="cardPresReconImg" src="" alt="Reconocimiento" style="height:96px; display:none;" />
+                          </div>
+                          <div class="mt-2" id="presReconLista"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
           {% if mostrar_cargue %}
           <p class="text-muted mb-3">Cargar actividades desde Excel para registrar en la base de datos.</p>
           <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCargarActividades">
@@ -22,8 +237,9 @@
             {% if session.get('user_role') in ['administrativo','lider'] or session.get('id_codigo_consumidor')|int == 26 %}
             <div class="col-md-4">
               <label class="form-label">Analista</label>
-              <input type="text" class="form-control" id="filtroAnalista" list="listaAnalistas" placeholder="Escriba nombre del analista" />
-              <datalist id="listaAnalistas"></datalist>
+              <select class="form-select" id="filtroAnalista">
+                <option value="">Todos</option>
+              </select>
             </div>
             {% endif %}
             <div class="col-md-2 d-flex align-items-end">
@@ -89,6 +305,38 @@
     </div>
   </div>
   {% endif %}
+  <div class="modal fade" id="modalCalidadesDetalle" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:95vw">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fas fa-list-check me-2"></i>Calidades aplicadas</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-striped table-hover" id="tablaCalidades">
+              <thead>
+                <tr>
+                  <th>Cédula</th>
+                  <th>Carpeta</th>
+                  <th>Técnico</th>
+                  <th>OT</th>
+                  <th>Cuenta</th>
+                  <th>Agenda</th>
+                  <th>Fecha</th>
+                  <th>Causa</th>
+                </tr>
+              </thead>
+              <tbody id="tablaCalidadesBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -168,9 +416,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }catch(_){}
   cargarLista();
+  renderEfectividad();
+  renderPresupuesto();
 });
 const __btnFiltro = document.getElementById('btnFiltrarFecha');
-if(__btnFiltro){ __btnFiltro.addEventListener('click', cargarLista); }
+if(__btnFiltro){ __btnFiltro.addEventListener('click', () => { cargarLista(); renderEfectividad(); renderPresupuesto(); }); }
 
 function exportarActividades(formato){
   try{
@@ -340,6 +590,71 @@ async function renderResumen(){
             </div>
           `;
         }
+        const cards = document.getElementById('analistasMetricCards');
+        if(cards){
+          const cal = data.cierre_ciclo_calidad || { ots_mes: 0, con_calidad_mes: 0, porcentaje_mensual: 0 };
+          const metaEl = document.getElementById('cardMetaValor');
+          const gestEl = document.getElementById('cardGestionadaValor');
+          const gestPctEl = document.getElementById('cardGestionadaPct');
+          const calPctEl = document.getElementById('cardCalidadPct');
+          const calBaseEl = document.getElementById('cardCalidadBase');
+          const calAplEl = document.getElementById('cardCalidadesAplicadas');
+          if(metaEl) metaEl.textContent = ccMeta;
+          if(gestEl) gestEl.textContent = ccGest;
+          if(gestPctEl) gestPctEl.textContent = fmt(ccPct);
+          if(calPctEl) calPctEl.textContent = fmt(typeof cal.porcentaje_mensual === 'number' ? cal.porcentaje_mensual : (Number(cal.porcentaje_mensual) || 0));
+          if(calBaseEl) calBaseEl.textContent = `sobre ${cal.ots_mes || 0} cierres`;
+          if(calAplEl) calAplEl.textContent = `calidades aplicadas: ${cal.calidades_aplicadas || cal.con_calidad_mes || 0}`;
+          if(calAplEl){
+            calAplEl.onclick = async function(){
+              try{
+                const fecha = document.getElementById('filtroFecha')?.value || '';
+                const analista = (document.getElementById('filtroAnalista')?.value || '').trim();
+                let url = '/api/analistas/actividades-diarias/calidad-detalle';
+                const params = [];
+                if(fecha) params.push(`fecha=${encodeURIComponent(fecha)}`);
+                if(analista) params.push(`analista=${encodeURIComponent(analista)}`);
+                if(params.length) url += `?${params.join('&')}`;
+                const res = await fetch(url);
+                if(res.ok){
+                  const data = await res.json();
+                  const items = Array.isArray(data.items) ? data.items : [];
+                  const tbody = document.getElementById('tablaCalidadesBody');
+                  if(tbody){
+                    tbody.innerHTML = items.map(it => {
+                      const f = formatYMD(it.fecha);
+                      const a = formatYMD(it.agenda);
+                      return `<tr>
+                        <td>${it.cedula ?? ''}</td>
+                        <td>${it.carpeta ?? ''}</td>
+                        <td>${it.tecnico ?? ''}</td>
+                        <td>${it.ot ?? ''}</td>
+                        <td>${it.cuenta ?? ''}</td>
+                        <td>${a}</td>
+                        <td>${f}</td>
+                        <td>${(it.causa ?? '').toString().slice(0,200)}</td>
+                      </tr>`;
+                    }).join('');
+                  }
+                  const modal = new bootstrap.Modal(document.getElementById('modalCalidadesDetalle'));
+                  modal.show();
+                }
+              }catch(_){ }
+            };
+          }
+
+          const monedaImg = document.getElementById('cardMonedaImg');
+          if(monedaImg){
+            const p = Number(cal.porcentaje_mensual || 0);
+            let img = '';
+            if(p >= 96){ img = '/static/moneda/400pesos.png'; }
+            else if(p >= 94){ img = '/static/moneda/300pesos.png'; }
+            else if(p >= 92){ img = '/static/moneda/200pesos.png'; }
+            else if(p >= 90){ img = '/static/moneda/100pesos.png'; }
+            monedaImg.style.display = img ? 'inline-block' : 'none';
+            if(img){ monedaImg.src = img; }
+          }
+        }
         cont.innerHTML = `
           <table class="table table-sm table-bordered mb-0">
             <thead class="table-primary">
@@ -433,6 +748,129 @@ async function renderResumen(){
   `;
 }
 
+async function renderEfectividad(){
+  const cont = document.getElementById('efectividadCards');
+  if(!cont) return;
+  const fecha = document.getElementById('filtroFecha')?.value || '';
+  const analista = (document.getElementById('filtroAnalista')?.value || '').trim();
+  const periodo = fecha ? (String(fecha).slice(0,7)) : '';
+  let url = '/api/lider/efectividad/list';
+  const params = [];
+  if(periodo) params.push(`periodo=${encodeURIComponent(periodo)}`);
+  if(analista) params.push(`analista=${encodeURIComponent(analista)}`);
+  if(params.length) url += `?${params.join('&')}`;
+  try{
+    const res = await fetch(url);
+    if(res.ok){
+      const data = await res.json();
+      const items = Array.isArray(data.items) ? data.items : [];
+      let count = items.length;
+      let sAgenda = 0, sOK = 0, sRazon = 0, sKPI = 0;
+      const num = (v)=>{const n = Number(v); return isNaN(n) ? 0 : n;};
+      for(const it of items){
+        sAgenda += num(it.agenda);
+        sOK += num(it.ok);
+        sRazon += num(it.razon);
+        sKPI += num(it.kpi);
+      }
+      const avgKPI = count ? (sKPI / count) : 0;
+      const clampPct = (v)=> Math.max(0, Math.min(100, v));
+      const fmtPct = (v)=> `${clampPct(v).toFixed(1)}%`;
+      const fmtNum = (v)=>{ try{ return Number(v).toLocaleString('es-CO', { maximumFractionDigits: 0 }); }catch(_){ return String(v); } };
+      const setTxt = (id, val)=>{ const el = document.getElementById(id); if(el) el.textContent = val; };
+      setTxt('cardEfectAgendaVal', fmtNum(sAgenda));
+      setTxt('cardEfectOKsVal', fmtNum(sOK));
+      setTxt('cardEfectRazonVal', fmtNum(sRazon));
+      setTxt('cardEfectKPIVAl', fmtPct(avgKPI));
+  const nameText = (analista || 'Todos');
+  const img = document.getElementById('cardEfectReconImg');
+  if(img){
+    const eff = avgKPI;
+    await setReconByTabla(img, analista, periodo, 'efectividad', eff);
+  }
+      const list = document.getElementById('efectReconLista');
+      if(list){ list.innerHTML = ''; list.style.display = 'none'; }
+    }
+  }catch(_){ }
+}
+
+async function renderPresupuesto(){
+  const cont = document.getElementById('presupuestoCards');
+  if(!cont) return;
+  const fecha = document.getElementById('filtroFecha')?.value || '';
+  const analista = (document.getElementById('filtroAnalista')?.value || '').trim();
+  const periodo = fecha ? (String(fecha).slice(0,7)) : '';
+  let url = '/api/lider/facturacion/resumen';
+  const params = [];
+  if(periodo) params.push(`periodo=${encodeURIComponent(periodo)}`);
+  if(analista) params.push(`analista=${encodeURIComponent(analista)}`);
+  if(params.length) url += `?${params.join('&')}`;
+  try{
+    const res = await fetch(url);
+    if(res.ok){
+      const data = await res.json();
+      const r = (data && data.resumen) ? data.resumen : {};
+      const n = (v)=>{ const x = Number(v); return isNaN(x) ? 0 : x; };
+      const deberDia = n(r.deberiair);
+      const puntos = n(r.puntos);
+      const diasCol = n(r.dias || r.dias_mes || r.diasmes || r.dias_periodo);
+      let diasMes = 30;
+      try{
+        if(periodo && /^\d{4}-\d{2}$/.test(periodo)){
+          const parts = periodo.split('-');
+          const y = parseInt(parts[0],10);
+          const m = parseInt(parts[1],10);
+          diasMes = new Date(y, m, 0).getDate();
+        }else{
+          const nowStr = new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' });
+          const now = new Date(nowStr);
+          const y = now.getFullYear();
+          const m = now.getMonth()+1;
+          diasMes = new Date(y, m, 0).getDate();
+        }
+      }catch(_){ diasMes = 30; }
+      let diasUsados = diasCol > 0 ? diasCol : 0;
+      if(diasUsados <= 0){
+        try{
+          let urlListDias = '/api/lider/facturacion/list';
+          const pl2 = [];
+          if(periodo) pl2.push(`periodo=${encodeURIComponent(periodo)}`);
+          if(analista) pl2.push(`analista=${encodeURIComponent(analista)}`);
+          if(pl2.length) urlListDias += `?${pl2.join('&')}`;
+          const resList2 = await fetch(urlListDias);
+          if(resList2.ok){
+            const dataList2 = await resList2.json();
+            const items2 = Array.isArray(dataList2.items) ? dataList2.items : [];
+            let maxDias = 0;
+            items2.forEach(it => {
+              const d = Number(it.dias || it.dias_mes || it.diasmes || it.dias_periodo) || 0;
+              if(d > maxDias) maxDias = d;
+            });
+            diasUsados = maxDias > 0 ? maxDias : 0;
+          }
+        }catch(_){ }
+      }
+      if(diasUsados <= 0) diasUsados = diasMes;
+      const objetivo = diasUsados > 0 ? (deberDia / diasUsados) * 26 : (deberDia * 26);
+      const cumpl = deberDia > 0 ? (puntos * 100) / deberDia : 0;
+      const fmtNum = (v)=>{ try{ return Number(v).toLocaleString('es-CO', { maximumFractionDigits: 0 }); }catch(_){ return String(v); } };
+      const fmtPct = (v)=> `${Number(v).toFixed(1)}%`;
+      const setTxt = (id, val)=>{ const el = document.getElementById(id); if(el) el.textContent = val; };
+      setTxt('cardPresDebVal', fmtNum(deberDia));
+      setTxt('cardPresObjVal', fmtNum(objetivo));
+      setTxt('cardPresAcumVal', fmtNum(puntos));
+      setTxt('cardPresCumplVal', fmtPct(cumpl));
+  const nameText = (analista || 'Todos');
+  const img = document.getElementById('cardPresReconImg');
+  if(img){
+    await setReconByTabla(img, analista, periodo, 'presupuesto', cumpl);
+  }
+      const list = document.getElementById('presReconLista');
+      if(list){ list.innerHTML = ''; list.style.display = 'none'; }
+    }
+  }catch(_){ }
+}
+
 document.getElementById('paginadorActividades').addEventListener('click', (e) => {
   const a = e.target.closest('[data-page]');
   if(!a) return;
@@ -447,20 +885,22 @@ document.getElementById('paginadorActividades').addEventListener('click', (e) =>
 });
 
 async function initAnalistas(){
-  const dl = document.getElementById('listaAnalistas');
-  const input = document.getElementById('filtroAnalista');
-  if(!dl || !input) return;
+  const select = document.getElementById('filtroAnalista');
+  if(!select) return;
   try{
     const res = await fetch('/api/lider/inicio-operacion/analistas');
     if(res.ok){
       const data = await res.json();
       const arr = data && data.analistas ? data.analistas : [];
-      dl.innerHTML = '';
+      const current = select.value;
+      select.innerHTML = '<option value="">Todos</option>';
       arr.forEach(name => {
         const opt = document.createElement('option');
         opt.value = name;
-        dl.appendChild(opt);
+        opt.textContent = name;
+        select.appendChild(opt);
       });
+      if(current) select.value = current;
     }
   }catch(_){}
 }
@@ -493,6 +933,28 @@ function formatFecha(v){
     return s;
   }catch(_){ return v; }
 }
+function formatYMD(v){
+  try{
+    if(!v) return '';
+    const s = String(v).trim();
+    let m = s.match(/^(\d{4})[\/-](\d{2})[\/-](\d{2})/);
+    if(m){
+      return `${m[1]}-${m[2]}-${m[3]}`;
+    }
+    m = s.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})/);
+    if(m){
+      return `${m[3]}-${m[2]}-${m[1]}`;
+    }
+    const d = new Date(s);
+    if(!isNaN(d.getTime())){
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    return s;
+  }catch(_){ return v ?? ''; }
+}
 function formatOT(v){
   try{
     const s = String(v ?? '').trim();
@@ -502,6 +964,36 @@ function formatOT(v){
     const i = parseInt(base, 10);
     return isNaN(i) ? s : i.toString();
   }catch(_){ return v ?? ''; }
+}
+
+async function getReconMoneda(analista, periodo, seccion, valor){
+  try{
+    let url = '/api/administrativo/porcentajes-analistas';
+    const qs = [];
+    if(periodo) qs.push(`periodo=${encodeURIComponent(periodo)}`);
+    if(analista) qs.push(`analista=${encodeURIComponent(analista)}`);
+    if(seccion) qs.push(`seccion=${encodeURIComponent(seccion)}`);
+    if(qs.length) url += `?${qs.join('&')}`;
+    const res = await fetch(url, { credentials:'include' });
+    if(!res.ok) return '';
+    const data = await res.json();
+    const items = Array.isArray(data.items) ? data.items : [];
+    items.sort((a,b)=> Number(a.porcentaje||0) - Number(b.porcentaje||0));
+    let pick = '';
+    for(const it of items){
+      const pct = Number(it.porcentaje||0);
+      if(Number(valor||0) >= pct){ pick = String(it.moneda||'').trim(); }
+    }
+    return pick;
+  }catch(_){ return ''; }
+}
+
+async function setReconByTabla(imgEl, analista, periodo, seccion, valor){
+  if(!imgEl) return;
+  const m = await getReconMoneda(analista, periodo, seccion, valor);
+  const src = m ? `/static/moneda/${m}.png` : '';
+  imgEl.style.display = src ? 'inline-block' : 'none';
+  if(src) imgEl.src = src;
 }
 
 function debeBloquearGestion(fechaRaw){

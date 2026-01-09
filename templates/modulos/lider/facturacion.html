@@ -8,7 +8,7 @@
           <h3 class="mb-0"><i class="fas fa-file-invoice-dollar me-2"></i>Operaciones de Facturación</h3>
         </div>
         <div class="card-body">
-          <p class="text-muted mb-3">Cargar base mensual con columnas: deberiair, puntos, niveltecnico, mediaot, oks, abiertas, fact-pdte, fact-sinsubir, vehiculo, cedula.</p>
+          <p class="text-muted mb-3">Cargar base mensual con columnas: deberiair, puntos, mediaot, oks, abiertas, fact-pdte, fact-sinsubir, vehiculo, cedula.</p>
           <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCargarFacturacion">
             <i class="fas fa-upload me-2"></i>Subir facturación
           </button>
@@ -50,7 +50,7 @@
                   <th>Técnico</th>
                   <th>Debería ir</th>
                   <th>Puntos</th>
-                  <th>Nivel</th>
+                  <th>Cumplimiento (%)</th>
                   <th>Media OT</th>
                   <th>OKs</th>
                   <th>Abiertas</th>
@@ -204,7 +204,7 @@ function renderTabla(){
       <td>${it.tecnico_nombre ?? ''}</td>
       <td>${fmtCOP(it.deberiair)}</td>
       <td>${fmtCOP(it.puntos)}</td>
-      <td>${it.niveltecnico ?? ''}</td>
+      <td>${fmtPorc(calcCumplimiento(it.puntos, it.deberiair))}</td>
       <td>${fmtNumber(it.mediaot)}</td>
       <td>${fmtInt(it.oks)}</td>
       <td>${fmtInt(it.abiertas)}</td>
@@ -226,6 +226,16 @@ function fmtInt(v){
 function fmtCOP(v){
   const n = Number(v);
   return Number.isFinite(n) ? n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }) : '';
+}
+function fmtPorc(v){
+  const n = Number(v);
+  return Number.isFinite(n) ? `${n.toFixed(2)}%` : '';
+}
+function calcCumplimiento(puntos, deberia){
+  const p = Number(puntos);
+  const d = Number(deberia);
+  if(!Number.isFinite(p) || !Number.isFinite(d) || d <= 0) return 0;
+  return (p / d) * 100;
 }
 
 function renderPaginador(){
@@ -301,6 +311,7 @@ async function renderResumen(){
             <div class="d-flex gap-2 justify-content-end">
               <div class="badge bg-dark p-2">Media OT: <span class="fw-bold">${fmtNumber(r.mediaot || 0)}</span></div>
               <div class="badge bg-primary p-2">Puntos: <span class="fw-bold">${fmtCOP(r.puntos || 0)}</span></div>
+              <div class="badge bg-success p-2">Cumplimiento: <span class="fw-bold">${fmtPorc(calcCumplimiento(r.puntos || 0, r.deberiair || 0))}</span></div>
             </div>
           `;
         }
@@ -315,6 +326,7 @@ async function renderResumen(){
             <tbody>
               <tr><td>Debería ir</td><td>${fmtCOP(r.deberiair || 0)}</td></tr>
               <tr><td>Puntos</td><td>${fmtCOP(r.puntos || 0)}</td></tr>
+              <tr><td>Cumplimiento (%)</td><td>${fmtPorc(calcCumplimiento(r.puntos || 0, r.deberiair || 0))}</td></tr>
               <tr><td>Media OT</td><td>${fmtNumber(r.mediaot || 0)}</td></tr>
               <tr><td>OKs</td><td>${fmtInt(r.oks || 0)}</td></tr>
               <tr><td>Abiertas</td><td>${fmtInt(r.abiertas || 0)}</td></tr>

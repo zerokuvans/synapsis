@@ -1,0 +1,190 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <h3 class="mb-0"><i class="fas fa-percentage me-2"></i>Porcentajes de Analistas</h3>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label">Periodo</label>
+              <input type="month" class="form-control" id="filtroPeriodo" value="{{ current_year }}-{{ current_month }}" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Analista</label>
+              <input type="text" class="form-control" id="filtroAnalista" list="listaAnalistas" placeholder="Filtrar por analista" />
+              <datalist id="listaAnalistas"></datalist>
+            </div>
+            <div class="col-md-4 d-flex align-items-end justify-content-end">
+              <div class="btn-group">
+                <button class="btn btn-primary" id="btnFiltrar"><i class="fas fa-search me-2"></i>Filtrar</button>
+                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoPorcentaje"><i class="fas fa-plus me-2"></i>Nuevo %</button>
+              </div>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-striped table-bordered" id="tablaPorcentajes">
+              <thead class="table-primary">
+                <tr>
+                  <th>Periodo</th>
+                  <th>Sección</th>
+                  <th>Analista</th>
+                  <th>Porcentaje</th>
+                  <th>Moneda</th>
+                  <th>Fecha</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalNuevoPorcentaje" tabindex="-1" aria-labelledby="modalNuevoPorcentajeLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalNuevoPorcentajeLabel">Nuevo porcentaje</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="formNuevoPorcentaje">
+          <div class="mb-3">
+            <label class="form-label">Periodo</label>
+            <input type="month" class="form-control" id="npPeriodo" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Analista</label>
+            <input type="text" class="form-control" id="npAnalista" list="listaAnalistas" placeholder="Nombre analista" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Sección</label>
+            <select class="form-select" id="npSeccion">
+              <option value="efectividad" selected>efectividad</option>
+              <option value="presupuesto">presupuesto</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Porcentaje</label>
+            <input type="number" class="form-control" id="npPorcentaje" step="0.1" min="0" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Moneda</label>
+            <select class="form-select" id="npMoneda">
+              <option value="100pesos">100pesos</option>
+              <option value="200pesos">200pesos</option>
+              <option value="300pesos">300pesos</option>
+              <option value="400pesos">400pesos</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-success" id="btnGuardarPorcentaje">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function fmtPct(v){
+  const n = Number(v);
+  if(!Number.isFinite(n)) return '';
+  return `${n.toFixed(2)}%`;
+}
+function fmtPeriodo(y,m){ return `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}`; }
+function fmtFecha(v){
+  if(!v) return '';
+  const s = String(v);
+  const m = s.match(/^\d{4}-\d{2}-\d{2}/);
+  if(m) return m[0];
+  try{ return new Date(s).toISOString().substring(0,10); }catch(_){ return s.substring(0,10); }
+}
+function fmtStr(v){ return (v ?? '').toString(); }
+async function cargarOpciones(){
+  try{
+    const res = await fetch('/api/administrativo/porcentajes-analistas/opciones', { credentials:'include' });
+    if(!res.ok) return;
+    const data = await res.json();
+    const da = document.getElementById('listaAnalistas');
+    const arr = Array.isArray(data.analistas) ? data.analistas : [];
+    if(da){ da.innerHTML = arr.map(a => `<option value="${a}"></option>`).join(''); }
+  }catch(_){ }
+}
+async function cargarTabla(){
+  const periodo = document.getElementById('filtroPeriodo')?.value || '';
+  const analista = document.getElementById('filtroAnalista')?.value || '';
+  let url = '/api/administrativo/porcentajes-analistas';
+  const p = [];
+  if(periodo) p.push(`periodo=${encodeURIComponent(periodo)}`);
+  if(p.length) url += `?${p.join('&')}`;
+  try{
+    const res = await fetch(url, { credentials:'include' });
+    const data = await res.json();
+    const items = Array.isArray(data.items) ? data.items : [];
+    const tbody = document.querySelector('#tablaPorcentajes tbody');
+    tbody.innerHTML = '';
+    const filtro = (analista || '').trim().toLowerCase();
+    items
+      .filter(it => !filtro || String(it.analista || '').toLowerCase().includes(filtro))
+      .forEach(it => {
+        const tr = document.createElement('tr');
+        const per = fmtPeriodo(it.periodo_year, it.periodo_month);
+        const fecha = it.fecha_registro || '';
+        tr.innerHTML = `
+          <td>${per}</td>
+          <td>${fmtStr(it.seccion)}</td>
+          <td>${fmtStr(it.analista)}</td>
+          <td>${fmtPct(it.porcentaje)}</td>
+          <td>${fmtStr(it.moneda)}</td>
+          <td>${fmtFecha(fecha)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+  }catch(_){ }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  cargarOpciones();
+  try{
+    const fp = document.getElementById('filtroPeriodo');
+    const np = document.getElementById('npPeriodo');
+    if(fp && np) np.value = fp.value;
+  }catch(_){ }
+  cargarTabla();
+});
+const btnFiltrar = document.getElementById('btnFiltrar');
+if(btnFiltrar){ btnFiltrar.addEventListener('click', cargarTabla); }
+const btnGuardar = document.getElementById('btnGuardarPorcentaje');
+if(btnGuardar){ btnGuardar.addEventListener('click', async () => {
+  const periodo = document.getElementById('npPeriodo')?.value || '';
+  const analista = document.getElementById('npAnalista')?.value || '';
+  const seccion = document.getElementById('npSeccion')?.value || 'efectividad';
+  const porcentaje = document.getElementById('npPorcentaje')?.value || '';
+  const moneda = document.getElementById('npMoneda')?.value || '';
+  const payload = { periodo, analista, seccion, porcentaje, moneda };
+  try{
+    const res = await fetch('/api/administrativo/porcentajes-analistas', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload), credentials:'include' });
+    const data = await res.json();
+    if(res.ok && data.success){
+      const modal = bootstrap.Modal.getInstance(document.getElementById('modalNuevoPorcentaje'));
+      modal && modal.hide();
+      document.getElementById('formNuevoPorcentaje').reset();
+      const fp = document.getElementById('filtroPeriodo');
+      const np = document.getElementById('npPeriodo');
+      if(fp && np && !fp.value) fp.value = np.value;
+      cargarTabla();
+      Swal && Swal.fire({icon:'success', title:'Guardado', text: 'Porcentajes guardados'});
+    }else{
+      Swal && Swal.fire({icon:'error', title:'Error', text: data.message || 'No se pudo guardar'});
+    }
+  }catch(_){ Swal && Swal.fire({icon:'error', title:'Error de red'}); }
+}); }
+</script>
+{% endblock %}

@@ -1,0 +1,261 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-secondary text-white">
+          <h3 class="mb-0"><i class="fas fa-bullseye me-2"></i>Operaciones de Efectividad</h3>
+        </div>
+        <div class="card-body">
+          <p class="text-muted mb-3">Cargar base con columnas: razon, kpi, agenda, ok, cedula.</p>
+          <button class="btn btn-secondary text-white" data-bs-toggle="modal" data-bs-target="#modalCargarEfectividad">
+            <i class="fas fa-upload me-2"></i>Subir efectividad
+          </button>
+          <div class="row mt-3">
+            <div class="col-md-3">
+              <label class="form-label">Periodo</label>
+              <input type="month" class="form-control" id="filtroPeriodoEfect" />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Analista</label>
+              <input type="text" class="form-control" id="filtroAnalistaEfect" placeholder="Filtrar por analista" list="listaAnalistasEfect" />
+              <datalist id="listaAnalistasEfect"></datalist>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Supervisor</label>
+              <input type="text" class="form-control" id="filtroSuperEfect" placeholder="Filtrar por supervisor" list="listaSuperEfect" />
+              <datalist id="listaSuperEfect"></datalist>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Carpeta</label>
+              <input type="text" class="form-control" id="filtroCarpetaEfect" placeholder="Filtrar por carpeta" list="listaCarpetasEfect" />
+              <datalist id="listaCarpetasEfect"></datalist>
+            </div>
+          </div>
+          <div class="row mt-3">
+            <div class="col-md-2 d-flex align-items-end">
+              <button class="btn btn-outline-secondary w-100" id="btnFiltrarEfect"><i class="fas fa-filter me-2"></i>Filtrar</button>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <button class="btn btn-outline-dark w-100" id="btnRefrescarEfect"><i class="fas fa-sync me-2"></i>Refrescar</button>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <button class="btn btn-outline-secondary w-100" id="btnLimpiarEfect"><i class="fas fa-eraser me-2"></i>Limpiar</button>
+            </div>
+          </div>
+          <div class="table-responsive mt-3">
+            <table class="table table-striped table-hover" id="tablaEfectividad">
+              <thead>
+                <tr>
+                  <th>Cédula</th>
+                  <th>Técnico</th>
+                  <th>Carpeta</th>
+                  <th>Razón</th>
+                  <th>KPI</th>
+                  <th>Agenda</th>
+                  <th>OK</th>
+                  <th>Supervisor</th>
+                  <th>Analista</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div class="mt-2" id="mensajeEfect"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalCargarEfectividad" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fas fa-file-excel me-2"></i>Subir archivo de efectividad</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formCargarEfectividad">
+            <div class="mb-3">
+              <label class="form-label">Archivo</label>
+              <input type="file" class="form-control" id="archivoEfectividad" accept=".xlsx,.xls,.csv" required />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Periodo (mes)</label>
+              <input type="month" class="form-control" id="periodoCargaEfectividad" />
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+          <button type="button" class="btn btn-secondary text-white" id="btnSubirEfectividad">Subir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const __btnSubirEfectividad = document.getElementById('btnSubirEfectividad');
+if(__btnSubirEfectividad){
+__btnSubirEfectividad.addEventListener('click', async function(){
+  const input = document.getElementById('archivoEfectividad');
+  if (!input.files || !input.files[0]) {
+    Swal.fire({icon:'warning', title:'Seleccione un archivo'});
+    return;
+  }
+  const formData = new FormData();
+  formData.append('file', input.files[0]);
+  try {
+    let periodo = document.getElementById('periodoCargaEfectividad')?.value || '';
+    if(!periodo){
+      const pf = document.getElementById('filtroPeriodoEfect')?.value || '';
+      periodo = pf;
+    }
+    if(periodo){ formData.append('periodo', periodo); }
+  } catch(_){ }
+  try {
+    const endpoint = "{{ api_endpoint or '/api/lider/cargar-efectividad' }}";
+    const res = await fetch(endpoint, { method:'POST', body: formData });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      const msg = data.message || `Insertadas: ${data.rows_inserted || 0}`;
+      Swal.fire({icon:'success', title:'Cargado', text: msg});
+      const modal = bootstrap.Modal.getInstance(document.getElementById('modalCargarEfectividad'));
+      modal && modal.hide();
+      document.getElementById('formCargarEfectividad').reset();
+      cargarListaEfectividad();
+      cargarOpcionesEfectividad();
+    } else {
+      Swal.fire({icon:'error', title:'Error', text:data.message || 'Error al cargar'});
+    }
+  } catch (e) {
+    Swal.fire({icon:'error', title:'Error de red'});
+  }
+});
+}
+
+async function cargarOpcionesEfectividad(){
+  const periodo = document.getElementById('filtroPeriodoEfect')?.value || '';
+  try{
+    const url = '/api/lider/efectividad/opciones' + (periodo ? `?periodo=${encodeURIComponent(periodo)}` : '');
+    const res = await fetch(url);
+    if(!res.ok) return;
+    const data = await res.json();
+    const analistas = Array.isArray(data.analistas) ? data.analistas : [];
+    const supervisores = Array.isArray(data.supervisores) ? data.supervisores : [];
+    const carpetas = Array.isArray(data.carpetas) ? data.carpetas : [];
+    const da = document.getElementById('listaAnalistasEfect');
+    const ds = document.getElementById('listaSuperEfect');
+    const dc = document.getElementById('listaCarpetasEfect');
+    if(da){ da.innerHTML = analistas.map(a => `<option value="${a}"></option>`).join(''); }
+    if(ds){ ds.innerHTML = supervisores.map(s => `<option value="${s}"></option>`).join(''); }
+    if(dc){ dc.innerHTML = carpetas.map(c => `<option value="${c}"></option>`).join(''); }
+  }catch(_){ }
+}
+
+async function cargarListaEfectividad(){
+  const periodo = document.getElementById('filtroPeriodoEfect')?.value || '';
+  const analista = document.getElementById('filtroAnalistaEfect')?.value || '';
+  const superv = document.getElementById('filtroSuperEfect')?.value || '';
+  const carpeta = document.getElementById('filtroCarpetaEfect')?.value || '';
+  let url = '/api/lider/efectividad/list';
+  const p = [];
+  if(periodo) p.push(`periodo=${encodeURIComponent(periodo)}`);
+  if(analista) p.push(`analista=${encodeURIComponent(analista)}`);
+  if(superv) p.push(`super=${encodeURIComponent(superv)}`);
+  if(carpeta) p.push(`carpeta=${encodeURIComponent(carpeta)}`);
+  if(p.length) url += `?${p.join('&')}`;
+  try{
+    const res = await fetch(url);
+    const data = await res.json();
+    const items = Array.isArray(data.items) ? data.items : [];
+    renderTablaEfectividad(items);
+  }catch(_){ }
+}
+
+function renderTablaEfectividad(items){
+  const tbody = document.querySelector('#tablaEfectividad tbody');
+  const mensaje = document.getElementById('mensajeEfect');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+  if(Array.isArray(items) && items.length === 0){
+    if(mensaje){
+      mensaje.innerHTML = '<div class="alert alert-warning mb-0">Sin datos para el periodo seleccionado.</div>';
+    }
+    return;
+  } else {
+    if(mensaje){ mensaje.innerHTML = ''; }
+  }
+  items.forEach(it => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${it.cedula ?? ''}</td>
+      <td>${it.tecnico_nombre ?? ''}</td>
+      <td>${it.carpeta ?? ''}</td>
+      <td>${it.razon ?? ''}</td>
+      <td>${fmtPorc(it.kpi)}</td>
+      <td>${it.agenda ?? ''}</td>
+      <td>${fmtInt(it.ok)}</td>
+      <td>${it.super ?? ''}</td>
+      <td>${it.analista ?? ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function fmtInt(v){
+  const n = Number(v);
+  return Number.isFinite(n) ? String(Math.round(n)) : '';
+}
+function fmtNumber(v){
+  const n = Number(v);
+  return Number.isFinite(n) ? String(n) : '';
+}
+function fmtPorc(v){
+  const n = Number(v);
+  if(!Number.isFinite(n)) return '';
+  const scaled = n <= 1 ? n * 100 : n;
+  return `${scaled.toFixed(2)}%`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const inputPeriodo = document.getElementById('filtroPeriodoEfect');
+  const periodoCarga = document.getElementById('periodoCargaEfectividad');
+  try{
+    if(inputPeriodo && !inputPeriodo.value){
+      const nowStr = new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' });
+      const now = new Date(nowStr);
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth()+1).padStart(2,'0');
+      inputPeriodo.value = `${yyyy}-${mm}`;
+    }
+    if(periodoCarga && !periodoCarga.value){
+      const nowStr = new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' });
+      const now = new Date(nowStr);
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth()+1).padStart(2,'0');
+      periodoCarga.value = `${yyyy}-${mm}`;
+    }
+  }catch(_){ }
+  cargarOpcionesEfectividad();
+  cargarListaEfectividad();
+});
+document.getElementById('btnFiltrarEfect')?.addEventListener('click', () => { cargarListaEfectividad(); });
+document.getElementById('btnRefrescarEfect')?.addEventListener('click', () => { cargarOpcionesEfectividad(); cargarListaEfectividad(); });
+document.getElementById('btnLimpiarEfect')?.addEventListener('click', () => {
+  try{
+    const p = document.getElementById('filtroPeriodoEfect');
+    const a = document.getElementById('filtroAnalistaEfect');
+    const s = document.getElementById('filtroSuperEfect');
+    const c = document.getElementById('filtroCarpetaEfect');
+    if(p) p.value = '';
+    if(a) a.value = '';
+    if(s) s.value = '';
+    if(c) c.value = '';
+  }catch(_){ }
+  cargarListaEfectividad();
+});
+</script>
+{% endblock %}

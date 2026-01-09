@@ -1,0 +1,102 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-dark text-white">
+          <h3 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Estadísticas de Operaciones</h3>
+        </div>
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <label class="form-label">Periodo</label>
+              <input type="month" class="form-control" id="filtroPeriodoStats" />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Analista</label>
+              <input type="text" class="form-control" id="filtroAnalistaStats" list="listaAnalistasStats" />
+              <datalist id="listaAnalistasStats"></datalist>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Supervisor</label>
+              <input type="text" class="form-control" id="filtroSuperStats" list="listaSuperStats" />
+              <datalist id="listaSuperStats"></datalist>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Carpeta</label>
+              <input type="text" class="form-control" id="filtroCarpetaStats" list="listaCarpetasStats" />
+              <datalist id="listaCarpetasStats"></datalist>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-2">
+              <button class="btn btn-dark w-100" id="btnFiltrarStats"><i class="fas fa-filter me-2"></i>Filtrar</button>
+            </div>
+            <div class="col-md-2">
+              <button class="btn btn-outline-dark w-100" id="btnLimpiarStats"><i class="fas fa-eraser me-2"></i>Limpiar</button>
+            </div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-lg-4 col-md-6">
+              <div class="card h-100">
+                <div class="card-body">
+                  <h6 class="mb-2">Calidad</h6>
+                  <div id="statsCalidad" class="text-muted">Sin datos</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+              <div class="card h-100">
+                <div class="card-body">
+                  <h6 class="mb-2">Facturación</h6>
+                  <div id="statsFacturacion" class="text-muted">Sin datos</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-4 col-md-6">
+              <div class="card h-100">
+                <div class="card-body">
+                  <h6 class="mb-2">Efectividad</h6>
+                  <div id="statsEfectividad" class="text-muted">Sin datos</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const inputPeriodo = document.getElementById('filtroPeriodoStats');
+  try{
+    if(inputPeriodo && !inputPeriodo.value){
+      const nowStr = new Date().toLocaleString('en-US', { timeZone: 'America/Bogota' });
+      const now = new Date(nowStr);
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth()+1).padStart(2,'0');
+      inputPeriodo.value = `${yyyy}-${mm}`;
+    }
+  }catch(_){ }
+});
+
+document.getElementById('btnLimpiarStats')?.addEventListener('click', () => {
+  try{
+    const a = document.getElementById('filtroAnalistaStats');
+    const s = document.getElementById('filtroSuperStats');
+    const c = document.getElementById('filtroCarpetaStats');
+    if(a) a.value = '';
+    if(s) s.value = '';
+    if(c) c.value = '';
+  }catch(_){ }
+});
+
+document.getElementById('btnFiltrarStats')?.addEventListener('click', () => {
+  // Placeholder para aplicar filtros cuando definamos las consultas
+});
+</script>
+{% endblock %}
