@@ -5190,15 +5190,28 @@ def api_analistas_actividades_diarias_list():
         coll = collation_row[0] if collation_row and collation_row[0] else 'utf8mb4_0900_ai_ci'
         cursor.execute(
             f"""
-            SELECT recurso_operativo_cedula, nombre
+            SELECT recurso_operativo_cedula, id_codigo_consumidor, nombre
             FROM recurso_operativo
             WHERE LOWER(TRIM(analista)) COLLATE {coll} = LOWER(TRIM(CAST(%s AS CHAR CHARACTER SET utf8mb4))) COLLATE {coll}
             """,
             (user_name,)
         )
         tecnicos = cursor.fetchall()
-        cedulas = [t[0] for t in tecnicos]
-        nombres_map = {str(t[0]): t[1] for t in tecnicos}
+        ids_all = []
+        nombres_map = {}
+        for t in tecnicos:
+            try:
+                ced = str(t[0]) if t[0] is not None else ''
+                idc = str(t[1]) if len(t) > 1 and t[1] is not None else ''
+                nom = t[2] if len(t) > 2 else (t[1] if len(t) > 1 else '')
+                if ced:
+                    ids_all.append(ced)
+                    nombres_map[ced] = nom
+                if idc:
+                    ids_all.append(idc)
+                    nombres_map[idc] = nom
+            except Exception:
+                pass
         filtro_fecha_sql = ''
         params = []
         if fecha:
@@ -5206,15 +5219,27 @@ def api_analistas_actividades_diarias_list():
                 filtro_fecha_sql = f" AND DATE(o.`{col_fecha}`) = %s"
                 params.append(fecha_norm)
             else:
-                filtro_fecha_sql = f" AND o.`{col_fecha}` LIKE %s"
-                params.append(fecha_norm + '%')
+                try:
+                    y = fecha_norm[0:4]
+                    m = fecha_norm[5:7]
+                    d = fecha_norm[8:10]
+                    like_patterns = [
+                        f"{fecha_norm}%",
+                        f"{y}/{m}/{d}%",
+                        f"{d}/{m}/{y}%",
+                        f"{d}-{m}-{y}%"
+                    ]
+                except Exception:
+                    like_patterns = [fecha_norm + '%']
+                filtro_fecha_sql = " AND (" + " OR ".join([f"o.`{col_fecha}` LIKE %s"] * len(like_patterns)) + ")"
+                params.extend(like_patterns)
         rows = []
-        if cedulas:
-            placeholders = ','.join(['%s'] * len(cedulas))
-            # Filtro para ocultar finalizados a analistas
+        if ids_all:
+            placeholders = ','.join(['%s'] * len(ids_all))
             filtro_final_sql = ''
-            if col_final and (user_role in ('analista','analistas')):
-                filtro_final_sql = f" AND (o.`{col_final}` IS NULL OR o.`{col_final}` = 0)"
+            mostrar_finalizados = str(request.args.get('mostrar_finalizados','1')).strip().lower()
+            if col_final and mostrar_finalizados in ('0','false','no'):
+                filtro_final_sql = f" AND (o.`{col_final}` IS NULL OR CAST(o.`{col_final}` AS SIGNED) <> 1)"
             select_fields = [
                 f"o.`{col_ot}` AS orden_de_trabajo",
                 f"o.`{col_cuenta}` AS numero_de_cuenta",
@@ -5241,92 +5266,86 @@ def api_analistas_actividades_diarias_list():
                 "SELECT " + ", ".join(select_fields) +
                 " FROM operaciones_actividades_diarias o" +
                 f" WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_fecha_sql}{filtro_final_sql}" +
-                f" AND o.`{col_cuenta}` IS NOT NULL" +
-                f" AND CAST(o.`{col_cuenta}` AS CHAR) <> ''" +
-                f" AND o.`{col_cuenta}` REGEXP '^[0-9]+'" +
-                f" AND CAST(o.`{col_cuenta}` AS SIGNED) > 0" +
-                f" AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6" +
-                (f" AND LOWER(TRIM(o.`{col_estado}`)) IN ('completado','no completado','cancelado')" if col_estado else '') +
                 f" ORDER BY o.`{col_fecha}` DESC LIMIT 500"
             )
             cursor = connection.cursor(dictionary=True)
-            cursor.execute(sql, tuple(cedulas) + tuple(params))
-            base_rows = cursor.fetchall()
-            now = datetime.now(TIMEZONE)
-            bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 16, 0, 0, 0))
-            for r in base_rows:
-                cid = str(r.get('external_id')) if r.get('external_id') is not None else ''
-                r['tecnico'] = nombres_map.get(cid, '')
-                should_hide = False
-                try:
-                    act_date = None
-                    v = r.get('fecha')
-                    if isinstance(v, datetime):
-                        act_date = v.date()
-                    else:
-                        s = str(v).strip()
-                        m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", s)
-                        if m:
-                            act_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
-                    if now >= bloqueo_inicio and act_date:
-                        dnext = act_date + timedelta(days=1)
-                        cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
-                        if now >= cutoff:
-                            ef = r.get('estado_final')
+            cursor.execute(sql, tuple(ids_all) + tuple(params))
+        base_rows = cursor.fetchall()
+        now = datetime.now(TIMEZONE)
+        bloqueo_inicio = TIMEZONE.localize(datetime(2025, 12, 16, 0, 0, 0))
+        for r in base_rows:
+            cid = str(r.get('external_id')) if r.get('external_id') is not None else ''
+            r['tecnico'] = nombres_map.get(cid, '')
+            should_hide = False
+            try:
+                act_date = None
+                v = r.get('fecha')
+                if isinstance(v, datetime):
+                    act_date = v.date()
+                else:
+                    s = str(v).strip()
+                    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", s)
+                    if m:
+                        act_date = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3))).date()
+                if now >= bloqueo_inicio and act_date:
+                    dnext = act_date + timedelta(days=1)
+                    cutoff = TIMEZONE.localize(datetime(dnext.year, dnext.month, dnext.day, 12, 0, 0))
+                    if now >= cutoff:
+                        ef = r.get('estado_final')
+                        ef_val = None
+                        try:
+                            ef_val = int(ef)
+                        except Exception:
                             ef_val = None
+                        if ef_val != 1:
                             try:
-                                ef_val = int(ef)
+                                cupd = connection.cursor()
+                                conds = f"CAST(`{col_ot}` AS CHAR)=%s AND CAST(`{col_cuenta}` AS CHAR)=%s"
+                                params_u = [str(r.get('orden_de_trabajo') or ''), str(r.get('numero_de_cuenta') or '')]
+                                if col_act_id and r.get('actividad_id') is not None:
+                                    conds += f" AND `{col_act_id}`=%s"
+                                    params_u.append(r.get('actividad_id'))
+                                else:
+                                    vv = r.get('fecha')
+                                    try:
+                                        if isinstance(vv, datetime):
+                                            conds += f" AND DATE(`{col_fecha}`)=%s"
+                                            params_u.append(vv.date().strftime('%Y-%m-%d'))
+                                        else:
+                                            s0 = str(vv).strip()
+                                            m3 = re.match(r"^(\d{4}-\d{2}-\d{2})", s0)
+                                            if m3:
+                                                conds += f" AND `{col_fecha}` LIKE %s"
+                                                params_u.append(m3.group(1) + '%')
+                                    except Exception:
+                                        pass
+                                sqlu = f"UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE {conds} AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
+                                cupd.execute(sqlu, tuple(params_u))
+                                connection.commit()
+                                cupd.close()
                             except Exception:
-                                ef_val = None
-                            if ef_val != 1:
-                                try:
-                                    cupd = connection.cursor()
-                                    conds = f"CAST(`{col_ot}` AS CHAR)=%s AND CAST(`{col_cuenta}` AS CHAR)=%s"
-                                    params_u = [str(r.get('orden_de_trabajo') or ''), str(r.get('numero_de_cuenta') or '')]
-                                    if col_act_id and r.get('actividad_id') is not None:
-                                        conds += f" AND `{col_act_id}`=%s"
-                                        params_u.append(r.get('actividad_id'))
-                                    else:
-                                        vv = r.get('fecha')
-                                        try:
-                                            if isinstance(vv, datetime):
-                                                conds += f" AND DATE(`{col_fecha}`)=%s"
-                                                params_u.append(vv.date().strftime('%Y-%m-%d'))
-                                            else:
-                                                s0 = str(vv).strip()
-                                                m3 = re.match(r"^(\d{4}-\d{2}-\d{2})", s0)
-                                                if m3:
-                                                    conds += f" AND `{col_fecha}` LIKE %s"
-                                                    params_u.append(m3.group(1) + '%')
-                                        except Exception:
-                                            pass
-                                    sqlu = f"UPDATE `operaciones_actividades_diarias` SET `estado_final`=2 WHERE {conds} AND (`estado_final` IS NULL OR CAST(`estado_final` AS SIGNED) <> 1)"
-                                    cupd.execute(sqlu, tuple(params_u))
-                                    connection.commit()
-                                    cupd.close()
-                                except Exception:
-                                    pass
-                                if user_role in ('analista','analistas'):
-                                    should_hide = True
-                except Exception:
-                    should_hide = False
-                if should_hide:
-                    continue
-                rows.append({
-                    'orden_de_trabajo': r.get('orden_de_trabajo'),
-                    'numero_de_cuenta': r.get('numero_de_cuenta'),
-                    'external_id': r.get('external_id'),
-                    'actividad_id': r.get('actividad_id'),
-                    'tecnico': r.get('tecnico'),
-                    'fecha': r.get('fecha'),
-                    'estado': (r.get('estado') or '').strip() if col_estado else '',
-                    'estado_final': r.get('estado_final') if col_final else None,
-                    'tipificacion_ok': r.get('tipificacion_ok') if col_tip_ok else None,
-                    'cierre_ciclo': r.get('cierre_ciclo') if col_cierre else None,
-                    'fecha_franja_cierre_ciclo': r.get('fecha_franja_cierre_ciclo') if col_fecha_franja else None,
-                    'franja_cierre_ciclo': r.get('franja_cierre_ciclo') if col_franja_cierre else None,
-                    'alerta_cierre_ciclo': r.get('alerta_cierre_ciclo') if col_alerta else None
-                })
+                                pass
+                            if user_role in ('analista','analistas'):
+                                should_hide = True
+            except Exception:
+                should_hide = False
+            if should_hide:
+                continue
+            rows.append({
+                'orden_de_trabajo': r.get('orden_de_trabajo'),
+                'numero_de_cuenta': r.get('numero_de_cuenta'),
+                'external_id': r.get('external_id'),
+                'actividad_id': r.get('actividad_id'),
+                'tecnico': r.get('tecnico'),
+                'fecha': r.get('fecha'),
+                'estado': (r.get('estado') or '').strip() if col_estado else '',
+                'estado_final': r.get('estado_final') if col_final else None,
+                'tipificacion_ok': r.get('tipificacion_ok') if col_tip_ok else None,
+                'cierre_ciclo': r.get('cierre_ciclo') if col_cierre else None,
+                'fecha_franja_cierre_ciclo': r.get('fecha_franja_cierre_ciclo') if col_fecha_franja else None,
+                'franja_cierre_ciclo': r.get('franja_cierre_ciclo') if col_franja_cierre else None,
+                'alerta_cierre_ciclo': r.get('alerta_cierre_ciclo') if col_alerta else None
+            })
         cursor.close()
         connection.close()
         return jsonify({'success': True, 'items': rows})
@@ -6422,6 +6441,39 @@ def api_analistas_actividad_cierre():
                         return jsonify({'success': False, 'code': 'BLOCKED_BY_CUTOFF'}), 403
         set_parts = []
         set_vals = []
+        ext_payload = str((data.get('external_id') or '').strip())
+        if ext_payload:
+            try:
+                cext = None
+                cur.execute(
+                    """
+                    SELECT COLUMN_NAME FROM information_schema.columns
+                    WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+                    """,
+                    (db_config.get('database'),)
+                )
+                cols_ext = {r[0].lower(): r[0] for r in cur.fetchall()}
+                def picke(names):
+                    for n in names:
+                        if n.lower() in cols_ext:
+                            return cols_ext[n.lower()]
+                    for k0,v0 in cols_ext.items():
+                        for n in names:
+                            if n.lower() in k0:
+                                return v0
+                    return None
+                cext = picke(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
+                if not cext:
+                    try:
+                        cur.execute("ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `external_id` VARCHAR(64) NULL")
+                        cext = 'external_id'
+                    except Exception:
+                        cext = None
+                if cext:
+                    set_parts.append(f"`{cext}`=%s")
+                    set_vals.append(ext_payload)
+            except Exception:
+                pass
         if tip_ok:
             set_parts.append("`tipificacion_ok`=%s")
             set_vals.append(tip_ok)
@@ -6615,6 +6667,39 @@ def api_analistas_actividad_razon():
                         return jsonify({'success': False, 'code': 'BLOCKED_BY_CUTOFF'}), 403
         set_parts = []
         set_vals = []
+        ext_payload = str((data.get('external_id') or '').strip())
+        if ext_payload:
+            try:
+                cext = None
+                cur.execute(
+                    """
+                    SELECT COLUMN_NAME FROM information_schema.columns
+                    WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+                    """,
+                    (db_config.get('database'),)
+                )
+                cols_ext = {r[0].lower(): r[0] for r in cur.fetchall()}
+                def picke(names):
+                    for n in names:
+                        if n.lower() in cols_ext:
+                            return cols_ext[n.lower()]
+                    for k0,v0 in cols_ext.items():
+                        for n in names:
+                            if n.lower() in k0:
+                                return v0
+                    return None
+                cext = picke(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
+                if not cext:
+                    try:
+                        cur.execute("ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `external_id` VARCHAR(64) NULL")
+                        cext = 'external_id'
+                    except Exception:
+                        cext = None
+                if cext:
+                    set_parts.append(f"`{cext}`=%s")
+                    set_vals.append(ext_payload)
+            except Exception:
+                pass
         if tip_razon:
             set_parts.append("`tipificacion_razon`=%s")
             set_vals.append(tip_razon)
@@ -6796,6 +6881,39 @@ def api_analistas_actividad_cancelado():
                         return jsonify({'success': False, 'code': 'BLOCKED_BY_CUTOFF'}), 403
         set_parts = []
         set_vals = []
+        ext_payload = str((data.get('external_id') or '').strip())
+        if ext_payload:
+            try:
+                cext = None
+                cur.execute(
+                    """
+                    SELECT COLUMN_NAME FROM information_schema.columns
+                    WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+                    """,
+                    (db_config.get('database'),)
+                )
+                cols_ext = {r[0].lower(): r[0] for r in cur.fetchall()}
+                def picke(names):
+                    for n in names:
+                        if n.lower() in cols_ext:
+                            return cols_ext[n.lower()]
+                    for k0,v0 in cols_ext.items():
+                        for n in names:
+                            if n.lower() in k0:
+                                return v0
+                    return None
+                cext = picke(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
+                if not cext:
+                    try:
+                        cur.execute("ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `external_id` VARCHAR(64) NULL")
+                        cext = 'external_id'
+                    except Exception:
+                        cext = None
+                if cext:
+                    set_parts.append(f"`{cext}`=%s")
+                    set_vals.append(ext_payload)
+            except Exception:
+                pass
         has_tip = 'cancelado_tipificacion' in cols
         has_texto = 'cancelado_opcion_texto' in cols
         has_obs = 'cancelado_observacion' in cols
@@ -6826,6 +6944,199 @@ def api_analistas_actividad_cancelado():
             expired_cond = f" AND (`{col_final}` IS NULL OR CAST(`{col_final}` AS SIGNED) <> 2)"
         sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where) + expired_cond
         cur.execute(sql, tuple(set_vals + params))
+        connection.commit()
+        cur.close(); connection.close()
+        return jsonify({'success': True, 'updated': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/analistas/actividad-gestion-update', methods=['POST'])
+@login_required_analistas_or_lider_api()
+def api_analistas_actividad_gestion_update():
+    data = request.get_json() or {}
+    ot = str(data.get('ot') or '').strip()
+    cuenta = str(data.get('cuenta') or '').strip()
+    actividad_id = str(data.get('actividad_id') or '').strip()
+    tecnico = str(data.get('tecnico') or '').strip()
+    external_id = str(data.get('external_id') or '').strip()
+    estado = str(data.get('estado') or '').strip()
+    nombre = str(data.get('nombre_completo') or data.get('nombre') or '').strip()
+    tipo = str(data.get('tipo_de_actividad') or data.get('tipo') or '').strip()
+    direccion = str(data.get('direccion') or data.get('direccion_campo_1') or '').strip()
+    tiempos = str(data.get('inicio_fin') or data.get('tiempo_gestion') or '').strip()
+    duracion = str(data.get('duracion') or '').strip()
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur = connection.cursor()
+        cur.execute(
+            """
+            SELECT COLUMN_NAME FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols = {r[0].lower(): r[0] for r in cur.fetchall()}
+        def pick(names):
+            for n in names:
+                if n.lower() in cols:
+                    return cols[n.lower()]
+            for k0,v0 in cols.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            return None
+        def ensure_col(name, ddl):
+            if name.lower() not in cols:
+                try:
+                    cur.execute(ddl)
+                except Exception:
+                    pass
+        c_ot = pick(['orden_de_trabajo','ot','orden','orden_trabajo'])
+        c_cta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
+        c_act = pick(['actividad_id','id_actividad','id_actividad_diaria'])
+        c_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
+        c_tec = pick(['tecnico','tecnico_nombre'])
+        c_estado = pick(['estado'])
+        c_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+        c_nom = pick(['nombre_completo','nombre'])
+        c_tipo = pick(['tipo_de_actividad','tipo','actividad'])
+        c_dir = pick(['direccion_campo_1','direccion'])
+        c_tiempos = pick(['inicio_fin','tiempos','tiempo_gestion'])
+        c_dur = pick(['duracion','duración'])
+        if not c_ot or not c_cta:
+            return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
+        if not c_ext:
+            try:
+                cur.execute("ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `external_id` VARCHAR(64) NULL")
+                c_ext = 'external_id'
+            except Exception:
+                pass
+        if not c_tec:
+            try:
+                cur.execute("ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tecnico` TEXT NULL")
+                c_tec = 'tecnico'
+            except Exception:
+                pass
+        if not c_estado:
+            try:
+                cur.execute("ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `estado` TEXT NULL")
+                c_estado = 'estado'
+            except Exception:
+                pass
+        if not c_nom:
+            try:
+                cur.execute("ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `nombre_completo` TEXT NULL")
+                c_nom = 'nombre_completo'
+            except Exception:
+                pass
+        if not c_tipo:
+            try:
+                cur.execute("ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `tipo_de_actividad` TEXT NULL")
+                c_tipo = 'tipo_de_actividad'
+            except Exception:
+                pass
+        if not c_dir:
+            try:
+                cur.execute("ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `direccion_campo_1` TEXT NULL")
+                c_dir = 'direccion_campo_1'
+            except Exception:
+                pass
+        if not c_tiempos:
+            try:
+                cur.execute("ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `inicio_fin` TEXT NULL")
+                c_tiempos = 'inicio_fin'
+            except Exception:
+                pass
+        if not c_dur:
+            try:
+                cur.execute("ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `duracion` TEXT NULL")
+                c_dur = 'duracion'
+            except Exception:
+                pass
+        where = []
+        params = []
+        if ot:
+            where.append(f"CAST(`{c_ot}` AS CHAR) = %s")
+            params.append(str(int(str(ot).split('.')[0])) if str(ot).strip() else ot)
+        if cuenta:
+            where.append(f"CAST(`{c_cta}` AS CHAR) = %s")
+            params.append(str(int(str(cuenta).split('.')[0])) if str(cuenta).strip() else cuenta)
+        if actividad_id and c_act:
+            try:
+                val_aid = str(int(str(actividad_id).split('.')[0]))
+            except Exception:
+                val_aid = actividad_id
+            where.append(f"CAST(`{c_act}` AS CHAR) = %s")
+            params.append(val_aid)
+        if not where:
+            return jsonify({'success': False, 'error': 'Faltan OT/Cuenta'}), 400
+        set_parts = []
+        set_vals = []
+        if external_id:
+            set_parts.append(f"`{c_ext}`=%s")
+            set_vals.append(external_id)
+        if tecnico:
+            set_parts.append(f"`{c_tec}`=%s")
+            set_vals.append(tecnico)
+        if estado:
+            set_parts.append(f"`{c_estado}`=%s")
+            set_vals.append(estado)
+        if nombre:
+            set_parts.append(f"`{c_nom}`=%s")
+            set_vals.append(nombre)
+        if tipo:
+            set_parts.append(f"`{c_tipo}`=%s")
+            set_vals.append(tipo)
+        if direccion:
+            set_parts.append(f"`{c_dir}`=%s")
+            set_vals.append(direccion)
+        if tiempos:
+            set_parts.append(f"`{c_tiempos}`=%s")
+            set_vals.append(tiempos)
+        if duracion:
+            set_parts.append(f"`{c_dur}`=%s")
+            set_vals.append(duracion)
+        if not set_parts:
+            cur.close(); connection.close()
+            return jsonify({'success': True, 'updated': False})
+        sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where)
+        cur.execute(sql, tuple(set_vals + params))
+        if getattr(cur, 'rowcount', 0) == 0:
+            ins_cols = []
+            ins_vals = []
+            if c_ot:
+                ins_cols.append(f"`{c_ot}`"); ins_vals.append(ot)
+            if c_cta:
+                ins_cols.append(f"`{c_cta}`"); ins_vals.append(cuenta)
+            if c_act and actividad_id:
+                ins_cols.append(f"`{c_act}`"); ins_vals.append(params[-1] if where and actividad_id else actividad_id)
+            if c_ext and external_id:
+                ins_cols.append(f"`{c_ext}`"); ins_vals.append(external_id)
+            if c_estado and estado:
+                ins_cols.append(f"`{c_estado}`"); ins_vals.append(estado)
+            if c_fecha:
+                try:
+                    now_bog = datetime.now(TIMEZONE)
+                    ins_cols.append(f"`{c_fecha}`"); ins_vals.append(now_bog.strftime('%Y-%m-%d'))
+                except Exception:
+                    pass
+            if c_tec and tecnico:
+                ins_cols.append(f"`{c_tec}`"); ins_vals.append(tecnico)
+            if c_nom and nombre:
+                ins_cols.append(f"`{c_nom}`"); ins_vals.append(nombre)
+            if c_tipo and tipo:
+                ins_cols.append(f"`{c_tipo}`"); ins_vals.append(tipo)
+            if c_dir and direccion:
+                ins_cols.append(f"`{c_dir}`"); ins_vals.append(direccion)
+            if c_tiempos and tiempos:
+                ins_cols.append(f"`{c_tiempos}`"); ins_vals.append(tiempos)
+            if c_dur and duracion:
+                ins_cols.append(f"`{c_dur}`"); ins_vals.append(duracion)
+            if ins_cols:
+                sql_ins = f"INSERT INTO `operaciones_actividades_diarias` ({', '.join(ins_cols)}) VALUES ({', '.join(['%s']*len(ins_cols))})"
+                cur.execute(sql_ins, tuple(ins_vals))
         connection.commit()
         cur.close(); connection.close()
         return jsonify({'success': True, 'updated': True})
@@ -8592,7 +8903,7 @@ def api_operativo_cierre_ciclo():
             placeholders = ','.join(['%s'] * len(tech_keys))
             where.append(f"CAST(o.`{col_ext}` AS CHAR) IN ({placeholders})")
             params.extend(tech_keys)
-        tipo_fecha = cols_type.get(col_fecha.lower())
+        tipo_fecha_base = cols_type.get((col_fecha_franja or col_fecha).lower())
         if fecha:
             fecha_norm = fecha
             for fmt in ('%Y-%m-%d','%d/%m/%Y','%d-%m-%Y','%Y/%m/%d'):
@@ -8601,12 +8912,25 @@ def api_operativo_cierre_ciclo():
                     break
                 except Exception:
                     pass
-            if tipo_fecha in ('datetime','timestamp','date'):
-                where.append(f"DATE(o.`{col_fecha}`) = %s")
+            target_col = col_fecha_franja or col_fecha
+            if tipo_fecha_base in ('datetime','timestamp','date'):
+                where.append(f"DATE(o.`{target_col}`) = %s")
                 params.append(fecha_norm)
             else:
-                where.append(f"o.`{col_fecha}` LIKE %s")
-                params.append(fecha_norm + '%')
+                try:
+                    y = fecha_norm[0:4]
+                    m = fecha_norm[5:7]
+                    d = fecha_norm[8:10]
+                    like_patterns = [
+                        f"{fecha_norm}%",
+                        f"{y}/{m}/{d}%",
+                        f"{d}/{m}/{y}%",
+                        f"{d}-{m}-{y}%"
+                    ]
+                except Exception:
+                    like_patterns = [fecha_norm + '%']
+                where.append("(" + " OR ".join([f"o.`{target_col}` LIKE %s"] * len(like_patterns)) + ")")
+                params.extend(like_patterns)
         if tipificacion:
             if col_tip_ok:
                 where.append(f"LOWER(TRIM(o.`{col_tip_ok}`)) = LOWER(TRIM(%s))")
@@ -8619,7 +8943,8 @@ def api_operativo_cierre_ciclo():
             f"o.`{col_cuenta}` AS numero_de_cuenta",
             f"o.`{col_ext}` AS tecnico_id"
         ]
-        if tipo_fecha in ('datetime','timestamp','date'):
+        tipo_fecha_col_fecha = cols_type.get(col_fecha.lower())
+        if tipo_fecha_col_fecha in ('datetime','timestamp','date'):
             select_parts.append(f"DATE_FORMAT(o.`{col_fecha}`, '%Y-%m-%d') AS fecha")
         else:
             select_parts.append(f"o.`{col_fecha}` AS fecha")
@@ -8652,10 +8977,11 @@ def api_operativo_cierre_ciclo():
         sql = "SELECT " + ", ".join(select_parts) + " FROM operaciones_actividades_diarias o"
         if where:
             sql += " WHERE " + " AND ".join(where)
-        if tipo_fecha in ('datetime','timestamp','date'):
-            sql += f" ORDER BY DATE(o.`{col_fecha}`) DESC"
+        order_col = col_fecha_franja or col_fecha
+        if tipo_fecha_base in ('datetime','timestamp','date'):
+            sql += f" ORDER BY DATE(o.`{order_col}`) DESC"
         else:
-            sql += f" ORDER BY o.`{col_fecha}` DESC"
+            sql += f" ORDER BY o.`{order_col}` DESC"
         cur = connection.cursor(dictionary=True)
         cur.execute(sql, tuple(params))
         rows = cur.fetchall() or []
@@ -8692,7 +9018,7 @@ def api_operativo_cierre_ciclo():
                         except Exception:
                             pass
                     return None
-                rows = [r for r in rows if pdt(r.get('fecha')) == tgt]
+                rows = [r for r in rows if pdt(r.get('fecha_franja_cierre_ciclo') or r.get('fecha')) == tgt]
             except Exception:
                 pass
         tecnico_ids = {str(r.get('tecnico_id')) for r in rows if r.get('tecnico_id') is not None}
@@ -8755,6 +9081,259 @@ def api_operativo_cierre_ciclo():
         cur.close(); connection.close()
         return jsonify({'success': True, 'data': rows, 'total': len(rows)})
     except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/operativo/cierre-ciclo/pending-list', methods=['GET'])
+@login_required_api(role=['operativo','tecnico','tecnicos'])
+def api_operativo_cierre_ciclo_pending_list():
+    tipificacion = (request.args.get('tip') or request.args.get('tipificacion') or '').strip()
+    connection = None
+    c = None
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        c = connection.cursor()
+        c.execute(
+            """
+            SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        cols_all = {r[0].lower(): r[0] for r in c.fetchall()}
+        cols_type = {}
+        c.execute(
+            """
+            SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns
+            WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
+            """,
+            (db_config.get('database'),)
+        )
+        for r in c.fetchall():
+            cols_type[r[0].lower()] = str(r[1]).lower()
+        def pick(names):
+            for n in names:
+                k = n.lower()
+                if k in cols_all:
+                    return cols_all[k]
+            for k0,v0 in cols_all.items():
+                for n in names:
+                    if n.lower() in k0:
+                        return v0
+            return None
+        col_ot = pick(['orden_de_trabajo','ot','orden_trabajo','orden','orden_de_servicio'])
+        col_cuenta = pick(['numero_de_cuenta','cuenta','nro_cuenta','num_cuenta'])
+        col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
+        col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'])
+        col_estado = pick(['estado'])
+        col_cierre = pick(['cierre_ciclo'])
+        col_tip_ok = pick(['tipificacion_ok'])
+        col_tip_nov = pick(['tipificacion_novedad'])
+        col_cierre_super = pick(['cierre_super','estado_super'])
+        col_tip_super_1 = pick(['tip_super_1','tipificacion_super_1'])
+        col_tip_super_2 = pick(['tip_super_2','tipificacion_super_2'])
+        col_fecha_gestion_super = pick(['fecha_gestion_super','fecha_super'])
+        col_fecha_franja = pick(['fecha_franja_cierre_ciclo'])
+        col_franja_cierre = pick(['franja_cierre_ciclo'])
+        col_alerta = pick(['alerta_cierre_ciclo','nivel_alerta','alerta'])
+        if not col_ot or not col_cuenta or not col_fecha or not col_ext:
+            return jsonify({'success': True, 'items': [], 'total': 0}), 200
+        params = []
+        where = []
+        if col_estado:
+            where.append(f"LOWER(TRIM(o.`{col_estado}`)) = 'completado'")
+        if col_cierre:
+            where.append(f"CAST(o.`{col_cierre}` AS SIGNED) = 1")
+        try:
+            user_role = session.get('user_role')
+        except Exception:
+            user_role = None
+        if user_role in ('tecnico','tecnicos','Tecnico','Tecnicos') and col_ext:
+            val_id = str(session.get('id_codigo_consumidor') or '').strip()
+            val_ced = str(session.get('user_cedula') or '').strip()
+            col_l = str(col_ext).lower()
+            if 'cedula' in col_l:
+                if val_ced:
+                    where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                    params.append(val_ced)
+            else:
+                if val_id and val_ced:
+                    where.append(f"(CAST(o.`{col_ext}` AS CHAR) = %s OR CAST(o.`{col_ext}` AS CHAR) = %s)")
+                    params.extend([val_id, val_ced])
+                elif val_id:
+                    where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                    params.append(val_id)
+                elif val_ced:
+                    where.append(f"CAST(o.`{col_ext}` AS CHAR) = %s")
+                    params.append(val_ced)
+        elif user_role in ('operativo','Operativo') and col_ext:
+            sup_name = str(session.get('user_name') or '').strip()
+            tech_keys = []
+            try:
+                c_sup = connection.cursor()
+                try:
+                    c_sup.execute(
+                        """
+                        SELECT id_codigo_consumidor, recurso_operativo_cedula
+                        FROM recurso_operativo
+                        WHERE super = %s
+                        """,
+                        (sup_name,)
+                    )
+                except Exception:
+                    c_sup.execute(
+                        """
+                        SELECT id_codigo_consumidor, recurso_operativo_cedula
+                        FROM recurso_operativo
+                        WHERE supervisor = %s
+                        """,
+                        (sup_name,)
+                    )
+                for r0 in c_sup.fetchall() or []:
+                    try:
+                        if r0[0] is not None:
+                            tech_keys.append(str(r0[0]))
+                    except Exception:
+                        pass
+                    try:
+                        if r0[1] is not None:
+                            tech_keys.append(str(r0[1]))
+                    except Exception:
+                        pass
+                c_sup.close()
+            except Exception:
+                tech_keys = []
+            tech_keys = list(dict.fromkeys([k for k in tech_keys if k and k.strip()]))
+            if len(tech_keys) == 0:
+                return jsonify({'success': True, 'items': [], 'total': 0}), 200
+            placeholders = ','.join(['%s'] * len(tech_keys))
+            where.append(f"CAST(o.`{col_ext}` AS CHAR) IN ({placeholders})")
+            params.extend(tech_keys)
+        if tipificacion:
+            if col_tip_ok:
+                where.append(f"LOWER(TRIM(o.`{col_tip_ok}`)) = LOWER(TRIM(%s))")
+                params.append(tipificacion)
+            elif col_tip_nov:
+                where.append(f"LOWER(TRIM(o.`{col_tip_nov}`)) = LOWER(TRIM(%s))")
+                params.append(tipificacion)
+        select_parts = [
+            f"o.`{col_ot}` AS orden_de_trabajo",
+            f"o.`{col_cuenta}` AS numero_de_cuenta",
+            f"o.`{col_ext}` AS tecnico_id"
+        ]
+        tipo_fecha_col_fecha = cols_type.get(col_fecha.lower())
+        if tipo_fecha_col_fecha in ('datetime','timestamp','date'):
+            select_parts.append(f"DATE_FORMAT(o.`{col_fecha}`, '%Y-%m-%d') AS fecha")
+        else:
+            select_parts.append(f"o.`{col_fecha}` AS fecha")
+        if col_estado:
+            select_parts.append(f"o.`{col_estado}` AS estado")
+        if col_cierre:
+            select_parts.append(f"o.`{col_cierre}` AS cierre_ciclo")
+        if col_tip_ok:
+            select_parts.append(f"o.`{col_tip_ok}` AS tipificacion_ok")
+        if col_tip_nov:
+            select_parts.append(f"o.`{col_tip_nov}` AS tipificacion_novedad")
+        if col_cierre_super:
+            select_parts.append(f"o.`{col_cierre_super}` AS cierre_super")
+        if col_tip_super_1:
+            select_parts.append(f"o.`{col_tip_super_1}` AS tip_super_1")
+        if col_tip_super_2:
+            select_parts.append(f"o.`{col_tip_super_2}` AS tip_super_2")
+        if col_fecha_gestion_super:
+            select_parts.append(f"o.`{col_fecha_gestion_super}` AS fecha_gestion_super")
+        if col_fecha_franja:
+            tipo_fecha_franja = cols_type.get(col_fecha_franja.lower())
+            if tipo_fecha_franja in ('datetime','timestamp','date'):
+                select_parts.append(f"DATE_FORMAT(o.`{col_fecha_franja}`, '%Y-%m-%d') AS fecha_franja_cierre_ciclo")
+            else:
+                select_parts.append(f"o.`{col_fecha_franja}` AS fecha_franja_cierre_ciclo")
+        if col_franja_cierre:
+            select_parts.append(f"o.`{col_franja_cierre}` AS franja_cierre_ciclo")
+        if col_alerta:
+            select_parts.append(f"o.`{col_alerta}` AS alerta_cierre_ciclo")
+        sql = "SELECT " + ", ".join(select_parts) + " FROM operaciones_actividades_diarias o"
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        order_col = col_fecha_franja or col_fecha
+        tipo_order = cols_type.get(order_col.lower())
+        if tipo_order in ('datetime','timestamp','date'):
+            sql += f" ORDER BY DATE(o.`{order_col}`) ASC"
+        else:
+            sql += f" ORDER BY o.`{order_col}` ASC"
+        cur = connection.cursor(dictionary=True)
+        cur.execute(sql, tuple(params))
+        rows = cur.fetchall() or []
+        cur.close()
+        for r in rows:
+            cid = str(r.get('tecnico_id')) if r.get('tecnico_id') is not None else ''
+            done = False
+            val_cierre = r.get('cierre_super')
+            if val_cierre is not None:
+                try:
+                    done = int(val_cierre) == 1
+                except Exception:
+                    done = str(val_cierre).strip().lower() in ('1','true','si','sí','completado')
+            if not done and r.get('fecha_gestion_super'):
+                done = True
+            if not done:
+                tip1 = r.get('tip_super_1')
+                tip2 = r.get('tip_super_2')
+                tip2_norm = str(tip2 or '').strip().lower()
+                pending2 = (
+                    tip2_norm == 'en predio' or
+                    tip2_norm == 'cliente no atiende' or
+                    tip2_norm == 'reprogramar' or
+                    ('reprogramar' in tip2_norm) or
+                    ('cliente no atiende' in tip2_norm)
+                )
+                if tip2 and str(tip2).strip():
+                    done = not pending2
+                elif tip1 and str(tip1).strip():
+                    done = True
+            r['estado_super'] = 'Completado' if done else 'Pendiente'
+        rows = [r for r in rows if (r.get('estado_super') or '') != 'Completado']
+        tecnico_ids = {str(r.get('tecnico_id')) for r in rows if r.get('tecnico_id') is not None}
+        nombres_map = {}
+        analistas_map = {}
+        supervisores_map = {}
+        if tecnico_ids:
+            placeholders = ','.join(['%s'] * len(tecnico_ids))
+            c2 = connection.cursor()
+            c2.execute(
+                f"SELECT recurso_operativo_cedula, nombre, analista, super FROM recurso_operativo WHERE CAST(recurso_operativo_cedula AS CHAR) IN ({placeholders})",
+                tuple(tecnico_ids)
+            )
+            for r in c2.fetchall() or []:
+                nombres_map[str(r[0])] = r[1]
+                analistas_map[str(r[0])] = r[2] if len(r) > 2 else ''
+                supervisores_map[str(r[0])] = r[3] if len(r) > 3 else ''
+            try:
+                c2.execute(
+                    f"SELECT id_codigo_consumidor, nombre, analista, super FROM recurso_operativo WHERE CAST(id_codigo_consumidor AS CHAR) IN ({placeholders})",
+                    tuple(tecnico_ids)
+                )
+                for r in c2.fetchall() or []:
+                    nombres_map[str(r[0])] = r[1]
+                    analistas_map[str(r[0])] = r[2] if len(r) > 2 else ''
+                    supervisores_map[str(r[0])] = r[3] if len(r) > 3 else ''
+            except Exception:
+                pass
+            c2.close()
+        for r in rows:
+            cid = str(r.get('tecnico_id')) if r.get('tecnico_id') is not None else ''
+            r['tecnico'] = nombres_map.get(cid, '')
+            r['analista'] = analistas_map.get(cid, '')
+            r['supervisor'] = supervisores_map.get(cid, '')
+        connection.close()
+        return jsonify({'success': True, 'items': rows, 'total': len(rows)})
+    except Exception as e:
+        try:
+            if connection:
+                connection.close()
+        except Exception:
+            pass
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/operativo/cierre-ciclo/detalle', methods=['GET'])

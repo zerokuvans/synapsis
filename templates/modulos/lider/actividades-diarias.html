@@ -253,6 +253,9 @@
               </div>
             </div>
             {% endif %}
+            <div class="col-auto d-flex align-items-end">
+              <button class="btn btn-primary" id="btnIngresarGestionTop"><i class="fas fa-clipboard-check me-2"></i>Ingresar Gestión</button>
+            </div>
             <div class="col d-flex align-items-end justify-content-end">
               <div id="resumenTop" class="d-flex gap-2"></div>
             </div>
@@ -334,6 +337,50 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
         </div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="modal fade" id="modalIngresarGestion" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-clipboard-check me-2"></i>Ingresar Gestión</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">OT</label>
+            <input type="text" class="form-control" id="igOT">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Cuenta</label>
+            <input type="text" class="form-control" id="igCuenta">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Estado</label>
+            <div class="d-flex gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="igEstado" id="igEstadoComp" value="completado" checked>
+                <label class="form-check-label" for="igEstadoComp">Completado</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="igEstado" id="igEstadoNoComp" value="no completado">
+                <label class="form-check-label" for="igEstadoNoComp">No completado</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="igEstado" id="igEstadoCancel" value="cancelado">
+                <label class="form-check-label" for="igEstadoCancel">Cancelado</label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-primary" id="btnIngresarGestionContinuar">Continuar</button>
       </div>
     </div>
   </div>
@@ -368,6 +415,19 @@ __btnSubir.addEventListener('click', async function(){
     Swal.fire({icon:'error', title:'Error de red'});
   }
 });
+} 
+
+function coinRank(m){
+  try{ return parseInt(String(m||'').replace(/\D/g,''),10) || 0; }catch(_){ return 0; }
+}
+function persistMaxCoin(page, periodo, analista, seccion, coin){
+  try{
+    const key = `recon_max:${page}:${periodo||''}:${analista||''}:${seccion||''}`;
+    const prev = localStorage.getItem(key) || '';
+    const best = (coinRank(prev) >= coinRank(coin)) ? (prev || coin) : coin;
+    localStorage.setItem(key, best);
+    return best;
+  }catch(_){ return coin; }
 }
 
 async function cargarLista(){
@@ -385,7 +445,9 @@ async function cargarLista(){
     const rawItems = Array.isArray(data.items) ? data.items : [];
     __items = rawItems.filter(it => {
       const e = (it.estado || '').toString().toLowerCase().trim();
-      return e === 'completado' || e === 'no completado' || e === 'cancelado';
+      const finV = String(it.estado_final ?? '').trim().toLowerCase();
+      const esFin = finV === '1' || finV === 'true';
+      return e === 'completado' || e === 'no completado' || e === 'cancelado' || esFin;
     });
     const orderEstado = { 'completado': 0, 'no completado': 1, 'cancelado': 2 };
     __items.sort((a, b) => {
@@ -422,6 +484,34 @@ document.addEventListener('DOMContentLoaded', () => {
 const __btnFiltro = document.getElementById('btnFiltrarFecha');
 if(__btnFiltro){ __btnFiltro.addEventListener('click', () => { cargarLista(); renderEfectividad(); renderPresupuesto(); }); }
 
+const __btnIngresarGestionTop = document.getElementById('btnIngresarGestionTop');
+if(__btnIngresarGestionTop){
+  __btnIngresarGestionTop.addEventListener('click', () => {
+    const el = document.getElementById('modalIngresarGestion');
+    if(!el){ return; }
+    const m = bootstrap.Modal.getOrCreateInstance(el);
+    m && m.show();
+  });
+}
+
+const __btnIngresarGestionContinuar = document.getElementById('btnIngresarGestionContinuar');
+if(__btnIngresarGestionContinuar){
+  __btnIngresarGestionContinuar.addEventListener('click', () => {
+    const ot = (document.getElementById('igOT')?.value || '').trim();
+    const cuenta = (document.getElementById('igCuenta')?.value || '').trim();
+    const estado = (document.querySelector('input[name="igEstado"]:checked') || {}).value || '';
+    if(!ot || !cuenta){
+      try{ if(window.Swal){ Swal.fire({icon:'warning', title:'Datos requeridos', text:'OT y Cuenta son obligatorios'}); } }catch(_){ }
+      return;
+    }
+    try{ guardarEstadoInicial(ot, cuenta, estado, ''); }catch(_){}
+    abrirGestionActividad(ot, cuenta, '', '', estado, '');
+    const mm = bootstrap.Modal.getInstance(document.getElementById('modalIngresarGestion'));
+    mm && mm.hide();
+    try{ cargarLista(); renderEfectividad(); renderPresupuesto(); }catch(_){}
+  });
+}
+
 function exportarActividades(formato){
   try{
     const f = (formato || 'csv').toLowerCase();
@@ -452,15 +542,15 @@ function renderTabla(){
     const estado = (item.estado || '').toLowerCase();
     const fechaRaw = item.fecha;
     const bloqueado = debeBloquearGestion(fechaRaw);
-    const estadoBadge = estado === 'completado' ? '<span class="badge bg-success">Completado</span>' : (estado === 'no completado' ? '<span class="badge bg-warning text-dark">No completado</span>' : (estado === 'cancelado' ? '<span class="badge bg-danger">Cancelado</span>' : '<span class="badge bg-secondary">N/A</span>'));
+    const estadoBadge = estado === 'completado' ? '<span class="badge bg-success">Completado</span>' : (estado === 'no completado' ? '<span class="badge bg-warning text-dark">No completado</span>' : (estado === 'cancelado' ? '<span class="badge bg-danger">Cancelado</span>' : (isFin ? '<span class="badge bg-info">Gestionado</span>' : '<span class="badge bg-secondary">N/A</span>')));
     tr.innerHTML = `
       <td>${cuenta}</td>
       <td>${ot}</td>
       <td>${tecnico}</td>
       <td>${estadoBadge}</td>
       <td>
-        <button class="btn btn-sm btn-primary" ${isFin || bloqueado ? 'disabled' : ''} title="${bloqueado ? 'Bloqueado por corte de medio día' : ''}" onclick="abrirGestionActividad('${ot}','${cuenta}','${tecnico}','${item.external_id ?? ''}','${estado}','${item.actividad_id ?? ''}')">
-          <i class="fas fa-tools me-1"></i>Gestionar
+        <button class="btn btn-sm btn-primary" ${isFin ? 'disabled' : ''} title="${bloqueado ? 'Bloqueado por corte de medio día' : ''}" onclick="abrirGestionActividad('${ot}','${cuenta}','${tecnico}','${item.external_id ?? ''}','${estado}','${item.actividad_id ?? ''}')">
+          <i class="fas fa-tools me-1"></i>Ingresar Gestión
         </button>
         ${__canGestionado ? (() => { const v = item.cierre_ciclo; const s = String(v ?? '').trim().toLowerCase(); const esCierre = (v === 1) || (s === '1') || (s === 'true'); const tk = String(item.tipificacion_ok ?? '').toUpperCase(); const esInconforme = esCierre && tk.includes('CLIENTE INCONFORME'); const cls = esInconforme ? 'btn-danger' : (esCierre ? 'btn-warning' : 'btn-secondary'); return `<button class="btn btn-sm ${cls} ms-2" onclick="abrirGestionado('${ot}','${cuenta}')"><i class=\"fas fa-eye me-1\"></i>Gestionado</button>`; })() : ''}
         ${isFin ? '<span class="badge bg-success ms-2">Finalizado</span>' : ''}
@@ -574,15 +664,6 @@ async function renderResumen(){
         if(top){
           top.classList.add('flex-column');
           top.innerHTML = `
-            <div class="d-flex gap-2 justify-content-end mb-1">
-              <div class="badge bg-secondary p-2">Cantidad (mes): <span class="fw-bold">${totalCant}</span></div>
-              <div class="badge bg-info p-2">Gestionada (mes): <span class="fw-bold">${totalGest}</span></div>
-              <div class="badge bg-success p-2">Finalizado (mes): <span class="fw-bold">${fmt(totalPct)}</span></div>
-            </div>
-            <div class="d-flex gap-2 justify-content-end mb-1">
-              <div class="badge bg-danger p-2">Cancelado (mes): <span class="fw-bold">${mk.cantidad}</span></div>
-              <div class="badge bg-danger p-2">Cancelado gestionado (mes): <span class="fw-bold">${mk.gestionada}</span></div>
-            </div>
             <div class="d-flex gap-2 justify-content-end">
               <div class="badge bg-warning p-2">Cierre Ciclo (mes): <span class="fw-bold">${ccGest}</span></div>
               <div class="badge bg-dark p-2">Meta Cierre: <span class="fw-bold">${ccMeta}</span></div>
@@ -646,13 +727,16 @@ async function renderResumen(){
           const monedaImg = document.getElementById('cardMonedaImg');
           if(monedaImg){
             const p = Number(cal.porcentaje_mensual || 0);
-            let img = '/static/moneda/0pesos.png';
-            if(p >= 96){ img = '/static/moneda/400pesos.png'; }
-            else if(p >= 94){ img = '/static/moneda/300pesos.png'; }
-            else if(p >= 92){ img = '/static/moneda/200pesos.png'; }
-            else if(p >= 90){ img = '/static/moneda/100pesos.png'; }
+            let coin = '0pesos';
+            if(p >= 96){ coin = '400pesos'; }
+            else if(p >= 94){ coin = '300pesos'; }
+            else if(p >= 92){ coin = '200pesos'; }
+            else if(p >= 90){ coin = '100pesos'; }
+            const periodoSel = (document.getElementById('filtroFecha')?.value || '').slice(0,7);
+            const analistaSel = (document.getElementById('filtroAnalista')?.value || '').trim();
+            const final = persistMaxCoin('analistas', periodoSel, analistaSel, 'cierre', coin);
             monedaImg.style.display = 'inline-block';
-            monedaImg.src = img;
+            monedaImg.src = `/static/moneda/${final}.png`;
           }
         }
         cont.innerHTML = `
@@ -700,18 +784,17 @@ async function renderResumen(){
     else if(e==='cancelado'){ canc++; if(fin) cancGest++; }
   }
   const fmt = (v) => `${v.toFixed(1)}%`;
-  const pComp = comp ? (compGest * 100) / comp : 0;
-  const pNComp = ncomp ? (ncompGest * 100) / ncomp : 0;
-  const pCanc = canc ? (cancGest * 100) / canc : 0;
-  const totalCant = comp + ncomp + canc;
-  const totalGest = compGest + ncompGest + cancGest;
-  const totalPct = totalCant ? (totalGest * 100) / totalCant : 0;
   const top = document.getElementById('resumenTop');
   if(top){
+    let ccGestDia = 0;
+    for(const it of __items){
+      const v = it.cierre_ciclo;
+      const s = String(v ?? '').trim().toLowerCase();
+      const esCierre = (v === 1) || (s === '1') || (s === 'true');
+      if(esCierre) ccGestDia++;
+    }
     top.innerHTML = `
-      <div class="badge bg-secondary p-2">Cantidad (día): <span class="fw-bold">${totalCant}</span></div>
-      <div class="badge bg-info p-2">Gestionada (día): <span class="fw-bold">${totalGest}</span></div>
-      <div class="badge bg-success p-2">Finalizado (día): <span class="fw-bold">${fmt(totalPct)}</span></div>
+      <div class="badge bg-warning p-2">Cierre Ciclo (día): <span class="fw-bold">${ccGestDia}</span></div>
     `;
   }
   cont.innerHTML = `
@@ -968,6 +1051,16 @@ function formatOT(v){
 
 async function getReconMoneda(analista, periodo, seccion, valor){
   try{
+    const path = (window.location && window.location.pathname) ? window.location.pathname : '';
+    const isAnalistasView = path.includes('/analistas/');
+    const v = Number(valor||0);
+    if(isAnalistasView){
+      if(v >= 96) return '400pesos';
+      if(v >= 94) return '300pesos';
+      if(v >= 92) return '200pesos';
+      if(v >= 90) return '100pesos';
+      return '0pesos';
+    }
     let url = '/api/administrativo/porcentajes-analistas';
     const qs = [];
     if(periodo) qs.push(`periodo=${encodeURIComponent(periodo)}`);
@@ -975,24 +1068,38 @@ async function getReconMoneda(analista, periodo, seccion, valor){
     if(seccion) qs.push(`seccion=${encodeURIComponent(seccion)}`);
     if(qs.length) url += `?${qs.join('&')}`;
     const res = await fetch(url, { credentials:'include' });
-    if(!res.ok) return '';
-    const data = await res.json();
-    const items = Array.isArray(data.items) ? data.items : [];
-    items.sort((a,b)=> Number(a.porcentaje||0) - Number(b.porcentaje||0));
-    let pick = '';
-    for(const it of items){
-      const pct = Number(it.porcentaje||0);
-      if(Number(valor||0) >= pct){ pick = String(it.moneda||'').trim(); }
+    if(res.ok){
+      const data = await res.json();
+      const items = Array.isArray(data.items) ? data.items : [];
+      items.sort((a,b)=> Number(a.porcentaje||0) - Number(b.porcentaje||0));
+      let pick = '';
+      for(const it of items){
+        const pct = Number(it.porcentaje||0);
+        if(Number(valor||0) >= pct){ pick = String(it.moneda||'').trim(); }
+      }
+      return pick;
     }
-    return pick;
-  }catch(_){ return ''; }
+    if(v >= 96) return '400pesos';
+    if(v >= 94) return '300pesos';
+    if(v >= 92) return '200pesos';
+    if(v >= 90) return '100pesos';
+    return '0pesos';
+  }catch(_){
+    const v = Number(valor||0);
+    if(v >= 96) return '400pesos';
+    if(v >= 94) return '300pesos';
+    if(v >= 92) return '200pesos';
+    if(v >= 90) return '100pesos';
+    return '0pesos';
+  }
 }
 
 async function setReconByTabla(imgEl, analista, periodo, seccion, valor){
   if(!imgEl) return;
   const m = await getReconMoneda(analista, periodo, seccion, valor);
   const moneda = m || '0pesos';
-  const src = `/static/moneda/${moneda}.png`;
+  const final = persistMaxCoin('analistas', periodo, analista, seccion, moneda);
+  const src = `/static/moneda/${final}.png`;
   imgEl.style.display = 'inline-block';
   imgEl.src = src;
 }
@@ -1050,7 +1157,7 @@ function debeBloquearGestion(fechaRaw){
                 </div>
                 <div class="col-md-3">
                   <label class="form-label">Técnico</label>
-                  <input type="text" class="form-control" id="gaTecnico" readonly>
+                  <select class="form-select" id="gaTecnico"></select>
                 </div>
               </div>
             </div>
@@ -1063,23 +1170,23 @@ function debeBloquearGestion(fechaRaw){
               <div class="row g-3">
                 <div class="col-md-6">
                   <label class="form-label">Nombre</label>
-                  <input type="text" class="form-control" id="gaNombre" readonly>
+                  <input type="text" class="form-control" id="gaNombre">
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Tipo de Actividad</label>
-                  <input type="text" class="form-control" id="gaTipoActividad" readonly>
+                  <input type="text" class="form-control" id="gaTipoActividad">
                 </div>
                 <div class="col-12">
                   <label class="form-label">Dirección</label>
-                  <input type="text" class="form-control" id="gaDireccion" readonly>
+                  <input type="text" class="form-control" id="gaDireccion">
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Tiempo Gestión (Inicio–Fin)</label>
-                  <input type="text" class="form-control" id="gaTiempoGestion" readonly>
+                  <input type="text" class="form-control" id="gaTiempoGestion">
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Duración</label>
-                  <input type="text" class="form-control" id="gaDuracion" readonly>
+                  <input type="text" class="form-control" id="gaDuracion">
                 </div>
               </div>
             </div>
@@ -1341,6 +1448,76 @@ function debeBloquearGestion(fechaRaw){
 let __gaContext = { ot: '', cuenta: '', tecnico: '', tecnicoId: '', estado: '', actividadId: '' };
 const __canGestionado = {{ 'true' if session.get('user_role') in ['lider','administrativo'] else 'false' }};
 
+let __tecnicosIndex = new Map();
+let __tecnicosLoaded = false;
+
+async function cargarTecnicosDatalist(){
+  if(__tecnicosLoaded) return;
+  const el = document.getElementById('gaTecnico');
+  if(!el) { __tecnicosLoaded = true; return; }
+  if(el.tagName === 'SELECT'){
+    el.innerHTML = '';
+    const def = document.createElement('option');
+    def.value = '';
+    def.textContent = 'Seleccione técnico';
+    el.appendChild(def);
+  }
+  try{
+    const res = await fetch('/api/tecnicos?estado=Activo', { credentials: 'include' });
+    const data = await res.json();
+    const arr = Array.isArray(data?.data) ? data.data : (data?.tecnicos || data?.items || []);
+    arr.forEach(t => {
+      const nombre = String(t.nombre || '').trim();
+      if(!nombre) return;
+      if(el.tagName === 'SELECT'){
+        const opt = document.createElement('option');
+        opt.value = nombre;
+        opt.textContent = nombre;
+        opt.dataset.ced = String(t.recurso_operativo_cedula || '').trim();
+        opt.dataset.idc = String(t.id_codigo_consumidor || '').trim();
+        el.appendChild(opt);
+      }
+      const ced = String(t.recurso_operativo_cedula || '').trim();
+      const idc = String(t.id_codigo_consumidor || '').trim();
+      __tecnicosIndex.set(nombre.toLowerCase(), { cedula: ced, id_codigo_consumidor: idc });
+    });
+    if(el.tagName === 'SELECT'){
+      if(__gaContext && __gaContext.tecnico){
+        el.value = __gaContext.tecnico;
+      }
+    }
+    __tecnicosLoaded = true;
+  }catch(_){ __tecnicosLoaded = true; }
+}
+
+function bindTecnicoInputListener(){
+  const el = document.getElementById('gaTecnico');
+  if(!el || el.dataset.bound === '1') return;
+  const handler = () => {
+    let nombre = '';
+    let ced = '';
+    let idc = '';
+    if(el.tagName === 'SELECT'){
+      const opt = el.options[el.selectedIndex];
+      nombre = (opt && opt.textContent) ? opt.textContent.trim() : '';
+      ced = opt && opt.dataset ? (opt.dataset.ced || '') : '';
+      idc = opt && opt.dataset ? (opt.dataset.idc || '') : '';
+    } else {
+      const v = (el.value || '').trim();
+      const info = __tecnicosIndex.get(v.toLowerCase()) || {};
+      nombre = v;
+      ced = info.cedula || '';
+      idc = info.id_codigo_consumidor || '';
+    }
+    __gaContext.tecnico = nombre;
+    __gaContext.tecnicoId = idc;
+    __gaContext.externalId = ced;
+    guardarGestionBasica();
+  };
+  el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', handler);
+  el.dataset.bound = '1';
+}
+
 function resetGestionActividadForm(){
   const setV = (id, v) => { try{ const el=document.getElementById(id); if(el) el.value=v; }catch(_){} };
   setV('gaOT','');
@@ -1375,6 +1552,8 @@ async function abrirGestionActividad(ot, cuenta, tecnico, tecnicoId, estado, act
   document.getElementById('gaOT').value = ot || '';
   document.getElementById('gaCuenta').value = cuenta || '';
   document.getElementById('gaTecnico').value = tecnico || '';
+  await cargarTecnicosDatalist();
+  bindTecnicoInputListener();
   try{
     const fecha = (document.getElementById('filtroFecha')?.value || '').trim();
     const qs = new URLSearchParams({ ot, cuenta });
@@ -1385,7 +1564,10 @@ async function abrirGestionActividad(ot, cuenta, tecnico, tecnicoId, estado, act
     const res = await fetch(`/api/analistas/actividad-detalle?${qs.toString()}`);
     const data = await res.json();
     const d = data && data.data ? data.data : {};
-    document.getElementById('gaEstado').value = d.estado || '';
+    const estFetched = String(d.estado || '').toLowerCase();
+    const estParam = String(__gaContext.estado || '').toLowerCase();
+    const estFinal = estFetched || estParam;
+    document.getElementById('gaEstado').value = estFinal || '';
     document.getElementById('gaNombre').value = d.nombre_completo || '';
     document.getElementById('gaTipoActividad').value = d.tipo_de_actividad || '';
     document.getElementById('gaDireccion').value = d.direccion_campo_1 || d.direccion || '';
@@ -1401,7 +1583,7 @@ async function abrirGestionActividad(ot, cuenta, tecnico, tecnicoId, estado, act
       const rzNo = document.getElementById('gaConfirmEventoNo');
       if(confVal === 'si'){ if(rzSi) rzSi.checked = true; } else { if(rzNo) rzNo.checked = true; }
     }catch(_){}
-    mostrarSeccionesPorEstado((d.estado || '').toLowerCase());
+    mostrarSeccionesPorEstado(estFinal);
     await actualizarEstadoFacturar(ot, cuenta);
     inicializarTipificaciones();
   }catch(e){
@@ -1409,6 +1591,32 @@ async function abrirGestionActividad(ot, cuenta, tecnico, tecnicoId, estado, act
   }
   const m = new bootstrap.Modal(document.getElementById('modalGestionActividad'));
   m.show();
+}
+
+async function guardarGestionBasica(){
+  try{
+  const payload = {
+    ot: __gaContext.ot,
+    cuenta: __gaContext.cuenta,
+    actividad_id: __gaContext.actividadId,
+    tecnico: (document.getElementById('gaTecnico')?.value || '').trim(),
+    external_id: (__gaContext.externalId || '').trim(),
+    estado: (__gaContext.estado || '').trim(),
+    nombre_completo: (document.getElementById('gaNombre')?.value || '').trim(),
+    tipo_de_actividad: (document.getElementById('gaTipoActividad')?.value || '').trim(),
+    direccion: (document.getElementById('gaDireccion')?.value || '').trim(),
+    inicio_fin: (document.getElementById('gaTiempoGestion')?.value || '').trim(),
+    duracion: (document.getElementById('gaDuracion')?.value || '').trim()
+  };
+    await fetch('/api/analistas/actividad-gestion-update', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
+  }catch(_){ }
+}
+
+async function guardarEstadoInicial(ot, cuenta, estado, actividadId){
+  try{
+    const payload = { ot, cuenta, actividad_id: actividadId, estado };
+    await fetch('/api/analistas/actividad-gestion-update', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
+  }catch(_){}
 }
 
 function abrirOverlayImagen(src, titulo){
@@ -1726,6 +1934,7 @@ function updateRequiredUI(){
 
 async function finalizarCierre(){
   try{
+    try{ await guardarGestionBasica(); }catch(_){}
     const ok = document.getElementById('gaTipificacionOk').value;
     const obs = document.getElementById('gaObservacionNovedad').value.trim();
     const confValOk = (document.querySelector('input[name="gaConfirmEventoOk"]:checked') || {}).value || 'no';
@@ -1754,6 +1963,7 @@ async function finalizarCierre(){
       }
     }
     const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, actividad_id: __gaContext.actividadId, tipificacion_ok: ok || null, tipificacion_novedad: null, observacion: obs || null, confirmacion_evento, cierre_ciclo: 1 };
+    if(__gaContext.externalId){ payload.external_id = __gaContext.externalId; }
     if(tipUpper === 'CLIENTE INCONFORME'){
       if(fechaAgenda) payload.fecha_franja_cierre_ciclo = fechaAgenda;
       if(franja) payload.franja_cierre_ciclo = franja;
@@ -1777,9 +1987,11 @@ async function finalizarCierre(){
 
 async function finalizarSinCierre(){
   try{
+    try{ await guardarGestionBasica(); }catch(_){}
     const confValOk = (document.querySelector('input[name="gaConfirmEventoOk"]:checked') || {}).value || 'no';
     const confirmacion_evento = confValOk.toLowerCase() === 'si' ? 1 : 0;
     const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, actividad_id: __gaContext.actividadId, confirmacion_evento, cierre_ciclo: 0 };
+    if(__gaContext.externalId){ payload.external_id = __gaContext.externalId; }
     const res = await fetch('/api/analistas/actividad-cierre', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){
@@ -1798,6 +2010,7 @@ async function finalizarSinCierre(){
 
 async function finalizarRazon(){
   try{
+    try{ await guardarGestionBasica(); }catch(_){}
     const razonReal = document.getElementById('gaRazonReal').value;
     const aplicaVal = (document.querySelector('input[name="gaTipoRazonAplica"]:checked') || {}).value || 'no';
     const aplica = aplicaVal.toLowerCase() === 'si' ? 1 : 0;
@@ -1805,6 +2018,7 @@ async function finalizarRazon(){
     const confVal = (document.querySelector('input[name="gaConfirmEvento"]:checked') || {}).value || 'no';
     const confirmacion_evento = confVal.toLowerCase() === 'si' ? 1 : 0;
     const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, actividad_id: __gaContext.actividadId, tipificacion_razon: razonReal || null, tipo_razon_aplica: aplica, observacion_razon: obs || null, confirmacion_evento };
+    if(__gaContext.externalId){ payload.external_id = __gaContext.externalId; }
     const res = await fetch('/api/analistas/actividad-razon', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){
@@ -1823,11 +2037,13 @@ async function finalizarRazon(){
 
 async function finalizarCancelado(){
   try{
+    try{ await guardarGestionBasica(); }catch(_){}
     const tip = document.getElementById('gaCanceladoTipificacion').value;
     const obsRaw = document.getElementById('gaCanceladoObservacion').value.trim();
     const tipUpper = (tip || '').trim().toUpperCase();
     const opcionTexto = tipUpper === 'OTRA' ? (obsRaw || null) : null;
     const payload = { ot: __gaContext.ot, cuenta: __gaContext.cuenta, actividad_id: __gaContext.actividadId, cancelado_tipificacion: tip || null, cancelado_observacion: (obsRaw || null), cancelado_opcion_texto: opcionTexto };
+    if(__gaContext.externalId){ payload.external_id = __gaContext.externalId; }
     const res = await fetch('/api/analistas/actividad-cancelado', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
     const data = await res.json();
     if(res.ok && data && data.success){

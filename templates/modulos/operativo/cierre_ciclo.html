@@ -13,7 +13,7 @@
                     <h3 class="mb-0"><i class="fas fa-sync-alt me-2"></i>Cierre de Ciclo</h3>
                 </div>
                 <div class="card-body">
-                    <div class="row g-3 mb-3">
+    <div class="row g-3 mb-3">
                         <div class="col-sm-6 col-md-3">
                             <label class="form-label">Fecha</label>
                             <input type="date" id="fechaFiltro" class="form-control" />
@@ -37,6 +37,38 @@
                     </div>
                     <div class="row g-3" id="cardsContainer">
                         <div class="col-12 text-center text-muted">Sin datos</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <i class="fas fa-exclamation-circle me-2"></i>Pendientes por gestionar
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm" id="tablaPendientes">
+                            <thead>
+                                <tr>
+                                    <th>OT</th>
+                                    <th>Cuenta</th>
+                                    <th>Técnico</th>
+                                    <th>Analista</th>
+                                    <th>Supervisor</th>
+                                    <th>Fecha Agenda</th>
+                                    <th>Franja</th>
+                                    <th>Estado</th>
+                                    <th>Estado Super</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaPendBody">
+                                <tr><td colspan="10" class="text-muted">Sin pendientes</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -167,6 +199,69 @@ async function buscar(){
     }).join('');
     await actualizarPendientesMes();
 }
+async function cargarPendientes(){
+    try{
+        const tip=document.getElementById('tipificacionFiltro').value;
+        const r=await fetch('/api/operativo/cierre-ciclo/pending-list?'+new URLSearchParams({tip:tip}),{credentials:'include'});
+        const d=await r.json();
+        const rows=(d&&d.success)?(d.items||d.data||[]):[];
+        const tbody=document.getElementById('tablaPendBody');
+        if(!tbody)return;
+        if(rows.length===0){
+            tbody.innerHTML='<tr><td colspan="10" class="text-muted">Sin pendientes</td></tr>';
+            return;
+        }
+        tbody.innerHTML=rows.map(r=>{
+            const ot=r.orden_de_trabajo??'';
+            const cuenta=r.numero_de_cuenta??'';
+            const faStr=fmtFecha(r.fecha_franja_cierre_ciclo);
+            const franjaTxt=String(r.franja_cierre_ciclo||'').trim();
+            let bloqueada=false;
+            try{
+                if(faStr){
+                    const ymd=faStr.split('-');
+                    if(ymd.length===3){
+                        const y=Number(ymd[0]);
+                        const m0=Number(ymd[1])-1;
+                        const d=Number(ymd[2]);
+                        let endDate=null;
+                        try{
+                            const norm=franjaTxt.replace(/–|—/g,'-').replace(/\s+/g,' ').toLowerCase();
+                            const times=[]; const re=/(\d{1,2}:\d{2}(?::\d{2})?)\s*(a\.?\s*m\.?|p\.?\s*m\.?|am|pm)?/gi; let mm;
+                            while((mm=re.exec(norm))){ times.push([mm[1],mm[2]||'']); }
+                            if(times.length>0){
+                                const last=times[times.length-1]; const tparts=last[0].split(':');
+                                let hh=Number(tparts[0]); let min=Number(tparts[1]); let ss=tparts[2]?Number(tparts[2]):0;
+                                const mer=String(last[1]||'').replace(/\./g,'').replace(/\s+/g,'').toUpperCase();
+                                if(mer==='PM' && hh<12) hh+=12; if(mer==='AM' && hh===12) hh=0;
+                                endDate=new Date(y,m0,d,hh,min,ss);
+                            } else { endDate=new Date(y,m0,d,0,0,0); }
+                        }catch(e2){ endDate=new Date(y,m0,d,0,0,0); }
+                        const cutoff=new Date(endDate.getTime()+48*60*60*1000);
+                        bloqueada=(new Date())>=cutoff;
+                    }
+                }
+            }catch(e){}
+            const disabledAttr=(bloqueada)?'disabled':'';
+            const disabledClass=(bloqueada)?'disabled':'';
+            return `<tr>
+                <td>${ot}</td>
+                <td>${cuenta}</td>
+                <td>${r.tecnico??''}</td>
+                <td>${r.analista??''}</td>
+                <td>${r.supervisor??''}</td>
+                <td>${faStr||fmtFecha(r.fecha)||''}</td>
+                <td>${franjaTxt||''}</td>
+                <td>${r.estado??''}</td>
+                <td><span class="badge bg-warning text-dark">Pendiente</span></td>
+                <td><button class="btn btn-outline-secondary btn-sm ${disabledClass}" ${disabledAttr} onclick="abrirGestion('${ot}','${cuenta}')">Gestionar</button></td>
+            </tr>`;
+        }).join('');
+    }catch(e){
+        const tbody=document.getElementById('tablaPendBody');
+        if(tbody) tbody.innerHTML='<tr><td colspan="10" class="text-danger">Error</td></tr>';
+    }
+}
 document.addEventListener('DOMContentLoaded',()=>{
     const f=document.getElementById('fechaFiltro');
     const today=new Date();
@@ -183,6 +278,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         btn.addEventListener('click',buscar);
     }
     actualizarPendientesMes();
+    cargarPendientes();
 });
 async function actualizarPendientesMes(){
     try{

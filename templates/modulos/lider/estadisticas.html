@@ -270,6 +270,22 @@ async function cargarOpcionesStats(){
   }catch(_){ }
 }
 
+function coinRankStats(m){
+  try{ return parseInt(String(m||'').replace(/\D/g,''),10) || 0; }catch(_){ return 0; }
+}
+
+function persistMaxCoinStats(page, periodo, analista, seccion, coin){
+  try{
+    const key = `recon_max:${page}:${periodo||''}:${analista||''}:${seccion||''}`;
+    const prev = localStorage.getItem(key) || '';
+    const prevRank = coinRankStats(prev);
+    const currRank = coinRankStats(coin);
+    const best = prevRank >= currRank ? (prev || coin) : coin;
+    localStorage.setItem(key, best);
+    return best;
+  }catch(_){ return coin; }
+}
+
 function formatYMDStats(v){
   try{
     if(!v) return '';
@@ -314,7 +330,8 @@ async function setReconByTablaStats(imgEl, analista, periodo, seccion, valor){
   if(!imgEl) return;
   const m = await getReconMonedaStats(analista, periodo, seccion, valor);
   const moneda = m || '0pesos';
-  const src = `/static/moneda/${moneda}.png`;
+  const final = persistMaxCoinStats('stats', periodo, analista, seccion, moneda);
+  const src = `/static/moneda/${final}.png`;
   imgEl.style.display = 'inline-block';
   imgEl.src = src;
 }
