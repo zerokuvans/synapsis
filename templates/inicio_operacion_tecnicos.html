@@ -1019,7 +1019,18 @@
                 const row = `
                     <tr data-cedula="${tecnico.cedula}">
                         <td>${tecnico.cedula}</td>
-                        <td><strong>${tecnico.tecnico}</strong></td>
+                        <td>
+                            <strong>${tecnico.tecnico}</strong>
+                            ${ (tecnico.mostrar_alerta_revision && tecnico.revision_vehicular && Number(tecnico.revision_vehicular.items_malos) > 0)
+                                ? `<div class="alert alert-warning mt-2 p-2">
+                                       <div><i class="fas fa-exclamation-triangle me-1"></i>Según última revisión vehicular tiene fallas pendientes por solucionar</div>
+                                       <div class="d-flex align-items-center">
+                                           <small class="text-muted me-2">5 días para subsanar fallas.</small>
+                                           <span class="badge bg-danger">${Math.max(0, Number(tecnico.revision_vehicular.dias_restantes_subsanar || 0))} días</span>
+                                       </div>
+                                   </div>`
+                                : '' }
+                        </td>
                         <td>${tecnico.carpeta || 'N/A'}</td>
                         <td>${tecnico.supervisor || 'N/A'}</td>
                         <td>

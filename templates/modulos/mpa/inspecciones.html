@@ -35,7 +35,7 @@
                   <th>Hallazgos</th>
                   <th>Observaciones</th>
                   <th>Firmas</th>
-                  <th></th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -106,6 +106,33 @@
               </div>
             </div>
           </div>
+
+          <div class="row">
+            <div class="col-md-12">
+              <div class="card">
+                <div class="card-header"><i class="fas fa-camera me-1"></i>Evidencias (3 fotos)</div>
+                <div class="card-body">
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <label class="form-label">Foto 1</label>
+                      <input id="insFoto1" type="file" accept="image/*" class="form-control">
+                      <img id="insPrev1" alt="Preview 1" style="width:100%; max-height:180px; margin-top:8px; display:none; border:1px solid #eee; border-radius:6px;" />
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Foto 2</label>
+                      <input id="insFoto2" type="file" accept="image/*" class="form-control">
+                      <img id="insPrev2" alt="Preview 2" style="width:100%; max-height:180px; margin-top:8px; display:none; border:1px solid #eee; border-radius:6px;" />
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Foto 3</label>
+                      <input id="insFoto3" type="file" accept="image/*" class="form-control">
+                      <img id="insPrev3" alt="Preview 3" style="width:100%; max-height:180px; margin-top:8px; display:none; border:1px solid #eee; border-radius:6px;" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </form>
       </div>
       <div class="modal-footer">
@@ -115,6 +142,63 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="modalVerInspeccion" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-eye me-2"></i>Detalle de inspección</h5>
+        <div class="ms-auto d-flex align-items-center gap-2">
+          <button id="btnExportPdf" type="button" class="btn btn-outline-dark btn-sm"><i class="fas fa-file-pdf me-1"></i>Exportar PDF</button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-4"><div class="small text-muted">Fecha</div><div class="fw-semibold" id="verDetFecha">-</div></div>
+          <div class="col-md-4"><div class="small text-muted">Técnico</div><div class="fw-semibold" id="verDetTecnico">-</div></div>
+          <div class="col-md-4"><div class="small text-muted">Placa</div><div class="fw-semibold" id="verDetPlaca">-</div></div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-12"><div class="small text-muted">Observaciones</div><div class="fw-semibold" id="verDetObservaciones">-</div></div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-md-4"><div class="small text-muted">Venc. Licencia</div><div class="fw-semibold" id="verDetVLicencia">-</div></div>
+          <div class="col-md-4"><div class="small text-muted">Venc. SOAT</div><div class="fw-semibold" id="verDetVSoat">-</div></div>
+          <div class="col-md-4"><div class="small text-muted">Venc. Tecnicomecánica</div><div class="fw-semibold" id="verDetVTm">-</div></div>
+        </div>
+        <div class="row">
+          <div class="col-12">
+            <div class="fw-semibold mb-2">Revisión detallada</div>
+            <div id="verBMContainer"></div>
+          </div>
+        </div>
+        <div class="row mb-3 mt-3">
+          <div class="col-12"><div class="small text-muted">Evidencias</div></div>
+          <div class="col-md-4">
+            <img id="verFoto1" alt="Foto 1" style="width:100%; max-height:220px; display:none; border:1px solid #eee; border-radius:6px; cursor: zoom-in;" />
+          </div>
+          <div class="col-md-4">
+            <img id="verFoto2" alt="Foto 2" style="width:100%; max-height:220px; display:none; border:1px solid #eee; border-radius:6px; cursor: zoom-in;" />
+          </div>
+          <div class="col-md-4">
+            <img id="verFoto3" alt="Foto 3" style="width:100%; max-height:220px; display:none; border:1px solid #eee; border-radius:6px; cursor: zoom-in;" />
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <div class="small text-muted mb-2">Firma trabajador</div>
+            <img id="verImgFirmaTrabajador" alt="Firma trabajador" style="max-width:100%; max-height:200px; display:none; border:1px solid #eee; border-radius:6px;" />
+          </div>
+          <div class="col-md-6">
+            <div class="small text-muted mb-2">Firma inspector</div>
+            <img id="verImgFirmaInspector" alt="Firma inspector" style="max-width:100%; max-height:200px; display:none; border:1px solid #eee; border-radius:6px;" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+ </div>
 
 <div class="modal fade" id="modalFirma" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -134,10 +218,33 @@
   </div>
 </div>
 
+<div class="modal fade" id="modalZoomImagen" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-search-plus me-2"></i>Zoom evidencia</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="zoomContainer" style="overflow:auto; max-height:70vh; display:flex; align-items:center; justify-content:center;">
+        <img id="zoomImg" alt="Evidencia" style="max-width:100%; max-height:70vh; width:auto; height:auto; object-fit:contain; transform-origin: center center; transform: scale(1); display:block;" />
+      </div>
+      <div class="modal-footer">
+        <div class="btn-group me-auto" role="group">
+          <button id="zoomMenos" type="button" class="btn btn-outline-secondary"><i class="fas fa-minus"></i></button>
+          <button id="zoomReset" type="button" class="btn btn-outline-secondary"><i class="fas fa-sync"></i></button>
+          <button id="zoomMas" type="button" class="btn btn-outline-secondary"><i class="fas fa-plus"></i></button>
+        </div>
+        <button type="button" class="btn btn-dark" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+ </div>
+
 <script>
 let tecnicos = []
 let inspecciones = []
 let firmaTarget = { id: null, tipo: null }
+let fotosBase64 = { foto1: null, foto2: null, foto3: null }
 
 const bmGroups = {
   'Estado físico': [
@@ -185,6 +292,31 @@ const bmGroups = {
   ]
 }
 const bmFieldNames = Object.values(bmGroups).flat().map(([n]) => n)
+
+const bmSynonyms = {
+  'prevension_casco': ['prevencion_casco'],
+  'prevension_guantes': ['prevencion_guantes'],
+  'prevension_rodilleras': ['prevencion_rodilleras'],
+  'prevension_coderas': ['prevencion_coderas']
+}
+
+function normalizeBM(v){
+  const s = String(v || '').trim().toUpperCase()
+  if (s === 'BUENO') return 'B'
+  if (s === 'MALO') return 'M'
+  return s
+}
+
+function getBMValue(r, name){
+  let v = r[name]
+  if (v === undefined){
+    const syns = bmSynonyms[name] || []
+    for (const alt of syns){
+      if (alt in r){ v = r[alt]; break }
+    }
+  }
+  return normalizeBM(v)
+}
 
 function optionBM(name, labelText){
   const wrap = document.createElement('div')
@@ -253,7 +385,7 @@ async function cargarTecnicos(){
 
 function contarMalos(r){
   let c = 0
-  bmFieldNames.forEach(k => { if ((r[k] || '').toUpperCase() === 'M') c++ })
+  bmFieldNames.forEach(k => { if (getBMValue(r, k) === 'M') c++ })
   return c
 }
 
@@ -265,30 +397,31 @@ function renderTabla(){
     return
   }
   document.getElementById('emptyState').style.display = 'none'
-  inspecciones.forEach(r => {
-    const tr = document.createElement('tr')
-    const fecha = r.fecha_inspeccion || ''
-    const firmaT = r.firma_trabajador ? '<span class="badge bg-dark">Trabajador</span>' : ''
-    const firmaI = r.firma_inspector ? '<span class="badge bg-secondary">Inspector</span>' : ''
-    const btnTrabDisabled = r.firma_trabajador ? 'disabled' : ''
-    const btnInspDisabled = r.firma_inspector ? 'disabled' : ''
-    tr.innerHTML = `
-      <td>${fecha}</td>
-      <td>${r.tecnico_nombre || r.nombre || ''}</td>
-      <td>${r.placa || ''}</td>
-      <td>${contarMalos(r)}</td>
-      <td>${r.observaciones || ''}</td>
-      <td class="text-nowrap">${firmaT} ${firmaI}</td>
-      <td class="text-end">
-        <div class="btn-group">
-          <button class="btn btn-outline-dark btn-sm" ${btnTrabDisabled} title="${r.firma_trabajador ? 'Ya firmada por el trabajador' : ''}" data-action="firma-trabajador" data-id="${r.id_mpa_inspeccion_vehiculo}"><i class="fas fa-pen me-1"></i>Firma trabajador</button>
-          <button class="btn btn-outline-secondary btn-sm" ${btnInspDisabled} title="${r.firma_inspector ? 'Ya firmada por el inspector' : ''}" data-action="firma-inspector" data-id="${r.id_mpa_inspeccion_vehiculo}"><i class="fas fa-pen-fancy me-1"></i>Firma inspector</button>
-        </div>
-      </td>
-    `
-    tbody.appendChild(tr)
-  })
-}
+    inspecciones.forEach(r => {
+      const tr = document.createElement('tr')
+      const fecha = r.fecha_inspeccion || ''
+      const firmaT = r.firma_trabajador ? '<span class="badge bg-dark">Trabajador</span>' : ''
+      const firmaI = r.firma_inspector ? '<span class="badge bg-secondary">Inspector</span>' : ''
+      const btnTrabDisabled = r.firma_trabajador ? 'disabled' : ''
+      const btnInspDisabled = r.firma_inspector ? 'disabled' : ''
+      tr.innerHTML = `
+        <td>${fecha}</td>
+        <td>${r.tecnico_nombre || r.nombre || ''}</td>
+        <td>${r.placa || ''}</td>
+        <td>${contarMalos(r)}</td>
+        <td>${r.observaciones || ''}</td>
+        <td class="text-nowrap">${firmaT} ${firmaI}</td>
+        <td class="text-end">
+          <div class="btn-group">
+            <button class="btn btn-dark btn-sm" data-action="ver" data-id="${r.id_mpa_inspeccion_vehiculo}"><i class="fas fa-eye me-1"></i>Ver</button>
+            <button class="btn btn-outline-dark btn-sm" ${btnTrabDisabled} title="${r.firma_trabajador ? 'Ya firmada por el trabajador' : ''}" data-action="firma-trabajador" data-id="${r.id_mpa_inspeccion_vehiculo}"><i class="fas fa-pen me-1"></i>Firma trabajador</button>
+            <button class="btn btn-outline-secondary btn-sm" ${btnInspDisabled} title="${r.firma_inspector ? 'Ya firmada por el inspector' : ''}" data-action="firma-inspector" data-id="${r.id_mpa_inspeccion_vehiculo}"><i class="fas fa-pen-fancy me-1"></i>Firma inspector</button>
+          </div>
+        </td>
+      `
+      tbody.appendChild(tr)
+    })
+  }
 
 async function cargarInspecciones(){
   const placa = (document.getElementById('filtroPlaca').value || '').trim().toUpperCase()
@@ -308,7 +441,7 @@ async function guardarInspeccion(){
   const tecnico_id = document.getElementById('insTecnico').value
   const placa = (document.getElementById('insPlaca').value || '').trim().toUpperCase()
   const observaciones = document.getElementById('insObservaciones').value || ''
-  const payload = { tecnico_id, placa, observaciones }
+  const payload = { tecnico_id, placa, observaciones, foto1: fotosBase64.foto1, foto2: fotosBase64.foto2, foto3: fotosBase64.foto3 }
   bmFieldNames.forEach(fname => {
     const checked = document.querySelector(`input[name="bm_${fname}"]:checked`)
     payload[fname] = checked ? checked.value : ''
@@ -318,6 +451,13 @@ async function guardarInspeccion(){
   if (data && data.success){
     const modal = bootstrap.Modal.getInstance(document.getElementById('modalInspeccion'))
     modal && modal.hide()
+    fotosBase64 = { foto1: null, foto2: null, foto3: null }
+    ;['insFoto1','insFoto2','insFoto3'].forEach((id, idx) => {
+      const img = document.getElementById(['insPrev1','insPrev2','insPrev3'][idx])
+      if (img){ img.style.display = 'none'; img.src = '' }
+      const inp = document.getElementById(id)
+      if (inp) inp.value = ''
+    })
     await cargarInspecciones()
   } else {
     alert((data && data.error) || 'Error al crear la inspección')
@@ -375,7 +515,121 @@ function abrirModalFirma(tipo, id){
   modal.show()
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+async function verInspeccion(id){
+  try{
+    const res = await fetch(`/api/mpa/inspecciones/${id}`, { credentials: 'include' })
+    const d = await res.json()
+    if (d && d.success){
+      const r = d.data || {}
+      document.getElementById('verDetFecha').textContent = r.fecha_inspeccion || '-'
+      document.getElementById('verDetTecnico').textContent = r.tecnico_nombre || r.nombre || '-'
+      document.getElementById('verDetPlaca').textContent = r.placa || '-'
+      document.getElementById('verDetObservaciones').textContent = r.observaciones || '-'
+      document.getElementById('verDetVLicencia').textContent = r.vencimiento_licencia || '-'
+      document.getElementById('verDetVSoat').textContent = r.vencimiento_soat || '-'
+      document.getElementById('verDetVTm').textContent = r.vencimiento_tecnicomecanica || '-'
+      const imgT = document.getElementById('verImgFirmaTrabajador')
+      const imgI = document.getElementById('verImgFirmaInspector')
+      if (r.firma_trabajador){ imgT.src = r.firma_trabajador; imgT.style.display = 'block' } else { imgT.style.display = 'none' }
+      if (r.firma_inspector){ imgI.src = r.firma_inspector; imgI.style.display = 'block' } else { imgI.style.display = 'none' }
+      const vf1 = document.getElementById('verFoto1')
+      const vf2 = document.getElementById('verFoto2')
+      const vf3 = document.getElementById('verFoto3')
+      if (vf1){ if (r.foto1){ vf1.src = r.foto1; vf1.style.display='block' } else { vf1.style.display='none' } }
+      if (vf2){ if (r.foto2){ vf2.src = r.foto2; vf2.style.display='block' } else { vf2.style.display='none' } }
+      if (vf3){ if (r.foto3){ vf3.src = r.foto3; vf3.style.display='block' } else { vf3.style.display='none' } }
+      [vf1, vf2, vf3].forEach((el) => {
+        if (!el) return
+        el.onclick = () => { if (el.src) abrirZoomImagen(el.src) }
+      })
+      renderVerBM(r)
+      const modal = new bootstrap.Modal(document.getElementById('modalVerInspeccion'))
+      const btnPdf = document.getElementById('btnExportPdf')
+      if (btnPdf){ btnPdf.onclick = () => { window.open(`/api/mpa/inspecciones/${id}/pdf`, '_blank') } }
+      modal.show()
+    } else {
+      alert((d && d.error) || 'Error al obtener la inspección')
+    }
+  } catch(e){
+    alert('Error de conexión al cargar la inspección')
+  }
+}
+
+function abrirZoomImagen(src){
+  const img = document.getElementById('zoomImg')
+  const cont = document.getElementById('zoomContainer')
+  img.style.transform = 'scale(1)'
+  img.src = src
+  cont.scrollTop = 0
+  cont.scrollLeft = 0
+  new bootstrap.Modal(document.getElementById('modalZoomImagen')).show()
+}
+
+(() => {
+  let scale = 1
+  const img = document.getElementById('zoomImg')
+  const btnMas = document.getElementById('zoomMas')
+  const btnMenos = document.getElementById('zoomMenos')
+  const btnReset = document.getElementById('zoomReset')
+  const cont = document.getElementById('zoomContainer')
+  const setScale = (s) => { scale = Math.max(1, Math.min(4, s)); img.style.transform = `scale(${scale})` }
+  btnMas && btnMas.addEventListener('click', () => setScale(scale + 0.2))
+  btnMenos && btnMenos.addEventListener('click', () => setScale(scale - 0.2))
+  btnReset && btnReset.addEventListener('click', () => setScale(1))
+  cont && cont.addEventListener('wheel', (e) => { if (scale !== 1) e.preventDefault(); setScale(scale + (e.deltaY < 0 ? 0.1 : -0.1)) })
+})()
+
+function renderVerBM(r){
+  const cont = document.getElementById('verBMContainer')
+  cont.innerHTML = ''
+  const labelMap = {}
+  Object.values(bmGroups).flat().forEach(([n,l]) => { labelMap[n] = l })
+  // Resumen general
+  let totalB = 0, totalM = 0
+  Object.keys(bmGroups).forEach(gn => {
+    let b = 0, m = 0
+    bmGroups[gn].forEach(([n]) => {
+      const v = getBMValue(r, n)
+      if (v === 'B') b++
+      else if (v === 'M') m++
+    })
+    totalB += b; totalM += m
+    const card = document.createElement('div')
+    card.className = 'mb-3'
+    const header = document.createElement('div')
+    header.className = 'fw-semibold mb-2 border-bottom pb-1'
+    header.textContent = `${gn} (B: ${b}, M: ${m})`
+    const row = document.createElement('div')
+    row.className = 'row'
+    bmGroups[gn].forEach(([n]) => {
+      const wrap = document.createElement('div')
+      wrap.className = 'col-12 col-md-6 col-lg-4 mb-2'
+      const item = document.createElement('div')
+      item.className = 'd-flex justify-content-between align-items-center'
+      const lab = document.createElement('div')
+      lab.className = 'small text-muted'
+      lab.textContent = labelMap[n]
+      const val = document.createElement('span')
+      const v = getBMValue(r, n)
+      if (v === 'B'){ val.className = 'badge bg-success'; val.textContent = 'Bueno' }
+      else if (v === 'M'){ val.className = 'badge bg-danger'; val.textContent = 'Malo' }
+      else { val.className = 'badge bg-secondary'; val.textContent = '-' }
+      item.appendChild(lab)
+      item.appendChild(val)
+      wrap.appendChild(item)
+      row.appendChild(wrap)
+    })
+    card.appendChild(header)
+    card.appendChild(row)
+    cont.appendChild(card)
+  })
+  const resumen = document.createElement('div')
+  resumen.className = 'mb-3'
+  resumen.innerHTML = `<span class="badge bg-success me-2">Total Bueno: ${totalB}</span><span class="badge bg-danger">Total Malo: ${totalM}</span>`
+  cont.prepend(resumen)
+}
+
+  document.addEventListener('DOMContentLoaded', async () => {
   renderBMFields()
   await cargarTecnicos()
   await cargarInspecciones()
@@ -441,14 +695,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }catch(e){ }
   })
-  document.querySelector('#tablaInspecciones tbody').addEventListener('click', (e) => {
-    const btn = e.target.closest('button')
-    if (!btn) return
-    const id = btn.dataset.id
-    const action = btn.dataset.action
-    if (action === 'firma-trabajador') abrirModalFirma('trabajador', id)
-    if (action === 'firma-inspector') abrirModalFirma('inspector', id)
+    document.querySelector('#tablaInspecciones tbody').addEventListener('click', (e) => {
+      const btn = e.target.closest('button')
+      if (!btn) return
+      const id = btn.dataset.id
+      const action = btn.dataset.action
+      if (action === 'firma-trabajador') abrirModalFirma('trabajador', id)
+      if (action === 'firma-inspector') abrirModalFirma('inspector', id)
+      if (action === 'ver') verInspeccion(id)
+    })
   })
-})
+
+  function bindFotoInput(inpId, prevId, key){
+    const inp = document.getElementById(inpId)
+    const prev = document.getElementById(prevId)
+    if (!inp) return
+    inp.addEventListener('change', () => {
+      const f = inp.files && inp.files[0]
+      if (!f){ fotosBase64[key] = null; prev && (prev.style.display='none'); return }
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        fotosBase64[key] = e.target.result
+        if (prev){ prev.src = fotosBase64[key]; prev.style.display = 'block' }
+      }
+      reader.readAsDataURL(f)
+    })
+  }
+  bindFotoInput('insFoto1','insPrev1','foto1')
+  bindFotoInput('insFoto2','insPrev2','foto2')
+  bindFotoInput('insFoto3','insPrev3','foto3')
 </script>
 {% endblock %}

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, flash, make_response
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 import mysql.connector
@@ -8,6 +8,7 @@ import os
 from datetime import date, datetime
 import bcrypt
 import json
+import io
 
 import requests
 from api_reportes import login_required_api
@@ -2301,6 +2302,75 @@ def api_tecnicos_asignados():
                 """
                 cursor.execute(query_asistencia, (tecnico['cedula'],))
             asistencia = cursor.fetchone()
+
+            inspeccion_info = {
+                'fecha_ultima': None,
+                'items_malos': 0,
+                'dias_restantes_subsanar': None,
+                'placa': None
+            }
+            try:
+                cursor.execute(
+                    """
+                    SELECT *
+                    FROM mpa_inspeccion_vehiculo
+                    WHERE id_codigo_consumidor = %s
+                    ORDER BY fecha_inspeccion DESC
+                    LIMIT 1
+                    """,
+                    (tecnico['id_codigo_consumidor'],)
+                )
+                ultima_inspeccion = cursor.fetchone()
+                if ultima_inspeccion:
+                    fi = ultima_inspeccion.get('fecha_inspeccion')
+                    fecha_str = None
+                    if fi:
+                        try:
+                            fecha_str = fi.strftime('%Y-%m-%d')
+                        except Exception:
+                            try:
+                                fecha_str = str(fi)[:10]
+                            except Exception:
+                                fecha_str = None
+                    bm_fields = [
+                        'estado_fisico_espejos_laterales','estado_fisico_pito','estado_fisico_freno_servicio','estado_fisico_manillares','estado_fisico_guayas','estado_fisico_tanque_combustible','estado_fisico_encendido','estado_fisico_pedales','estado_fisico_guardabarros','estado_fisico_sillin_tapiceria','estado_fisico_tablero','estado_fisico_mofle_silenciador','estado_fisico_kit_arrastre','estado_fisico_reposa_pies','estado_fisico_pata_lateral_central','estado_fisico_tijera_amortiguador','estado_fisico_bateria','luces_altas_bajas','luces_direccionales_delanteros','luces_direccionales_traseros','luces_luz_placa','luces_stop','prevension_casco','prevension_guantes','prevension_rodilleras','prevension_coderas','llantas_labrado_llantas','llantas_rines','llantas_presion_aire','otros_aceite','otros_suspension_direccion','otros_caja_cambios','otros_conexiones_electricas'
+                    ]
+                    bm_synonyms = {
+                        'prevension_casco': ['prevencion_casco'],
+                        'prevension_guantes': ['prevencion_guantes'],
+                        'prevension_rodilleras': ['prevencion_rodilleras'],
+                        'prevension_coderas': ['prevencion_coderas']
+                    }
+                    malos = 0
+                    for k in bm_fields:
+                        v = ultima_inspeccion.get(k)
+                        if v is None and k in bm_synonyms:
+                            for alt in bm_synonyms[k]:
+                                if ultima_inspeccion.get(alt) is not None:
+                                    v = ultima_inspeccion.get(alt)
+                                    break
+                        s = str(v or '').strip().upper()
+                        if s == 'M' or s == 'MALO':
+                            malos += 1
+                    dias_restantes = None
+                    if fi:
+                        try:
+                            fi_date = fi.date() if hasattr(fi, 'date') else datetime.strptime(str(fi)[:10], '%Y-%m-%d').date()
+                            hoy = get_bogota_datetime().date()
+                            transcurridos = (hoy - fi_date).days
+                            dias_restantes = 5 - transcurridos
+                            if dias_restantes < 0:
+                                dias_restantes = 0
+                        except Exception:
+                            dias_restantes = None
+                    inspeccion_info = {
+                        'fecha_ultima': fecha_str,
+                        'items_malos': malos,
+                        'dias_restantes_subsanar': dias_restantes,
+                        'placa': ultima_inspeccion.get('placa')
+                    }
+            except Exception:
+                pass
             
             # Agregar información de asistencia al técnico
             tecnico_info = {
@@ -2328,7 +2398,9 @@ def api_tecnicos_asignados():
                     'presupuesto_eventos': asistencia['presupuesto_eventos'] if asistencia else None,
                     'presupuesto_diario': asistencia['presupuesto_diario'] if asistencia else None,
                     'nombre_presupuesto_carpeta': asistencia['nombre_presupuesto_carpeta'] if asistencia else None
-                }
+                },
+                'revision_vehicular': inspeccion_info,
+                'mostrar_alerta_revision': bool(inspeccion_info['items_malos'])
             }
             
             tecnicos_con_asistencia.append(tecnico_info)
@@ -6867,15 +6939,45 @@ def api_get_inspeccion(inspeccion_id):
         if connection is None:
             return jsonify({'error': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor(dictionary=True)
-        cursor.execute(
-            """
-            SELECT i.*, COALESCE(ro.nombre, i.nombre) AS tecnico_nombre
+
+        # Descubrir columnas disponibles para construir JOIN dinámico
+        cursor.execute("DESCRIBE mpa_inspeccion_vehiculo")
+        cols_info = cursor.fetchall() or []
+        col_names = set()
+        for ci in cols_info:
+            try:
+                col_names.add(ci.get('Field') or ci.get('field') or ci[0])
+            except Exception:
+                pass
+
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+
+        posibles_tecnico_fk = ['id_codigo_consumidor','tecnico_id','tecnico','id_tecnico']
+        col_tecnico_fk = next((c for c in posibles_tecnico_fk if c in col_names), None)
+        col_nombre = 'nombre' if 'nombre' in col_names else None
+
+        if ro_exists and col_tecnico_fk:
+            tecnico_select = f"COALESCE(ro.nombre, CAST(i.{col_tecnico_fk} AS CHAR)) AS tecnico_nombre"
+            joins = f"LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = i.{col_tecnico_fk}"
+        elif col_nombre:
+            tecnico_select = "i.nombre AS tecnico_nombre"
+            joins = ""
+        elif col_tecnico_fk:
+            tecnico_select = f"CAST(i.{col_tecnico_fk} AS CHAR) AS tecnico_nombre"
+            joins = ""
+        else:
+            tecnico_select = "NULL AS tecnico_nombre"
+            joins = ""
+
+        query = f"""
+            SELECT i.*, {tecnico_select}
             FROM mpa_inspeccion_vehiculo i
-            LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = i.id_codigo_consumidor
+            {joins}
             WHERE i.id_mpa_inspeccion_vehiculo = %s
-            """,
-            (inspeccion_id,)
-        )
+        """
+
+        cursor.execute(query, (inspeccion_id,))
         r = cursor.fetchone()
         if not r:
             return jsonify({'success': False, 'error': 'Inspección no encontrada'}), 404
@@ -7000,6 +7102,79 @@ def api_create_inspeccion():
             """
         )
         existing_cols = {r['COLUMN_NAME'] if isinstance(r, dict) else r[0] for r in cursor.fetchall()}
+
+        # Asegurar columnas de evidencia y tipos adecuados (foto1, foto2, foto3 como LONGTEXT)
+        try:
+            cur_alter = connection.cursor(dictionary=True)
+            for c in ('foto1','foto2','foto3'):
+                if c not in existing_cols:
+                    try:
+                        cur_alter.execute(f"ALTER TABLE mpa_inspeccion_vehiculo ADD COLUMN {c} LONGTEXT NULL")
+                        connection.commit()
+                        existing_cols.add(c)
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        cur_alter.execute(
+                            """
+                            SELECT DATA_TYPE
+                            FROM INFORMATION_SCHEMA.COLUMNS
+                            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mpa_inspeccion_vehiculo' AND COLUMN_NAME = %s
+                            """,
+                            (c,)
+                        )
+                        dt = (cur_alter.fetchone() or {}).get('DATA_TYPE')
+                        if dt and dt.lower() != 'longtext':
+                            try:
+                                cur_alter.execute(f"ALTER TABLE mpa_inspeccion_vehiculo MODIFY COLUMN {c} LONGTEXT NULL")
+                                connection.commit()
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+            # Asegurar columnas observaciones y recurso_operativo_cedula
+            if 'observaciones' not in existing_cols:
+                try:
+                    cur_alter.execute("ALTER TABLE mpa_inspeccion_vehiculo ADD COLUMN observaciones TEXT NULL")
+                    connection.commit(); existing_cols.add('observaciones')
+                except Exception:
+                    pass
+            if 'recurso_operativo_cedula' not in existing_cols:
+                try:
+                    cur_alter.execute("ALTER TABLE mpa_inspeccion_vehiculo ADD COLUMN recurso_operativo_cedula VARCHAR(32) NULL")
+                    connection.commit(); existing_cols.add('recurso_operativo_cedula')
+                except Exception:
+                    pass
+            cur_alter.close()
+        except Exception:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
+
+        # Asegurar que el id del técnico se almacene en la columna correcta según exista
+        if tecnico_id:
+            for tk in ('id_codigo_consumidor','tecnico_id','tecnico','id_tecnico'):
+                if tk in existing_cols:
+                    fields[tk] = tecnico_id
+                    break
+
+        # Mapear sinónimos prevension_* -> prevencion_* si la tabla usa la ortografía 'prevencion'
+        syn_map = {
+            'prevension_casco': 'prevencion_casco',
+            'prevension_guantes': 'prevencion_guantes',
+            'prevension_rodilleras': 'prevencion_rodilleras',
+            'prevension_coderas': 'prevencion_coderas'
+        }
+        for src, dst in syn_map.items():
+            if dst in existing_cols and src in fields and src not in existing_cols:
+                fields[dst] = fields.get(src)
+        # Incluir fotos en los campos si existen
+        for fk in ('foto1','foto2','foto3'):
+            if fk in data and fk in existing_cols:
+                fields[fk] = data.get(fk)
+
         filtered = [(k, v) for k, v in fields.items() if k in existing_cols]
         cols = ",".join([k for k, _ in filtered])
         vals = tuple([v for _, v in filtered])
@@ -7078,6 +7253,316 @@ def api_inspecciones_firma_inspector(inspeccion_id):
     finally:
         try:
             cursor.close(); connection.close()
+        except Exception:
+            pass
+
+@app.route('/api/mpa/inspecciones/<int:inspeccion_id>/pdf', methods=['GET'])
+@login_required
+def api_inspeccion_pdf(inspeccion_id):
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+
+        cursor.execute("DESCRIBE mpa_inspeccion_vehiculo")
+        cols_info = cursor.fetchall() or []
+        col_names = set()
+        for ci in cols_info:
+            try:
+                col_names.add(ci.get('Field') or ci.get('field') or ci[0])
+            except Exception:
+                pass
+
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+
+        posibles_tecnico_fk = ['id_codigo_consumidor','tecnico_id','tecnico','id_tecnico']
+        col_tecnico_fk = next((c for c in posibles_tecnico_fk if c in col_names), None)
+        col_nombre = 'nombre' if 'nombre' in col_names else None
+
+        if ro_exists and col_tecnico_fk:
+            tecnico_select = f"COALESCE(ro.nombre, CAST(i.{col_tecnico_fk} AS CHAR)) AS tecnico_nombre"
+            joins = f"LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = i.{col_tecnico_fk}"
+        elif col_nombre:
+            tecnico_select = "i.nombre AS tecnico_nombre"
+            joins = ""
+        elif col_tecnico_fk:
+            tecnico_select = f"CAST(i.{col_tecnico_fk} AS CHAR) AS tecnico_nombre"
+            joins = ""
+        else:
+            tecnico_select = "NULL AS tecnico_nombre"
+            joins = ""
+
+        query = f"""
+            SELECT i.*, {tecnico_select}
+            FROM mpa_inspeccion_vehiculo i
+            {joins}
+            WHERE i.id_mpa_inspeccion_vehiculo = %s
+        """
+        cursor.execute(query, (inspeccion_id,))
+        r = cursor.fetchone()
+        if not r:
+            return jsonify({'success': False, 'error': 'Inspección no encontrada'}), 404
+
+        fi = r.get('fecha_inspeccion')
+        if fi:
+            try:
+                r['fecha_inspeccion'] = fi.strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                pass
+        for k in ('vencimiento_licencia','vencimiento_soat','vencimiento_tecnicomecanica'):
+            v = r.get(k)
+            if v:
+                try:
+                    r[k] = v.strftime('%Y-%m-%d')
+                except Exception:
+                    pass
+
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import cm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, KeepTogether
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib import colors
+
+        output = io.BytesIO()
+        doc = SimpleDocTemplate(output, pagesize=A4, topMargin=1.5*cm, bottomMargin=1.5*cm)
+        styles = getSampleStyleSheet()
+        elements = []
+
+        title = Paragraph("Inspección Vehicular", styles['Title'])
+        elements.append(title)
+        elements.append(Spacer(1, 12))
+
+        resumen_data = [
+            ["Fecha", str(r.get('fecha_inspeccion') or '')],
+            ["Técnico", str(r.get('tecnico_nombre') or '')],
+            ["Placa", str(r.get('placa') or '')],
+            ["Observaciones", str(r.get('observaciones') or '')]
+        ]
+        resumen_table = Table(resumen_data, colWidths=[120, 380])
+        resumen_table.setStyle(TableStyle([
+            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ('BACKGROUND', (0,0), (-1,0), colors.whitesmoke)
+        ]))
+        elements.append(resumen_table)
+        elements.append(Spacer(1, 12))
+
+        venc_data = [
+            ["Venc. Licencia", str(r.get('vencimiento_licencia') or '-')],
+            ["Venc. SOAT", str(r.get('vencimiento_soat') or '-')],
+            ["Venc. Tecnicomecánica", str(r.get('vencimiento_tecnicomecanica') or '-')]
+        ]
+
+        bm_groups = {
+            'Estado físico': [
+                ('estado_fisico_espejos_laterales','Espejos laterales'),
+                ('estado_fisico_pito','Pito'),
+                ('estado_fisico_freno_servicio','Freno servicio'),
+                ('estado_fisico_manillares','Manillares'),
+                ('estado_fisico_guayas','Guayas'),
+                ('estado_fisico_tanque_combustible','Tanque de combustible'),
+                ('estado_fisico_encendido','Encendido'),
+                ('estado_fisico_pedales','Pedales'),
+                ('estado_fisico_guardabarros','Guardabarros'),
+                ('estado_fisico_sillin_tapiceria','Sillín/Tapicería'),
+                ('estado_fisico_tablero','Tablero'),
+                ('estado_fisico_mofle_silenciador','Mofle/Silenciador'),
+                ('estado_fisico_kit_arrastre','Kit de arrastre'),
+                ('estado_fisico_reposa_pies','Reposa pies'),
+                ('estado_fisico_pata_lateral_central','Pata lateral/central'),
+                ('estado_fisico_tijera_amortiguador','Tijera/Amortiguador'),
+                ('estado_fisico_bateria','Batería')
+            ],
+            'Luces': [
+                ('luces_altas_bajas','Luces altas/bajas'),
+                ('luces_direccionales_delanteros','Direccionales delanteros'),
+                ('luces_direccionales_traseros','Direccionales traseros'),
+                ('luces_luz_placa','Luz placa'),
+                ('luces_stop','Stop')
+            ],
+            'Prevención': [
+                ('prevension_casco','Casco'),
+                ('prevension_guantes','Guantes'),
+                ('prevension_rodilleras','Rodilleras'),
+                ('prevension_coderas','Coderas')
+            ],
+            'Llantas': [
+                ('llantas_labrado_llantas','Labrado de llantas'),
+                ('llantas_rines','Rines'),
+                ('llantas_presion_aire','Presión de aire')
+            ],
+            'Otros': [
+                ('otros_aceite','Aceite'),
+                ('otros_suspension_direccion','Suspensión/Dirección'),
+                ('otros_caja_cambios','Caja de cambios'),
+                ('otros_conexiones_electricas','Conexiones eléctricas')
+            ]
+        }
+
+        bm_synonyms = {
+            'prevension_casco': ['prevencion_casco'],
+            'prevension_guantes': ['prevencion_guantes'],
+            'prevension_rodilleras': ['prevencion_rodilleras'],
+            'prevension_coderas': ['prevencion_coderas']
+        }
+
+        def norm_bm(v):
+            s = str(v or '').strip().upper()
+            if s in ('B','BUENO'):
+                return 'Bueno'
+            if s in ('M','MALO'):
+                return 'Malo'
+            return '-'
+
+        total_b = 0
+        total_m = 0
+        # Calcular totales antes de renderizar tablas
+        for _grupo, _items in bm_groups.items():
+            for key,_label in _items:
+                v = r.get(key)
+                if v is None:
+                    for alt in bm_synonyms.get(key, []):
+                        if alt in r:
+                            v = r.get(alt)
+                            break
+                valp = norm_bm(v)
+                if valp == 'Bueno':
+                    total_b += 1
+                elif valp == 'Malo':
+                    total_m += 1
+
+        # Construir tabla combinada de Vencimientos (2 columnas) y Estado (2 columnas) en la misma fila
+        combined_rows = [["Vencimientos", "", "Estado", ""]]
+        estado_data = [["Total Bueno", str(total_b)], ["Total Malo", str(total_m)]]
+        max_rows = max(len(venc_data), len(estado_data))
+        for i in range(max_rows):
+            left = venc_data[i] if i < len(venc_data) else ["", ""]
+            right = estado_data[i] if i < len(estado_data) else ["", ""]
+            combined_rows.append([left[0], left[1], right[0], right[1]])
+        comb_table = Table(combined_rows, colWidths=[doc.width/4, doc.width/4, doc.width/4, doc.width/4])
+        comb_style = TableStyle([
+            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+            ('BACKGROUND', (0,0), (-1,0), colors.whitesmoke),
+            ('SPAN', (0,0), (1,0)),
+            ('SPAN', (2,0), (3,0)),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('ALIGN', (0,1), (1,-1), 'LEFT'),
+            ('ALIGN', (2,1), (3,-1), 'LEFT')
+        ])
+        # Colorear valores de Total Bueno/Malo
+        for idx in range(1, len(combined_rows)):
+            if combined_rows[idx][2] == 'Total Bueno':
+                comb_style.add('TEXTCOLOR', (3, idx), (3, idx), colors.green)
+            if combined_rows[idx][2] == 'Total Malo':
+                comb_style.add('TEXTCOLOR', (3, idx), (3, idx), colors.red)
+        comb_table.setStyle(comb_style)
+        elements.append(comb_table)
+        elements.append(Spacer(1, 12))
+        for grupo, items in bm_groups.items():
+            data = [['Ítem','Estado']]
+            for key,label in items:
+                v = r.get(key)
+                if v is None:
+                    for alt in bm_synonyms.get(key, []):
+                        if alt in r:
+                            v = r.get(alt)
+                            break
+                val = norm_bm(v)
+                data.append([label, val])
+                if val == 'Bueno':
+                    total_b += 1
+                elif val == 'Malo':
+                    total_m += 1
+            table = Table(data, colWidths=[300, 200])
+            style = TableStyle([
+                ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+                ('BACKGROUND', (0,0), (-1,0), colors.grey),
+                ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                ('ALIGN', (0,0), (-1,-1), 'LEFT')
+            ])
+            for i in range(1, len(data)):
+                v = data[i][1]
+                if v == 'Bueno':
+                    style.add('TEXTCOLOR', (1,i), (1,i), colors.green)
+                elif v == 'Malo':
+                    style.add('TEXTCOLOR', (1,i), (1,i), colors.red)
+            table.setStyle(style)
+            elements.append(Paragraph(grupo, styles['Heading3']))
+            elements.append(table)
+            elements.append(Spacer(1, 8))
+
+        # (Totales integrados en la tabla combinada con vencimientos)
+
+        def img_from_data_url(data_url, max_w=180, max_h=180):
+            try:
+                if not data_url or 'base64,' not in data_url:
+                    return None
+                b64 = data_url.split('base64,', 1)[1]
+                import base64
+                raw = base64.b64decode(b64)
+                bio = io.BytesIO(raw)
+                im = Image(bio)
+                im._restrictSize(max_w, max_h)
+                return im
+            except Exception:
+                return None
+
+        elements.append(Paragraph("Evidencias", styles['Heading2']))
+        evid_cells = []
+        fotos_keys = ('foto1','foto2','foto3')
+        for k in fotos_keys:
+            im = img_from_data_url(r.get(k), max_w=int(doc.width/3 - 12), max_h=160)
+            evid_cells.append(im if im else Paragraph("", styles['Normal']))
+        evid_table = Table([evid_cells], colWidths=[doc.width/3, doc.width/3, doc.width/3])
+        evid_table.setStyle(TableStyle([
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE')
+        ]))
+        elements.append(KeepTogether(evid_table))
+        elements.append(Spacer(1, 12))
+
+        ft = img_from_data_url(r.get('firma_trabajador'), max_w=250, max_h=100)
+        fi_img = img_from_data_url(r.get('firma_inspector'), max_w=250, max_h=100)
+        elements.append(Paragraph("Firmas", styles['Heading2']))
+        if ft or fi_img:
+            left_cell = [Paragraph("Trabajador", styles['Heading3'])]
+            if ft:
+                left_cell.append(ft)
+            else:
+                left_cell.append(Paragraph("Sin firma", styles['Normal']))
+            right_cell = [Paragraph("Inspector", styles['Heading3'])]
+            if fi_img:
+                right_cell.append(fi_img)
+            else:
+                right_cell.append(Paragraph("Sin firma", styles['Normal']))
+            sig_table = Table([[left_cell, right_cell]], colWidths=[doc.width/2, doc.width/2])
+            sig_table.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'TOP')
+            ]))
+            elements.append(KeepTogether(sig_table))
+        else:
+            elements.append(Paragraph("Sin firmas", styles['Normal']))
+
+        doc.build(elements)
+        output.seek(0)
+        fn = f"inspeccion_{str(r.get('placa') or 'sinplaca')}_{str(r.get('fecha_inspeccion') or '').replace(' ','_').replace(':','-')}.pdf"
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename={fn}'
+        return response
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
+        try:
+            connection.close()
         except Exception:
             pass
 # API para subir imágenes de mantenimiento

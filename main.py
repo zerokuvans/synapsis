@@ -139,7 +139,7 @@ from app import api_list_tecnico_mecanica, api_get_tecnico_mecanica, api_create_
 from app import api_list_licencias_conducir, api_get_licencia_conducir, api_create_licencia_conducir, api_update_licencia_conducir, api_delete_licencia_conducir
 from app import api_import_vehiculos_excel, api_import_tecnico_mecanica_excel, api_import_soat_excel, api_import_licencias_excel
 from app import api_cronograma_alerts_my
-from app import api_list_inspecciones, api_get_inspeccion, api_create_inspeccion, api_inspecciones_firma_trabajador, api_inspecciones_firma_inspector
+from app import api_list_inspecciones, api_get_inspeccion, api_create_inspeccion, api_inspecciones_firma_trabajador, api_inspecciones_firma_inspector, api_inspeccion_pdf
 from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas_por_tecnico, api_google_directions_route, api_riesgo_motos, api_riesgo_por_localidad, api_localidades, api_riesgo_importar, api_rutas_estados
 
 # Importar solo la función de actualización por claves para SSTT desde app.py
@@ -223,6 +223,7 @@ app.route('/api/mpa/inspecciones/<int:inspeccion_id>', methods=['GET'])(api_get_
 app.route('/api/mpa/inspecciones', methods=['POST'])(api_create_inspeccion)
 app.route('/api/mpa/inspecciones/<int:inspeccion_id>/firma-trabajador', methods=['PUT'])(api_inspecciones_firma_trabajador)
 app.route('/api/mpa/inspecciones/<int:inspeccion_id>/firma-inspector', methods=['PUT'])(api_inspecciones_firma_inspector)
+app.route('/api/mpa/inspecciones/<int:inspeccion_id>/pdf', methods=['GET'])(api_inspeccion_pdf)
 
 # Registrar rutas de la API de SOAT MPA
 app.route('/api/mpa/soat', methods=['GET'])(api_get_soat)
@@ -7113,7 +7114,17 @@ def api_analistas_actividad_gestion_update():
             return jsonify({'success': True, 'updated': False})
         sql = f"UPDATE `operaciones_actividades_diarias` SET {', '.join(set_parts)} WHERE " + " AND ".join(where)
         cur.execute(sql, tuple(set_vals + params))
-        if getattr(cur, 'rowcount', 0) == 0:
+        rc = getattr(cur, 'rowcount', 0)
+        if rc == 0:
+            cur.execute(
+                "SELECT COUNT(*) FROM `operaciones_actividades_diarias` WHERE " + " AND ".join(where),
+                tuple(params)
+            )
+            exists_count = (cur.fetchone() or [0])[0]
+            if exists_count and int(exists_count) > 0:
+                connection.commit()
+                cur.close(); connection.close()
+                return jsonify({'success': True, 'updated': True})
             ins_cols = []
             ins_vals = []
             if c_ot:
