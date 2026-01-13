@@ -1450,44 +1450,62 @@ const __canGestionado = {{ 'true' if session.get('user_role') in ['lider','admin
 
 let __tecnicosIndex = new Map();
 let __tecnicosLoaded = false;
+const __currentUserName = "{{ session.get('user_name', '') }}";
+const __currentUserRole = "{{ session.get('user_role', '') }}";
 
 async function cargarTecnicosDatalist(){
-  if(__tecnicosLoaded) return;
-  const el = document.getElementById('gaTecnico');
-  if(!el) { __tecnicosLoaded = true; return; }
-  if(el.tagName === 'SELECT'){
-    el.innerHTML = '';
-    const def = document.createElement('option');
-    def.value = '';
-    def.textContent = 'Seleccione técnico';
-    el.appendChild(def);
-  }
-  try{
-    const res = await fetch('/api/tecnicos?estado=Activo', { credentials: 'include' });
-    const data = await res.json();
-    const arr = Array.isArray(data?.data) ? data.data : (data?.tecnicos || data?.items || []);
-    arr.forEach(t => {
-      const nombre = String(t.nombre || '').trim();
-      if(!nombre) return;
-      if(el.tagName === 'SELECT'){
-        const opt = document.createElement('option');
-        opt.value = nombre;
-        opt.textContent = nombre;
-        opt.dataset.ced = String(t.recurso_operativo_cedula || '').trim();
-        opt.dataset.idc = String(t.id_codigo_consumidor || '').trim();
-        el.appendChild(opt);
-      }
-      const ced = String(t.recurso_operativo_cedula || '').trim();
-      const idc = String(t.id_codigo_consumidor || '').trim();
-      __tecnicosIndex.set(nombre.toLowerCase(), { cedula: ced, id_codigo_consumidor: idc });
-    });
+    if(__tecnicosLoaded) return;
+    const el = document.getElementById('gaTecnico');
+    if(!el) { __tecnicosLoaded = true; return; }
     if(el.tagName === 'SELECT'){
-      if(__gaContext && __gaContext.tecnico){
-        el.value = __gaContext.tecnico;
-      }
+        el.innerHTML = '';
+        const def = document.createElement('option');
+        def.value = '';
+        def.textContent = 'Seleccione técnico';
+        el.appendChild(def);
     }
-    __tecnicosLoaded = true;
-  }catch(_){ __tecnicosLoaded = true; }
+    try{
+        let arr = [];
+        const role = (__currentUserRole || '').toLowerCase();
+        if(role === 'analista'){
+            const r = await fetch('/api/analistas/tecnicos-asignados', { credentials: 'include' });
+            const d = await r.json();
+            arr = Array.isArray(d?.tecnicos) ? d.tecnicos : [];
+        } else {
+            const sup = (__currentUserName || '').trim();
+            if(sup){
+                const r1 = await fetch('/api/tecnicos_por_supervisor?'+new URLSearchParams({ supervisor: sup }).toString(), { credentials: 'include' });
+                const d1 = await r1.json();
+                arr = Array.isArray(d1?.tecnicos) ? d1.tecnicos : [];
+            }
+            if(!arr || arr.length === 0){
+                const r2 = await fetch('/api/tecnicos?estado=Activo', { credentials: 'include' });
+                const d2 = await r2.json();
+                arr = Array.isArray(d2?.data) ? d2.data : (d2?.tecnicos || d2?.items || []);
+            }
+        }
+        arr.forEach(t => {
+            const nombre = String(t.tecnico || t.nombre || '').trim();
+            if(!nombre) return;
+            if(el.tagName === 'SELECT'){
+                const opt = document.createElement('option');
+                opt.value = nombre;
+                opt.textContent = nombre;
+                opt.dataset.ced = String(t.cedula || t.recurso_operativo_cedula || '').trim();
+                opt.dataset.idc = String(t.id_codigo_consumidor || '').trim();
+                el.appendChild(opt);
+            }
+            const ced = String(t.cedula || t.recurso_operativo_cedula || '').trim();
+            const idc = String(t.id_codigo_consumidor || '').trim();
+            __tecnicosIndex.set(nombre.toLowerCase(), { cedula: ced, id_codigo_consumidor: idc });
+        });
+        if(el.tagName === 'SELECT'){
+            if(__gaContext && __gaContext.tecnico){
+                el.value = __gaContext.tecnico;
+            }
+        }
+        __tecnicosLoaded = true;
+    }catch(_){ __tecnicosLoaded = true; }
 }
 
 function bindTecnicoInputListener(){

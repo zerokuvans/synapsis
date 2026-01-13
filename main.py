@@ -6972,6 +6972,16 @@ def api_analistas_actividad_gestion_update():
         cur = connection.cursor()
         cur.execute(
             """
+            SELECT COUNT(*) FROM information_schema.tables
+            WHERE table_schema=%s AND table_name=%s
+            """,
+            (db_config.get('database'), 'operaciones_actividades_diarias')
+        )
+        if (cur.fetchone() or [0])[0] == 0:
+            cur.close(); connection.close()
+            return jsonify({'success': True, 'updated': False})
+        cur.execute(
+            """
             SELECT COLUMN_NAME FROM information_schema.columns
             WHERE table_schema=%s AND table_name='operaciones_actividades_diarias'
             """,
