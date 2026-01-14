@@ -10,11 +10,30 @@
                     </h3>
                 </div>
                 <div class="card-body">
+                    <div class="alert alert-warning small" role="alert">
+                        Uso interno y con volumen bajo. Pausas de 7–10 segundos por consulta. Máximo 100 consultas/día por IP.
+                    </div>
+                    <div class="mb-3 p-3 border rounded bg-light">
+                        <div class="d-flex align-items-end gap-2 flex-wrap">
+                            <div>
+                                <label for="simitRobotPlaca" class="form-label mb-1">Consulta puntual por placa.</label>
+                                <input type="text" class="form-control form-control-sm" id="simitRobotPlaca" placeholder="Ej: APU64G" style="width:180px">
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-success" id="simitRobotConsultar">
+                                    <i class="fas fa-robot me-1"></i> Consultar
+                                </button>
+                            </div>
+                            <div class="small ms-2" id="simitRobotMsg"></div>
+                        </div>
+                    </div>
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <div class="d-flex gap-2">
                             <input type="text" class="form-control form-control-sm" id="simitFilterPlaca" placeholder="Filtrar por placa" style="width:180px">
                             <input type="text" class="form-control form-control-sm" id="simitFilterTecnico" placeholder="Filtrar por técnico" style="width:220px">
                             <button class="btn btn-sm btn-light" id="simitReload">Recargar</button>
+                            <button class="btn btn-sm btn-outline-secondary" id="simitExportCsv">Exportar CSV</button>
+                            <button class="btn btn-sm btn-outline-secondary" id="simitExportExcel">Exportar Excel</button>
                         </div>
                         <div class="d-flex gap-2">
                             <button class="btn btn-sm btn-primary" id="simitStartJob">Iniciar ejecución</button>
@@ -132,7 +151,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!btn) return;
         btn.disabled = true;
         btn.textContent = 'Iniciando...';
-        fetch('/api/mpa/simit/job/run?force=true&interval=3', { method: 'POST', credentials: 'include' })
+        fetch('/api/mpa/simit/job/run?force=true&interval=8', { method: 'POST', credentials: 'include' })
             .then(async r => {
                 let data = {};
                 try { data = await r.json(); } catch(e) {}
@@ -192,9 +211,59 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (noData) noData.classList.remove('d-none');
             });
     }
+    function exportSimit(format) {
+        const placa = (document.getElementById('simitFilterPlaca')?.value || '').trim().toUpperCase();
+        const tecnico = (document.getElementById('simitFilterTecnico')?.value || '').trim();
+        let url = `/api/mpa/simit/export?format=${encodeURIComponent(format)}`;
+        const params = [];
+        if (placa) params.push(`placa=${encodeURIComponent(placa)}`);
+        if (tecnico) params.push(`tecnico=${encodeURIComponent(tecnico)}`);
+        if (params.length) url += `&${params.join('&')}`;
+        window.location.href = url;
+    }
+    function simitRobotConsult() {
+        const inp = document.getElementById('simitRobotPlaca');
+        const msg = document.getElementById('simitRobotMsg');
+        const placa = (inp?.value || '').trim().toUpperCase();
+        if (!placa) {
+            if (msg) { msg.textContent = 'Ingrese una placa'; msg.className = 'small ms-2 text-danger'; }
+            return;
+        }
+        const btn = document.getElementById('simitRobotConsultar');
+        if (btn) { btn.disabled = true; btn.textContent = 'Consultando...'; }
+        if (msg) { msg.textContent = ''; msg.className = 'small ms-2'; }
+        fetch('/api/mpa/simit/consultar-playwright', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ placa })
+        })
+        .then(async r => {
+            let data = {};
+            try { data = await r.json(); } catch(e) {}
+            if (r.ok && data && data.success) {
+                const vt = (data.valor_total ?? 0);
+                const fmt = (n) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(n));
+                if (msg) { msg.textContent = `OK: ${placa} → ${fmt(vt)} (items: ${data.cantidad ?? 0})`; msg.className = 'small ms-2 text-success'; }
+                loadSimitResults();
+            } else {
+                const m = (data && (data.message || data.error)) || 'Error';
+                if (msg) { msg.textContent = m; msg.className = 'small ms-2 text-danger'; }
+            }
+        })
+        .catch(() => {
+            if (msg) { msg.textContent = 'Error de red'; msg.className = 'small ms-2 text-danger'; }
+        })
+        .finally(() => {
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-robot me-1"></i> Consultar'; }
+        });
+    }
     document.getElementById('simitReload')?.addEventListener('click', function(){ loadSimitResults(); loadSimitJobStatus(); });
     document.getElementById('simitStartJob')?.addEventListener('click', startSimitJob);
     document.getElementById('simitStopJob')?.addEventListener('click', stopSimitJob);
+    document.getElementById('simitRobotConsultar')?.addEventListener('click', simitRobotConsult);
+    document.getElementById('simitExportCsv')?.addEventListener('click', function(){ exportSimit('csv'); });
+    document.getElementById('simitExportExcel')?.addEventListener('click', function(){ exportSimit('xlsx'); });
     loadSimitResults();
     loadSimitJobStatus();
 });

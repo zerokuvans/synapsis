@@ -11,9 +11,14 @@ import json
 import io
 import threading
 import time
+import random
+import pandas as pd
+import asyncio
 
 import requests
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, TimeoutError
+from playwright.async_api import async_playwright
+import re
 from api_reportes import login_required_api
 app = Flask(__name__)
 app.secret_key = 'synapsis-secret-key-2024-production-secure-key-12345'
@@ -21,6 +26,8 @@ db = SQLAlchemy()
 
 # Configuración de zona horaria
 TIMEZONE = pytz.timezone('America/Bogota')
+
+simit_playwright_lock = threading.Lock()
 
 # Configuración de Flask-Login
 login_manager = LoginManager()
@@ -364,6 +371,7 @@ def _update_comparendos_from_result(placa, tecnico_id, tecnico_nombre, tipo, res
         return {'success': False, 'message': 'BD no disponible'}
     try:
         items = []
+        total_multas = None
         if isinstance(result_data, dict):
             for k, v in result_data.items():
                 if isinstance(v, list):
@@ -375,6 +383,12 @@ def _update_comparendos_from_result(placa, tecnico_id, tecnico_nombre, tipo, res
                         items.extend(v)
             if isinstance(maybe_data, list):
                 items.extend(maybe_data)
+            try:
+                mc = result_data.get('multas')
+                if mc is not None:
+                    total_multas = int(str(mc).strip())
+            except Exception:
+                total_multas = None
         elif isinstance(result_data, list):
             items = result_data
         detalles = []
@@ -389,7 +403,14 @@ def _update_comparendos_from_result(placa, tecnico_id, tecnico_nombre, tipo, res
             entidad = it.get('entidad') or it.get('authority') or it.get('organismo')
             estado = it.get('estado') or it.get('status')
             detalles.append({'referencia': ref, 'fecha': fecha, 'valor': valor, 'entidad': entidad, 'estado': estado, 'raw': it})
-        cantidad = len(detalles)
+            if total_multas is None:
+                try:
+                    cm = it.get('cantidad_multas')
+                    if cm is not None:
+                        total_multas = int(str(cm).strip())
+                except Exception:
+                    pass
+        cantidad = total_multas if (isinstance(total_multas, int) and total_multas >= 0) else len(detalles)
         valor_total = sum(d['valor'] for d in detalles)
         tiene_multas = 'SI' if (cantidad > 0 or valor_total > 0) else 'NO'
         now_dt = get_bogota_datetime()
@@ -546,12 +567,90 @@ def api_mpa_simit_consultar_playwright():
             data_block
         )
         return jsonify({'success': True, 'placa': placa, 'cantidad': upd.get('cantidad'), 'valor_total': upd.get('valor_total'), 'detalles': upd.get('detalles')})
+
     except Exception as e:
         try:
             conn_chk.close()
         except Exception:
             pass
         return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/mpa/simit/export', methods=['GET'])
+@login_required
+def api_mpa_simit_export():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        placa = (request.args.get('placa') or '').strip().upper()
+        tecnico = (request.args.get('tecnico') or '').strip()
+        fmt = (request.args.get('format') or 'csv').strip().lower()
+        where = []
+        params = []
+        if placa:
+            where.append("UPPER(TRIM(placa)) = %s")
+            params.append(placa)
+        if tecnico:
+            try:
+                tid = int(tecnico)
+                where.append("tecnico_id = %s")
+                params.append(tid)
+            except Exception:
+                where.append("tecnico_nombre LIKE %s")
+                params.append('%'+tecnico+'%')
+        query = (
+            "SELECT placa, tecnico_id, tecnico_nombre, tipo_vehiculo, tiene_multas, cantidad, valor_total, fuente, fecha_ultima_consulta "
+            "FROM mpa_comparendos"
+        )
+        if where:
+            query += " WHERE " + " AND ".join(where)
+        query += " ORDER BY fecha_ultima_consulta DESC, placa"
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+        for r in rows:
+            d = r.get('fecha_ultima_consulta')
+            if d:
+                try:
+                    r['fecha_ultima_consulta'] = d.strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    pass
+        df = pd.DataFrame(rows or [])
+        if fmt == 'xlsx' or fmt == 'excel':
+            buf = io.BytesIO()
+            try:
+                with pd.ExcelWriter(buf, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False, sheet_name='SIMIT')
+                data = buf.getvalue()
+            except Exception:
+                buf = io.BytesIO()
+                df.to_csv(buf, index=False)
+                data = buf.getvalue()
+                resp = make_response(data)
+                resp.headers['Content-Type'] = 'text/csv; charset=utf-8'
+                resp.headers['Content-Disposition'] = 'attachment; filename="simit_resultados.csv"'
+                return resp
+            resp = make_response(data)
+            resp.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            resp.headers['Content-Disposition'] = 'attachment; filename="simit_resultados.xlsx"'
+            return resp
+        else:
+            buf = io.StringIO()
+            df.to_csv(buf, index=False)
+            data = buf.getvalue()
+            resp = make_response(data)
+            resp.headers['Content-Type'] = 'text/csv; charset=utf-8'
+            resp.headers['Content-Disposition'] = 'attachment; filename="simit_resultados.csv"'
+            return resp
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
 
 def ensure_sgis_permiso_trabajo_tables():
     try:
@@ -11013,24 +11112,240 @@ def simit_query_by_placa_playwright(placa):
         s = (placa or '').strip().upper()
         if not s:
             return {'success': False, 'message': 'placa requerida'}
-        with sync_playwright() as p:
-            b = p.chromium.launch(headless=True)
-            ctx = b.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', locale='es-ES')
-            page = ctx.new_page()
-            page.goto('https://www.fcm.org.co/simit/#/consultas', timeout=45000, wait_until='domcontentloaded')
-            page.wait_for_load_state('domcontentloaded')
+        async def _approx_from_page_async(page):
+            return None
+        def _run_async_fallback(val):
             try:
-                page.wait_for_load_state('networkidle')
+                return asyncio.run(_async_flow(val))
+            except Exception as e:
+                return {'success': False, 'message': str(e)}
+        async def _async_flow(val):
+            try:
+                async with async_playwright() as ap:
+                    browser = await ap.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
+                    ctx2 = await browser.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', locale='es-ES')
+                    pg = await ctx2.new_page()
+                    await pg.goto('https://www.fcm.org.co/simit/#/home-public', timeout=60000, wait_until='domcontentloaded')
+                    try:
+                        await pg.wait_for_load_state('networkidle')
+                    except Exception:
+                        pass
+                    try:
+                        for txt in ['Aceptar','Acepto','Entendido','Continuar','Cerrar']:
+                            cand = pg.locator(f'button:has-text("{txt}")')
+                            if await cand.count() > 0:
+                                await cand.first.click()
+                                break
+                    except Exception:
+                        pass
+                    try:
+                        por_placa = pg.get_by_text('Por placa', exact=False)
+                        if await por_placa.count() > 0:
+                            await por_placa.first.click()
+                        else:
+                            lnk = pg.locator('a[href*="por-placa"], button:has-text("Por placa")')
+                            if await lnk.count() > 0:
+                                await lnk.first.click()
+                            else:
+                                await pg.evaluate("()=>{ const txt='por placa'; const nodes=Array.from(document.querySelectorAll('a,button,div,span')); for(const n of nodes){ const t=(n.innerText||n.textContent||'').toLowerCase(); if(t.includes(txt)){ n.click(); return true; } } return false; }")
+                    except Exception:
+                        try:
+                            await pg.evaluate("()=>{ const txt='por placa'; const nodes=Array.from(document.querySelectorAll('a,button,div,span')); for(const n of nodes){ const t=(n.innerText||n.textContent||'').toLowerCase(); if(t.includes(txt)){ n.click(); return true; } } return false; }")
+                        except Exception:
+                            pass
+                    try:
+                        await pg.wait_for_timeout(1500)
+                    except Exception:
+                        pass
+                    try:
+                        await pg.wait_for_selector('form input, mat-form-field input, input[formcontrolname], input[ng-reflect-form-control-name]', timeout=12000)
+                    except Exception:
+                        pass
+                    ok = False
+                    try:
+                        ok = await pg.evaluate(
+                            """
+                            (val)=>{
+                              const vis = el => !!(el && (el.offsetParent || el.getClientRects().length));
+                              const txt = el => (el && (el.innerText||el.textContent)||'').toLowerCase();
+                              let el = null;
+                              let inputs = Array.from(document.querySelectorAll('mat-form-field input'));
+                              if(inputs.length === 0){ inputs = Array.from(document.querySelectorAll('input')); }
+                              for(const i of inputs){
+                                if(!vis(i)) continue;
+                                const aria = (i.getAttribute('aria-label')||'').toLowerCase();
+                                if(aria.includes('placa')){ el=i; break; }
+                                const labels = i.labels ? Array.from(i.labels) : [];
+                                const ltext = labels.map(x=>txt(x)).join(' ');
+                                if(ltext.includes('placa')){ el=i; break; }
+                                const f = i.closest('form');
+                                const ptxt = txt(f)||txt(i.parentElement);
+                                if(ptxt.includes('placa')){ el=i; break; }
+                              }
+                              if(!el){
+                                const lbls = Array.from(document.querySelectorAll('label, mat-label, span, div'));
+                                const l = lbls.find(x=>vis(x) && txt(x).includes('placa'));
+                                if(l){
+                                  const cont = l.closest('form') || l.parentElement;
+                                  if(cont){
+                                    let ins = Array.from(cont.querySelectorAll('mat-form-field input')).filter(vis);
+                                    if(ins.length === 0){ ins = Array.from(cont.querySelectorAll('input')).filter(vis); }
+                                    el = ins[0]||null;
+                                  }
+                                }
+                              }
+                              if(el){
+                                el.focus();
+                                try{ el.value=''; }catch(e){}
+                                try{ el.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
+                                try{ el.value=val; }catch(e){}
+                                try{ el.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
+                                try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){}
+                                return true;
+                              }
+                              return false;
+                            }
+                            """,
+                            val
+                        )
+                    except Exception:
+                        ok = False
+                    if not ok:
+                        try:
+                            await pg.evaluate(
+                                """
+                                (val)=>{
+                                  try{
+                                    const ins = Array.from(document.querySelectorAll('input')).filter(el=>el && el.offsetParent);
+                                    if(ins.length){
+                                      ins[0].focus();
+                                      ins[0].value='';
+                                      ins[0].dispatchEvent(new Event('input',{bubbles:true}));
+                                      ins[0].value=val;
+                                      ins[0].dispatchEvent(new Event('input',{bubbles:true}));
+                                      ins[0].dispatchEvent(new Event('change',{bubbles:true}));
+                                    }
+                                    return true;
+                                  }catch(e){ return false; }
+                                }
+                                """,
+                                val
+                            )
+                        except Exception:
+                            pass
+                    try:
+                        sub_ok = await pg.evaluate("()=>{ const f=document.querySelector('form')||document; const q=sel=>Array.from(f.querySelectorAll(sel)); const bv=q('button[type=submit], button.mat-raised-button, button.mat-flat-button').find(x=>/(consultar|buscar)/i.test((x.innerText||x.textContent||''))); if(bv){ bv.click(); return true;} const b=q('button').find(x=>/(consultar|buscar)/i.test((x.innerText||x.textContent||''))); if(b){ b.click(); return true;} return false; }")
+                        if not sub_ok:
+                            try:
+                                await pg.keyboard.press('Enter')
+                            except Exception:
+                                pass
+                    except Exception:
+                        await ctx2.close(); await browser.close()
+                        return {'success': False, 'message': 'boton consultar no encontrado'}
+                    try:
+                        await pg.wait_for_function("()=>{ const t=(document.body.innerText||''); return /NO REGISTRA COMPARENDOS|NO REGISTRA MULTAS|TOTAL A PAGAR|TOTAL\s*\(/i.test(t); }", timeout=30000)
+                    except Exception:
+                        pass
+                    await pg.wait_for_timeout(1000)
+                    data2 = None
+                    try:
+                        body_txt = await pg.inner_text('body')
+                    except Exception:
+                        body_txt = ''
+                    up = (body_txt or '').upper()
+                    no_multas = ('NO REGISTRA MULTAS' in up) or ('NO REGISTRA COMPARENDOS NI MULTAS' in up) or ('NO REGISTRA COMPARENDOS Y MULTAS' in up) or ('NO REGISTRA COMPARENDOS O MULTAS' in up)
+                    if no_multas:
+                        data2 = {'results': []}
+                    else:
+                        try:
+                            import re as _re
+                            m = _re.search(r"TOTAL\s*\((\d+)\)\s*[:$]\s*\$?\s*([\d\.,]+)", body_txt, flags=_re.IGNORECASE)
+                            multas_count = None
+                            val_s = None
+                            if m:
+                                multas_count = int(m.group(1))
+                                val_s = m.group(2)
+                            else:
+                                m = _re.search(r"TOTAL\s*A\s*PAGAR\s*[:$]?\s*\$?\s*([\d\.,]+)", body_txt, flags=_re.IGNORECASE)
+                                if not m:
+                                    m = _re.search(r"TOTAL\s*[:$]\s*\$?\s*([\d\.,]+)", body_txt, flags=_re.IGNORECASE)
+                                val_s = m.group(1) if m else None
+                            val_f = float(str(val_s).replace('.', '').replace(',', '.')) if val_s else None
+                        except Exception:
+                            multas_count = None
+                            val_f = None
+                        if val_f is not None and val_f > 0:
+                            if multas_count is None:
+                                try:
+                                    mm = _re.search(r"MULTAS\s*:\s*(\d+)", up, flags=_re.IGNORECASE)
+                                    if mm:
+                                        multas_count = int(mm.group(1))
+                                except Exception:
+                                    multas_count = None
+                            item = {'numero': 'TOTAL', 'valor_total': val_f, 'entidad': 'SIMIT', 'estado': 'TOTAL'}
+                            data2 = {'results': [item]}
+                            if multas_count is not None and multas_count >= 0:
+                                data2['multas'] = multas_count
+                                item['cantidad_multas'] = multas_count
+                        else:
+                            data2 = {'results': []}
+                    await ctx2.close(); await browser.close()
+                    if data2 is None:
+                        return {'success': False, 'message': 'sin datos'}
+                    return {'success': True, 'data': data2}
+            except Exception as e:
+                return {'success': False, 'message': str(e)}
+        p = None
+        b = None
+        ctx = None
+        page = None
+        stopped = False
+        def _cleanup():
+            nonlocal stopped
+            try:
+                if ctx:
+                    ctx.close()
             except Exception:
                 pass
             try:
-                for txt in ['Aceptar','Acepto','Entendido','Continuar','Cerrar']:
-                    cand = page.locator(f'button:has-text("{txt}")')
-                    if cand.count() > 0:
-                        cand.first.click()
-                        break
+                if b:
+                    b.close()
             except Exception:
                 pass
+            if not stopped:
+                try:
+                    if p:
+                        p.stop()
+                except Exception:
+                    pass
+                stopped = True
+        def _approx_from_page(page):
+            return None
+        for attempt in range(2):
+            with simit_playwright_lock:
+                try:
+                    p = sync_playwright().start()
+                except Exception:
+                    fb = _run_async_fallback(s)
+                    return fb if isinstance(fb, dict) else {'success': False, 'message': ''}
+                b = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
+                ctx = b.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', locale='es-ES')
+                page = ctx.new_page()
+                page.goto('https://www.fcm.org.co/simit/#/home-public', timeout=60000, wait_until='domcontentloaded')
+                page.wait_for_load_state('domcontentloaded')
+                try:
+                    page.wait_for_load_state('networkidle')
+                except Exception:
+                    pass
+                try:
+                    for txt in ['Aceptar','Acepto','Entendido','Continuar','Cerrar']:
+                        cand = page.locator(f'button:has-text("{txt}")')
+                        if cand.count() > 0:
+                            cand.first.click()
+                            break
+                except Exception:
+                    pass
             try:
                 por_placa = page.get_by_text('Por placa', exact=False)
                 if por_placa.count() > 0:
@@ -11062,10 +11377,10 @@ def simit_query_by_placa_playwright(placa):
                 page.wait_for_timeout(1500)
             except Exception:
                 pass
-            try:
-                page.wait_for_selector('form input, mat-form-field input, input[formcontrolname], input[ng-reflect-form-control-name]', timeout=12000)
-            except Exception:
-                pass
+                try:
+                    page.wait_for_selector('form input, mat-form-field input, input[formcontrolname], input[ng-reflect-form-control-name]', timeout=12000)
+                except Exception:
+                    pass
             form = None
             try:
                 forms = page.locator('form')
@@ -11082,6 +11397,12 @@ def simit_query_by_placa_playwright(placa):
             except Exception:
                 form = None
             inp = None
+            try:
+                special = page.locator('input#txtBusqueda, input[name="txtBusqueda"], input[placeholder*="placa del vehículo" i], input[placeholder*="placa del veh" i], input[aria-label*="placa del vehículo" i], input[aria-label*="placa del veh" i]')
+                if special.count() > 0:
+                    inp = special.first
+            except Exception:
+                inp = None
             if form is not None:
                 candidates = form.locator('input[placeholder*="placa" i], input[name*="placa" i], input[id*="placa" i], input[type="text"]')
                 if candidates.count() > 0:
@@ -11323,12 +11644,13 @@ def simit_query_by_placa_playwright(placa):
                                         except Exception:
                                             pass
                                 else:
-                                    ctx.close(); b.close()
+                                    _cleanup()
                                     return {'success': False, 'message': 'input placa no encontrado'}
                             except Exception:
-                                ctx.close(); b.close(); return {'success': False, 'message': 'input placa no encontrado'}
+                                _cleanup()
+                                return {'success': False, 'message': 'input placa no encontrado'}
                     except Exception:
-                        ctx.close(); b.close()
+                        _cleanup()
                         return {'success': False, 'message': 'input placa no encontrado'}
             else:
                 inp.fill(s)
@@ -11337,6 +11659,7 @@ def simit_query_by_placa_playwright(placa):
                 bts = form.locator('button[type="submit"]')
                 if bts.count() > 0:
                     btn = bts.first
+            captured = []
             if btn is None:
                 btn_candidates = [
                     'button:has-text("Consultar")',
@@ -11359,59 +11682,70 @@ def simit_query_by_placa_playwright(placa):
                         except Exception:
                             pass
                 except Exception:
-                    ctx.close(); b.close()
+                    _cleanup()
                     return {'success': False, 'message': 'boton consultar no encontrado'}
             else:
-                captured = []
-                def on_response(resp):
+                try:
+                    btn.click()
+                except Exception:
                     try:
-                        ct = resp.headers.get('content-type') or resp.headers.get('Content-Type') or ''
-                        j = None
-                        if 'application/json' in ct:
-                            try:
-                                j = resp.json()
-                            except Exception:
-                                j = None
-                        if j is None:
-                            try:
-                                import json as _json
-                                j = _json.loads(resp.text())
-                            except Exception:
-                                j = None
-                        if isinstance(j, dict):
-                            captured.append({'url': resp.url, 'json': j})
+                        page.keyboard.press('Enter')
                     except Exception:
                         pass
-                page.on('response', on_response)
-                btn.click()
-            page.wait_for_timeout(6000)
+            try:
+                page.wait_for_function("()=>{ const t=(document.body.innerText||''); return /NO REGISTRA COMPARENDOS|NO REGISTRA MULTAS|TOTAL A PAGAR|TOTAL\s*\(/i.test(t); }", timeout=30000)
+            except Exception:
+                pass
+            page.wait_for_timeout(1000)
             data = None
-            for c in captured:
-                v = c.get('json')
-                if isinstance(v, dict):
-                    if any(k in v for k in ('comparendos','multas','data','results')):
-                        data = v
-                        break
-            if data is None and len(captured) > 0:
-                data = captured[-1].get('json')
             if data is None:
                 try:
-                    vals = page.evaluate("()=>{ const t=(document.body.innerText||''); const m=t.match(/\d[\d\.\,]{5,}/g)||[]; return m; }")
+                    body_txt = page.inner_text('body')
                 except Exception:
-                    vals = None
-                approx = None
-                if isinstance(vals, list) and len(vals)>0:
+                    body_txt = ''
+                up = (body_txt or '').upper()
+                no_multas = ('NO REGISTRA MULTAS' in up) or ('NO REGISTRA COMPARENDOS NI MULTAS' in up) or ('NO REGISTRA COMPARENDOS Y MULTAS' in up) or ('NO REGISTRA COMPARENDOS O MULTAS' in up)
+                if no_multas:
+                    data = {'results': []}
+                else:
                     try:
-                        smax = max(vals, key=lambda x: (len(x), x))
-                        approx = float(smax.replace('.', '').replace(',', '.'))
+                        m = re.search(r"TOTAL\s*\((\d+)\)\s*[:$]\s*\$?\s*([\d\.,]+)", body_txt, flags=re.IGNORECASE)
+                        multas_count = None
+                        val_s = None
+                        if m:
+                            multas_count = int(m.group(1))
+                            val_s = m.group(2)
+                        else:
+                            m = re.search(r"TOTAL\s*A\s*PAGAR\s*[:$]?\s*\$?\s*([\d\.,]+)", body_txt, flags=re.IGNORECASE)
+                            if not m:
+                                m = re.search(r"TOTAL\s*[:$]\s*\$?\s*([\d\.,]+)", body_txt, flags=re.IGNORECASE)
+                            val_s = m.group(1) if m else None
+                        val_f = float(str(val_s).replace('.', '').replace(',', '.')) if val_s else None
                     except Exception:
-                        approx = None
-                if approx is not None:
-                    data = {'results': [{'numero': 'APROX', 'valor_total': approx, 'entidad': 'SIMIT', 'estado': 'APROX'}]}
-            ctx.close(); b.close()
+                        multas_count = None
+                        val_f = None
+                    if val_f is not None and val_f > 0:
+                        if multas_count is None:
+                            try:
+                                mm = re.search(r"MULTAS\s*:\s*(\d+)", up, flags=re.IGNORECASE)
+                                if mm:
+                                    multas_count = int(mm.group(1))
+                            except Exception:
+                                multas_count = None
+                        item = {'numero': 'TOTAL', 'valor_total': val_f, 'entidad': 'SIMIT', 'estado': 'TOTAL'}
+                        data = {'results': [item]}
+                        if multas_count is not None and multas_count >= 0:
+                            data['multas'] = multas_count
+                            item['cantidad_multas'] = multas_count
+                    else:
+                        data = {'results': []}
+            _cleanup()
             if data is None:
-                return {'success': False, 'message': 'sin datos'}
+                wait_s = random.randint(6, 10)
+                time.sleep(wait_s)
+                continue
             return {'success': True, 'data': data}
+        return {'success': False, 'message': 'sin datos'}
     except Exception as e:
         return {'success': False, 'message': str(e)}
 
@@ -11511,13 +11845,13 @@ def ensure_mpa_simit_job_runs_table():
 ensure_mpa_simit_job_runs_table()
 
 simit_job_state = {
-    'running': False,
-    'started_at': None,
-    'finished_at': None,
-    'total': 0,
-    'processed': 0,
-    'interval': 10,
-    'stop_requested': False
+	'running': False,
+	'started_at': None,
+	'finished_at': None,
+	'total': 0,
+	'processed': 0,
+	'interval': 30,
+	'stop_requested': False
 }
 
 simit_job_stop_event = threading.Event()
@@ -11615,10 +11949,16 @@ def _mpa_simit_job_run():
         simit_job_state['stop_requested'] = False
 
 def _simit_job_due():
+    now_dt = get_bogota_datetime()
+    day = now_dt.day
+    if day not in (1, 15):
+        return False
+    if now_dt.hour < 21:
+        return False
     try:
         conn = get_db_connection()
         if conn is None:
-            return False
+            return True
         cur = conn.cursor()
         cur.execute("SELECT MAX(finished_at) FROM mpa_simit_job_runs")
         row = cur.fetchone()
@@ -11626,9 +11966,7 @@ def _simit_job_due():
         last = row[0] if row else None
         if not last:
             return True
-        now_dt = get_bogota_datetime()
-        delta_days = (now_dt.date() - last.date()).days
-        return delta_days >= 15
+        return last.date() != now_dt.date()
     except Exception:
         return True
 

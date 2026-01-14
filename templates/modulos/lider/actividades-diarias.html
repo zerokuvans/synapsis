@@ -1576,6 +1576,14 @@ async function abrirGestionActividad(ot, cuenta, tecnico, tecnicoId, estado, act
   await cargarTecnicosDatalist();
   bindTecnicoInputListener();
   try{
+    const role = (__currentUserRole || '').toLowerCase();
+    const hide = role === 'analista';
+    const tg = document.getElementById('gaTiempoGestion');
+    const du = document.getElementById('gaDuracion');
+    if(tg && tg.parentElement){ tg.parentElement.style.display = hide ? 'none' : ''; }
+    if(du && du.parentElement){ du.parentElement.style.display = hide ? 'none' : ''; }
+  }catch(_){}
+  try{
     const fecha = (document.getElementById('filtroFecha')?.value || '').trim();
     const qs = new URLSearchParams({ ot, cuenta });
     if(fecha) qs.append('fecha', fecha);
@@ -1631,9 +1639,7 @@ async function guardarGestionBasica(){
       estado: (__gaContext.estado || '').trim(),
       nombre_completo: (document.getElementById('gaNombre')?.value || '').trim(),
       tipo_de_actividad: (document.getElementById('gaTipoActividad')?.value || '').trim(),
-      direccion: (document.getElementById('gaDireccion')?.value || '').trim(),
-      inicio_fin: (document.getElementById('gaTiempoGestion')?.value || '').trim(),
-      duracion: (document.getElementById('gaDuracion')?.value || '').trim()
+      direccion: (document.getElementById('gaDireccion')?.value || '').trim()
     };
     await fetch('/api/analistas/actividad-gestion-update', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
   }catch(_){ }

@@ -49,7 +49,6 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, curren
 
 load_dotenv()
 
-# Configuración de zona horaria
 TIMEZONE = pytz.timezone('America/Bogota')
 
 # Remove debug print statements for environment variables
@@ -63,6 +62,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config.setdefault('PREFERRED_URL_SCHEME', 'http')
+
 
 # Configuración de logging
 logging.basicConfig(level=logging.INFO)
@@ -144,6 +144,7 @@ from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas
 from app import api_simit_resultados
 from app import api_mpa_simit_consultar_playwright
 from app import api_mpa_simit_job_run, api_mpa_simit_job_status, api_mpa_simit_job_stop
+from app import api_mpa_simit_export
 
 # Importar solo la función de actualización por claves para SSTT desde app.py
 from app import api_sstt_vencimientos_cursos_update_by
@@ -203,6 +204,7 @@ app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['DELETE'])(
 app.route('/api/mpa/vehiculos/placas', methods=['GET'])(api_get_placas)
 app.route('/api/mpa/simit/resultados', methods=['GET'])(api_simit_resultados)
 app.route('/api/mpa/simit/consultar-playwright', methods=['POST'])(api_mpa_simit_consultar_playwright)
+app.route('/api/mpa/simit/export', methods=['GET'])(api_mpa_simit_export)
 app.route('/api/mpa/simit/job/run', methods=['POST'])(api_mpa_simit_job_run)
 app.route('/api/mpa/simit/job/status', methods=['GET'])(api_mpa_simit_job_status)
 app.route('/api/mpa/simit/job/stop', methods=['POST','GET'])(api_mpa_simit_job_stop)
