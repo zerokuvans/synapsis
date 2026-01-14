@@ -9,8 +9,11 @@ from datetime import date, datetime
 import bcrypt
 import json
 import io
+import threading
+import time
 
 import requests
+from playwright.sync_api import sync_playwright
 from api_reportes import login_required_api
 app = Flask(__name__)
 app.secret_key = 'synapsis-secret-key-2024-production-secure-key-12345'
@@ -215,6 +218,340 @@ def ensure_riesgo_table():
         pass
 
 ensure_riesgo_table()
+
+def ensure_mpa_comparendos_table():
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mpa_comparendos (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                placa VARCHAR(32) NOT NULL,
+                tecnico_id INT NULL,
+                tecnico_nombre VARCHAR(128) NULL,
+                tipo_vehiculo VARCHAR(64) NULL,
+                tiene_multas ENUM('SI','NO') NOT NULL,
+                cantidad INT NULL,
+                valor_total DECIMAL(12,2) NULL,
+                fuente VARCHAR(32) DEFAULT 'SIMIT',
+                fecha_ultima_consulta DATETIME NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uk_mpa_comparendos_placa (placa),
+                INDEX idx_mpa_comparendos_tecnico (tecnico_id),
+                INDEX idx_mpa_comparendos_fecha (fecha_ultima_consulta)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        conn.commit()
+        cur.close(); conn.close()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+
+ensure_mpa_comparendos_table()
+
+def ensure_mpa_comparendos_detalle_table():
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mpa_comparendos_detalle (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                placa VARCHAR(32) NOT NULL,
+                referencia VARCHAR(128) NULL,
+                fecha DATE NULL,
+                valor DECIMAL(12,2) NULL,
+                entidad VARCHAR(128) NULL,
+                estado VARCHAR(64) NULL,
+                raw_json TEXT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_comp_det_placa (placa),
+                INDEX idx_comp_det_fecha (fecha)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        conn.commit()
+        cur.close(); conn.close()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+
+ensure_mpa_comparendos_detalle_table()
+
+@app.route('/api/mpa/simit/resultados', methods=['GET'])
+@login_required
+def api_simit_resultados():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        placa = (request.args.get('placa') or '').strip().upper()
+        tecnico = (request.args.get('tecnico') or '').strip()
+        where = []
+        params = []
+        if placa:
+            where.append("UPPER(TRIM(placa)) = %s")
+            params.append(placa)
+        if tecnico:
+            try:
+                tid = int(tecnico)
+                where.append("tecnico_id = %s")
+                params.append(tid)
+            except Exception:
+                where.append("tecnico_nombre LIKE %s")
+                params.append('%'+tecnico+'%')
+        query = "SELECT placa, tecnico_id, tecnico_nombre, tipo_vehiculo, tiene_multas, cantidad, valor_total, fuente, fecha_ultima_consulta FROM mpa_comparendos"
+        if where:
+            query += " WHERE " + " AND ".join(where)
+        query += " ORDER BY fecha_ultima_consulta DESC, placa"
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+        for r in rows:
+            d = r.get('fecha_ultima_consulta')
+            if d:
+                try:
+                    r['fecha_ultima_consulta'] = d.strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    pass
+            try:
+                c_val = r.get('cantidad')
+                v_val = r.get('valor_total')
+                c_num = int(str(c_val).strip()) if c_val is not None else 0
+            except Exception:
+                c_num = 0
+            try:
+                v_num = float(str(v_val).strip()) if v_val is not None else 0.0
+            except Exception:
+                v_num = 0.0
+            r['tiene_multas'] = 'SI' if (c_num > 0 or v_num > 0) else 'NO'
+            if v_num > 0 and c_num <= 0:
+                r['cantidad'] = 1
+        return jsonify({'success': True, 'data': rows})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+def _num(v):
+    try:
+        s = str(v).replace(',', '').replace('$', '').strip()
+        if s == '':
+            return 0.0
+        return float(s)
+    except Exception:
+        return 0.0
+
+def _update_comparendos_from_result(placa, tecnico_id, tecnico_nombre, tipo, result_data):
+    conn = get_db_connection()
+    if conn is None:
+        return {'success': False, 'message': 'BD no disponible'}
+    try:
+        items = []
+        if isinstance(result_data, dict):
+            for k, v in result_data.items():
+                if isinstance(v, list):
+                    items.extend(v)
+            maybe_data = result_data.get('data')
+            if isinstance(maybe_data, dict):
+                for k, v in maybe_data.items():
+                    if isinstance(v, list):
+                        items.extend(v)
+            if isinstance(maybe_data, list):
+                items.extend(maybe_data)
+        elif isinstance(result_data, list):
+            items = result_data
+        detalles = []
+        for it in items:
+            if not isinstance(it, (dict,)):
+                continue
+            valor = _num(it.get('valor') or it.get('valor_total') or it.get('amount') or it.get('monto') or it.get('total'))
+            if valor <= 0 and not any(x in it for x in ('valor','valor_total','amount','monto','total')):
+                continue
+            ref = it.get('numero') or it.get('id') or it.get('referencia') or it.get('code')
+            fecha = it.get('fecha') or it.get('date') or None
+            entidad = it.get('entidad') or it.get('authority') or it.get('organismo')
+            estado = it.get('estado') or it.get('status')
+            detalles.append({'referencia': ref, 'fecha': fecha, 'valor': valor, 'entidad': entidad, 'estado': estado, 'raw': it})
+        cantidad = len(detalles)
+        valor_total = sum(d['valor'] for d in detalles)
+        tiene_multas = 'SI' if (cantidad > 0 or valor_total > 0) else 'NO'
+        now_dt = get_bogota_datetime()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO mpa_comparendos (placa, tecnico_id, tecnico_nombre, tipo_vehiculo, tiene_multas, cantidad, valor_total, fuente, fecha_ultima_consulta)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ON DUPLICATE KEY UPDATE
+                tecnico_id=VALUES(tecnico_id),
+                tecnico_nombre=VALUES(tecnico_nombre),
+                tipo_vehiculo=VALUES(tipo_vehiculo),
+                tiene_multas=VALUES(tiene_multas),
+                cantidad=VALUES(cantidad),
+                valor_total=VALUES(valor_total),
+                fuente=VALUES(fuente),
+                fecha_ultima_consulta=VALUES(fecha_ultima_consulta)
+            """,
+            (placa, tecnico_id, tecnico_nombre, tipo, tiene_multas, int(cantidad or 0), float(valor_total or 0.0), 'SIMIT', now_dt)
+        )
+        conn.commit()
+        # Insertar detalles
+        cur_det = conn.cursor()
+        try:
+            cur_det.execute("DELETE FROM mpa_comparendos_detalle WHERE placa = %s", (placa,))
+            conn.commit()
+        except Exception:
+            pass
+        for d in detalles:
+            fecha_val = None
+            try:
+                fecha_val = datetime.strptime(str(d['fecha'])[:10], '%Y-%m-%d').date() if d['fecha'] else None
+            except Exception:
+                fecha_val = None
+            raw_str = json.dumps(d['raw']) if isinstance(d.get('raw'), dict) else None
+            cur_det.execute(
+                """
+                INSERT INTO mpa_comparendos_detalle (placa, referencia, fecha, valor, entidad, estado, raw_json)
+                VALUES (%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (placa, d.get('referencia'), fecha_val, float(d.get('valor') or 0.0), d.get('entidad'), d.get('estado'), raw_str)
+            )
+        conn.commit()
+        cur_det.close(); cur.close(); conn.close()
+        return {'success': True, 'cantidad': cantidad, 'valor_total': valor_total, 'detalles': detalles}
+    except Exception as e:
+        try:
+            conn.rollback()
+            conn.close()
+        except Exception:
+            pass
+        return {'success': False, 'message': str(e)}
+
+@app.route('/api/mpa/simit/consultar', methods=['POST'])
+@login_required
+def api_mpa_simit_consultar():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+    data = request.get_json(silent=True) or {}
+    placa = (data.get('placa') or request.form.get('placa') or '').strip().upper()
+    document_type = data.get('document_type') or request.form.get('document_type')
+    document_number = data.get('document_number') or request.form.get('document_number')
+    if not placa or not document_type or not document_number:
+        return jsonify({'success': False, 'message': 'placa, document_type y document_number requeridos'}), 400
+    conn_chk = get_db_connection()
+    if conn_chk is None:
+        return jsonify({'success': False, 'message': 'BD no disponible'}), 500
+    try:
+        cur_chk = conn_chk.cursor(dictionary=True)
+        cur_chk.execute(
+            """
+            SELECT pa.id_codigo_consumidor AS tecnico_id, ro.estado AS tecnico_estado
+            FROM parque_automotor pa
+            LEFT JOIN recurso_operativo ro ON pa.id_codigo_consumidor = ro.id_codigo_consumidor
+            WHERE UPPER(TRIM(pa.placa)) = %s
+            """,
+            (placa,)
+        )
+        row_chk = cur_chk.fetchone() or {}
+        cur_chk.close(); conn_chk.close()
+        if row_chk.get('tecnico_id') is not None:
+            est = (row_chk.get('tecnico_estado') or '').strip()
+            if est != 'Activo':
+                return jsonify({'success': False, 'message': 'Placa asociada a técnico inactivo'}), 400
+    except Exception:
+        try:
+            conn_chk.close()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': 'Error validando placa'}), 500
+    req = apitude_simit_create_request(document_type, document_number)
+    if not req.get('success'):
+        return jsonify(req), req.get('status_code') or 500
+    rd = req.get('data') or {}
+    request_id = rd.get('request_id')
+    if not request_id:
+        return jsonify({'success': False, 'message': 'request_id no disponible'}), 500
+    import time as _t
+    _t.sleep(3)
+    res = api_mpa_simit_result.__wrapped__(request_id) if hasattr(api_mpa_simit_result, '__wrapped__') else api_mpa_simit_result(request_id)
+    try:
+        payload = res.get_json()
+    except Exception:
+        payload = None
+    if not payload or not payload.get('success'):
+        return jsonify({'success': False, 'message': 'Consulta SIMIT fallida', 'data': payload}), 500
+    data_block = payload.get('data') or {}
+    tecnico_id = None
+    tecnico_nombre = None
+    tipo = None
+    upd = _update_comparendos_from_result(placa, tecnico_id, tecnico_nombre, tipo, data_block)
+    return jsonify({'success': True, 'placa': placa, 'cantidad': upd.get('cantidad'), 'valor_total': upd.get('valor_total'), 'detalles': upd.get('detalles')})
+
+@app.route('/api/mpa/simit/consultar-playwright', methods=['POST'])
+@login_required
+def api_mpa_simit_consultar_playwright():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+    data = request.get_json(silent=True) or {}
+    placa = (data.get('placa') or request.form.get('placa') or '').strip().upper()
+    if not placa:
+        return jsonify({'success': False, 'message': 'placa requerida'}), 400
+    conn_chk = get_db_connection()
+    if conn_chk is None:
+        return jsonify({'success': False, 'message': 'BD no disponible'}), 500
+    try:
+        cur_chk = conn_chk.cursor(dictionary=True)
+        cur_chk.execute(
+            """
+            SELECT mv.tipo_vehiculo AS tipo, CAST(mv.tecnico_asignado AS UNSIGNED) AS tecnico_id,
+                   ro.nombre AS tecnico_nombre, ro.estado AS tecnico_estado
+            FROM mpa_vehiculos mv
+            LEFT JOIN recurso_operativo ro ON CAST(mv.tecnico_asignado AS UNSIGNED) = ro.id_codigo_consumidor
+            WHERE UPPER(TRIM(mv.placa)) = %s AND mv.estado = 'Activo'
+            """,
+            (placa,)
+        )
+        row_chk = cur_chk.fetchone() or {}
+        cur_chk.close(); conn_chk.close()
+        if row_chk.get('tecnico_id') is not None:
+            est = (row_chk.get('tecnico_estado') or '').strip()
+            if est != 'Activo':
+                return jsonify({'success': False, 'message': 'Placa asociada a técnico inactivo'}), 400
+        res = simit_query_by_placa_playwright(placa)
+        if not res.get('success'):
+            return jsonify(res), 500
+        data_block = res.get('data') or {}
+        upd = _update_comparendos_from_result(
+            placa,
+            row_chk.get('tecnico_id'),
+            row_chk.get('tecnico_nombre'),
+            row_chk.get('tipo')
+            ,
+            data_block
+        )
+        return jsonify({'success': True, 'placa': placa, 'cantidad': upd.get('cantidad'), 'valor_total': upd.get('valor_total'), 'detalles': upd.get('detalles')})
+    except Exception as e:
+        try:
+            conn_chk.close()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 def ensure_sgis_permiso_trabajo_tables():
     try:
@@ -2321,17 +2658,35 @@ def api_tecnicos_asignados():
                     (tecnico['id_codigo_consumidor'],)
                 )
                 ultima_inspeccion = cursor.fetchone()
+                if not ultima_inspeccion:
+                    cursor.execute(
+                        """
+                        SELECT *
+                        FROM mpa_inspeccion_vehiculo
+                        WHERE recurso_operativo_cedula = %s
+                        ORDER BY fecha_inspeccion DESC
+                        LIMIT 1
+                        """,
+                        (tecnico['cedula'],)
+                    )
+                    ultima_inspeccion = cursor.fetchone()
                 if ultima_inspeccion:
                     fi = ultima_inspeccion.get('fecha_inspeccion')
                     fecha_str = None
+                    fi_date = None
                     if fi:
                         try:
-                            fecha_str = fi.strftime('%Y-%m-%d')
+                            fi_date = fi.date() if hasattr(fi, 'date') else datetime.strptime(str(fi)[:19], '%Y-%m-%d %H:%M:%S').date()
                         except Exception:
                             try:
-                                fecha_str = str(fi)[:10]
+                                fi_date = datetime.strptime(str(fi)[:10], '%Y-%m-%d').date()
                             except Exception:
-                                fecha_str = None
+                                fi_date = None
+                        if fi_date:
+                            try:
+                                fecha_str = fi_date.strftime('%Y-%m-%d')
+                            except Exception:
+                                fecha_str = str(fi)[:10]
                     bm_fields = [
                         'estado_fisico_espejos_laterales','estado_fisico_pito','estado_fisico_freno_servicio','estado_fisico_manillares','estado_fisico_guayas','estado_fisico_tanque_combustible','estado_fisico_encendido','estado_fisico_pedales','estado_fisico_guardabarros','estado_fisico_sillin_tapiceria','estado_fisico_tablero','estado_fisico_mofle_silenciador','estado_fisico_kit_arrastre','estado_fisico_reposa_pies','estado_fisico_pata_lateral_central','estado_fisico_tijera_amortiguador','estado_fisico_bateria','luces_altas_bajas','luces_direccionales_delanteros','luces_direccionales_traseros','luces_luz_placa','luces_stop','prevension_casco','prevension_guantes','prevension_rodilleras','prevension_coderas','llantas_labrado_llantas','llantas_rines','llantas_presion_aire','otros_aceite','otros_suspension_direccion','otros_caja_cambios','otros_conexiones_electricas'
                     ]
@@ -2353,9 +2708,8 @@ def api_tecnicos_asignados():
                         if s == 'M' or s == 'MALO':
                             malos += 1
                     dias_restantes = None
-                    if fi:
+                    if fi_date:
                         try:
-                            fi_date = fi.date() if hasattr(fi, 'date') else datetime.strptime(str(fi)[:10], '%Y-%m-%d').date()
                             hoy = get_bogota_datetime().date()
                             transcurridos = (hoy - fi_date).days
                             dias_restantes = 5 - transcurridos
@@ -6183,6 +6537,14 @@ def mpa_licencias():
         return redirect(url_for('mpa_dashboard'))
     
     return redirect(url_for('mpa_licencias_conducir'))
+
+@app.route('/mpa/simit')
+@login_required
+def mpa_simit():
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    return render_template('modulos/mpa/simit.html')
 
 @app.route('/mpa/inspecciones')
 @login_required
@@ -10646,6 +11008,413 @@ def api_agrupaciones_codigos_facturacion():
 APITUDE_BASE_URL = 'https://apitude.co'
 APITUDE_SIMIT_ENDPOINT = '/api/v1.0/requests/simit-co/'
 
+def simit_query_by_placa_playwright(placa):
+    try:
+        s = (placa or '').strip().upper()
+        if not s:
+            return {'success': False, 'message': 'placa requerida'}
+        with sync_playwright() as p:
+            b = p.chromium.launch(headless=True)
+            ctx = b.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', locale='es-ES')
+            page = ctx.new_page()
+            page.goto('https://www.fcm.org.co/simit/#/consultas', timeout=45000, wait_until='domcontentloaded')
+            page.wait_for_load_state('domcontentloaded')
+            try:
+                page.wait_for_load_state('networkidle')
+            except Exception:
+                pass
+            try:
+                for txt in ['Aceptar','Acepto','Entendido','Continuar','Cerrar']:
+                    cand = page.locator(f'button:has-text("{txt}")')
+                    if cand.count() > 0:
+                        cand.first.click()
+                        break
+            except Exception:
+                pass
+            try:
+                por_placa = page.get_by_text('Por placa', exact=False)
+                if por_placa.count() > 0:
+                    por_placa.first.click()
+                else:
+                    lnk = page.locator('a[href*="por-placa"], button:has-text("Por placa")')
+                    if lnk.count() > 0:
+                        lnk.first.click()
+                    else:
+                        page.evaluate("()=>{ const txt='por placa'; const nodes=Array.from(document.querySelectorAll('a,button,div,span')); for(const n of nodes){ const t=(n.innerText||n.textContent||'').toLowerCase(); if(t.includes(txt)){ n.click(); return true; } } return false; }")
+            except Exception:
+                try:
+                    page.evaluate("()=>{ const txt='por placa'; const nodes=Array.from(document.querySelectorAll('a,button,div,span')); for(const n of nodes){ const t=(n.innerText||n.textContent||'').toLowerCase(); if(t.includes(txt)){ n.click(); return true; } } return false; }")
+                except Exception:
+                    pass
+            if True:
+                try:
+                    for fr in page.frames:
+                        try:
+                            por_placa_fr = fr.get_by_text('Por placa', exact=False)
+                            if por_placa_fr.count() > 0:
+                                por_placa_fr.first.click()
+                                break
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            try:
+                page.wait_for_timeout(1500)
+            except Exception:
+                pass
+            try:
+                page.wait_for_selector('form input, mat-form-field input, input[formcontrolname], input[ng-reflect-form-control-name]', timeout=12000)
+            except Exception:
+                pass
+            form = None
+            try:
+                forms = page.locator('form')
+                cnt = forms.count()
+                for i in range(cnt):
+                    f = forms.nth(i)
+                    try:
+                        t = f.inner_text().lower()
+                    except Exception:
+                        t = ''
+                    if 'placa' in t:
+                        form = f
+                        break
+            except Exception:
+                form = None
+            inp = None
+            if form is not None:
+                candidates = form.locator('input[placeholder*="placa" i], input[name*="placa" i], input[id*="placa" i], input[type="text"]')
+                if candidates.count() > 0:
+                    inp = candidates.first
+            if inp is None:
+                candidates = page.locator('input[formcontrolname="placa"], input[ng-reflect-form-control-name*="placa"], input[placeholder*="placa" i], input[placeholder*="vehículo" i], input[placeholder*="vehiculo" i], input[name*="placa" i], input[id*="placa" i], input.mat-input-element')
+                if candidates.count() > 0:
+                    inp = candidates.first
+            if inp is None:
+                try:
+                    any_inp = page.locator('form input')
+                    if any_inp.count() > 0:
+                        inp = any_inp.first
+                except Exception:
+                    pass
+            if inp is None:
+                try:
+                    lb = page.get_by_label('Placa', exact=False)
+                    if lb.count() > 0:
+                        inp = lb.first
+                except Exception:
+                    pass
+            if inp is None:
+                try:
+                    tb = page.get_by_role('textbox', name='Placa', exact=False)
+                    if tb.count() > 0:
+                        inp = tb.first
+                except Exception:
+                    pass
+            if inp is None:
+                try:
+                    ph = page.get_by_placeholder('Placa', exact=False)
+                    if ph.count() > 0:
+                        inp = ph.first
+                except Exception:
+                    pass
+            if inp is None:
+                txts = page.locator('form input[type="text"]')
+                if txts.count() > 0:
+                    inp = txts.first
+            if inp is None:
+                try:
+                    xp = page.locator('xpath=//*[contains(text(),"Placa")]/following::input[1]')
+                    if xp.count() > 0:
+                        inp = xp.first
+                except Exception:
+                    pass
+            if inp is None:
+                try:
+                    for fr in page.frames:
+                        try:
+                            lb = fr.get_by_label('Placa', exact=False)
+                            if lb.count() > 0:
+                                inp = lb.first
+                                break
+                        except Exception:
+                            pass
+                        try:
+                            tb = fr.get_by_role('textbox', name='Placa', exact=False)
+                            if tb.count() > 0:
+                                inp = tb.first
+                                break
+                        except Exception:
+                            pass
+                        try:
+                            cand = fr.locator('input[placeholder*="placa" i], input[name*="placa" i], input[id*="placa" i], input[type="text"], input')
+                            if cand.count() > 0:
+                                inp = cand.first
+                                break
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            if inp is None or (inp is not None and not inp.is_visible()):
+                try:
+                    ok = page.evaluate("""
+                        (val)=>{
+                          const vis = el => !!(el && (el.offsetParent || el.getClientRects().length));
+                          const txt = el => (el && (el.innerText||el.textContent)||'').toLowerCase();
+                          let el = null;
+                          let inputs = Array.from(document.querySelectorAll('mat-form-field input'));
+                          if(inputs.length === 0){ inputs = Array.from(document.querySelectorAll('input')); }
+                          for(const i of inputs){
+                            if(!vis(i)) continue;
+                            const aria = (i.getAttribute('aria-label')||'').toLowerCase();
+                            if(aria.includes('placa')){ el=i; break; }
+                            const labels = i.labels ? Array.from(i.labels) : [];
+                            const ltext = labels.map(x=>txt(x)).join(' ');
+                            if(ltext.includes('placa')){ el=i; break; }
+                            const f = i.closest('form');
+                            const ptxt = txt(f)||txt(i.parentElement);
+                            if(ptxt.includes('placa')){ el=i; break; }
+                          }
+                          if(!el){
+                            const lbls = Array.from(document.querySelectorAll('label, mat-label, span, div'));
+                            const l = lbls.find(x=>vis(x) && txt(x).includes('placa'));
+                            if(l){
+                              const cont = l.closest('form') || l.parentElement;
+                              if(cont){
+                                let ins = Array.from(cont.querySelectorAll('mat-form-field input')).filter(vis);
+                                if(ins.length === 0){ ins = Array.from(cont.querySelectorAll('input')).filter(vis); }
+                                el = ins[0]||null;
+                              }
+                            }
+                          }
+                          if(!el){
+                            const nodes = Array.from(document.querySelectorAll('*'));
+                            for(const n of nodes){
+                              const sr = n.shadowRoot;
+                              if(!sr) continue;
+                              const ins = Array.from(sr.querySelectorAll('input'));
+                              const cand = ins.find(i=>vis(i) && ((i.getAttribute('aria-label')||'').toLowerCase().includes('placa') || (i.placeholder||'').toLowerCase().includes('placa')));
+                              if(cand){ el=cand; break; }
+                            }
+                          }
+                          if(el){
+                            el.focus();
+                            try{ el.value=''; }catch(e){}
+                            try{ el.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
+                            try{ el.value=val; }catch(e){}
+                            try{ el.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
+                            try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){}
+                            return true;
+                          }
+                          return false;
+                        }
+                    """, s)
+                    if not ok:
+                        try:
+                            page.evaluate(
+                                """
+                                (val)=>{
+                                  try{
+                                    const ins = Array.from(document.querySelectorAll('input')).filter(el=>el && el.offsetParent);
+                                    if(ins.length){
+                                      ins[0].focus();
+                                      ins[0].value='';
+                                      ins[0].dispatchEvent(new Event('input',{bubbles:true}));
+                                      ins[0].value=val;
+                                      ins[0].dispatchEvent(new Event('input',{bubbles:true}));
+                                      ins[0].dispatchEvent(new Event('change',{bubbles:true}));
+                                    }
+                                    return true;
+                                  }catch(e){ return false; }
+                                }
+                                """,
+                                s
+                            )
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                if inp is None or (inp is not None and not inp.is_visible()):
+                    try:
+                        filled = False
+                        for fr in page.frames:
+                            try:
+                                ok_fr = fr.evaluate("""
+                                    (val)=>{
+                                      const vis = el => !!(el && (el.offsetParent || el.getClientRects().length));
+                                      const txt = el => (el && (el.innerText||el.textContent)||'').toLowerCase();
+                                      let el = null;
+                                      let inputs = Array.from(document.querySelectorAll('mat-form-field input'));
+                                      if(inputs.length === 0){ inputs = Array.from(document.querySelectorAll('input')); }
+                                      for(const i of inputs){
+                                        if(!vis(i)) continue;
+                                        const aria = (i.getAttribute('aria-label')||'').toLowerCase();
+                                        if(aria.includes('placa')){ el=i; break; }
+                                        const labels = i.labels ? Array.from(i.labels) : [];
+                                        const ltext = labels.map(x=>txt(x)).join(' ');
+                                        if(ltext.includes('placa')){ el=i; break; }
+                                        const f = i.closest('form');
+                                        const ptxt = txt(f)||txt(i.parentElement);
+                                        if(ptxt.includes('placa')){ el=i; break; }
+                                      }
+                                      if(!el){
+                                        const lbls = Array.from(document.querySelectorAll('label, mat-label, span, div'));
+                                        const l = lbls.find(x=>vis(x) && txt(x).includes('placa'));
+                                        if(l){
+                                          const cont = l.closest('form') || l.parentElement;
+                                          if(cont){
+                                            let ins = Array.from(cont.querySelectorAll('mat-form-field input')).filter(vis);
+                                            if(ins.length === 0){ ins = Array.from(cont.querySelectorAll('input')).filter(vis); }
+                                            el = ins[0]||null;
+                                          }
+                                        }
+                                      }
+                                      if(!el){
+                                        const nodes = Array.from(document.querySelectorAll('*'));
+                                        for(const n of nodes){
+                                          const sr = n.shadowRoot;
+                                          if(!sr) continue;
+                                          const ins = Array.from(sr.querySelectorAll('input'));
+                                          const cand = ins.find(i=>vis(i) && ((i.getAttribute('aria-label')||'').toLowerCase().includes('placa') || (i.placeholder||'').toLowerCase().includes('placa')));
+                                          if(cand){ el=cand; break; }
+                                        }
+                                      }
+                                      if(el){
+                                        el.focus();
+                                        try{ el.value=''; }catch(e){}
+                                        try{ el.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
+                                        try{ el.value=val; }catch(e){}
+                                        try{ el.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
+                                        try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){}
+                                        return true;
+                                      }
+                                      return false;
+                                    }
+                                """, s)
+                                if ok_fr:
+                                    filled = True
+                                    break
+                            except Exception:
+                                pass
+                        if not filled:
+                            try:
+                                inputs = page.locator('input')
+                                c = inputs.count()
+                                cand = None
+                                for i in range(c):
+                                    el = inputs.nth(i)
+                                    try:
+                                        if el.is_visible():
+                                            cand = el
+                                            break
+                                    except Exception:
+                                        pass
+                                if cand:
+                                    try:
+                                        cand.focus()
+                                        cand.fill(s)
+                                    except Exception:
+                                        try:
+                                            cand.click()
+                                        except Exception:
+                                            pass
+                                        try:
+                                            page.keyboard.type(s)
+                                        except Exception:
+                                            pass
+                                else:
+                                    ctx.close(); b.close()
+                                    return {'success': False, 'message': 'input placa no encontrado'}
+                            except Exception:
+                                ctx.close(); b.close(); return {'success': False, 'message': 'input placa no encontrado'}
+                    except Exception:
+                        ctx.close(); b.close()
+                        return {'success': False, 'message': 'input placa no encontrado'}
+            else:
+                inp.fill(s)
+            btn = None
+            if form is not None:
+                bts = form.locator('button[type="submit"]')
+                if bts.count() > 0:
+                    btn = bts.first
+            if btn is None:
+                btn_candidates = [
+                    'button:has-text("Consultar")',
+                    'button:has-text("Buscar")'
+                ]
+                for bs in btn_candidates:
+                    if page.locator(bs).count() > 0:
+                        btn = page.locator(bs).first
+                        break
+            if btn is None and form is not None:
+                bts2 = form.locator('button')
+                if bts2.count() > 0:
+                    btn = bts2.first
+            if btn is None:
+                try:
+                    sub_ok = page.evaluate("()=>{ const f=document.querySelector('form')||document; const q=sel=>Array.from(f.querySelectorAll(sel)); const bv=q('button[type=submit], button.mat-raised-button, button.mat-flat-button').find(x=>/(consultar|buscar)/i.test((x.innerText||x.textContent||''))); if(bv){ bv.click(); return true;} const b=q('button').find(x=>/(consultar|buscar)/i.test((x.innerText||x.textContent||''))); if(b){ b.click(); return true;} return false; }")
+                    if not sub_ok:
+                        try:
+                            page.keyboard.press('Enter')
+                        except Exception:
+                            pass
+                except Exception:
+                    ctx.close(); b.close()
+                    return {'success': False, 'message': 'boton consultar no encontrado'}
+            else:
+                captured = []
+                def on_response(resp):
+                    try:
+                        ct = resp.headers.get('content-type') or resp.headers.get('Content-Type') or ''
+                        j = None
+                        if 'application/json' in ct:
+                            try:
+                                j = resp.json()
+                            except Exception:
+                                j = None
+                        if j is None:
+                            try:
+                                import json as _json
+                                j = _json.loads(resp.text())
+                            except Exception:
+                                j = None
+                        if isinstance(j, dict):
+                            captured.append({'url': resp.url, 'json': j})
+                    except Exception:
+                        pass
+                page.on('response', on_response)
+                btn.click()
+            page.wait_for_timeout(6000)
+            data = None
+            for c in captured:
+                v = c.get('json')
+                if isinstance(v, dict):
+                    if any(k in v for k in ('comparendos','multas','data','results')):
+                        data = v
+                        break
+            if data is None and len(captured) > 0:
+                data = captured[-1].get('json')
+            if data is None:
+                try:
+                    vals = page.evaluate("()=>{ const t=(document.body.innerText||''); const m=t.match(/\d[\d\.\,]{5,}/g)||[]; return m; }")
+                except Exception:
+                    vals = None
+                approx = None
+                if isinstance(vals, list) and len(vals)>0:
+                    try:
+                        smax = max(vals, key=lambda x: (len(x), x))
+                        approx = float(smax.replace('.', '').replace(',', '.'))
+                    except Exception:
+                        approx = None
+                if approx is not None:
+                    data = {'results': [{'numero': 'APROX', 'valor_total': approx, 'entidad': 'SIMIT', 'estado': 'APROX'}]}
+            ctx.close(); b.close()
+            if data is None:
+                return {'success': False, 'message': 'sin datos'}
+            return {'success': True, 'data': data}
+    except Exception as e:
+        return {'success': False, 'message': str(e)}
+
 def apitude_simit_create_request(document_type, document_number):
     api_key = os.getenv('APITUDE_API_KEY')
     if not api_key:
@@ -10661,6 +11430,23 @@ def apitude_simit_create_request(document_type, document_number):
         return {'success': True, 'data': data}
     except Exception as e:
         return {'success': False, 'error': 'EXCEPTION', 'message': str(e)}
+
+def apitude_simit_get_result(request_id):
+    api_key = os.getenv('APITUDE_API_KEY')
+    if not api_key:
+        return {'success': False, 'message': 'API key no configurada'}
+    path = f"/api/v1.0/requests/simit-co/{request_id}/"
+    url = f"{APITUDE_BASE_URL}{path}"
+    headers = {'x-api-key': api_key, 'Accept': 'application/json'}
+    try:
+        r = requests.get(url, headers=headers, timeout=30)
+        content_type = r.headers.get('Content-Type') or ''
+        data = r.json() if 'application/json' in content_type else {'raw': r.text}
+        if r.status_code >= 400:
+            return {'success': False, 'status_code': r.status_code, 'data': data}
+        return {'success': True, 'data': data}
+    except Exception as e:
+        return {'success': False, 'message': str(e)}
 
 @app.route('/api/mpa/simit/request', methods=['POST'])
 @login_required
@@ -10695,6 +11481,243 @@ def api_mpa_simit_result(request_id):
         return jsonify({'success': True, 'data': data})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+def ensure_mpa_simit_job_runs_table():
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS mpa_simit_job_runs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                started_at DATETIME NULL,
+                finished_at DATETIME NULL,
+                total INT DEFAULT 0,
+                processed INT DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        conn.commit()
+        cur.close(); conn.close()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+
+ensure_mpa_simit_job_runs_table()
+
+simit_job_state = {
+    'running': False,
+    'started_at': None,
+    'finished_at': None,
+    'total': 0,
+    'processed': 0,
+    'interval': 10,
+    'stop_requested': False
+}
+
+simit_job_stop_event = threading.Event()
+
+def _mpa_simit_job_run():
+    try:
+        simit_job_stop_event.clear()
+    except Exception:
+        pass
+    connection = get_db_connection()
+    if connection is None:
+        simit_job_state['running'] = False
+        simit_job_state['finished_at'] = get_bogota_datetime()
+        return
+    try:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT 
+                mv.placa,
+                mv.tipo_vehiculo,
+                CAST(mv.tecnico_asignado AS UNSIGNED) AS tecnico_id,
+                ro.nombre AS tecnico_nombre,
+                ro.recurso_operativo_cedula AS cedula
+            FROM mpa_vehiculos mv
+            LEFT JOIN recurso_operativo ro ON CAST(mv.tecnico_asignado AS UNSIGNED) = ro.id_codigo_consumidor
+            WHERE mv.placa IS NOT NULL AND TRIM(mv.placa) != ''
+              AND mv.estado = 'Activo'
+              AND mv.tecnico_asignado IS NOT NULL AND TRIM(mv.tecnico_asignado) <> ''
+              AND ro.estado = 'Activo'
+            ORDER BY mv.placa
+            """
+        )
+        rows = cursor.fetchall() or []
+        simit_job_state['total'] = len(rows)
+        simit_job_state['processed'] = 0
+        run_conn = get_db_connection()
+        run_cur = run_conn.cursor()
+        run_cur.execute("INSERT INTO mpa_simit_job_runs (started_at, total, processed) VALUES (%s,%s,%s)", (get_bogota_datetime(), simit_job_state['total'], 0))
+        run_conn.commit()
+        run_cur.execute("SELECT LAST_INSERT_ID()")
+        run_id_row = run_cur.fetchone()
+        run_id = run_id_row[0] if run_id_row else None
+        for r in rows:
+            if simit_job_stop_event.is_set():
+                break
+            placa = (r.get('placa') or '').strip().upper()
+            tipo = r.get('tipo_vehiculo') or None
+            tecnico_id = r.get('tecnico_id')
+            tecnico_nombre = r.get('tecnico_nombre') or None
+            res = simit_query_by_placa_playwright(placa)
+            if not res.get('success'):
+                try:
+                    _update_comparendos_from_result(placa, tecnico_id, tecnico_nombre, tipo, [])
+                except Exception:
+                    pass
+                simit_job_state['processed'] += 1
+                if run_id is not None:
+                    run_cur.execute("UPDATE mpa_simit_job_runs SET processed=%s WHERE id=%s", (simit_job_state['processed'], run_id))
+                    run_conn.commit()
+                continue
+            data_block = res.get('data') or {}
+            _update_comparendos_from_result(placa, tecnico_id, tecnico_nombre, tipo, data_block)
+            simit_job_state['processed'] += 1
+            if run_id is not None:
+                run_cur.execute("UPDATE mpa_simit_job_runs SET processed=%s WHERE id=%s", (simit_job_state['processed'], run_id))
+                run_conn.commit()
+            try:
+                iv = int(simit_job_state.get('interval') or 60)
+            except Exception:
+                iv = 60
+            if iv < 1:
+                iv = 1
+            for _ in range(iv):
+                if simit_job_stop_event.is_set():
+                    break
+                time.sleep(1)
+        if run_id is not None:
+            run_cur.execute("UPDATE mpa_simit_job_runs SET finished_at=%s WHERE id=%s", (get_bogota_datetime(), run_id))
+            run_conn.commit()
+        run_cur.close(); run_conn.close()
+    except Exception:
+        try:
+            run_conn.rollback()
+        except Exception:
+            pass
+    finally:
+        try:
+            cursor.close()
+            connection.close()
+        except Exception:
+            pass
+        simit_job_state['running'] = False
+        simit_job_state['finished_at'] = get_bogota_datetime()
+        simit_job_state['stop_requested'] = False
+
+def _simit_job_due():
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return False
+        cur = conn.cursor()
+        cur.execute("SELECT MAX(finished_at) FROM mpa_simit_job_runs")
+        row = cur.fetchone()
+        cur.close(); conn.close()
+        last = row[0] if row else None
+        if not last:
+            return True
+        now_dt = get_bogota_datetime()
+        delta_days = (now_dt.date() - last.date()).days
+        return delta_days >= 15
+    except Exception:
+        return True
+
+def _maybe_start_simit_job_auto():
+    if simit_job_state['running']:
+        return
+    if _simit_job_due():
+        simit_job_state['running'] = True
+        simit_job_state['started_at'] = get_bogota_datetime()
+        t = threading.Thread(target=_mpa_simit_job_run, daemon=True)
+        t.start()
+
+@app.route('/api/mpa/simit/job/run', methods=['POST'])
+@login_required
+def api_mpa_simit_job_run():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+    if simit_job_state['running']:
+        return jsonify({'success': False, 'message': 'Job en ejecución'}), 400
+    data = request.get_json(silent=True) or {}
+    force_param = request.args.get('force') or request.form.get('force') or data.get('force')
+    force = False
+    try:
+        force = str(force_param).strip().lower() in ('1','true','t','yes','y','si','s')
+    except Exception:
+        force = False
+    # intervalo configurable
+    iv_param = request.args.get('interval') or request.form.get('interval') or data.get('interval')
+    try:
+        iv = int(str(iv_param)) if iv_param is not None else int(simit_job_state.get('interval') or 60)
+    except Exception:
+        iv = int(simit_job_state.get('interval') or 60)
+    if iv < 3:
+        iv = 3
+    if iv > 300:
+        iv = 300
+    simit_job_state['interval'] = iv
+    if not force and not _simit_job_due():
+        return jsonify({'success': False, 'message': 'No corresponde ejecutar'}), 400
+    simit_job_state['running'] = True
+    simit_job_state['started_at'] = get_bogota_datetime()
+    simit_job_state['stop_requested'] = False
+    try:
+        simit_job_stop_event.clear()
+    except Exception:
+        pass
+    t = threading.Thread(target=_mpa_simit_job_run, daemon=True)
+    t.start()
+    return jsonify({'success': True, 'message': 'Job iniciado'})
+
+@app.route('/api/mpa/simit/job/status', methods=['GET'])
+@login_required
+def api_mpa_simit_job_status():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+    s = simit_job_state.copy()
+    def _fmt(dt):
+        try:
+            return dt.strftime('%Y-%m-%d %H:%M:%S') if dt else None
+        except Exception:
+            return None
+    return jsonify({
+        'success': True,
+        'data': {
+            'running': s.get('running'),
+            'started_at': _fmt(s.get('started_at')),
+            'finished_at': _fmt(s.get('finished_at')),
+            'total': s.get('total'),
+            'processed': s.get('processed'),
+            'interval': s.get('interval'),
+            'stop_requested': s.get('stop_requested')
+        }
+    })
+
+@app.route('/api/mpa/simit/job/stop', methods=['POST','GET'])
+@login_required
+def api_mpa_simit_job_stop():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+    if not simit_job_state.get('running'):
+        return jsonify({'success': False, 'message': 'Job no está en ejecución'}), 400
+    try:
+        simit_job_stop_event.set()
+        simit_job_state['stop_requested'] = True
+        return jsonify({'success': True, 'message': 'Solicitud de detener enviada'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+_maybe_start_simit_job_auto()
 
 @app.route('/api/sgis/permiso-trabajo', methods=['POST'])
 @login_required

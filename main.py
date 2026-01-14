@@ -131,7 +131,7 @@ from app import administrativo_asistencia, obtener_supervisores, obtener_tecnico
 from app import analistas_index, analistas_causas, analistas_dashboard, api_grupos_causas_cierre, api_tecnologias_causas_cierre, api_agrupaciones_causas_cierre, api_estadisticas_causas_cierre
 
 # Importar rutas del módulo MPA desde app.py
-from app import mpa_dashboard, mpa_dashboard_stats, mpa_vehiculos, mpa_soat, mpa_tecnico_mecanica, mpa_licencias, mpa_licencias_conducir, mpa_inspecciones, mpa_siniestros, mpa_mantenimientos, mpa_cronograma
+from app import mpa_dashboard, mpa_dashboard_stats, mpa_vehiculos, mpa_soat, mpa_tecnico_mecanica, mpa_licencias, mpa_licencias_conducir, mpa_inspecciones, mpa_siniestros, mpa_mantenimientos, mpa_cronograma, mpa_simit
 from app import api_get_vehiculos, api_create_vehiculo, api_get_vehiculo, api_update_vehiculo, api_delete_vehiculo, api_get_tecnicos, api_export_vehiculos
 from app import api_get_mantenimientos, api_create_mantenimiento, api_get_mantenimiento, api_update_mantenimiento, api_delete_mantenimiento, api_get_placas, api_get_categorias_mantenimiento, api_upload_mantenimiento_image, api_cronograma_list_create, api_cronograma_detalle, api_cronograma_cumplir, api_cronograma_historial
 from app import api_get_soat, api_get_soat_by_id, api_create_soat, api_update_soat, api_delete_soat
@@ -141,6 +141,9 @@ from app import api_import_vehiculos_excel, api_import_tecnico_mecanica_excel, a
 from app import api_cronograma_alerts_my
 from app import api_list_inspecciones, api_get_inspeccion, api_create_inspeccion, api_inspecciones_firma_trabajador, api_inspecciones_firma_inspector, api_inspeccion_pdf
 from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas_por_tecnico, api_google_directions_route, api_riesgo_motos, api_riesgo_por_localidad, api_localidades, api_riesgo_importar, api_rutas_estados
+from app import api_simit_resultados
+from app import api_mpa_simit_consultar_playwright
+from app import api_mpa_simit_job_run, api_mpa_simit_job_status, api_mpa_simit_job_stop
 
 # Importar solo la función de actualización por claves para SSTT desde app.py
 from app import api_sstt_vencimientos_cursos_update_by
@@ -180,6 +183,7 @@ app.route('/mpa/siniestros')(mpa_siniestros)
 app.route('/mpa/mantenimientos')(mpa_mantenimientos)
 app.route('/mpa/cronograma')(mpa_cronograma)
 app.route('/mpa/rutas')(mpa_rutas)
+app.route('/mpa/simit')(mpa_simit)
 
 # Registrar rutas de la API de vehículos MPA
 app.route('/api/mpa/vehiculos', methods=['GET'])(api_get_vehiculos)
@@ -197,6 +201,11 @@ app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['GET'])(api
 app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['PUT'])(api_update_mantenimiento)
 app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['DELETE'])(api_delete_mantenimiento)
 app.route('/api/mpa/vehiculos/placas', methods=['GET'])(api_get_placas)
+app.route('/api/mpa/simit/resultados', methods=['GET'])(api_simit_resultados)
+app.route('/api/mpa/simit/consultar-playwright', methods=['POST'])(api_mpa_simit_consultar_playwright)
+app.route('/api/mpa/simit/job/run', methods=['POST'])(api_mpa_simit_job_run)
+app.route('/api/mpa/simit/job/status', methods=['GET'])(api_mpa_simit_job_status)
+app.route('/api/mpa/simit/job/stop', methods=['POST','GET'])(api_mpa_simit_job_stop)
 app.route('/api/mpa/cronograma', methods=['GET','POST'])(api_cronograma_list_create)
 app.route('/api/mpa/cronograma/<placa>', methods=['GET'])(api_cronograma_detalle)
 app.route('/api/mpa/cronograma/<placa>/cumplir', methods=['POST'])(api_cronograma_cumplir)
@@ -12268,6 +12277,218 @@ def main_api_tecnicos_asignados():
         except:
             pass
 
+@app.route('/api/usuario/inspeccion/pendientes', methods=['GET'])
+@login_required_api()
+def api_usuario_inspeccion_pendientes():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
+        cursor = connection.cursor(dictionary=True)
+        cedula = str(session.get('user_cedula') or '').strip()
+        idc = session.get('id_codigo_consumidor')
+        nombre_user = None
+        try:
+            if idc:
+                cursor.execute(
+                    """
+                    SELECT nombre
+                    FROM recurso_operativo
+                    WHERE id_codigo_consumidor = %s
+                    LIMIT 1
+                    """,
+                    (idc,)
+                )
+                ro_n = cursor.fetchone()
+                if ro_n and ro_n.get('nombre'):
+                    nombre_user = ro_n.get('nombre')
+            if not nombre_user and cedula:
+                cursor.execute(
+                    """
+                    SELECT nombre
+                    FROM recurso_operativo
+                    WHERE recurso_operativo_cedula = %s
+                    LIMIT 1
+                    """,
+                    (cedula,)
+                )
+                ro_n2 = cursor.fetchone()
+                if ro_n2 and ro_n2.get('nombre'):
+                    nombre_user = ro_n2.get('nombre')
+        except Exception:
+            pass
+        ultima = None
+        matched_by = None
+        if cedula:
+            cursor.execute(
+                """
+                SELECT *
+                FROM mpa_inspeccion_vehiculo
+                WHERE recurso_operativo_cedula = %s
+                ORDER BY fecha_inspeccion DESC
+                LIMIT 1
+                """,
+                (cedula,)
+            )
+            ultima = cursor.fetchone()
+            if ultima:
+                matched_by = 'cedula'
+        if not ultima and idc:
+            cursor.execute(
+                """
+                SELECT *
+                FROM mpa_inspeccion_vehiculo
+                WHERE id_codigo_consumidor = %s
+                ORDER BY fecha_inspeccion DESC
+                LIMIT 1
+                """,
+                (idc,)
+            )
+            ultima = cursor.fetchone()
+            if ultima:
+                matched_by = 'id'
+        if not ultima and idc:
+            cursor.execute(
+                """
+                SELECT placa 
+                FROM mpa_vehiculos 
+                WHERE tecnico_asignado = %s AND estado = 'Activo'
+                ORDER BY id_mpa_vehiculos DESC
+                LIMIT 1
+                """,
+                (idc,)
+            )
+            v = cursor.fetchone()
+            if v and v.get('placa'):
+                cursor.execute(
+                    """
+                    SELECT *
+                    FROM mpa_inspeccion_vehiculo
+                    WHERE placa = %s
+                    ORDER BY fecha_inspeccion DESC
+                    LIMIT 1
+                    """,
+                    (v['placa'],)
+                )
+                ultima = cursor.fetchone()
+                if ultima:
+                    matched_by = 'placa'
+        if not ultima and cedula:
+            try:
+                cursor.execute(
+                    """
+                    SELECT placa 
+                    FROM mpa_vehiculos 
+                    WHERE tecnico_asignado = %s AND estado = 'Activo'
+                    ORDER BY id_mpa_vehiculos DESC
+                    LIMIT 1
+                    """,
+                    (cedula,)
+                )
+                v2 = cursor.fetchone()
+                if v2 and v2.get('placa'):
+                    cursor.execute(
+                        """
+                        SELECT *
+                        FROM mpa_inspeccion_vehiculo
+                        WHERE placa = %s
+                        ORDER BY fecha_inspeccion DESC
+                        LIMIT 1
+                        """,
+                        (v2['placa'],)
+                    )
+                    ultima = cursor.fetchone()
+                    if ultima:
+                        matched_by = 'placa'
+            except Exception:
+                pass
+        if not ultima and nombre_user:
+            try:
+                cursor.execute(
+                    """
+                    SELECT *
+                    FROM mpa_inspeccion_vehiculo
+                    WHERE nombre = %s
+                    ORDER BY fecha_inspeccion DESC
+                    LIMIT 1
+                    """,
+                    (nombre_user,)
+                )
+                ultima = cursor.fetchone()
+                if ultima:
+                    matched_by = 'nombre'
+            except Exception:
+                pass
+        bm_fields = [
+            'estado_fisico_espejos_laterales','estado_fisico_pito','estado_fisico_freno_servicio','estado_fisico_manillares','estado_fisico_guayas','estado_fisico_tanque_combustible','estado_fisico_encendido','estado_fisico_pedales','estado_fisico_guardabarros','estado_fisico_sillin_tapiceria','estado_fisico_tablero','estado_fisico_mofle_silenciador','estado_fisico_kit_arrastre','estado_fisico_reposa_pies','estado_fisico_pata_lateral_central','estado_fisico_tijera_amortiguador','estado_fisico_bateria','luces_altas_bajas','luces_direccionales_delanteros','luces_direccionales_traseros','luces_luz_placa','luces_stop','prevension_casco','prevension_guantes','prevension_rodilleras','prevension_coderas','llantas_labrado_llantas','llantas_rines','llantas_presion_aire','otros_aceite','otros_suspension_direccion','otros_caja_cambios','otros_conexiones_electricas'
+        ]
+        bm_synonyms = {
+            'prevension_casco': ['prevencion_casco'],
+            'prevension_guantes': ['prevencion_guantes'],
+            'prevension_rodilleras': ['prevencion_rodilleras'],
+            'prevension_coderas': ['prevencion_coderas']
+        }
+        fecha_str = None
+        fi_date = None
+        malos = 0
+        dias_restantes = None
+        placa = None
+        if ultima:
+            fi = ultima.get('fecha_inspeccion')
+            placa = ultima.get('placa')
+            if fi:
+                try:
+                    fi_date = fi.date() if hasattr(fi, 'date') else datetime.strptime(str(fi)[:19], '%Y-%m-%d %H:%M:%S').date()
+                except Exception:
+                    try:
+                        fi_date = datetime.strptime(str(fi)[:10], '%Y-%m-%d').date()
+                    except Exception:
+                        fi_date = None
+                if fi_date:
+                    try:
+                        fecha_str = fi_date.strftime('%Y-%m-%d')
+                    except Exception:
+                        fecha_str = str(fi)[:10]
+            for k in bm_fields:
+                v = ultima.get(k)
+                if v is None and k in bm_synonyms:
+                    for alt in bm_synonyms[k]:
+                        if ultima.get(alt) is not None:
+                            v = ultima.get(alt)
+                            break
+                s = str(v or '').strip().upper()
+                if s in ('M','MALO'):
+                    malos += 1
+            if fi_date:
+                try:
+                    hoy = get_bogota_datetime().date()
+                    transcurridos = (hoy - fi_date).days
+                    dias_restantes = 5 - transcurridos
+                    if dias_restantes < 0:
+                        dias_restantes = 0
+                except Exception:
+                    dias_restantes = None
+        info = {
+            'fecha_ultima': fecha_str,
+            'items_malos': malos,
+            'dias_restantes_subsanar': dias_restantes,
+            'placa': placa
+        }
+        return jsonify({'success': True, 'show_alert': bool(malos), 'matched_by': matched_by, **info})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+    finally:
+        try:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+        except:
+            pass
+        try:
+            if 'connection' in locals() and connection and connection.is_connected():
+                connection.close()
+        except:
+            pass
+
 @app.route('/logistica/asignaciones')
 @login_required()
 @role_required('logistica')
@@ -19762,6 +19983,159 @@ def api_operativo_inicio_asistencia():
 
         # Devolver solo los registros únicos para que coincida con los cálculos
         registros_finales = list(registros_unicos.values())
+
+        # Agregar estado de última revisión vehicular por operativo
+        try:
+            bm_fields = [
+                'estado_fisico_espejos_laterales','estado_fisico_pito','estado_fisico_freno_servicio','estado_fisico_manillares','estado_fisico_guayas','estado_fisico_tanque_combustible','estado_fisico_encendido','estado_fisico_pedales','estado_fisico_guardabarros','estado_fisico_sillin_tapiceria','estado_fisico_tablero','estado_fisico_mofle_silenciador','estado_fisico_kit_arrastre','estado_fisico_reposa_pies','estado_fisico_pata_lateral_central','estado_fisico_tijera_amortiguador','estado_fisico_bateria','luces_altas_bajas','luces_direccionales_delanteros','luces_direccionales_traseros','luces_luz_placa','luces_stop','prevension_casco','prevension_guantes','prevension_rodilleras','prevension_coderas','llantas_labrado_llantas','llantas_rines','llantas_presion_aire','otros_aceite','otros_suspension_direccion','otros_caja_cambios','otros_conexiones_electricas'
+            ]
+            bm_synonyms = {
+                'prevension_casco': ['prevencion_casco'],
+                'prevension_guantes': ['prevencion_guantes'],
+                'prevension_rodilleras': ['prevencion_rodilleras'],
+                'prevension_coderas': ['prevencion_coderas']
+            }
+            for r in registros_finales:
+                inspeccion_info = {
+                    'fecha_ultima': None,
+                    'items_malos': 0,
+                    'dias_restantes_subsanar': None,
+                    'placa': None
+                }
+                try:
+                    cursor.execute(
+                        """
+                        SELECT *
+                        FROM mpa_inspeccion_vehiculo
+                        WHERE recurso_operativo_cedula = %s
+                        ORDER BY fecha_inspeccion DESC
+                        LIMIT 1
+                        """,
+                        (r.get('cedula'),)
+                    )
+                    ultima = cursor.fetchone()
+                    if not ultima:
+                        cursor.execute(
+                            """
+                            SELECT id_codigo_consumidor
+                            FROM recurso_operativo
+                            WHERE recurso_operativo_cedula = %s
+                            LIMIT 1
+                            """,
+                            (r.get('cedula'),)
+                        )
+                        ro = cursor.fetchone()
+                        if ro and ro.get('id_codigo_consumidor'):
+                            cursor.execute(
+                                """
+                                SELECT *
+                                FROM mpa_inspeccion_vehiculo
+                                WHERE id_codigo_consumidor = %s
+                                ORDER BY fecha_inspeccion DESC
+                                LIMIT 1
+                                """,
+                                (ro['id_codigo_consumidor'],)
+                            )
+                            ultima = cursor.fetchone()
+                    if not ultima:
+                        if ro and ro.get('id_codigo_consumidor'):
+                            cursor.execute(
+                                """
+                                SELECT placa 
+                                FROM mpa_vehiculos 
+                                WHERE tecnico_asignado = %s AND estado = 'Activo'
+                                ORDER BY id_mpa_vehiculos DESC
+                                LIMIT 1
+                                """,
+                                (ro['id_codigo_consumidor'],)
+                            )
+                            v_id = cursor.fetchone()
+                            if v_id and v_id.get('placa'):
+                                cursor.execute(
+                                    """
+                                    SELECT *
+                                    FROM mpa_inspeccion_vehiculo
+                                    WHERE placa = %s
+                                    ORDER BY fecha_inspeccion DESC
+                                    LIMIT 1
+                                    """,
+                                    (v_id['placa'],)
+                                )
+                                ultima = cursor.fetchone()
+                        if not ultima and r.get('cedula'):
+                            cursor.execute(
+                                """
+                                SELECT placa 
+                                FROM mpa_vehiculos 
+                                WHERE tecnico_asignado = %s AND estado = 'Activo'
+                                ORDER BY id_mpa_vehiculos DESC
+                                LIMIT 1
+                                """,
+                                (r.get('cedula'),)
+                            )
+                            v_ced = cursor.fetchone()
+                            if v_ced and v_ced.get('placa'):
+                                cursor.execute(
+                                    """
+                                    SELECT *
+                                    FROM mpa_inspeccion_vehiculo
+                                    WHERE placa = %s
+                                    ORDER BY fecha_inspeccion DESC
+                                    LIMIT 1
+                                    """,
+                                    (v_ced['placa'],)
+                                )
+                                ultima = cursor.fetchone()
+                    if ultima:
+                        fi = ultima.get('fecha_inspeccion')
+                        fecha_str = None
+                        fi_date = None
+                        if fi:
+                            try:
+                                fi_date = fi.date() if hasattr(fi, 'date') else datetime.strptime(str(fi)[:19], '%Y-%m-%d %H:%M:%S').date()
+                            except Exception:
+                                try:
+                                    fi_date = datetime.strptime(str(fi)[:10], '%Y-%m-%d').date()
+                                except Exception:
+                                    fi_date = None
+                            if fi_date:
+                                try:
+                                    fecha_str = fi_date.strftime('%Y-%m-%d')
+                                except Exception:
+                                    fecha_str = str(fi)[:10]
+                        malos = 0
+                        for k in bm_fields:
+                            v = ultima.get(k)
+                            if v is None and k in bm_synonyms:
+                                for alt in bm_synonyms[k]:
+                                    if ultima.get(alt) is not None:
+                                        v = ultima.get(alt)
+                                        break
+                            s = str(v or '').strip().upper()
+                            if s in ('M','MALO'):
+                                malos += 1
+                        dias_restantes = None
+                        if fi_date:
+                            try:
+                                hoy = get_bogota_datetime().date()
+                                transcurridos = (hoy - fi_date).days
+                                dias_restantes = 5 - transcurridos
+                                if dias_restantes < 0:
+                                    dias_restantes = 0
+                            except Exception:
+                                dias_restantes = None
+                        inspeccion_info = {
+                            'fecha_ultima': fecha_str,
+                            'items_malos': malos,
+                            'dias_restantes_subsanar': dias_restantes,
+                            'placa': ultima.get('placa')
+                        }
+                except Exception:
+                    pass
+                r['revision_vehicular'] = inspeccion_info
+                r['mostrar_alerta_revision'] = bool(inspeccion_info['items_malos'])
+        except Exception:
+            pass
         
         return jsonify({
             'success': True,

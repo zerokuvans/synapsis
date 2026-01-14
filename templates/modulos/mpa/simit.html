@@ -1,0 +1,202 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;">
+                    <h3 class="mb-0">
+                        <i class="fas fa-car-side me-2"></i>Consulta SIMIT (Comparendos)
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="d-flex gap-2">
+                            <input type="text" class="form-control form-control-sm" id="simitFilterPlaca" placeholder="Filtrar por placa" style="width:180px">
+                            <input type="text" class="form-control form-control-sm" id="simitFilterTecnico" placeholder="Filtrar por técnico" style="width:220px">
+                            <button class="btn btn-sm btn-light" id="simitReload">Recargar</button>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-primary" id="simitStartJob">Iniciar ejecución</button>
+                            <button class="btn btn-sm btn-danger" id="simitStopJob">Detener ejecución</button>
+                        </div>
+                    </div>
+                    <div class="mb-2 d-flex justify-content-between align-items-center" id="simitJobStatusRow">
+                        <div class="small">
+                            Estado: <span id="simitJobRunning" class="badge bg-secondary">-</span>
+                            <span class="ms-2">Procesadas: <span id="simitJobProcessed">0</span>/<span id="simitJobTotal">0</span></span>
+                            <span class="ms-2">Inicio: <span id="simitJobStarted">-</span></span>
+                            <span class="ms-2">Fin: <span id="simitJobFinished">-</span></span>
+                            <span id="simitJobMsg" class="ms-3"></span>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="simitResultsTable">
+                            <thead>
+                                <tr>
+                                    <th>Placa</th>
+                                    <th>Técnico</th>
+                                    <th>Tipo</th>
+                                    <th>Tiene Multas</th>
+                                    <th>Cantidad</th>
+                                    <th>Valor Total</th>
+                                    <th>Última Consulta</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div id="simitNoData" class="alert alert-warning d-none">Sin datos disponibles</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let simitPoll = null;
+    let lastProcessed = null;
+    function loadSimitJobStatus() {
+        fetch('/api/mpa/simit/job/status', { credentials: 'include' })
+            .then(r => r.json())
+            .then(data => {
+                const runningEl = document.getElementById('simitJobRunning');
+                const processedEl = document.getElementById('simitJobProcessed');
+                const totalEl = document.getElementById('simitJobTotal');
+                const startedEl = document.getElementById('simitJobStarted');
+                const finishedEl = document.getElementById('simitJobFinished');
+                if (data && data.success && data.data) {
+                    const d = data.data;
+                    if (d.running && d.stop_requested) {
+                        runningEl.textContent = 'Deteniendo...';
+                        runningEl.className = 'badge bg-warning';
+                    } else {
+                        runningEl.textContent = d.running ? 'En curso' : 'Detenido';
+                        runningEl.className = d.running ? 'badge bg-success' : 'badge bg-secondary';
+                    }
+                    processedEl.textContent = d.processed ?? 0;
+                    totalEl.textContent = d.total ?? 0;
+                    startedEl.textContent = d.started_at || '-';
+                    finishedEl.textContent = d.finished_at || '-';
+                    const p = d.processed ?? 0;
+                    if (lastProcessed === null) lastProcessed = p;
+                    if (d.running) {
+                        if (!simitPoll) {
+                            simitPoll = setInterval(function(){ loadSimitJobStatus(); loadSimitResults(); }, 4000);
+                        }
+                        if (p !== lastProcessed) {
+                            lastProcessed = p;
+                            loadSimitResults();
+                        }
+                    } else {
+                        if (simitPoll) { clearInterval(simitPoll); simitPoll = null; }
+                    }
+                }
+            })
+            .catch(() => {
+                const runningEl = document.getElementById('simitJobRunning');
+                runningEl.textContent = 'Indisponible';
+                runningEl.className = 'badge bg-danger';
+            });
+    }
+    function stopSimitJob() {
+        const btn = document.getElementById('simitStopJob');
+        const msg = document.getElementById('simitJobMsg');
+        if (!btn) return;
+        btn.disabled = true;
+        btn.textContent = 'Deteniendo...';
+        fetch('/api/mpa/simit/job/stop', { method: 'POST', credentials: 'include' })
+            .then(async r => {
+                let data = {};
+                try { data = await r.json(); } catch(e) {}
+                if (r.ok && (!data || data.success !== false)) {
+                    if (msg) { msg.textContent = ''; msg.className = 'ms-3'; }
+                } else {
+                    const m = (data && (data.message || data.error)) || 'No se pudo detener';
+                    if (msg) { msg.textContent = m; msg.className = 'ms-3 text-danger'; }
+                }
+                btn.disabled = false;
+                btn.textContent = 'Detener ejecución';
+                loadSimitJobStatus();
+            })
+            .catch(() => {
+                if (msg) { msg.textContent = 'Error de red'; msg.className = 'ms-3 text-danger'; }
+                btn.disabled = false;
+                btn.textContent = 'Detener ejecución';
+            });
+    }
+
+    function startSimitJob() {
+        const btn = document.getElementById('simitStartJob');
+        const msg = document.getElementById('simitJobMsg');
+        if (!btn) return;
+        btn.disabled = true;
+        btn.textContent = 'Iniciando...';
+        fetch('/api/mpa/simit/job/run?force=true&interval=3', { method: 'POST', credentials: 'include' })
+            .then(async r => {
+                let data = {};
+                try { data = await r.json(); } catch(e) {}
+                if (r.ok && (!data || data.success !== false)) {
+                    if (msg) { msg.textContent = ''; msg.className = 'ms-3'; }
+                } else {
+                    const m = (data && (data.message || data.error)) || 'No se pudo iniciar';
+                    if (msg) { msg.textContent = m; msg.className = 'ms-3 text-danger'; }
+                }
+                btn.disabled = false;
+                btn.textContent = 'Iniciar ejecución';
+                loadSimitJobStatus();
+            })
+            .catch(() => {
+                if (msg) { msg.textContent = 'Error de red'; msg.className = 'ms-3 text-danger'; }
+                btn.disabled = false;
+                btn.textContent = 'Iniciar ejecución';
+            });
+    }
+    function loadSimitResults() {
+        const placa = (document.getElementById('simitFilterPlaca')?.value || '').trim().toUpperCase();
+        const tecnico = (document.getElementById('simitFilterTecnico')?.value || '').trim();
+        let url = '/api/mpa/simit/resultados';
+        const params = [];
+        if (placa) params.push(`placa=${encodeURIComponent(placa)}`);
+        if (tecnico) params.push(`tecnico=${encodeURIComponent(tecnico)}`);
+        if (params.length) url += `?${params.join('&')}`;
+        fetch(url, { credentials: 'include' })
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.querySelector('#simitResultsTable tbody');
+                const noData = document.getElementById('simitNoData');
+                tbody.innerHTML = '';
+                if (data && data.success && Array.isArray(data.data) && data.data.length) {
+                    if (noData) noData.classList.add('d-none');
+                    data.data.forEach(row => {
+                        const tr = document.createElement('tr');
+                        const v = (k) => (row[k] ?? '');
+                        const fmt = (n) => (n === null || n === undefined) ? '' : new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(n));
+                        tr.innerHTML = `
+                            <td>${v('placa')}</td>
+                            <td>${v('tecnico_nombre') || v('tecnico_id') || ''}</td>
+                            <td>${v('tipo_vehiculo') || ''}</td>
+                            <td>${v('tiene_multas') || ''}</td>
+                            <td>${v('cantidad') ?? ''}</td>
+                            <td>${fmt(v('valor_total'))}</td>
+                            <td>${v('fecha_ultima_consulta') || ''}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    if (noData) noData.classList.remove('d-none');
+                }
+            })
+            .catch(() => {
+                const noData = document.getElementById('simitNoData');
+                if (noData) noData.classList.remove('d-none');
+            });
+    }
+    document.getElementById('simitReload')?.addEventListener('click', function(){ loadSimitResults(); loadSimitJobStatus(); });
+    document.getElementById('simitStartJob')?.addEventListener('click', startSimitJob);
+    document.getElementById('simitStopJob')?.addEventListener('click', stopSimitJob);
+    loadSimitResults();
+    loadSimitJobStatus();
+});
+</script>
+{% endblock %}

@@ -258,6 +258,9 @@
                             <li><a class="dropdown-item" href="/mpa/rutas">
                                 <i class="fas fa-route me-2"></i>Rutas Frecuentes
                             </a></li>
+                            <li><a class="dropdown-item" href="/mpa/simit">
+                                <i class="fas fa-car-side me-2"></i>SIMIT Comparendos
+                            </a></li>
                         </ul>
                     </li>
                     
@@ -1505,5 +1508,27 @@
         <i class="fas fa-flask me-1"></i>Versión Beta
     </div>
     <div id="si-inversa-overlay" style="display:none"></div>
-</body>
+    <script>
+    (function(){
+      function s(v){ try{ return String(v==null?'':v); }catch(e){ return ''; } }
+      function n(v){ try{ return Number(v||0); }catch(e){ return 0; } }
+      function showAlert(data){
+        if(!data||!data.success||!data.show_alert){ return; }
+        var dias = Math.max(0, n(data.dias_restantes_subsanar));
+        var html = '<div><i class="fas fa-exclamation-triangle me-1"></i>Según última revisión vehicular tiene fallas pendientes por solucionar</div>'+
+                   '<div class="d-flex align-items-center mt-2">'+
+                     '<small class="text-muted me-2">5 días para subsanar fallas.</small>'+
+                     '<span class="badge bg-danger">'+dias+' días</span>'+
+                   '</div>';
+        Swal.fire({ title: 'Revisión Vehicular', icon: 'warning', html: html, confirmButtonText: 'Entendido' });
+      }
+      document.addEventListener('DOMContentLoaded', function(){
+        fetch('/api/usuario/inspeccion/pendientes', { credentials: 'include' })
+          .then(function(r){ return r.ok ? r.json() : { success:false }; })
+          .then(function(d){ try{ showAlert(d); }catch(e){} })
+          .catch(function(e){});
+      });
+    })();
+    </script>
+  </body>
 </html>

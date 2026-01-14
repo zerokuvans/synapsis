@@ -30,6 +30,8 @@
                         </div>
                     </div>
 
+                    <div id="alertRecordatorios" class="alert alert-warning d-none"></div>
+
                     <div class="row mb-4">
                         <div class="col-md-3">
                             <input type="text" class="form-control" id="filtroCedula" placeholder="Cédula">
@@ -416,6 +418,7 @@ function cargarVencimientos() {
       vencimientos = d.data || [];
       currentPage = 1;
       mostrarVencimientos(vencimientos);
+      renderRecordatorios();
       if ((d.total||0) === 0) {
         const tbody = document.getElementById('tablaVencimientosCursos');
         tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin registros</td></tr>';
@@ -612,6 +615,42 @@ function renderPagination(total){
   ul.appendChild(nextLi);
 }
 
+function renderRecordatorios(){
+  try {
+    const alertBox = document.getElementById('alertRecordatorios');
+    if (!alertBox) return;
+    const usuariosConVencidos = (vencimientos || []).filter(v => (v.vencidos||0) > 0);
+    const totalUsuarios = usuariosConVencidos.length;
+    if (totalUsuarios > 0) {
+      const nombres = usuariosConVencidos.slice(0, 5).map(v => v.nombre || v.cedula || '').filter(Boolean);
+      const resumenNombres = nombres.length ? ` — ${nombres.join(', ')}${usuariosConVencidos.length > 5 ? '…' : ''}` : '';
+      alertBox.classList.remove('d-none');
+      alertBox.innerHTML = `
+        <div class="d-flex align-items-center gap-2">
+          <i class="fas fa-bell"></i>
+          <div>
+            <strong>Recordatorio:</strong> ${totalUsuarios} usuario(s) con cursos vencidos${resumenNombres}
+          </div>
+          <div class="ms-auto">
+            <button type="button" class="btn btn-sm btn-outline-dark" id="btnVerSoloVencidos">Ver solo vencidos</button>
+          </div>
+        </div>
+      `;
+      const btn = document.getElementById('btnVerSoloVencidos');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          const filtrados = (vencimientos || []).filter(v => (v.vencidos||0) > 0);
+          currentPage = 1;
+          mostrarVencimientos(filtrados);
+        });
+      }
+    } else {
+      alertBox.classList.add('d-none');
+      alertBox.innerHTML = '';
+    }
+  } catch (e) {}
+}
+
 function cargarUsuarios(q){
   const params = new URLSearchParams();
   if (q) params.append('q', q);
@@ -706,11 +745,16 @@ function renderSeccionesUsuario(items){
     const tbody = document.getElementById(tbodyId);
     if (!tbody) return;
     const dias = it.dias_por_vencer;
-    const estado = (dias == null) ? '' : (dias <= 0 ? 'VENCIDO' : (dias <= 30 ? 'PRÓXIMO A VENCER' : 'VIGENTE'));
-    const badgeClass = (dias == null) ? 'bg-secondary' : (dias <= 0 ? 'bg-danger' : (dias <= 30 ? 'bg-warning text-dark' : 'bg-success'));
+    let estado = (dias == null) ? '' : (dias <= 0 ? 'VENCIDO' : (dias <= 30 ? 'PRÓXIMO A VENCER' : 'VIGENTE'));
+    let badgeClass = (dias == null) ? 'bg-secondary' : (dias <= 0 ? 'bg-danger' : (dias <= 30 ? 'bg-warning text-dark' : 'bg-success'));
     const esVencido = (dias != null && dias <= 0);
     const tr = document.createElement('tr');
     const esEncuesta = String(it.observacion||'').indexOf('Encuesta 10') !== -1;
+    const estaValidado = String(it.validado||0) === '1';
+    if (dias != null && dias <= 0 && estaValidado) {
+      estado = 'VALIDADO';
+      badgeClass = 'bg-primary';
+    }
     if (String(it.pendiente||0) === '1') { pendStatus[key] = true; }
     tr.innerHTML = `
       <td>${it.fecha||''}</td>
@@ -722,7 +766,8 @@ function renderSeccionesUsuario(items){
       <td>
         <div class="d-flex align-items-center gap-2">
           ${esEncuesta ? `<button class="btn btn-sm btn-success btnGuardarEncuesta">Guardar Vto</button>` : ''}
-          ${esVencido ? `<div class="form-check form-switch"><input class="form-check-input chkValidado" type="checkbox" ${String(it.validado||0) === '1' ? 'checked' : ''}></div>` : ''}
+          ${!esEncuesta ? `<div class="form-check form-switch"><input class="form-check-input chkPendiente" type="checkbox" ${String(it.pendiente||0) === '1' ? 'checked' : ''}></div>` : ''}
+          ${esVencido && !esEncuesta ? `<div class="form-check form-switch"><input class="form-check-input chkValidado" type="checkbox" ${estaValidado ? 'checked' : ''}></div>` : ''}
           <button class="btn btn-sm btn-outline-primary btnEditar" data-id="${it.id||''}">Editar</button>
           <button class="btn btn-sm btn-outline-danger btnEliminar" data-id="${it.id||''}" data-original-cedula="${it.recurso_operativo_cedula||''}" data-original-tipo="${it.tipo_curso||''}" data-original-fecha="${normalizeDateString(it.fecha)}">Eliminar</button>
         </div>
@@ -752,6 +797,12 @@ function renderSeccionesUsuario(items){
     if (chk) {
       chk.addEventListener('change', () => {
         toggleValidado(it, !!chk.checked);
+      });
+    }
+    const chkP = tr.querySelector('.chkPendiente');
+    if (chkP) {
+      chkP.addEventListener('change', () => {
+        togglePendiente(it, !!chkP.checked);
       });
     }
     const btnGuardar = tr.querySelector('.btnGuardarEncuesta');

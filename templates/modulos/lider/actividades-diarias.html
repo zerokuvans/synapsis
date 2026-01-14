@@ -1157,7 +1157,7 @@ function debeBloquearGestion(fechaRaw){
                 </div>
                 <div class="col-md-3">
                   <label class="form-label">Técnico</label>
-                  <select class="form-select" id="gaTecnico"></select>
+                  <select class="form-select" id="gaTecnico" required></select>
                 </div>
               </div>
             </div>
@@ -1457,13 +1457,15 @@ async function cargarTecnicosDatalist(){
     if(__tecnicosLoaded) return;
     const el = document.getElementById('gaTecnico');
     if(!el) { __tecnicosLoaded = true; return; }
-    if(el.tagName === 'SELECT'){
-        el.innerHTML = '';
-        const def = document.createElement('option');
-        def.value = '';
-        def.textContent = 'Seleccione técnico';
-        el.appendChild(def);
-    }
+  if(el.tagName === 'SELECT'){
+      el.innerHTML = '';
+      const def = document.createElement('option');
+      def.value = '';
+      def.textContent = 'Seleccione técnico';
+      def.disabled = true;
+      def.selected = true;
+      el.appendChild(def);
+  }
     try{
         let arr = [];
         const role = (__currentUserRole || '').toLowerCase();
@@ -1530,7 +1532,8 @@ function bindTecnicoInputListener(){
     __gaContext.tecnico = nombre;
     __gaContext.tecnicoId = idc;
     __gaContext.externalId = ced;
-    guardarGestionBasica();
+    setInvalid('gaTecnico', !nombre);
+    if(nombre){ guardarGestionBasica(); }
   };
   el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', handler);
   el.dataset.bound = '1';
@@ -1613,19 +1616,25 @@ async function abrirGestionActividad(ot, cuenta, tecnico, tecnicoId, estado, act
 
 async function guardarGestionBasica(){
   try{
-  const payload = {
-    ot: __gaContext.ot,
-    cuenta: __gaContext.cuenta,
-    actividad_id: __gaContext.actividadId,
-    tecnico: (document.getElementById('gaTecnico')?.value || '').trim(),
-    external_id: (__gaContext.externalId || '').trim(),
-    estado: (__gaContext.estado || '').trim(),
-    nombre_completo: (document.getElementById('gaNombre')?.value || '').trim(),
-    tipo_de_actividad: (document.getElementById('gaTipoActividad')?.value || '').trim(),
-    direccion: (document.getElementById('gaDireccion')?.value || '').trim(),
-    inicio_fin: (document.getElementById('gaTiempoGestion')?.value || '').trim(),
-    duracion: (document.getElementById('gaDuracion')?.value || '').trim()
-  };
+    const tecSel = (document.getElementById('gaTecnico')?.value || '').trim();
+    setInvalid('gaTecnico', !tecSel);
+    if(!tecSel){
+      if(window.Swal){ Swal.fire({icon:'warning', title:'Falta técnico', text:'Seleccione técnico'}); } else { alert('Seleccione técnico'); }
+      return;
+    }
+    const payload = {
+      ot: __gaContext.ot,
+      cuenta: __gaContext.cuenta,
+      actividad_id: __gaContext.actividadId,
+      tecnico: tecSel,
+      external_id: (__gaContext.externalId || '').trim(),
+      estado: (__gaContext.estado || '').trim(),
+      nombre_completo: (document.getElementById('gaNombre')?.value || '').trim(),
+      tipo_de_actividad: (document.getElementById('gaTipoActividad')?.value || '').trim(),
+      direccion: (document.getElementById('gaDireccion')?.value || '').trim(),
+      inicio_fin: (document.getElementById('gaTiempoGestion')?.value || '').trim(),
+      duracion: (document.getElementById('gaDuracion')?.value || '').trim()
+    };
     await fetch('/api/analistas/actividad-gestion-update', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(payload) });
   }catch(_){ }
 }
@@ -1948,11 +1957,21 @@ function updateRequiredUI(){
   setInvalid('gaFechaAgendaCierre', active && !fecha);
   setInvalid('gaFranjaCierre', active && !franja);
   setInvalid('gaAlertaCierre', active && !alerta);
+  const tecnVal = (document.getElementById('gaTecnico')?.value || '').trim();
+  setInvalid('gaTecnico', !tecnVal);
 }
 
 async function finalizarCierre(){
   try{
-    try{ await guardarGestionBasica(); }catch(_){}
+    {
+      const tecVal = (document.getElementById('gaTecnico')?.value || '').trim();
+      setInvalid('gaTecnico', !tecVal);
+      if(!tecVal){
+        if(window.Swal){ Swal.fire({icon:'warning', title:'Falta técnico', text:'Seleccione técnico'}); } else { alert('Seleccione técnico'); }
+        return;
+      }
+    }
+    try{ await guardarGestionBasica(); }catch(_){ }
     const ok = document.getElementById('gaTipificacionOk').value;
     const obs = document.getElementById('gaObservacionNovedad').value.trim();
     const confValOk = (document.querySelector('input[name="gaConfirmEventoOk"]:checked') || {}).value || 'no';
@@ -2005,6 +2024,14 @@ async function finalizarCierre(){
 
 async function finalizarSinCierre(){
   try{
+    {
+      const tecVal = (document.getElementById('gaTecnico')?.value || '').trim();
+      setInvalid('gaTecnico', !tecVal);
+      if(!tecVal){
+        if(window.Swal){ Swal.fire({icon:'warning', title:'Falta técnico', text:'Seleccione técnico'}); } else { alert('Seleccione técnico'); }
+        return;
+      }
+    }
     try{ await guardarGestionBasica(); }catch(_){}
     const confValOk = (document.querySelector('input[name="gaConfirmEventoOk"]:checked') || {}).value || 'no';
     const confirmacion_evento = confValOk.toLowerCase() === 'si' ? 1 : 0;
@@ -2028,6 +2055,14 @@ async function finalizarSinCierre(){
 
 async function finalizarRazon(){
   try{
+    {
+      const tecVal = (document.getElementById('gaTecnico')?.value || '').trim();
+      setInvalid('gaTecnico', !tecVal);
+      if(!tecVal){
+        if(window.Swal){ Swal.fire({icon:'warning', title:'Falta técnico', text:'Seleccione técnico'}); } else { alert('Seleccione técnico'); }
+        return;
+      }
+    }
     try{ await guardarGestionBasica(); }catch(_){}
     const razonReal = document.getElementById('gaRazonReal').value;
     const aplicaVal = (document.querySelector('input[name="gaTipoRazonAplica"]:checked') || {}).value || 'no';
@@ -2055,6 +2090,14 @@ async function finalizarRazon(){
 
 async function finalizarCancelado(){
   try{
+    {
+      const tecVal = (document.getElementById('gaTecnico')?.value || '').trim();
+      setInvalid('gaTecnico', !tecVal);
+      if(!tecVal){
+        if(window.Swal){ Swal.fire({icon:'warning', title:'Falta técnico', text:'Seleccione técnico'}); } else { alert('Seleccione técnico'); }
+        return;
+      }
+    }
     try{ await guardarGestionBasica(); }catch(_){}
     const tip = document.getElementById('gaCanceladoTipificacion').value;
     const obsRaw = document.getElementById('gaCanceladoObservacion').value.trim();

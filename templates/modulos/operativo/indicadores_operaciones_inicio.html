@@ -493,12 +493,24 @@
             });
             
             const tr = document.createElement('tr');
-            // Agregar ID único para tracking
             tr.setAttribute('data-cedula', r.cedula);
             tr.setAttribute('data-index', index);
+            const mostrarAlerta = r.mostrar_alerta_revision && r.revision_vehicular && Number(r.revision_vehicular.items_malos) > 0;
+            const diasRestantes = mostrarAlerta ? Math.max(0, Number(r.revision_vehicular.dias_restantes_subsanar || 0)) : 0;
             tr.innerHTML = `
                 <td>${safe(r.cedula)}</td>
-                <td>${safe(r.tecnico)}</td>
+                <td>
+                    ${safe(r.tecnico)}
+                    ${mostrarAlerta ? `
+                        <div class="alert alert-warning mt-2 p-2 mb-0">
+                            <div><i class="fas fa-exclamation-triangle me-1"></i>Según última revisión vehicular tiene fallas pendientes por solucionar</div>
+                            <div class="d-flex align-items-center mt-1">
+                                <small class="text-muted me-2">5 días para subsanar fallas.</small>
+                                <span class="badge bg-danger">${diasRestantes} días</span>
+                            </div>
+                        </div>
+                    ` : ''}
+                </td>
                 <td>${safe(r.carpeta)}</td>
                 <td>${safe(r.super)}</td>
                 <td>${safe(r.carpeta_dia_nombre || r.carpeta_dia)}</td>
