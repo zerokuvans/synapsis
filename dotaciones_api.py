@@ -6,7 +6,7 @@ Sistema de Logística - Capired
 """
 
 import mysql.connector
-from flask import jsonify, request, render_template_string, render_template, session
+from flask import jsonify, request, render_template_string, render_template, session, redirect, url_for
 from datetime import datetime
 import json
 import logging
@@ -41,10 +41,21 @@ def get_db_connection():
 def registrar_rutas_dotaciones(app):
     """Registrar todas las rutas del módulo de dotaciones"""
     
+    def _is_authenticated():
+        try:
+            from flask_login import current_user  # type: ignore
+            if getattr(current_user, 'is_authenticated', False):
+                return True
+        except Exception:
+            pass
+        return bool(session.get('user_id') or session.get('id_codigo_consumidor'))
+
     @app.route('/logistica/dotaciones')
     def dotaciones_page():
         """Página principal del módulo de dotaciones"""
         try:
+            if not _is_authenticated():
+                return redirect(url_for('auth.login')) if 'auth' in app.blueprints else redirect('/login')
             return render_template('modulos/logistica/dotaciones.html')
         except Exception as e:
             logger.error(f"Error cargando página de dotaciones: {e}")
