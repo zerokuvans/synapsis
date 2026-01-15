@@ -736,8 +736,25 @@ function renderSeccionesUsuario(items){
     'CURSO INDUCCION SST': false,
     'CURSO REINDUCCION SST': false
   };
+  const vigenteStatus = {
+    'EXAMEN MEDICO INGRESO': false,
+    'EXAMEN MEDICO PERIODICO': false,
+    'CURSO ALTURAS': false,
+    'CURSO MANEJO DEFENSIVO': false,
+    'CURSO INDUCCION SST': false,
+    'CURSO REINDUCCION SST': false
+  };
+  const pendItemsByTipo = {
+    'EXAMEN MEDICO INGRESO': [],
+    'EXAMEN MEDICO PERIODICO': [],
+    'CURSO ALTURAS': [],
+    'CURSO MANEJO DEFENSIVO': [],
+    'CURSO INDUCCION SST': [],
+    'CURSO REINDUCCION SST': []
+  };
   Object.values(mapPendChecks).forEach(id=>{ const el = document.getElementById(id); if (el) el.checked = false; });
   Object.values(mapTipos).forEach(id=>{ const el = document.getElementById(id); if (el) el.innerHTML=''; });
+  const periodicoActivo = items.some(i => normalizeTipoCurso(i.tipo_curso) === 'EXAMEN MEDICO PERIODICO' && i.dias_por_vencer != null && i.dias_por_vencer >= 0);
   items.forEach(it=>{
     const key = normalizeTipoCurso(it.tipo_curso);
     const tbodyId = mapTipos[key] || null;
@@ -756,7 +773,13 @@ function renderSeccionesUsuario(items){
       estado = 'VALIDADO';
       badgeClass = 'bg-primary';
     }
+    if (key === 'EXAMEN MEDICO INGRESO' && periodicoActivo && esProximo) {
+      estado = '';
+      badgeClass = 'bg-secondary';
+    }
     if (String(it.pendiente||0) === '1') { pendStatus[key] = true; }
+    if (String(it.pendiente||0) === '1') { pendItemsByTipo[key].push(it); }
+    if (dias != null && dias > 30) { vigenteStatus[key] = true; }
     tr.innerHTML = `
       <td>${it.fecha||''}</td>
       <td>${esEncuesta ? `<input type="date" class="form-control form-control-sm inpFven" value="${normalizeDateString(it.fecha_vencimiento)}">` : (it.fecha_vencimiento||'')}</td>
@@ -817,7 +840,18 @@ function renderSeccionesUsuario(items){
   });
   Object.entries(mapPendChecks).forEach(([tipo, chkId]) => {
     const el = document.getElementById(chkId);
-    if (el) el.checked = !!pendStatus[tipo];
+    if (!el) return;
+    if (vigenteStatus[tipo]) {
+      el.checked = false;
+      const itemsPend = pendItemsByTipo[tipo] || [];
+      if (itemsPend.length > 0) {
+        try {
+          togglePendiente(itemsPend[0], false);
+        } catch (e) {}
+      }
+    } else {
+      el.checked = !!pendStatus[tipo];
+    }
   });
 }
 
