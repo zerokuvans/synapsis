@@ -556,6 +556,40 @@ def api_mpa_simit_consultar_playwright():
                 return jsonify({'success': False, 'message': 'Placa asociada a técnico inactivo'}), 400
         res = simit_query_by_placa_playwright(placa)
         if not res.get('success'):
+            err_msg = res.get('message') or res.get('error') or 'Error consultando SIMIT'
+            conn2 = get_db_connection()
+            if conn2 is not None:
+                try:
+                    cur2 = conn2.cursor(dictionary=True)
+                    cur2.execute(
+                        "SELECT placa, cantidad, valor_total, fuente, fecha_ultima_consulta FROM mpa_comparendos WHERE UPPER(TRIM(placa)) = %s ORDER BY fecha_ultima_consulta DESC LIMIT 1",
+                        (placa,)
+                    )
+                    row2 = cur2.fetchone()
+                    cur2.close(); conn2.close()
+                    if row2:
+                        try:
+                            val_total = float(row2.get('valor_total') or 0.0)
+                        except Exception:
+                            val_total = 0.0
+                        try:
+                            cant_val = int(str(row2.get('cantidad') or 0).strip())
+                        except Exception:
+                            cant_val = 0
+                        return jsonify({
+                            'success': True,
+                            'placa': placa,
+                            'cantidad': cant_val,
+                            'valor_total': val_total,
+                            'detalles': [],
+                            'from_cache': True,
+                            'message': 'Usando último valor guardado. Error SIMIT: ' + err_msg
+                        })
+                except Exception:
+                    try:
+                        cur2.close(); conn2.close()
+                    except Exception:
+                        pass
             return jsonify(res), 500
         data_block = res.get('data') or {}
         upd = _update_comparendos_from_result(
@@ -11193,14 +11227,35 @@ def simit_query_by_placa_playwright(placa):
         async def _async_flow(val):
             try:
                 async with async_playwright() as ap:
-                    proxy_server = get_simit_proxy_server()
-                    if proxy_server:
-                        browser = await ap.chromium.launch(headless=True, proxy={"server": proxy_server}, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
-                    else:
-                        browser = await ap.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
-                    ctx2 = await browser.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', locale='es-ES')
-                    pg = await ctx2.new_page()
-                    await pg.goto('https://www.fcm.org.co/simit/#/home-public', timeout=120000)
+                    for attempt in range(3):
+                        proxy_server = get_simit_proxy_server()
+                        args = ["--disable-blink-features=AutomationControlled"]
+                        launch_kwargs = {"headless": True, "args": args, "slow_mo": 50}
+                        if proxy_server:
+                            launch_kwargs["proxy"] = {"server": proxy_server}
+                        else:
+                            args.append("--no-proxy-server")
+                        browser = await ap.chromium.launch(**launch_kwargs)
+                        ctx2 = await browser.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', locale='es-ES')
+                        pg = await ctx2.new_page()
+                        try:
+                            await pg.goto('https://www.fcm.org.co/simit/#/home-public', timeout=120000)
+                        except Exception as e:
+                            msg = str(e)
+                            try:
+                                await ctx2.close()
+                            except Exception:
+                                pass
+                            try:
+                                await browser.close()
+                            except Exception:
+                                pass
+                            if 'ERR_TUNNEL_CONNECTION_FAILED' in msg or 'ERR_PROXY_CONNECTION_FAILED' in msg:
+                                get_simit_proxy_server(reset=True)
+                                if attempt == 2:
+                                    return {'success': False, 'message': msg}
+                                continue
+                            return {'success': False, 'message': msg}
                     try:
                         await pg.wait_for_selector("text=Por placa", timeout=60000)
                     except Exception:
@@ -11408,7 +11463,7 @@ def simit_query_by_placa_playwright(placa):
                 if proxy_server:
                     b = p.chromium.launch(headless=True, proxy={"server": proxy_server}, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
                 else:
-                    b = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
+                    b = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled", "--no-proxy-server"], slow_mo=50)
                 ctx = b.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', locale='es-ES')
                 page = ctx.new_page()
                 try:

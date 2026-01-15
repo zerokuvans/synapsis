@@ -60,7 +60,7 @@ def scrape_placas(placas, headless=True, timeout=120000, pause_range=(7, 10), ma
         if proxy_server:
             browser = p.chromium.launch(headless=headless, proxy={"server": proxy_server}, args=["--disable-blink-features=AutomationControlled"])
         else:
-            browser = p.chromium.launch(headless=headless, args=["--disable-blink-features=AutomationControlled"])
+            browser = p.chromium.launch(headless=headless, args=["--disable-blink-features=AutomationControlled", "--no-proxy-server"])
         page = browser.new_page()
         page.goto('https://www.fcm.org.co/simit/#/consultas', timeout=timeout)
         try:
