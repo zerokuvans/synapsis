@@ -11118,7 +11118,14 @@ def get_simit_proxy_server():
         SIMIT_PROXY_SERVER = v.strip()
         return SIMIT_PROXY_SERVER
     try:
-        r = requests.get('https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all', timeout=5)
+        list_url = os.getenv('SIMIT_PROXY_LIST_URL')
+        if not list_url:
+            key = os.getenv('PROXYSCRAPE_API_KEY')
+            if key:
+                list_url = 'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all&auth=' + key.strip()
+            else:
+                list_url = 'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all'
+        r = requests.get(list_url, timeout=5)
         if r.status_code == 200:
             for line in r.text.splitlines():
                 line = (line or '').strip()
