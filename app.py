@@ -11162,6 +11162,31 @@ def simit_query_by_placa_playwright(placa):
             return None
         def _run_async_fallback(val):
             try:
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = None
+                if loop is not None and loop.is_running():
+                    result_container = {}
+                    error_container = {}
+                    def _target():
+                        try:
+                            new_loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(new_loop)
+                            result_container['result'] = new_loop.run_until_complete(_async_flow(val))
+                        except Exception as exc:
+                            error_container['error'] = exc
+                        finally:
+                            try:
+                                new_loop.close()
+                            except Exception:
+                                pass
+                    t = threading.Thread(target=_target)
+                    t.start()
+                    t.join()
+                    if 'error' in error_container:
+                        raise error_container['error']
+                    return result_container.get('result')
                 return asyncio.run(_async_flow(val))
             except Exception as e:
                 return {'success': False, 'message': str(e)}
