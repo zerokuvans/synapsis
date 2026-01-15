@@ -4,15 +4,47 @@ import time
 import random
 import sys
 import re
+import os
+import requests
+
+SIMIT_PROXY_SERVER = None
+
+def get_simit_proxy_server():
+    global SIMIT_PROXY_SERVER
+    if SIMIT_PROXY_SERVER is not None:
+        return SIMIT_PROXY_SERVER
+    v = os.getenv('SIMIT_PROXY')
+    if v:
+        SIMIT_PROXY_SERVER = v.strip()
+        return SIMIT_PROXY_SERVER
+    try:
+        r = requests.get('https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all', timeout=5)
+        if r.status_code == 200:
+            for line in r.text.splitlines():
+                line = (line or '').strip()
+                if not line:
+                    continue
+                if not line.startswith('http'):
+                    line = 'http://' + line
+                SIMIT_PROXY_SERVER = line
+                return SIMIT_PROXY_SERVER
+    except Exception:
+        pass
+    SIMIT_PROXY_SERVER = None
+    return None
 
 def scrape_placas(placas, headless=True, timeout=120000, pause_range=(7, 10), max_retries=2):
     resultados = []
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless, args=["--disable-blink-features=AutomationControlled"])
+        proxy_server = get_simit_proxy_server()
+        if proxy_server:
+            browser = p.chromium.launch(headless=headless, proxy={"server": proxy_server}, args=["--disable-blink-features=AutomationControlled"])
+        else:
+            browser = p.chromium.launch(headless=headless, args=["--disable-blink-features=AutomationControlled"])
         page = browser.new_page()
         page.goto('https://www.fcm.org.co/simit/#/consultas', timeout=timeout)
         try:
-            page.wait_for_load_state('domcontentloaded', timeout=timeout)
+            page.wait_for_selector("text=Por placa", timeout=timeout)
         except Exception:
             pass
         try:

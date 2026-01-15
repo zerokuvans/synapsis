@@ -11107,6 +11107,32 @@ def api_agrupaciones_codigos_facturacion():
 APITUDE_BASE_URL = 'https://apitude.co'
 APITUDE_SIMIT_ENDPOINT = '/api/v1.0/requests/simit-co/'
 
+SIMIT_PROXY_SERVER = None
+
+def get_simit_proxy_server():
+    global SIMIT_PROXY_SERVER
+    if SIMIT_PROXY_SERVER is not None:
+        return SIMIT_PROXY_SERVER
+    v = os.getenv('SIMIT_PROXY')
+    if v:
+        SIMIT_PROXY_SERVER = v.strip()
+        return SIMIT_PROXY_SERVER
+    try:
+        r = requests.get('https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all', timeout=5)
+        if r.status_code == 200:
+            for line in r.text.splitlines():
+                line = (line or '').strip()
+                if not line:
+                    continue
+                if not line.startswith('http'):
+                    line = 'http://' + line
+                SIMIT_PROXY_SERVER = line
+                return SIMIT_PROXY_SERVER
+    except Exception:
+        pass
+    SIMIT_PROXY_SERVER = None
+    return None
+
 def simit_query_by_placa_playwright(placa):
     try:
         s = (placa or '').strip().upper()
@@ -11122,12 +11148,16 @@ def simit_query_by_placa_playwright(placa):
         async def _async_flow(val):
             try:
                 async with async_playwright() as ap:
-                    browser = await ap.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
+                    proxy_server = get_simit_proxy_server()
+                    if proxy_server:
+                        browser = await ap.chromium.launch(headless=True, proxy={"server": proxy_server}, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
+                    else:
+                        browser = await ap.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
                     ctx2 = await browser.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', locale='es-ES')
                     pg = await ctx2.new_page()
-                    await pg.goto('https://www.fcm.org.co/simit/#/home-public', timeout=120000, wait_until='domcontentloaded')
+                    await pg.goto('https://www.fcm.org.co/simit/#/home-public', timeout=120000)
                     try:
-                        await pg.wait_for_load_state('networkidle', timeout=120000)
+                        await pg.wait_for_selector("text=Por placa", timeout=60000)
                     except Exception:
                         pass
                     try:
