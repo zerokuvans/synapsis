@@ -11366,13 +11366,16 @@ def simit_query_by_placa_playwright(placa):
                 except Exception:
                     fb = _run_async_fallback(s)
                     return fb if isinstance(fb, dict) else {'success': False, 'message': ''}
-                b = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
+                proxy_server = get_simit_proxy_server()
+                if proxy_server:
+                    b = p.chromium.launch(headless=True, proxy={"server": proxy_server}, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
+                else:
+                    b = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
                 ctx = b.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', locale='es-ES')
                 page = ctx.new_page()
-                page.goto('https://www.fcm.org.co/simit/#/home-public', timeout=60000, wait_until='domcontentloaded')
-                page.wait_for_load_state('domcontentloaded')
+                page.goto('https://www.fcm.org.co/simit/#/home-public', timeout=120000)
                 try:
-                    page.wait_for_load_state('networkidle')
+                    page.wait_for_selector("text=Por placa", timeout=60000)
                 except Exception:
                     pass
                 try:
