@@ -3994,20 +3994,19 @@ def api_sstt_vencimientos_cursos_export():
             "( DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() OR (DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30) )"
         )
         validado_cond = "(vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0)"
-        pend_cond = "vc.sstt_vencimientos_cursos_pendiente = 1"
         sql = (
             'SELECT '
             'ro.recurso_operativo_cedula AS cedula, '
             'ro.nombre AS nombre, '
             'vc.sstt_vencimientos_cursos_tipo_curso AS curso, '
-            "CASE WHEN vc.sstt_vencimientos_cursos_pendiente = 1 THEN 'pendiente' ELSE DATE(vc.sstt_vencimientos_cursos_fecha_ven) END AS vencimiento "
+            "DATE(vc.sstt_vencimientos_cursos_fecha_ven) AS vencimiento "
             'FROM sstt_vencimientos_cursos vc '
             'LEFT JOIN recurso_operativo ro ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula '
         )
         filter_sql = ''
         if emp_filters:
             filter_sql += '( ' + ' AND '.join(emp_filters) + ' ) AND '
-        filter_sql += '( ( ' + date_cond + ' AND ' + validado_cond + ' ) OR ( ' + pend_cond + ' ) )'
+        filter_sql += '( ' + date_cond + ' AND ' + validado_cond + ' AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) )'
         sql += ' WHERE ' + filter_sql
         sql += ' ORDER BY ro.nombre ASC, vc.sstt_vencimientos_cursos_fecha_ven ASC'
         cursor.execute(sql, tuple(params))
