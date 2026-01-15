@@ -748,10 +748,11 @@ function renderSeccionesUsuario(items){
     let estado = (dias == null) ? '' : (dias <= 0 ? 'VENCIDO' : (dias <= 30 ? 'PRÓXIMO A VENCER' : 'VIGENTE'));
     let badgeClass = (dias == null) ? 'bg-secondary' : (dias <= 0 ? 'bg-danger' : (dias <= 30 ? 'bg-warning text-dark' : 'bg-success'));
     const esVencido = (dias != null && dias <= 0);
+    const esProximo = (dias != null && dias > 0 && dias <= 30);
     const tr = document.createElement('tr');
     const esEncuesta = String(it.observacion||'').indexOf('Encuesta 10') !== -1;
     const estaValidado = String(it.validado||0) === '1';
-    if (dias != null && dias <= 0 && estaValidado) {
+    if ((esVencido || esProximo) && estaValidado) {
       estado = 'VALIDADO';
       badgeClass = 'bg-primary';
     }
@@ -767,7 +768,7 @@ function renderSeccionesUsuario(items){
         <div class="d-flex align-items-center gap-2">
           ${esEncuesta ? `<button class="btn btn-sm btn-success btnGuardarEncuesta">Guardar Vto</button>` : ''}
           ${!esEncuesta ? `<div class="form-check form-switch"><input class="form-check-input chkPendiente" type="checkbox" ${String(it.pendiente||0) === '1' ? 'checked' : ''}></div>` : ''}
-          ${esVencido && !esEncuesta ? `<div class="form-check form-switch"><input class="form-check-input chkValidado" type="checkbox" ${estaValidado ? 'checked' : ''}></div>` : ''}
+          ${(esVencido || esProximo) && !esEncuesta ? `<div class="form-check form-switch"><input class="form-check-input chkValidado" type="checkbox" ${estaValidado ? 'checked' : ''}></div>` : ''}
           <button class="btn btn-sm btn-outline-primary btnEditar" data-id="${it.id||''}">Editar</button>
           <button class="btn btn-sm btn-outline-danger btnEliminar" data-id="${it.id||''}" data-original-cedula="${it.recurso_operativo_cedula||''}" data-original-tipo="${it.tipo_curso||''}" data-original-fecha="${normalizeDateString(it.fecha)}">Eliminar</button>
         </div>

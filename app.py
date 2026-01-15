@@ -3881,6 +3881,52 @@ def api_sstt_vencimientos_cursos_resumen():
         if connection is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor(dictionary=True)
+        try:
+            cur_check_v = connection.cursor()
+            cur_check_v.execute(
+                """
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'sstt_vencimientos_cursos'
+                  AND column_name = 'sstt_vencimientos_cursos_validado'
+                """
+            )
+            has_validado = (cur_check_v.fetchone() or [0])[0]
+            cur_check_v.close()
+            if not has_validado:
+                cur_alter_v = connection.cursor()
+                try:
+                    cur_alter_v.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN sstt_vencimientos_cursos_validado TINYINT(1) DEFAULT 0 AFTER sstt_vencimientos_cursos_observacion")
+                    connection.commit()
+                except Exception:
+                    pass
+                finally:
+                    cur_alter_v.close()
+        except Exception:
+            pass
+        try:
+            cur_check_p = connection.cursor()
+            cur_check_p.execute(
+                """
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name = 'sstt_vencimientos_cursos'
+                  AND column_name = 'sstt_vencimientos_cursos_pendiente'
+                """
+            )
+            has_pendiente = (cur_check_p.fetchone() or [0])[0]
+            cur_check_p.close()
+            if not has_pendiente:
+                cur_alter_p = connection.cursor()
+                try:
+                    cur_alter_p.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN sstt_vencimientos_cursos_pendiente TINYINT(1) NOT NULL DEFAULT 0 AFTER sstt_vencimientos_cursos_observacion")
+                    connection.commit()
+                except Exception:
+                    pass
+                finally:
+                    cur_alter_p.close()
+        except Exception:
+            pass
         cedula = (request.args.get('cedula') or '').strip()
         q = (request.args.get('q') or '').strip()
         solo_activos_param = (request.args.get('solo_activos') or '1').strip().lower()
@@ -3901,8 +3947,8 @@ def api_sstt_vencimientos_cursos_resumen():
             'ro.recurso_operativo_cedula AS cedula, '
             'ro.nombre AS nombre, '
             'COUNT(*) AS total_cursos, '
-            "SUM(CASE WHEN vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() AND (vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0) THEN 1 ELSE 0 END) AS vencidos, "
-            "SUM(CASE WHEN vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30 THEN 1 ELSE 0 END) AS por_vencer "
+            "SUM(CASE WHEN vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() AND (vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0) AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) THEN 1 ELSE 0 END) AS vencidos, "
+            "SUM(CASE WHEN vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30 AND (vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0) AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) THEN 1 ELSE 0 END) AS por_vencer "
             'FROM recurso_operativo ro '
             'LEFT JOIN sstt_vencimientos_cursos vc ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula '
         )

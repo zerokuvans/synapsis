@@ -278,9 +278,17 @@ function persistMaxCoinStats(page, periodo, analista, seccion, coin){
   try{
     const key = `recon_max:${page}:${periodo||''}:${analista||''}:${seccion||''}`;
     const prev = localStorage.getItem(key) || '';
+    const sec = String(seccion||'').toLowerCase();
+    const cap = (sec === 'efectividad' || sec === 'presupuesto') ? 300 : null;
     const prevRank = coinRankStats(prev);
     const currRank = coinRankStats(coin);
-    const best = prevRank >= currRank ? (prev || coin) : coin;
+    let bestVal = Math.max(prevRank, currRank);
+    if(cap !== null){ bestVal = Math.min(bestVal, cap); }
+    let best = '0pesos';
+    if(bestVal >= 400) best = '400pesos';
+    else if(bestVal >= 300) best = '300pesos';
+    else if(bestVal >= 200) best = '200pesos';
+    else if(bestVal >= 100) best = '100pesos';
     localStorage.setItem(key, best);
     return best;
   }catch(_){ return coin; }
@@ -322,6 +330,8 @@ async function getReconMonedaStats(analista, periodo, seccion, valor){
       const pct = Number(it.porcentaje||0);
       if(Number(valor||0) >= pct){ pick = String(it.moneda||'').trim(); }
     }
+    const sec = String(seccion||'').toLowerCase();
+    if(sec !== 'cierre' && coinRankStats(pick) > 300){ return '300pesos'; }
     return pick;
   }catch(_){ return ''; }
 }
@@ -513,7 +523,7 @@ async function renderCierreStats(){
         };
       }
       const monedaImg = document.getElementById('cardMonedaImgStats');
-      if(monedaImg){ await setReconByTablaStats(monedaImg, analista, periodo, 'efectividad', cal.porcentaje_mensual || 0); }
+      if(monedaImg){ await setReconByTablaStats(monedaImg, analista, periodo, 'cierre', cal.porcentaje_mensual || 0); }
     }
   }catch(_){ }
 }

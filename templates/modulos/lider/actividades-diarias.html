@@ -424,7 +424,17 @@ function persistMaxCoin(page, periodo, analista, seccion, coin){
   try{
     const key = `recon_max:${page}:${periodo||''}:${analista||''}:${seccion||''}`;
     const prev = localStorage.getItem(key) || '';
-    const best = (coinRank(prev) >= coinRank(coin)) ? (prev || coin) : coin;
+    const sec = String(seccion||'').toLowerCase();
+    const cap = (sec === 'efectividad' || sec === 'presupuesto') ? 300 : null;
+    const prevVal = coinRank(prev);
+    const coinVal = coinRank(coin);
+    let bestVal = Math.max(prevVal, coinVal);
+    if(cap !== null){ bestVal = Math.min(bestVal, cap); }
+    let best = '0pesos';
+    if(bestVal >= 400) best = '400pesos';
+    else if(bestVal >= 300) best = '300pesos';
+    else if(bestVal >= 200) best = '200pesos';
+    else if(bestVal >= 100) best = '100pesos';
     localStorage.setItem(key, best);
     return best;
   }catch(_){ return coin; }
@@ -1054,12 +1064,20 @@ async function getReconMoneda(analista, periodo, seccion, valor){
     const path = (window.location && window.location.pathname) ? window.location.pathname : '';
     const isAnalistasView = path.includes('/analistas/');
     const v = Number(valor||0);
+    const sec = String(seccion||'').toLowerCase();
     if(isAnalistasView){
-      if(v >= 96) return '400pesos';
-      if(v >= 94) return '300pesos';
-      if(v >= 92) return '200pesos';
-      if(v >= 90) return '100pesos';
-      return '0pesos';
+      if(sec === 'cierre'){
+        if(v >= 96) return '400pesos';
+        if(v >= 94) return '300pesos';
+        if(v >= 92) return '200pesos';
+        if(v >= 90) return '100pesos';
+        return '0pesos';
+      } else {
+        if(v >= 94) return '300pesos';
+        if(v >= 92) return '200pesos';
+        if(v >= 90) return '100pesos';
+        return '0pesos';
+      }
     }
     let url = '/api/administrativo/porcentajes-analistas';
     const qs = [];
@@ -1077,20 +1095,36 @@ async function getReconMoneda(analista, periodo, seccion, valor){
         const pct = Number(it.porcentaje||0);
         if(Number(valor||0) >= pct){ pick = String(it.moneda||'').trim(); }
       }
+      if(sec !== 'cierre' && coinRank(pick) > 300){ return '300pesos'; }
       return pick;
     }
-    if(v >= 96) return '400pesos';
-    if(v >= 94) return '300pesos';
-    if(v >= 92) return '200pesos';
-    if(v >= 90) return '100pesos';
-    return '0pesos';
+    if(sec === 'cierre'){
+      if(v >= 96) return '400pesos';
+      if(v >= 94) return '300pesos';
+      if(v >= 92) return '200pesos';
+      if(v >= 90) return '100pesos';
+      return '0pesos';
+    } else {
+      if(v >= 94) return '300pesos';
+      if(v >= 92) return '200pesos';
+      if(v >= 90) return '100pesos';
+      return '0pesos';
+    }
   }catch(_){
     const v = Number(valor||0);
-    if(v >= 96) return '400pesos';
-    if(v >= 94) return '300pesos';
-    if(v >= 92) return '200pesos';
-    if(v >= 90) return '100pesos';
-    return '0pesos';
+    const sec = String(seccion||'').toLowerCase();
+    if(sec === 'cierre'){
+      if(v >= 96) return '400pesos';
+      if(v >= 94) return '300pesos';
+      if(v >= 92) return '200pesos';
+      if(v >= 90) return '100pesos';
+      return '0pesos';
+    } else {
+      if(v >= 94) return '300pesos';
+      if(v >= 92) return '200pesos';
+      if(v >= 90) return '100pesos';
+      return '0pesos';
+    }
   }
 }
 
