@@ -11108,36 +11108,49 @@ APITUDE_BASE_URL = 'https://apitude.co'
 APITUDE_SIMIT_ENDPOINT = '/api/v1.0/requests/simit-co/'
 
 SIMIT_PROXY_SERVER = None
+SIMIT_PROXY_LIST = None
+SIMIT_PROXY_INDEX = 0
 
-def get_simit_proxy_server():
-    global SIMIT_PROXY_SERVER
+def get_simit_proxy_server(reset=False):
+    global SIMIT_PROXY_SERVER, SIMIT_PROXY_LIST, SIMIT_PROXY_INDEX
+    if reset:
+        SIMIT_PROXY_SERVER = None
     if SIMIT_PROXY_SERVER is not None:
         return SIMIT_PROXY_SERVER
     v = os.getenv('SIMIT_PROXY')
     if v:
         SIMIT_PROXY_SERVER = v.strip()
         return SIMIT_PROXY_SERVER
-    try:
-        list_url = os.getenv('SIMIT_PROXY_LIST_URL')
-        if not list_url:
-            key = os.getenv('PROXYSCRAPE_API_KEY')
-            if key:
-                list_url = 'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all&auth=' + key.strip()
-            else:
-                list_url = 'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all'
-        r = requests.get(list_url, timeout=5)
-        if r.status_code == 200:
-            for line in r.text.splitlines():
-                line = (line or '').strip()
-                if not line:
-                    continue
-                if not line.startswith('http'):
-                    line = 'http://' + line
-                SIMIT_PROXY_SERVER = line
-                return SIMIT_PROXY_SERVER
-    except Exception:
-        pass
-    SIMIT_PROXY_SERVER = None
+    if SIMIT_PROXY_LIST is None:
+        try:
+            list_url = os.getenv('SIMIT_PROXY_LIST_URL')
+            if not list_url:
+                key = os.getenv('PROXYSCRAPE_API_KEY')
+                if key:
+                    list_url = 'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all&auth=' + key.strip()
+                else:
+                    list_url = 'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all'
+            r = requests.get(list_url, timeout=5)
+            proxies = []
+            if r.status_code == 200:
+                for line in r.text.splitlines():
+                    line = (line or '').strip()
+                    if not line:
+                        continue
+                    if not line.startswith('http'):
+                        line = 'http://' + line
+                    proxies.append(line)
+            SIMIT_PROXY_LIST = proxies
+            SIMIT_PROXY_INDEX = 0
+        except Exception:
+            SIMIT_PROXY_LIST = []
+            SIMIT_PROXY_INDEX = 0
+    if SIMIT_PROXY_LIST:
+        if SIMIT_PROXY_INDEX >= len(SIMIT_PROXY_LIST):
+            return None
+        SIMIT_PROXY_SERVER = SIMIT_PROXY_LIST[SIMIT_PROXY_INDEX]
+        SIMIT_PROXY_INDEX += 1
+        return SIMIT_PROXY_SERVER
     return None
 
 def simit_query_by_placa_playwright(placa):
@@ -11359,7 +11372,7 @@ def simit_query_by_placa_playwright(placa):
                 stopped = True
         def _approx_from_page(page):
             return None
-        for attempt in range(2):
+        for attempt in range(3):
             with simit_playwright_lock:
                 try:
                     p = sync_playwright().start()
@@ -11373,7 +11386,18 @@ def simit_query_by_placa_playwright(placa):
                     b = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
                 ctx = b.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', locale='es-ES')
                 page = ctx.new_page()
-                page.goto('https://www.fcm.org.co/simit/#/home-public', timeout=120000)
+                try:
+                    page.goto('https://www.fcm.org.co/simit/#/home-public', timeout=120000)
+                except Exception as e:
+                    msg = str(e)
+                    _cleanup()
+                    if 'ERR_TUNNEL_CONNECTION_FAILED' in msg or 'ERR_PROXY_CONNECTION_FAILED' in msg:
+                        get_simit_proxy_server(reset=True)
+                        if attempt == 2:
+                            fb = _run_async_fallback(s)
+                            return fb if isinstance(fb, dict) else {'success': False, 'message': msg}
+                        continue
+                    return {'success': False, 'message': msg}
                 try:
                     page.wait_for_selector("text=Por placa", timeout=60000)
                 except Exception:

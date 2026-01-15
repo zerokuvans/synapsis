@@ -8,36 +8,49 @@ import os
 import requests
 
 SIMIT_PROXY_SERVER = None
+SIMIT_PROXY_LIST = None
+SIMIT_PROXY_INDEX = 0
 
-def get_simit_proxy_server():
-    global SIMIT_PROXY_SERVER
+def get_simit_proxy_server(reset=False):
+    global SIMIT_PROXY_SERVER, SIMIT_PROXY_LIST, SIMIT_PROXY_INDEX
+    if reset:
+        SIMIT_PROXY_SERVER = None
     if SIMIT_PROXY_SERVER is not None:
         return SIMIT_PROXY_SERVER
     v = os.getenv('SIMIT_PROXY')
     if v:
         SIMIT_PROXY_SERVER = v.strip()
         return SIMIT_PROXY_SERVER
-    try:
-        list_url = os.getenv('SIMIT_PROXY_LIST_URL')
-        if not list_url:
-            key = os.getenv('PROXYSCRAPE_API_KEY')
-            if key:
-                list_url = 'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all&auth=' + key.strip()
-            else:
-                list_url = 'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all'
-        r = requests.get(list_url, timeout=5)
-        if r.status_code == 200:
-            for line in r.text.splitlines():
-                line = (line or '').strip()
-                if not line:
-                    continue
-                if not line.startswith('http'):
-                    line = 'http://' + line
-                SIMIT_PROXY_SERVER = line
-                return SIMIT_PROXY_SERVER
-    except Exception:
-        pass
-    SIMIT_PROXY_SERVER = None
+    if SIMIT_PROXY_LIST is None:
+        try:
+            list_url = os.getenv('SIMIT_PROXY_LIST_URL')
+            if not list_url:
+                key = os.getenv('PROXYSCRAPE_API_KEY')
+                if key:
+                    list_url = 'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all&auth=' + key.strip()
+                else:
+                    list_url = 'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all'
+            r = requests.get(list_url, timeout=5)
+            proxies = []
+            if r.status_code == 200:
+                for line in r.text.splitlines():
+                    line = (line or '').strip()
+                    if not line:
+                        continue
+                    if not line.startswith('http'):
+                        line = 'http://' + line
+                    proxies.append(line)
+            SIMIT_PROXY_LIST = proxies
+            SIMIT_PROXY_INDEX = 0
+        except Exception:
+            SIMIT_PROXY_LIST = []
+            SIMIT_PROXY_INDEX = 0
+    if SIMIT_PROXY_LIST:
+        if SIMIT_PROXY_INDEX >= len(SIMIT_PROXY_LIST):
+            return None
+        SIMIT_PROXY_SERVER = SIMIT_PROXY_LIST[SIMIT_PROXY_INDEX]
+        SIMIT_PROXY_INDEX += 1
+        return SIMIT_PROXY_SERVER
     return None
 
 def scrape_placas(placas, headless=True, timeout=120000, pause_range=(7, 10), max_retries=2):
