@@ -5,14 +5,14 @@ import random
 import sys
 import re
 
-def scrape_placas(placas, headless=True, timeout=60000, pause_range=(7, 10), max_retries=2):
+def scrape_placas(placas, headless=True, timeout=120000, pause_range=(7, 10), max_retries=2):
     resultados = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless, args=["--disable-blink-features=AutomationControlled"])
         page = browser.new_page()
         page.goto('https://www.fcm.org.co/simit/#/consultas', timeout=timeout)
         try:
-            page.wait_for_load_state('domcontentloaded')
+            page.wait_for_load_state('domcontentloaded', timeout=timeout)
         except Exception:
             pass
         try:

@@ -11125,9 +11125,9 @@ def simit_query_by_placa_playwright(placa):
                     browser = await ap.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled"], slow_mo=50)
                     ctx2 = await browser.new_context(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', locale='es-ES')
                     pg = await ctx2.new_page()
-                    await pg.goto('https://www.fcm.org.co/simit/#/home-public', timeout=60000, wait_until='domcontentloaded')
+                    await pg.goto('https://www.fcm.org.co/simit/#/home-public', timeout=120000, wait_until='domcontentloaded')
                     try:
-                        await pg.wait_for_load_state('networkidle')
+                        await pg.wait_for_load_state('networkidle', timeout=120000)
                     except Exception:
                         pass
                     try:
