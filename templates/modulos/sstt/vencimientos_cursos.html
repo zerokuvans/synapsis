@@ -393,6 +393,7 @@ function exportarVencimientos(){
   const params = new URLSearchParams();
   if (cedula) params.append('cedula', cedula);
   params.append('solo_activos','1');
+  params.append('t', Date.now());
   const url = '/api/sstt/vencimientos-cursos/export' + (params.toString() ? ('?' + params.toString()) : '');
   window.open(url, '_blank');
 }

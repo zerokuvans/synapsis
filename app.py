@@ -112,6 +112,9 @@ def get_db_connection():
 # Utilidades para columnas dinámicas en mpa_mantenimientos
 def ensure_mantenimiento_general_column(connection):
     try:
+        if not set_parts:
+            connection.close()
+            return jsonify({'success': False, 'message': 'Sin cambios'}), 400
         cur = connection.cursor()
         cur.execute("SHOW COLUMNS FROM mpa_mantenimientos LIKE 'tipo_general_mantenimiento'")
         if not cur.fetchone():
@@ -3152,8 +3155,87 @@ def api_sstt_usuarios():
             sql += " WHERE " + " AND ".join(where)
         sql += " ORDER BY nombre ASC LIMIT %s"
         params.append(limit)
-        cursor.execute(sql, tuple(params))
-        rows = cursor.fetchall() or []
+        try:
+            cursor.execute(sql, tuple(params))
+            rows = cursor.fetchall() or []
+        except Exception:
+            sql_fb = (
+                'SELECT '
+                'ro.recurso_operativo_cedula AS cedula, '
+                'ro.nombre AS nombre, '
+                '(SELECT COUNT(*) FROM sstt_vencimientos_cursos vcX WHERE vcX.recurso_operativo_cedula = ro.recurso_operativo_cedula) AS total_cursos, '
+                '('
+                    'SELECT COUNT(*) FROM sstt_vencimientos_cursos vc '
+                    'WHERE vc.recurso_operativo_cedula = ro.recurso_operativo_cedula '
+                      'AND vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL '
+                      "AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') "
+                      "AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' "
+                      'AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() '
+                      'AND (vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0) '
+                      'AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) '
+                      'AND NOT EXISTS ('
+                          'SELECT 1 FROM sstt_vencimientos_cursos vc2 '
+                          'WHERE vc2.recurso_operativo_cedula = vc.recurso_operativo_cedula '
+                            'AND vc2.sstt_vencimientos_cursos_tipo_curso = vc.sstt_vencimientos_cursos_tipo_curso '
+                            'AND vc2.sstt_vencimientos_cursos_fecha_ven IS NOT NULL '
+                            "AND vc2.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') "
+                            "AND vc2.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' "
+                            'AND DATE(vc2.sstt_vencimientos_cursos_fecha_ven) > CURDATE() '
+                            'AND DATEDIFF(vc2.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30'
+                      ') '
+                      'AND ('
+                          "vc.sstt_vencimientos_cursos_tipo_curso <> 'EXAMEN MEDICO INGRESO' "
+                          'OR NOT EXISTS ('
+                              'SELECT 1 FROM sstt_vencimientos_cursos vcP '
+                              'WHERE vcP.recurso_operativo_cedula = ro.recurso_operativo_cedula '
+                                "AND vcP.sstt_vencimientos_cursos_tipo_curso = 'EXAMEN MEDICO PERIODICO' "
+                                'AND vcP.sstt_vencimientos_cursos_fecha_ven IS NOT NULL '
+                                "AND vcP.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') "
+                                "AND vcP.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' "
+                                'AND DATEDIFF(vcP.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30'
+                          ')'
+                      ')'
+                ') AS vencidos, '
+                '('
+                    'SELECT COUNT(*) FROM sstt_vencimientos_cursos vc '
+                    'WHERE vc.recurso_operativo_cedula = ro.recurso_operativo_cedula '
+                      'AND vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL '
+                      "AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') "
+                      "AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' "
+                      'AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() '
+                      'AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30 '
+                      'AND (vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0) '
+                      'AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) '
+                      'AND NOT EXISTS ('
+                          'SELECT 1 FROM sstt_vencimientos_cursos vc2 '
+                          'WHERE vc2.recurso_operativo_cedula = vc.recurso_operativo_cedula '
+                            'AND vc2.sstt_vencimientos_cursos_tipo_curso = vc.sstt_vencimientos_cursos_tipo_curso '
+                            'AND vc2.sstt_vencimientos_cursos_fecha_ven IS NOT NULL '
+                            "AND vc2.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') "
+                            "AND vc2.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' "
+                            'AND DATE(vc2.sstt_vencimientos_cursos_fecha_ven) > CURDATE() '
+                            'AND DATEDIFF(vc2.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30'
+                      ') '
+                      'AND ('
+                          "vc.sstt_vencimientos_cursos_tipo_curso <> 'EXAMEN MEDICO INGRESO' "
+                          'OR NOT EXISTS ('
+                              'SELECT 1 FROM sstt_vencimientos_cursos vcP '
+                              'WHERE vcP.recurso_operativo_cedula = ro.recurso_operativo_cedula '
+                                "AND vcP.sstt_vencimientos_cursos_tipo_curso = 'EXAMEN MEDICO PERIODICO' "
+                                'AND vcP.sstt_vencimientos_cursos_fecha_ven IS NOT NULL '
+                                "AND vcP.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') "
+                                "AND vcP.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' "
+                                'AND DATE(vcP.sstt_vencimientos_cursos_fecha_ven) >= CURDATE()'
+                          ')'
+                      ')'
+                ') AS por_vencer '
+                'FROM recurso_operativo ro '
+            )
+            if where:
+                sql_fb += ' WHERE ' + ' AND '.join(where)
+            sql_fb += ' ORDER BY ro.nombre ASC'
+            cursor.execute(sql_fb, tuple(params))
+            rows = cursor.fetchall() or []
         data = [{
             'id_codigo_consumidor': r.get('id_codigo_consumidor'),
             'cedula': r.get('recurso_operativo_cedula'),
@@ -3599,6 +3681,47 @@ def api_sstt_vencimientos_cursos():
                     pass
                 finally:
                     curp.close()
+            tipo_cmp = str(tipo).strip().upper().replace('Á','A').replace('É','E').replace('Í','I').replace('Ó','O').replace('Ú','U').replace('Ü','U').replace('Ñ','N')
+            if tipo_cmp == 'EXAMEN MEDICO PERIODICO':
+                try:
+                    cur_check = connection.cursor()
+                    cur_check.execute(
+                        """
+                        SELECT COUNT(*) FROM information_schema.columns
+                        WHERE table_schema = DATABASE()
+                          AND table_name = 'sstt_vencimientos_cursos'
+                          AND column_name = 'sstt_vencimientos_cursos_validado'
+                        """
+                    )
+                    has_val = (cur_check.fetchone() or [0])[0]
+                    cur_check.close()
+                    if not has_val:
+                        cur_alter = connection.cursor()
+                        try:
+                            cur_alter.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN sstt_vencimientos_cursos_validado TINYINT(1) DEFAULT 0 AFTER sstt_vencimientos_cursos_observacion")
+                            connection.commit()
+                        except Exception:
+                            pass
+                        finally:
+                            cur_alter.close()
+                except Exception:
+                    pass
+                cur_auto = connection.cursor()
+                try:
+                    cur_auto.execute(
+                        """
+                        UPDATE sstt_vencimientos_cursos
+                        SET sstt_vencimientos_cursos_validado = 1
+                        WHERE TRIM(recurso_operativo_cedula) = %s
+                          AND TRIM(sstt_vencimientos_cursos_tipo_curso) = 'EXAMEN MEDICO INGRESO'
+                        """,
+                        (cedula,)
+                    )
+                    connection.commit()
+                except Exception:
+                    pass
+                finally:
+                    cur_auto.close()
             cursor.close(); connection.close()
             return jsonify({'success': True, 'id': new_id})
     except Exception as e:
@@ -3618,6 +3741,8 @@ def api_sstt_vencimientos_cursos_update(item_id):
         fecha_ven = (data.get('sstt_vencimientos_cursos_fecha_ven') or '').strip()
         observ = (data.get('sstt_vencimientos_cursos_observacion') or '').strip()
         validado_val = data.get('sstt_vencimientos_cursos_validado')
+        pendiente_val = data.get('sstt_vencimientos_cursos_pendiente')
+        pendiente_val = data.get('sstt_vencimientos_cursos_pendiente')
         pendiente_val = data.get('sstt_vencimientos_cursos_pendiente')
         campos = []
         params = []
@@ -3654,34 +3779,39 @@ def api_sstt_vencimientos_cursos_update(item_id):
         try:
             cur_check3 = connection.cursor()
             cur_check3.execute(
-                """
-                SELECT COUNT(*) FROM information_schema.columns
-                WHERE table_schema = DATABASE()
-                  AND table_name = 'sstt_vencimientos_cursos'
-                  AND column_name = 'sstt_vencimientos_cursos_pendiente'
-                """
+            	"""
+            	SELECT COUNT(*) FROM information_schema.columns
+            	WHERE table_schema = DATABASE()
+            	  AND table_name = 'sstt_vencimientos_cursos'
+            	  AND column_name = 'sstt_vencimientos_cursos_pendiente'
+            	"""
             )
             has_pend2 = (cur_check3.fetchone() or [0])[0]
             cur_check3.close()
-            if not has_pend2:
-                try:
-                    cur_alter3 = connection.cursor()
-                    cur_alter3.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN sstt_vencimientos_cursos_pendiente TINYINT(1) NOT NULL DEFAULT 0 AFTER sstt_vencimientos_cursos_observacion")
-                    connection.commit()
-                except Exception:
-                    pass
-                finally:
-                    cur_alter3.close()
         except Exception:
-            pass
-        if pendiente_val is not None:
+            has_pend2 = 0
+        if pendiente_val is not None and has_pend2:
             try:
                 p2_int = 1 if str(pendiente_val).strip().lower() in ['1','true','t','yes','y'] else 0
             except Exception:
                 p2_int = 0
             campos.append("sstt_vencimientos_cursos_pendiente = %s")
             params.append(p2_int)
-        if validado_val is not None:
+        try:
+            cur_check_v = connection.cursor()
+            cur_check_v.execute(
+            	"""
+            	SELECT COUNT(*) FROM information_schema.columns
+            	WHERE table_schema = DATABASE()
+            	  AND table_name = 'sstt_vencimientos_cursos'
+            	  AND column_name = 'sstt_vencimientos_cursos_validado'
+            	"""
+            )
+            has_valid2 = (cur_check_v.fetchone() or [0])[0]
+            cur_check_v.close()
+        except Exception:
+            has_valid2 = 0
+        if validado_val is not None and has_valid2:
             try:
                 v_int = 1 if str(validado_val).strip().lower() in ['1', 'true', 't', 'yes', 'y'] else 0
             except Exception:
@@ -3775,12 +3905,10 @@ def api_sstt_vencimientos_cursos_update_by():
         fecha_ven = (data.get('sstt_vencimientos_cursos_fecha_ven') or '').strip()
         observ = (data.get('sstt_vencimientos_cursos_observacion') or '').strip()
         validado_val = data.get('sstt_vencimientos_cursos_validado')
+        pendiente_val = data.get('sstt_vencimientos_cursos_pendiente')
         if not oc or not ot or not of:
             connection.close()
             return jsonify({'success': False, 'message': 'Faltan claves originales'}), 400
-        if not cedula or not tipo or not fecha or not fecha_ven:
-            connection.close()
-            return jsonify({'success': False, 'message': 'Campos requeridos faltantes'}), 400
         cur2 = connection.cursor()
         cur2.execute("SELECT id_codigo_consumidor, nombre FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (cedula,))
         ru = cur2.fetchone()
@@ -3795,17 +3923,35 @@ def api_sstt_vencimientos_cursos_update_by():
         if nombre is not None:
             set_parts.append("sstt_vencimientos_cursos_nombre = %s")
             params_set.append(nombre)
-        set_parts.append("recurso_operativo_cedula = %s")
-        params_set.append(cedula)
-        set_parts.append("sstt_vencimientos_cursos_tipo_curso = %s")
-        params_set.append(tipo)
-        set_parts.append("sstt_vencimientos_cursos_fecha = %s")
-        params_set.append(fecha)
-        set_parts.append("sstt_vencimientos_cursos_fecha_ven = %s")
-        params_set.append(fecha_ven)
-        set_parts.append("sstt_vencimientos_cursos_observacion = %s")
-        params_set.append(observ)
-        # Asegurar columna pendiente
+        fecha_norm = (fecha if str(fecha).strip() else None)
+        fecha_ven_norm = (fecha_ven if str(fecha_ven).strip() else None)
+        if cedula:
+            set_parts.append("recurso_operativo_cedula = %s")
+            params_set.append(cedula)
+        if tipo:
+            set_parts.append("sstt_vencimientos_cursos_tipo_curso = %s")
+            params_set.append(tipo)
+        if fecha_norm is not None:
+            set_parts.append("sstt_vencimientos_cursos_fecha = %s")
+            params_set.append(fecha_norm)
+        if fecha_ven_norm is not None:
+            set_parts.append("sstt_vencimientos_cursos_fecha_ven = %s")
+            params_set.append(fecha_ven_norm)
+        try:
+            cur_chk_obs = connection.cursor()
+            cur_chk_obs.execute(
+                """
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'sstt_vencimientos_cursos' AND column_name = 'sstt_vencimientos_cursos_observacion'
+                """
+            )
+            has_obs = (cur_chk_obs.fetchone() or [0])[0]
+            cur_chk_obs.close()
+        except Exception:
+            has_obs = 0
+        if has_obs:
+            set_parts.append("sstt_vencimientos_cursos_observacion = %s")
+            params_set.append(observ)
         try:
             cur_check = connection.cursor()
             cur_check.execute(
@@ -3816,56 +3962,87 @@ def api_sstt_vencimientos_cursos_update_by():
             )
             has_pend = (cur_check.fetchone() or [0])[0]
             cur_check.close()
-            if not has_pend:
-                cur_alter = connection.cursor()
-                try:
-                    cur_alter.execute("ALTER TABLE sstt_vencimientos_cursos ADD COLUMN sstt_vencimientos_cursos_pendiente TINYINT(1) NOT NULL DEFAULT 0 AFTER sstt_vencimientos_cursos_observacion")
-                    connection.commit()
-                except Exception:
-                    pass
-                finally:
-                    cur_alter.close()
         except Exception:
-            pass
-        if pendiente_val is not None:
+            has_pend = 0
+        if pendiente_val is not None and has_pend:
             try:
                 p_int = 1 if str(pendiente_val).strip().lower() in ['1','true','t','yes','y'] else 0
             except Exception:
                 p_int = 0
             set_parts.append("sstt_vencimientos_cursos_pendiente = %s")
             params_set.append(p_int)
-        if validado_val is not None:
+        try:
+            cur_check_v = connection.cursor()
+            cur_check_v.execute(
+                """
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'sstt_vencimientos_cursos' AND column_name = 'sstt_vencimientos_cursos_validado'
+                """
+            )
+            has_validado = (cur_check_v.fetchone() or [0])[0]
+            cur_check_v.close()
+        except Exception:
+            has_validado = 0
+        if validado_val is not None and has_validado:
             try:
                 v_int = 1 if str(validado_val).strip().lower() in ['1', 'true', 't', 'yes', 'y'] else 0
             except Exception:
                 v_int = 0
             set_parts.append("sstt_vencimientos_cursos_validado = %s")
             params_set.append(v_int)
-        sql = "UPDATE sstt_vencimientos_cursos SET " + ", ".join(set_parts) + " WHERE recurso_operativo_cedula = %s AND sstt_vencimientos_cursos_tipo_curso = %s AND sstt_vencimientos_cursos_fecha = %s LIMIT 1"
-        params = params_set + [oc, ot, of]
+        if not set_parts:
+            connection.close()
+            return jsonify({'success': False, 'message': 'Sin campos para actualizar'}), 400
         cur = connection.cursor()
-        cur.execute(sql, tuple(params))
-        connection.commit()
-        affected = cur.rowcount
-        # Fallback: comparar por DATE() si el primer intento no encontró filas
-        if affected == 0:
-            sql2 = (
-                "UPDATE sstt_vencimientos_cursos SET " + ", ".join(set_parts) +
-                " WHERE recurso_operativo_cedula = %s AND sstt_vencimientos_cursos_tipo_curso = %s AND DATE(sstt_vencimientos_cursos_fecha) = %s LIMIT 1"
-            )
-            params2 = params_set + [oc, ot, of]
-            cur.execute(sql2, tuple(params2))
+        affected = 0
+        if of:
+            sql = "UPDATE sstt_vencimientos_cursos SET " + ", ".join(set_parts) + " WHERE recurso_operativo_cedula = %s AND sstt_vencimientos_cursos_tipo_curso = %s AND sstt_vencimientos_cursos_fecha = %s LIMIT 1"
+            params = params_set + [oc, ot, of]
+            cur.execute(sql, tuple(params))
             connection.commit()
             affected = cur.rowcount
-        if affected == 0:
-            sql3 = (
-                "UPDATE sstt_vencimientos_cursos SET " + ", ".join(set_parts) +
-                " WHERE TRIM(recurso_operativo_cedula) = %s AND TRIM(sstt_vencimientos_cursos_tipo_curso) = %s AND DATE(sstt_vencimientos_cursos_fecha) = %s LIMIT 1"
-            )
-            params3 = params_set + [oc, ot, of]
-            cur.execute(sql3, tuple(params3))
-            connection.commit()
-            affected = cur.rowcount
+            if affected == 0:
+                sql2 = (
+                    "UPDATE sstt_vencimientos_cursos SET " + ", ".join(set_parts) +
+                    " WHERE recurso_operativo_cedula = %s AND sstt_vencimientos_cursos_tipo_curso = %s AND DATE(sstt_vencimientos_cursos_fecha) = %s LIMIT 1"
+                )
+                params2 = params_set + [oc, ot, of]
+                cur.execute(sql2, tuple(params2))
+                connection.commit()
+                affected = cur.rowcount
+            if affected == 0:
+                sql3 = (
+                    "UPDATE sstt_vencimientos_cursos SET " + ", ".join(set_parts) +
+                    " WHERE TRIM(recurso_operativo_cedula) = %s AND TRIM(sstt_vencimientos_cursos_tipo_curso) = %s AND DATE(sstt_vencimientos_cursos_fecha) = %s LIMIT 1"
+                )
+                params3 = params_set + [oc, ot, of]
+                cur.execute(sql3, tuple(params3))
+                connection.commit()
+                affected = cur.rowcount
+        else:
+            try:
+                sqln = (
+                    "UPDATE sstt_vencimientos_cursos SET " + ", ".join(set_parts) +
+                    " WHERE TRIM(recurso_operativo_cedula) = %s AND TRIM(sstt_vencimientos_cursos_tipo_curso) = %s ORDER BY sstt_vencimientos_cursos_fecha DESC LIMIT 1"
+                )
+                paramsn = params_set + [oc, ot]
+                cur.execute(sqln, tuple(paramsn))
+                connection.commit()
+                affected = cur.rowcount
+            except Exception:
+                affected = 0
+            if affected == 0:
+                try:
+                    sqln2 = (
+                        "UPDATE sstt_vencimientos_cursos SET " + ", ".join(set_parts) +
+                        " WHERE TRIM(recurso_operativo_cedula) = %s AND TRIM(sstt_vencimientos_cursos_tipo_curso) = %s LIMIT 1"
+                    )
+                    paramsn2 = params_set + [oc, ot]
+                    cur.execute(sqln2, tuple(paramsn2))
+                    connection.commit()
+                    affected = cur.rowcount
+                except Exception:
+                    affected = 0
         cur.close(); connection.close()
         if affected == 0:
             return jsonify({'success': False, 'message': 'No se encontró registro para actualizar'}), 404
@@ -3947,7 +4124,7 @@ def api_sstt_vencimientos_cursos_resumen():
             'ro.recurso_operativo_cedula AS cedula, '
             'ro.nombre AS nombre, '
             'COUNT(*) AS total_cursos, '
-            "SUM(CASE WHEN vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() AND (vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0) AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) AND NOT EXISTS (SELECT 1 FROM sstt_vencimientos_cursos vc2 WHERE vc2.recurso_operativo_cedula = vc.recurso_operativo_cedula AND vc2.sstt_vencimientos_cursos_tipo_curso = vc.sstt_vencimientos_cursos_tipo_curso AND vc2.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc2.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc2.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc2.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc2.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30) THEN 1 ELSE 0 END) AS vencidos, "
+            "SUM(CASE WHEN vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() AND (vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0) AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) AND NOT EXISTS (SELECT 1 FROM sstt_vencimientos_cursos vc2 WHERE vc2.recurso_operativo_cedula = vc.recurso_operativo_cedula AND vc2.sstt_vencimientos_cursos_tipo_curso = vc.sstt_vencimientos_cursos_tipo_curso AND vc2.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc2.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc2.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc2.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc2.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30) AND (vc.sstt_vencimientos_cursos_tipo_curso <> 'EXAMEN MEDICO INGRESO' OR NOT EXISTS (SELECT 1 FROM sstt_vencimientos_cursos vcP WHERE vcP.recurso_operativo_cedula = vc.recurso_operitivo_cedula AND vcP.sstt_vencimientos_cursos_tipo_curso = 'EXAMEN MEDICO PERIODICO' AND vcP.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vcP.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vcP.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vcP.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vcP.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30)) THEN 1 ELSE 0 END) AS vencidos, "
             "SUM(CASE WHEN vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30 AND (vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0) AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) AND NOT EXISTS (SELECT 1 FROM sstt_vencimientos_cursos vc2 WHERE vc2.recurso_operativo_cedula = vc.recurso_operativo_cedula AND vc2.sstt_vencimientos_cursos_tipo_curso = vc.sstt_vencimientos_cursos_tipo_curso AND vc2.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc2.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc2.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc2.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc2.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30) AND (vc.sstt_vencimientos_cursos_tipo_curso <> 'EXAMEN MEDICO INGRESO' OR NOT EXISTS (SELECT 1 FROM sstt_vencimientos_cursos vcP WHERE vcP.recurso_operativo_cedula = vc.recurso_operativo_cedula AND vcP.sstt_vencimientos_cursos_tipo_curso = 'EXAMEN MEDICO PERIODICO' AND vcP.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vcP.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vcP.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vcP.sstt_vencimientos_cursos_fecha_ven) >= CURDATE())) THEN 1 ELSE 0 END) AS por_vencer "
             'FROM recurso_operativo ro '
             'LEFT JOIN sstt_vencimientos_cursos vc ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula '
@@ -3955,8 +4132,88 @@ def api_sstt_vencimientos_cursos_resumen():
         if where:
             sql += ' WHERE ' + ' AND '.join(where)
         sql += ' GROUP BY ro.recurso_operativo_cedula, ro.nombre ORDER BY ro.nombre ASC'
-        cursor.execute(sql, tuple(params))
-        rows = cursor.fetchall() or []
+        rows = []
+        try:
+            cursor.execute(sql, tuple(params))
+            rows = cursor.fetchall() or []
+        except Exception:
+            sql_fb = (
+                'SELECT '
+                'ro.recurso_operativo_cedula AS cedula, '
+                'ro.nombre AS nombre, '
+                '(SELECT COUNT(*) FROM sstt_vencimientos_cursos vcX WHERE vcX.recurso_operativo_cedula = ro.recurso_operativo_cedula) AS total_cursos, '
+                '('
+                    'SELECT COUNT(*) FROM sstt_vencimientos_cursos vc '
+                    'WHERE vc.recurso_operativo_cedula = ro.recurso_operativo_cedula '
+                      'AND vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL '
+                      "AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') "
+                      "AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' "
+                      'AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() '
+                      'AND (vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0) '
+                      'AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) '
+                      'AND NOT EXISTS ('
+                          'SELECT 1 FROM sstt_vencimientos_cursos vc2 '
+                          'WHERE vc2.recurso_operativo_cedula = vc.recurso_operativo_cedula '
+                            'AND vc2.sstt_vencimientos_cursos_tipo_curso = vc.sstt_vencimientos_cursos_tipo_curso '
+                            'AND vc2.sstt_vencimientos_cursos_fecha_ven IS NOT NULL '
+                            "AND vc2.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') "
+                            "AND vc2.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' "
+                            'AND DATE(vc2.sstt_vencimientos_cursos_fecha_ven) > CURDATE() '
+                            'AND DATEDIFF(vc2.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30'
+                      ') '
+                      'AND ('
+                          "vc.sstt_vencimientos_cursos_tipo_curso <> 'EXAMEN MEDICO INGRESO' "
+                          'OR NOT EXISTS ('
+                              'SELECT 1 FROM sstt_vencimientos_cursos vcP '
+                              'WHERE vcP.recurso_operativo_cedula = ro.recurso_operativo_cedula '
+                                "AND vcP.sstt_vencimientos_cursos_tipo_curso = 'EXAMEN MEDICO PERIODICO' "
+                                'AND vcP.sstt_vencimientos_cursos_fecha_ven IS NOT NULL '
+                                "AND vcP.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') "
+                                "AND vcP.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' "
+                                'AND DATEDIFF(vcP.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30'
+                          ')'
+                      ')'
+                ') AS vencidos, '
+                '('
+                    'SELECT COUNT(*) FROM sstt_vencimientos_cursos vc '
+                    'WHERE vc.recurso_operativo_cedula = ro.recurso_operativo_cedula '
+                      'AND vc.sstt_vencimientos_cursos_fecha_ven IS NOT NULL '
+                      "AND vc.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') "
+                      "AND vc.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' "
+                      'AND DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() '
+                      'AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30 '
+                      'AND (vc.sstt_vencimientos_cursos_validado IS NULL OR vc.sstt_vencimientos_cursos_validado = 0) '
+                      'AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) '
+                      'AND NOT EXISTS ('
+                          'SELECT 1 FROM sstt_vencimientos_cursos vc2 '
+                          'WHERE vc2.recurso_operativo_cedula = vc.recurso_operativo_cedula '
+                            'AND vc2.sstt_vencimientos_cursos_tipo_curso = vc.sstt_vencimientos_cursos_tipo_curso '
+                            'AND vc2.sstt_vencimientos_cursos_fecha_ven IS NOT NULL '
+                            "AND vc2.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') "
+                            "AND vc2.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' "
+                            'AND DATE(vc2.sstt_vencimientos_cursos_fecha_ven) > CURDATE() '
+                            'AND DATEDIFF(vc2.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30'
+                      ') '
+                      'AND ('
+                          "vc.sstt_vencimientos_cursos_tipo_curso <> 'EXAMEN MEDICO INGRESO' "
+                          'OR NOT EXISTS ('
+                              'SELECT 1 FROM sstt_vencimientos_cursos vcP '
+                              'WHERE vcP.recurso_operativo_cedula = ro.recurso_operativo_cedula '
+                                "AND vcP.sstt_vencimientos_cursos_tipo_curso = 'EXAMEN MEDICO PERIODICO' "
+                                'AND vcP.sstt_vencimientos_cursos_fecha_ven IS NOT NULL '
+                                "AND vcP.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') "
+                                "AND vcP.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' "
+                                'AND DATE(vcP.sstt_vencimientos_cursos_fecha_ven) >= CURDATE()'
+                          ')'
+                      ')'
+                ') AS por_vencer '
+                'FROM recurso_operativo ro '
+            )
+            if where:
+                sql_fb += ' WHERE ' + ' AND '.join(where)
+            sql_fb += ' ORDER BY ro.nombre ASC'
+            cursor.execute(sql_fb, tuple(params))
+            rows = cursor.fetchall() or []
         data = [{
             'cedula': r.get('cedula'),
             'nombre': r.get('nombre'),
@@ -4008,7 +4265,13 @@ def api_sstt_vencimientos_cursos_export():
             filter_sql += '( ' + ' AND '.join(emp_filters) + ' ) AND '
         filter_sql += '( ' + date_cond + ' AND ' + validado_cond + ' AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) '
         filter_sql += " AND NOT EXISTS (SELECT 1 FROM sstt_vencimientos_cursos vc2 WHERE vc2.recurso_operativo_cedula = vc.recurso_operativo_cedula AND vc2.sstt_vencimientos_cursos_tipo_curso = vc.sstt_vencimientos_cursos_tipo_curso AND vc2.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc2.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc2.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc2.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc2.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30) "
-        filter_sql += " AND (vc.sstt_vencimientos_cursos_tipo_curso <> 'EXAMEN MEDICO INGRESO' OR NOT EXISTS (SELECT 1 FROM sstt_vencimientos_cursos vcP WHERE vcP.recurso_operativo_cedula = vc.recurso_operativo_cedula AND vcP.sstt_vencimientos_cursos_tipo_curso = 'EXAMEN MEDICO PERIODICO' AND vcP.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vcP.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vcP.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vcP.sstt_vencimientos_cursos_fecha_ven) >= CURDATE())) )"
+        filter_sql += " AND (vc.sstt_vencimientos_cursos_tipo_curso <> 'EXAMEN MEDICO INGRESO' OR NOT EXISTS (SELECT 1 FROM sstt_vencimientos_cursos vcP WHERE vcP.recurso_operativo_cedula = vc.recurso_operitivo_cedula AND vcP.sstt_vencimientos_cursos_tipo_curso = 'EXAMEN MEDICO PERIODICO' AND vcP.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vcP.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vcP.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vcP.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vcP.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30)) )"
+        filter_sql = ''
+        if emp_filters:
+            filter_sql += '( ' + ' AND '.join(emp_filters) + ' ) AND '
+        filter_sql += '( ' + date_cond + ' AND ' + validado_cond + ' AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) '
+        filter_sql += " AND NOT EXISTS (SELECT 1 FROM sstt_vencimientos_cursos vc2 WHERE vc2.recurso_operativo_cedula = vc.recurso_operativo_cedula AND vc2.sstt_vencimientos_cursos_tipo_curso = vc.sstt_vencimientos_cursos_tipo_curso AND vc2.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc2.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc2.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc2.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc2.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30) "
+        filter_sql += " AND (vc.sstt_vencimientos_cursos_tipo_curso <> 'EXAMEN MEDICO INGRESO' OR NOT EXISTS (SELECT 1 FROM sstt_vencimientos_cursos vcP WHERE vcP.recurso_operativo_cedula = vc.recurso_operativo_cedula AND vcP.sstt_vencimientos_cursos_tipo_curso = 'EXAMEN MEDICO PERIODICO' AND vcP.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vcP.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vcP.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND ((DATE(vc.sstt_vencimientos_cursos_fecha_ven) <= CURDATE() AND DATEDIFF(vcP.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30) OR (DATE(vc.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc.sstt_vencimientos_cursos_fecha_ven, CURDATE()) <= 30 AND DATE(vcP.sstt_vencimientos_cursos_fecha_ven) >= CURDATE()))) )"
         sql += ' WHERE ' + filter_sql
         sql += ' ORDER BY ro.nombre ASC, vc.sstt_vencimientos_cursos_fecha_ven ASC'
         cursor.execute(sql, tuple(params))
