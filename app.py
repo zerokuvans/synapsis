@@ -4006,7 +4006,9 @@ def api_sstt_vencimientos_cursos_export():
         filter_sql = ''
         if emp_filters:
             filter_sql += '( ' + ' AND '.join(emp_filters) + ' ) AND '
-        filter_sql += '( ' + date_cond + ' AND ' + validado_cond + ' AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) )'
+        filter_sql += '( ' + date_cond + ' AND ' + validado_cond + ' AND (vc.sstt_vencimientos_cursos_pendiente IS NULL OR vc.sstt_vencimientos_cursos_pendiente = 0) '
+        filter_sql += " AND NOT EXISTS (SELECT 1 FROM sstt_vencimientos_cursos vc2 WHERE vc2.recurso_operativo_cedula = vc.recurso_operativo_cedula AND vc2.sstt_vencimientos_cursos_tipo_curso = vc.sstt_vencimientos_cursos_tipo_curso AND vc2.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vc2.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vc2.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vc2.sstt_vencimientos_cursos_fecha_ven) > CURDATE() AND DATEDIFF(vc2.sstt_vencimientos_cursos_fecha_ven, CURDATE()) > 30) "
+        filter_sql += " AND (vc.sstt_vencimientos_cursos_tipo_curso <> 'EXAMEN MEDICO INGRESO' OR NOT EXISTS (SELECT 1 FROM sstt_vencimientos_cursos vcP WHERE vcP.recurso_operativo_cedula = vc.recurso_operativo_cedula AND vcP.sstt_vencimientos_cursos_tipo_curso = 'EXAMEN MEDICO PERIODICO' AND vcP.sstt_vencimientos_cursos_fecha_ven IS NOT NULL AND vcP.sstt_vencimientos_cursos_fecha_ven NOT IN ('0000-00-00','1900-01-01') AND vcP.sstt_vencimientos_cursos_fecha_ven > '1900-01-01' AND DATE(vcP.sstt_vencimientos_cursos_fecha_ven) >= CURDATE())) )"
         sql += ' WHERE ' + filter_sql
         sql += ' ORDER BY ro.nombre ASC, vc.sstt_vencimientos_cursos_fecha_ven ASC'
         cursor.execute(sql, tuple(params))
