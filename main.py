@@ -10647,6 +10647,9 @@ def registrar_preoperacional():
             'casco_certificado': request.form.get('casco_certificado', 0),
             'casco_identificado': request.form.get('casco_identificado', 0),
             'estado_guantes': request.form.get('estado_guantes', 0),
+            'elementos_prevencion_seguridad_vial_coderas': request.form.get('elementos_prevencion_seguridad_vial_coderas', 0),
+            'elementos_prevencion_seguridad_vial_rodilleras': request.form.get('elementos_prevencion_seguridad_vial_rodilleras', request.form.get('estado_rodilleras', 0)),
+            'elementos_prevencion_seguridad_vial_impermeable': request.form.get('elementos_prevencion_seguridad_vial_impermeable', request.form.get('impermeable', 0)),
             'estado_rodilleras': request.form.get('estado_rodilleras', 0),
             'impermeable': request.form.get('impermeable', 0),
             'observaciones': request.form.get('observaciones', '')
@@ -10934,6 +10937,9 @@ def registrar_preoperacional_operativo():
             'casco_certificado': request.form.get('casco_certificado', 0),
             'casco_identificado': request.form.get('casco_identificado', 0),
             'estado_guantes': request.form.get('estado_guantes', 0),
+            'elementos_prevencion_seguridad_vial_coderas': request.form.get('elementos_prevencion_seguridad_vial_coderas', 0),
+            'elementos_prevencion_seguridad_vial_rodilleras': request.form.get('elementos_prevencion_seguridad_vial_rodilleras', request.form.get('estado_rodilleras', 0)),
+            'elementos_prevencion_seguridad_vial_impermeable': request.form.get('elementos_prevencion_seguridad_vial_impermeable', request.form.get('impermeable', 0)),
             'estado_rodilleras': request.form.get('estado_rodilleras', 0),
             'impermeable': request.form.get('impermeable', 0),
             'observaciones': request.form.get('observaciones', '')
@@ -11489,7 +11495,7 @@ def exportar_preoperacional_csv():
             'Frenos', 'Encendido', 'Batería', 'Amortiguadores', 'Llantas',
             'Kilometraje', 'Luces Altas/Bajas', 'Direccionales',
             'Elementos Prevención Casco', 'Casco Certificado', 'Casco Identificado',
-            'Estado Guantes', 'Estado Rodilleras', 'Impermeable', 'Observaciones'
+            'Estado Guantes', 'Estado Rodilleras', 'Coderas', 'Impermeable', 'Observaciones'
         ])
         
         # Escribir datos
@@ -11531,6 +11537,7 @@ def exportar_preoperacional_csv():
                 registro['casco_identificado'] or '',
                 registro['estado_guantes'] or '',
                 registro['estado_rodilleras'] or '',
+                registro.get('elementos_prevencion_seguridad_vial_coderas','') or '',
                 registro['impermeable'] or '',
                 registro['observaciones'] or ''
             ])
@@ -30868,26 +30875,28 @@ def api_sstt_tecnicos_con_preoperacional():
         except Exception:
             limit = 500
         params = []
-        where = []
-        if ultima not in ['1', 'true', 'yes', 'si']:
-            where.append("DATE(p.fecha) = %s")
+        if ultima in ['1', 'true', 'yes', 'si']:
+            sql = (
+                "SELECT ro.id_codigo_consumidor, ro.recurso_operativo_cedula AS cedula, ro.nombre, "
+                "pmax.fecha, pmax.observaciones "
+                "FROM (SELECT id_codigo_consumidor, MAX(fecha) AS fecha FROM preoperacional GROUP BY id_codigo_consumidor) pm "
+                "JOIN preoperacional pmax ON pmax.id_codigo_consumidor = pm.id_codigo_consumidor AND pmax.fecha = pm.fecha "
+                "JOIN recurso_operativo ro ON ro.id_codigo_consumidor = pm.id_codigo_consumidor "
+            )
+        else:
+            sql = (
+                "SELECT ro.id_codigo_consumidor, ro.recurso_operativo_cedula AS cedula, ro.nombre, "
+                "pmax.fecha, pmax.observaciones "
+                "FROM (SELECT id_codigo_consumidor, MAX(fecha) AS fecha FROM preoperacional WHERE DATE(fecha) = %s GROUP BY id_codigo_consumidor) pm "
+                "JOIN preoperacional pmax ON pmax.id_codigo_consumidor = pm.id_codigo_consumidor AND pmax.fecha = pm.fecha "
+                "JOIN recurso_operativo ro ON ro.id_codigo_consumidor = pm.id_codigo_consumidor "
+            )
             params.append(fecha)
         if q:
-            where.append("(ro.recurso_operativo_cedula LIKE %s OR ro.nombre LIKE %s)")
             like = f"%{q}%"
+            sql += "WHERE (ro.recurso_operativo_cedula LIKE %s OR ro.nombre LIKE %s) "
             params.extend([like, like])
-        sql = (
-            "SELECT ro.id_codigo_consumidor, ro.recurso_operativo_cedula AS cedula, ro.nombre, "
-            "MAX(p.fecha) AS fecha "
-            "FROM preoperacional p "
-            "JOIN recurso_operativo ro ON ro.id_codigo_consumidor = p.id_codigo_consumidor "
-        )
-        if where:
-            sql += "WHERE " + " AND ".join(where) + " "
-        sql += (
-            "GROUP BY ro.id_codigo_consumidor, ro.recurso_operativo_cedula, ro.nombre "
-            "ORDER BY ro.nombre ASC LIMIT %s"
-        )
+        sql += "ORDER BY ro.nombre ASC LIMIT %s"
         params.append(limit)
         cursor.execute(sql, tuple(params))
         rows = cursor.fetchall() or []
@@ -30895,6 +30904,23 @@ def api_sstt_tecnicos_con_preoperacional():
             f = r.get('fecha')
             if hasattr(f, 'strftime'):
                 r['fecha'] = f.strftime('%Y-%m-%d %H:%M:%S')
+            try:
+                cur2 = connection.cursor(dictionary=True)
+                if ultima in ['1', 'true', 'yes', 'si']:
+                    cur2.execute(
+                        "SELECT observaciones FROM preoperacional WHERE id_codigo_consumidor = %s ORDER BY fecha DESC LIMIT 1",
+                        (r.get('id_codigo_consumidor'),)
+                    )
+                else:
+                    cur2.execute(
+                        "SELECT observaciones FROM preoperacional WHERE id_codigo_consumidor = %s AND DATE(fecha) = %s ORDER BY fecha DESC LIMIT 1",
+                        (r.get('id_codigo_consumidor'), fecha)
+                    )
+                ob = cur2.fetchone() or {}
+                r['observaciones'] = ob.get('observaciones')
+                cur2.close()
+            except Exception:
+                r['observaciones'] = r.get('observaciones')
         cursor.close(); connection.close()
         return jsonify({'success': True, 'data': rows, 'total': len(rows)})
     except Exception as e:

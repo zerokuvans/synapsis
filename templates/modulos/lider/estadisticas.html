@@ -314,6 +314,15 @@ function formatYMDStats(v){
 
 async function getReconMonedaStats(analista, periodo, seccion, valor){
   try{
+    const v = Number(valor||0);
+    const sec = String(seccion||'').toLowerCase();
+    if(sec === 'cierre'){
+      if(v >= 96) return '400pesos';
+      if(v >= 94) return '300pesos';
+      if(v >= 92) return '200pesos';
+      if(v >= 90) return '100pesos';
+      return '0pesos';
+    }
     let url = '/api/administrativo/porcentajes-analistas';
     const qs = [];
     if(periodo) qs.push(`periodo=${encodeURIComponent(periodo)}`);
@@ -321,19 +330,37 @@ async function getReconMonedaStats(analista, periodo, seccion, valor){
     if(seccion) qs.push(`seccion=${encodeURIComponent(seccion)}`);
     if(qs.length) url += `?${qs.join('&')}`;
     const res = await fetch(url, { credentials:'include' });
-    if(!res.ok) return '';
-    const data = await res.json();
-    const items = Array.isArray(data.items) ? data.items : [];
-    items.sort((a,b)=> Number(a.porcentaje||0) - Number(b.porcentaje||0));
-    let pick = '';
-    for(const it of items){
-      const pct = Number(it.porcentaje||0);
-      if(Number(valor||0) >= pct){ pick = String(it.moneda||'').trim(); }
+    if(res.ok){
+      const data = await res.json();
+      const items = Array.isArray(data.items) ? data.items : [];
+      items.sort((a,b)=> Number(a.porcentaje||0) - Number(b.porcentaje||0));
+      let pick = '';
+      for(const it of items){
+        const pct = Number(it.porcentaje||0);
+        if(v >= pct){ pick = String(it.moneda||'').trim(); }
+      }
+      if(sec !== 'cierre' && coinRankStats(pick) > 300){ return '300pesos'; }
+      if(pick) return pick;
     }
+    if(v >= 94) return '300pesos';
+    if(v >= 92) return '200pesos';
+    if(v >= 90) return '100pesos';
+    return '0pesos';
+  }catch(_){
+    const v = Number(valor||0);
     const sec = String(seccion||'').toLowerCase();
-    if(sec !== 'cierre' && coinRankStats(pick) > 300){ return '300pesos'; }
-    return pick;
-  }catch(_){ return ''; }
+    if(sec === 'cierre'){
+      if(v >= 96) return '400pesos';
+      if(v >= 94) return '300pesos';
+      if(v >= 92) return '200pesos';
+      if(v >= 90) return '100pesos';
+      return '0pesos';
+    }
+    if(v >= 94) return '300pesos';
+    if(v >= 92) return '200pesos';
+    if(v >= 90) return '100pesos';
+    return '0pesos';
+  }
 }
 
 async function setReconByTablaStats(imgEl, analista, periodo, seccion, valor){
