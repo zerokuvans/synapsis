@@ -4214,13 +4214,96 @@ def api_sstt_vencimientos_cursos_resumen():
             sql_fb += ' ORDER BY ro.nombre ASC'
             cursor.execute(sql_fb, tuple(params))
             rows = cursor.fetchall() or []
-        data = [{
-            'cedula': r.get('cedula'),
-            'nombre': r.get('nombre'),
-            'total_cursos': int(r.get('total_cursos') or 0),
-            'vencidos': int(r.get('vencidos') or 0),
-            'por_vencer': int(r.get('por_vencer') or 0)
-        } for r in rows]
+        hoy = date.today()
+        data = []
+        for r in rows:
+            ced = r.get('cedula')
+            nom = r.get('nombre')
+            total = int(r.get('total_cursos') or 0)
+            venc = int(r.get('vencidos') or 0)
+            prox = int(r.get('por_vencer') or 0)
+            try:
+                cur_user = connection.cursor(dictionary=True)
+                cur_user.execute("SELECT id_codigo_consumidor, estado FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (ced,))
+                ru = cur_user.fetchone()
+                cur_user.close()
+                if ru and (not solo_activos or str(ru.get('estado') or '') == 'Activo'):
+                    idc = ru.get('id_codigo_consumidor')
+                    cur_enc = connection.cursor(dictionary=True)
+                    cur_enc.execute(
+                        """
+                        SELECT DATE(fecha_respuesta) AS fecha, sstt_vencimientos_cursos_fecha_ven AS fecha_ven
+                        FROM encuesta_respuestas
+                        WHERE encuesta_id = %s AND usuario_id = %s AND estado IN ('enviada','respondida','finalizada') AND YEAR(fecha_respuesta) = YEAR(CURDATE())
+                        ORDER BY fecha_respuesta DESC
+                        LIMIT 1
+                        """,
+                        (10, idc)
+                    )
+                    er = cur_enc.fetchone()
+                    cur_enc.close()
+                    if er:
+                        fecha_enc = er.get('fecha')
+                        fecha_ven_enc = er.get('fecha_ven')
+                        enc_year = None
+                        try:
+                            if hasattr(fecha_enc, 'year'):
+                                enc_year = int(fecha_enc.year)
+                            else:
+                                s = str(fecha_enc)
+                                enc_year = int(s[0:4]) if len(s) >= 4 and s[0:4].isdigit() else None
+                        except Exception:
+                            enc_year = None
+                        cur_cnt1 = connection.cursor()
+                        cur_cnt1.execute("SELECT COUNT(*) FROM sstt_vencimientos_cursos WHERE recurso_operativo_cedula = %s AND UPPER(sstt_vencimientos_cursos_tipo_curso) LIKE %s", (ced, '%INDUCCI%'))
+                        cnt_ind = (cur_cnt1.fetchone() or [0])[0]
+                        cur_cnt1.close()
+                        cur_cnt2 = connection.cursor()
+                        if enc_year is not None:
+                            cur_cnt2.execute("SELECT COUNT(*) FROM sstt_vencimientos_cursos WHERE recurso_operativo_cedula = %s AND UPPER(sstt_vencimientos_cursos_tipo_curso) LIKE %s AND YEAR(sstt_vencimientos_cursos_fecha) = %s", (ced, '%REINDUCCI%', enc_year))
+                        else:
+                            cur_cnt2.execute("SELECT 0")
+                        cnt_re_year = (cur_cnt2.fetchone() or [0])[0]
+                        cur_cnt2.close()
+                        add_item = False
+                        if int(cnt_ind or 0) == 0:
+                            add_item = True
+                        elif enc_year is not None and int(cnt_re_year or 0) == 0:
+                            add_item = True
+                        if add_item:
+                            fv_date_enc = None
+                            try:
+                                if fecha_ven_enc:
+                                    if hasattr(fecha_ven_enc, 'strftime'):
+                                        fv_date_enc = fecha_ven_enc if hasattr(fecha_ven_enc, 'year') else None
+                                    else:
+                                        s = str(fecha_ven_enc).strip()
+                                        if s:
+                                            try:
+                                                fv_date_enc = datetime.strptime(s, '%Y-%m-%d').date()
+                                            except Exception:
+                                                try:
+                                                    fv_date_enc = datetime.strptime(s, '%Y-%m-%d %H:%M:%S').date()
+                                                except Exception:
+                                                    fv_date_enc = None
+                            except Exception:
+                                fv_date_enc = None
+                            total += 1
+                            if fv_date_enc:
+                                dias_enc = (fv_date_enc - hoy).days
+                                if dias_enc <= 0:
+                                    venc += 1
+                                elif dias_enc <= 30:
+                                    prox += 1
+            except Exception:
+                pass
+            data.append({
+                'cedula': ced,
+                'nombre': nom,
+                'total_cursos': total,
+                'vencidos': venc,
+                'por_vencer': prox
+            })
         cursor.close(); connection.close()
         return jsonify({'success': True, 'data': data, 'total': len(data)})
     except Exception as e:
