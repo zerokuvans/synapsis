@@ -25,25 +25,54 @@
             </div>
           </div>
 
-          <div class="table-responsive">
-            <table class="table table-hover align-middle" id="tablaInspecciones">
-              <thead class="table-dark">
-                <tr>
-                  <th>Fecha</th>
-                  <th>Técnico</th>
-                  <th>Placa</th>
-                  <th>Hallazgos</th>
-                  <th>Observaciones</th>
-                  <th>Firmas</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-              </tbody>
-            </table>
+          <div class="row">
+            <div class="col-12 mb-3">
+              <div class="card sticky-top" style="top: 8px; z-index: 10;">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                  <div><i class="fas fa-user-clock me-1"></i>Pendientes este mes</div>
+                  <div class="d-flex align-items-center gap-2">
+                    <span id="pendientesCountBadge" class="badge bg-dark">0 pendientes</span>
+                    <button id="btnRefreshPendientes" type="button" class="btn btn-outline-dark btn-sm"><i class="fas fa-sync me-1"></i>Actualizar</button>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm" id="tablaPendientes">
+                      <thead>
+                        <tr>
+                          <th>Placa</th>
+                          <th>Técnico</th>
+                          <th class="text-end">Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody></tbody>
+                    </table>
+                  </div>
+                  <div id="pendientesEmpty" class="text-muted small" style="display:none;">Sin pendientes</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle" id="tablaInspecciones">
+                  <thead class="table-dark">
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Técnico</th>
+                      <th>Placa</th>
+                      <th>Hallazgos</th>
+                      <th>Observaciones</th>
+                      <th>Firmas</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  </tbody>
+                </table>
+              </div>
+              <div id="emptyState" class="text-center text-muted py-4" style="display:none;">Sin inspecciones registradas</div>
+            </div>
           </div>
-
-          <div id="emptyState" class="text-center text-muted py-4" style="display:none;">Sin inspecciones registradas</div>
         </div>
       </div>
     </div>
@@ -245,6 +274,27 @@ let tecnicos = []
 let inspecciones = []
 let firmaTarget = { id: null, tipo: null }
 let fotosBase64 = { foto1: null, foto2: null, foto3: null }
+let pendientes = []
+let pendientesEndpointAvailable = null
+const pendLSKey = 'mpaPendEndpoint'
+
+function readPendFlag(){
+  try{
+    const raw = localStorage.getItem(pendLSKey)
+    if (!raw) return null
+    const obj = JSON.parse(raw)
+    if (!obj || typeof obj !== 'object') return null
+    const ttlMs = 24*60*60*1000
+    if (!obj.ts || (Date.now() - obj.ts) > ttlMs) return null
+    return !!obj.ok
+  }catch(e){ return null }
+}
+
+function writePendFlag(ok){
+  try{
+    localStorage.setItem(pendLSKey, JSON.stringify({ ok: !!ok, ts: Date.now() }))
+  }catch(e){}
+}
 
 const bmGroups = {
   'Estado físico': [
@@ -437,6 +487,99 @@ async function cargarInspecciones(){
   renderTabla()
 }
 
+function renderPendientes(){
+  const tbody = document.querySelector('#tablaPendientes tbody')
+  const empty = document.getElementById('pendientesEmpty')
+  tbody.innerHTML = ''
+  if (!pendientes.length){
+    empty.style.display = 'block'
+    const bc = document.getElementById('pendientesCountBadge')
+    if (bc) bc.textContent = '0 pendientes'
+    return
+  }
+  empty.style.display = 'none'
+  const bc = document.getElementById('pendientesCountBadge')
+  if (bc) bc.textContent = `${pendientes.length} pendientes`
+  pendientes.forEach(p => {
+    const tr = document.createElement('tr')
+    tr.innerHTML = `
+      <td>${p.placa || ''}</td>
+      <td>${p.tecnico_nombre || p.tecnico_id || ''}</td>
+      <td class="text-end">
+        <button class="btn btn-dark btn-sm" data-action="registrar" data-tid="${p.tecnico_id}" data-placa="${p.placa}"><i class="fas fa-plus me-1"></i>Registrar</button>
+      </td>
+    `
+    tbody.appendChild(tr)
+  })
+}
+
+async function cargarPendientesMes(){
+  if (pendientesEndpointAvailable === null){
+    pendientesEndpointAvailable = readPendFlag()
+  }
+  if (pendientesEndpointAvailable === true){
+    try{
+      const res = await fetch('/api/mpa/inspecciones/pendientes-mes?limit=5', { credentials: 'include' })
+      if (res.ok){
+        const d = await res.json()
+        pendientes = (d && d.success) ? (d.data || []) : []
+        pendientesEndpointAvailable = true
+        writePendFlag(true)
+        renderPendientes()
+        return
+      }
+      pendientesEndpointAvailable = false
+      writePendFlag(false)
+    }catch(e){
+      pendientesEndpointAvailable = false
+      writePendFlag(false)
+    }
+  }
+  try{
+    const [rv, ri] = await Promise.all([
+      fetch('/api/mpa/vehiculos', { credentials: 'include' }),
+      fetch('/api/mpa/inspecciones', { credentials: 'include' })
+    ])
+    const dv = await rv.json()
+    const di = await ri.json()
+    const vehs = (dv && dv.success) ? (dv.data || []) : []
+    const ins = (di && di.success) ? (di.data || []) : []
+    const now = new Date()
+    const from = new Date(now.getFullYear(), now.getMonth(), 1)
+    const to = new Date(now.getFullYear(), now.getMonth()+1, 1)
+    const setMes = new Set()
+    ins.forEach(r => {
+      const f = r.fecha_inspeccion ? new Date(r.fecha_inspeccion.replace(' ', 'T')) : null
+      if (!f) return
+      if (f >= from && f < to){
+        const tid = r.id_codigo_consumidor || r.tecnico_id || r.tecnico
+        const placa = r.placa
+        if (tid && placa){ setMes.add(String(tid)+'|'+String(placa)) }
+      }
+    })
+    const list = []
+    vehs.forEach(v => {
+      const tid = v.tecnico_asignado
+      const placa = v.placa
+      if (!tid || !placa) return
+      const key = String(tid)+'|'+String(placa)
+      if (!setMes.has(key)){
+        list.push({ placa, tecnico_id: tid, tecnico_nombre: v.tecnico_nombre })
+      }
+    })
+    list.sort((a,b)=>{
+      const ta = String(a.tecnico_nombre||'')+String(a.placa||'')
+      const tb = String(b.tecnico_nombre||'')+String(b.placa||'')
+      return ta.localeCompare(tb)
+    })
+    pendientes = list.slice(0,5)
+    renderPendientes()
+  }catch(e){
+    pendientes = []
+    renderPendientes()
+  }
+}
+
 async function guardarInspeccion(){
   const tecnico_id = document.getElementById('insTecnico').value
   const placa = (document.getElementById('insPlaca').value || '').trim().toUpperCase()
@@ -459,6 +602,7 @@ async function guardarInspeccion(){
       if (inp) inp.value = ''
     })
     await cargarInspecciones()
+    await cargarPendientesMes()
   } else {
     alert((data && data.error) || 'Error al crear la inspección')
   }
@@ -633,6 +777,7 @@ function renderVerBM(r){
   renderBMFields()
   await cargarTecnicos()
   await cargarInspecciones()
+  await cargarPendientesMes()
   document.getElementById('btnBuscar').addEventListener('click', cargarInspecciones)
   document.getElementById('btnGuardarInspeccion').addEventListener('click', guardarInspeccion)
   initFirmaCanvas()
@@ -704,6 +849,26 @@ function renderVerBM(r){
       if (action === 'firma-inspector') abrirModalFirma('inspector', id)
       if (action === 'ver') verInspeccion(id)
     })
+    document.querySelector('#tablaPendientes tbody').addEventListener('click', (e) => {
+      const btn = e.target.closest('button')
+      if (!btn) return
+      if (btn.dataset.action !== 'registrar') return
+      const tid = btn.dataset.tid
+      const placa = btn.dataset.placa
+      const selTec = document.getElementById('insTecnico')
+      const inpPlaca = document.getElementById('insPlaca')
+      if (selTec){ selTec.value = tid || '' }
+      if (inpPlaca){ inpPlaca.value = placa || '' }
+      const modal = new bootstrap.Modal(document.getElementById('modalInspeccion'))
+      modal.show()
+    })
+    const btnRef = document.getElementById('btnRefreshPendientes')
+    if (btnRef){
+      btnRef.addEventListener('click', async () => {
+        btnRef.disabled = true
+        try{ await cargarPendientesMes() } finally { btnRef.disabled = false }
+      })
+    }
   })
 
   function bindFotoInput(inpId, prevId, key){

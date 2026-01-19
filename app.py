@@ -7817,6 +7817,72 @@ def api_list_inspecciones():
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
+@app.route('/api/mpa/inspecciones/pendientes-mes', methods=['GET'])
+@login_required
+def api_inspecciones_pendientes_mes():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+
+        try:
+            cursor.execute("SHOW TABLES LIKE 'mpa_inspeccion_vehiculo'")
+            if not cursor.fetchone():
+                return jsonify({'success': True, 'data': []})
+        except Exception:
+            return jsonify({'success': True, 'data': []})
+
+        limit_val = 5
+        try:
+            ql = request.args.get('limit')
+            if ql:
+                limit_val = max(1, min(50, int(ql)))
+        except Exception:
+            limit_val = 5
+
+        now_dt = get_bogota_datetime()
+        y = now_dt.year
+        m = now_dt.month
+        from_date = date(y, m, 1)
+        if m == 12:
+            to_date = date(y + 1, 1, 1)
+        else:
+            to_date = date(y, m + 1, 1)
+
+        query = (
+            """
+            SELECT pa.placa,
+                   pa.id_codigo_consumidor AS tecnico_id,
+                   COALESCE(ro.nombre, CAST(pa.id_codigo_consumidor AS CHAR)) AS tecnico_nombre
+            FROM parque_automotor pa
+            LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = pa.id_codigo_consumidor
+            LEFT JOIN mpa_inspeccion_vehiculo i
+              ON i.id_codigo_consumidor = pa.id_codigo_consumidor
+             AND i.placa = pa.placa
+             AND i.fecha_inspeccion >= %s
+             AND i.fecha_inspeccion < %s
+            WHERE pa.id_codigo_consumidor IS NOT NULL
+              AND pa.placa IS NOT NULL
+              AND (ro.estado IS NULL OR ro.estado = 'Activo')
+              AND i.id_mpa_inspeccion_vehiculo IS NULL
+            ORDER BY SHA1(CONCAT(pa.id_codigo_consumidor, DATE(NOW())))
+            LIMIT %s
+            """
+        )
+        cursor.execute(query, (from_date, to_date, limit_val))
+        rows = cursor.fetchall() or []
+        return jsonify({'success': True, 'data': rows, 'from_date': from_date.strftime('%Y-%m-%d'), 'to_date': to_date.strftime('%Y-%m-%d')})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
 @app.route('/api/mpa/inspecciones/<int:inspeccion_id>', methods=['GET'])
 @login_required
 def api_get_inspeccion(inspeccion_id):
