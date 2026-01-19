@@ -1,0 +1,917 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-gradient text-white fw-bold" style="background: linear-gradient(135deg, #343a40 0%, #212529 100%) !important;">
+          <h3 class="mb-0"><i class="fas fa-toolbox me-2"></i>Inspección Kit de Carretera - MPA</h3>
+        </div>
+        <div class="card-body">
+          <div class="mb-3 d-flex flex-wrap gap-2 align-items-end">
+            <div class="me-2" style="min-width:260px;">
+              <label class="form-label">Técnico</label>
+              <select id="kitTecnico" class="form-select"></select>
+            </div>
+            <div class="me-2" style="min-width:220px;">
+              <label class="form-label">Placa</label>
+              <input id="kitPlaca" type="text" class="form-control" placeholder="Ej. ABC123">
+            </div>
+            <div class="me-2" style="min-width:240px;">
+              <label class="form-label">Vencimiento extintor</label>
+              <input id="kitExtVenc" type="date" class="form-control">
+            </div>
+            <div class="ms-auto d-flex gap-2">
+              <button id="btnGuardarKit" class="btn btn-dark"><i class="fas fa-save me-1"></i>Guardar inspección</button>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-12 mb-3">
+              <div class="card">
+                <div class="card-header d-flex align-items-center justify-content-between"><div><i class="fas fa-list-check me-1"></i>Elementos del kit</div><div class="btn-group"><button id="btnAllSi" type="button" class="btn btn-outline-dark btn-sm">Marcar todo SI</button><button id="btnAllNo" type="button" class="btn btn-outline-dark btn-sm">Marcar todo NO</button><button id="btnClearKit" type="button" class="btn btn-outline-secondary btn-sm">Limpiar</button></div></div>
+                <div class="card-body">
+                  <div class="row g-3">
+                    <div class="col-12 col-md-6 col-lg-4">
+                      <div class="form-label">Gato</div>
+                      <div class="d-flex gap-3 align-items-center">
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_gato" id="kit_gato_si" value="SI">
+                          <label class="form-check-label" for="kit_gato_si">SI</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_gato" id="kit_gato_no" value="NO">
+                          <label class="form-check-label" for="kit_gato_no">NO</label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-4">
+                      <div class="form-label">Cruceta</div>
+                      <div class="d-flex gap-3 align-items-center">
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_cruceta" id="kit_cruceta_si" value="SI">
+                          <label class="form-check-label" for="kit_cruceta_si">SI</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_cruceta" id="kit_cruceta_no" value="NO">
+                          <label class="form-check-label" for="kit_cruceta_no">NO</label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-4">
+                      <div class="form-label">Señales reflectivas</div>
+                      <div class="d-flex gap-3 align-items-center">
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_senales" id="kit_senales_si" value="SI">
+                          <label class="form-check-label" for="kit_senales_si">SI</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_senales" id="kit_senales_no" value="NO">
+                          <label class="form-check-label" for="kit_senales_no">NO</label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-4">
+                      <div class="form-label">Botiquín</div>
+                      <div class="d-flex gap-3 align-items-center">
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_botiquin" id="kit_botiquin_si" value="SI">
+                          <label class="form-check-label" for="kit_botiquin_si">SI</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_botiquin" id="kit_botiquin_no" value="NO">
+                          <label class="form-check-label" for="kit_botiquin_no">NO</label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-4">
+                      <div class="form-label">Extintor vigente</div>
+                      <div class="d-flex gap-3 align-items-center">
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_extintor_vigente" id="kit_extintor_si" value="SI">
+                          <label class="form-check-label" for="kit_extintor_si">SI</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_extintor_vigente" id="kit_extintor_no" value="NO">
+                          <label class="form-check-label" for="kit_extintor_no">NO</label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-4">
+                      <div class="form-label">Tacos</div>
+                      <div class="d-flex gap-3 align-items-center">
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_tacos" id="kit_tacos_si" value="SI">
+                          <label class="form-check-label" for="kit_tacos_si">SI</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_tacos" id="kit_tacos_no" value="NO">
+                          <label class="form-check-label" for="kit_tacos_no">NO</label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-4">
+                      <div class="form-label">Caja herramienta básica</div>
+                      <div class="d-flex gap-3 align-items-center">
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_caja" id="kit_caja_si" value="SI">
+                          <label class="form-check-label" for="kit_caja_si">SI</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_caja" id="kit_caja_no" value="NO">
+                          <label class="form-check-label" for="kit_caja_no">NO</label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-4">
+                      <div class="form-label">Llanta de repuesto</div>
+                      <div class="d-flex gap-3 align-items-center">
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_llanta" id="kit_llanta_si" value="SI">
+                          <label class="form-check-label" for="kit_llanta_si">SI</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input class="form-check-input" type="radio" name="kit_llanta" id="kit_llanta_no" value="NO">
+                          <label class="form-check-label" for="kit_llanta_no">NO</label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 mb-3">
+              <div class="card">
+                <div class="card-header"><i class="fas fa-camera me-1"></i>Foto del kit</div>
+                <div class="card-body">
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <input id="kitFoto" type="file" accept="image/*" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                      <img id="kitFotoPrev" alt="Foto del kit" style="width:100%; max-height:240px; display:none; border:1px solid #eee; border-radius:6px;" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 mb-3">
+              <label class="form-label">Observaciones</label>
+              <input id="kitObservaciones" type="text" class="form-control" placeholder="Escribe observaciones">
+            </div>
+            <div class="col-12">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle" id="tablaKit">
+                  <thead class="table-dark">
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Técnico</th>
+                      <th>Placa</th>
+                      <th>Completos</th>
+                      <th>Firmas</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div id="kitEmpty" class="text-center text-muted py-4" style="display:none;">Sin inspecciones registradas</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalFirmaKit" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-pen-nib me-2"></i>Firma</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <canvas id="firmaKitCanvas" width="800" height="300" style="border:1px solid #ddd; border-radius:6px; cursor:crosshair; width:100%; height:300px"></canvas>
+      </div>
+      <div class="modal-footer">
+        <button id="btnLimpiarKitFirma" type="button" class="btn btn-outline-secondary">Limpiar</button>
+        <button id="btnGuardarKitFirma" type="button" class="btn btn-dark">Guardar firma</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalVerKit" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-eye me-2"></i>Detalle inspección kit</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-4"><div class="small text-muted">Fecha</div><div class="fw-semibold" id="verKitFecha">-</div></div>
+          <div class="col-md-4"><div class="small text-muted">Técnico</div><div class="fw-semibold" id="verKitTecnico">-</div></div>
+          <div class="col-md-4"><div class="small text-muted">Placa</div><div class="fw-semibold" id="verKitPlaca">-</div></div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-12"><div class="small text-muted">Observaciones</div><div class="fw-semibold" id="verKitObs">-</div></div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-12">
+            <div class="fw-semibold mb-2">Elementos</div>
+            <div id="verKitElems" class="row g-2"></div>
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-12"><div class="small text-muted">Foto del kit</div></div>
+          <div class="col-12">
+            <img id="verKitFoto" alt="Foto" style="max-width:100%; max-height:320px; display:none; border:1px solid #eee; border-radius:6px;" />
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <div class="small text-muted mb-2">Firma trabajador</div>
+            <img id="verKitFirmaTrab" alt="Firma trabajador" style="max-width:100%; max-height:200px; display:none; border:1px solid #eee; border-radius:6px;" />
+          </div>
+          <div class="col-md-6">
+            <div class="small text-muted mb-2">Firma inspector</div>
+            <img id="verKitFirmaInsp" alt="Firma inspector" style="max-width:100%; max-height:200px; display:none; border:1px solid #eee; border-radius:6px;" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalNuevaKit" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Nueva inspección kit</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Técnico</label>
+            <select id="kitModalTecnico" class="form-select"></select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Nombre</label>
+            <input id="kitModalNombre" type="text" class="form-control" placeholder="Nombre del técnico">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Cédula</label>
+            <input id="kitModalCedula" type="text" class="form-control" placeholder="Cédula recurso operativo">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Fecha inspección</label>
+            <input id="kitModalFecha" type="datetime-local" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Placa</label>
+            <input id="kitModalPlaca" type="text" class="form-control" placeholder="Ej. ABC123">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Vencimiento extintor</label>
+            <input id="kitModalExtVenc" type="date" class="form-control">
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header d-flex align-items-center justify-content-between"><div><i class="fas fa-list-check me-1"></i>Elementos del kit</div><div class="btn-group"><button id="btnAllSiModal" type="button" class="btn btn-outline-dark btn-sm">Marcar todo SI</button><button id="btnAllNoModal" type="button" class="btn btn-outline-dark btn-sm">Marcar todo NO</button><button id="btnClearModal" type="button" class="btn btn-outline-secondary btn-sm">Limpiar</button></div></div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-12 col-md-6 col-lg-4">
+                <div class="form-label">Gato</div>
+                <div class="d-flex gap-3 align-items-center">
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_gato" id="kitM_gato_si" value="SI">
+                    <label class="form-check-label" for="kitM_gato_si">SI</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_gato" id="kitM_gato_no" value="NO">
+                    <label class="form-check-label" for="kitM_gato_no">NO</label>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <div class="form-label">Cruceta</div>
+                <div class="d-flex gap-3 align-items-center">
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_cruceta" id="kitM_cruceta_si" value="SI">
+                    <label class="form-check-label" for="kitM_cruceta_si">SI</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_cruceta" id="kitM_cruceta_no" value="NO">
+                    <label class="form-check-label" for="kitM_cruceta_no">NO</label>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <div class="form-label">Señales reflectivas</div>
+                <div class="d-flex gap-3 align-items-center">
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_senales" id="kitM_senales_si" value="SI">
+                    <label class="form-check-label" for="kitM_senales_si">SI</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_senales" id="kitM_senales_no" value="NO">
+                    <label class="form-check-label" for="kitM_senales_no">NO</label>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <div class="form-label">Botiquín</div>
+                <div class="d-flex gap-3 align-items-center">
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_botiquin" id="kitM_botiquin_si" value="SI">
+                    <label class="form-check-label" for="kitM_botiquin_si">SI</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_botiquin" id="kitM_botiquin_no" value="NO">
+                    <label class="form-check-label" for="kitM_botiquin_no">NO</label>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <div class="form-label">Extintor vigente</div>
+                <div class="d-flex gap-3 align-items-center">
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_extintor_vigente" id="kitM_extintor_si" value="SI">
+                    <label class="form-check-label" for="kitM_extintor_si">SI</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_extintor_vigente" id="kitM_extintor_no" value="NO">
+                    <label class="form-check-label" for="kitM_extintor_no">NO</label>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <div class="form-label">Tacos</div>
+                <div class="d-flex gap-3 align-items-center">
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_tacos" id="kitM_tacos_si" value="SI">
+                    <label class="form-check-label" for="kitM_tacos_si">SI</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_tacos" id="kitM_tacos_no" value="NO">
+                    <label class="form-check-label" for="kitM_tacos_no">NO</label>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <div class="form-label">Caja herramienta básica</div>
+                <div class="d-flex gap-3 align-items-center">
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_caja" id="kitM_caja_si" value="SI">
+                    <label class="form-check-label" for="kitM_caja_si">SI</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_caja" id="kitM_caja_no" value="NO">
+                    <label class="form-check-label" for="kitM_caja_no">NO</label>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <div class="form-label">Llanta de repuesto</div>
+                <div class="d-flex gap-3 align-items-center">
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_llanta" id="kitM_llanta_si" value="SI">
+                    <label class="form-check-label" for="kitM_llanta_si">SI</label>
+                  </div>
+                  <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="kitM_llanta" id="kitM_llanta_no" value="NO">
+                    <label class="form-check-label" for="kitM_llanta_no">NO</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header"><i class="fas fa-camera me-1"></i>Foto del kit</div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <input id="kitModalFoto" type="file" accept="image/*" class="form-control">
+              </div>
+              <div class="col-md-6">
+                <img id="kitModalFotoPrev" alt="Foto del kit" style="width:100%; max-height:240px; display:none; border:1px solid #eee; border-radius:6px;" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Observaciones</label>
+          <input id="kitModalObservaciones" type="text" class="form-control" placeholder="Escribe observaciones">
+        </div>
+
+        <div class="card mb-2">
+          <div class="card-header"><i class="fas fa-signature me-1"></i>Firmas</div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <div class="small text-muted mb-1">Firma trabajador</div>
+                <canvas id="firmaModalTrabCanvas" width="600" height="200" style="border:1px solid #ddd; border-radius:6px; width:100%; height:200px"></canvas>
+                <div class="mt-2">
+                  <button id="btnLimpiarFirmaTrab" type="button" class="btn btn-outline-secondary btn-sm">Limpiar</button>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="small text-muted mb-1">Firma inspector</div>
+                <canvas id="firmaModalInspCanvas" width="600" height="200" style="border:1px solid #ddd; border-radius:6px; width:100%; height:200px"></canvas>
+                <div class="mt-2">
+                  <button id="btnLimpiarFirmaInsp" type="button" class="btn btn-outline-secondary btn-sm">Limpiar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="kitModalError" class="text-danger" style="display:none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="btnRegistrarKit" type="button" class="btn btn-dark">Registrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let tecnicos = []
+let kits = []
+let firmaKitTarget = { id: null, tipo: null }
+let fotoKitBase64 = null
+let fotoKitModalBase64 = null
+let firmaModalTrabBase64 = null
+let firmaModalInspBase64 = null
+let sigTrabDraw = false
+let sigInspDraw = false
+
+async function cargarTecnicos(){
+  const res = await fetch('/api/mpa/tecnicos', { credentials: 'include' })
+  const data = await res.json()
+  tecnicos = (data && data.success) ? (data.tecnicos || data.data || []) : []
+  const sel = document.getElementById('kitTecnico')
+  sel.innerHTML = ''
+  tecnicos.forEach(t => {
+    const opt = document.createElement('option')
+    opt.value = t.id_codigo_consumidor || t.id
+    opt.textContent = t.nombre || `${t.id_codigo_consumidor}`
+    sel.appendChild(opt)
+  })
+}
+
+async function cargarKits(){
+  const res = await fetch('/api/mpa/kitcarretera', { credentials: 'include' })
+  const data = await res.json()
+  kits = (data && data.success) ? (data.data || []) : []
+  renderKitList()
+}
+
+function contarCompletos(r){
+  const keys = ['gato','cruceta','senales','botiquin','extintor_vigente','tacos','caja_herramienta_basica','llanta_repuesto']
+  let c = 0
+  keys.forEach(k => { if (String(r[k] || '').toUpperCase() === 'SI') c++ })
+  return c
+}
+
+function renderKitList(){
+  const tbody = document.querySelector('#tablaKit tbody')
+  tbody.innerHTML = ''
+  if (!kits.length){
+    document.getElementById('kitEmpty').style.display = 'block'
+    return
+  }
+  document.getElementById('kitEmpty').style.display = 'none'
+  kits.forEach(r => {
+    const firmas = []
+    if (r.firma_trabajador) firmas.push('T')
+    if (r.firma_inspector) firmas.push('I')
+    const tr = document.createElement('tr')
+    tr.innerHTML = `
+      <td>${r.fecha_inspeccion || ''}</td>
+      <td>${r.tecnico_nombre || ''}</td>
+      <td>${r.placa || ''}</td>
+      <td>${contarCompletos(r)} / 8</td>
+      <td>${firmas.join(' ') || '-'}</td>
+      <td class="text-end">
+        <button class="btn btn-outline-dark btn-sm" data-action="ver" data-id="${r.id}"><i class="fas fa-eye me-1"></i>Ver</button>
+        <button class="btn btn-dark btn-sm" data-action="firma_trab" data-id="${r.id}"><i class="fas fa-signature me-1"></i>Firma trabajador</button>
+        <button class="btn btn-dark btn-sm" data-action="firma_insp" data-id="${r.id}"><i class="fas fa-signature me-1"></i>Firma inspector</button>
+      </td>
+    `
+    tbody.appendChild(tr)
+  })
+}
+
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+async function guardarInspeccionKit(){
+  const tecnicoId = document.getElementById('kitTecnico').value
+  const placa = (document.getElementById('kitPlaca').value || '').trim().toUpperCase()
+  const observaciones = document.getElementById('kitObservaciones').value || ''
+  const extVen = document.getElementById('kitExtVenc').value || ''
+  const valRadio = name => {
+    const sel = document.querySelector(`input[name="${name}"]:checked`)
+    return sel ? sel.value : ''
+  }
+  const payload = {
+    tecnico_id: tecnicoId,
+    placa: placa,
+    observaciones: observaciones,
+    foto_kit: fotoKitBase64 || null,
+    extintor_vencimiento: extVen,
+    gato: valRadio('kit_gato'),
+    cruceta: valRadio('kit_cruceta'),
+    senales: valRadio('kit_senales'),
+    botiquin: valRadio('kit_botiquin'),
+    extintor_vigente: valRadio('kit_extintor_vigente'),
+    tacos: valRadio('kit_tacos'),
+    caja_herramienta_basica: valRadio('kit_caja'),
+    llanta_repuesto: valRadio('kit_llanta')
+  }
+  const btn = document.getElementById('btnGuardarKit')
+  btn.disabled = true
+  try{
+    const res = await fetch('/api/mpa/kitcarretera', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    })
+    const d = await res.json()
+    if (res.ok && d && d.success){
+      document.getElementById('kitObservaciones').value = ''
+      document.getElementById('kitExtVenc').value = ''
+      fotoKitBase64 = null
+      const img = document.getElementById('kitFotoPrev')
+      img.style.display = 'none'
+      img.src = ''
+      const inFile = document.getElementById('kitFoto')
+      inFile.value = ''
+      cargarKits()
+    }
+  }catch(e){} finally{ btn.disabled = false }
+}
+
+async function abrirVerKit(id){
+  try{
+    const res = await fetch(`/api/mpa/kitcarretera/${id}`, { credentials: 'include' })
+    const d = await res.json()
+    if (!res.ok || !d || !d.success) return
+    const r = d.data || {}
+    document.getElementById('verKitFecha').textContent = r.fecha_inspeccion || ''
+    document.getElementById('verKitTecnico').textContent = r.tecnico_nombre || ''
+    document.getElementById('verKitPlaca').textContent = r.placa || ''
+    document.getElementById('verKitObs').textContent = r.observaciones || ''
+    const cont = document.getElementById('verKitElems')
+    cont.innerHTML = ''
+    const labels = {
+      gato: 'Gato', cruceta: 'Cruceta', senales: 'Señales', botiquin: 'Botiquín', extintor_vigente: 'Extintor vigente', tacos: 'Tacos', caja_herramienta_basica: 'Caja herramienta', llanta_repuesto: 'Llanta repuesto'
+    }
+    Object.keys(labels).forEach(k => {
+      const v = String(r[k] || '').toUpperCase()
+      const col = document.createElement('div')
+      col.className = 'col-12 col-md-6 col-lg-4'
+      col.innerHTML = `<div class="small text-muted">${labels[k]}</div><div class="fw-semibold">${v || '-'}</div>`
+      cont.appendChild(col)
+    })
+    const img = document.getElementById('verKitFoto')
+    if (r.foto_kit){ img.src = r.foto_kit; img.style.display = 'block' } else { img.style.display = 'none'; img.src = '' }
+    const ft = document.getElementById('verKitFirmaTrab')
+    const fi = document.getElementById('verKitFirmaInsp')
+    if (r.firma_trabajador){ ft.src = r.firma_trabajador; ft.style.display = 'block' } else { ft.style.display = 'none'; ft.src = '' }
+    if (r.firma_inspector){ fi.src = r.firma_inspector; fi.style.display = 'block' } else { fi.style.display = 'none'; fi.src = '' }
+    const modal = new bootstrap.Modal(document.getElementById('modalVerKit'))
+    modal.show()
+  }catch(e){}
+}
+
+function initFirmaKit(){
+  const canvas = document.getElementById('firmaKitCanvas')
+  const ctx = canvas.getContext('2d')
+  let drawing = false
+  let last = null
+  const getPos = e => {
+    const rect = canvas.getBoundingClientRect()
+    const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
+    const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+    return { x, y }
+  }
+  const start = e => { drawing = true; last = getPos(e) }
+  const move = e => {
+    if (!drawing) return
+    const p = getPos(e)
+    ctx.beginPath()
+    ctx.moveTo(last.x, last.y)
+    ctx.lineTo(p.x, p.y)
+    ctx.strokeStyle = '#000'
+    ctx.lineWidth = 2
+    ctx.stroke()
+    last = p
+  }
+  const end = () => { drawing = false; last = null }
+  canvas.addEventListener('mousedown', start)
+  canvas.addEventListener('mousemove', move)
+  window.addEventListener('mouseup', end)
+  canvas.addEventListener('touchstart', start, { passive: true })
+  canvas.addEventListener('touchmove', move, { passive: true })
+  window.addEventListener('touchend', end)
+  document.getElementById('btnLimpiarKitFirma').addEventListener('click', () => {
+    ctx.clearRect(0,0,canvas.width, canvas.height)
+  })
+  document.getElementById('btnGuardarKitFirma').addEventListener('click', async () => {
+    if (!firmaKitTarget.id || !firmaKitTarget.tipo) return
+    const dataUrl = canvas.toDataURL('image/png')
+    const url = firmaKitTarget.tipo === 'trabajador' ? `/api/mpa/kitcarretera/${firmaKitTarget.id}/firma-trabajador` : `/api/mpa/kitcarretera/${firmaKitTarget.id}/firma-inspector`
+    try{
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ firma: dataUrl })
+      })
+      const d = await res.json()
+      if (res.ok && d && d.success){
+        const modalEl = document.getElementById('modalFirmaKit')
+        const modal = bootstrap.Modal.getInstance(modalEl)
+        modal.hide()
+        cargarKits()
+      }
+    }catch(e){}
+  })
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  cargarTecnicos()
+  cargarKits()
+  initFirmaKit()
+  const inFile = document.getElementById('kitFoto')
+  inFile.addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0]
+    if (!f){ fotoKitBase64 = null; return }
+    try{
+      const b64 = await fileToBase64(f)
+      fotoKitBase64 = b64
+      const img = document.getElementById('kitFotoPrev')
+      img.src = b64
+      img.style.display = 'block'
+    }catch(err){ fotoKitBase64 = null }
+  })
+  document.getElementById('btnGuardarKit').addEventListener('click', abrirModalNuevaInspeccion)
+  document.getElementById('tablaKit').addEventListener('click', (e) => {
+    const btn = e.target.closest('button')
+    if (!btn) return
+    const id = btn.getAttribute('data-id')
+    const action = btn.getAttribute('data-action')
+    if (action === 'ver'){
+      abrirVerKit(id)
+    } else if (action === 'firma_trab'){
+      firmaKitTarget = { id: id, tipo: 'trabajador' }
+      new bootstrap.Modal(document.getElementById('modalFirmaKit')).show()
+    } else if (action === 'firma_insp'){
+      firmaKitTarget = { id: id, tipo: 'inspector' }
+      new bootstrap.Modal(document.getElementById('modalFirmaKit')).show()
+    }
+  })
+  const setAllKitRadios = (val) => {
+    const names = ['kit_gato','kit_cruceta','kit_senales','kit_botiquin','kit_extintor_vigente','kit_tacos','kit_caja','kit_llanta']
+    names.forEach(n => {
+      const el = document.querySelector(`input[name="${n}"][value="${val}"]`)
+      if (el) el.checked = true
+    })
+  }
+  const clearKitRadios = () => {
+    const inputs = document.querySelectorAll('input[type="radio"][name^="kit_"]')
+    inputs.forEach(i => { i.checked = false })
+  }
+  document.getElementById('btnAllSi').addEventListener('click', () => setAllKitRadios('SI'))
+  document.getElementById('btnAllNo').addEventListener('click', () => setAllKitRadios('NO'))
+  document.getElementById('btnClearKit').addEventListener('click', clearKitRadios)
+  const placaInput = document.getElementById('kitPlaca')
+  placaInput.addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/\s+/g,'') })
+  const placaModalInput = document.getElementById('kitModalPlaca')
+  placaModalInput.addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/\s+/g,'') })
+  document.getElementById('kitModalFoto').addEventListener('change', async (e) => {
+    const f = e.target.files && e.target.files[0]
+    if (!f){ fotoKitModalBase64 = null; return }
+    try{
+      const b64 = await fileToBase64(f)
+      fotoKitModalBase64 = b64
+      const img = document.getElementById('kitModalFotoPrev')
+      img.src = b64
+      img.style.display = 'block'
+    }catch(err){ fotoKitModalBase64 = null }
+  })
+  document.getElementById('kitModalTecnico').addEventListener('change', () => {
+    const sel = document.getElementById('kitModalTecnico')
+    const val = sel.value
+    const t = tecnicos.find(x => String(x.id_codigo_consumidor) === String(val)) || null
+    document.getElementById('kitModalNombre').value = t ? (t.nombre || '') : ''
+    document.getElementById('kitModalCedula').value = t ? (t.cedula || '') : ''
+  })
+  document.getElementById('btnRegistrarKit').addEventListener('click', guardarNuevaInspeccionKit)
+  const setAllModalRadios = (val) => {
+    const names = ['kitM_gato','kitM_cruceta','kitM_senales','kitM_botiquin','kitM_extintor_vigente','kitM_tacos','kitM_caja','kitM_llanta']
+    names.forEach(n => {
+      const el = document.querySelector(`input[name="${n}"][value="${val}"]`)
+      if (el) el.checked = true
+    })
+  }
+  const clearModalRadios = () => {
+    const inputs = document.querySelectorAll('input[type="radio"][name^="kitM_"]')
+    inputs.forEach(i => { i.checked = false })
+  }
+  document.getElementById('btnAllSiModal').addEventListener('click', () => setAllModalRadios('SI'))
+  document.getElementById('btnAllNoModal').addEventListener('click', () => setAllModalRadios('NO'))
+  document.getElementById('btnClearModal').addEventListener('click', clearModalRadios)
+  initFirmaModal()
+})
+
+function abrirModalNuevaInspeccion(){
+  const sel = document.getElementById('kitModalTecnico')
+  sel.innerHTML = ''
+  tecnicos.forEach(t => {
+    const opt = document.createElement('option')
+    opt.value = t.id_codigo_consumidor || t.id
+    opt.textContent = t.nombre || `${t.id_codigo_consumidor}`
+    sel.appendChild(opt)
+  })
+  const baseSel = document.getElementById('kitTecnico')
+  const currentVal = baseSel.value
+  sel.value = currentVal
+  const t = tecnicos.find(x => String(x.id_codigo_consumidor) === String(currentVal)) || null
+  document.getElementById('kitModalNombre').value = t ? (t.nombre || '') : ''
+  document.getElementById('kitModalCedula').value = t ? (t.cedula || '') : ''
+  const now = new Date()
+  const pad = n => String(n).padStart(2,'0')
+  const iso = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:00`
+  document.getElementById('kitModalFecha').value = iso
+  document.getElementById('kitModalPlaca').value = (document.getElementById('kitPlaca').value || '').toUpperCase().replace(/\s+/g,'')
+  document.getElementById('kitModalExtVenc').value = document.getElementById('kitExtVenc').value || ''
+  document.getElementById('kitModalObservaciones').value = document.getElementById('kitObservaciones').value || ''
+  fotoKitModalBase64 = null
+  firmaModalTrabBase64 = null
+  firmaModalInspBase64 = null
+  sigTrabDraw = false
+  sigInspDraw = false
+  document.getElementById('kitModalFoto').value = ''
+  const imgPrev = document.getElementById('kitModalFotoPrev')
+  imgPrev.style.display = 'none'
+  imgPrev.src = ''
+  const err = document.getElementById('kitModalError')
+  err.style.display = 'none'
+  err.textContent = ''
+  clearModalRadios()
+  new bootstrap.Modal(document.getElementById('modalNuevaKit')).show()
+}
+
+function validarNuevaInspeccion(){
+  const valRadio = name => {
+    const sel = document.querySelector(`input[name="${name}"]:checked`)
+    return sel ? sel.value : ''
+  }
+  const nombre = (document.getElementById('kitModalNombre').value || '').trim()
+  const cedula = (document.getElementById('kitModalCedula').value || '').trim()
+  const fecha = (document.getElementById('kitModalFecha').value || '').trim()
+  const placa = (document.getElementById('kitModalPlaca').value || '').trim()
+  const extVen = (document.getElementById('kitModalExtVenc').value || '').trim()
+  const campos = ['kitM_gato','kitM_cruceta','kitM_senales','kitM_botiquin','kitM_extintor_vigente','kitM_tacos','kitM_caja','kitM_llanta']
+  for (let c of campos){ if (!valRadio(c)) return 'Completa todos los elementos del kit' }
+  if (!nombre) return 'Nombre es requerido'
+  if (!cedula) return 'Cédula es requerida'
+  if (!fecha) return 'Fecha de inspección es requerida'
+  if (!placa) return 'Placa es requerida'
+  if (!extVen) return 'Vencimiento de extintor es requerido'
+  return ''
+}
+
+async function guardarNuevaInspeccionKit(){
+  const err = document.getElementById('kitModalError')
+  err.style.display = 'none'
+  err.textContent = ''
+  const msg = validarNuevaInspeccion()
+  if (msg){ err.textContent = msg; err.style.display = 'block'; return }
+  const valRadio = name => {
+    const sel = document.querySelector(`input[name="${name}"]:checked`)
+    return sel ? sel.value : ''
+  }
+  const tecnicoId = document.getElementById('kitModalTecnico').value
+  const nombre = document.getElementById('kitModalNombre').value
+  const cedula = document.getElementById('kitModalCedula').value
+  const fecha = document.getElementById('kitModalFecha').value
+  const placa = (document.getElementById('kitModalPlaca').value || '').trim().toUpperCase()
+  const observaciones = document.getElementById('kitModalObservaciones').value || ''
+  const extVen = document.getElementById('kitModalExtVenc').value || ''
+  const payload = {
+    tecnico_id: tecnicoId,
+    nombre: nombre,
+    recurso_operativo_cedula: cedula,
+    fecha_inspeccion: fecha,
+    placa: placa,
+    observaciones: observaciones,
+    foto_kit: fotoKitModalBase64 || null,
+    extintor_vencimiento: extVen,
+    gato: valRadio('kitM_gato'),
+    cruceta: valRadio('kitM_cruceta'),
+    senales: valRadio('kitM_senales'),
+    botiquin: valRadio('kitM_botiquin'),
+    extintor_vigente: valRadio('kitM_extintor_vigente'),
+    tacos: valRadio('kitM_tacos'),
+    caja_herramienta_basica: valRadio('kitM_caja'),
+    llanta_repuesto: valRadio('kitM_llanta')
+  }
+  if (sigTrabDraw){
+    const c = document.getElementById('firmaModalTrabCanvas')
+    firmaModalTrabBase64 = c.toDataURL('image/png')
+    payload['firma_trabajador'] = firmaModalTrabBase64
+  }
+  if (sigInspDraw){
+    const c2 = document.getElementById('firmaModalInspCanvas')
+    firmaModalInspBase64 = c2.toDataURL('image/png')
+    payload['firma_inspector'] = firmaModalInspBase64
+  }
+  const btn = document.getElementById('btnRegistrarKit')
+  btn.disabled = true
+  try{
+    const res = await fetch('/api/mpa/kitcarretera', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    })
+    const d = await res.json()
+    if (res.ok && d && d.success){
+      const modalEl = document.getElementById('modalNuevaKit')
+      const modal = bootstrap.Modal.getInstance(modalEl)
+      modal.hide()
+      document.getElementById('kitObservaciones').value = ''
+      document.getElementById('kitExtVenc').value = ''
+      const img = document.getElementById('kitFotoPrev')
+      img.style.display = 'none'
+      img.src = ''
+      document.getElementById('kitFoto').value = ''
+      fotoKitBase64 = null
+      cargarKits()
+    } else {
+      err.textContent = (d && d.error) ? d.error : 'Error al registrar'
+      err.style.display = 'block'
+    }
+  }catch(e){ err.textContent = 'Error de conexión'; err.style.display = 'block' } finally { btn.disabled = false }
+}
+
+function initFirmaModal(){
+  const setup = (canvasId, clearBtnId, drawFlagSetter) => {
+    const canvas = document.getElementById(canvasId)
+    const ctx = canvas.getContext('2d')
+    let drawing = false
+    let last = null
+    const getPos = e => {
+      const rect = canvas.getBoundingClientRect()
+      const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
+      const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+      return { x, y }
+    }
+    const start = e => { drawing = true; last = getPos(e); drawFlagSetter(true) }
+    const move = e => {
+      if (!drawing) return
+      const p = getPos(e)
+      ctx.beginPath()
+      ctx.moveTo(last.x, last.y)
+      ctx.lineTo(p.x, p.y)
+      ctx.strokeStyle = '#000'
+      ctx.lineWidth = 2
+      ctx.stroke()
+      last = p
+    }
+    const end = () => { drawing = false; last = null }
+    canvas.addEventListener('mousedown', start)
+    canvas.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', end)
+    canvas.addEventListener('touchstart', start, { passive: true })
+    canvas.addEventListener('touchmove', move, { passive: true })
+    window.addEventListener('touchend', end)
+    document.getElementById(clearBtnId).addEventListener('click', () => {
+      ctx.clearRect(0,0,canvas.width, canvas.height)
+      drawFlagSetter(false)
+    })
+  }
+  setup('firmaModalTrabCanvas', 'btnLimpiarFirmaTrab', v => { sigTrabDraw = v })
+  setup('firmaModalInspCanvas', 'btnLimpiarFirmaInsp', v => { sigInspDraw = v })
+}
+</script>
+{% endblock %}

@@ -131,7 +131,7 @@ from app import administrativo_asistencia, obtener_supervisores, obtener_tecnico
 from app import analistas_index, analistas_causas, analistas_dashboard, api_grupos_causas_cierre, api_tecnologias_causas_cierre, api_agrupaciones_causas_cierre, api_estadisticas_causas_cierre
 
 # Importar rutas del módulo MPA desde app.py
-from app import mpa_dashboard, mpa_dashboard_stats, mpa_vehiculos, mpa_soat, mpa_tecnico_mecanica, mpa_licencias, mpa_licencias_conducir, mpa_inspecciones, mpa_siniestros, mpa_mantenimientos, mpa_cronograma, mpa_simit
+from app import mpa_dashboard, mpa_dashboard_stats, mpa_vehiculos, mpa_soat, mpa_tecnico_mecanica, mpa_licencias, mpa_licencias_conducir, mpa_inspecciones, mpa_siniestros, mpa_mantenimientos, mpa_cronograma, mpa_simit, mpa_kit_carretera
 from app import api_get_vehiculos, api_create_vehiculo, api_get_vehiculo, api_update_vehiculo, api_delete_vehiculo, api_get_tecnicos, api_export_vehiculos
 from app import api_get_mantenimientos, api_create_mantenimiento, api_get_mantenimiento, api_update_mantenimiento, api_delete_mantenimiento, api_get_placas, api_get_categorias_mantenimiento, api_upload_mantenimiento_image, api_cronograma_list_create, api_cronograma_detalle, api_cronograma_cumplir, api_cronograma_historial
 from app import api_get_soat, api_get_soat_by_id, api_create_soat, api_update_soat, api_delete_soat
@@ -141,7 +141,7 @@ from app import api_import_vehiculos_excel, api_import_tecnico_mecanica_excel, a
 from app import api_cronograma_alerts_my
 from app import api_list_inspecciones, api_get_inspeccion, api_create_inspeccion, api_inspecciones_firma_trabajador, api_inspecciones_firma_inspector, api_inspeccion_pdf
 from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas_por_tecnico, api_google_directions_route, api_riesgo_motos, api_riesgo_por_localidad, api_localidades, api_riesgo_importar, api_rutas_estados
-from app import api_simit_resultados
+from app import api_simit_resultados, api_list_kitcarretera, api_get_kitcarretera, api_create_kitcarretera, api_kitcarretera_firma_trabajador, api_kitcarretera_firma_inspector
 from app import api_mpa_simit_consultar_playwright
 from app import api_mpa_simit_job_run, api_mpa_simit_job_status, api_mpa_simit_job_stop
 from app import api_mpa_simit_export
@@ -180,6 +180,9 @@ app.route('/mpa/tecnico-mecanica')(mpa_tecnico_mecanica)
 app.route('/mpa/licencias')(mpa_licencias)
 app.route('/mpa/licencias-conducir')(mpa_licencias_conducir)
 app.route('/mpa/inspecciones')(mpa_inspecciones)
+app.route('/mpa/kit-carretera')(mpa_kit_carretera)
+app.route('/mpa/kitcarretera')(mpa_kit_carretera)
+app.route('/mpa/kit-carretera/')(mpa_kit_carretera)
 app.route('/mpa/siniestros')(mpa_siniestros)
 app.route('/mpa/mantenimientos')(mpa_mantenimientos)
 app.route('/mpa/cronograma')(mpa_cronograma)
@@ -203,6 +206,11 @@ app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['PUT'])(api
 app.route('/api/mpa/mantenimientos/<int:mantenimiento_id>', methods=['DELETE'])(api_delete_mantenimiento)
 app.route('/api/mpa/vehiculos/placas', methods=['GET'])(api_get_placas)
 app.route('/api/mpa/simit/resultados', methods=['GET'])(api_simit_resultados)
+app.route('/api/mpa/kitcarretera', methods=['GET'])(api_list_kitcarretera)
+app.route('/api/mpa/kitcarretera/<int:item_id>', methods=['GET'])(api_get_kitcarretera)
+app.route('/api/mpa/kitcarretera', methods=['POST'])(api_create_kitcarretera)
+app.route('/api/mpa/kitcarretera/<int:item_id>/firma-trabajador', methods=['PUT'])(api_kitcarretera_firma_trabajador)
+app.route('/api/mpa/kitcarretera/<int:item_id>/firma-inspector', methods=['PUT'])(api_kitcarretera_firma_inspector)
 app.route('/api/mpa/simit/consultar-playwright', methods=['POST'])(api_mpa_simit_consultar_playwright)
 app.route('/api/mpa/simit/export', methods=['GET'])(api_mpa_simit_export)
 app.route('/api/mpa/simit/job/run', methods=['POST'])(api_mpa_simit_job_run)
@@ -33717,6 +33725,82 @@ def api_sgis_pre_caidas_status():
         cursor.execute("SELECT COUNT(*) AS c FROM sgis_pre_proteccion_caidas WHERE id_codigo_consumidor=%s AND fecha_dia=%s", (uid, hoy))
         row = cursor.fetchone()
         return jsonify({'success': True, 'already_today': (row and row.get('c',0) > 0)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/pre-caidas/current', methods=['GET'])
+@login_required_api()
+def api_sgis_pre_caidas_current():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        uid = session.get('id_codigo_consumidor')
+        cursor.execute(
+            """
+            SELECT *
+            FROM sgis_pre_proteccion_caidas
+            WHERE id_codigo_consumidor = %s
+            ORDER BY id_sgis_pre_proteccion_caidas DESC
+            LIMIT 1
+            """,
+            (uid,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'success': True, 'data': None})
+        fields = {
+            'sgis_pre_proteccion_caidas_arnes_marca': row.get('sgis_pre_proteccion_caidas_arnes_marca'),
+            'sgis_pre_proteccion_caidas_arnes_modelo': row.get('sgis_pre_proteccion_caidas_arnes_modelo'),
+            'sgis_pre_proteccion_caidas_arnes_serie': row.get('sgis_pre_proteccion_caidas_arnes_serie'),
+            'sgis_pre_proteccion_caidas_arnes_lote': row.get('sgis_pre_proteccion_caidas_arnes_lote'),
+            'sgis_pre_proteccion_caidas_arnes_fecha_fabri': row.get('sgis_pre_proteccion_caidas_arnes_fecha_fabri'),
+            'sgis_pre_proteccion_caidas_eslinga_marca': row.get('sgis_pre_proteccion_caidas_eslinga_marca'),
+            'sgis_pre_proteccion_caidas_eslinga_modelo': row.get('sgis_pre_proteccion_caidas_eslinga_modelo'),
+            'sgis_pre_proteccion_caidas_eslinga_serie': row.get('sgis_pre_proteccion_caidas_eslinga_serie'),
+            'sgis_pre_proteccion_caidas_eslinga_lote': row.get('sgis_pre_proteccion_caidas_eslinga_lote'),
+            'sgis_pre_proteccion_caidas_eslinga_fecha_fabri': row.get('sgis_pre_proteccion_caidas_eslinga_fecha_fabri'),
+            'sgis_pre_proteccion_caidas_anclaje_marca': row.get('sgis_pre_proteccion_caidas_anclaje_marca'),
+            'sgis_pre_proteccion_caidas_anclaje_modelo': row.get('sgis_pre_proteccion_caidas_anclaje_modelo'),
+            'sgis_pre_proteccion_caidas_anclaje_serie': row.get('sgis_pre_proteccion_caidas_anclaje_serie'),
+            'sgis_pre_proteccion_caidas_anclaje_lote': row.get('sgis_pre_proteccion_caidas_anclaje_lote'),
+            'sgis_pre_proteccion_caidas_anclaje_fecha_fabri': row.get('sgis_pre_proteccion_caidas_anclaje_fecha_fabri'),
+            'sgis_pre_proteccion_caidas_linea_vida_marca': row.get('sgis_pre_proteccion_caidas_linea_vida_marca'),
+            'sgis_pre_proteccion_caidas_linea_vida_modelo': row.get('sgis_pre_proteccion_caidas_linea_vida_modelo'),
+            'sgis_pre_proteccion_caidas_linea_vida_serie': row.get('sgis_pre_proteccion_caidas_linea_vida_serie'),
+            'sgis_pre_proteccion_caidas_linea_vida_lote': row.get('sgis_pre_proteccion_caidas_linea_vida_lote'),
+            'sgis_pre_proteccion_caidas_linea_vida_fecha_fabri': row.get('sgis_pre_proteccion_caidas_linea_vida_fecha_fabri'),
+            'sgis_pre_proteccion_caidas_mosqueton_marca': row.get('sgis_pre_proteccion_caidas_mosqueton_marca'),
+            'sgis_pre_proteccion_caidas_mosqueton_modelo': row.get('sgis_pre_proteccion_caidas_mosqueton_modelo'),
+            'sgis_pre_proteccion_caidas_mosqueton_serie': row.get('sgis_pre_proteccion_caidas_mosqueton_serie'),
+            'sgis_pre_proteccion_caidas_mosqueton_lote': row.get('sgis_pre_proteccion_caidas_mosqueton_lote'),
+            'sgis_pre_proteccion_caidas_mosqueton_fecha_fabri': row.get('sgis_pre_proteccion_caidas_mosqueton_fecha_fabri'),
+            'sgis_pre_proteccion_caidas_pretales_marca': row.get('sgis_pre_proteccion_caidas_pretales_marca'),
+            'sgis_pre_proteccion_caidas_pretales_modelo': row.get('sgis_pre_proteccion_caidas_pretales_modelo'),
+            'sgis_pre_proteccion_caidas_pretales_serie': row.get('sgis_pre_proteccion_caidas_pretales_serie'),
+            'sgis_pre_proteccion_caidas_pretales_lote': row.get('sgis_pre_proteccion_caidas_pretales_lote'),
+            'sgis_pre_proteccion_caidas_pretales_fecha_fabri': row.get('sgis_pre_proteccion_caidas_pretales_fecha_fabri')
+        }
+        for k in list(fields.keys()):
+            v = fields[k]
+            try:
+                if hasattr(v, 'strftime'):
+                    fields[k] = v.strftime('%Y-%m-%d')
+            except Exception:
+                pass
+        return jsonify({'success': True, 'data': fields})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:

@@ -101,7 +101,7 @@
                     <button id="btnPreopCaidas" type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCaidas">
                       <i class="fas fa-user-shield me-2"></i>Pre-operacional Control Caídas
                     </button>
-                    <button id="btnPermisoTrabajo" type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#permisoTrabajoModal" {% if not tiene_asistencia %}disabled title="Debe registrar asistencia primero"{% endif %}>
+                    <button id="btnPermisoTrabajo" type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#permisoTrabajoModal">
                       <i class="fas fa-file-signature me-2"></i>Permiso de Trabajo
                     </button>
                   </div>
@@ -1679,6 +1679,44 @@ document.addEventListener('DOMContentLoaded', function(){
     if(saveBtn) saveBtn.style.display = i === caidasSteps.length - 1 ? 'inline-block' : 'none';
   }
   showCaidasStep(0);
+  document.getElementById('modalCaidas').addEventListener('shown.bs.modal', function(){
+    fetch('/api/sgis/pre-caidas/current').then(r=>r.json()).then(d=>{
+      if(d && d.success && d.data){
+        const x = d.data;
+        const setVal = (id,val)=>{ var el=document.getElementById(id); if(el && val) el.value = val; };
+        setVal('arnes_marca', x.sgis_pre_proteccion_caidas_arnes_marca);
+        setVal('arnes_modelo', x.sgis_pre_proteccion_caidas_arnes_modelo);
+        setVal('arnes_serie', x.sgis_pre_proteccion_caidas_arnes_serie);
+        setVal('arnes_lote', x.sgis_pre_proteccion_caidas_arnes_lote);
+        setVal('arnes_fecha_fabri', x.sgis_pre_proteccion_caidas_arnes_fecha_fabri);
+        setVal('eslinga_marca', x.sgis_pre_proteccion_caidas_eslinga_marca);
+        setVal('eslinga_modelo', x.sgis_pre_proteccion_caidas_eslinga_modelo);
+        setVal('eslinga_serie', x.sgis_pre_proteccion_caidas_eslinga_serie);
+        setVal('eslinga_lote', x.sgis_pre_proteccion_caidas_eslinga_lote);
+        setVal('eslinga_fecha_fabri', x.sgis_pre_proteccion_caidas_eslinga_fecha_fabri);
+        setVal('anclaje_marca', x.sgis_pre_proteccion_caidas_anclaje_marca);
+        setVal('anclaje_modelo', x.sgis_pre_proteccion_caidas_anclaje_modelo);
+        setVal('anclaje_serie', x.sgis_pre_proteccion_caidas_anclaje_serie);
+        setVal('anclaje_lote', x.sgis_pre_proteccion_caidas_anclaje_lote);
+        setVal('anclaje_fecha_fabri', x.sgis_pre_proteccion_caidas_anclaje_fecha_fabri);
+        setVal('linea_marca', x.sgis_pre_proteccion_caidas_linea_vida_marca);
+        setVal('linea_modelo', x.sgis_pre_proteccion_caidas_linea_vida_modelo);
+        setVal('linea_serie', x.sgis_pre_proteccion_caidas_linea_vida_serie);
+        setVal('linea_lote', x.sgis_pre_proteccion_caidas_linea_vida_lote);
+        setVal('linea_fecha_fabri', x.sgis_pre_proteccion_caidas_linea_vida_fecha_fabri);
+        setVal('mosqueton_marca', x.sgis_pre_proteccion_caidas_mosqueton_marca);
+        setVal('mosqueton_modelo', x.sgis_pre_proteccion_caidas_mosqueton_modelo);
+        setVal('mosqueton_serie', x.sgis_pre_proteccion_caidas_mosqueton_serie);
+        setVal('mosqueton_lote', x.sgis_pre_proteccion_caidas_mosqueton_lote);
+        setVal('mosqueton_fecha_fabri', x.sgis_pre_proteccion_caidas_mosqueton_fecha_fabri);
+        setVal('pretales_marca', x.sgis_pre_proteccion_caidas_pretales_marca);
+        setVal('pretales_modelo', x.sgis_pre_proteccion_caidas_pretales_modelo);
+        setVal('pretales_serie', x.sgis_pre_proteccion_caidas_pretales_serie);
+        setVal('pretales_lote', x.sgis_pre_proteccion_caidas_pretales_lote);
+        setVal('pretales_fecha_fabri', x.sgis_pre_proteccion_caidas_pretales_fecha_fabri);
+      }
+    }).catch(()=>{});
+  });
   function validarSeccionCaidas(idx){
     const reqs = [
       ['arnes_fisura','arnes_fibra_rota','arnes_deterioro','arnes_manchas','arnes_impacto'],

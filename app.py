@@ -960,6 +960,63 @@ def ensure_mpa_inspeccion_vehiculo_table():
 
 ensure_mpa_inspeccion_vehiculo_table()
 
+def ensure_mpa_inspeccion_kitcarretera_table():
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        cur = conn.cursor()
+        cur.execute("SHOW TABLES LIKE 'mpa_inspeccion_kitcarretera'")
+        exists = cur.fetchone() is not None
+        if not exists:
+            cur.execute("SHOW TABLES LIKE 'mpa_inspecion_kitcarretera'")
+            exists_alt = cur.fetchone() is not None
+            if exists_alt:
+                cur.close(); conn.close()
+                return
+        if not exists:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS mpa_inspeccion_kitcarretera (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id_codigo_consumidor INT NOT NULL,
+                    nombre VARCHAR(128) NULL,
+                    recurso_operativo_cedula VARCHAR(32) NULL,
+                    fecha_inspeccion DATETIME NULL,
+                    placa VARCHAR(16) NULL,
+                    gato ENUM('SI','NO') NULL,
+                    cruceta ENUM('SI','NO') NULL,
+                    senales ENUM('SI','NO') NULL,
+                    botiquin ENUM('SI','NO') NULL,
+                    extintor_vigente ENUM('SI','NO') NULL,
+                    extintor_vencimiento DATE NULL,
+                    tacos ENUM('SI','NO') NULL,
+                    caja_herramienta_basica ENUM('SI','NO') NULL,
+                    llanta_repuesto ENUM('SI','NO') NULL,
+                    foto_kit LONGTEXT NULL,
+                    firma_trabajador LONGTEXT NULL,
+                    firma_trabajador_fecha DATETIME NULL,
+                    firma_inspector LONGTEXT NULL,
+                    firma_inspector_fecha DATETIME NULL,
+                    observaciones TEXT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_kit_tecnico (id_codigo_consumidor),
+                    INDEX idx_kit_placa (placa),
+                    INDEX idx_kit_fecha (fecha_inspeccion)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                """
+            )
+        conn.commit()
+        cur.close(); conn.close()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+
+ensure_mpa_inspeccion_kitcarretera_table()
+
 def _fecha_finalizacion_domingo(fecha_base):
     from datetime import timedelta
     d = fecha_base
@@ -3743,7 +3800,6 @@ def api_sstt_vencimientos_cursos_update(item_id):
         validado_val = data.get('sstt_vencimientos_cursos_validado')
         pendiente_val = data.get('sstt_vencimientos_cursos_pendiente')
         pendiente_val = data.get('sstt_vencimientos_cursos_pendiente')
-        pendiente_val = data.get('sstt_vencimientos_cursos_pendiente')
         campos = []
         params = []
         idc = None
@@ -3905,7 +3961,6 @@ def api_sstt_vencimientos_cursos_update_by():
         fecha_ven = (data.get('sstt_vencimientos_cursos_fecha_ven') or '').strip()
         observ = (data.get('sstt_vencimientos_cursos_observacion') or '').strip()
         validado_val = data.get('sstt_vencimientos_cursos_validado')
-        pendiente_val = data.get('sstt_vencimientos_cursos_pendiente')
         if not oc or not ot or not of:
             connection.close()
             return jsonify({'success': False, 'message': 'Faltan claves originales'}), 400
@@ -3990,9 +4045,6 @@ def api_sstt_vencimientos_cursos_update_by():
                 v_int = 0
             set_parts.append("sstt_vencimientos_cursos_validado = %s")
             params_set.append(v_int)
-        if not set_parts:
-            connection.close()
-            return jsonify({'success': False, 'message': 'Sin campos para actualizar'}), 400
         cur = connection.cursor()
         affected = 0
         if of:
@@ -4214,96 +4266,13 @@ def api_sstt_vencimientos_cursos_resumen():
             sql_fb += ' ORDER BY ro.nombre ASC'
             cursor.execute(sql_fb, tuple(params))
             rows = cursor.fetchall() or []
-        hoy = date.today()
-        data = []
-        for r in rows:
-            ced = r.get('cedula')
-            nom = r.get('nombre')
-            total = int(r.get('total_cursos') or 0)
-            venc = int(r.get('vencidos') or 0)
-            prox = int(r.get('por_vencer') or 0)
-            try:
-                cur_user = connection.cursor(dictionary=True)
-                cur_user.execute("SELECT id_codigo_consumidor, estado FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (ced,))
-                ru = cur_user.fetchone()
-                cur_user.close()
-                if ru and (not solo_activos or str(ru.get('estado') or '') == 'Activo'):
-                    idc = ru.get('id_codigo_consumidor')
-                    cur_enc = connection.cursor(dictionary=True)
-                    cur_enc.execute(
-                        """
-                        SELECT DATE(fecha_respuesta) AS fecha, sstt_vencimientos_cursos_fecha_ven AS fecha_ven
-                        FROM encuesta_respuestas
-                        WHERE encuesta_id = %s AND usuario_id = %s AND estado IN ('enviada','respondida','finalizada') AND YEAR(fecha_respuesta) = YEAR(CURDATE())
-                        ORDER BY fecha_respuesta DESC
-                        LIMIT 1
-                        """,
-                        (10, idc)
-                    )
-                    er = cur_enc.fetchone()
-                    cur_enc.close()
-                    if er:
-                        fecha_enc = er.get('fecha')
-                        fecha_ven_enc = er.get('fecha_ven')
-                        enc_year = None
-                        try:
-                            if hasattr(fecha_enc, 'year'):
-                                enc_year = int(fecha_enc.year)
-                            else:
-                                s = str(fecha_enc)
-                                enc_year = int(s[0:4]) if len(s) >= 4 and s[0:4].isdigit() else None
-                        except Exception:
-                            enc_year = None
-                        cur_cnt1 = connection.cursor()
-                        cur_cnt1.execute("SELECT COUNT(*) FROM sstt_vencimientos_cursos WHERE recurso_operativo_cedula = %s AND UPPER(sstt_vencimientos_cursos_tipo_curso) LIKE %s", (ced, '%INDUCCI%'))
-                        cnt_ind = (cur_cnt1.fetchone() or [0])[0]
-                        cur_cnt1.close()
-                        cur_cnt2 = connection.cursor()
-                        if enc_year is not None:
-                            cur_cnt2.execute("SELECT COUNT(*) FROM sstt_vencimientos_cursos WHERE recurso_operativo_cedula = %s AND UPPER(sstt_vencimientos_cursos_tipo_curso) LIKE %s AND YEAR(sstt_vencimientos_cursos_fecha) = %s", (ced, '%REINDUCCI%', enc_year))
-                        else:
-                            cur_cnt2.execute("SELECT 0")
-                        cnt_re_year = (cur_cnt2.fetchone() or [0])[0]
-                        cur_cnt2.close()
-                        add_item = False
-                        if int(cnt_ind or 0) == 0:
-                            add_item = True
-                        elif enc_year is not None and int(cnt_re_year or 0) == 0:
-                            add_item = True
-                        if add_item:
-                            fv_date_enc = None
-                            try:
-                                if fecha_ven_enc:
-                                    if hasattr(fecha_ven_enc, 'strftime'):
-                                        fv_date_enc = fecha_ven_enc if hasattr(fecha_ven_enc, 'year') else None
-                                    else:
-                                        s = str(fecha_ven_enc).strip()
-                                        if s:
-                                            try:
-                                                fv_date_enc = datetime.strptime(s, '%Y-%m-%d').date()
-                                            except Exception:
-                                                try:
-                                                    fv_date_enc = datetime.strptime(s, '%Y-%m-%d %H:%M:%S').date()
-                                                except Exception:
-                                                    fv_date_enc = None
-                            except Exception:
-                                fv_date_enc = None
-                            total += 1
-                            if fv_date_enc:
-                                dias_enc = (fv_date_enc - hoy).days
-                                if dias_enc <= 0:
-                                    venc += 1
-                                elif dias_enc <= 30:
-                                    prox += 1
-            except Exception:
-                pass
-            data.append({
-                'cedula': ced,
-                'nombre': nom,
-                'total_cursos': total,
-                'vencidos': venc,
-                'por_vencer': prox
-            })
+        data = [{
+            'cedula': r.get('cedula'),
+            'nombre': r.get('nombre'),
+            'total_cursos': int(r.get('total_cursos') or 0),
+            'vencidos': int(r.get('vencidos') or 0),
+            'por_vencer': int(r.get('por_vencer') or 0)
+        } for r in rows]
         cursor.close(); connection.close()
         return jsonify({'success': True, 'data': data, 'total': len(data)})
     except Exception as e:
@@ -7080,6 +7049,24 @@ def mpa_inspecciones():
         return redirect(url_for('mpa_dashboard'))
     return render_template('modulos/mpa/inspecciones.html')
 
+@app.route('/mpa/kit-carretera')
+@login_required
+def mpa_kit_carretera():
+    if not current_user.has_role('administrativo'):
+        flash('No tienes permisos para acceder a este módulo.', 'error')
+        return redirect(url_for('mpa_dashboard'))
+    return render_template('modulos/mpa/kit_carretera.html')
+
+@app.route('/mpa/kitcarretera')
+@login_required
+def mpa_kitcarretera_alias():
+    return mpa_kit_carretera()
+
+@app.route('/mpa/kit-carretera/')
+@login_required
+def mpa_kit_carretera_slash():
+    return mpa_kit_carretera()
+
 @app.route('/mpa/siniestros')
 @login_required
 def mpa_siniestros():
@@ -7817,9 +7804,21 @@ def api_list_inspecciones():
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
-@app.route('/api/mpa/inspecciones/pendientes-mes', methods=['GET'])
+def _kit_table_name(cursor):
+    try:
+        cursor.execute("SHOW TABLES LIKE 'mpa_inspeccion_kitcarretera'")
+        if cursor.fetchone():
+            return 'mpa_inspeccion_kitcarretera'
+        cursor.execute("SHOW TABLES LIKE 'mpa_inspecion_kitcarretera'")
+        if cursor.fetchone():
+            return 'mpa_inspecion_kitcarretera'
+        return 'mpa_inspeccion_kitcarretera'
+    except Exception:
+        return 'mpa_inspeccion_kitcarretera'
+
+@app.route('/api/mpa/kitcarretera', methods=['GET'])
 @login_required
-def api_inspecciones_pendientes_mes():
+def api_list_kitcarretera():
     if not current_user.has_role('administrativo'):
         return jsonify({'error': 'Sin permisos'}), 403
     try:
@@ -7827,54 +7826,77 @@ def api_inspecciones_pendientes_mes():
         if connection is None:
             return jsonify({'error': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor(dictionary=True)
-
+        tname = _kit_table_name(cursor)
         try:
-            cursor.execute("SHOW TABLES LIKE 'mpa_inspeccion_vehiculo'")
-            if not cursor.fetchone():
-                return jsonify({'success': True, 'data': []})
+            cursor.execute(f"DESCRIBE {tname}")
         except Exception:
             return jsonify({'success': True, 'data': []})
-
-        limit_val = 5
-        try:
-            ql = request.args.get('limit')
-            if ql:
-                limit_val = max(1, min(50, int(ql)))
-        except Exception:
-            limit_val = 5
-
-        now_dt = get_bogota_datetime()
-        y = now_dt.year
-        m = now_dt.month
-        from_date = date(y, m, 1)
-        if m == 12:
-            to_date = date(y + 1, 1, 1)
+        cols_info = cursor.fetchall() or []
+        col_names = set()
+        for ci in cols_info:
+            try:
+                col_names.add(ci.get('Field') or ci.get('field') or ci[0])
+            except Exception:
+                pass
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+        placa = (request.args.get('placa') or '').strip().upper()
+        tecnico_id = (request.args.get('tecnico_id') or '').strip()
+        where = []
+        params = []
+        if 'placa' in col_names and placa:
+            where.append("UPPER(TRIM(i.placa)) = %s")
+            params.append(placa)
+        posibles_tecnico_fk = ['id_codigo_consumidor','tecnico_id','tecnico','id_tecnico']
+        col_tecnico_fk = next((c for c in posibles_tecnico_fk if c in col_names), None)
+        col_nombre = 'nombre' if 'nombre' in col_names else None
+        if col_tecnico_fk and tecnico_id:
+            where.append(f"i.{col_tecnico_fk} = %s")
+            params.append(tecnico_id)
+        if ro_exists and col_tecnico_fk:
+            tecnico_select = f"COALESCE(ro.nombre, CAST(i.{col_tecnico_fk} AS CHAR)) AS tecnico_nombre"
+            joins = f"LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = i.{col_tecnico_fk}"
+        elif col_nombre:
+            tecnico_select = "i.nombre AS tecnico_nombre"
+            joins = ""
         else:
-            to_date = date(y, m + 1, 1)
-
-        query = (
-            """
-            SELECT pa.placa,
-                   pa.id_codigo_consumidor AS tecnico_id,
-                   COALESCE(ro.nombre, CAST(pa.id_codigo_consumidor AS CHAR)) AS tecnico_nombre
-            FROM parque_automotor pa
-            LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = pa.id_codigo_consumidor
-            LEFT JOIN mpa_inspeccion_vehiculo i
-              ON i.id_codigo_consumidor = pa.id_codigo_consumidor
-             AND i.placa = pa.placa
-             AND i.fecha_inspeccion >= %s
-             AND i.fecha_inspeccion < %s
-            WHERE pa.id_codigo_consumidor IS NOT NULL
-              AND pa.placa IS NOT NULL
-              AND (ro.estado IS NULL OR ro.estado = 'Activo')
-              AND i.id_mpa_inspeccion_vehiculo IS NULL
-            ORDER BY SHA1(CONCAT(pa.id_codigo_consumidor, DATE(NOW())))
-            LIMIT %s
-            """
-        )
-        cursor.execute(query, (from_date, to_date, limit_val))
+            tecnico_select = "NULL AS tecnico_nombre"
+            joins = ""
+        query = f"""
+        SELECT i.*, {tecnico_select}
+        FROM {tname} i
+        {joins}
+        {('WHERE ' + ' AND '.join(where)) if where else ''}
+        ORDER BY i.fecha_inspeccion DESC
+        """
+        cursor.execute(query, tuple(params))
         rows = cursor.fetchall() or []
-        return jsonify({'success': True, 'data': rows, 'from_date': from_date.strftime('%Y-%m-%d'), 'to_date': to_date.strftime('%Y-%m-%d')})
+        for r in rows:
+            fi = r.get('fecha_inspeccion')
+            if fi:
+                try:
+                    r['fecha_inspeccion'] = fi.strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    pass
+            ev = r.get('extintor_vencimiento')
+            if ev:
+                try:
+                    r['extintor_vencimiento'] = ev.strftime('%Y-%m-%d')
+                except Exception:
+                    pass
+            ftf = r.get('firma_trabajador_fecha')
+            if ftf:
+                try:
+                    r['firma_trabajador_fecha'] = ftf.strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    pass
+            fif = r.get('firma_inspector_fecha')
+            if fif:
+                try:
+                    r['firma_inspector_fecha'] = fif.strftime('%Y-%m-%d %H:%M:%S')
+                except Exception:
+                    pass
+        return jsonify({'success': True, 'data': rows})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
@@ -7882,6 +7904,181 @@ def api_inspecciones_pendientes_mes():
             cursor.close()
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
+
+@app.route('/api/mpa/kitcarretera/<int:item_id>', methods=['GET'])
+@login_required
+def api_get_kitcarretera(item_id):
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        tname = _kit_table_name(cursor)
+        cursor.execute(f"DESCRIBE {tname}")
+        cols_info = cursor.fetchall() or []
+        col_names = set()
+        for ci in cols_info:
+            try:
+                col_names.add(ci.get('Field') or ci.get('field') or ci[0])
+            except Exception:
+                pass
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+        posibles_tecnico_fk = ['id_codigo_consumidor','tecnico_id','tecnico','id_tecnico']
+        col_tecnico_fk = next((c for c in posibles_tecnico_fk if c in col_names), None)
+        col_nombre = 'nombre' if 'nombre' in col_names else None
+        if ro_exists and col_tecnico_fk:
+            tecnico_select = f"COALESCE(ro.nombre, CAST(i.{col_tecnico_fk} AS CHAR)) AS tecnico_nombre"
+            joins = f"LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = i.{col_tecnico_fk}"
+        elif col_nombre:
+            tecnico_select = "i.nombre AS tecnico_nombre"
+            joins = ""
+        else:
+            tecnico_select = "NULL AS tecnico_nombre"
+            joins = ""
+        query = f"""
+            SELECT i.*, {tecnico_select}
+            FROM {tname} i
+            {joins}
+            WHERE i.id = %s
+        """
+        cursor.execute(query, (item_id,))
+        r = cursor.fetchone()
+        if not r:
+            return jsonify({'success': False, 'error': 'No encontrado'}), 404
+        for k in ('fecha_inspeccion','extintor_vencimiento','firma_trabajador_fecha','firma_inspector_fecha'):
+            v = r.get(k)
+            if v:
+                try:
+                    r[k] = v.strftime('%Y-%m-%d %H:%M:%S') if k.endswith('_fecha') or k=='fecha_inspeccion' else v.strftime('%Y-%m-%d')
+                except Exception:
+                    pass
+        return jsonify({'success': True, 'data': r})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/mpa/kitcarretera', methods=['POST'])
+@login_required
+def api_create_kitcarretera():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        data = request.get_json(silent=True) or {}
+        tecnico_id = data.get('tecnico_id')
+        placa = (data.get('placa') or '').strip().upper()
+        observaciones = data.get('observaciones') or ''
+        foto_kit = data.get('foto_kit')
+        ext_v = data.get('extintor_vencimiento')
+        nombre = (data.get('nombre') or '').strip()
+        recurso_operativo_cedula = (data.get('recurso_operativo_cedula') or data.get('cedula') or '').strip()
+        fecha_inspeccion_raw = data.get('fecha_inspeccion')
+        fecha_inspeccion = get_bogota_datetime().replace(tzinfo=None)
+        if fecha_inspeccion_raw:
+            try:
+                from datetime import datetime as _dt
+                s = str(fecha_inspeccion_raw).replace('T', ' ')
+                fecha_inspeccion = _dt.strptime(s[:19], '%Y-%m-%d %H:%M:%S')
+            except Exception:
+                pass
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        tname = _kit_table_name(cursor)
+        try:
+            cursor.execute(f"DESCRIBE {tname}")
+        except Exception:
+            ensure_mpa_inspeccion_kitcarretera_table()
+            cursor.execute(f"DESCRIBE {tname}")
+        cols = ['id_codigo_consumidor','nombre','recurso_operativo_cedula','placa','observaciones','foto_kit','fecha_inspeccion','extintor_vencimiento','gato','cruceta','senales','botiquin','extintor_vigente','tacos','caja_herramienta_basica','llanta_repuesto','firma_trabajador','firma_trabajador_fecha','firma_inspector','firma_inspector_fecha']
+        payload = {
+            'id_codigo_consumidor': tecnico_id,
+            'nombre': nombre or None,
+            'recurso_operativo_cedula': recurso_operativo_cedula or None,
+            'placa': placa,
+            'observaciones': observaciones,
+            'foto_kit': foto_kit,
+            'fecha_inspeccion': fecha_inspeccion,
+            'extintor_vencimiento': None
+        }
+        if ext_v:
+            try:
+                from datetime import datetime as _dt
+                payload['extintor_vencimiento'] = _dt.strptime(str(ext_v)[:10], '%Y-%m-%d').date()
+            except Exception:
+                payload['extintor_vencimiento'] = None
+        for k in ['gato','cruceta','senales','botiquin','extintor_vigente','tacos','caja_herramienta_basica','llanta_repuesto']:
+            v = data.get(k)
+            payload[k] = v if v in ('SI','NO') else ''
+        ft = data.get('firma_trabajador')
+        fi = data.get('firma_inspector')
+        payload['firma_trabajador'] = ft if isinstance(ft, str) and ft.strip() else None
+        payload['firma_inspector'] = fi if isinstance(fi, str) and fi.strip() else None
+        if payload['firma_trabajador'] and 'firma_trabajador_fecha' in cols:
+            payload['firma_trabajador_fecha'] = get_bogota_datetime().replace(tzinfo=None)
+        if payload['firma_inspector'] and 'firma_inspector_fecha' in cols:
+            payload['firma_inspector_fecha'] = get_bogota_datetime().replace(tzinfo=None)
+        filtered = {k: payload[k] for k in cols if k in payload}
+        insert_cols = ','.join(filtered.keys())
+        insert_vals = ','.join(['%s']*len(filtered))
+        cursor.execute(f"INSERT INTO {tname} ({insert_cols}) VALUES ({insert_vals})", tuple(filtered.values()))
+        connection.commit()
+        nid = cursor.lastrowid
+        cursor.close(); connection.close()
+        return jsonify({'success': True, 'id': nid})
+    except Exception as e:
+        try:
+            connection.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/mpa/kitcarretera/<int:item_id>/firma-trabajador', methods=['PUT'])
+@login_required
+def api_kitcarretera_firma_trabajador(item_id):
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        data = request.get_json(silent=True) or {}
+        firma = data.get('firma')
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        tname = _kit_table_name(cursor)
+        cursor.execute(f"UPDATE {tname} SET firma_trabajador=%s, firma_trabajador_fecha=NOW() WHERE id=%s", (firma, item_id))
+        connection.commit()
+        cursor.close(); connection.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/mpa/kitcarretera/<int:item_id>/firma-inspector', methods=['PUT'])
+@login_required
+def api_kitcarretera_firma_inspector(item_id):
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        data = request.get_json(silent=True) or {}
+        firma = data.get('firma')
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor()
+        tname = _kit_table_name(cursor)
+        cursor.execute(f"UPDATE {tname} SET firma_inspector=%s, firma_inspector_fecha=NOW() WHERE id=%s", (firma, item_id))
+        connection.commit()
+        cursor.close(); connection.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/mpa/inspecciones/<int:inspeccion_id>', methods=['GET'])
 @login_required

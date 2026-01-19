@@ -547,14 +547,13 @@ async function cargarPendientesMes(){
     const now = new Date()
     const from = new Date(now.getFullYear(), now.getMonth(), 1)
     const to = new Date(now.getFullYear(), now.getMonth()+1, 1)
-    const setMes = new Set()
+    const placasInsMes = new Set()
     ins.forEach(r => {
       const f = r.fecha_inspeccion ? new Date(r.fecha_inspeccion.replace(' ', 'T')) : null
       if (!f) return
       if (f >= from && f < to){
-        const tid = r.id_codigo_consumidor || r.tecnico_id || r.tecnico
         const placa = r.placa
-        if (tid && placa){ setMes.add(String(tid)+'|'+String(placa)) }
+        if (placa){ placasInsMes.add(String(placa)) }
       }
     })
     const list = []
@@ -562,8 +561,7 @@ async function cargarPendientesMes(){
       const tid = v.tecnico_asignado
       const placa = v.placa
       if (!tid || !placa) return
-      const key = String(tid)+'|'+String(placa)
-      if (!setMes.has(key)){
+      if (!placasInsMes.has(String(placa))){
         list.push({ placa, tecnico_id: tid, tecnico_nombre: v.tecnico_nombre })
       }
     })
