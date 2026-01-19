@@ -51,6 +51,9 @@ def main():
         ("/mpa/inspecciones", "Inspecciones MPA"),
         ("/mpa/licencias", "Licencias MPA"),
         ("/mpa/vencimientos", "Vencimientos MPA"),
+        ("/mpa/kit-carretera", "Kit de Carretera (principal)"),
+        ("/mpa/kitcarretera", "Kit de Carretera (alias sin guión)"),
+        ("/mpa/kit-carretera/", "Kit de Carretera (con slash final)"),
         ("/api/mpa/dashboard-stats", "API Dashboard Stats")
     ]
     

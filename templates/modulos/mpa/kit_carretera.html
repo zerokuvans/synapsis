@@ -22,7 +22,7 @@
               <input id="kitExtVenc" type="date" class="form-control">
             </div>
             <div class="ms-auto d-flex gap-2">
-              <button id="btnGuardarKit" class="btn btn-dark"><i class="fas fa-save me-1"></i>Guardar inspección</button>
+              <button id="btnGuardarKit" class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#modalNuevaKit"><i class="fas fa-save me-1"></i>Guardar inspección</button>
             </div>
           </div>
 
@@ -418,15 +418,23 @@
               <div class="col-md-6">
                 <div class="small text-muted mb-1">Firma trabajador</div>
                 <canvas id="firmaModalTrabCanvas" width="600" height="200" style="border:1px solid #ddd; border-radius:6px; width:100%; height:200px"></canvas>
-                <div class="mt-2">
+                <div class="mt-2 d-flex align-items-center gap-2">
                   <button id="btnLimpiarFirmaTrab" type="button" class="btn btn-outline-secondary btn-sm">Limpiar</button>
+                  <div class="flex-grow-1">
+                    <label class="form-label mb-0 small">Fecha firma trabajador</label>
+                    <input id="firmaModalTrabFecha" type="datetime-local" class="form-control form-control-sm">
+                  </div>
                 </div>
               </div>
               <div class="col-md-6">
                 <div class="small text-muted mb-1">Firma inspector</div>
                 <canvas id="firmaModalInspCanvas" width="600" height="200" style="border:1px solid #ddd; border-radius:6px; width:100%; height:200px"></canvas>
-                <div class="mt-2">
+                <div class="mt-2 d-flex align-items-center gap-2">
                   <button id="btnLimpiarFirmaInsp" type="button" class="btn btn-outline-secondary btn-sm">Limpiar</button>
+                  <div class="flex-grow-1">
+                    <label class="form-label mb-0 small">Fecha firma inspector</label>
+                    <input id="firmaModalInspFecha" type="datetime-local" class="form-control form-control-sm">
+                  </div>
                 </div>
               </div>
             </div>
@@ -453,6 +461,8 @@ let firmaModalTrabBase64 = null
 let firmaModalInspBase64 = null
 let sigTrabDraw = false
 let sigInspDraw = false
+let firmaModalTrabFechaISO = null
+let firmaModalInspFechaISO = null
 
 async function cargarTecnicos(){
   const res = await fetch('/api/mpa/tecnicos', { credentials: 'include' })
@@ -519,6 +529,12 @@ function fileToBase64(file){
     reader.readAsDataURL(file)
   })
 }
+
+function clearModalRadios(){
+  const inputs = document.querySelectorAll('input[type="radio"][name^="kitM_"]')
+  inputs.forEach(i => { i.checked = false })
+}
+window.clearModalRadios = clearModalRadios
 
 async function guardarInspeccionKit(){
   const tecnicoId = document.getElementById('kitTecnico').value
@@ -732,10 +748,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (el) el.checked = true
     })
   }
-  const clearModalRadios = () => {
-    const inputs = document.querySelectorAll('input[type="radio"][name^="kitM_"]')
-    inputs.forEach(i => { i.checked = false })
-  }
   document.getElementById('btnAllSiModal').addEventListener('click', () => setAllModalRadios('SI'))
   document.getElementById('btnAllNoModal').addEventListener('click', () => setAllModalRadios('NO'))
   document.getElementById('btnClearModal').addEventListener('click', clearModalRadios)
@@ -743,6 +755,7 @@ document.addEventListener('DOMContentLoaded', () => {
 })
 
 function abrirModalNuevaInspeccion(){
+  try{
   const sel = document.getElementById('kitModalTecnico')
   sel.innerHTML = ''
   tecnicos.forEach(t => {
@@ -769,6 +782,8 @@ function abrirModalNuevaInspeccion(){
   firmaModalInspBase64 = null
   sigTrabDraw = false
   sigInspDraw = false
+  firmaModalTrabFechaISO = null
+  firmaModalInspFechaISO = null
   document.getElementById('kitModalFoto').value = ''
   const imgPrev = document.getElementById('kitModalFotoPrev')
   imgPrev.style.display = 'none'
@@ -776,8 +791,15 @@ function abrirModalNuevaInspeccion(){
   const err = document.getElementById('kitModalError')
   err.style.display = 'none'
   err.textContent = ''
-  clearModalRadios()
-  new bootstrap.Modal(document.getElementById('modalNuevaKit')).show()
+  document.getElementById('firmaModalTrabFecha').value = ''
+  document.getElementById('firmaModalInspFecha').value = ''
+  if (typeof clearModalRadios === 'function'){ clearModalRadios() }
+  const modalEl = document.getElementById('modalNuevaKit')
+  if (modalEl){ new bootstrap.Modal(modalEl).show() }
+  }catch(e){
+    const modalEl = document.getElementById('modalNuevaKit')
+    if (modalEl){ new bootstrap.Modal(modalEl).show() }
+  }
 }
 
 function validarNuevaInspeccion(){
@@ -790,6 +812,8 @@ function validarNuevaInspeccion(){
   const fecha = (document.getElementById('kitModalFecha').value || '').trim()
   const placa = (document.getElementById('kitModalPlaca').value || '').trim()
   const extVen = (document.getElementById('kitModalExtVenc').value || '').trim()
+  const obs = (document.getElementById('kitModalObservaciones').value || '').trim()
+  if (!fotoKitModalBase64) return 'Foto del kit es requerida'
   const campos = ['kitM_gato','kitM_cruceta','kitM_senales','kitM_botiquin','kitM_extintor_vigente','kitM_tacos','kitM_caja','kitM_llanta']
   for (let c of campos){ if (!valRadio(c)) return 'Completa todos los elementos del kit' }
   if (!nombre) return 'Nombre es requerido'
@@ -797,6 +821,9 @@ function validarNuevaInspeccion(){
   if (!fecha) return 'Fecha de inspección es requerida'
   if (!placa) return 'Placa es requerida'
   if (!extVen) return 'Vencimiento de extintor es requerido'
+  if (!obs) return 'Observaciones son requeridas'
+  if (!sigTrabDraw) return 'Firma del trabajador es requerida'
+  if (!sigInspDraw) return 'Firma del inspector es requerida'
   return ''
 }
 
@@ -839,11 +866,13 @@ async function guardarNuevaInspeccionKit(){
     const c = document.getElementById('firmaModalTrabCanvas')
     firmaModalTrabBase64 = c.toDataURL('image/png')
     payload['firma_trabajador'] = firmaModalTrabBase64
+    payload['firma_trabajador_fecha'] = document.getElementById('firmaModalTrabFecha').value || null
   }
   if (sigInspDraw){
     const c2 = document.getElementById('firmaModalInspCanvas')
     firmaModalInspBase64 = c2.toDataURL('image/png')
     payload['firma_inspector'] = firmaModalInspBase64
+    payload['firma_inspector_fecha'] = document.getElementById('firmaModalInspFecha').value || null
   }
   const btn = document.getElementById('btnRegistrarKit')
   btn.disabled = true
@@ -886,7 +915,7 @@ function initFirmaModal(){
       const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
       return { x, y }
     }
-    const start = e => { drawing = true; last = getPos(e); drawFlagSetter(true) }
+    const start = e => { drawing = true; last = getPos(e); drawFlagSetter(true); const now = new Date(); const pad = n => String(n).padStart(2,'0'); const iso = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:00`; if (canvasId === 'firmaModalTrabCanvas'){ document.getElementById('firmaModalTrabFecha').value = iso; firmaModalTrabFechaISO = iso } else { document.getElementById('firmaModalInspFecha').value = iso; firmaModalInspFechaISO = iso } }
     const move = e => {
       if (!drawing) return
       const p = getPos(e)
@@ -908,6 +937,7 @@ function initFirmaModal(){
     document.getElementById(clearBtnId).addEventListener('click', () => {
       ctx.clearRect(0,0,canvas.width, canvas.height)
       drawFlagSetter(false)
+      if (canvasId === 'firmaModalTrabCanvas'){ document.getElementById('firmaModalTrabFecha').value = ''; firmaModalTrabFechaISO = null } else { document.getElementById('firmaModalInspFecha').value = ''; firmaModalInspFechaISO = null }
     })
   }
   setup('firmaModalTrabCanvas', 'btnLimpiarFirmaTrab', v => { sigTrabDraw = v })

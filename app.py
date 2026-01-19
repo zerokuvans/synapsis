@@ -7987,6 +7987,50 @@ def api_create_kitcarretera():
                 fecha_inspeccion = _dt.strptime(s[:19], '%Y-%m-%d %H:%M:%S')
             except Exception:
                 pass
+        missing = []
+        invalid = []
+        if not tecnico_id:
+            missing.append('tecnico_id')
+        if not nombre:
+            missing.append('nombre')
+        if not recurso_operativo_cedula:
+            missing.append('recurso_operativo_cedula')
+        if not fecha_inspeccion_raw:
+            missing.append('fecha_inspeccion')
+        if not placa:
+            missing.append('placa')
+        if not ext_v:
+            missing.append('extintor_vencimiento')
+        if not observaciones:
+            missing.append('observaciones')
+        req_elems = ['gato','cruceta','senales','botiquin','extintor_vigente','tacos','caja_herramienta_basica','llanta_repuesto']
+        for k in req_elems:
+            v = (data.get(k) or '').strip().upper()
+            if not v:
+                missing.append(k)
+            elif v not in ('SI','NO'):
+                invalid.append(k)
+        if not (isinstance(foto_kit, str) and foto_kit.strip()):
+            missing.append('foto_kit')
+        ft = data.get('firma_trabajador')
+        fi = data.get('firma_inspector')
+        ftf_raw = data.get('firma_trabajador_fecha')
+        fif_raw = data.get('firma_inspector_fecha')
+        if not (isinstance(ft, str) and ft.strip()):
+            missing.append('firma_trabajador')
+        if not (isinstance(fi, str) and fi.strip()):
+            missing.append('firma_inspector')
+        if not ftf_raw:
+            missing.append('firma_trabajador_fecha')
+        if not fif_raw:
+            missing.append('firma_inspector_fecha')
+        if missing or invalid:
+            msg = ''
+            if missing:
+                msg += 'Faltan: ' + ', '.join(missing)
+            if invalid:
+                msg += ('; ' if msg else '') + 'Valores inválidos en: ' + ', '.join(invalid)
+            return jsonify({'success': False, 'error': msg}), 400
         connection = get_db_connection()
         if connection is None:
             return jsonify({'error': 'Error de conexión a la base de datos'}), 500
@@ -8021,9 +8065,23 @@ def api_create_kitcarretera():
         fi = data.get('firma_inspector')
         payload['firma_trabajador'] = ft if isinstance(ft, str) and ft.strip() else None
         payload['firma_inspector'] = fi if isinstance(fi, str) and fi.strip() else None
-        if payload['firma_trabajador'] and 'firma_trabajador_fecha' in cols:
+        # Parseo de fechas de firma cuando se suministran desde el frontend
+        from datetime import datetime as _dt
+        if ftf_raw and 'firma_trabajador_fecha' in cols:
+            try:
+                s = str(ftf_raw).replace('T', ' ')
+                payload['firma_trabajador_fecha'] = _dt.strptime(s[:19], '%Y-%m-%d %H:%M:%S')
+            except Exception:
+                payload['firma_trabajador_fecha'] = get_bogota_datetime().replace(tzinfo=None)
+        elif payload['firma_trabajador'] and 'firma_trabajador_fecha' in cols:
             payload['firma_trabajador_fecha'] = get_bogota_datetime().replace(tzinfo=None)
-        if payload['firma_inspector'] and 'firma_inspector_fecha' in cols:
+        if fif_raw and 'firma_inspector_fecha' in cols:
+            try:
+                s2 = str(fif_raw).replace('T', ' ')
+                payload['firma_inspector_fecha'] = _dt.strptime(s2[:19], '%Y-%m-%d %H:%M:%S')
+            except Exception:
+                payload['firma_inspector_fecha'] = get_bogota_datetime().replace(tzinfo=None)
+        elif payload['firma_inspector'] and 'firma_inspector_fecha' in cols:
             payload['firma_inspector_fecha'] = get_bogota_datetime().replace(tzinfo=None)
         filtered = {k: payload[k] for k in cols if k in payload}
         insert_cols = ','.join(filtered.keys())

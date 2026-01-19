@@ -6,8 +6,10 @@ Test script to directly call the MPA route function
 import sys
 import os
 
-# Add the current directory to Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Ensure repository root is on Python path
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(CURRENT_DIR)
+sys.path.insert(0, REPO_ROOT)
 
 try:
     # Import the Flask app and test context

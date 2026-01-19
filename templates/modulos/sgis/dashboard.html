@@ -450,15 +450,6 @@ function cargarPermisoTrabajoActual(){
       if(ftc && !ftc.value){ftc.value=x.nombre||''}
       var fta=document.getElementById('sgis_permiso_trabajo_historial_semanal_altura_firma_tecnico');
       if(fta && !fta.value){fta.value=x.nombre||''}
-      if(currentPermisoId){
-        var t=document.getElementById('trabajo_ejecutar'); if(t){t.readOnly=true}
-        var h=document.getElementById('herramienta'); if(h){h.readOnly=true}
-        var dt=document.getElementById('descripcion_tarea'); if(dt){dt.readOnly=true}
-        TRI_FIELDS.forEach(function(id){var rs=document.querySelectorAll('input[name="'+id+'"]'); for(var i=0;i<rs.length;i++){rs[i].disabled=true}});
-        YN_FIELDS.forEach(function(id){var el=document.getElementById(id); if(el){el.disabled=true}});
-        TEXT_FIELDS.forEach(function(id){var el=document.getElementById(id); if(el){el.readOnly=true}});
-        var gp=document.getElementById('guardarPermisoTrabajo'); if(gp){gp.disabled=true}
-      }
       toggleSeccionesAplica();
       cargarHistorialesDelDia();
     }

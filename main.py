@@ -1869,71 +1869,121 @@ def tecnicos_dashboard():
         connection = get_db_connection()
         if connection is None:
             flash('Error de conexión a la base de datos', 'danger')
-            resp = make_response(render_template('modulos/tecnicos/dashboard.html', supervisor=None, tiene_asistencia=False))
+            resp = make_response(render_template('modulos/tecnicos/dashboard.html', supervisor=None, tiene_asistencia=False, comparendos_resumen=None))
             resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
             resp.headers['Pragma'] = 'no-cache'
             resp.headers['Expires'] = '0'
             return resp
-            
         cursor = connection.cursor(dictionary=True, buffered=True)
-        
-        # Obtener el supervisor del técnico logueado
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT super FROM capired.recurso_operativo
             WHERE id_codigo_consumidor = %s
-        """, (session['id_codigo_consumidor'],))
-        
+            """,
+            (session['id_codigo_consumidor'],),
+        )
         supervisor_result = cursor.fetchone()
         supervisor_tecnico = supervisor_result['super'] if supervisor_result and supervisor_result['super'] else None
-        
-        # Obtener la cédula del usuario logueado para verificar asistencia
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT recurso_operativo_cedula 
             FROM capired.recurso_operativo 
             WHERE id_codigo_consumidor = %s
-        """, (session['id_codigo_consumidor'],))
-        
+            """,
+            (session['id_codigo_consumidor'],),
+        )
         usuario_actual = cursor.fetchone()
-        
-        # Verificar si es el usuario especial (52912112) que debe estar exento de la restricción
         if usuario_actual and usuario_actual['recurso_operativo_cedula'] == '52912112':
-            # Usuario especial: siempre tiene acceso a todos los botones
             tiene_asistencia = True
         else:
-            # Para todos los demás usuarios: verificar asistencia registrada para hoy Y que carpeta_dia no sea 0
             fecha_hoy = datetime.now().strftime('%Y-%m-%d')
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT COUNT(*) as registros_hoy
                 FROM asistencia 
                 WHERE id_codigo_consumidor = %s AND DATE(fecha_asistencia) = %s AND carpeta_dia != '0'
-            """, (session['id_codigo_consumidor'], fecha_hoy))
-            
+                """,
+                (session['id_codigo_consumidor'], fecha_hoy),
+            )
             registro_existente = cursor.fetchone()
             tiene_asistencia = registro_existente['registros_hoy'] > 0 if registro_existente else False
-        
-        resp = make_response(render_template('modulos/tecnicos/dashboard.html', supervisor=supervisor_tecnico, tiene_asistencia=tiene_asistencia))
+        comparendos_resumen = None
+        tecnico_id = session.get('id_codigo_consumidor')
+        if tecnico_id:
+            cursor.execute(
+                """
+                SELECT placa 
+                FROM mpa_vehiculos 
+                WHERE tecnico_asignado = %s AND estado = 'Activo' 
+                ORDER BY fecha_creacion DESC 
+                LIMIT 1
+                """,
+                (tecnico_id,),
+            )
+            row_placa = cursor.fetchone()
+            placa_tecnico = row_placa['placa'] if row_placa and row_placa.get('placa') else None
+            if placa_tecnico:
+                cursor.execute(
+                    """
+                    SELECT placa, cantidad, valor_total, fuente, fecha_ultima_consulta 
+                    FROM mpa_comparendos 
+                    WHERE UPPER(TRIM(placa)) = %s 
+                    ORDER BY fecha_ultima_consulta DESC 
+                    LIMIT 1
+                    """,
+                    (placa_tecnico.strip().upper(),),
+                )
+                row_cmp = cursor.fetchone()
+                if row_cmp:
+                    try:
+                        valor_total = float(row_cmp.get('valor_total') or 0.0)
+                    except Exception:
+                        valor_total = 0.0
+                    try:
+                        cantidad = int(str(row_cmp.get('cantidad') or 0).strip())
+                    except Exception:
+                        cantidad = 0
+                    fecha_ult = row_cmp.get('fecha_ultima_consulta')
+                    if fecha_ult:
+                        try:
+                            fecha_ult = fecha_ult.strftime('%Y-%m-%d %H:%M')
+                        except Exception:
+                            fecha_ult = str(fecha_ult)
+                    comparendos_resumen = {
+                        'placa': row_cmp.get('placa') or placa_tecnico,
+                        'cantidad': cantidad,
+                        'valor_total': valor_total,
+                        'fuente': row_cmp.get('fuente'),
+                        'fecha_ultima_consulta': fecha_ult,
+                    }
+        resp = make_response(
+            render_template(
+                'modulos/tecnicos/dashboard.html',
+                supervisor=supervisor_tecnico,
+                tiene_asistencia=tiene_asistencia,
+                comparendos_resumen=comparendos_resumen,
+            )
+        )
         resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         resp.headers['Pragma'] = 'no-cache'
         resp.headers['Expires'] = '0'
         return resp
-                           
     except mysql.connector.Error as e:
         flash(f'Error al cargar datos del supervisor: {str(e)}', 'warning')
-        resp = make_response(render_template('modulos/tecnicos/dashboard.html', supervisor=None, tiene_asistencia=False))
+        resp = make_response(render_template('modulos/tecnicos/dashboard.html', supervisor=None, tiene_asistencia=False, comparendos_resumen=None))
         resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
         resp.headers['Pragma'] = 'no-cache'
         resp.headers['Expires'] = '0'
         return resp
     finally:
-        if cursor:
+        if 'cursor' in locals() and cursor:
             try:
-                # Limpiar cualquier resultado no leído
                 while cursor.nextset():
                     pass
-            except:
+            except Exception:
                 pass
             cursor.close()
-        if connection and connection.is_connected():
+        if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
 @app.route('/api/lider/metas-indicadores', methods=['GET'])
