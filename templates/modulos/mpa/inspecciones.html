@@ -448,6 +448,21 @@ function renderTabla(){
     return
   }
   document.getElementById('emptyState').style.display = 'none'
+  const latestGoodByPlaca = {}
+  for (let i = 0; i < inspecciones.length; i++){
+    const r = inspecciones[i]
+    const placa = r.placa
+    const malos = contarMalos(r)
+    const fiRaw = r.fecha_inspeccion
+    if (!placa || malos !== 0 || !fiRaw) continue
+    let fi
+    try{ fi = new Date(String(fiRaw).replace(' ', 'T')) }catch(e){ fi = null }
+    if (!fi || isNaN(fi.getTime())) continue
+    const ts = fi.getTime()
+    if (!(placa in latestGoodByPlaca) || ts > latestGoodByPlaca[placa]){
+      latestGoodByPlaca[placa] = ts
+    }
+  }
   let html = ''
   for (let i = 0; i < inspecciones.length; i++){
     const r = inspecciones[i]
@@ -462,6 +477,15 @@ function renderTabla(){
       let fi
       try{ fi = new Date(String(fecha).replace(' ', 'T')) }catch(e){ fi = null }
       if (!fi || isNaN(fi.getTime())) return '-'
+      const goodTs = latestGoodByPlaca[r.placa]
+      if (goodTs && goodTs > fi.getTime()){
+        const gd = new Date(goodTs)
+        const y = gd.getFullYear()
+        const m = String(gd.getMonth()+1).padStart(2,'0')
+        const d = String(gd.getDate()).padStart(2,'0')
+        const ds = `${y}-${m}-${d}`
+        return `<span class="badge bg-success">Subsanada</span><div class="small text-muted">${ds}</div>`
+      }
       const due = new Date(fi.getTime() + 5*24*60*60*1000)
       const now = new Date()
       const msDay = 24*60*60*1000
