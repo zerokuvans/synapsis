@@ -61,6 +61,7 @@
                       <th>Técnico</th>
                       <th>Placa</th>
                       <th>Hallazgos</th>
+                      <th>Plazo Subsanación</th>
                       <th>Observaciones</th>
                       <th>Firmas</th>
                       <th>Acciones</th>
@@ -441,24 +442,45 @@ function contarMalos(r){
 
 function renderTabla(){
   const tbody = document.querySelector('#tablaInspecciones tbody')
-  tbody.innerHTML = ''
   if (!inspecciones.length){
     document.getElementById('emptyState').style.display = 'block'
+    tbody.innerHTML = ''
     return
   }
   document.getElementById('emptyState').style.display = 'none'
-    inspecciones.forEach(r => {
-      const tr = document.createElement('tr')
-      const fecha = r.fecha_inspeccion || ''
-      const firmaT = r.firma_trabajador ? '<span class="badge bg-dark">Trabajador</span>' : ''
-      const firmaI = r.firma_inspector ? '<span class="badge bg-secondary">Inspector</span>' : ''
-      const btnTrabDisabled = r.firma_trabajador ? 'disabled' : ''
-      const btnInspDisabled = r.firma_inspector ? 'disabled' : ''
-      tr.innerHTML = `
+  let html = ''
+  for (let i = 0; i < inspecciones.length; i++){
+    const r = inspecciones[i]
+    const fecha = r.fecha_inspeccion || ''
+    const firmaT = r.firma_trabajador ? '<span class="badge bg-dark">Trabajador</span>' : ''
+    const firmaI = r.firma_inspector ? '<span class="badge bg-secondary">Inspector</span>' : ''
+    const btnTrabDisabled = r.firma_trabajador ? 'disabled' : ''
+    const btnInspDisabled = r.firma_inspector ? 'disabled' : ''
+    const malos = contarMalos(r)
+    const plazoHtml = (() => {
+      if (!fecha || malos <= 0) return '-'
+      let fi
+      try{ fi = new Date(String(fecha).replace(' ', 'T')) }catch(e){ fi = null }
+      if (!fi || isNaN(fi.getTime())) return '-'
+      const due = new Date(fi.getTime() + 5*24*60*60*1000)
+      const now = new Date()
+      const msDay = 24*60*60*1000
+      const diff = Math.ceil((due - now)/msDay)
+      const y = due.getFullYear()
+      const m = String(due.getMonth()+1).padStart(2,'0')
+      const d = String(due.getDate()).padStart(2,'0')
+      const ds = `${y}-${m}-${d}`
+      if (diff > 0) return `<span class="badge bg-warning">${diff} días</span><div class="small text-muted">${ds}</div>`
+      if (diff === 0) return `<span class="badge bg-warning">Hoy</span><div class="small text-muted">${ds}</div>`
+      return `<span class="badge bg-danger">Vencido ${Math.abs(diff)} días</span><div class="small text-muted">${ds}</div>`
+    })()
+    html += `
+      <tr>
         <td>${fecha}</td>
         <td>${r.tecnico_nombre || r.nombre || ''}</td>
         <td>${r.placa || ''}</td>
-        <td>${contarMalos(r)}</td>
+        <td>${malos}</td>
+        <td>${plazoHtml}</td>
         <td>${r.observaciones || ''}</td>
         <td class="text-nowrap">${firmaT} ${firmaI}</td>
         <td class="text-end">
@@ -468,10 +490,11 @@ function renderTabla(){
             <button class="btn btn-outline-secondary btn-sm" ${btnInspDisabled} title="${r.firma_inspector ? 'Ya firmada por el inspector' : ''}" data-action="firma-inspector" data-id="${r.id_mpa_inspeccion_vehiculo}"><i class="fas fa-pen-fancy me-1"></i>Firma inspector</button>
           </div>
         </td>
-      `
-      tbody.appendChild(tr)
-    })
+      </tr>
+    `
   }
+  tbody.innerHTML = html
+}
 
 async function cargarInspecciones(){
   const placa = (document.getElementById('filtroPlaca').value || '').trim().toUpperCase()
@@ -480,6 +503,7 @@ async function cargarInspecciones(){
   const qs = []
   if (placa) qs.push('placa='+encodeURIComponent(placa))
   if (tecnico_id) qs.push('tecnico_id='+encodeURIComponent(tecnico_id))
+  qs.push('limit=200')
   if (qs.length) url += ('?'+qs.join('&'))
   const res = await fetch(url, { credentials: 'include' })
   const data = await res.json()
@@ -490,27 +514,30 @@ async function cargarInspecciones(){
 function renderPendientes(){
   const tbody = document.querySelector('#tablaPendientes tbody')
   const empty = document.getElementById('pendientesEmpty')
-  tbody.innerHTML = ''
   if (!pendientes.length){
     empty.style.display = 'block'
     const bc = document.getElementById('pendientesCountBadge')
     if (bc) bc.textContent = '0 pendientes'
+    tbody.innerHTML = ''
     return
   }
   empty.style.display = 'none'
   const bc = document.getElementById('pendientesCountBadge')
   if (bc) bc.textContent = `${pendientes.length} pendientes`
-  pendientes.forEach(p => {
-    const tr = document.createElement('tr')
-    tr.innerHTML = `
-      <td>${p.placa || ''}</td>
-      <td>${p.tecnico_nombre || p.tecnico_id || ''}</td>
-      <td class="text-end">
-        <button class="btn btn-dark btn-sm" data-action="registrar" data-tid="${p.tecnico_id}" data-placa="${p.placa}"><i class="fas fa-plus me-1"></i>Registrar</button>
-      </td>
+  let html = ''
+  for (let i=0;i<pendientes.length;i++){
+    const p = pendientes[i]
+    html += `
+      <tr>
+        <td>${p.placa || ''}</td>
+        <td>${p.tecnico_nombre || p.tecnico_id || ''}</td>
+        <td class="text-end">
+          <button class="btn btn-dark btn-sm" data-action="registrar" data-tid="${p.tecnico_id}" data-placa="${p.placa}"><i class="fas fa-plus me-1"></i>Registrar</button>
+        </td>
+      </tr>
     `
-    tbody.appendChild(tr)
-  })
+  }
+  tbody.innerHTML = html
 }
 
 async function cargarPendientesMes(){
@@ -599,8 +626,7 @@ async function guardarInspeccion(){
       const inp = document.getElementById(id)
       if (inp) inp.value = ''
     })
-    await cargarInspecciones()
-    await cargarPendientesMes()
+    await Promise.all([cargarInspecciones(), cargarPendientesMes()])
   } else {
     alert((data && data.error) || 'Error al crear la inspección')
   }
@@ -773,13 +799,47 @@ function renderVerBM(r){
 
   document.addEventListener('DOMContentLoaded', async () => {
   renderBMFields()
-  await cargarTecnicos()
-  await cargarInspecciones()
-  await cargarPendientesMes()
+  await Promise.all([cargarTecnicos(), cargarInspecciones(), cargarPendientesMes()])
   document.getElementById('btnBuscar').addEventListener('click', cargarInspecciones)
   document.getElementById('btnGuardarInspeccion').addEventListener('click', guardarInspeccion)
   initFirmaCanvas()
   document.getElementById('btnGuardarFirma').addEventListener('click', guardarFirma)
+  const selTec = document.getElementById('insTecnico')
+  selTec.addEventListener('change', async () => {
+    const tecnico_id = selTec.value
+    if (!tecnico_id) return
+    try{
+      const rVehs = await fetch('/api/mpa/vehiculos?tecnico='+encodeURIComponent(tecnico_id), { credentials: 'include' })
+      const dVehs = await rVehs.json()
+      if (dVehs && dVehs.success){
+        const arr = dVehs.data || dVehs.vehiculos || []
+        const v = arr[0]
+        if (v && v.placa){
+          const inpPlaca = document.getElementById('insPlaca')
+          inpPlaca.value = v.placa
+          inpPlaca.dispatchEvent(new Event('blur'))
+        }
+      }
+    }catch(e){}
+  })
+  const modalIns = document.getElementById('modalInspeccion')
+  modalIns.addEventListener('shown.bs.modal', async () => {
+    const tecnico_id = selTec.value
+    const inpPlaca = document.getElementById('insPlaca')
+    if (!tecnico_id || (inpPlaca.value && inpPlaca.value.trim())) return
+    try{
+      const rVehs = await fetch('/api/mpa/vehiculos?tecnico='+encodeURIComponent(tecnico_id), { credentials: 'include' })
+      const dVehs = await rVehs.json()
+      if (dVehs && dVehs.success){
+        const arr = dVehs.data || dVehs.vehiculos || []
+        const v = arr[0]
+        if (v && v.placa){
+          inpPlaca.value = v.placa
+          inpPlaca.dispatchEvent(new Event('blur'))
+        }
+      }
+    }catch(e){}
+  })
   document.getElementById('insPlaca').addEventListener('blur', async () => {
     const placa = (document.getElementById('insPlaca').value || '').trim().toUpperCase()
     if (!placa) return
@@ -790,7 +850,6 @@ function renderVerBM(r){
         fetch('/api/mpa/tecnico_mecanica?placa='+encodeURIComponent(placa), { credentials: 'include' })
       ])
       const dVeh = await rVeh.json();
-      console.log('vehiculos', dVeh)
       let v = {}
       if (dVeh && dVeh.success){
         const arr = dVeh.data || dVeh.vehiculos || []
@@ -802,7 +861,6 @@ function renderVerBM(r){
       document.getElementById('detColor').textContent = v.color || '-'
       document.getElementById('detCilindraje').textContent = v.cilindraje || v.cilindraje_cc || '-'
       const dSoat = await rSoat.json();
-      console.log('soat', dSoat)
       let s = {}
       if (dSoat && dSoat.success){
         const arrS = dSoat.data || []
@@ -810,7 +868,6 @@ function renderVerBM(r){
       }
       document.getElementById('detVSoat').textContent = s.fecha_vencimiento || '-'
       const dTm = await rTm.json();
-      console.log('tecnico_mecanica', dTm)
       let t = {}
       if (dTm && dTm.success){
         const arrT = dTm.data || []
@@ -823,7 +880,6 @@ function renderVerBM(r){
       if (tecnico_id){
         const rLic = await fetch('/api/mpa/licencias-conducir?tecnico_id='+encodeURIComponent(tecnico_id), { credentials: 'include' })
         const dLic = await rLic.json()
-        console.log('licencias', dLic)
         let l = {}
         if (dLic && dLic.success){
           const arrL = dLic.data || []
@@ -869,19 +925,52 @@ function renderVerBM(r){
     }
   })
 
+  function compressImage(file, maxDim, quality){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          const ratio = Math.min(maxDim / img.width, maxDim / img.height, 1)
+          const w = Math.round(img.width * ratio)
+          const h = Math.round(img.height * ratio)
+          canvas.width = w
+          canvas.height = h
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0, w, h)
+          try{
+            const dataUrl = canvas.toDataURL('image/jpeg', quality)
+            resolve(dataUrl)
+          }catch(err){ reject(err) }
+        }
+        img.onerror = reject
+        img.src = e.target.result
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
   function bindFotoInput(inpId, prevId, key){
     const inp = document.getElementById(inpId)
     const prev = document.getElementById(prevId)
     if (!inp) return
-    inp.addEventListener('change', () => {
+    inp.addEventListener('change', async () => {
       const f = inp.files && inp.files[0]
-      if (!f){ fotosBase64[key] = null; prev && (prev.style.display='none'); return }
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        fotosBase64[key] = e.target.result
-        if (prev){ prev.src = fotosBase64[key]; prev.style.display = 'block' }
+      if (!f){ fotosBase64[key] = null; if (prev){ prev.style.display='none' } return }
+      try{
+        const dataUrl = await compressImage(f, 1280, 0.7)
+        fotosBase64[key] = dataUrl
+        if (prev){ prev.src = dataUrl; prev.style.display = 'block' }
+      }catch(e){
+        const reader = new FileReader()
+        reader.onload = (ev) => {
+          fotosBase64[key] = ev.target.result
+          if (prev){ prev.src = fotosBase64[key]; prev.style.display = 'block' }
+        }
+        reader.readAsDataURL(f)
       }
-      reader.readAsDataURL(f)
     })
   }
   bindFotoInput('insFoto1','insPrev1','foto1')

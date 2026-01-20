@@ -7767,15 +7767,23 @@ def api_list_inspecciones():
             tecnico_select = "NULL AS tecnico_nombre"
             joins = ""
 
+        lim_raw = request.args.get('limit')
+        lim = None
+        try:
+            if lim_raw is not None:
+                lim = max(1, min(int(lim_raw), 1000))
+        except Exception:
+            lim = None
         query = """
         SELECT i.*, {tecnico_select}
         FROM mpa_inspeccion_vehiculo i
         {joins}
         {where_clause}
-        ORDER BY i.fecha_inspeccion DESC
+        ORDER BY i.fecha_inspeccion DESC {limit_clause}
         """
         where_clause = ("WHERE " + " AND ".join(where)) if where else ""
-        query = query.format(tecnico_select=tecnico_select, joins=joins, where_clause=where_clause)
+        limit_clause = ("LIMIT " + str(lim)) if lim else ""
+        query = query.format(tecnico_select=tecnico_select, joins=joins, where_clause=where_clause, limit_clause=limit_clause)
         cursor.execute(query, tuple(params))
         rows = cursor.fetchall()
         for r in rows:
@@ -7795,6 +7803,131 @@ def api_list_inspecciones():
                         r[k] = v.strftime('%Y-%m-%d')
                     except Exception:
                         pass
+        return jsonify({'success': True, 'data': rows})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+MPA_INSP_IDX_DONE = False
+
+def ensure_mpa_indexes():
+    global MPA_INSP_IDX_DONE
+    if MPA_INSP_IDX_DONE:
+        return
+    conn = get_db_connection()
+    if conn is None:
+        return
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name='mpa_inspeccion_vehiculo' AND index_name='idx_mpa_insp_fecha'")
+        if not cur.fetchone():
+            try:
+                cur.execute("CREATE INDEX idx_mpa_insp_fecha ON mpa_inspeccion_vehiculo (fecha_inspeccion)")
+            except Exception:
+                pass
+        cur.execute("SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name='mpa_inspeccion_vehiculo' AND index_name='idx_mpa_insp_placa'")
+        if not cur.fetchone():
+            try:
+                cur.execute("CREATE INDEX idx_mpa_insp_placa ON mpa_inspeccion_vehiculo (placa)")
+            except Exception:
+                pass
+        cur.execute("SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name='mpa_vehiculos' AND index_name='idx_mpa_veh_placa'")
+        if not cur.fetchone():
+            try:
+                cur.execute("CREATE INDEX idx_mpa_veh_placa ON mpa_vehiculos (placa)")
+            except Exception:
+                pass
+        cur.execute("DESCRIBE mpa_vehiculos")
+        cols_v = {r[0] if not isinstance(r, dict) else (r.get('Field') or r.get('field')) for r in (cur.fetchall() or [])}
+        if 'tecnico_asignado' in cols_v:
+            cur.execute("SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name='mpa_vehiculos' AND index_name='idx_mpa_veh_tecnico'")
+            if not cur.fetchone():
+                try:
+                    cur.execute("CREATE INDEX idx_mpa_veh_tecnico ON mpa_vehiculos (tecnico_asignado)")
+                except Exception:
+                    pass
+        conn.commit()
+        try:
+            cur.close()
+        except Exception:
+            pass
+        MPA_INSP_IDX_DONE = True
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+    try:
+        conn.close()
+    except Exception:
+        pass
+
+@app.route('/api/mpa/inspecciones/pendientes-mes', methods=['GET'])
+@login_required
+def api_inspecciones_pendientes_mes():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        ensure_mpa_indexes()
+        limit_raw = request.args.get('limit')
+        limit = 5
+        try:
+            if limit_raw is not None:
+                limit = max(1, min(int(limit_raw), 100))
+        except Exception:
+            limit = 5
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("DESCRIBE mpa_vehiculos")
+        v_cols = set()
+        for ci in cursor.fetchall() or []:
+            try:
+                v_cols.add(ci.get('Field') or ci.get('field') or ci[0])
+            except Exception:
+                pass
+        if 'placa' not in v_cols:
+            return jsonify({'success': True, 'data': []})
+        tcol = None
+        for c in ('tecnico_asignado','id_codigo_consumidor','tecnico','id_tecnico'):
+            if c in v_cols:
+                tcol = c; break
+        if not tcol:
+            return jsonify({'success': True, 'data': []})
+        cursor.execute("DESCRIBE mpa_inspeccion_vehiculo")
+        i_cols = set()
+        for ci in cursor.fetchall() or []:
+            try:
+                i_cols.add(ci.get('Field') or ci.get('field') or ci[0])
+            except Exception:
+                pass
+        if 'placa' not in i_cols or 'fecha_inspeccion' not in i_cols:
+            return jsonify({'success': True, 'data': []})
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+        from datetime import date, datetime as _dt
+        now = get_bogota_datetime()
+        fm = _dt(now.year, now.month, 1)
+        nm = _dt(now.year + (1 if now.month == 12 else 0), 1 if now.month == 12 else now.month + 1, 1)
+        joins = ""
+        if ro_exists:
+            joins = f"LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = v.{tcol}"
+        query = f"""
+        SELECT v.placa, v.{tcol} AS tecnico_id, {('COALESCE(ro.nombre, CAST(v.' + tcol + ' AS CHAR))' if ro_exists else 'CAST(v.' + tcol + ' AS CHAR)')} AS tecnico_nombre
+        FROM mpa_vehiculos v
+        LEFT JOIN mpa_inspeccion_vehiculo i ON i.placa = v.placa AND i.fecha_inspeccion >= %s AND i.fecha_inspeccion < %s
+        {joins}
+        WHERE v.{tcol} IS NOT NULL AND i.placa IS NULL
+        ORDER BY tecnico_nombre, v.placa
+        LIMIT {limit}
+        """
+        cursor.execute(query, (fm, nm))
+        rows = cursor.fetchall() or []
         return jsonify({'success': True, 'data': rows})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
