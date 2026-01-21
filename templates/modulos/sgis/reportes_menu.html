@@ -87,4 +87,90 @@
     </div>
   </div>
 </div>
+<div class="container mt-3">
+  <div class="card shadow-sm">
+    <div class="card-header text-white fw-bold" style="background: linear-gradient(135deg, #1e293b 0%, #22c55e 100%) !important;">
+      <div class="d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Indicadores SGIS por Supervisor</h5>
+        <div class="d-flex align-items-center gap-2">
+          <select id="filtroMesSupAnio" class="form-select form-select-sm" style="max-width: 110px;"></select>
+          <select id="filtroMesSupMes" class="form-select form-select-sm" style="max-width: 150px;"></select>
+          <button id="btnCargarSup" class="btn btn-light btn-sm">Cargar</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="indicadoresSupervisores" class="row g-3"></div>
+    </div>
+  </div>
+</div>
+<script>
+function initMesSupSelectors(){
+  const selAnio = document.getElementById('filtroMesSupAnio');
+  const selMes = document.getElementById('filtroMesSupMes');
+  if(!selAnio || !selMes) return;
+  const hoy = new Date();
+  const anioActual = hoy.getFullYear();
+  for(let y = anioActual - 2; y <= anioActual + 1; y++){
+    const opt = document.createElement('option');
+    opt.value = String(y);
+    opt.textContent = String(y);
+    if(y === anioActual) opt.selected = true;
+    selAnio.appendChild(opt);
+  }
+  const mesesEs = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  mesesEs.forEach((nombre, idx)=>{
+    const opt = document.createElement('option');
+    opt.value = String(idx+1).padStart(2,'0');
+    opt.textContent = nombre;
+    if(idx === hoy.getMonth()) opt.selected = true;
+    selMes.appendChild(opt);
+  });
+}
+function getMesFiltro(){
+  const y = document.getElementById('filtroMesSupAnio')?.value || new Date().getFullYear();
+  const m = document.getElementById('filtroMesSupMes')?.value || String(new Date().getMonth()+1).padStart(2,'0');
+  return `${y}-${m}`;
+}
+function renderSupervisorCard(item){
+  const col = document.createElement('div'); col.className = 'col-12 col-md-6 col-xl-4';
+  const card = document.createElement('div'); card.className = 'card h-100 border-success';
+  const body = document.createElement('div'); body.className = 'card-body';
+  const head = document.createElement('div'); head.className = 'd-flex justify-content-between align-items-center mb-2';
+  const h6 = document.createElement('h6'); h6.className = 'mb-0'; h6.textContent = item.supervisor;
+  const gen = document.createElement('span'); gen.className = 'badge bg-success'; gen.textContent = `${item.porcentaje_general}%`;
+  head.appendChild(h6); head.appendChild(gen);
+  const table = document.createElement('table'); table.className = 'table table-sm';
+  const tbody = document.createElement('tbody');
+  const rows = [
+    ['Análisis de Trabajo Seguro Rutinario', item.porcentaje_tsr],
+    ['Permiso de Trabajo', item.porcentaje_permiso],
+    ['Pre-operacional Caídas', item.porcentaje_caidas],
+    ['Pre-operacional EPP', item.porcentaje_epp],
+    ['Pre-operacional Escaleras', item.porcentaje_escaleras]
+  ];
+  rows.forEach(r=>{ const tr=document.createElement('tr'); const td1=document.createElement('td'); td1.textContent=r[0]; const td2=document.createElement('td'); td2.className='text-end'; td2.textContent = `${r[1]}%`; tr.appendChild(td1); tr.appendChild(td2); tbody.appendChild(tr); });
+  table.appendChild(tbody);
+  body.appendChild(head); body.appendChild(table);
+  card.appendChild(body); col.appendChild(card);
+  return col;
+}
+function cargarIndicadores(){
+  const mes = getMesFiltro();
+  fetch(`/api/sgis/indicadores/supervisores?mes=${encodeURIComponent(mes)}`)
+    .then(r=>r.json()).then(d=>{
+      const cont = document.getElementById('indicadoresSupervisores');
+      cont.innerHTML = '';
+      if(d && d.success && Array.isArray(d.supervisores) && d.supervisores.length>0){
+        d.supervisores.forEach(s=>{ cont.appendChild(renderSupervisorCard(s)); });
+      } else {
+        cont.innerHTML = '<div class="text-muted">Sin datos para el mes seleccionado</div>';
+      }
+    }).catch(()=>{
+      const cont = document.getElementById('indicadoresSupervisores');
+      cont.innerHTML = '<div class="text-danger">Error al cargar indicadores</div>';
+    });
+}
+document.addEventListener('DOMContentLoaded',()=>{ initMesSupSelectors(); cargarIndicadores(); const btn=document.getElementById('btnCargarSup'); if(btn){ btn.addEventListener('click', cargarIndicadores); } });
+</script>
 {% endblock %}

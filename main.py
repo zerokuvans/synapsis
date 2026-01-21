@@ -31176,6 +31176,12 @@ def sgis_dashboard():
             habilitar_escaleras = carpeta == 'APOYO CAMIONETAS'
             cursor.execute("SELECT nombre, cargo, recurso_operativo_cedula, super, cliente, ciudad FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (session.get('user_cedula'),))
             ro_info = cursor.fetchone() or {}
+            try:
+                cargo_u = (ro_info.get('cargo') or '').strip().upper()
+                if cargo_u in ['CONDUCTOR', 'TECNICO CONDUCTOR']:
+                    habilitar_escaleras = True
+            except Exception:
+                pass
             cedula_usuario = session.get('user_cedula')
             if cedula_usuario == '52912112':
                 tiene_asistencia = True
@@ -31912,6 +31918,295 @@ def api_sgis_reportes_tecnicos_mes():
                 'permiso_dias': cnt_permiso
             })
         return jsonify({'success': True, 'data': data, 'mes': inicio.strftime('%Y-%m')})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
+@app.route('/api/sgis/indicadores/supervisores', methods=['GET'])
+@login_required_api(role=['administrativo','operativo'])
+def api_sgis_indicadores_supervisores():
+    try:
+        mes = request.args.get('mes')
+        if mes:
+            try:
+                inicio = datetime.strptime(mes + '-01', '%Y-%m-%d').date()
+            except ValueError:
+                inicio = get_bogota_datetime().date().replace(day=1)
+        else:
+            inicio = get_bogota_datetime().date().replace(day=1)
+        if inicio.month == 12:
+            fin = inicio.replace(year=inicio.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            fin = inicio.replace(month=inicio.month + 1, day=1) - timedelta(days=1)
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT DISTINCT TRIM(a.super) AS supervisor
+            FROM asistencia a
+            LEFT JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s
+              AND (
+                    (t.valor = '1')
+                 OR (UPPER(COALESCE(a.carpeta_dia,'')) LIKE 'AUX%')
+                 OR (UPPER(COALESCE(a.carpeta_dia,'')) LIKE 'BROW%')
+              )
+              AND TRIM(a.super) IS NOT NULL AND TRIM(a.super) <> ''
+              AND UPPER(TRIM(a.super)) <> 'CORTES CUERVO SANDRA CECILIA'
+            ORDER BY supervisor
+            """,
+            (inicio, fin)
+        )
+        sups = [r.get('supervisor') for r in (cursor.fetchall() or []) if r.get('supervisor')]
+        sups = [s for s in sups if (s or '').strip().upper() != 'CORTES CUERVO SANDRA CECILIA']
+        try:
+            ur = (session.get('user_role') or '').strip().lower()
+            if ur != 'administrativo':
+                cursor.execute("SELECT nombre, cargo, super FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (session.get('user_cedula'),))
+                ro_u = cursor.fetchone() or {}
+                cargo_u = (ro_u.get('cargo') or '').strip().upper()
+                nombre_u = (ro_u.get('nombre') or '').strip()
+                super_u = (ro_u.get('super') or '').strip()
+                mi_super = nombre_u if cargo_u == 'SUPERVISORES' else super_u
+                if mi_super:
+                    sups = [s for s in sups if (s or '').strip().upper() == mi_super.strip().upper()]
+        except Exception:
+            pass
+        resultados = []
+        for sup in sups:
+            cursor.execute(
+                """
+                SELECT DISTINCT a.cedula
+                FROM asistencia a
+                LEFT JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+                WHERE TRIM(a.super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci
+                  AND DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                  AND (
+                        (t.valor = '1')
+                     OR (UPPER(COALESCE(a.carpeta_dia,'')) LIKE 'AUX%')
+                     OR (UPPER(COALESCE(a.carpeta_dia,'')) LIKE 'BROW%')
+                  )
+                ORDER BY a.cedula
+                """,
+                (sup, inicio, fin)
+            )
+            tecnicos = [r.get('cedula') for r in (cursor.fetchall() or []) if r.get('cedula')]
+            tot_dias = 0
+            tot_epp = 0
+            tot_caidas = 0
+            tot_escaleras = 0
+            tot_tsr = 0
+            tot_permiso = 0
+            tot_completos = 0
+            for ced in tecnicos:
+                idc = None
+                try:
+                    cursor.execute("SELECT id_codigo_consumidor FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (ced,))
+                    ro = cursor.fetchone() or {}
+                    idc = ro.get('id_codigo_consumidor')
+                except Exception:
+                    idc = None
+                dias = []
+                try:
+                    cursor.execute(
+                        """
+                        SELECT DISTINCT DATE(a.fecha_asistencia) AS dia
+                        FROM asistencia a
+                        LEFT JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+                        WHERE a.cedula = %s AND DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                          AND (
+                                (t.valor = '1')
+                             OR (UPPER(COALESCE(a.carpeta_dia,'')) LIKE 'AUX%')
+                             OR (UPPER(COALESCE(a.carpeta_dia,'')) LIKE 'BROW%')
+                          )
+                        ORDER BY dia
+                        """,
+                        (ced, inicio, fin)
+                    )
+                    dias = [r.get('dia') for r in (cursor.fetchall() or []) if r.get('dia')]
+                except Exception:
+                    dias = []
+                total_dias = len(dias)
+                if total_dias == 0:
+                    continue
+                dias_set = set(dias)
+                epp_set = set()
+                caidas_set = set()
+                esc_set = set()
+                tsr_set = set()
+                permiso_set = set()
+                try:
+                    if idc:
+                        cursor.execute(
+                            """
+                            SELECT DISTINCT COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) AS dia
+                            FROM sgis_pre_proteccion_personal
+                            WHERE (cedula = %s OR recurso_operativo_cedula = %s OR id_codigo_consumidor = %s)
+                              AND COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) BETWEEN %s AND %s
+                            """,
+                            (ced, ced, idc, inicio, fin)
+                        )
+                    else:
+                        cursor.execute(
+                            """
+                            SELECT DISTINCT COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) AS dia
+                            FROM sgis_pre_proteccion_personal
+                            WHERE (cedula = %s OR recurso_operativo_cedula = %s)
+                              AND COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) BETWEEN %s AND %s
+                            """,
+                            (ced, ced, inicio, fin)
+                        )
+                    for r in cursor.fetchall() or []:
+                        di = r.get('dia')
+                        if di:
+                            epp_set.add(di)
+                except Exception:
+                    pass
+                try:
+                    if idc:
+                        cursor.execute(
+                            """
+                            SELECT DISTINCT COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) AS dia
+                            FROM sgis_pre_proteccion_caidas
+                            WHERE (cedula = %s OR recurso_operativo_cedula = %s OR id_codigo_consumidor = %s)
+                              AND COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) BETWEEN %s AND %s
+                            """,
+                            (ced, ced, idc, inicio, fin)
+                        )
+                    else:
+                        cursor.execute(
+                            """
+                            SELECT DISTINCT COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) AS dia
+                            FROM sgis_pre_proteccion_caidas
+                            WHERE (cedula = %s OR recurso_operativo_cedula = %s)
+                              AND COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) BETWEEN %s AND %s
+                            """,
+                            (ced, ced, inicio, fin)
+                        )
+                    for r in cursor.fetchall() or []:
+                        di = r.get('dia')
+                        if di:
+                            caidas_set.add(di)
+                except Exception:
+                    pass
+                try:
+                    if idc:
+                        cursor.execute(
+                            """
+                            SELECT DISTINCT COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) AS dia
+                            FROM sgis_pre_escaleras
+                            WHERE (cedula = %s OR recurso_operativo_cedula = %s OR id_codigo_consumidor = %s)
+                              AND COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) BETWEEN %s AND %s
+                            """,
+                            (ced, ced, idc, inicio, fin)
+                        )
+                    else:
+                        cursor.execute(
+                            """
+                            SELECT DISTINCT COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) AS dia
+                            FROM sgis_pre_escaleras
+                            WHERE (cedula = %s OR recurso_operativo_cedula = %s)
+                              AND COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) BETWEEN %s AND %s
+                            """,
+                            (ced, ced, inicio, fin)
+                        )
+                    for r in cursor.fetchall() or []:
+                        di = r.get('dia')
+                        if di:
+                            esc_set.add(di)
+                except Exception:
+                    pass
+                try:
+                    cursor.execute(
+                        """
+                        SELECT DISTINCT COALESCE(fecha_dia, DATE(fecha_registro)) AS dia
+                        FROM sgis_trabajos_seguridad_rutina
+                        WHERE (recurso_operativo_cedula = %s OR id_codigo_consumidor = %s)
+                          AND COALESCE(fecha_dia, DATE(fecha_registro)) BETWEEN %s AND %s
+                        """,
+                        (ced, idc or 0, inicio, fin)
+                    )
+                    for r in cursor.fetchall() or []:
+                        di = r.get('dia')
+                        if di:
+                            tsr_set.add(di)
+                except Exception:
+                    pass
+                if idc:
+                    try:
+                        cursor.execute(
+                            """
+                            SELECT DISTINCT DATE(sgis_permiso_trabajo_historial_confinado_fecha) AS dia
+                            FROM sgis_permiso_trabajo_historial_semanal_confinado
+                            WHERE id_codigo_consumidor = %s AND DATE(sgis_permiso_trabajo_historial_confinado_fecha) BETWEEN %s AND %s
+                            """,
+                            (idc, inicio, fin)
+                        )
+                        for r in cursor.fetchall() or []:
+                            di = r.get('dia')
+                            if di:
+                                permiso_set.add(di)
+                    except Exception:
+                        pass
+                    try:
+                        cursor.execute(
+                            """
+                            SELECT DISTINCT DATE(sgis_permiso_trabajo_historial_altura_fecha) AS dia
+                            FROM sgis_permiso_trabajo_historial_semanal_altura
+                            WHERE id_codigo_consumidor = %s AND DATE(sgis_permiso_trabajo_historial_altura_fecha) BETWEEN %s AND %s
+                            """,
+                            (idc, inicio, fin)
+                        )
+                        for r in cursor.fetchall() or []:
+                            di = r.get('dia')
+                            if di:
+                                permiso_set.add(di)
+                    except Exception:
+                        pass
+                tot_dias += total_dias
+                tot_epp += min(len(epp_set), total_dias)
+                tot_caidas += min(len(caidas_set), total_dias)
+                tot_escaleras += min(len(esc_set), total_dias)
+                tot_tsr += min(len(tsr_set), total_dias)
+                tot_permiso += min(len(permiso_set), total_dias)
+                comp = 0
+                for d in dias:
+                    he = d in epp_set
+                    hc = d in caidas_set
+                    hs = d in esc_set
+                    ht = d in tsr_set
+                    hp = d in permiso_set
+                    if he and hc and hs and ht and hp:
+                        comp += 1
+                tot_completos += comp
+            if tot_dias == 0:
+                continue
+            pct_general = int(round(((tot_epp + tot_caidas + tot_escaleras + tot_tsr + tot_permiso) * 100.0) / (tot_dias * 5)))
+            res = {
+                'supervisor': sup,
+                'mes': inicio.strftime('%Y-%m'),
+                'total_dias': tot_dias,
+                'porcentaje_general': pct_general,
+                'porcentaje_tsr': int(round((tot_tsr * 100.0) / tot_dias)),
+                'porcentaje_permiso': int(round((tot_permiso * 100.0) / tot_dias)),
+                'porcentaje_caidas': int(round((tot_caidas * 100.0) / tot_dias)),
+                'porcentaje_epp': int(round((tot_epp * 100.0) / tot_dias)),
+                'porcentaje_escaleras': int(round((tot_escaleras * 100.0) / tot_dias))
+            }
+            resultados.append(res)
+        return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'supervisores': resultados})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
