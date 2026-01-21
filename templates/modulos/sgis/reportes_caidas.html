@@ -23,6 +23,7 @@
                 <tr>
                   <th>Nombre</th>
                   <th>Cédula</th>
+                  <th>% Registros Caídas</th>
                   <th>Acción</th>
                 </tr>
               </thead>
@@ -141,6 +142,7 @@ function cargarTecnicos(){
           tr.innerHTML = `
             <td>${t.nombre || ''}</td>
             <td>${t.cedula || ''}</td>
+            <td>${(typeof t.porcentaje_caidas === 'number' ? t.porcentaje_caidas : (t.porcentaje_caidas || 0))}% (${t.caidas_dias || 0}/${t.asistencia_dias || 0})</td>
             <td>
               <button class=\"btn btn-outline-success btn-sm\" data-cedula=\"${t.cedula}\" data-nombre=\"${t.nombre}\"> 
                 <i class=\"fas fa-user-shield me-1\"></i>Preoperacional

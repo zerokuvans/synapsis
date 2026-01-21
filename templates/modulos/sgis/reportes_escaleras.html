@@ -23,6 +23,7 @@
                 <tr>
                   <th>Nombre</th>
                   <th>Cédula</th>
+                  <th>% Registros Escaleras</th>
                   <th>Acción</th>
                 </tr>
               </thead>
@@ -154,6 +155,7 @@ function cargarTecnicos(){
           tr.innerHTML = `
             <td>${t.nombre || ''}</td>
             <td>${t.cedula || ''}</td>
+            <td>${(typeof t.porcentaje_escaleras === 'number' ? t.porcentaje_escaleras : (t.porcentaje_escaleras || 0))}% (${t.escaleras_dias || 0}/${t.asistencia_dias || 0})</td>
             <td>
               <button class="btn btn-outline-secondary btn-sm" data-cedula="${t.cedula}" data-nombre="${t.nombre}">
                 <i class="fas fa-stairs me-1"></i>Preoperacional
