@@ -126,6 +126,8 @@ def load_user(user_id):
 
 # Importar rutas desde app.py
 from app import administrativo_asistencia, obtener_supervisores, obtener_tecnicos_por_supervisor, guardar_asistencia_administrativa
+from app import api_asistencia_resumen_categorias
+from app import api_asistencia_listado_por_carpeta_dia, api_asistencia_listado_por_tipificacion
 
 # Importar rutas del módulo analistas desde app.py
 from app import analistas_index, analistas_causas, analistas_dashboard, api_grupos_causas_cierre, api_tecnologias_causas_cierre, api_agrupaciones_causas_cierre, api_estadisticas_causas_cierre
@@ -161,6 +163,9 @@ app.route('/administrativo/asistencia')(administrativo_asistencia)
 app.route('/api/supervisores', methods=['GET'])(obtener_supervisores)
 app.route('/api/tecnicos_por_supervisor', methods=['GET'])(obtener_tecnicos_por_supervisor)
 app.route('/api/asistencia/guardar', methods=['POST'])(guardar_asistencia_administrativa)
+app.route('/api/asistencia/resumen_categorias', methods=['GET'])(api_asistencia_resumen_categorias)
+app.route('/api/asistencia/listado_por_carpeta_dia', methods=['GET'])(api_asistencia_listado_por_carpeta_dia)
+app.route('/api/asistencia/listado_por_tipificacion', methods=['GET'])(api_asistencia_listado_por_tipificacion)
 
 # Registrar rutas del módulo analistas
 app.route('/analistas')(analistas_index)
@@ -955,8 +960,8 @@ db_config = {
     'user': os.getenv('MYSQL_USER'),
     'password': os.getenv('MYSQL_PASSWORD'),
     'database': os.getenv('MYSQL_DB'),
-    'port': int(os.getenv('MYSQL_PORT')),
-    'time_zone': '+00:00'  # Configurar MySQL para usar UTC
+    'port': (int(os.getenv('MYSQL_PORT')) if os.getenv('MYSQL_PORT') else None),
+    'time_zone': '+00:00'
 }
 
 VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')

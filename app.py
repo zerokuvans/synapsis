@@ -1803,6 +1803,600 @@ def guardar_asistencia_administrativa():
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
+@app.route('/api/asistencia/consultar', methods=['GET'])
+@login_required
+def consultar_asistencia():
+    supervisor = request.args.get('supervisor')
+    fecha = request.args.get('fecha')
+    if not supervisor or not fecha:
+        return jsonify({'success': False, 'message': 'Supervisor y fecha requeridos'}), 400
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT id_asistencia, cedula, tecnico, carpeta_dia, carpeta, super,
+                   fecha_asistencia, id_codigo_consumidor, eventos, valor,
+                   hora_inicio, estado, novedad
+            FROM asistencia
+            WHERE super = %s AND DATE(fecha_asistencia) = %s
+            ORDER BY tecnico, cedula
+            """,
+            (supervisor, fecha)
+        )
+        registros = cursor.fetchall() or []
+        return jsonify({'success': True, 'registros': registros})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/tipificacion', methods=['GET'])
+@login_required
+def api_asistencia_tipificacion():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT codigo_tipificacion AS codigo, nombre_tipificacion AS descripcion
+            FROM tipificacion_asistencia
+            WHERE estado = '1' AND zona = 'RRHH'
+            ORDER BY codigo_tipificacion
+            """
+        )
+        tipificaciones = cursor.fetchall() or []
+        return jsonify({'success': True, 'tipificaciones': tipificaciones})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/supervisores', methods=['GET'])
+@login_required
+def api_asistencia_supervisores():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        user_id = session.get('user_id')
+        user_role = session.get('user_role')
+        user_name = session.get('user_name')
+        if user_role == 'administrativo':
+            cursor.execute(
+                """
+                SELECT DISTINCT super
+                FROM recurso_operativo
+                WHERE super IS NOT NULL AND super <> '' AND estado = 'Activo'
+                ORDER BY super
+                """
+            )
+            rows = cursor.fetchall() or []
+            supervisores = [r['super'] for r in rows]
+        else:
+            cursor.execute(
+                """
+                SELECT super
+                FROM recurso_operativo
+                WHERE id_codigo_consumidor = %s AND estado = 'Activo'
+                """,
+                (user_id,)
+            )
+            row = cursor.fetchone()
+            if row and row.get('super'):
+                supervisores = [row['super']]
+            else:
+                supervisores = [user_name] if user_name else []
+        return jsonify({'success': True, 'supervisores': supervisores})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/actualizar', methods=['PUT'])
+@login_required
+def api_asistencia_actualizar():
+    data = request.get_json(silent=True) or {}
+    ida = data.get('id_asistencia')
+    if not ida:
+        return jsonify({'success': False, 'message': 'id_asistencia requerido'}), 400
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT fecha_asistencia FROM asistencia WHERE id_asistencia = %s",
+            (ida,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'success': False, 'message': 'Registro no encontrado'}), 404
+        fa = row['fecha_asistencia']
+        hoy = get_bogota_datetime().date()
+        try:
+            f_reg = fa.date() if hasattr(fa, 'date') else datetime.strptime(str(fa)[:10], '%Y-%m-%d').date()
+        except Exception:
+            f_reg = hoy
+        diff = (hoy - f_reg).days
+        if diff < 0 or diff > 4:
+            return jsonify({'success': False, 'message': 'Registro no editable'}), 400
+        set_parts = []
+        params = []
+        for k in ('carpeta_dia', 'carpeta', 'super'):
+            v = data.get(k)
+            if v is not None:
+                set_parts.append(f"{k} = %s")
+                params.append(v)
+        if not set_parts:
+            return jsonify({'success': False, 'message': 'Sin cambios'}), 400
+        params.append(ida)
+        cursor.execute(
+            f"UPDATE asistencia SET {', '.join(set_parts)} WHERE id_asistencia = %s",
+            tuple(params)
+        )
+        connection.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        try:
+            if 'connection' in locals() and connection:
+                connection.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/eliminar', methods=['DELETE'])
+@login_required
+def api_asistencia_eliminar():
+    data = request.get_json(silent=True) or {}
+    ida = data.get('id_asistencia')
+    if not ida:
+        return jsonify({'success': False, 'message': 'id_asistencia requerido'}), 400
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT fecha_asistencia FROM asistencia WHERE id_asistencia = %s",
+            (ida,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({'success': False, 'message': 'Registro no encontrado'}), 404
+        fa = row['fecha_asistencia']
+        hoy = get_bogota_datetime().date()
+        try:
+            f_reg = fa.date() if hasattr(fa, 'date') else datetime.strptime(str(fa)[:10], '%Y-%m-%d').date()
+        except Exception:
+            f_reg = hoy
+        diff = (hoy - f_reg).days
+        if diff < 0 or diff > 4:
+            return jsonify({'success': False, 'message': 'Registro no editable'}), 400
+        cursor.execute("DELETE FROM asistencia WHERE id_asistencia = %s", (ida,))
+        connection.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        try:
+            if 'connection' in locals() and connection:
+                connection.rollback()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/exportar_excel', methods=['GET'])
+@login_required
+def exportar_asistencia_excel():
+    supervisor = request.args.get('supervisor')
+    fi = request.args.get('fecha_inicio')
+    ff = request.args.get('fecha_fin')
+    if not supervisor or not fi or not ff:
+        return jsonify({'success': False, 'message': 'Supervisor, fecha_inicio y fecha_fin requeridos'}), 400
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        where = ["DATE(fecha_asistencia) BETWEEN %s AND %s"]
+        params = [fi, ff]
+        if supervisor and supervisor != 'TODOS':
+            where.append("super = %s")
+            params.append(supervisor)
+        query = (
+            "SELECT fecha_asistencia, super, tecnico, cedula, carpeta_dia, carpeta, id_codigo_consumidor, eventos, valor, hora_inicio, estado, novedad "
+            "FROM asistencia WHERE " + " AND ".join(where) + " ORDER BY fecha_asistencia, super, tecnico"
+        )
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall() or []
+        try:
+            import pandas as pd
+            df = pd.DataFrame(rows)
+        except Exception:
+            df = None
+        from io import BytesIO
+        buf = BytesIO()
+        if df is not None and not df.empty:
+            try:
+                with pd.ExcelWriter(buf, engine='xlsxwriter') as writer:
+                    df.to_excel(writer, index=False, sheet_name='Asistencia')
+            except Exception:
+                buf = BytesIO(json.dumps(rows).encode('utf-8'))
+        else:
+            buf = BytesIO(json.dumps(rows).encode('utf-8'))
+        buf.seek(0)
+        resp = make_response(buf.read())
+        resp.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        filename = f"asistencia_{supervisor}_{fi}_{ff}.xlsx"
+        resp.headers['Content-Disposition'] = f"attachment; filename={filename}"
+        return resp
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+def _build_periods(fi, ff, agrupacion):
+    from datetime import datetime as _dt, timedelta as _td
+    start = _dt.strptime(fi, '%Y-%m-%d').date()
+    end = _dt.strptime(ff, '%Y-%m-%d').date()
+    labels = []
+    keys = []
+    if agrupacion == 'mes':
+        cur = start.replace(day=1)
+        while cur <= end:
+            labels.append(cur.strftime('%Y-%m'))
+            keys.append((cur.year, cur.month))
+            nm = cur.replace(day=28) + _td(days=4)
+            cur = nm - _td(days=nm.day - 1)
+            cur = (cur.replace(day=28) + _td(days=4)) - _td(days=(cur.replace(day=28) + _td(days=4)).day - 1)
+    else:
+        cur = start
+        while cur <= end:
+            labels.append(cur.strftime('%Y-%m-%d'))
+            keys.append((cur.year, cur.month, cur.day))
+            cur = cur + _td(days=1)
+    return labels, keys
+
+@app.route('/api/asistencia/graficas/operacion-recurso', methods=['GET'])
+@login_required
+def api_asistencia_grafica_operacion_recurso():
+    fi = request.args.get('fecha_inicio')
+    ff = request.args.get('fecha_fin')
+    agrupacion = (request.args.get('agrupacion') or 'dia').strip().lower()
+    supervisor = request.args.get('supervisor')
+    if not fi or not ff:
+        return jsonify({'success': False, 'message': 'fechas requeridas'}), 400
+    try:
+        labels, keys = _build_periods(fi, ff, agrupacion)
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        where = ["DATE(a.fecha_asistencia) BETWEEN %s AND %s"]
+        params = [fi, ff]
+        if supervisor:
+            where.append("a.super = %s")
+            params.append(supervisor)
+        cursor.execute(
+            """
+            SELECT a.fecha_asistencia, t.grupo
+            FROM asistencia a
+            INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE """ + " AND ".join(where)
+        , tuple(params))
+        rows = cursor.fetchall() or []
+        from collections import defaultdict
+        data_map = defaultdict(lambda: defaultdict(int))
+        for r in rows:
+            dt = r.get('fecha_asistencia')
+            try:
+                y = dt.year; m = dt.month; d = dt.day
+            except Exception:
+                try:
+                    y, m, d = map(int, str(dt)[:10].split('-'))
+                except Exception:
+                    continue
+            grp = (r.get('grupo') or '').strip().upper()
+            if agrupacion == 'mes':
+                data_map[grp][(y, m)] += 1
+            else:
+                data_map[grp][(y, m, d)] += 1
+        grupos = ['ARREGLOS', 'INSTALACIONES', 'POSTVENTA']
+        datasets = []
+        for g in grupos:
+            serie = []
+            for k in keys:
+                serie.append(int(data_map[g].get(k, 0)))
+            datasets.append({'label': g, 'data': serie})
+        return jsonify({'success': True, 'labels': labels, 'datos': datasets, 'agrupacion': agrupacion})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/graficas/carpeta-dia', methods=['GET'])
+@login_required
+def api_asistencia_grafica_carpeta_dia():
+    fi = request.args.get('fecha_inicio')
+    ff = request.args.get('fecha_fin')
+    agrupacion = (request.args.get('agrupacion') or 'dia').strip().lower()
+    supervisor = request.args.get('supervisor')
+    if not fi or not ff:
+        return jsonify({'success': False, 'message': 'fechas requeridas'}), 400
+    try:
+        labels, keys = _build_periods(fi, ff, agrupacion)
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        where = ["DATE(a.fecha_asistencia) BETWEEN %s AND %s"]
+        params = [fi, ff]
+        if supervisor:
+            where.append("a.super = %s")
+            params.append(supervisor)
+        cursor.execute(
+            """
+            SELECT a.fecha_asistencia, t.grupo
+            FROM asistencia a
+            INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE """ + " AND ".join(where)
+        , tuple(params))
+        rows = cursor.fetchall() or []
+        from collections import defaultdict
+        data_map = defaultdict(lambda: defaultdict(int))
+        for r in rows:
+            dt = r.get('fecha_asistencia')
+            try:
+                y = dt.year; m = dt.month; d = dt.day
+            except Exception:
+                try:
+                    y, m, d = map(int, str(dt)[:10].split('-'))
+                except Exception:
+                    continue
+            grp = (r.get('grupo') or '').strip().upper()
+            if agrupacion == 'mes':
+                data_map[grp][(y, m)] += 1
+            else:
+                data_map[grp][(y, m, d)] += 1
+        grupos = ['ARREGLOS', 'INSTALACIONES', 'POSTVENTA']
+        datasets = []
+        for g in grupos:
+            serie = []
+            for k in keys:
+                serie.append(int(data_map[g].get(k, 0)))
+            datasets.append({'label': g, 'data': serie})
+        return jsonify({'success': True, 'labels': labels, 'datos': datasets, 'agrupacion': agrupacion})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/resumen_categorias', methods=['GET'])
+@login_required
+def api_asistencia_resumen_categorias():
+    fecha = request.args.get('fecha')
+    supervisor = request.args.get('supervisor')
+    if not fecha:
+        return jsonify({'success': False, 'message': 'fecha requerida'}), 400
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        params = [fecha]
+        where_sup = ''
+        if supervisor and supervisor.strip() not in ('', 'TODOS'):
+            where_sup = ' AND a.super = %s'
+            params.append(supervisor)
+        cursor.execute(
+            """
+            SELECT t.nombre_tipificacion AS carpeta_dia, COUNT(DISTINCT a.cedula) AS total
+            FROM asistencia a
+            INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE DATE(a.fecha_asistencia) = %s
+              AND t.grupo IN ('ARREGLOS','INSTALACIONES','POSTVENTA')
+            """ + where_sup + """
+            GROUP BY t.nombre_tipificacion
+            ORDER BY t.nombre_tipificacion
+            """,
+            tuple(params)
+        )
+        oper_items = cursor.fetchall() or []
+        cursor.execute(
+            """
+            SELECT a.carpeta_dia AS carpeta_dia, COUNT(DISTINCT a.cedula) AS total
+            FROM asistencia a
+            WHERE DATE(a.fecha_asistencia) = %s
+              AND a.carpeta_dia IN ('0','0-A','A-O')
+            """ + where_sup + """
+            GROUP BY a.carpeta_dia
+            ORDER BY a.carpeta_dia
+            """,
+            tuple(params)
+        )
+        aus_items = cursor.fetchall() or []
+        cursor.execute(
+            """
+            SELECT a.carpeta_dia AS carpeta_dia, COUNT(DISTINCT a.cedula) AS total
+            FROM asistencia a
+            WHERE DATE(a.fecha_asistencia) = %s
+              AND a.carpeta_dia IN (
+                   'AUXILIAR','APOYO CAMIONETAS','AUXILIAR DE MOTO','AUXILIAR CAMIONETA',
+                   'AUXMOTO','APOCAMIONETA','AUXCAM'
+              )
+            """ + where_sup + """
+            GROUP BY a.carpeta_dia
+            ORDER BY a.carpeta_dia
+            """,
+            tuple(params)
+        )
+        aux_items = cursor.fetchall() or []
+        cursor.execute(
+            """
+            SELECT a.carpeta_dia AS carpeta_dia, COUNT(DISTINCT a.cedula) AS total
+            FROM asistencia a
+            WHERE DATE(a.fecha_asistencia) = %s
+              AND a.carpeta_dia IN ('I.ARL','D/F','LM','LL','SUS','PER','VAC','DFAM','RM','RN','I.MED')
+            """ + where_sup + """
+            GROUP BY a.carpeta_dia
+            ORDER BY a.carpeta_dia
+            """,
+            tuple(params)
+        )
+        inc_items = cursor.fetchall() or []
+        resp = {
+            'success': True,
+            'fecha': fecha,
+            'supervisor': supervisor,
+            'operacion': {
+                'items': oper_items,
+                'total': sum(int(x.get('total') or 0) for x in oper_items)
+            },
+            'ausencias': {
+                'items': aus_items,
+                'total': sum(int(x.get('total') or 0) for x in aus_items)
+            },
+            'auxiliares_camioneta': {
+                'items': aux_items,
+                'total': sum(int(x.get('total') or 0) for x in aux_items)
+            },
+            'incapacidad_otros': {
+                'items': inc_items,
+                'total': sum(int(x.get('total') or 0) for x in inc_items)
+            }
+        }
+        return jsonify(resp)
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/listado_por_carpeta_dia', methods=['GET'])
+@login_required
+def api_asistencia_listado_por_carpeta_dia():
+    fecha = request.args.get('fecha')
+    carpeta_dia = request.args.get('carpeta_dia')
+    supervisor = request.args.get('supervisor')
+    if not fecha or not carpeta_dia:
+        return jsonify({'success': False, 'message': 'fecha y carpeta_dia requeridas'}), 400
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        where = ["DATE(a.fecha_asistencia) = %s"]
+        params = [fecha]
+        codes = [c.strip() for c in str(carpeta_dia).split(',') if c.strip()]
+        if len(codes) > 1:
+            where.append("a.carpeta_dia IN (" + ",".join(["%s"] * len(codes)) + ")")
+            params.extend(codes)
+        else:
+            where.append("a.carpeta_dia = %s")
+            params.append(carpeta_dia)
+        if supervisor and supervisor.strip() not in ('', 'TODOS'):
+            where.append("a.super = %s")
+            params.append(supervisor)
+        cursor.execute(
+            """
+            SELECT DISTINCT a.cedula, a.tecnico, a.super, COALESCE(a.carpeta,'-') AS carpeta, a.carpeta_dia
+            FROM asistencia a
+            WHERE """ + " AND ".join(where) + " "
+            """
+            ORDER BY a.tecnico
+            """,
+            tuple(params)
+        )
+        items = cursor.fetchall() or []
+        return jsonify({'success': True, 'fecha': fecha, 'supervisor': supervisor, 'carpeta_dia': carpeta_dia, 'items': items})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/asistencia/listado_por_tipificacion', methods=['GET'])
+@login_required
+def api_asistencia_listado_por_tipificacion():
+    fecha = request.args.get('fecha')
+    nombre_tipificacion = request.args.get('nombre_tipificacion')
+    supervisor = request.args.get('supervisor')
+    if not fecha or not nombre_tipificacion:
+        return jsonify({'success': False, 'message': 'fecha y nombre_tipificacion requeridas'}), 400
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        where = ["DATE(a.fecha_asistencia) = %s"]
+        params = [fecha]
+        nombres = [n.strip() for n in str(nombre_tipificacion).split(',') if n.strip()]
+        if len(nombres) > 1:
+            where.append("t.nombre_tipificacion IN (" + ",".join(["%s"] * len(nombres)) + ")")
+            params.extend(nombres)
+        else:
+            where.append("t.nombre_tipificacion = %s")
+            params.append(nombre_tipificacion)
+        if supervisor and supervisor.strip() not in ('', 'TODOS'):
+            where.append("a.super = %s")
+            params.append(supervisor)
+        cursor.execute(
+            """
+            SELECT DISTINCT a.cedula, a.tecnico, a.super, COALESCE(a.carpeta,'-') AS carpeta, a.carpeta_dia
+            FROM asistencia a
+            INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            WHERE """ + " AND ".join(where) + " "
+            """
+            ORDER BY a.tecnico
+            """,
+            tuple(params)
+        )
+        items = cursor.fetchall() or []
+        return jsonify({'success': True, 'fecha': fecha, 'supervisor': supervisor, 'nombre_tipificacion': nombre_tipificacion, 'items': items})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
 @app.route('/test_auth', methods=['GET'])
 @login_required
 def test_auth():

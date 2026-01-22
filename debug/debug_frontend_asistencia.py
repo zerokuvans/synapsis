@@ -31,7 +31,7 @@ def debug_frontend_asistencia():
         
         # 2. Acceder a la página de asistencia
         print("\n2. Accediendo a página de asistencia...")
-        asistencia_response = session.get(f'{BASE_URL}/asistencia')
+        asistencia_response = session.get(f'{BASE_URL}/administrativo/asistencia')
         
         if asistencia_response.status_code == 200:
             print("✓ Página de asistencia cargada")
@@ -55,18 +55,19 @@ def debug_frontend_asistencia():
                     print(f"✗ {elemento} NO encontrado")
             
             # Verificar si hay errores JavaScript obvios
-            errores_js = [
-                'loadingResumen',  # ID incorrecto que debería ser mensajeCargaResumen
-                'tablaResumen',    # ID incorrecto que debería ser tablaResumenAgrupado
-                'noDataResumen'    # ID incorrecto que debería ser mensajeSinDatosResumen
-            ]
+            import re
+            patrones_ids_incorrectos = {
+                'loadingResumen': re.compile(r'id\s*=\s*["\']loadingResumen["\']'),
+                'tablaResumen': re.compile(r'id\s*=\s*["\']tablaResumen["\']'),
+                'noDataResumen': re.compile(r'id\s*=\s*["\']noDataResumen["\']'),
+            }
             
             print("\n4. Verificando IDs incorrectos en JavaScript:")
-            for error in errores_js:
-                if error in html_content:
-                    print(f"✗ ID incorrecto '{error}' encontrado en el código")
+            for nombre, patron in patrones_ids_incorrectos.items():
+                if patron.search(html_content):
+                    print(f"✗ ID incorrecto '{nombre}' encontrado en el código")
                 else:
-                    print(f"✓ ID incorrecto '{error}' no encontrado")
+                    print(f"✓ ID incorrecto '{nombre}' no encontrado")
                     
         else:
             print(f"✗ Error al cargar página de asistencia: {asistencia_response.status_code}")
@@ -83,9 +84,13 @@ def debug_frontend_asistencia():
             try:
                 data = response.json()
                 if data.get('success'):
-                    print(f"✓ Endpoint funciona - Total registros: {data.get('total_general', 0)}")
-                    print(f"✓ Grupos encontrados: {len(data.get('resumen_grupos', []))}")
-                    print(f"✓ Carpetas encontradas: {len(data.get('detallado', []))}")
+                    payload = data.get('data', {})
+                    total_general = payload.get('total_general', 0)
+                    grupos = len(payload.get('resumen_grupos', []))
+                    carpetas = len(payload.get('detallado', []))
+                    print(f"✓ Endpoint funciona - Total registros: {total_general}")
+                    print(f"✓ Grupos encontrados: {grupos}")
+                    print(f"✓ Carpetas encontradas: {carpetas}")
                 else:
                     print(f"✗ Endpoint devuelve error: {data.get('message')}")
             except json.JSONDecodeError:

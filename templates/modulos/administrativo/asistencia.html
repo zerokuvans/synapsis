@@ -128,7 +128,144 @@
             </div>
         </div>
     </div>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>Asistencias Generales por Carpetas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="mensajeCargaCategorias" class="text-center" style="display: none;">
+                        <div class="spinner-border text-info" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2">Cargando categorías...</p>
+                    </div>
+                    <div id="mensajeSinDatosCategorias" class="alert alert-info" style="display: none;">
+                        No se encontraron registros para los filtros seleccionados.
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-secondary mb-3">OPERACIÓN</h6>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover" id="tablaOperacionesCarpeta">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>carpeta_dia</th>
+                                            <th>Cuenta de cédula</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cuerpoTablaOperaciones"></tbody>
+                                    <tfoot class="table-info">
+                                        <tr>
+                                            <th>Total general</th>
+                                            <th id="totalOperacionesGeneral">0</th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-secondary mb-3">AUXILIARES Y CAMIONETA</h6>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover" id="tablaAuxiliaresCamioneta">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>carpeta_dia</th>
+                                            <th>Cuenta de cédula</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cuerpoTablaAuxCam"></tbody>
+                                    <tfoot class="table-info">
+                                        <tr>
+                                            <th>Total general</th>
+                                            <th id="totalAuxCamGeneral">0</th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-secondary mb-3">INCAPACIDAD U OTROS</h6>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover" id="tablaIncapacidadOtros">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>carpeta</th>
+                                            <th>Cuenta de cédula</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cuerpoTablaIncapacidad"></tbody>
+                                    <tfoot class="table-info">
+                                        <tr>
+                                            <th>Total general</th>
+                                            <th id="totalIncapacidadGeneral">0</th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-secondary mb-3">AUSENCIAS</h6>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover" id="tablaAusencias">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>carpeta</th>
+                                            <th>Cuenta de cédula</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cuerpoTablaAusencias"></tbody>
+                                    <tfoot class="table-info">
+                                        <tr>
+                                            <th>Total general</th>
+                                            <th id="totalAusenciasGeneral">0</th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
     
+    <div class="modal fade" id="modalDetalleAsistencia" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalDetalleTitulo">Detalle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="modalDetalleCarga" class="text-center" style="display:none;">
+                        <div class="spinner-border" role="status"></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Técnico</th>
+                                    <th>Cédula</th>
+                                    <th>Supervisor</th>
+                                    <th>Carpeta</th>
+                                    <th>Carpeta Día</th>
+                                </tr>
+                            </thead>
+                            <tbody id="modalDetalleCuerpo"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Sección de Gráficas Temporales -->
     <div class="row mt-4">
         <div class="col-12">
@@ -1566,17 +1703,20 @@ function mostrarTablaResumen(data) {
     
     if (mensajeCarga) mensajeCarga.style.display = 'none';
     if (mensajeSinDatos) mensajeSinDatos.style.display = 'none';
-    if (tablaCard) tablaCard.style.display = 'none';
+    // Mostrar la tarjeta de resumen siempre para que la sección sea visible
+    if (tablaCard) tablaCard.style.display = 'block';
     
     // Usar datos detallados que incluyen las carpetas específicas (nombre_tipificacion)
     const datosParaMostrar = data.detallado || [];
     
     if (datosParaMostrar.length === 0) {
-        // Actualizar total a 0 cuando no hay datos
+        // Actualizar total a 0 cuando no hay datos y mantener visible la sección
         if (totalTecnicos) {
             totalTecnicos.textContent = '0';
         }
         if (mensajeSinDatos) mensajeSinDatos.style.display = 'block';
+        // Mantener visible la tarjeta aunque no haya datos
+        if (tablaCard) tablaCard.style.display = 'block';
         return;
     }
     
@@ -1611,7 +1751,7 @@ function mostrarTablaResumen(data) {
                     <td class="fw-bold">${grupo}</td>
                     <td>${carpeta}</td>
                     <td class="text-center">
-                        <span class="badge bg-primary">${totalTecnicosItem}</span>
+                        <span class="badge bg-primary detalle-cantidad" data-seccion="operacion" data-clave="${carpeta}" style="cursor:pointer;">${totalTecnicosItem}</span>
                     </td>
                     <td class="text-center">
                         <span class="badge bg-success">${porcentaje.toFixed(2)}%</span>
@@ -1627,6 +1767,7 @@ function mostrarTablaResumen(data) {
             totalTr.style.backgroundColor = '#e3f2fd';
             totalTr.style.borderTop = '2px solid #1976d2';
             totalTr.style.borderBottom = '2px solid #1976d2';
+            const clavesGrupo = grupoData.items.map(it => it.carpeta).filter(Boolean).join(',');
             
             totalTr.innerHTML = `
                 <td class="fw-bold text-primary">
@@ -1634,7 +1775,7 @@ function mostrarTablaResumen(data) {
                 </td>
                 <td class="fw-bold text-primary">-</td>
                 <td class="text-center">
-                    <span class="badge bg-primary fs-6">${grupoData.totalTecnicos}</span>
+                    <span class="badge bg-primary fs-6 detalle-cantidad" data-seccion="operacion-total" data-clave="${clavesGrupo}" style="cursor:pointer;">${grupoData.totalTecnicos}</span>
                 </td>
                 <td class="text-center">
                     <span class="badge bg-primary fs-6">${grupoData.porcentajeUnificado.toFixed(2)}%</span>
@@ -1681,7 +1822,7 @@ function mostrarTablaResumen(data) {
                 </td>
                 <td class="fw-bold text-danger">${carpeta}</td>
                 <td class="text-center">
-                    <span class="badge bg-danger">${totalTecnicosItem}</span>
+                    <span class="badge bg-danger detalle-cantidad" data-seccion="operacion" data-clave="${carpeta}" style="cursor:pointer;">${totalTecnicosItem}</span>
                 </td>
                 <td class="text-center">
                     <span class="badge bg-danger">${porcentaje.toFixed(2)}%</span>
@@ -1699,6 +1840,10 @@ function mostrarTablaResumen(data) {
     
     // Mostrar la tabla solo después de que todo esté listo
     if (tablaCard) tablaCard.style.display = 'block';
+    // Activar clic en badges de detalles
+    document.querySelectorAll('.detalle-cantidad').forEach(el => {
+        el.onclick = () => abrirDetalleAsistencia(el.dataset.seccion, el.dataset.clave);
+    });
 }
 
 function mostrarTablaOperacionRecurso(data) {
@@ -1749,7 +1894,7 @@ function mostrarTablaOperacionRecurso(data) {
                     <td class="fw-bold">${grupo}</td>
                     <td class="fw-bold">${carpeta}</td>
                     <td class="text-center">
-                        <span class="badge bg-info">${totalTecnicosItem}</span>
+                        <span class="badge bg-info detalle-cantidad" data-seccion="operacion" data-clave="${carpeta}" style="cursor:pointer;">${totalTecnicosItem}</span>
                     </td>
                     <td class="text-center">
                         <span class="badge bg-warning text-dark">${porcentaje.toFixed(2)}%</span>
@@ -1764,6 +1909,7 @@ function mostrarTablaOperacionRecurso(data) {
             totalTr.style.backgroundColor = '#e3f2fd';
             totalTr.style.borderTop = '2px solid #2196f3';
             totalTr.style.borderBottom = '2px solid #2196f3';
+            const clavesGrupoOp = grupoData.items.map(it => it.carpeta).filter(Boolean).join(',');
             
             totalTr.innerHTML = `
                 <td class="fw-bold text-primary">
@@ -1771,7 +1917,7 @@ function mostrarTablaOperacionRecurso(data) {
                 </td>
                 <td class="fw-bold text-primary">-</td>
                 <td class="text-center">
-                    <span class="badge bg-primary fs-6">${grupoData.totalTecnicos}</span>
+                    <span class="badge bg-primary fs-6 detalle-cantidad" data-seccion="operacion-total" data-clave="${clavesGrupoOp}" style="cursor:pointer;">${grupoData.totalTecnicos}</span>
                 </td>
                 <td class="text-center">
                     <span class="badge bg-primary fs-6">${grupoData.porcentajeUnificado.toFixed(2)}%</span>
@@ -1817,7 +1963,7 @@ function mostrarTablaOperacionRecurso(data) {
             </td>
             <td class="fw-bold text-danger">${carpeta}</td>
             <td class="text-center">
-                <span class="badge bg-danger">${totalTecnicosItem}</span>
+                <span class="badge bg-danger detalle-cantidad" data-seccion="operacion" data-clave="${carpeta}" style="cursor:pointer;">${totalTecnicosItem}</span>
             </td>
             <td class="text-center">
                 <span class="badge bg-danger">${porcentaje.toFixed(2)}%</span>
@@ -1833,6 +1979,10 @@ function mostrarTablaOperacionRecurso(data) {
     
     // Mostrar la tabla de operación
     if (tablaOperacionCard) tablaOperacionCard.style.display = 'block';
+    // Activar clic en badges de detalles
+    document.querySelectorAll('.detalle-cantidad').forEach(el => {
+        el.onclick = () => abrirDetalleAsistencia(el.dataset.seccion, el.dataset.clave);
+    });
 }
 
 function obtenerFechaBogotaISO() {
@@ -1860,9 +2010,14 @@ function inicializarResumen() {
     document.getElementById('fechaInicioResumen').addEventListener('change', cargarResumenAgrupadoDebounced);
     document.getElementById('btnActualizarResumen').addEventListener('click', cargarResumenAgrupado);
 
+    document.getElementById('supervisorResumen').addEventListener('change', cargarResumenCategoriasDebounced);
+    document.getElementById('fechaInicioResumen').addEventListener('change', cargarResumenCategoriasDebounced);
+    document.getElementById('btnActualizarResumen').addEventListener('click', cargarResumenCategorias);
+
     // Cargar supervisores y resumen inicial
     cargarSupervisoresResumen();
     cargarResumenAgrupado();
+    cargarResumenCategorias();
 }
 
 // Variables globales para las gráficas
@@ -2231,7 +2386,175 @@ function toggleGrupoCarpeta(grupo) {
     }
 }
 
-// Inicializar la página al cargar
+let currentCategoriasRequest = null;
+let isLoadingCategorias = false;
+let debounceTimerCategorias = null;
+
+function cargarResumenCategoriasDebounced() {
+    if (debounceTimerCategorias) clearTimeout(debounceTimerCategorias);
+    debounceTimerCategorias = setTimeout(() => {
+        cargarResumenCategorias();
+    }, 300);
+}
+
+async function cargarResumenCategorias() {
+    if (isLoadingCategorias) {
+        if (currentCategoriasRequest) currentCategoriasRequest.abort();
+    }
+    const supervisor = document.getElementById('supervisorResumen').value;
+    const fecha = document.getElementById('fechaInicioResumen').value;
+    if (!fecha) return;
+    isLoadingCategorias = true;
+    const mensajeCarga = document.getElementById('mensajeCargaCategorias');
+    const mensajeSinDatos = document.getElementById('mensajeSinDatosCategorias');
+    if (mensajeCarga) mensajeCarga.style.display = 'block';
+    if (mensajeSinDatos) mensajeSinDatos.style.display = 'none';
+    const abortController = new AbortController();
+    currentCategoriasRequest = abortController;
+    try {
+        let url = `/api/asistencia/resumen_categorias?fecha=${fecha}`;
+        if (supervisor) url += `&supervisor=${encodeURIComponent(supervisor)}`;
+        const response = await fetch(url, {
+            signal: abortController.signal,
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (data.success) {
+            renderResumenCategorias(data);
+        } else {
+            if (mensajeSinDatos) mensajeSinDatos.style.display = 'block';
+        }
+    } catch (e) {
+        if (mensajeSinDatos) mensajeSinDatos.style.display = 'block';
+    } finally {
+        isLoadingCategorias = false;
+        currentCategoriasRequest = null;
+        if (mensajeCarga) mensajeCarga.style.display = 'none';
+    }
+}
+
+function renderResumenCategorias(data) {
+    const operBody = document.getElementById('cuerpoTablaOperaciones');
+    const operTotal = document.getElementById('totalOperacionesGeneral');
+    const auxBody = document.getElementById('cuerpoTablaAuxCam');
+    const auxTotal = document.getElementById('totalAuxCamGeneral');
+    const incBody = document.getElementById('cuerpoTablaIncapacidad');
+    const incTotal = document.getElementById('totalIncapacidadGeneral');
+    const ausBody = document.getElementById('cuerpoTablaAusencias');
+    const ausTotal = document.getElementById('totalAusenciasGeneral');
+
+    if (operBody) operBody.innerHTML = '';
+    if (auxBody) auxBody.innerHTML = '';
+    if (incBody) incBody.innerHTML = '';
+    if (ausBody) ausBody.innerHTML = '';
+
+    const operItems = (data.operacion && data.operacion.items) || [];
+    const auxItems = (data.auxiliares_camioneta && data.auxiliares_camioneta.items) || [];
+    const incItems = (data.incapacidad_otros && data.incapacidad_otros.items) || [];
+    const ausItems = (data.ausencias && data.ausencias.items) || [];
+
+    const operAllowedNames = new Set([
+        'FTTH INSTALACIONES','POSTVENTA','INSTALACIONES DOBLES','MANTENIMIENTO FTTH',
+        'ARREGLOS HFC','CAPACITACION','SUPERVISOR','BROWNFIELD','POSTVENTA FTTH','DX'
+    ]);
+    const operValidItems = operItems.filter(it => {
+        const name = (it.carpeta_dia || '').toUpperCase().trim();
+        return operAllowedNames.has(name);
+    });
+    operValidItems.forEach(it => {
+        const tr = document.createElement('tr');
+        const nombre = it.carpeta_dia || '-';
+        const total = parseInt(it.total) || 0;
+        tr.innerHTML = `<td>${nombre}</td><td class="text-center"><span class="badge bg-primary detalle-cantidad" data-seccion="operacion" data-clave="${nombre}" style="cursor:pointer;">${total}</span></td>`;
+        operBody.appendChild(tr);
+    });
+    const auxAllowedNames = new Set(['AUXILIAR','APOYO CAMIONETAS','AUXILIAR DE MOTO','AUXILIAR CAMIONETA','AUXMOTO','APOCAMIONETA','AUXCAM']);
+    const auxValidItems = auxItems.filter(it => {
+        const n = (it.carpeta_dia || '').toUpperCase().trim();
+        return auxAllowedNames.has(n);
+    });
+    auxValidItems.forEach(it => {
+        const tr = document.createElement('tr');
+        const nombre = it.carpeta_dia || '-';
+        const total = parseInt(it.total) || 0;
+        tr.innerHTML = `<td>${nombre}</td><td class="text-center"><span class="badge bg-info detalle-cantidad" data-seccion="aux" data-clave="${nombre}" style="cursor:pointer;">${total}</span></td>`;
+        auxBody.appendChild(tr);
+    });
+    const incAllowed = new Set(['I.ARL','D/F','LM','LL','SUS','PER','VAC','DFAM','RM','RN','I.MED']);
+    const incValidItems = incItems.filter(it => {
+        const code = ((it.carpeta_dia || it.carpeta || '') + '').toUpperCase().trim();
+        return incAllowed.has(code);
+    });
+    incValidItems.forEach(it => {
+        const tr = document.createElement('tr');
+        const nombre = (it.carpeta_dia || it.carpeta || '-');
+        const total = parseInt(it.total) || 0;
+        tr.innerHTML = `<td>${nombre}</td><td class="text-center"><span class="badge bg-warning text-dark detalle-cantidad" data-seccion="inc" data-clave="${nombre}" style="cursor:pointer;">${total}</span></td>`;
+        incBody.appendChild(tr);
+    });
+    const ausAllowed = new Set(['0','0-A','A-O']);
+    const ausValidItems = ausItems.filter(it => {
+        const code = ((it.carpeta_dia || it.carpeta || '') + '').toUpperCase().trim();
+        return ausAllowed.has(code);
+    });
+    ausValidItems.forEach(it => {
+        const tr = document.createElement('tr');
+        const nombre = it.carpeta_dia || it.carpeta || '-';
+        const total = parseInt(it.total) || 0;
+        tr.innerHTML = `<td>${nombre}</td><td class="text-center"><span class="badge bg-danger detalle-cantidad" data-seccion="aus" data-clave="${nombre}" style="cursor:pointer;">${total}</span></td>`;
+        ausBody.appendChild(tr);
+    });
+
+    if (operTotal) operTotal.textContent = String(operValidItems.reduce((s, it) => s + (parseInt(it.total) || 0), 0));
+    if (auxTotal) auxTotal.textContent = String(auxValidItems.reduce((s, it) => s + (parseInt(it.total) || 0), 0));
+    if (incTotal) incTotal.textContent = String(incValidItems.reduce((s, it) => s + (parseInt(it.total) || 0), 0));
+    if (ausTotal) ausTotal.textContent = String(ausValidItems.reduce((s, it) => s + (parseInt(it.total) || 0), 0));
+
+    document.querySelectorAll('.detalle-cantidad').forEach(el => {
+        el.onclick = () => abrirDetalleAsistencia(el.dataset.seccion, el.dataset.clave);
+    });
+}
+
+async function abrirDetalleAsistencia(seccion, clave) {
+    const fecha = document.getElementById('fechaInicioResumen').value;
+    const supervisor = document.getElementById('supervisorResumen').value;
+    let url = '';
+    if (seccion === 'operacion' || seccion === 'operacion-total') {
+        url = `/api/asistencia/listado_por_tipificacion?fecha=${encodeURIComponent(fecha)}&nombre_tipificacion=${encodeURIComponent(clave)}`;
+    } else {
+        url = `/api/asistencia/listado_por_carpeta_dia?fecha=${encodeURIComponent(fecha)}&carpeta_dia=${encodeURIComponent(clave)}`;
+    }
+    if (supervisor) url += `&supervisor=${encodeURIComponent(supervisor)}`;
+    const titulo = document.getElementById('modalDetalleTitulo');
+    const cuerpo = document.getElementById('modalDetalleCuerpo');
+    const carga = document.getElementById('modalDetalleCarga');
+    cuerpo.innerHTML = '';
+    if (titulo) titulo.textContent = `${clave}`;
+    if (carga) carga.style.display = 'block';
+    try {
+        const resp = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const data = await resp.json();
+        const items = (data.items || []).sort((a,b) => (a.tecnico || '').localeCompare(b.tecnico || ''));
+        items.forEach(it => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${it.tecnico || ''}</td><td>${it.cedula || ''}</td><td>${it.super || ''}</td><td>${it.carpeta || ''}</td><td>${it.carpeta_dia || ''}</td>`;
+            cuerpo.appendChild(tr);
+        });
+    } catch (e) {
+        cuerpo.innerHTML = '<tr><td colspan="5">Error al cargar detalle</td></tr>';
+    } finally {
+        if (carga) carga.style.display = 'none';
+        const modalEl = document.getElementById('modalDetalleAsistencia');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     cargarSupervisoresEdicion();
     inicializarResumen();
