@@ -2846,7 +2846,7 @@ def registrar_rutas_encuestas(app):
             cur.execute(
                 """
                 SELECT r.id_respuesta, r.usuario_id, r.fecha_respuesta, r.estado,
-                       ro.nombre AS tecnico, ro.super AS supervisor, ro.carpeta AS carpeta,
+                       ro.nombre AS tecnico, ro.super AS supervisor, ro.carpeta AS carpeta, ro.recurso_operativo_cedula AS cedula,
                        d.pregunta_id, p.texto AS texto_pregunta, p.tipo,
                        d.valor_texto, d.valor_numero, d.opcion_id, o.texto AS texto_opcion, d.archivo_url, r.ip
                 FROM encuesta_respuestas r
@@ -2889,6 +2889,7 @@ def registrar_rutas_encuestas(app):
             for r in rows:
                 estado_label = 'OK' if (r.get('estado') == 'enviada') else 'Pendiente'
                 export_rows.append({
+                    'Cedula': r.get('cedula') or '',
                     'Tecnico': r.get('tecnico') or str(r.get('usuario_id') or ''),
                     'Supervisor': r.get('supervisor') or '',
                     'Carpeta': r.get('carpeta') or '',
@@ -2927,8 +2928,7 @@ def registrar_rutas_encuestas(app):
                     
                     if wide_requested:
                         # Construir estructura wide usando id_respuesta como fila
-                        # Columnas base
-                        base_cols = ['Tecnico', 'Supervisor', 'Carpeta', 'Fecha', 'Estado']
+                        base_cols = ['Cedula', 'Tecnico', 'Supervisor', 'Carpeta', 'Fecha', 'Estado']
                         # Descubrir preguntas únicas
                         preguntas_unicas = []
                         seen = set()
@@ -2944,6 +2944,7 @@ def registrar_rutas_encuestas(app):
                             estado_label = 'OK' if (r.get('estado') == 'enviada') else 'Pendiente'
                             if resp_id not in filas:
                                 filas[resp_id] = {
+                                    'Cedula': r.get('cedula') or '',
                                     'Tecnico': r.get('tecnico') or str(r.get('usuario_id') or ''),
                                     'Supervisor': r.get('supervisor') or '',
                                     'Carpeta': r.get('carpeta') or '',
@@ -3058,8 +3059,7 @@ def registrar_rutas_encuestas(app):
                     wide_requested = True if wide_param in ('', '1', 'true', 'yes', 'si', 'sí', 'y') else False
                     if wide_requested:
                         # Construir estructura wide usando id_respuesta como fila
-                        # Columnas base
-                        base_cols = ['Tecnico', 'Supervisor', 'Carpeta', 'Fecha', 'Estado']
+                        base_cols = ['Cedula', 'Tecnico', 'Supervisor', 'Carpeta', 'Fecha', 'Estado']
                         # Descubrir preguntas únicas
                         preguntas_unicas = []
                         seen = set()
@@ -3075,6 +3075,7 @@ def registrar_rutas_encuestas(app):
                             estado_label = 'OK' if (r.get('estado') == 'enviada') else 'Pendiente'
                             if resp_id not in filas:
                                 filas[resp_id] = {
+                                    'Cedula': r.get('cedula') or '',
                                     'Tecnico': r.get('tecnico') or str(r.get('usuario_id') or ''),
                                     'Supervisor': r.get('supervisor') or '',
                                     'Carpeta': r.get('carpeta') or '',
