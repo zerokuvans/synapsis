@@ -46,6 +46,7 @@ from pywebpush import webpush, WebPushException
 from werkzeug.utils import secure_filename
 #from models import Suministro  # Asegúrate de importar el modelo correcto
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
+from flask_caching import Cache
 
 load_dotenv()
 
@@ -62,6 +63,8 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 app.config.setdefault('PREFERRED_URL_SCHEME', 'http')
+
+cache = Cache(app, config={'CACHE_TYPE': 'SimpleCache', 'CACHE_DEFAULT_TIMEOUT': 60})
 
 
 # Configuración de logging
@@ -1034,6 +1037,60 @@ def convert_to_bogota_time(utc_dt):
     if utc_dt.tzinfo is None:
         utc_dt = pytz.UTC.localize(utc_dt)
     return utc_dt.astimezone(TIMEZONE)
+
+INDICATOR_INDEXES_ENSURED = False
+
+def ensure_indicator_indexes():
+    global INDICATOR_INDEXES_ENSURED
+    if INDICATOR_INDEXES_ENSURED:
+        return
+    conn = get_db_connection()
+    if conn is None:
+        return
+    try:
+        cur = conn.cursor()
+        try:
+            cur.execute("SELECT DATABASE()")
+            schema_row = cur.fetchone()
+            schema = schema_row[0] if schema_row else None
+        except Exception:
+            schema = None
+        def idx_exists(table, index):
+            try:
+                if schema:
+                    cur.execute("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE table_schema=%s AND table_name=%s AND index_name=%s", (schema, table, index))
+                else:
+                    cur.execute("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE table_name=%s AND index_name=%s", (table, index))
+                return (cur.fetchone() or [0])[0] > 0
+            except Exception:
+                return True
+        try:
+            if not idx_exists('asistencia', 'idx_asistencia_fecha'):
+                cur.execute("CREATE INDEX idx_asistencia_fecha ON asistencia (fecha_asistencia)")
+            if not idx_exists('asistencia', 'idx_asistencia_consumidor_fecha'):
+                cur.execute("CREATE INDEX idx_asistencia_consumidor_fecha ON asistencia (id_codigo_consumidor, fecha_asistencia)")
+            if not idx_exists('preoperacional', 'idx_preop_fecha'):
+                cur.execute("CREATE INDEX idx_preop_fecha ON preoperacional (fecha)")
+            if not idx_exists('preoperacional', 'idx_preop_consumidor_fecha'):
+                cur.execute("CREATE INDEX idx_preop_consumidor_fecha ON preoperacional (id_codigo_consumidor, fecha)")
+            if not idx_exists('tipificacion_asistencia', 'idx_tipificacion_codigo'):
+                cur.execute("CREATE INDEX idx_tipificacion_codigo ON tipificacion_asistencia (codigo_tipificacion)")
+            conn.commit()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        try:
+            cur.close()
+        except Exception:
+            pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+    INDICATOR_INDEXES_ENSURED = True
 
 # Probar la conexión a la base de datos
 try:
@@ -21541,8 +21598,10 @@ def obtener_resumen_agrupado_asistencia():
 
 @app.route('/api/indicadores/cumplimiento')
 @login_required(role='administrativo')
+@cache.cached(query_string=True, timeout=60)
 def obtener_indicadores_cumplimiento():
     try:
+        ensure_indicator_indexes()
         # Obtener los parámetros de fecha
         fecha_inicio = request.args.get('fecha_inicio')
         fecha_fin = request.args.get('fecha_fin')
@@ -21599,11 +21658,11 @@ def obtener_indicadores_cumplimiento():
         cursor = connection.cursor(dictionary=True)
         
         # Verificar datos para el rango de fechas
-        cursor.execute("SELECT COUNT(*) as total FROM asistencia WHERE DATE(fecha_asistencia) BETWEEN %s AND %s", 
+        cursor.execute("SELECT COUNT(*) as total FROM asistencia WHERE fecha_asistencia >= %s AND fecha_asistencia < DATE_ADD(%s, INTERVAL 1 DAY)", 
                       (fecha_inicio, fecha_fin))
         total_asistencia = cursor.fetchone()['total']
         
-        cursor.execute("SELECT COUNT(*) as total FROM preoperacional WHERE DATE(fecha) BETWEEN %s AND %s", 
+        cursor.execute("SELECT COUNT(*) as total FROM preoperacional WHERE fecha >= %s AND fecha < DATE_ADD(%s, INTERVAL 1 DAY)", 
                       (fecha_inicio, fecha_fin))
         total_preop = cursor.fetchone()['total']
         
@@ -21626,9 +21685,10 @@ def obtener_indicadores_cumplimiento():
             JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
             LEFT JOIN recurso_operativo ro ON ro.recurso_operativo_cedula = a.cedula
             LEFT JOIN preoperacional_excepciones e ON e.activo = 1 
-                AND DATE(e.fecha) = DATE(a.fecha_asistencia)
+                AND a.fecha_asistencia >= e.fecha 
+                AND a.fecha_asistencia < DATE_ADD(e.fecha, INTERVAL 1 DAY)
                 AND (e.cedula = a.cedula OR e.id_codigo_consumidor = ro.id_codigo_consumidor)
-            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s 
+            WHERE a.fecha_asistencia >= %s AND a.fecha_asistencia < DATE_ADD(%s, INTERVAL 1 DAY)
               AND t.valor = '1'
               AND e.id IS NULL
             GROUP BY a.super
@@ -21643,9 +21703,10 @@ def obtener_indicadores_cumplimiento():
                 AND DATE(p.fecha) = DATE(a.fecha_asistencia)
             INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
             LEFT JOIN preoperacional_excepciones e ON e.activo = 1 
-                AND DATE(e.fecha) = DATE(p.fecha)
+                AND p.fecha >= e.fecha 
+                AND p.fecha < DATE_ADD(e.fecha, INTERVAL 1 DAY)
                 AND (e.id_codigo_consumidor = p.id_codigo_consumidor)
-            WHERE DATE(p.fecha) BETWEEN %s AND %s 
+            WHERE p.fecha >= %s AND p.fecha < DATE_ADD(%s, INTERVAL 1 DAY)
                 AND t.valor = '1'
                 AND e.id IS NULL
             GROUP BY p.supervisor
@@ -21765,6 +21826,7 @@ def obtener_indicadores_cumplimiento():
 
 @app.route('/api/indicadores/detalle_tecnicos')
 @login_required(role='administrativo')
+@cache.cached(query_string=True, timeout=60)
 def obtener_detalle_tecnicos():
     """Obtener detalle de técnicos por supervisor con estado de asistencia y preoperacional"""
     print(f"🔍 [DETALLE_TECNICOS] ===== ENDPOINT LLAMADO =====")
@@ -21775,6 +21837,7 @@ def obtener_detalle_tecnicos():
     print(f"🔍 [DETALLE_TECNICOS] Request args: {dict(request.args)}")
     print(f"🔍 [DETALLE_TECNICOS] Iniciando endpoint...")
     try:
+        ensure_indicator_indexes()
         # Obtener parámetros
         fecha = request.args.get('fecha')
         supervisor = request.args.get('supervisor')
@@ -21890,52 +21953,67 @@ def obtener_detalle_tecnicos():
         
         tecnicos_detalle = []
         
+        ids_all = [t['id_codigo_consumidor'] for t in tecnicos_supervisor if t.get('id_codigo_consumidor')]
+        asistencias_map = {}
+        preop_map = {}
+        
+        if ids_all:
+            placeholders = ', '.join(['%s'] * len(ids_all))
+            sql_as = f"""
+                SELECT a.id_codigo_consumidor, a.fecha_asistencia
+                FROM asistencia a
+                JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+                WHERE a.id_codigo_consumidor IN ({placeholders})
+                  AND a.fecha_asistencia >= %s AND a.fecha_asistencia < DATE_ADD(%s, INTERVAL 1 DAY)
+                  AND t.valor = '1'
+            """
+            params_as = tuple(ids_all) + (fecha_obj, fecha_obj)
+            cursor.execute(sql_as, params_as)
+            rows_as = cursor.fetchall() or []
+            for r in rows_as:
+                cid = r.get('id_codigo_consumidor')
+                fa = r.get('fecha_asistencia')
+                if cid is not None:
+                    prev = asistencias_map.get(cid)
+                    if prev is None or (fa and prev and fa < prev):
+                        asistencias_map[cid] = fa
+            
+            sql_po = f"""
+                SELECT p.id_codigo_consumidor, p.fecha
+                FROM preoperacional p
+                WHERE p.id_codigo_consumidor IN ({placeholders})
+                  AND p.fecha >= %s AND p.fecha < DATE_ADD(%s, INTERVAL 1 DAY)
+            """
+            params_po = tuple(ids_all) + (fecha_obj, fecha_obj)
+            cursor.execute(sql_po, params_po)
+            rows_po = cursor.fetchall() or []
+            for r in rows_po:
+                cid = r.get('id_codigo_consumidor')
+                fp = r.get('fecha')
+                if cid is not None:
+                    prev = preop_map.get(cid)
+                    if prev is None or (fp and prev and fp < prev):
+                        preop_map[cid] = fp
+        
         for tecnico in tecnicos_supervisor:
             id_tecnico = tecnico['id_codigo_consumidor']
             nombre_tecnico = tecnico['nombre']
             
-            
-            cursor.execute("""
-                SELECT a.*, t.valor as asistencia_valida
-                FROM asistencia a
-                JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
-                WHERE a.id_codigo_consumidor = %s 
-                    AND DATE(a.fecha_asistencia) = %s
-                    AND t.valor = '1'
-            """, (id_tecnico, fecha_obj))
-            
-            asistencia = cursor.fetchone()
-            tiene_asistencia = asistencia is not None
+            fecha_asistencia_utc = asistencias_map.get(id_tecnico)
+            tiene_asistencia = fecha_asistencia_utc is not None
             hora_asistencia = None
-            
             if tiene_asistencia:
-                # Convertir a hora de Bogotá para mostrar
-                fecha_asistencia_utc = asistencia['fecha_asistencia']
-                if fecha_asistencia_utc:
-                    fecha_bogota = convert_to_bogota_time(fecha_asistencia_utc)
-                    hora_asistencia = fecha_bogota.strftime('%H:%M')
+                fecha_bogota = convert_to_bogota_time(fecha_asistencia_utc)
+                hora_asistencia = fecha_bogota.strftime('%H:%M')
             
-            
-            cursor.execute("""
-                SELECT * FROM preoperacional 
-                WHERE id_codigo_consumidor = %s 
-                    AND DATE(fecha) = %s
-            """, (id_tecnico, fecha_obj))
-            
-            preoperacional = cursor.fetchone()
-            tiene_preoperacional = preoperacional is not None
+            fecha_preop_utc = preop_map.get(id_tecnico)
+            tiene_preoperacional = fecha_preop_utc is not None
             hora_preoperacional = None
-            
             if tiene_preoperacional:
-                # Convertir a hora de Bogotá para mostrar
-                fecha_preop_utc = preoperacional['fecha']
-                if fecha_preop_utc:
-                    fecha_bogota = convert_to_bogota_time(fecha_preop_utc)
-                    hora_preoperacional = fecha_bogota.strftime('%H:%M')
-            
+                fecha_bogota = convert_to_bogota_time(fecha_preop_utc)
+                hora_preoperacional = fecha_bogota.strftime('%H:%M')
             
             excluido = bool(excluidos_map.get(id_tecnico) or excluidos_map.get(tecnico.get('documento')))
-
             
             if excluido and tiene_asistencia:
                 estado = "Excluido"
