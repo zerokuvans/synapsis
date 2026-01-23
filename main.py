@@ -30746,6 +30746,65 @@ def api_sstt_vencimientos_cursos_export():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/api/sstt/vencimientos-cursos/export-total', methods=['GET'])
+@login_required_api()
+def api_sstt_vencimientos_cursos_export_total():
+    try:
+        connection = get_db_connection()
+        if connection is None:
+            return Response('Error de conexión a la base de datos', status=500)
+        cursor = connection.cursor(dictionary=True)
+        sql = (
+            'SELECT '
+            'ro.recurso_operativo_cedula AS cedula, '
+            'ro.nombre AS tecnico, '
+            'vc.sstt_vencimientos_cursos_tipo_curso AS tipo_de_examen, '
+            'vc.sstt_vencimientos_cursos_fecha AS fecha, '
+            'vc.sstt_vencimientos_cursos_fecha_ven AS fecha_vencimiento '
+            'FROM sstt_vencimientos_cursos vc '
+            'LEFT JOIN recurso_operativo ro ON vc.recurso_operativo_cedula = ro.recurso_operativo_cedula '
+            'ORDER BY ro.nombre ASC, vc.sstt_vencimientos_cursos_fecha_ven ASC'
+        )
+        cursor.execute(sql)
+        rows = cursor.fetchall() or []
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['cedula','tecnico','tipo_de_examen','fecha','fecha_vencimiento'])
+        for r in rows:
+            f1 = r.get('fecha')
+            if hasattr(f1, 'strftime'):
+                f1_str = f1.strftime('%Y-%m-%d')
+            else:
+                s1 = str(f1).strip() if f1 else ''
+                if s1 and ' ' in s1:
+                    s1 = s1.split(' ')[0]
+                f1_str = s1
+            f2 = r.get('fecha_vencimiento')
+            if hasattr(f2, 'strftime'):
+                f2_str = f2.strftime('%Y-%m-%d')
+            else:
+                s2 = str(f2).strip() if f2 else ''
+                if s2 and ' ' in s2:
+                    s2 = s2.split(' ')[0]
+                f2_str = s2
+            writer.writerow([
+                r.get('cedula') or '',
+                r.get('tecnico') or '',
+                r.get('tipo_de_examen') or '',
+                f1_str,
+                f2_str
+            ])
+        csv_data = output.getvalue()
+        output.close()
+        cursor.close(); connection.close()
+        filename = f"vencimientos_cursos_export_total_{get_bogota_datetime().strftime('%Y%m%d')}.csv"
+        resp = Response(csv_data, mimetype='text/csv')
+        resp.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return resp
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route('/api/sstt/vencimientos-cursos/<int:item_id>', methods=['PUT'])
 @login_required_api()
 def api_sstt_vencimientos_cursos_update(item_id):

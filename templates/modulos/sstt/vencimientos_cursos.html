@@ -24,6 +24,9 @@
                             <button type="button" class="btn btn-success" id="btnExportar">
                                 <i class="fas fa-file-export me-2"></i>Exportar
                             </button>
+                            <button type="button" class="btn btn-primary" id="btnExportarTotal">
+                                <i class="fas fa-file-export me-2"></i>Export Total
+                            </button>
                         </div>
                         <div>
                             <input type="text" class="form-control" id="buscarVencimiento" placeholder="Buscar...">
@@ -336,6 +339,7 @@ function normalizeTipoCurso(s){
     document.getElementById('btnRegistrarCurso').addEventListener('click', registrarCurso);
     document.getElementById('btnRefrescar').addEventListener('click', () => { currentPage = 1; cargarVencimientos(); });
     document.getElementById('btnExportar').addEventListener('click', exportarVencimientos);
+    const btnExportarTotal = document.getElementById('btnExportarTotal'); if (btnExportarTotal) btnExportarTotal.addEventListener('click', exportarVencimientosTotal);
     document.getElementById('btnGuardarEdicionCurso').addEventListener('click', guardarEdicionCurso);
     ['btnAgregarIngreso','btnAgregarPeriodico','btnAgregarAlturas','btnAgregarManejo','btnAgregarInduccion','btnAgregarReinduccion'].forEach(id=>{
       const b = document.getElementById(id); if (b) b.addEventListener('click', ()=>{
@@ -395,6 +399,11 @@ function exportarVencimientos(){
   params.append('solo_activos','1');
   params.append('t', Date.now());
   const url = '/api/sstt/vencimientos-cursos/export' + (params.toString() ? ('?' + params.toString()) : '');
+  window.open(url, '_blank');
+}
+
+function exportarVencimientosTotal(){
+  const url = '/api/sstt/vencimientos-cursos/export-total?t=' + Date.now();
   window.open(url, '_blank');
 }
 
