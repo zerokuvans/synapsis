@@ -1685,6 +1685,24 @@ def api_codigos_facturacion():
         if connection is None:
             return jsonify({'error': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS preoperacional_excepciones (
+                id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                cedula VARCHAR(32),
+                id_codigo_consumidor INT NULL,
+                fecha DATE NOT NULL,
+                supervisor VARCHAR(255) NULL,
+                motivo VARCHAR(255) NULL,
+                activo TINYINT(1) NOT NULL DEFAULT 1,
+                creado_por VARCHAR(64) NULL,
+                creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_fecha_cedula (fecha, cedula),
+                INDEX idx_fecha_id (fecha, id_codigo_consumidor)
+            )
+            """
+        )
+        connection.commit()
 
         texto_busqueda = request.args.get('busqueda', '').strip()
         tecnologia = request.args.get('tecnologia', '').strip()
@@ -10376,6 +10394,173 @@ def dashboard():
     else:
         flash('No tienes un rol válido asignado.', 'error')
         return redirect(url_for('logout'))
+
+@app.route('/administrativo/preoperacional/excepcion')
+@login_required(role='administrativo')
+def administrativo_excepcion_preoperacional():
+    try:
+        fecha_param = request.args.get('fecha')
+        if fecha_param:
+            try:
+                fecha_consulta = datetime.strptime(fecha_param, '%Y-%m-%d').date()
+            except ValueError:
+                fecha_consulta = datetime.now().date()
+        else:
+            fecha_consulta = datetime.now().date()
+
+        def ensure_preop_excepciones_table():
+            c = None
+            conn = get_db_connection()
+            if conn is None:
+                return
+            try:
+                c = conn.cursor()
+                c.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS preoperacional_excepciones (
+                        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                        cedula VARCHAR(32),
+                        id_codigo_consumidor INT NULL,
+                        fecha DATE NOT NULL,
+                        supervisor VARCHAR(255) NULL,
+                        motivo VARCHAR(255) NULL,
+                        activo TINYINT(1) NOT NULL DEFAULT 1,
+                        creado_por VARCHAR(64) NULL,
+                        creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_fecha_cedula (fecha, cedula),
+                        INDEX idx_fecha_id (fecha, id_codigo_consumidor)
+                    )
+                    """
+                )
+                conn.commit()
+            finally:
+                try:
+                    if c:
+                        c.close()
+                    if conn and conn.is_connected():
+                        conn.close()
+                except Exception:
+                    pass
+
+        ensure_preop_excepciones_table()
+
+        connection = get_db_connection()
+        if connection is None:
+            flash('Error de conexión a la base de datos.', 'error')
+            return render_template('modulos/administrativo/excepcion_preoperacional.html', registros=[], fecha=str(fecha_consulta))
+
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT 
+                a.cedula,
+                ro.nombre AS tecnico,
+                ro.super AS supervisor,
+                ro.carpeta AS carpeta,
+                COALESCE(t.nombre_tipificacion, a.carpeta_dia) AS evento,
+                DATE(a.fecha_asistencia) AS fecha,
+                a.hora_inicio,
+                a.estado,
+                a.novedad,
+                CASE WHEN e.id IS NULL THEN 0 ELSE 1 END AS excluido,
+                ro.id_codigo_consumidor AS id_codigo_consumidor
+            FROM asistencia a
+            LEFT JOIN recurso_operativo ro ON ro.recurso_operativo_cedula = a.cedula
+            LEFT JOIN tipificacion_asistencia t ON t.codigo_tipificacion = a.carpeta_dia
+            LEFT JOIN preoperacional_excepciones e ON e.activo = 1 AND DATE(e.fecha) = DATE(a.fecha_asistencia) AND (e.cedula = a.cedula OR e.id_codigo_consumidor = ro.id_codigo_consumidor)
+            WHERE DATE(a.fecha_asistencia) = %s
+              AND a.id_asistencia = (
+                SELECT MAX(a2.id_asistencia)
+                FROM asistencia a2
+                WHERE a2.cedula = a.cedula
+                  AND DATE(a2.fecha_asistencia) = DATE(a.fecha_asistencia)
+              )
+            ORDER BY ro.super, ro.carpeta, ro.nombre
+            """,
+            (fecha_consulta,)
+        )
+        registros = cursor.fetchall() or []
+        cursor.close()
+        connection.close()
+        return render_template('modulos/administrativo/excepcion_preoperacional.html', registros=registros, fecha=str(fecha_consulta))
+    except Error as e:
+        flash(f'Error cargando excepciones: {str(e)}', 'error')
+        return render_template('modulos/administrativo/excepcion_preoperacional.html', registros=[], fecha=datetime.now().strftime('%Y-%m-%d'))
+
+@app.route('/administrativo/preoperacional/excepcion/toggle', methods=['POST'])
+@login_required(role='administrativo')
+def administrativo_preoperacional_excepcion_toggle():
+    try:
+        data = request.get_json(silent=True) or {}
+        cedula = str(data.get('cedula') or '').strip()
+        id_codigo_consumidor = data.get('id_codigo_consumidor')
+        fecha_raw = str(data.get('fecha') or '').strip()
+        checked = bool(data.get('checked'))
+        try:
+            fecha_obj = datetime.strptime(fecha_raw, '%Y-%m-%d').date()
+        except Exception:
+            fecha_obj = get_bogota_datetime().date()
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS preoperacional_excepciones (
+                id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                cedula VARCHAR(32),
+                id_codigo_consumidor INT NULL,
+                fecha DATE NOT NULL,
+                supervisor VARCHAR(255) NULL,
+                motivo VARCHAR(255) NULL,
+                activo TINYINT(1) NOT NULL DEFAULT 1,
+                creado_por VARCHAR(64) NULL,
+                creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_fecha_cedula (fecha, cedula),
+                INDEX idx_fecha_id (fecha, id_codigo_consumidor)
+            )
+            """
+        )
+        conn.commit()
+        if checked:
+            cur.execute(
+                """
+                SELECT id FROM preoperacional_excepciones 
+                WHERE fecha = %s AND (
+                    (cedula = %s AND %s <> '') OR (id_codigo_consumidor = %s AND %s IS NOT NULL)
+                )
+                LIMIT 1
+                """,
+                (fecha_obj, cedula, cedula, id_codigo_consumidor, id_codigo_consumidor)
+            )
+            row = cur.fetchone()
+            if row:
+                cur.execute("UPDATE preoperacional_excepciones SET activo = 1 WHERE id = %s", (row[0],))
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO preoperacional_excepciones (cedula, id_codigo_consumidor, fecha, supervisor, activo, creado_por)
+                    VALUES (%s, %s, %s, %s, 1, %s)
+                    """,
+                    (cedula, id_codigo_consumidor, fecha_obj, session.get('user_name', ''), str(session.get('user_id', '')))
+                )
+        else:
+            cur.execute(
+                """
+                UPDATE preoperacional_excepciones 
+                SET activo = 0 
+                WHERE fecha = %s AND (
+                    (cedula = %s AND %s <> '') OR (id_codigo_consumidor = %s AND %s IS NOT NULL)
+                )
+                """,
+                (fecha_obj, cedula, cedula, id_codigo_consumidor, id_codigo_consumidor)
+            )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/user/edit/<int:user_id>', methods=['GET', 'POST'])
 @login_required(role='administrativo')
@@ -21434,25 +21619,35 @@ def obtener_indicadores_cumplimiento():
                 'mensaje': f'No hay datos para el período {fecha_inicio} - {fecha_fin}'
             })
         
-        # Obtener asistencia válida por supervisor
+        # Obtener asistencia válida por supervisor excluyendo técnicos con excepción activa
         query_asistencia = """
             SELECT a.super as supervisor, COUNT(*) as total_asistencia 
             FROM asistencia a 
             JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
-            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s AND t.valor = '1'
+            LEFT JOIN recurso_operativo ro ON ro.recurso_operativo_cedula = a.cedula
+            LEFT JOIN preoperacional_excepciones e ON e.activo = 1 
+                AND DATE(e.fecha) = DATE(a.fecha_asistencia)
+                AND (e.cedula = a.cedula OR e.id_codigo_consumidor = ro.id_codigo_consumidor)
+            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s 
+              AND t.valor = '1'
+              AND e.id IS NULL
             GROUP BY a.super
         """
         params_asistencia = [fecha_inicio, fecha_fin]
         
-        # Obtener preoperacionales por supervisor - SOLO de técnicos con asistencia
+        # Obtener preoperacionales por supervisor excluyendo técnicos con excepción activa
         query_preoperacional = """
             SELECT p.supervisor, COUNT(*) as total_preoperacional
             FROM preoperacional p
             INNER JOIN asistencia a ON p.id_codigo_consumidor = a.id_codigo_consumidor 
                 AND DATE(p.fecha) = DATE(a.fecha_asistencia)
             INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            LEFT JOIN preoperacional_excepciones e ON e.activo = 1 
+                AND DATE(e.fecha) = DATE(p.fecha)
+                AND (e.id_codigo_consumidor = p.id_codigo_consumidor)
             WHERE DATE(p.fecha) BETWEEN %s AND %s 
                 AND t.valor = '1'
+                AND e.id IS NULL
             GROUP BY p.supervisor
         """
         params_preoperacional = [fecha_inicio, fecha_fin]
@@ -21615,8 +21810,29 @@ def obtener_detalle_tecnicos():
         
         print(f"✅ [DETALLE_TECNICOS] Conexión a BD exitosa")
         cursor = connection.cursor(dictionary=True)
+        try:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS preoperacional_excepciones (
+                    id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                    cedula VARCHAR(32),
+                    id_codigo_consumidor INT NULL,
+                    fecha DATE NOT NULL,
+                    supervisor VARCHAR(255) NULL,
+                    motivo VARCHAR(255) NULL,
+                    activo TINYINT(1) NOT NULL DEFAULT 1,
+                    creado_por VARCHAR(64) NULL,
+                    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_fecha_cedula (fecha, cedula),
+                    INDEX idx_fecha_id (fecha, id_codigo_consumidor)
+                )
+                """
+            )
+            connection.commit()
+        except Exception:
+            pass
         
-        # Obtener técnicos del supervisor (usando la consulta correcta)
+        
         query_tecnicos = """
             SELECT id_codigo_consumidor, nombre, recurso_operativo_cedula as documento
             FROM recurso_operativo 
@@ -21644,14 +21860,41 @@ def obtener_detalle_tecnicos():
                 'mensaje': f'No se encontraron técnicos activos para el supervisor {supervisor}'
             })
         
-        # Para cada técnico, verificar asistencia y preoperacional
+        
+        excluidos_map = {}
+        try:
+            ids = [t['id_codigo_consumidor'] for t in tecnicos_supervisor if t.get('id_codigo_consumidor')]
+            cedulas = [t['documento'] for t in tecnicos_supervisor if t.get('documento')]
+            params = [fecha_obj]
+            where_parts = ["fecha = %s", "activo = 1"]
+            conds = []
+            if ids:
+                conds.append(f"id_codigo_consumidor IN ({', '.join(['%s'] * len(ids))})")
+                params.extend(ids)
+            if cedulas:
+                conds.append(f"cedula IN ({', '.join(['%s'] * len(cedulas))})")
+                params.extend(cedulas)
+            if conds:
+                where_sql = " AND ".join(where_parts + [f"({ ' OR '.join(conds) })"]) 
+                cursor.execute(f"SELECT id_codigo_consumidor, cedula FROM preoperacional_excepciones WHERE {where_sql}", tuple(params))
+                rows_exc = cursor.fetchall() or []
+                for r in rows_exc:
+                    if r.get('id_codigo_consumidor'):
+                        excluidos_map[r['id_codigo_consumidor']] = True
+                    if r.get('cedula'):
+                        # Marcar por cédula también
+                        excluidos_map[r['cedula']] = True
+        except Exception:
+            pass
+
+        
         tecnicos_detalle = []
         
         for tecnico in tecnicos_supervisor:
             id_tecnico = tecnico['id_codigo_consumidor']
             nombre_tecnico = tecnico['nombre']
             
-            # Verificar asistencia válida
+            
             cursor.execute("""
                 SELECT a.*, t.valor as asistencia_valida
                 FROM asistencia a
@@ -21672,7 +21915,7 @@ def obtener_detalle_tecnicos():
                     fecha_bogota = convert_to_bogota_time(fecha_asistencia_utc)
                     hora_asistencia = fecha_bogota.strftime('%H:%M')
             
-            # Verificar preoperacional
+            
             cursor.execute("""
                 SELECT * FROM preoperacional 
                 WHERE id_codigo_consumidor = %s 
@@ -21690,13 +21933,18 @@ def obtener_detalle_tecnicos():
                     fecha_bogota = convert_to_bogota_time(fecha_preop_utc)
                     hora_preoperacional = fecha_bogota.strftime('%H:%M')
             
-            # Determinar estado general
-            if tiene_asistencia and tiene_preoperacional:
+            
+            excluido = bool(excluidos_map.get(id_tecnico) or excluidos_map.get(tecnico.get('documento')))
+
+            
+            if excluido and tiene_asistencia:
+                estado = "Excluido"
+            elif tiene_asistencia and tiene_preoperacional:
                 estado = "Completo"
-            elif tiene_asistencia:
-                estado = "Solo Asistencia"
-            elif tiene_preoperacional:
-                estado = "Solo Preoperacional"
+            elif tiene_asistencia and not tiene_preoperacional:
+                estado = "Falta Preoperacional"
+            elif not tiene_asistencia and tiene_preoperacional:
+                estado = "Falta Asistencia"
             else:
                 estado = "Sin Registros"
             
@@ -21705,6 +21953,7 @@ def obtener_detalle_tecnicos():
                 'nombre': nombre_tecnico,
                 'asistencia': tiene_asistencia,
                 'preoperacional': tiene_preoperacional,
+                'excluido': excluido,
                 'estado': estado,
                 'hora_asistencia': hora_asistencia or 'N/A',
                 'hora_preoperacional': hora_preoperacional or 'N/A',

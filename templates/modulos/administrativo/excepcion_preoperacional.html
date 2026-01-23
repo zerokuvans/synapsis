@@ -1,0 +1,181 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-danger text-white fw-bold d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Excepción Preoperacional</h4>
+                    <form class="d-flex" method="get" action="">
+                        <input type="date" class="form-control me-2" name="fecha" value="{{ fecha }}">
+                        <button class="btn btn-light" type="submit"><i class="fas fa-search me-2"></i>Filtrar</button>
+                    </form>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-end mb-3">
+                        <div class="input-group" style="max-width: 360px;">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input id="filtro-tecnico" type="text" class="form-control" placeholder="Filtrar por técnico">
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Cédula</th>
+                                    <th>Técnico</th>
+                                    <th>Supervisor</th>
+                                    <th>Carpeta</th>
+                                    <th>Evento</th>
+                                    <th>Fecha</th>
+                                    <th>Hora Inicio</th>
+                                    <th>Estado</th>
+                                    <th>Novedad</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in registros %}
+                                <tr class="data-row">
+                                    <td>{{ r.cedula }}</td>
+                                    <td>{{ r.tecnico }}</td>
+                                    <td>{{ r.supervisor }}</td>
+                                    <td>{{ r.carpeta }}</td>
+                                    <td>{{ r.evento }}</td>
+                                    <td>{{ r.fecha }}</td>
+                                    <td>{{ r.hora_inicio }}</td>
+                                    <td>{{ r.estado }}</td>
+                                    <td>{{ r.novedad }}</td>
+                                    <td>
+                                        <div class="form-check">
+                                            <input class="form-check-input exc-toggle" type="checkbox"
+                                                   {% if r.excluido %}checked{% endif %}
+                                                   data-cedula="{{ r.cedula }}"
+                                                   data-id="{{ r.id_codigo_consumidor }}"
+                                                   data-fecha="{{ fecha }}">
+                                            <label class="form-check-label">Excluir</label>
+                                            <span class="badge ms-2 excl-badge {% if r.excluido %}bg-danger{% else %}bg-success{% endif %}">
+                                                {% if r.excluido %}Excluido{% else %}Incluido{% endif %}
+                                            </span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% if registros|length == 0 %}
+                                <tr>
+                                    <td colspan="10" class="text-center text-muted">Sin registros de asistencia para la fecha seleccionada.</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div id="paginacion-info" class="text-muted"></div>
+                            <nav aria-label="Paginación">
+                                <ul id="paginacion" class="pagination mb-0"></ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var toggles = document.querySelectorAll('.exc-toggle');
+  toggles.forEach(function(el) {
+    el.addEventListener('change', function(ev) {
+      var input = ev.target;
+      var payload = {
+        cedula: String(input.getAttribute('data-cedula') || '').trim(),
+        id_codigo_consumidor: Number(input.getAttribute('data-id')) || null,
+        fecha: String(input.getAttribute('data-fecha') || '').trim(),
+        checked: !!input.checked
+      };
+      input.disabled = true;
+      fetch('/administrativo/preoperacional/excepcion/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(res) {
+        if (!res.success) {
+          input.checked = !input.checked;
+          if (window.Swal) {
+            Swal.fire('Error', res.message || 'No se pudo actualizar la excepción', 'error');
+          } else {
+            alert(res.message || 'No se pudo actualizar la excepción');
+          }
+        } else {
+          var badge = input.closest('td').querySelector('.excl-badge');
+          if (badge) {
+            if (input.checked) {
+              badge.textContent = 'Excluido';
+              badge.classList.remove('bg-success');
+              badge.classList.add('bg-danger');
+            } else {
+              badge.textContent = 'Incluido';
+              badge.classList.remove('bg-danger');
+              badge.classList.add('bg-success');
+            }
+          }
+        }
+      })
+      .catch(function() {
+        input.checked = !input.checked;
+        if (window.Swal) {
+          Swal.fire('Error', 'Error de red al actualizar la excepción', 'error');
+        } else {
+          alert('Error de red al actualizar la excepción');
+        }
+      })
+      .finally(function() { input.disabled = false; });
+    });
+  });
+
+  var ROWS_PER_PAGE = 10;
+  var currentPage = 1;
+  var filtroInput = document.getElementById('filtro-tecnico');
+  var tbody = document.querySelector('table.table tbody');
+  var info = document.getElementById('paginacion-info');
+  var pager = document.getElementById('paginacion');
+  var rows = Array.from(tbody.querySelectorAll('tr.data-row'));
+
+  function norm(s){ return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(); }
+  function filtered(){ var q = norm(filtroInput.value||''); if(!q) return rows; return rows.filter(function(r){ return norm(r.children[1].textContent).indexOf(q) !== -1; }); }
+  function renderPage(page){
+    var list = filtered();
+    var total = list.length;
+    var pages = Math.max(1, Math.ceil(total/ROWS_PER_PAGE));
+    if(page < 1) page = 1; if(page > pages) page = pages; currentPage = page;
+    rows.forEach(function(r){ r.style.display = 'none'; });
+    var start = (currentPage-1)*ROWS_PER_PAGE;
+    var end = Math.min(start+ROWS_PER_PAGE, total);
+    for(var i=start;i<end;i++){ list[i].style.display = ''; }
+    info.textContent = total ? ('Mostrando ' + (start+1) + '-' + end + ' de ' + total) : 'Sin resultados';
+    renderPager(pages);
+  }
+  function renderPager(pages){
+    pager.innerHTML='';
+    var prev = document.createElement('li'); prev.className = 'page-item' + (currentPage===1?' disabled':'');
+    var aPrev = document.createElement('a'); aPrev.className='page-link'; aPrev.href='#'; aPrev.textContent='«';
+    aPrev.addEventListener('click', function(e){ e.preventDefault(); if(currentPage>1) renderPage(currentPage-1); });
+    prev.appendChild(aPrev); pager.appendChild(prev);
+    for(var n=1;n<=pages;n++){
+      var li = document.createElement('li'); li.className = 'page-item' + (n===currentPage?' active':'');
+      var a = document.createElement('a'); a.className='page-link'; a.href='#'; a.textContent=String(n);
+      (function(num){ a.addEventListener('click', function(e){ e.preventDefault(); renderPage(num); }); })(n);
+      li.appendChild(a); pager.appendChild(li);
+    }
+    var next = document.createElement('li'); next.className = 'page-item' + (currentPage===pages?' disabled':'');
+    var aNext = document.createElement('a'); aNext.className='page-link'; aNext.href='#'; aNext.textContent='»';
+    aNext.addEventListener('click', function(e){ e.preventDefault(); if(currentPage<pages) renderPage(currentPage+1); });
+    next.appendChild(aNext); pager.appendChild(next);
+  }
+  filtroInput.addEventListener('input', function(){ renderPage(1); });
+  renderPage(1);
+});
+</script>
+{% endblock %}

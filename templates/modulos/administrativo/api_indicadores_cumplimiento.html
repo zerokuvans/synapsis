@@ -1584,11 +1584,14 @@ function actualizarTablaDetalleTecnicos(tecnicos) {
             // Crear fila
             const tr = document.createElement('tr');
             
-            // Determinar estado y clase
+            // Determinar estado y clase (considerando exclusión)
             let estado = 'Pendiente';
             let claseEstado = 'bg-danger';
-            
-            if (tecnico.asistencia && tecnico.preoperacional) {
+
+            if (tecnico.excluido && tecnico.asistencia) {
+                estado = 'Excluido';
+                claseEstado = 'bg-secondary';
+            } else if (tecnico.asistencia && tecnico.preoperacional) {
                 estado = 'Completo';
                 claseEstado = 'bg-success';
             } else if (tecnico.asistencia && !tecnico.preoperacional) {
@@ -1613,8 +1616,8 @@ function actualizarTablaDetalleTecnicos(tecnicos) {
                     </span>
                 </td>
                 <td class="text-center">
-                    <span class="badge ${tecnico.preoperacional ? 'bg-gradient-success' : 'bg-gradient-danger'}" style="width: 80px; color: black !important;">
-                        ${tecnico.preoperacional ? 'Registrado' : 'Pendiente'}
+                    <span class="badge ${tecnico.excluido ? 'bg-gradient-warning' : (tecnico.preoperacional ? 'bg-gradient-success' : 'bg-gradient-danger')}" style="width: 100px; color: black !important;">
+                        ${tecnico.excluido ? 'Excluido' : (tecnico.preoperacional ? 'Registrado' : 'Pendiente')}
                     </span>
                 </td>
                 <td class="text-center">
