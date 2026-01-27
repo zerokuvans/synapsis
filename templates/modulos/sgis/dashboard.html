@@ -476,6 +476,9 @@ function guardarPermisoTrabajo(){
       showPermisoAlert('Permiso guardado','alert-success');
       currentPermisoId = d.id_sgis_permiso_trabajo || currentPermisoId;
       toggleSeccionesAplica();
+      const pm = document.getElementById('permisoTrabajoModal');
+      const modal = bootstrap.Modal.getInstance(pm);
+      if(modal) modal.hide();
       cargarPermisoTrabajoActual();
     }else{
       showPermisoAlert((d&&d.message)||'Error','alert-danger');
@@ -543,7 +546,15 @@ function guardarHistorialConfinado(){
       sgis_permiso_trabajo_historial_confinado_firma_supervisor:document.getElementById('sgis_permiso_trabajo_historial_confinado_firma_supervisor')?document.getElementById('sgis_permiso_trabajo_historial_confinado_firma_supervisor').value:''
     };
     fetch('/api/sgis/permiso-trabajo/historial/confinado',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()).then(d=>{
-      if(d && d.success){showPermisoAlert('Historial de confinados guardado','alert-success'); cargarHistorialesDelDia()} else {showPermisoAlert((d&&d.message)||'Error','alert-danger')}
+      if(d && d.success){
+        showPermisoAlert('Historial de confinados guardado','alert-success');
+        const pm = document.getElementById('permisoTrabajoModal');
+        const modal = bootstrap.Modal.getInstance(pm);
+        if(modal) modal.hide();
+        cargarHistorialesDelDia();
+      } else {
+        showPermisoAlert((d&&d.message)||'Error','alert-danger')
+      }
     }).catch(()=>{showPermisoAlert('Error','alert-danger')});
   });
 }
@@ -581,7 +592,15 @@ function guardarHistorialAltura(){
       sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor:document.getElementById('sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor')?document.getElementById('sgis_permiso_trabajo_historial_semanal_altura_firma_supervisor').value:''
     };
     fetch('/api/sgis/permiso-trabajo/historial/alturas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()).then(d=>{
-      if(d && d.success){showPermisoAlert('Historial de alturas guardado','alert-success'); cargarHistorialesDelDia()} else {showPermisoAlert((d&&d.message)||'Error','alert-danger')}
+      if(d && d.success){
+        showPermisoAlert('Historial de alturas guardado','alert-success');
+        const pm = document.getElementById('permisoTrabajoModal');
+        const modal = bootstrap.Modal.getInstance(pm);
+        if(modal) modal.hide();
+        cargarHistorialesDelDia();
+      } else {
+        showPermisoAlert((d&&d.message)||'Error','alert-danger')
+      }
     }).catch(()=>{showPermisoAlert('Error','alert-danger')});
   });
 }
@@ -1073,6 +1092,16 @@ function openFirmaModal(onSave){
           <div class="col-md-6">
             <label class="form-label">Descripción de tareas</label>
             <input id="descripcionTareasTSR" type="text" class="form-control" placeholder="Descripción breve de las tareas">
+          </div>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Número OT</label>
+            <input id="otTSR" type="text" class="form-control" placeholder="OT" required inputmode="numeric" minlength="7" maxlength="9">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Cuenta</label>
+            <input id="cuentaTSR" type="text" class="form-control" placeholder="Cuenta" required inputmode="numeric" minlength="6" maxlength="8">
           </div>
         </div>
         <div class="mb-3">
@@ -1852,6 +1881,8 @@ document.addEventListener('DOMContentLoaded', function(){
     const actEl = document.querySelector('#modalTSR input[name="actividad_asociada"]:checked');
     payload.actividad_asociada = actEl ? actEl.value : '';
     payload.descripcion_tareas = (document.getElementById('descripcionTareasTSR').value || '').trim();
+    payload.ot = (document.getElementById('otTSR')?.value || '').trim();
+    payload.cuenta = (document.getElementById('cuentaTSR')?.value || '').trim();
     for(let i=1;i<=17;i++){ payload['respuesta_'+i] = getValTSR('respuesta_'+i); }
     payload.riesgo = document.getElementById('selRiesgoTSR').value || '';
     payload.peligro = document.getElementById('selPeligroTSR').value || '';
@@ -1860,6 +1891,16 @@ document.addEventListener('DOMContentLoaded', function(){
     return payload;
   }
   function validarTSR(payload){
+    const otRegex = /^[0-9]{7,9}$/;
+    const cuentaRegex = /^[0-9]{6,8}$/;
+    if(!payload.ot || !otRegex.test(payload.ot)){
+      Swal.fire('Error','OT debe ser 7-9 dígitos numéricos','error');
+      return false;
+    }
+    if(!payload.cuenta || !cuentaRegex.test(payload.cuenta)){
+      Swal.fire('Error','Cuenta debe ser 6-8 dígitos numéricos','error');
+      return false;
+    }
     for(let i=1;i<=17;i++){ const v = (payload['respuesta_'+i]||'').toUpperCase(); if(!v || !(['C','NC','N/A'].includes(v))){ Swal.fire('Campos incompletos','Responde todas las preguntas','warning'); return false; } }
     const anyNC = Array.from({length:17}).some((_,idx)=> (payload['respuesta_'+(idx+1)]||'').toUpperCase()==='NC');
     if(anyNC && !payload.observaciones){ Swal.fire('Observaciones requeridas','Registra observaciones para los hallazgos en NC','warning'); return false; }
@@ -1880,6 +1921,22 @@ document.addEventListener('DOMContentLoaded', function(){
     document.getElementById('btnLimpiarFirmaTSR').addEventListener('click', ()=>{ firmaCtxTSR.clearRect(0,0,c.width,c.height); });
     document.getElementById('btnEnviarTSR').addEventListener('click', enviarTSR);
   }
+  function resetFormularioTSR(){
+    for(let i=1;i<=17;i++){
+      document.querySelectorAll('#modalTSR input[name="respuesta_'+i+'"]').forEach(el=>{ el.checked = false; });
+    }
+    document.querySelectorAll('#modalTSR input[name="actividad_asociada"]').forEach(el=>{ el.checked = false; });
+    const d1 = document.getElementById('descripcionTareasTSR'); if(d1) d1.value = '';
+    const d2 = document.getElementById('observacionesTSR'); if(d2) d2.value = '';
+    const d3 = document.getElementById('otTSR'); if(d3) d3.value = '';
+    const d4 = document.getElementById('cuentaTSR'); if(d4) d4.value = '';
+    const sr = document.getElementById('selRiesgoTSR'); if(sr) sr.value = '';
+    const sp = document.getElementById('selPeligroTSR'); if(sp) sp.value = '';
+    const sc = document.getElementById('selConsecuenciaTSR'); if(sc) sc.value = '';
+    const sctrl = document.getElementById('selControlTSR'); if(sctrl) sctrl.value = '';
+    const btn = document.getElementById('btnFirmarEnviarTSR'); if(btn){ btn.disabled = false; btn.textContent = 'Firmar y Enviar'; }
+    const c = document.getElementById('firmaCanvasTSR'); if(c && firmaCtxTSR){ firmaCtxTSR.clearRect(0,0,c.width,c.height); }
+  }
   function enviarTSR(){
     const c = document.getElementById('firmaCanvasTSR');
     const firma = c.toDataURL('image/png');
@@ -1890,9 +1947,12 @@ document.addEventListener('DOMContentLoaded', function(){
       .then(r=>r.json()).then(d=>{
         if(d && d.success){
           Swal.fire('Éxito','Trabajo Seguro Rutinario registrado','success');
-          const btn = document.getElementById('btnFirmarEnviarTSR'); if(btn){ btn.disabled = true; btn.textContent = 'Análisis diligenciado'; }
+          resetFormularioTSR();
           const mf = document.getElementById('modalFirmaTSR'); const modal = bootstrap.Modal.getInstance(mf); if(modal) modal.hide();
-          const me = document.getElementById('modalTSR'); const modal2 = bootstrap.Modal.getInstance(me); if(modal2) modal2.hide();
+          fetch('/api/sgis/trabajo-seguro-rutinario/status').then(r=>r.json()).then(s=>{
+            const btn = document.getElementById('btnFirmarEnviarTSR');
+            if(s && s.success && s.limit_reached && btn){ btn.disabled = true; btn.textContent = 'Límite diario alcanzado (10)'; }
+          }).catch(()=>{});
         } else {
           Swal.fire('Error', d.error || 'No se pudo registrar', 'error');
         }

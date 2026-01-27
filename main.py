@@ -37233,6 +37233,8 @@ def api_sgis_tsr_status():
                 actividad_asociada VARCHAR(64) NULL,
                 descripcion_tareas TEXT,
                 observaciones TEXT,
+                ot VARCHAR(10) NULL,
+                cuenta VARCHAR(10) NULL,
                 respuesta_1 VARCHAR(4),
                 respuesta_2 VARCHAR(4),
                 respuesta_3 VARCHAR(4),
@@ -37264,6 +37266,14 @@ def api_sgis_tsr_status():
         )
         cur_ddl = connection.cursor()
         cur_ddl.execute(ddl)
+        try:
+            cur_ddl.execute("ALTER TABLE sgis_trabajos_seguridad_rutina ADD COLUMN IF NOT EXISTS ot VARCHAR(10) NULL")
+        except Exception:
+            pass
+        try:
+            cur_ddl.execute("ALTER TABLE sgis_trabajos_seguridad_rutina ADD COLUMN IF NOT EXISTS cuenta VARCHAR(10) NULL")
+        except Exception:
+            pass
         try:
             connection.commit()
         except Exception:
@@ -37410,6 +37420,12 @@ def api_sgis_tsr_save():
         any_nc = any(r == 'NC' for r in respuestas)
         if any_nc and not obs:
             return jsonify({'success': False, 'error': 'Observaciones requeridas por respuestas NC'}), 400
+        ot = (data.get('ot') or '').strip()
+        cuenta = (data.get('cuenta') or '').strip()
+        if not re.fullmatch(r"\d{7,9}", ot or ''):
+            return jsonify({'success': False, 'error': 'OT inválida: debe tener 7-9 dígitos numéricos'}), 400
+        if not re.fullmatch(r"\d{6,8}", cuenta or ''):
+            return jsonify({'success': False, 'error': 'Cuenta inválida: debe tener 6-8 dígitos numéricos'}), 400
         connection = get_db_connection()
         if connection is None:
             return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
@@ -37501,7 +37517,7 @@ def api_sgis_tsr_save():
             """
             INSERT INTO sgis_trabajos_seguridad_rutina (
                 id_codigo_consumidor, recurso_operativo_cedula, nombre, cargo, ciudad, placa,
-                actividad_asociada, descripcion_tareas, observaciones,
+                actividad_asociada, descripcion_tareas, observaciones, ot, cuenta,
                 respuesta_1, respuesta_2, respuesta_3, respuesta_4, respuesta_5, respuesta_6, respuesta_7,
                 respuesta_8, respuesta_9, respuesta_10, respuesta_11, respuesta_12, respuesta_13, respuesta_14,
                 respuesta_15, respuesta_16, respuesta_17,
@@ -37509,7 +37525,7 @@ def api_sgis_tsr_save():
                 firma_trabajador, fecha_registro, fecha_dia
             ) VALUES (
                 %s,%s,%s,%s,%s,%s,
-                %s,%s,%s,
+                %s,%s,%s,%s,%s,
                 %s,%s,%s,%s,%s,%s,%s,
                 %s,%s,%s,%s,%s,%s,%s,
                 %s,%s,%s,
@@ -37519,7 +37535,7 @@ def api_sgis_tsr_save():
             """,
             (
                 uid, ced, nombre, cargo, ciudad, placa,
-                actividad, desc_tareas, obs,
+                actividad, desc_tareas, obs, ot, cuenta,
                 respuestas[0], respuestas[1], respuestas[2], respuestas[3], respuestas[4], respuestas[5], respuestas[6],
                 respuestas[7], respuestas[8], respuestas[9], respuestas[10], respuestas[11], respuestas[12], respuestas[13],
                 respuestas[14], respuestas[15], respuestas[16],

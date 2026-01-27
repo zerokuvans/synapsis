@@ -30,6 +30,16 @@
               <input id="descripcionTareas" type="text" class="form-control" placeholder="Descripción breve de las tareas">
             </div>
           </div>
+          <div class="row g-3 mb-3">
+            <div class="col-md-3">
+              <label class="form-label">Número OT</label>
+              <input id="otTSR" type="text" class="form-control" placeholder="OT" required inputmode="numeric" minlength="7" maxlength="9">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Cuenta</label>
+              <input id="cuentaTSR" type="text" class="form-control" placeholder="Cuenta" required inputmode="numeric" minlength="6" maxlength="8">
+            </div>
+          </div>
 
           <div class="mb-3">
             <h6 class="mb-2">Evaluación</h6>
@@ -240,6 +250,8 @@ function construirPayload(){
   const payload = { observaciones: (document.getElementById('observaciones').value || '').trim() };
   payload.actividad_asociada = (document.getElementById('actividad').value || '').trim();
   payload.descripcion_tareas = (document.getElementById('descripcionTareas').value || '').trim();
+  payload.ot = (document.getElementById('otTSR')?.value || '').trim();
+  payload.cuenta = (document.getElementById('cuentaTSR')?.value || '').trim();
   for(let i=1;i<=17;i++){ payload['respuesta_'+i] = getVal('respuesta_'+i); }
   payload.riesgo = document.getElementById('selRiesgo').value || '';
   payload.peligro = document.getElementById('selPeligro').value || '';
@@ -248,6 +260,16 @@ function construirPayload(){
   return payload;
 }
 function validar(payload){
+  const otRegex = /^[0-9]{7,9}$/;
+  const cuentaRegex = /^[0-9]{6,8}$/;
+  if(!payload.ot || !otRegex.test(payload.ot)){
+    Swal.fire('Error','OT debe ser 7-9 dígitos numéricos','error');
+    return false;
+  }
+  if(!payload.cuenta || !cuentaRegex.test(payload.cuenta)){
+    Swal.fire('Error','Cuenta debe ser 6-8 dígitos numéricos','error');
+    return false;
+  }
   for(let i=1;i<=17;i++){ const v = (payload['respuesta_'+i]||'').toUpperCase(); if(!v || !(['C','NC','N/A'].includes(v))){ Swal.fire('Campos incompletos','Responde todas las preguntas','warning'); return false; } }
   const anyNC = Array.from({length:17}).some((_,idx)=> (payload['respuesta_'+(idx+1)]||'').toUpperCase()==='NC');
   if(anyNC && !payload.observaciones){ Swal.fire('Observaciones requeridas','Registra observaciones para los hallazgos en NC','warning'); return false; }
@@ -267,6 +289,22 @@ function initFirmaTSR(){
   c.addEventListener('touchstart', start, {passive:false}); c.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', end);
   document.getElementById('btnLimpiarFirmaTSR').addEventListener('click', ()=>{ firmaCtxTSR.clearRect(0,0,c.width,c.height); });
 }
+function resetFormularioTSR(){
+  for(let i=1;i<=17;i++){
+    document.querySelectorAll('input[name="respuesta_'+i+'"]').forEach(el=>{ el.checked = false; });
+  }
+  const act = document.getElementById('actividad'); if(act) act.value = '';
+  const dt = document.getElementById('descripcionTareas'); if(dt) dt.value = '';
+  const ot = document.getElementById('otTSR'); if(ot) ot.value = '';
+  const cu = document.getElementById('cuentaTSR'); if(cu) cu.value = '';
+  const obs = document.getElementById('observaciones'); if(obs) obs.value = '';
+  const sr = document.getElementById('selRiesgo'); if(sr) sr.value = '';
+  const sp = document.getElementById('selPeligro'); if(sp) sp.value = '';
+  const sc = document.getElementById('selConsecuencia'); if(sc) sc.value = '';
+  const sctrl = document.getElementById('selControl'); if(sctrl) sctrl.value = '';
+  const btn = document.getElementById('btnFirmarEnviar'); if(btn){ btn.disabled = false; btn.textContent = 'Firmar y Enviar'; }
+  const c = document.getElementById('firmaCanvasTSR'); if(c && firmaCtxTSR){ firmaCtxTSR.clearRect(0,0,c.width,c.height); }
+}
 function enviarTSR(){
   const c = document.getElementById('firmaCanvasTSR');
   const firma = c.toDataURL('image/png');
@@ -277,8 +315,12 @@ function enviarTSR(){
     .then(r=>r.json()).then(d=>{
       if(d && d.success){
         Swal.fire('Éxito','Trabajo Seguro Rutinario registrado','success');
-        const btn = document.getElementById('btnFirmarEnviar'); if(btn){ btn.disabled = true; btn.textContent = 'Análisis diligenciado'; }
+        resetFormularioTSR();
         const mf = document.getElementById('modalFirmaTSR'); const modal = bootstrap.Modal.getInstance(mf); if(modal) modal.hide();
+        fetch('/api/sgis/trabajo-seguro-rutinario/status').then(r=>r.json()).then(s=>{
+          const btn = document.getElementById('btnFirmarEnviar');
+          if(s && s.success && s.limit_reached && btn){ btn.disabled = true; btn.textContent = 'Límite diario alcanzado (10)'; }
+        }).catch(()=>{});
       } else {
         Swal.fire('Error', d.error || 'No se pudo registrar', 'error');
       }

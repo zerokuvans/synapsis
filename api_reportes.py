@@ -1326,8 +1326,6 @@ def api_reportes_configuracion():
     Endpoint: /api/reportes/configuracion
     Métodos: GET, POST, PUT, DELETE
     """
-
-def api_reportes_configuracion():
     try:
         user_id = session.get('user_id')
         if not user_id:
