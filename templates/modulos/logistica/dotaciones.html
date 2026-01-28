@@ -840,6 +840,96 @@
                             </div>
                         </div>
 
+                        <!-- Arnés -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Arnés</label>
+                                <input type="number" class="form-control" id="arnes" min="0" oninput="debouncedValidarStockDisponible('arnes')">
+                                <small class="text-muted" id="stockArnes">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Estado Arnés</label>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estadoArnes" checked>
+                                    <label class="form-check-label valorado-text" for="estadoArnes">
+                                        VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Eslinga -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Eslinga</label>
+                                <input type="number" class="form-control" id="eslinga" min="0" oninput="debouncedValidarStockDisponible('eslinga')">
+                                <small class="text-muted" id="stockEslinga">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Estado Eslinga</label>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estadoEslinga" checked>
+                                    <label class="form-check-label valorado-text" for="estadoEslinga">
+                                        VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tie Off -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Tie Off</label>
+                                <input type="number" class="form-control" id="tieOf" min="0" oninput="debouncedValidarStockDisponible('tie_of')">
+                                <small class="text-muted" id="stockTieOf">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Estado Tie Off</label>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estadoTieOf" checked>
+                                    <label class="form-check-label valorado-text" for="estadoTieOf">
+                                        VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mosquetón -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Mosquetón</label>
+                                <input type="number" class="form-control" id="mosqueton" min="0" oninput="debouncedValidarStockDisponible('mosqueton')">
+                                <small class="text-muted" id="stockMosqueton">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Estado Mosquetón</label>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estadoMosqueton" checked>
+                                    <label class="form-check-label valorado-text" for="estadoMosqueton">
+                                        VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pretales -->
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Pretales</label>
+                                <input type="number" class="form-control" id="pretales" min="0" oninput="debouncedValidarStockDisponible('pretales')">
+                                <small class="text-muted" id="stockPretales">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Estado Pretales</label>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estadoPretales" checked>
+                                    <label class="form-check-label valorado-text" for="estadoPretales">
+                                        VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Gorra -->
                         <div class="row mb-3">
                             <div class="col-md-6">
@@ -960,6 +1050,11 @@
                                         <option value="gorra">Gorra</option>
                                         <option value="casco">Casco</option>
                                         <option value="botas">Botas</option>
+                                        <option value="arnes">Arnés</option>
+                                        <option value="eslinga">Eslinga</option>
+                                        <option value="tie_of">Tie Off</option>
+                                        <option value="mosqueton">Mosquetón</option>
+                                        <option value="pretales">Pretales</option>
                                     </select>
                                 </div>
                             </div>
@@ -1251,6 +1346,21 @@
                                                 <br>
                                                 <span>Casco: <span id="detalleCasco">-</span></span>
                                                 <span id="detalleCascoEstado" class="badge ms-1">-</span>
+                                                <br>
+                                                <span>Arnés: <span id="detalleArnes">-</span></span>
+                                                <span id="detalleArnesEstado" class="badge ms-1">-</span>
+                                                <br>
+                                                <span>Eslinga: <span id="detalleEslinga">-</span></span>
+                                                <span id="detalleEslingaEstado" class="badge ms-1">-</span>
+                                                <br>
+                                                <span>Tie Off: <span id="detalleTieOf">-</span></span>
+                                                <span id="detalleTieOfEstado" class="badge ms-1">-</span>
+                                                <br>
+                                                <span>Mosquetón: <span id="detalleMosqueton">-</span></span>
+                                                <span id="detalleMosquetonEstado" class="badge ms-1">-</span>
+                                                <br>
+                                                <span>Pretales: <span id="detallePretales">-</span></span>
+                                                <span id="detallePretalesEstado" class="badge ms-1">-</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1501,7 +1611,12 @@
                 'estadoGafas',
                 'estadoGorra',
                 'estadoCasco',
-                'estadoBotas'
+                'estadoBotas',
+                'estadoArnes',
+                'estadoEslinga',
+                'estadoTieOf',
+                'estadoMosqueton',
+                'estadoPretales'
             ];
             
             checkboxIds.forEach(id => {
@@ -1607,7 +1722,7 @@
                 },
                 responsive: true,
                 pageLength: 25,
-                order: [[0, 'desc']],
+                order: [[2, 'desc']],
                 columnDefs: [
                     { targets: -1, orderable: false } // Columna de acciones no ordenable
                 ]
@@ -1789,7 +1904,7 @@
                 const fila = [
                     dotacion.tecnico_nombre || 'Sin asignar',
                     estadoFirma,
-                    dotacion.fecha_registro ? new Date(dotacion.fecha_registro).toLocaleDateString() : 'N/A',
+                    dotacion.fecha_registro || 'N/A',
                     `
                         <button class="btn btn-sm btn-outline-info me-1" onclick="verDetallesDotacion(${dotacion.id_dotacion})" title="Ver Detalles">
                             <i class="fas fa-eye"></i>
@@ -2032,6 +2147,11 @@
                 document.getElementById('casco').value = dotacion.casco || '';
                 document.getElementById('botas').value = dotacion.botas || '';
                 document.getElementById('botasTalla').value = dotacion.botas_talla || '';
+                document.getElementById('arnes').value = dotacion.arnes || '';
+                document.getElementById('eslinga').value = dotacion.eslinga || '';
+                document.getElementById('tieOf').value = dotacion.tie_of || '';
+                document.getElementById('mosqueton').value = dotacion.mosqueton || '';
+                document.getElementById('pretales').value = dotacion.pretales || '';
                 
                 // Mostrar modal
                 document.getElementById('modalTitulo').innerHTML = '<i class="fas fa-edit me-2"></i>Editar Dotación';
@@ -2086,7 +2206,17 @@
                 casco_valorado: document.getElementById('estadoCasco').checked ? 1 : 0,
                 botas: parseInt(document.getElementById('botas').value) || null,
                 botas_talla: document.getElementById('botasTalla').value || null,
-                botas_valorado: document.getElementById('estadoBotas').checked ? 1 : 0
+                botas_valorado: document.getElementById('estadoBotas').checked ? 1 : 0,
+                arnes: parseInt(document.getElementById('arnes').value) || null,
+                arnes_valorado: document.getElementById('estadoArnes').checked ? 1 : 0,
+                eslinga: parseInt(document.getElementById('eslinga').value) || null,
+                eslinga_valorado: document.getElementById('estadoEslinga').checked ? 1 : 0,
+                tie_of: parseInt(document.getElementById('tieOf').value) || null,
+                tie_of_valorado: document.getElementById('estadoTieOf').checked ? 1 : 0,
+                mosqueton: parseInt(document.getElementById('mosqueton').value) || null,
+                mosqueton_valorado: document.getElementById('estadoMosqueton').checked ? 1 : 0,
+                pretales: parseInt(document.getElementById('pretales').value) || null,
+                pretales_valorado: document.getElementById('estadoPretales').checked ? 1 : 0
             };
 
             const url = id ? `/api/dotaciones/${id}` : '/api/dotaciones';
@@ -2886,7 +3016,8 @@
             // Elementos de dotación
             const elementos = [
                 'Pantalon', 'CamisetaGris', 'Guerrera', 'CamisetaPolo',
-                'GuantesNitrilo', 'GuantesCarnaza', 'Gafas', 'Gorra', 'Casco', 'Botas'
+                'GuantesNitrilo', 'GuantesCarnaza', 'Gafas', 'Gorra', 'Casco', 'Botas',
+                'Arnes', 'Eslinga', 'TieOf', 'Mosqueton', 'Pretales'
             ];
             
             elementos.forEach(elemento => {
@@ -2964,6 +3095,11 @@
             mostrarElemento('Gorra', dotacion.gorra_cantidad || 0, null, dotacion.gorra_valorado);
             mostrarElemento('Casco', dotacion.casco_cantidad || 0, null, dotacion.casco_valorado);
             mostrarElemento('Botas', dotacion.botas_cantidad || 0, dotacion.botas_talla, dotacion.botas_valorado);
+            mostrarElemento('Arnes', dotacion.arnes_cantidad || 0, null, dotacion.arnes_valorado);
+            mostrarElemento('Eslinga', dotacion.eslinga_cantidad || 0, null, dotacion.eslinga_valorado);
+            mostrarElemento('TieOf', dotacion.tie_of_cantidad || 0, null, dotacion.tie_of_valorado);
+            mostrarElemento('Mosqueton', dotacion.mosqueton_cantidad || 0, null, dotacion.mosqueton_valorado);
+            mostrarElemento('Pretales', dotacion.pretales_cantidad || 0, null, dotacion.pretales_valorado);
             
             // Fecha de registro
             if (dotacion.fecha_registro) {
@@ -3017,7 +3153,12 @@
                 'gafas': 'stockGafas',
                 'gorra': 'stockGorra',
                 'casco': 'stockCasco',
-                'botas': 'stockBotas'
+                'botas': 'stockBotas',
+                'arnes': 'stockArnes',
+                'eslinga': 'stockEslinga',
+                'tie_of': 'stockTieOf',
+                'mosqueton': 'stockMosqueton',
+                'pretales': 'stockPretales'
             };
 
             Object.keys(elementos).forEach(elemento => {
@@ -3039,8 +3180,12 @@
         function validarStockDisponible(elemento) {
             console.log('🔍 validarStockDisponible (Nueva Dotación) llamada para:', elemento);
             
-            const input = document.getElementById(elemento === 'guantes_nitrilo' ? 'guantesNitrilo' : 
-                                                elemento === 'guantes_carnaza' ? 'guantesCarnaza' : elemento);
+            const input = document.getElementById(
+                elemento === 'guantes_nitrilo' ? 'guantesNitrilo' :
+                elemento === 'guantes_carnaza' ? 'guantesCarnaza' :
+                elemento === 'tie_of' ? 'tieOf' :
+                elemento
+            );
             
             // Mapear correctamente los IDs de los checkboxes
             let checkboxId;
@@ -3050,6 +3195,8 @@
                 checkboxId = 'estadoGuantesNitrilo';
             } else if (elemento === 'guantes_carnaza') {
                 checkboxId = 'estadoGuantesCarnaza';
+            } else if (elemento === 'tie_of') {
+                checkboxId = 'estadoTieOf';
             } else {
                 checkboxId = 'estado' + elemento.charAt(0).toUpperCase() + elemento.slice(1);
             }
@@ -3116,7 +3263,12 @@
                 'gafas': 'gafas',
                 'gorra': 'gorra',
                 'casco': 'casco',
-                'botas': 'botas'
+                'botas': 'botas',
+                'arnes': 'arnes',
+                'eslinga': 'eslinga',
+                'tie_of': 'tieOf',
+                'mosqueton': 'mosqueton',
+                'pretales': 'pretales'
             };
 
             let errores = [];

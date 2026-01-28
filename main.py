@@ -145,7 +145,7 @@ from app import api_list_licencias_conducir, api_get_licencia_conducir, api_crea
 from app import api_import_vehiculos_excel, api_import_tecnico_mecanica_excel, api_import_soat_excel, api_import_licencias_excel
 from app import api_cronograma_alerts_my
 from app import api_list_inspecciones, api_get_inspeccion, api_create_inspeccion, api_inspecciones_firma_trabajador, api_inspecciones_firma_inspector, api_inspeccion_pdf, api_inspecciones_pendientes_mes
-from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas_por_tecnico, api_google_directions_route, api_riesgo_motos, api_riesgo_por_localidad, api_localidades, api_riesgo_importar, api_rutas_estados
+from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas_por_tecnico, api_google_directions_route, api_riesgo_motos, api_riesgo_por_localidad, api_localidades, api_riesgo_importar, api_rutas_estados, api_riesgo_debug
 from app import api_simit_resultados, api_list_kitcarretera, api_get_kitcarretera, api_create_kitcarretera, api_kitcarretera_firma_trabajador, api_kitcarretera_firma_inspector
 from app import api_mpa_simit_consultar_playwright
 from app import api_mpa_simit_job_run, api_mpa_simit_job_status, api_mpa_simit_job_stop
@@ -244,6 +244,7 @@ app.route('/api/mpa/rutas/riesgo-motos', methods=['GET'])(api_riesgo_motos)
 app.route('/api/mpa/rutas/riesgo-por-localidad', methods=['GET'])(api_riesgo_por_localidad)
 app.route('/api/mpa/localidades', methods=['GET'])(api_localidades)
 app.route('/api/mpa/rutas/riesgo-importar', methods=['POST'])(api_riesgo_importar)
+app.route('/api/mpa/rutas/riesgo-debug', methods=['GET'])(api_riesgo_debug)
 
 app.route('/api/mpa/inspecciones', methods=['GET'])(api_list_inspecciones)
 app.route('/api/mpa/inspecciones/<int:inspeccion_id>', methods=['GET'])(api_get_inspeccion)
@@ -10489,6 +10490,13 @@ def administrativo_excepcion_preoperacional():
                     )
                     """
                 )
+                try:
+                    c.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'recurso_operativo' AND column_name = 'excluido_preoperacional'")
+                    has_col = (c.fetchone() or [0])[0]
+                    if not has_col:
+                        c.execute("ALTER TABLE recurso_operativo ADD COLUMN excluido_preoperacional TINYINT(1) NOT NULL DEFAULT 0")
+                except Exception:
+                    pass
                 conn.commit()
             finally:
                 try:
@@ -10519,7 +10527,7 @@ def administrativo_excepcion_preoperacional():
                 a.hora_inicio,
                 a.estado,
                 a.novedad,
-                CASE WHEN e.id IS NULL THEN 0 ELSE 1 END AS excluido,
+                CASE WHEN (IFNULL(ro.excluido_preoperacional, 0) = 1) OR (e.id IS NOT NULL) THEN 1 ELSE 0 END AS excluido,
                 ro.id_codigo_consumidor AS id_codigo_consumidor
             FROM asistencia a
             LEFT JOIN recurso_operativo ro ON ro.recurso_operativo_cedula = a.cedula
@@ -10561,56 +10569,26 @@ def administrativo_preoperacional_excepcion_toggle():
         if conn is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
         cur = conn.cursor()
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS preoperacional_excepciones (
-                id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                cedula VARCHAR(32),
-                id_codigo_consumidor INT NULL,
-                fecha DATE NOT NULL,
-                supervisor VARCHAR(255) NULL,
-                motivo VARCHAR(255) NULL,
-                activo TINYINT(1) NOT NULL DEFAULT 1,
-                creado_por VARCHAR(64) NULL,
-                creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_fecha_cedula (fecha, cedula),
-                INDEX idx_fecha_id (fecha, id_codigo_consumidor)
-            )
-            """
-        )
-        conn.commit()
-        if checked:
+        # Asegurar columna permanente en recurso_operativo
+        try:
+            cur.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'recurso_operativo' AND column_name = 'excluido_preoperacional'")
+            has_col = (cur.fetchone() or [0])[0]
+            if not has_col:
+                cur.execute("ALTER TABLE recurso_operativo ADD COLUMN excluido_preoperacional TINYINT(1) NOT NULL DEFAULT 0")
+                conn.commit()
+        except Exception:
+            pass
+
+        # Actualizar bandera permanente
+        if id_codigo_consumidor:
             cur.execute(
-                """
-                SELECT id FROM preoperacional_excepciones 
-                WHERE fecha = %s AND (
-                    (cedula = %s AND %s <> '') OR (id_codigo_consumidor = %s AND %s IS NOT NULL)
-                )
-                LIMIT 1
-                """,
-                (fecha_obj, cedula, cedula, id_codigo_consumidor, id_codigo_consumidor)
+                "UPDATE recurso_operativo SET excluido_preoperacional = %s WHERE id_codigo_consumidor = %s",
+                (1 if checked else 0, id_codigo_consumidor)
             )
-            row = cur.fetchone()
-            if row:
-                cur.execute("UPDATE preoperacional_excepciones SET activo = 1 WHERE id = %s", (row[0],))
-            else:
-                cur.execute(
-                    """
-                    INSERT INTO preoperacional_excepciones (cedula, id_codigo_consumidor, fecha, supervisor, activo, creado_por)
-                    VALUES (%s, %s, %s, %s, 1, %s)
-                    """,
-                    (cedula, id_codigo_consumidor, fecha_obj, session.get('user_name', ''), str(session.get('user_id', '')))
-                )
-        else:
+        elif cedula:
             cur.execute(
-                """
-                UPDATE preoperacional_excepciones 
-                SET activo = 0 
-                WHERE fecha = %s AND (
-                    (cedula = %s AND %s <> '') OR (id_codigo_consumidor = %s AND %s IS NOT NULL)
-                )
-                """,
-                (fecha_obj, cedula, cedula, id_codigo_consumidor, id_codigo_consumidor)
+                "UPDATE recurso_operativo SET excluido_preoperacional = %s WHERE recurso_operativo_cedula = %s",
+                (1 if checked else 0, cedula)
             )
         conn.commit()
         cur.close()
@@ -21691,6 +21669,7 @@ def obtener_indicadores_cumplimiento():
             WHERE a.fecha_asistencia >= %s AND a.fecha_asistencia < DATE_ADD(%s, INTERVAL 1 DAY)
               AND t.valor = '1'
               AND e.id IS NULL
+              AND IFNULL(ro.excluido_preoperacional, 0) = 0
             GROUP BY a.super
         """
         params_asistencia = [fecha_inicio, fecha_fin]
@@ -21706,9 +21685,11 @@ def obtener_indicadores_cumplimiento():
                 AND p.fecha >= e.fecha 
                 AND p.fecha < DATE_ADD(e.fecha, INTERVAL 1 DAY)
                 AND (e.id_codigo_consumidor = p.id_codigo_consumidor)
+            LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = p.id_codigo_consumidor
             WHERE p.fecha >= %s AND p.fecha < DATE_ADD(%s, INTERVAL 1 DAY)
                 AND t.valor = '1'
                 AND e.id IS NULL
+                AND IFNULL(ro.excluido_preoperacional, 0) = 0
             GROUP BY p.supervisor
         """
         params_preoperacional = [fecha_inicio, fecha_fin]
@@ -21947,6 +21928,15 @@ def obtener_detalle_tecnicos():
                     if r.get('cedula'):
                         # Marcar por cédula también
                         excluidos_map[r['cedula']] = True
+            # Excluidos permanentes desde recurso_operativo
+            if ids:
+                placeholders = ','.join(['%s'] * len(ids))
+                cursor.execute(f"SELECT id_codigo_consumidor FROM recurso_operativo WHERE id_codigo_consumidor IN ({placeholders}) AND IFNULL(excluido_preoperacional,0) = 1", tuple(ids))
+                rows_perm = cursor.fetchall() or []
+                for r in rows_perm:
+                    val = r.get('id_codigo_consumidor') if isinstance(r, dict) else r[0]
+                    if val is not None:
+                        excluidos_map[val] = True
         except Exception:
             pass
 
@@ -37442,6 +37432,8 @@ def api_sgis_tsr_save():
                 actividad_asociada VARCHAR(64) NULL,
                 descripcion_tareas TEXT,
                 observaciones TEXT,
+                ot VARCHAR(10) NULL,
+                cuenta VARCHAR(10) NULL,
                 respuesta_1 VARCHAR(4),
                 respuesta_2 VARCHAR(4),
                 respuesta_3 VARCHAR(4),
@@ -37474,9 +37466,61 @@ def api_sgis_tsr_save():
         cur_ddl = connection.cursor()
         cur_ddl.execute(ddl)
         try:
-            connection.commit()
+            # Asegurar columnas ot y cuenta cuando la tabla ya existe
+            cur_chk = connection.cursor()
+            cur_chk.execute("SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'sgis_trabajos_seguridad_rutina'")
+            rows = cur_chk.fetchall()
+            cols = {}
+            for r in rows:
+                try:
+                    cols[r[0]] = (r[1] or '').lower()
+                except Exception:
+                    cols[r[0]] = ''
+            cur_chk.close()
+            if 'ot' not in cols:
+                cur_alter1 = connection.cursor()
+                try:
+                    cur_alter1.execute("ALTER TABLE sgis_trabajos_seguridad_rutina ADD COLUMN ot VARCHAR(10) NULL")
+                    connection.commit()
+                except Exception:
+                    pass
+                finally:
+                    cur_alter1.close()
+            if 'cuenta' not in cols:
+                cur_alter2 = connection.cursor()
+                try:
+                    cur_alter2.execute("ALTER TABLE sgis_trabajos_seguridad_rutina ADD COLUMN cuenta VARCHAR(10) NULL")
+                    connection.commit()
+                except Exception:
+                    pass
+                finally:
+                    cur_alter2.close()
+            for c in ('firma_trabajador','firma_supervisor'):
+                if c not in cols:
+                    cur_alterf_add = connection.cursor()
+                    try:
+                        cur_alterf_add.execute(f"ALTER TABLE sgis_trabajos_seguridad_rutina ADD COLUMN {c} LONGTEXT NULL")
+                        connection.commit()
+                    except Exception:
+                        pass
+                    finally:
+                        cur_alterf_add.close()
+                else:
+                    dt = cols.get(c)
+                    if dt and dt != 'longtext':
+                        cur_alterf_mod = connection.cursor()
+                        try:
+                            cur_alterf_mod.execute(f"ALTER TABLE sgis_trabajos_seguridad_rutina MODIFY COLUMN {c} LONGTEXT NULL")
+                            connection.commit()
+                        except Exception:
+                            pass
+                        finally:
+                            cur_alterf_mod.close()
         except Exception:
-            pass
+            try:
+                connection.rollback()
+            except Exception:
+                pass
         try:
             cur_ddl.close()
         except Exception:
@@ -37558,6 +37602,60 @@ def api_sgis_tsr_save():
                 connection.close()
             except Exception:
                 pass
+
+@app.route('/api/sgis/trabajo-seguridad-rutina/<int:tsr_id>', methods=['GET'])
+@login_required_api()
+def api_sgis_tsr_get(tsr_id: int):
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT 
+                id_sgis_trabajo_seguridad_rutina AS id,
+                id_codigo_consumidor,
+                recurso_operativo_cedula AS cedula,
+                nombre,
+                cargo,
+                ciudad,
+                placa,
+                actividad_asociada,
+                descripcion_tareas,
+                observaciones,
+                ot,
+                cuenta,
+                respuesta_1, respuesta_2, respuesta_3, respuesta_4, respuesta_5, respuesta_6, respuesta_7,
+                respuesta_8, respuesta_9, respuesta_10, respuesta_11, respuesta_12, respuesta_13, respuesta_14,
+                respuesta_15, respuesta_16, respuesta_17,
+                riesgo, peligro, consecuencia, control_propuesto,
+                fecha_registro,
+                fecha_dia
+            FROM sgis_trabajos_seguridad_rutina
+            WHERE id_sgis_trabajo_seguridad_rutina = %s
+            LIMIT 1
+            """,
+            (tsr_id,)
+        )
+        row = cur.fetchone()
+        cur.close(); conn.close()
+        if not row:
+            return jsonify({'success': False, 'error': 'Registro no encontrado'}), 404
+        # Normalizar formato de fechas
+        try:
+            if row.get('fecha_registro'):
+                row['fecha_registro'] = row['fecha_registro'].strftime('%Y-%m-%d %H:%M:%S')
+        except Exception:
+            pass
+        try:
+            if row.get('fecha_dia'):
+                row['fecha_dia'] = row['fecha_dia'].strftime('%Y-%m-%d')
+        except Exception:
+            pass
+        return jsonify({'success': True, 'data': row})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/dev/login', methods=['POST'])
 def dev_login():

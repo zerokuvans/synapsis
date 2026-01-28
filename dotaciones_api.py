@@ -19,6 +19,9 @@ from gestor_stock_con_validacion_estado import GestorStockConValidacionEstado
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Elementos nuevos de dotación solicitados
+NEW_DOTACION_ITEMS = ['arnes', 'eslinga', 'tie_of', 'mosqueton', 'pretales']
+
 # Configuración de base de datos
 DB_CONFIG = {
     'host': 'localhost',
@@ -37,6 +40,50 @@ def get_db_connection():
     except mysql.connector.Error as e:
         logger.error(f"Error conectando a la base de datos: {e}")
         return None
+
+def ensure_new_item_columns():
+    """Asegurar columnas para nuevos elementos en tablas dotaciones y cambios_dotacion"""
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return
+        cur = conn.cursor(dictionary=True)
+        for table in ['dotaciones', 'cambios_dotacion']:
+            for item in NEW_DOTACION_ITEMS:
+                # Columna de cantidad
+                try:
+                    cur.execute(f"SHOW COLUMNS FROM {table} LIKE %s", (item,))
+                    exists_item = cur.fetchone() is not None
+                except Exception:
+                    exists_item = False
+                if not exists_item:
+                    try:
+                        cur.execute(f"ALTER TABLE {table} ADD COLUMN {item} INT NULL")
+                        conn.commit()
+                        logger.info(f"Columna añadida: {table}.{item}")
+                    except Exception as e:
+                        logger.warning(f"No se pudo añadir columna {table}.{item}: {e}")
+                # Columna de estado
+                estado_col = f"estado_{item}"
+                try:
+                    cur.execute(f"SHOW COLUMNS FROM {table} LIKE %s", (estado_col,))
+                    exists_estado = cur.fetchone() is not None
+                except Exception:
+                    exists_estado = False
+                if not exists_estado:
+                    try:
+                        cur.execute(f"ALTER TABLE {table} ADD COLUMN {estado_col} VARCHAR(32) NULL")
+                        conn.commit()
+                        logger.info(f"Columna añadida: {table}.{estado_col}")
+                    except Exception as e:
+                        logger.warning(f"No se pudo añadir columna {table}.{estado_col}: {e}")
+        cur.close(); conn.close()
+    except Exception as e:
+        logger.error(f"Error asegurando columnas de nuevos elementos: {e}")
+        try:
+            conn.rollback()
+        except Exception:
+            pass
 
 def registrar_rutas_dotaciones(app):
     """Registrar todas las rutas del módulo de dotaciones"""
@@ -80,7 +127,7 @@ def registrar_rutas_dotaciones(app):
                 DATE_FORMAT(d.fecha_registro, '%Y-%m-%d %H:%i:%s') as fecha_registro
             FROM dotaciones d
             LEFT JOIN recurso_operativo ro ON d.id_codigo_consumidor = ro.id_codigo_consumidor
-            ORDER BY d.id_dotacion DESC
+            ORDER BY COALESCE(d.fecha_actualizacion, d.fecha_registro) DESC
             """
             
             cursor.execute(query)
@@ -91,7 +138,7 @@ def registrar_rutas_dotaciones(app):
                 campos_numericos = [
                     'pantalon', 'camisetagris', 'guerrera', 'camisetapolo',
                     'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'
-                ]
+                ] + NEW_DOTACION_ITEMS
                 for campo in campos_numericos:
                     if dotacion.get(campo) is None:
                         dotacion[campo] = 0
@@ -142,7 +189,7 @@ def registrar_rutas_dotaciones(app):
             campos_numericos = [
                 'pantalon', 'camisetagris', 'guerrera', 'camisetapolo',
                 'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'
-            ]
+            ] + NEW_DOTACION_ITEMS
             for campo in campos_numericos:
                 if dotacion.get(campo) is None:
                     dotacion[campo] = 0
@@ -236,7 +283,19 @@ def registrar_rutas_dotaciones(app):
                 
                 'botas_cantidad': dotacion.get('botas') or 0,
                 'botas_talla': dotacion.get('botas_talla'),
-                'botas_valorado': 1 if dotacion.get('estado_botas') == 'VALORADO' else 0
+                'botas_valorado': 1 if dotacion.get('estado_botas') == 'VALORADO' else 0,
+                
+                # Nuevos elementos EPP
+                'arnes_cantidad': dotacion.get('arnes') or 0,
+                'arnes_valorado': 1 if dotacion.get('estado_arnes') == 'VALORADO' else 0,
+                'eslinga_cantidad': dotacion.get('eslinga') or 0,
+                'eslinga_valorado': 1 if dotacion.get('estado_eslinga') == 'VALORADO' else 0,
+                'tie_of_cantidad': dotacion.get('tie_of') or 0,
+                'tie_of_valorado': 1 if dotacion.get('estado_tie_of') == 'VALORADO' else 0,
+                'mosqueton_cantidad': dotacion.get('mosqueton') or 0,
+                'mosqueton_valorado': 1 if dotacion.get('estado_mosqueton') == 'VALORADO' else 0,
+                'pretales_cantidad': dotacion.get('pretales') or 0,
+                'pretales_valorado': 1 if dotacion.get('estado_pretales') == 'VALORADO' else 0
             }
             
             return jsonify({
@@ -262,7 +321,22 @@ def registrar_rutas_dotaciones(app):
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
         
         try:
-            data = request.get_json()
+            pass
+            raw = ''
+            try:
+                raw = request.get_data(cache=False, as_text=True)
+                logger.info(f"RAW_BODY crear_dotacion: {raw}")
+            except Exception as e:
+                logger.warning(f"No se pudo leer RAW_BODY: {e}")
+            data = request.get_json(force=True, silent=True) or {}
+            if not data and raw:
+                try:
+                    data = json.loads(raw)
+                except Exception:
+                    try:
+                        data = request.form.to_dict() or {}
+                    except Exception:
+                        data = {}
             
             # DEBUG: Log de los datos recibidos
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -280,7 +354,7 @@ def registrar_rutas_dotaciones(app):
             # Preparar items con estados para validación
             items_con_estado = {}
             elementos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 
-                        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas']
+                        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'] + NEW_DOTACION_ITEMS
             
             for elemento in elementos:
                 cantidad = data.get(elemento, 0)
@@ -341,56 +415,107 @@ def registrar_rutas_dotaciones(app):
             cursor = connection.cursor()
             
             # Preparar query de inserción
-            query = """
-            INSERT INTO dotaciones (
-                cliente, id_codigo_consumidor, pantalon, pantalon_talla,
-                camisetagris, camiseta_gris_talla, guerrera, guerrera_talla,
-                chaqueta, chaqueta_talla, camisetapolo, camiseta_polo_talla, 
-                guantes_nitrilo, guantes_carnaza, gafas, gorra, casco, botas, botas_talla,
-                estado_pantalon, estado_camisetagris, estado_guerrera, estado_chaqueta,
-                estado_camiseta_polo, estado_guantes_nitrilo, estado_guantes_carnaza, 
-                estado_gafas, estado_gorra, estado_casco, estado_botas, fecha_registro
-            ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW()
-            )
-            """
-            
-            valores = (
-                data.get('cliente'),
-                data.get('id_codigo_consumidor'),
-                data.get('pantalon'),
-                data.get('pantalon_talla'),
-                data.get('camisetagris'),
-                data.get('camiseta_gris_talla'),
-                data.get('guerrera'),
-                data.get('guerrera_talla'),
-                data.get('chaqueta'),
-                data.get('chaqueta_talla'),
-                data.get('camisetapolo'),
-                data.get('camiseta_polo_talla'),
-                data.get('guantes_nitrilo'),
-                data.get('guantes_carnaza'),
-                data.get('gafas'),
-                data.get('gorra'),
-                data.get('casco'),
-                data.get('botas'),
-                data.get('botas_talla'),
-                # Estados de valoración - convertir de _valorado a texto
-                'VALORADO' if data.get('pantalon_valorado') else 'NO VALORADO',
-                'VALORADO' if data.get('camiseta_gris_valorado') else 'NO VALORADO',
-                'VALORADO' if data.get('guerrera_valorado') else 'NO VALORADO',
-                'VALORADO' if data.get('chaqueta_valorado') else 'NO VALORADO',
-                'VALORADO' if data.get('camisetapolo_valorado') else 'NO VALORADO',
-                'VALORADO' if data.get('guantes_nitrilo_valorado') else 'NO VALORADO',
-                'VALORADO' if data.get('guantes_carnaza_valorado') else 'NO VALORADO',
-                'VALORADO' if data.get('gafas_valorado') else 'NO VALORADO',
-                'VALORADO' if data.get('gorra_valorado') else 'NO VALORADO',
-                'VALORADO' if data.get('casco_valorado') else 'NO VALORADO',
-                'VALORADO' if data.get('botas_valorado') else 'NO VALORADO'
-            )
-            
-            cursor.execute(query, valores)
+            query_base_cols = [
+                'cliente', 'id_codigo_consumidor', 'pantalon', 'pantalon_talla',
+                'camisetagris', 'camiseta_gris_talla', 'guerrera', 'guerrera_talla',
+                'chaqueta', 'chaqueta_talla', 'camisetapolo', 'camiseta_polo_talla',
+                'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas', 'botas_talla',
+                'arnes', 'eslinga', 'tie_of', 'mosqueton', 'pretales',
+                'estado_pantalon', 'estado_camisetagris', 'estado_guerrera', 'estado_chaqueta',
+                'estado_camiseta_polo', 'estado_guantes_nitrilo', 'estado_guantes_carnaza',
+                'estado_gafas', 'estado_gorra', 'estado_casco', 'estado_botas',
+                'estado_arnes', 'estado_eslinga', 'estado_tie_of', 'estado_mosqueton', 'estado_pretales'
+            ]
+            existing_cols = []
+            try:
+                tmp_cur = connection.cursor()
+                tmp_cur.execute('DESCRIBE dotaciones')
+                existing_cols = [row[0] if not isinstance(row, dict) else row.get('Field') for row in tmp_cur.fetchall()]
+                tmp_cur.close()
+            except Exception:
+                existing_cols = query_base_cols
+            insert_cols = [c for c in query_base_cols if c in existing_cols]
+            placeholders_named = ', '.join([f"%({c})s" for c in insert_cols])
+            cols_sql = ', '.join(insert_cols)
+            query = f"INSERT INTO dotaciones ({cols_sql}, fecha_registro) VALUES ({placeholders_named}, NOW())"
+            try:
+                logger.info(f"INSERT_COLS_crear_dotacion: {insert_cols}")
+                logger.info(f"PLACEHOLDER_COUNT_crear_dotacion: {len(insert_cols)}")
+                logger.info(f"QUERY_crear_dotacion: {query}")
+            except Exception:
+                pass
+
+            def _norm_int(val):
+                if val is None:
+                    return None
+                if isinstance(val, bool):
+                    return int(val)
+                if isinstance(val, (int, float)):
+                    return int(val)
+                s = str(val).strip()
+                if s == '':
+                    return None
+                try:
+                    return int(float(s))
+                except Exception:
+                    return None
+
+            params = {
+                'cliente': data.get('cliente'),
+                'id_codigo_consumidor': _norm_int(data.get('id_codigo_consumidor')),
+                'pantalon': _norm_int(data.get('pantalon')),
+                'pantalon_talla': _norm_int(data.get('pantalon_talla')),
+                'camisetagris': _norm_int(data.get('camisetagris')),
+                'camiseta_gris_talla': data.get('camiseta_gris_talla'),
+                'guerrera': _norm_int(data.get('guerrera')),
+                'guerrera_talla': data.get('guerrera_talla'),
+                'chaqueta': _norm_int(data.get('chaqueta')),
+                'chaqueta_talla': data.get('chaqueta_talla'),
+                'camisetapolo': _norm_int(data.get('camisetapolo')),
+                'camiseta_polo_talla': data.get('camiseta_polo_talla'),
+                'guantes_nitrilo': _norm_int(data.get('guantes_nitrilo')),
+                'guantes_carnaza': _norm_int(data.get('guantes_carnaza')),
+                'gafas': _norm_int(data.get('gafas')),
+                'gorra': _norm_int(data.get('gorra')),
+                'casco': _norm_int(data.get('casco')),
+                'botas': _norm_int(data.get('botas')),
+                'botas_talla': _norm_int(data.get('botas_talla')),
+                'arnes': _norm_int(data.get('arnes')),
+                'eslinga': _norm_int(data.get('eslinga')),
+                'tie_of': _norm_int(data.get('tie_of')),
+                'mosqueton': _norm_int(data.get('mosqueton')),
+                'pretales': _norm_int(data.get('pretales')),
+                'estado_pantalon': 'VALORADO' if data.get('pantalon_valorado') else 'NO VALORADO',
+                'estado_camisetagris': 'VALORADO' if data.get('camiseta_gris_valorado') else 'NO VALORADO',
+                'estado_guerrera': 'VALORADO' if data.get('guerrera_valorado') else 'NO VALORADO',
+                'estado_chaqueta': 'VALORADO' if data.get('chaqueta_valorado') else 'NO VALORADO',
+                'estado_camiseta_polo': 'VALORADO' if data.get('camisetapolo_valorado') else 'NO VALORADO',
+                'estado_guantes_nitrilo': 'VALORADO' if data.get('guantes_nitrilo_valorado') else 'NO VALORADO',
+                'estado_guantes_carnaza': 'VALORADO' if data.get('guantes_carnaza_valorado') else 'NO VALORADO',
+                'estado_gafas': 'VALORADO' if data.get('gafas_valorado') else 'NO VALORADO',
+                'estado_gorra': 'VALORADO' if data.get('gorra_valorado') else 'NO VALORADO',
+                'estado_casco': 'VALORADO' if data.get('casco_valorado') else 'NO VALORADO',
+                'estado_botas': 'VALORADO' if data.get('botas_valorado') else 'NO VALORADO',
+                'estado_arnes': 'VALORADO' if data.get('arnes_valorado') else 'NO VALORADO',
+                'estado_eslinga': 'VALORADO' if data.get('eslinga_valorado') else 'NO VALORADO',
+                'estado_tie_of': 'VALORADO' if data.get('tie_of_valorado') else 'NO VALORADO',
+                'estado_mosqueton': 'VALORADO' if data.get('mosqueton_valorado') else 'NO VALORADO',
+                'estado_pretales': 'VALORADO' if data.get('pretales_valorado') else 'NO VALORADO'
+            }
+
+            execute_params = {k: params.get(k) for k in insert_cols}
+            try:
+                logger.info(f"VALUES_LEN_crear_dotacion: {len(execute_params)}")
+                logger.info(f"VALUES_TYPES_crear_dotacion: {[type(execute_params[k]).__name__ for k in insert_cols]}")
+            except Exception:
+                pass
+            try:
+                print("QUERY:", query)
+                print("PARAM_KEYS:", insert_cols)
+                print("PARAMS_SAMPLE:", {k: execute_params[k] for k in insert_cols[:5]})
+            except Exception:
+                pass
+            cursor.execute(query, execute_params)
             id_dotacion = cursor.lastrowid
             
             # Procesar stock con validación por estado después de crear la dotación
@@ -428,7 +553,7 @@ def registrar_rutas_dotaciones(app):
             logger.error(f"Error creando dotación: {e}")
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
         except Exception as e:
-            logger.error(f"Error inesperado: {e}")
+            logger.exception(f"Error inesperado en crear_dotacion: {e}")
             return jsonify({'success': False, 'message': f'Error interno: {e}'}), 500
         finally:
             if connection:
@@ -442,7 +567,14 @@ def registrar_rutas_dotaciones(app):
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
         
         try:
-            data = request.get_json()
+            # Asegurar columnas de nuevos elementos
+            ensure_new_item_columns()
+            try:
+                raw = request.get_data(cache=False, as_text=True)
+                logger.info(f"RAW_BODY crear_cambio_dotacion: {raw}")
+            except Exception as e:
+                logger.warning(f"No se pudo leer RAW_BODY cambio: {e}")
+            data = request.get_json(silent=True) or {}
             
             # Validaciones básicas
             id_codigo_consumidor = data.get('id_codigo_consumidor')
@@ -512,6 +644,31 @@ def registrar_rutas_dotaciones(app):
                     'cantidad': data.get('botas'),
                     'talla': data.get('botas_talla'),
                     'valorado': data.get('botas_valorado', False)
+                },
+                'arnes': {
+                    'cantidad': data.get('arnes'),
+                    'talla': None,
+                    'valorado': data.get('arnes_valorado', False)
+                },
+                'eslinga': {
+                    'cantidad': data.get('eslinga'),
+                    'talla': None,
+                    'valorado': data.get('eslinga_valorado', False)
+                },
+                'tie_of': {
+                    'cantidad': data.get('tie_of'),
+                    'talla': None,
+                    'valorado': data.get('tie_of_valorado', False)
+                },
+                'mosqueton': {
+                    'cantidad': data.get('mosqueton'),
+                    'talla': None,
+                    'valorado': data.get('mosqueton_valorado', False)
+                },
+                'pretales': {
+                    'cantidad': data.get('pretales'),
+                    'talla': None,
+                    'valorado': data.get('pretales_valorado', False)
                 }
             }
             
@@ -562,12 +719,19 @@ def registrar_rutas_dotaciones(app):
                                     WHEN %s = 'gorra' AND estado_gorra = %s THEN gorra
                                     WHEN %s = 'casco' AND estado_casco = %s THEN casco
                                     WHEN %s = 'botas' AND estado_botas = %s THEN botas
+                                    WHEN %s = 'arnes' AND estado_arnes = %s THEN arnes
+                                    WHEN %s = 'eslinga' AND estado_eslinga = %s THEN eslinga
+                                    WHEN %s = 'tie_of' AND estado_tie_of = %s THEN tie_of
+                                    WHEN %s = 'mosqueton' AND estado_mosqueton = %s THEN mosqueton
+                                    WHEN %s = 'pretales' AND estado_pretales = %s THEN pretales
                                     ELSE 0
                                 END
                             ), 0) as total_salidas
                             FROM cambios_dotacion
                         """, (elemento, tipo_estado, elemento, tipo_estado, elemento, tipo_estado, 
                               elemento, tipo_estado, elemento, tipo_estado, elemento, tipo_estado,
+                              elemento, tipo_estado, elemento, tipo_estado, elemento, tipo_estado,
+                              elemento, tipo_estado, elemento, tipo_estado,
                               elemento, tipo_estado, elemento, tipo_estado, elemento, tipo_estado,
                               elemento, tipo_estado, elemento, tipo_estado))
                         
@@ -637,9 +801,13 @@ def registrar_rutas_dotaciones(app):
                     camisetagris, camiseta_gris_talla, estado_camiseta_gris, guerrera, guerrera_talla, estado_guerrera,
                     camisetapolo, camiseta_polo_talla, estado_camiseta_polo, 
                     guantes_nitrilo, estado_guantes_nitrilo, guantes_carnaza, estado_guantes_carnaza, 
-                    gafas, estado_gafas, gorra, estado_gorra, casco, estado_casco, botas, botas_talla, estado_botas, observaciones
+                    gafas, estado_gafas, gorra, estado_gorra, casco, estado_casco, botas, botas_talla, estado_botas,
+                    arnes, estado_arnes, eslinga, estado_eslinga, tie_of, estado_tie_of, mosqueton, estado_mosqueton, pretales, estado_pretales,
+                    observaciones
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s
                 )
             """
             
@@ -669,6 +837,11 @@ def registrar_rutas_dotaciones(app):
                 'VALORADO' if elementos_dotacion['casco']['valorado'] else 'NO VALORADO',
                 elementos_dotacion['botas']['cantidad'], procesar_talla(elementos_dotacion['botas']['talla']),
                 'VALORADO' if elementos_dotacion['botas']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['arnes']['cantidad'], 'VALORADO' if elementos_dotacion['arnes']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['eslinga']['cantidad'], 'VALORADO' if elementos_dotacion['eslinga']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['tie_of']['cantidad'], 'VALORADO' if elementos_dotacion['tie_of']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['mosqueton']['cantidad'], 'VALORADO' if elementos_dotacion['mosqueton']['valorado'] else 'NO VALORADO',
+                elementos_dotacion['pretales']['cantidad'], 'VALORADO' if elementos_dotacion['pretales']['valorado'] else 'NO VALORADO',
                 data.get('observaciones', '')
             ))
             
@@ -715,7 +888,7 @@ def registrar_rutas_dotaciones(app):
             logger.error(f"Error creando cambio de dotación: {e}")
             return jsonify({'success': False, 'message': f'Error de base de datos: {e}'}), 500
         except Exception as e:
-            logger.error(f"Error inesperado: {e}")
+            logger.exception(f"Error inesperado en crear_cambio_dotacion: {e}")
             return jsonify({'success': False, 'message': f'Error interno: {e}'}), 500
         finally:
             if connection:
@@ -729,11 +902,13 @@ def registrar_rutas_dotaciones(app):
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
         
         try:
+            # Asegurar columnas de nuevos elementos
+            ensure_new_item_columns()
             cursor = connection.cursor(dictionary=True)
             
             # Lista de elementos de dotación
             elementos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 
-                        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas', 'chaqueta']
+                        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas', 'chaqueta'] + NEW_DOTACION_ITEMS
             
             stock_por_estado = {}
             
@@ -750,7 +925,12 @@ def registrar_rutas_dotaciones(app):
                 'gorra': 'estado_gorra',
                 'casco': 'estado_casco',
                 'botas': 'estado_botas',
-                'chaqueta': 'estado_chaqueta'
+                'chaqueta': 'estado_chaqueta',
+                'arnes': 'estado_arnes',
+                'eslinga': 'estado_eslinga',
+                'tie_of': 'estado_tie_of',
+                'mosqueton': 'estado_mosqueton',
+                'pretales': 'estado_pretales'
             }
             
             estado_columns_cambios = {
@@ -764,7 +944,12 @@ def registrar_rutas_dotaciones(app):
                 'gorra': 'estado_gorra',
                 'casco': 'estado_casco',
                 'botas': 'estado_botas',
-                'chaqueta': 'estado_chaqueta'
+                'chaqueta': 'estado_chaqueta',
+                'arnes': 'estado_arnes',
+                'eslinga': 'estado_eslinga',
+                'tie_of': 'estado_tie_of',
+                'mosqueton': 'estado_mosqueton',
+                'pretales': 'estado_pretales'
             }
             
             for elemento in elementos:
@@ -852,7 +1037,7 @@ def registrar_rutas_dotaciones(app):
             
             # Calcular diferencias para gestión de stock
             elementos_stock = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'chaqueta', 
-                             'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas']
+                             'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'] + NEW_DOTACION_ITEMS
             
             cambios_stock = {}
             items_con_estado = {}
@@ -927,6 +1112,11 @@ def registrar_rutas_dotaciones(app):
                 casco = %s,
                 botas = %s,
                 botas_talla = %s,
+                arnes = %s,
+                eslinga = %s,
+                tie_of = %s,
+                mosqueton = %s,
+                pretales = %s,
                 estado_pantalon = %s,
                 estado_camisetagris = %s,
                 estado_guerrera = %s,
@@ -938,6 +1128,11 @@ def registrar_rutas_dotaciones(app):
                 estado_gorra = %s,
                 estado_casco = %s,
                 estado_botas = %s,
+                estado_arnes = %s,
+                estado_eslinga = %s,
+                estado_tie_of = %s,
+                estado_mosqueton = %s,
+                estado_pretales = %s,
                 fecha_actualizacion = NOW()
             WHERE id_dotacion = %s
             """
@@ -962,6 +1157,11 @@ def registrar_rutas_dotaciones(app):
                 data.get('casco'),
                 data.get('botas'),
                 data.get('botas_talla'),
+                data.get('arnes'),
+                data.get('eslinga'),
+                data.get('tie_of'),
+                data.get('mosqueton'),
+                data.get('pretales'),
                 # Estados de valoración - respetar exactamente lo que envía el frontend
                 data.get('estado_pantalon'),
                 data.get('estado_camisetagris'),
@@ -974,6 +1174,11 @@ def registrar_rutas_dotaciones(app):
                 data.get('estado_gorra'),
                 data.get('estado_casco'),
                 data.get('estado_botas'),
+                'VALORADO' if data.get('arnes_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('eslinga_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('tie_of_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('mosqueton_valorado') else 'NO VALORADO',
+                'VALORADO' if data.get('pretales_valorado') else 'NO VALORADO',
                 id_dotacion
             )
             
@@ -1428,11 +1633,13 @@ def registrar_rutas_dotaciones(app):
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
         
         try:
+            # Asegurar columnas de nuevos elementos
+            ensure_new_item_columns()
             cursor = connection.cursor(dictionary=True)
             
             # Calcular stock para cada elemento de dotación
             elementos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo',
-                        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas', 'chaqueta']
+                        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas', 'chaqueta'] + NEW_DOTACION_ITEMS
             
             stock_data = []
             

@@ -5980,12 +5980,13 @@ def api_riesgo_motos():
             round((min_lon or 0), 2),
             round((max_lat or 0), 2),
             round((max_lon or 0), 2),
-            int(months or 12)
+            int(months or 12),
+            vehicle_in or ''
         )
         now = time.time()
         if key in RISK_CACHE and (now - RISK_CACHE[key]['ts'] < RISK_CACHE_TTL):
             pts = RISK_CACHE[key]['points']
-            return jsonify({'success': True, 'points': pts, 'count': len(pts), 'cached': True})
+            return jsonify({'success': True, 'points': pts, 'count': len(pts), 'cached': True, 'vehicle': vehicle_in, 'months': int(months or 12), 'bbox': [min_lat, min_lon, max_lat, max_lon], 'source': 'cache'})
 
         puntos = []
 
@@ -6035,11 +6036,57 @@ def api_riesgo_motos():
                 cur.close()
                 conn.close()
                 RISK_CACHE[key] = { 'points': puntos, 'ts': now }
-                return jsonify({'success': True, 'points': puntos, 'count': len(puntos), 'cached': False, 'source': 'db'})
+                return jsonify({'success': True, 'points': puntos, 'count': len(puntos), 'cached': False, 'vehicle': vehicle_in, 'months': int(months or 12), 'bbox': [min_lat, min_lon, max_lat, max_lon], 'source': 'db'})
         except Exception:
             return jsonify({'success': False, 'message': 'Error consultando BD'})
         RISK_CACHE[key] = { 'points': [], 'ts': now }
-        return jsonify({'success': True, 'points': [], 'count': 0, 'cached': False, 'source': 'db'})
+        return jsonify({'success': True, 'points': [], 'count': 0, 'cached': False, 'vehicle': vehicle_in, 'months': int(months or 12), 'bbox': [min_lat, min_lon, max_lat, max_lon], 'source': 'db'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/mpa/rutas/riesgo-debug', methods=['GET'])
+@login_required
+def api_riesgo_debug():
+    if not (current_user.has_role('administrativo') or current_user.has_role('operativo') or current_user.has_role('logistica')):
+        return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+    try:
+        min_lat = request.args.get('min_lat', type=float)
+        min_lon = request.args.get('min_lon', type=float)
+        max_lat = request.args.get('max_lat', type=float)
+        max_lon = request.args.get('max_lon', type=float)
+        months = request.args.get('months', default=12, type=int)
+        vehicle_in = (request.args.get('vehicle') or '').strip().lower()
+        limit = request.args.get('limit', default=100, type=int)
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'BD no disponible'}), 500
+        cur = conn.cursor()
+        where_parts = []
+        params = []
+        if all(v is not None for v in [min_lat, min_lon, max_lat, max_lon]):
+            where_parts.append("lat BETWEEN %s AND %s")
+            where_parts.append("lon BETWEEN %s AND %s")
+            params.extend([min_lat, max_lat, min_lon, max_lon])
+        if months and months > 0:
+            where_parts.append("fecha >= DATE_SUB(CURDATE(), INTERVAL %s MONTH)")
+            params.append(months)
+        if vehicle_in and vehicle_in not in ('todos','all'):
+            where_parts.append("LOWER(tipo_vehiculo) = %s")
+            params.append(vehicle_in)
+        sql_base = "FROM mpa_riesgo_accidentes"
+        sql_where = (" WHERE " + " AND ".join(where_parts)) if where_parts else ""
+        sql_count = "SELECT COUNT(*) " + sql_base + sql_where
+        cur.execute(sql_count, params)
+        row = cur.fetchone()
+        total = int(row[0]) if row else 0
+        sql_sample = "SELECT lat, lon " + sql_base + sql_where + " LIMIT %s"
+        cur.execute(sql_sample, params + [max(1, min(1000, limit))])
+        puntos = []
+        for lat, lon in cur.fetchall():
+            if -90 <= lat <= 90 and -180 <= lon <= 180:
+                puntos.append([lat, lon])
+        cur.close(); conn.close()
+        return jsonify({'success': True, 'count_total': total, 'count_sample': len(puntos), 'points': puntos, 'vehicle': vehicle_in, 'months': int(months or 12), 'bbox': [min_lat, min_lon, max_lat, max_lon]})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
@@ -9146,6 +9193,45 @@ def api_inspecciones_firma_trabajador(inspeccion_id):
         if connection is None:
             return jsonify({'error': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor()
+        try:
+            cur_chk = connection.cursor(dictionary=True)
+            cur_chk.execute("SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mpa_inspeccion_vehiculo'")
+            rows = cur_chk.fetchall() or []
+            col_types = {}
+            for row in rows:
+                try:
+                    cn = row.get('COLUMN_NAME') or row.get('column_name') or row[0]
+                    dt = (row.get('DATA_TYPE') or row.get('data_type') or row[1] or '').lower()
+                    col_types[cn] = dt
+                except Exception:
+                    pass
+            cur_chk.close()
+            for c in ('firma_trabajador','firma_inspector'):
+                if c not in col_types:
+                    cur_alter_add = connection.cursor()
+                    try:
+                        cur_alter_add.execute(f"ALTER TABLE mpa_inspeccion_vehiculo ADD COLUMN {c} LONGTEXT NULL")
+                        connection.commit()
+                    except Exception:
+                        pass
+                    finally:
+                        cur_alter_add.close()
+                else:
+                    dt = col_types.get(c)
+                    if dt and dt != 'longtext':
+                        cur_alter_mod = connection.cursor()
+                        try:
+                            cur_alter_mod.execute(f"ALTER TABLE mpa_inspeccion_vehiculo MODIFY COLUMN {c} LONGTEXT NULL")
+                            connection.commit()
+                        except Exception:
+                            pass
+                        finally:
+                            cur_alter_mod.close()
+        except Exception:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
         cursor.execute("UPDATE mpa_inspeccion_vehiculo SET firma_trabajador=%s, firma_trabajador_fecha=NOW() WHERE id_mpa_inspeccion_vehiculo=%s", (firma, inspeccion_id))
         connection.commit()
         return jsonify({'success': True})
@@ -9176,6 +9262,45 @@ def api_inspecciones_firma_inspector(inspeccion_id):
         if connection is None:
             return jsonify({'error': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor()
+        try:
+            cur_chk = connection.cursor(dictionary=True)
+            cur_chk.execute("SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'mpa_inspeccion_vehiculo'")
+            rows = cur_chk.fetchall() or []
+            col_types = {}
+            for row in rows:
+                try:
+                    cn = row.get('COLUMN_NAME') or row.get('column_name') or row[0]
+                    dt = (row.get('DATA_TYPE') or row.get('data_type') or row[1] or '').lower()
+                    col_types[cn] = dt
+                except Exception:
+                    pass
+            cur_chk.close()
+            for c in ('firma_trabajador','firma_inspector'):
+                if c not in col_types:
+                    cur_alter_add = connection.cursor()
+                    try:
+                        cur_alter_add.execute(f"ALTER TABLE mpa_inspeccion_vehiculo ADD COLUMN {c} LONGTEXT NULL")
+                        connection.commit()
+                    except Exception:
+                        pass
+                    finally:
+                        cur_alter_add.close()
+                else:
+                    dt = col_types.get(c)
+                    if dt and dt != 'longtext':
+                        cur_alter_mod = connection.cursor()
+                        try:
+                            cur_alter_mod.execute(f"ALTER TABLE mpa_inspeccion_vehiculo MODIFY COLUMN {c} LONGTEXT NULL")
+                            connection.commit()
+                        except Exception:
+                            pass
+                        finally:
+                            cur_alter_mod.close()
+        except Exception:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
         cursor.execute("UPDATE mpa_inspeccion_vehiculo SET firma_inspector=%s, firma_inspector_fecha=NOW() WHERE id_mpa_inspeccion_vehiculo=%s", (firma, inspeccion_id))
         connection.commit()
         return jsonify({'success': True})

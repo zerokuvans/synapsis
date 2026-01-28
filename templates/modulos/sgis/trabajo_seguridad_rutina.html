@@ -307,7 +307,15 @@ function resetFormularioTSR(){
 }
 function enviarTSR(){
   const c = document.getElementById('firmaCanvasTSR');
-  const firma = c.toDataURL('image/png');
+  const rect = c.getBoundingClientRect();
+  const off = document.createElement('canvas');
+  off.width = Math.max(600, Math.floor(rect.width));
+  off.height = Math.max(200, Math.floor(rect.height));
+  const octx = off.getContext('2d');
+  octx.fillStyle = '#fff';
+  octx.fillRect(0, 0, off.width, off.height);
+  octx.drawImage(c, 0, 0, off.width, off.height);
+  const firma = off.toDataURL('image/jpeg', 0.7);
   const payload = construirPayload();
   if(!validar(payload)) return;
   payload.firma_base64 = firma;

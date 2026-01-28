@@ -659,13 +659,27 @@ async function guardarInspeccion(){
 function initFirmaCanvas(){
   const canvas = document.getElementById('firmaCanvas')
   const ctx = canvas.getContext('2d')
-  ctx.strokeStyle = '#000'
-  ctx.lineWidth = 2
+
+  function resizeCanvas(){
+    const rect = canvas.getBoundingClientRect()
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr))
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr))
+    ctx.setTransform(1,0,0,1,0,0)
+    ctx.scale(dpr, dpr)
+    ctx.strokeStyle = '#000'
+    ctx.lineWidth = 2
+  }
+
+  resizeCanvas()
+
   let drawing = false
   let last = null
   const pos = (e) => {
     const rect = canvas.getBoundingClientRect()
-    return { x: (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left, y: (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top }
+    const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left
+    const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top
+    return { x, y }
   }
   const start = (e) => { drawing = true; last = pos(e) }
   const move = (e) => { if (!drawing) return; const p = pos(e); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p }
@@ -674,16 +688,30 @@ function initFirmaCanvas(){
   canvas.addEventListener('mousemove', move)
   canvas.addEventListener('mouseup', end)
   canvas.addEventListener('mouseleave', end)
-  canvas.addEventListener('touchstart', (e) => { e.preventDefault(); start(e) }, false)
-  canvas.addEventListener('touchmove', (e) => { e.preventDefault(); move(e) }, false)
-  canvas.addEventListener('touchend', (e) => { e.preventDefault(); end() }, false)
+  canvas.addEventListener('touchstart', (e) => { e.preventDefault(); start(e) }, { passive: false })
+  canvas.addEventListener('touchmove', (e) => { e.preventDefault(); move(e) }, { passive: false })
+  canvas.addEventListener('touchend', (e) => { e.preventDefault(); end() }, { passive: false })
   document.getElementById('btnLimpiarFirma').addEventListener('click', () => { ctx.clearRect(0,0,canvas.width,canvas.height) })
+
+  // Redimensionar al mostrar el modal y en cambios de tamaño/orientación
+  const modalEl = document.getElementById('modalFirma')
+  modalEl.addEventListener('shown.bs.modal', () => { resizeCanvas(); ctx.clearRect(0,0,canvas.width,canvas.height) })
+  window.addEventListener('resize', resizeCanvas)
+  window.addEventListener('orientationchange', resizeCanvas)
 }
 
 async function guardarFirma(){
   if (!firmaTarget.id || !firmaTarget.tipo) return
   const canvas = document.getElementById('firmaCanvas')
-  const dataUrl = canvas.toDataURL('image/png')
+  const rect = canvas.getBoundingClientRect();
+  const off = document.createElement('canvas');
+  off.width = Math.max(600, Math.floor(rect.width));
+  off.height = Math.max(200, Math.floor(rect.height));
+  const octx = off.getContext('2d');
+  octx.fillStyle = '#fff';
+  octx.fillRect(0, 0, off.width, off.height);
+  octx.drawImage(canvas, 0, 0, off.width, off.height);
+  const dataUrl = off.toDataURL('image/jpeg', 0.7)
   let endpoint = 'firma-trabajador'
   if (firmaTarget.tipo !== 'trabajador') endpoint = 'firma-inspector'
   const urlFirma = `/api/mpa/inspecciones/${firmaTarget.id}/${endpoint}`

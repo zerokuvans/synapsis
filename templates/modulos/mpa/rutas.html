@@ -296,7 +296,7 @@ async function toggleRiesgo() {
         }
       );
       heatLayer.addTo(map);
-      status.textContent = `Zonas de riesgo cargadas: ${d.count}`;
+      status.textContent = `Zonas de riesgo: ${d.count} • vehículo: ${d.vehicle || 'todos'} • meses: ${d.months} • fuente: ${d.source || ''}${d.cached ? ' • cache' : ''}`;
     } else {
       status.textContent = d.message || 'No se encontraron puntos de riesgo en el área.';
     }

@@ -244,6 +244,126 @@ SELECT
         SELECT COALESCE(SUM(casco), 0) 
         FROM dotaciones 
         WHERE casco IS NOT NULL AND casco > 0
+    ) AS saldo_disponible
+
+UNION ALL
+
+SELECT 
+    'arnes' AS tipo_elemento,
+    (
+        SELECT COALESCE(SUM(cantidad), 0) 
+        FROM ingresos_dotaciones 
+        WHERE tipo_elemento = 'arnes'
+    ) AS cantidad_ingresada,
+    (
+        SELECT COALESCE(SUM(arnes), 0) 
+        FROM dotaciones 
+        WHERE arnes IS NOT NULL AND arnes > 0
+    ) AS cantidad_entregada,
+    (
+        SELECT COALESCE(SUM(cantidad), 0) 
+        FROM ingresos_dotaciones 
+        WHERE tipo_elemento = 'arnes'
+    ) - (
+        SELECT COALESCE(SUM(arnes), 0) 
+        FROM dotaciones 
+        WHERE arnes IS NOT NULL AND arnes > 0
+    ) AS saldo_disponible
+
+UNION ALL
+
+SELECT 
+    'eslinga' AS tipo_elemento,
+    (
+        SELECT COALESCE(SUM(cantidad), 0) 
+        FROM ingresos_dotaciones 
+        WHERE tipo_elemento = 'eslinga'
+    ) AS cantidad_ingresada,
+    (
+        SELECT COALESCE(SUM(eslinga), 0) 
+        FROM dotaciones 
+        WHERE eslinga IS NOT NULL AND eslinga > 0
+    ) AS cantidad_entregada,
+    (
+        SELECT COALESCE(SUM(cantidad), 0) 
+        FROM ingresos_dotaciones 
+        WHERE tipo_elemento = 'eslinga'
+    ) - (
+        SELECT COALESCE(SUM(eslinga), 0) 
+        FROM dotaciones 
+        WHERE eslinga IS NOT NULL AND eslinga > 0
+    ) AS saldo_disponible
+
+UNION ALL
+
+SELECT 
+    'tie_of' AS tipo_elemento,
+    (
+        SELECT COALESCE(SUM(cantidad), 0) 
+        FROM ingresos_dotaciones 
+        WHERE tipo_elemento = 'tie_of'
+    ) AS cantidad_ingresada,
+    (
+        SELECT COALESCE(SUM(tie_of), 0) 
+        FROM dotaciones 
+        WHERE tie_of IS NOT NULL AND tie_of > 0
+    ) AS cantidad_entregada,
+    (
+        SELECT COALESCE(SUM(cantidad), 0) 
+        FROM ingresos_dotaciones 
+        WHERE tipo_elemento = 'tie_of'
+    ) - (
+        SELECT COALESCE(SUM(tie_of), 0) 
+        FROM dotaciones 
+        WHERE tie_of IS NOT NULL AND tie_of > 0
+    ) AS saldo_disponible
+
+UNION ALL
+
+SELECT 
+    'mosqueton' AS tipo_elemento,
+    (
+        SELECT COALESCE(SUM(cantidad), 0) 
+        FROM ingresos_dotaciones 
+        WHERE tipo_elemento = 'mosqueton'
+    ) AS cantidad_ingresada,
+    (
+        SELECT COALESCE(SUM(mosqueton), 0) 
+        FROM dotaciones 
+        WHERE mosqueton IS NOT NULL AND mosqueton > 0
+    ) AS cantidad_entregada,
+    (
+        SELECT COALESCE(SUM(cantidad), 0) 
+        FROM ingresos_dotaciones 
+        WHERE tipo_elemento = 'mosqueton'
+    ) - (
+        SELECT COALESCE(SUM(mosqueton), 0) 
+        FROM dotaciones 
+        WHERE mosqueton IS NOT NULL AND mosqueton > 0
+    ) AS saldo_disponible
+
+UNION ALL
+
+SELECT 
+    'pretales' AS tipo_elemento,
+    (
+        SELECT COALESCE(SUM(cantidad), 0) 
+        FROM ingresos_dotaciones 
+        WHERE tipo_elemento = 'pretales'
+    ) AS cantidad_ingresada,
+    (
+        SELECT COALESCE(SUM(pretales), 0) 
+        FROM dotaciones 
+        WHERE pretales IS NOT NULL AND pretales > 0
+    ) AS cantidad_entregada,
+    (
+        SELECT COALESCE(SUM(cantidad), 0) 
+        FROM ingresos_dotaciones 
+        WHERE tipo_elemento = 'pretales'
+    ) - (
+        SELECT COALESCE(SUM(pretales), 0) 
+        FROM dotaciones 
+        WHERE pretales IS NOT NULL AND pretales > 0
     ) AS saldo_disponible;
 
 -- Verificar que la vista se creó correctamente
