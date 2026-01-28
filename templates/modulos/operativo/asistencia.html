@@ -1,38 +1,29 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Asistencia - Operativo</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
-        .card-header {
-            background: linear-gradient(135deg, #5a6fd8 0%, #5a6fd8 100%);
-            color: white;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #5a6fd8 0%, #5a6fd8 100%);
-            border: none;
-        }
-        .btn-primary:hover {
-            background: linear-gradient(135deg, #5a6fd8 0%, #5a6fd8 100%);
-        }
-        .table-hover tbody tr:hover {
-            background-color: #f8f9fa;
-        }
-        .supervisor-info {
-            background: linear-gradient(135deg, #5a6fd8 0%, #5a6fd8 100%);
-            color: white;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container-fluid mt-4">
+{% extends "header.html" %}
+{% block content %}
+<style>
+    .card-header {
+        background: linear-gradient(135deg, #5a6fd8 0%, #5a6fd8 100%);
+        color: white;
+    }
+    .btn-primary {
+        background: linear-gradient(135deg, #5a6fd8 0%, #5a6fd8 100%);
+        border: none;
+    }
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #5a6fd8 0%, #5a6fd8 100%);
+    }
+    .table-hover tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+    .supervisor-info {
+        background: linear-gradient(135deg, #5a6fd8 0%, #5a6fd8 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+</style>
+<div class="container-fluid mt-4">
         <div class="row">
             <div class="col-12">
                 <div class="card shadow">
@@ -42,9 +33,7 @@
                                 <i class="fas fa-clipboard-check me-2"></i>
                                 Control de Asistencia - Operativo
                             </h4>
-                            <a href="{{ url_for('operativo_dashboard') }}" class="btn btn-light btn-sm">
-                                <i class="fas fa-arrow-left me-1"></i>Volver al Dashboard
-                            </a>
+                           
                         </div>
                     </div>
                     <div class="card-body">
@@ -60,7 +49,23 @@
                         {% if ya_registrado %}
                         <div class="alert alert-warning" role="alert">
                             <i class="fas fa-lock"></i> <strong>Formulario Bloqueado</strong><br>
-                            Ya se ha registrado la asistencia para el día {{ fecha_hoy }}. No se pueden realizar más registros para evitar duplicados.
+                            Ya se ha registrado la asistencia para el día {{ fecha_hoy }}. No se pueden realizar más registros.
+                        </div>
+                        <div class="mb-3">
+                            <h5 class="mb-2"><i class="fas fa-table me-2"></i>Asistencias del día</h5>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover" id="tablaAsistenciasHoy">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Cédula</th>
+                                            <th>Técnico</th>
+                                            <th>Carpeta</th>
+                                            <th>Carpeta del Día</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
                         </div>
                         <div class="text-center">
                             <a href="{{ url_for('operativo_dashboard') }}" class="btn btn-secondary">
@@ -161,19 +166,21 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Seleccionar/Deseleccionar todos
-        document.getElementById('selectAll').addEventListener('change', function() {
-            const checkboxes = document.querySelectorAll('.tecnico-checkbox');
-            checkboxes.forEach(checkbox => {
-                if (!checkbox.disabled) checkbox.checked = this.checked;
+        const selectAllEl = document.getElementById('selectAll');
+        if (selectAllEl) {
+            selectAllEl.addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.tecnico-checkbox');
+                checkboxes.forEach(checkbox => {
+                    if (!checkbox.disabled) checkbox.checked = this.checked;
+                });
             });
-        });
+        }
 
-        // Manejar envío del formulario
-        document.getElementById('asistenciaForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+        const asistenciaFormEl = document.getElementById('asistenciaForm');
+        if (asistenciaFormEl) {
+            asistenciaFormEl.addEventListener('submit', function(e) {
+                e.preventDefault();
             
             const fechaAsistencia = document.getElementById('fecha_asistencia').value;
             const tecnicosSeleccionados = Array.from(document.querySelectorAll('.tecnico-checkbox:checked'));
@@ -238,8 +245,7 @@
                         showConfirmButton: false,
                         timer: 1500
                     }).then(() => {
-                        // Redirigir al dashboard operativo
-                        window.location.href = '/operativo';
+                        window.location.href = '/operativo/asistencia';
                     });
                 } else {
                     Swal.fire({
@@ -258,12 +264,77 @@
                 });
             });
         });
+        }
 
-        // Establecer fecha actual por defecto
+        const YA_REGISTRADO = {{ 'true' if ya_registrado else 'false' }};
         document.addEventListener('DOMContentLoaded', function() {
             const today = new Date().toISOString().split('T')[0];
-            document.getElementById('fecha_asistencia').value = today;
+            const fechaInput = document.getElementById('fecha_asistencia');
+            if (fechaInput) fechaInput.value = today;
+            if (!YA_REGISTRADO) resetCarpetaDia();
+            if (YA_REGISTRADO) cargarAsistenciasHoy();
         });
+
+        function normalizarTexto(s) {
+            return String(s || '').toUpperCase().replace(/\s+/g, ' ').trim();
+        }
+
+        function resetCarpetaDia() {
+            const selects = document.querySelectorAll('.carpeta-dia-select');
+            selects.forEach(select => {
+                if (!select.disabled) select.value = '';
+            });
+        }
+
+        function prellenarCarpetaDia() {
+            const filas = document.querySelectorAll('.tecnico-checkbox');
+            filas.forEach(cb => {
+                const tecnicoId = cb.value;
+                const carpeta = normalizarTexto(cb.dataset.carpeta);
+                const select = document.querySelector(`select[name="carpeta_dia_${tecnicoId}"]`);
+                if (!select || cb.disabled) return;
+                let elegido = null;
+                Array.from(select.options).forEach(opt => {
+                    const texto = normalizarTexto(opt.textContent || '');
+                    if (!elegido && (texto.includes(carpeta) || texto.endsWith(carpeta))) {
+                        elegido = opt.value;
+                    }
+                });
+                if (elegido) select.value = elegido;
+            });
+        }
+
+        async function cargarAsistenciasHoy() {
+            try {
+                const resp = await fetch('/api/operativo/inicio-operacion/asistencia', { credentials: 'include' });
+                const data = await resp.json();
+                const tbody = document.querySelector('#tablaAsistenciasHoy tbody');
+                if (!tbody) return;
+                tbody.innerHTML = '';
+                if (data.success && Array.isArray(data.registros)) {
+                    data.registros.forEach(r => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${r.cedula || ''}</td>
+                            <td>${r.tecnico || ''}</td>
+                            <td>${r.carpeta || ''}</td>
+                            <td>${r.carpeta_dia_nombre || r.carpeta_dia || ''}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = '<td colspan="4" class="text-center text-muted">Sin registros para hoy</td>';
+                    tbody.appendChild(tr);
+                }
+            } catch (e) {
+                const tbody = document.querySelector('#tablaAsistenciasHoy tbody');
+                if (tbody) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = '<td colspan="4" class="text-center text-danger">Error al cargar asistencias</td>';
+                    tbody.appendChild(tr);
+                }
+            }
+        }
     </script>
-</body>
-</html>
+{% endblock %}

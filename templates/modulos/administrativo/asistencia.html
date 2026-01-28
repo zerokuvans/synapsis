@@ -2485,7 +2485,7 @@ function renderResumenCategorias(data) {
         tr.innerHTML = `<td>${nombre}</td><td class="text-center"><span class="badge bg-info detalle-cantidad" data-seccion="aux" data-clave="${nombre}" style="cursor:pointer;">${total}</span></td>`;
         auxBody.appendChild(tr);
     });
-    const incAllowed = new Set(['I.ARL','D/F','LM','LL','SUS','PER','VAC','DFAM','RM','RN','I.MED']);
+    const incAllowed = new Set(['I.ARL','D/F','LM','LL','SUS','PER','VAC','DFAM','RM','RN','I.MED','CP']);
     const incValidItems = incItems.filter(it => {
         const code = ((it.carpeta_dia || it.carpeta || '') + '').toUpperCase().trim();
         return incAllowed.has(code);

@@ -20146,6 +20146,39 @@ def api_operativo_inicio_asistencia():
         """
         cursor.execute(consulta, (supervisor_actual, fecha_consulta, supervisor_actual, fecha_consulta))
         registros = cursor.fetchall()
+        def _norm(s):
+            import unicodedata
+            return ''.join(c for c in unicodedata.normalize('NFD', str(s or '')) if unicodedata.category(c) != 'Mn').lower().strip()
+        if not registros:
+            consulta_fb = """
+                SELECT 
+                    a.cedula,
+                    a.tecnico,
+                    a.carpeta,
+                    a.super,
+                    a.carpeta_dia,
+                    COALESCE(t.nombre_tipificacion, a.carpeta_dia) AS carpeta_dia_nombre,
+                    a.eventos AS eventos,
+                    COALESCE(pc.presupuesto_diario, 0) AS presupuesto_diario,
+                    a.valor,
+                    a.estado,
+                    a.novedad
+                FROM asistencia a
+                LEFT JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+                LEFT JOIN presupuesto_carpeta pc ON t.nombre_tipificacion = pc.presupuesto_carpeta
+                WHERE DATE(a.fecha_asistencia) = %s
+                AND a.id_asistencia = (
+                    SELECT MAX(a2.id_asistencia)
+                    FROM asistencia a2
+                    WHERE a2.cedula = a.cedula 
+                    AND a2.super = %s 
+                    AND DATE(a2.fecha_asistencia) = %s
+                )
+                ORDER BY a.tecnico
+            """
+            cursor.execute(consulta_fb, (fecha_consulta, supervisor_actual, fecha_consulta))
+            rows_fb = cursor.fetchall()
+            registros = [r for r in rows_fb if _norm(r.get('super')) == _norm(supervisor_actual)]
 
         # Estadísticas para tarjetas
         # 1) Total técnicos: calcular basándose en los técnicos únicos que realmente aparecen en asistencia
@@ -20157,6 +20190,8 @@ def api_operativo_inicio_asistencia():
         """, (supervisor_actual, fecha_consulta))
         result = cursor.fetchone()
         total_tecnicos = result['total'] if result else 0
+        if total_tecnicos == 0 and registros:
+            total_tecnicos = len({r.get('cedula') for r in registros if r.get('cedula')})
 
         # 2) Sin asistencia: contar solo las siguientes tipificaciones del día
         categorias_sin = [
@@ -20198,6 +20233,15 @@ def api_operativo_inicio_asistencia():
         detalle_map = {row['tipo']: row['cantidad'] for row in detalle_rows}
         detalle_list = [{'nombre': k, 'cantidad': v} for k, v in detalle_map.items()]
         sin_asistencia = sum(detalle_map.values())
+        if not detalle_map and registros:
+            m = {}
+            for r in registros:
+                tipo = (r.get('carpeta_dia_nombre') or r.get('carpeta_dia') or '').strip()
+                if tipo in categorias_sin:
+                    m[tipo] = m.get(tipo, 0) + 1
+            detalle_map = m
+            detalle_list = [{'nombre': k, 'cantidad': v} for k, v in detalle_map.items()]
+            sin_asistencia = sum(detalle_map.values())
 
         # 3) Con asistencia = total técnicos - sin asistencia (no negativo)
         con_asistencia = max(total_tecnicos - sin_asistencia, 0)

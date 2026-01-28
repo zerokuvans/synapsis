@@ -2268,7 +2268,7 @@ def api_asistencia_resumen_categorias():
             SELECT a.carpeta_dia AS carpeta_dia, COUNT(DISTINCT a.cedula) AS total
             FROM asistencia a
             WHERE DATE(a.fecha_asistencia) = %s
-              AND a.carpeta_dia IN ('I.ARL','D/F','LM','LL','SUS','PER','VAC','DFAM','RM','RN','I.MED')
+              AND a.carpeta_dia IN ('I.ARL','D/F','LM','LL','SUS','PER','VAC','DFAM','RM','RN','I.MED','CP')
             """ + where_sup + """
             GROUP BY a.carpeta_dia
             ORDER BY a.carpeta_dia
