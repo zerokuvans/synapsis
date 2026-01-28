@@ -20763,7 +20763,12 @@ def exportar_asistencia_excel():
                         carpeta,
                         super,
                         DATE(fecha_asistencia) as fecha,
-                        TIME(fecha_asistencia) as hora
+                        TIME(fecha_asistencia) as hora,
+                        hora_inicio,
+                        estado,
+                        novedad,
+                        valor,
+                        eventos
                     FROM asistencia 
                     WHERE DATE(fecha_asistencia) = %s
                     ORDER BY super, tecnico, fecha_asistencia
@@ -20777,7 +20782,12 @@ def exportar_asistencia_excel():
                         carpeta,
                         super,
                         DATE(fecha_asistencia) as fecha,
-                        TIME(fecha_asistencia) as hora
+                        TIME(fecha_asistencia) as hora,
+                        hora_inicio,
+                        estado,
+                        novedad,
+                        valor,
+                        eventos
                     FROM asistencia 
                     WHERE super = %s AND DATE(fecha_asistencia) = %s
                     ORDER BY tecnico, fecha_asistencia
@@ -20803,7 +20813,12 @@ def exportar_asistencia_excel():
                         carpeta,
                         super,
                         DATE(fecha_asistencia) as fecha,
-                        TIME(fecha_asistencia) as hora
+                        TIME(fecha_asistencia) as hora,
+                        hora_inicio,
+                        estado,
+                        novedad,
+                        valor,
+                        eventos
                     FROM asistencia 
                     WHERE DATE(fecha_asistencia) BETWEEN %s AND %s
                     ORDER BY super, tecnico, fecha_asistencia
@@ -20817,13 +20832,33 @@ def exportar_asistencia_excel():
                         carpeta,
                         super,
                         DATE(fecha_asistencia) as fecha,
-                        TIME(fecha_asistencia) as hora
+                        TIME(fecha_asistencia) as hora,
+                        hora_inicio,
+                        estado,
+                        novedad,
+                        valor,
+                        eventos
                     FROM asistencia 
                     WHERE super = %s AND DATE(fecha_asistencia) BETWEEN %s AND %s
                     ORDER BY tecnico, fecha_asistencia
                 """, (supervisor, fecha_inicio_obj, fecha_fin_obj))
         
         registros = cursor.fetchall()
+
+        # Formatear hora_inicio para legibilidad en Excel (HH:MM)
+        for r in registros:
+            if 'hora_inicio' in r and r['hora_inicio']:
+                try:
+                    hi = r['hora_inicio']
+                    if hasattr(hi, 'total_seconds'):
+                        total_seconds = int(hi.total_seconds())
+                        hours = total_seconds // 3600
+                        minutes = (total_seconds % 3600) // 60
+                        r['hora_inicio'] = f"{hours:02d}:{minutes:02d}"
+                    else:
+                        r['hora_inicio'] = str(hi)[:5]
+                except Exception:
+                    r['hora_inicio'] = str(r['hora_inicio'])
         
         if not registros:
             return jsonify({'success': False, 'message': 'No se encontraron registros para exportar'}), 404
