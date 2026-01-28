@@ -23518,6 +23518,82 @@ def api_reportes_vehiculos():
             'message': f'Error al generar reporte: {str(e)}'
         }), 500
 
+@app.route('/api/indicadores/tipos_vehiculos')
+@login_required(role='administrativo')
+@cache.cached(query_string=True, timeout=60)
+def obtener_tipos_vehiculos():
+    try:
+        dias_param = request.args.get('dias', '30')
+        try:
+            dias = int(dias_param)
+            if dias < 1:
+                dias = 30
+        except Exception:
+            dias = 30
+
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+
+        cursor = connection.cursor(dictionary=True)
+
+        fecha_hasta = get_bogota_datetime().date()
+        fecha_desde = fecha_hasta - timedelta(days=dias - 1)
+
+        cursor.execute(
+            """
+            SELECT 
+                COALESCE(pa.tipo_vehiculo, 'No especificado') AS tipo,
+                COUNT(DISTINCT p.placa_vehiculo) AS cantidad
+            FROM preoperacional p
+            LEFT JOIN parque_automotor pa
+              ON UPPER(REPLACE(REPLACE(TRIM(pa.placa), '-', ''), ' ', '')) = UPPER(REPLACE(REPLACE(TRIM(p.placa_vehiculo), '-', ''), ' ', ''))
+            WHERE DATE(p.fecha) >= %s AND DATE(p.fecha) <= %s
+            GROUP BY tipo
+            ORDER BY cantidad DESC
+            """,
+            (fecha_desde, fecha_hasta)
+        )
+        tipos = cursor.fetchall() or []
+
+        if not tipos:
+            cursor.execute(
+                """
+                SELECT 
+                    COALESCE(tipo_vehiculo, 'No especificado') AS tipo,
+                    COUNT(*) AS cantidad
+                FROM parque_automotor
+                WHERE estado = 'Activo'
+                GROUP BY tipo_vehiculo
+                ORDER BY cantidad DESC
+                """
+            )
+            tipos = cursor.fetchall() or []
+
+        cursor.close()
+        connection.close()
+
+        tipos_vehiculos = [
+            {'tipo': row.get('tipo') or 'No especificado', 'cantidad': int(row.get('cantidad') or 0)}
+            for row in tipos
+        ]
+
+        return jsonify({
+            'success': True,
+            'tipos_vehiculos': tipos_vehiculos,
+            'periodo': {
+                'dias': dias,
+                'desde': fecha_desde.strftime('%Y-%m-%d'),
+                'hasta': fecha_hasta.strftime('%Y-%m-%d')
+            }
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"Error en tipos de vehículos: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/indicadores/estado_vehiculos')
 @login_required(role='administrativo')
 def obtener_estado_vehiculos():
