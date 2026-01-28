@@ -1750,6 +1750,8 @@ def api_codigos_facturacion():
                 cedula VARCHAR(32),
                 id_codigo_consumidor INT NULL,
                 fecha DATE NOT NULL,
+                fecha_inicio DATE NULL,
+                fecha_fin DATE NULL,
                 supervisor VARCHAR(255) NULL,
                 motivo VARCHAR(255) NULL,
                 activo TINYINT(1) NOT NULL DEFAULT 1,
@@ -10480,6 +10482,8 @@ def administrativo_excepcion_preoperacional():
                         cedula VARCHAR(32),
                         id_codigo_consumidor INT NULL,
                         fecha DATE NOT NULL,
+                        fecha_inicio DATE NULL,
+                        fecha_fin DATE NULL,
                         supervisor VARCHAR(255) NULL,
                         motivo VARCHAR(255) NULL,
                         activo TINYINT(1) NOT NULL DEFAULT 1,
@@ -10490,6 +10494,21 @@ def administrativo_excepcion_preoperacional():
                     )
                     """
                 )
+                # Asegurar columnas de rango si la tabla existe sin ellas
+                try:
+                    c.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'preoperacional_excepciones' AND column_name = 'fecha_inicio'")
+                    has_inicio = (c.fetchone() or [0])[0]
+                    if not has_inicio:
+                        c.execute("ALTER TABLE preoperacional_excepciones ADD COLUMN fecha_inicio DATE NULL AFTER fecha")
+                    c.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'preoperacional_excepciones' AND column_name = 'fecha_fin'")
+                    has_fin = (c.fetchone() or [0])[0]
+                    if not has_fin:
+                        c.execute("ALTER TABLE preoperacional_excepciones ADD COLUMN fecha_fin DATE NULL AFTER fecha_inicio")
+                    # Inicializar rango para registros existentes
+                    c.execute("UPDATE preoperacional_excepciones SET fecha_inicio = fecha WHERE fecha_inicio IS NULL")
+                    c.execute("UPDATE preoperacional_excepciones SET fecha_fin = fecha WHERE fecha_fin IS NULL")
+                except Exception:
+                    pass
                 try:
                     c.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'recurso_operativo' AND column_name = 'excluido_preoperacional'")
                     has_col = (c.fetchone() or [0])[0]
@@ -10532,7 +10551,9 @@ def administrativo_excepcion_preoperacional():
             FROM asistencia a
             LEFT JOIN recurso_operativo ro ON ro.recurso_operativo_cedula = a.cedula
             LEFT JOIN tipificacion_asistencia t ON t.codigo_tipificacion = a.carpeta_dia
-            LEFT JOIN preoperacional_excepciones e ON e.activo = 1 AND DATE(e.fecha) = DATE(a.fecha_asistencia) AND (e.cedula = a.cedula OR e.id_codigo_consumidor = ro.id_codigo_consumidor)
+            LEFT JOIN preoperacional_excepciones e ON e.activo = 1 
+              AND DATE(a.fecha_asistencia) BETWEEN COALESCE(e.fecha_inicio, e.fecha) AND COALESCE(e.fecha_fin, e.fecha)
+              AND (e.cedula = a.cedula OR e.id_codigo_consumidor = ro.id_codigo_consumidor)
             WHERE DATE(a.fecha_asistencia) = %s
               AND a.id_asistencia = (
                 SELECT MAX(a2.id_asistencia)
@@ -10560,11 +10581,18 @@ def administrativo_preoperacional_excepcion_toggle():
         cedula = str(data.get('cedula') or '').strip()
         id_codigo_consumidor = data.get('id_codigo_consumidor')
         fecha_raw = str(data.get('fecha') or '').strip()
+        fecha_fin_raw = str(data.get('fecha_fin') or '').strip()
         checked = bool(data.get('checked'))
         try:
             fecha_obj = datetime.strptime(fecha_raw, '%Y-%m-%d').date()
         except Exception:
             fecha_obj = get_bogota_datetime().date()
+        fecha_fin_obj = None
+        if fecha_fin_raw:
+            try:
+                fecha_fin_obj = datetime.strptime(fecha_fin_raw, '%Y-%m-%d').date()
+            except Exception:
+                fecha_fin_obj = None
         conn = get_db_connection()
         if conn is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
@@ -10579,17 +10607,55 @@ def administrativo_preoperacional_excepcion_toggle():
         except Exception:
             pass
 
-        # Actualizar bandera permanente
-        if id_codigo_consumidor:
-            cur.execute(
-                "UPDATE recurso_operativo SET excluido_preoperacional = %s WHERE id_codigo_consumidor = %s",
-                (1 if checked else 0, id_codigo_consumidor)
-            )
-        elif cedula:
-            cur.execute(
-                "UPDATE recurso_operativo SET excluido_preoperacional = %s WHERE recurso_operativo_cedula = %s",
-                (1 if checked else 0, cedula)
-            )
+        # Si se proporciona fecha_fin y se marca excluir, crear/activar excepción por rango
+        if checked and fecha_fin_obj and fecha_fin_obj >= fecha_obj:
+            try:
+                # Asegurar columnas de rango en la tabla de excepciones
+                cur.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'preoperacional_excepciones' AND column_name = 'fecha_inicio'")
+                has_inicio = (cur.fetchone() or [0])[0]
+                if not has_inicio:
+                    cur.execute("ALTER TABLE preoperacional_excepciones ADD COLUMN fecha_inicio DATE NULL AFTER fecha")
+                cur.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'preoperacional_excepciones' AND column_name = 'fecha_fin'")
+                has_fin = (cur.fetchone() or [0])[0]
+                if not has_fin:
+                    cur.execute("ALTER TABLE preoperacional_excepciones ADD COLUMN fecha_fin DATE NULL AFTER fecha_inicio")
+                # Insertar nueva excepción por rango
+                creado_por = str(session.get('recurso_operativo_cedula') or '')
+                cur.execute(
+                    """
+                    INSERT INTO preoperacional_excepciones (cedula, id_codigo_consumidor, fecha, fecha_inicio, fecha_fin, activo, creado_por)
+                    VALUES (%s, %s, %s, %s, %s, 1, %s)
+                    """,
+                    (cedula or None, id_codigo_consumidor or None, fecha_obj, fecha_obj, fecha_fin_obj, creado_por or None)
+                )
+            except Exception:
+                pass
+        else:
+            # Actualizar bandera permanente (sin rango) o desactivar exclusión
+            if id_codigo_consumidor:
+                cur.execute(
+                    "UPDATE recurso_operativo SET excluido_preoperacional = %s WHERE id_codigo_consumidor = %s",
+                    (1 if checked else 0, id_codigo_consumidor)
+                )
+            elif cedula:
+                cur.execute(
+                    "UPDATE recurso_operativo SET excluido_preoperacional = %s WHERE recurso_operativo_cedula = %s",
+                    (1 if checked else 0, cedula)
+                )
+            # Si se desmarca, desactivar excepciones que cubran la fecha dada
+            if not checked:
+                try:
+                    cur.execute(
+                        """
+                        UPDATE preoperacional_excepciones
+                        SET activo = 0
+                        WHERE (id_codigo_consumidor = %s OR cedula = %s)
+                          AND %s BETWEEN COALESCE(fecha_inicio, fecha) AND COALESCE(fecha_fin, fecha)
+                        """,
+                        (id_codigo_consumidor or None, cedula or None, fecha_obj)
+                    )
+                except Exception:
+                    pass
         conn.commit()
         cur.close()
         conn.close()
@@ -21663,8 +21729,7 @@ def obtener_indicadores_cumplimiento():
             JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
             LEFT JOIN recurso_operativo ro ON ro.recurso_operativo_cedula = a.cedula
             LEFT JOIN preoperacional_excepciones e ON e.activo = 1 
-                AND a.fecha_asistencia >= e.fecha 
-                AND a.fecha_asistencia < DATE_ADD(e.fecha, INTERVAL 1 DAY)
+                AND DATE(a.fecha_asistencia) BETWEEN COALESCE(e.fecha_inicio, e.fecha) AND COALESCE(e.fecha_fin, e.fecha)
                 AND (e.cedula = a.cedula OR e.id_codigo_consumidor = ro.id_codigo_consumidor)
             WHERE a.fecha_asistencia >= %s AND a.fecha_asistencia < DATE_ADD(%s, INTERVAL 1 DAY)
               AND t.valor = '1'
@@ -21682,8 +21747,7 @@ def obtener_indicadores_cumplimiento():
                 AND DATE(p.fecha) = DATE(a.fecha_asistencia)
             INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
             LEFT JOIN preoperacional_excepciones e ON e.activo = 1 
-                AND p.fecha >= e.fecha 
-                AND p.fecha < DATE_ADD(e.fecha, INTERVAL 1 DAY)
+                AND DATE(p.fecha) BETWEEN COALESCE(e.fecha_inicio, e.fecha) AND COALESCE(e.fecha_fin, e.fecha)
                 AND (e.id_codigo_consumidor = p.id_codigo_consumidor)
             LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = p.id_codigo_consumidor
             WHERE p.fecha >= %s AND p.fecha < DATE_ADD(%s, INTERVAL 1 DAY)
@@ -21862,6 +21926,8 @@ def obtener_detalle_tecnicos():
                     cedula VARCHAR(32),
                     id_codigo_consumidor INT NULL,
                     fecha DATE NOT NULL,
+                    fecha_inicio DATE NULL,
+                    fecha_fin DATE NULL,
                     supervisor VARCHAR(255) NULL,
                     motivo VARCHAR(255) NULL,
                     activo TINYINT(1) NOT NULL DEFAULT 1,
@@ -21909,8 +21975,8 @@ def obtener_detalle_tecnicos():
         try:
             ids = [t['id_codigo_consumidor'] for t in tecnicos_supervisor if t.get('id_codigo_consumidor')]
             cedulas = [t['documento'] for t in tecnicos_supervisor if t.get('documento')]
-            params = [fecha_obj]
-            where_parts = ["fecha = %s", "activo = 1"]
+            params = [fecha_obj, fecha_obj]
+            where_parts = ["COALESCE(fecha_inicio, fecha) <= %s", "COALESCE(fecha_fin, fecha) >= %s", "activo = 1"]
             conds = []
             if ids:
                 conds.append(f"id_codigo_consumidor IN ({', '.join(['%s'] * len(ids))})")
@@ -26088,6 +26154,31 @@ def registrar_cambio_dotacion():
                 'cantidad': convertir_cantidad(request.form.get('chaqueta')),
                 'talla': convertir_talla(request.form.get('chaqueta_talla')),
                 'valorado': request.form.get('chaqueta_valorado') == 'on'
+            },
+            'arnes': {
+                'cantidad': convertir_cantidad(request.form.get('arnes')),
+                'talla': None,
+                'valorado': request.form.get('arnes_valorado') == 'on'
+            },
+            'eslinga': {
+                'cantidad': convertir_cantidad(request.form.get('eslinga')),
+                'talla': None,
+                'valorado': request.form.get('eslinga_valorado') == 'on'
+            },
+            'tie_of': {
+                'cantidad': convertir_cantidad(request.form.get('tie_of')),
+                'talla': None,
+                'valorado': request.form.get('tie_of_valorado') == 'on'
+            },
+            'mosqueton': {
+                'cantidad': convertir_cantidad(request.form.get('mosqueton')),
+                'talla': None,
+                'valorado': request.form.get('mosqueton_valorado') == 'on'
+            },
+            'pretales': {
+                'cantidad': convertir_cantidad(request.form.get('pretales')),
+                'talla': None,
+                'valorado': request.form.get('pretales_valorado') == 'on'
             }
         }
         
@@ -26135,12 +26226,19 @@ def registrar_cambio_dotacion():
                             WHEN %s = 'casco' AND estado_casco = %s THEN casco
                             WHEN %s = 'botas' AND estado_botas = %s THEN botas
                             WHEN %s = 'chaqueta' AND estado_chaqueta = %s THEN chaqueta
+                            WHEN %s = 'arnes' AND estado_arnes = %s THEN arnes
+                            WHEN %s = 'eslinga' AND estado_eslinga = %s THEN eslinga
+                            WHEN %s = 'tie_of' AND estado_tie_of = %s THEN tie_of
+                            WHEN %s = 'mosqueton' AND estado_mosqueton = %s THEN mosqueton
+                            WHEN %s = 'pretales' AND estado_pretales = %s THEN pretales
                             ELSE 0
                         END
                     ), 0) as total_salidas
                     FROM cambios_dotacion
                 """, (elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock, 
                       elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock,
+                      elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock,
+                      elemento, tipo_stock, elemento, tipo_stock,
                       elemento, tipo_stock, elemento, tipo_stock, elemento, tipo_stock,
                       elemento, tipo_stock, elemento, tipo_stock))
                 
@@ -26171,9 +26269,15 @@ def registrar_cambio_dotacion():
                 camisetagris, camiseta_gris_talla, estado_camiseta_gris, guerrera, guerrera_talla, estado_guerrera,
                 camisetapolo, camiseta_polo_talla, estado_camiseta_polo, guantes_nitrilo, estado_guantes_nitrilo,
                 guantes_carnaza, estado_guantes_carnaza, gafas, estado_gafas, gorra, estado_gorra,
-                casco, estado_casco, botas, botas_talla, estado_botas, chaqueta, chaqueta_talla, estado_chaqueta, observaciones
+                casco, estado_casco, botas, botas_talla, estado_botas, chaqueta, chaqueta_talla, estado_chaqueta,
+                arnes, estado_arnes, eslinga, estado_eslinga, tie_of, estado_tie_of, mosqueton, estado_mosqueton, pretales, estado_pretales,
+                observaciones
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s
             )
         """
         
@@ -26201,6 +26305,11 @@ def registrar_cambio_dotacion():
             'VALORADO' if elementos_dotacion['botas']['valorado'] else 'NO VALORADO',
             elementos_dotacion['chaqueta']['cantidad'], elementos_dotacion['chaqueta']['talla'],
             'VALORADO' if elementos_dotacion['chaqueta']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['arnes']['cantidad'], 'VALORADO' if elementos_dotacion['arnes']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['eslinga']['cantidad'], 'VALORADO' if elementos_dotacion['eslinga']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['tie_of']['cantidad'], 'VALORADO' if elementos_dotacion['tie_of']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['mosqueton']['cantidad'], 'VALORADO' if elementos_dotacion['mosqueton']['valorado'] else 'NO VALORADO',
+            elementos_dotacion['pretales']['cantidad'], 'VALORADO' if elementos_dotacion['pretales']['valorado'] else 'NO VALORADO',
             observaciones
         ))
         
@@ -26285,6 +26394,16 @@ def api_cambios_dotacion_historial():
                 cd.botas,
                 cd.botas_talla,
                 cd.estado_botas,
+                cd.arnes,
+                cd.estado_arnes,
+                cd.eslinga,
+                cd.estado_eslinga,
+                cd.tie_of,
+                cd.estado_tie_of,
+                cd.mosqueton,
+                cd.estado_mosqueton,
+                cd.pretales,
+                cd.estado_pretales,
                 cd.observaciones,
                 cd.fecha_registro as created_at
             FROM cambios_dotacion cd
@@ -26313,7 +26432,12 @@ def api_cambios_dotacion_historial():
                 ('gafas', cambio['gafas'], None, cambio['estado_gafas']),
                 ('gorra', cambio['gorra'], None, cambio['estado_gorra']),
                 ('casco', cambio['casco'], None, cambio['estado_casco']),
-                ('botas', cambio['botas'], cambio['botas_talla'], cambio['estado_botas'])
+                ('botas', cambio['botas'], cambio['botas_talla'], cambio['estado_botas']),
+                ('arnes', cambio.get('arnes'), None, cambio.get('estado_arnes')),
+                ('eslinga', cambio.get('eslinga'), None, cambio.get('estado_eslinga')),
+                ('tie_of', cambio.get('tie_of'), None, cambio.get('estado_tie_of')),
+                ('mosqueton', cambio.get('mosqueton'), None, cambio.get('estado_mosqueton')),
+                ('pretales', cambio.get('pretales'), None, cambio.get('estado_pretales'))
             ]
             
             # Nombres descriptivos para elementos
@@ -26328,7 +26452,12 @@ def api_cambios_dotacion_historial():
                 'gafas': 'Gafas',
                 'gorra': 'Gorra',
                 'casco': 'Casco',
-                'botas': 'Botas'
+                'botas': 'Botas',
+                'arnes': 'Arnés',
+                'eslinga': 'Eslinga',
+                'tie_of': 'Tie Off',
+                'mosqueton': 'Mosquetón',
+                'pretales': 'Pretales'
             }
             
             for elemento, cantidad, talla, estado_valoracion in elementos_data:

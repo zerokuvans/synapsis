@@ -1586,6 +1586,96 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Arnés -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="arnes" class="form-label">Arnés</label>
+                                    <input type="number" class="form-control cantidad-input" id="arnes" name="arnes" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('arnes')">
+                                    <small class="text-muted" id="stock_arnes">Stock: Cargando...</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="estado_arnes" class="form-label">Estado Arnés</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_arnes" name="arnes_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_arnes" id="label_estado_arnes">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Eslinga -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="eslinga" class="form-label">Eslinga</label>
+                                    <input type="number" class="form-control cantidad-input" id="eslinga" name="eslinga" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('eslinga')">
+                                    <small class="text-muted" id="stock_eslinga">Stock: Cargando...</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="estado_eslinga" class="form-label">Estado Eslinga</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_eslinga" name="eslinga_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_eslinga" id="label_estado_eslinga">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tie Off -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="tie_of" class="form-label">Tie Off</label>
+                                    <input type="number" class="form-control cantidad-input" id="tie_of" name="tie_of" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('tie_of')">
+                                    <small class="text-muted" id="stock_tie_of">Stock: Cargando...</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="estado_tie_of" class="form-label">Estado Tie Off</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_tie_of" name="tie_of_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_tie_of" id="label_estado_tie_of">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Mosquetón -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="mosqueton" class="form-label">Mosquetón</label>
+                                    <input type="number" class="form-control cantidad-input" id="mosqueton" name="mosqueton" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('mosqueton')">
+                                    <small class="text-muted" id="stock_mosqueton">Stock: Cargando...</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="estado_mosqueton" class="form-label">Estado Mosquetón</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_mosqueton" name="mosqueton_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_mosqueton" id="label_estado_mosqueton">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Pretales -->
+                            <div class="row mb-3 item-row">
+                                <div class="col-md-3">
+                                    <label for="pretales" class="form-label">Pretales</label>
+                                    <input type="number" class="form-control cantidad-input" id="pretales" name="pretales" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponible('pretales')">
+                                    <small class="text-muted" id="stock_pretales">Stock: Cargando...</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="estado_pretales" class="form-label">Estado Pretales</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="estado_pretales" name="pretales_valorado" checked>
+                                        <label class="form-check-label text-success" for="estado_pretales" id="label_estado_pretales">
+                                            <i class="fas fa-check-circle me-1"></i>VALORADO
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Observaciones -->
@@ -2210,6 +2300,96 @@
                                 <div class="form-check form-switch mt-2">
                                     <input class="form-check-input" type="checkbox" id="estado_botas_modal" name="botas_valorado" checked>
                                     <label class="form-check-label text-success" for="estado_botas_modal" id="label_estado_botas_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Arnés -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-4">
+                                <label for="arnes_modal" class="form-label">Arnés</label>
+                                <input type="number" class="form-control cantidad-input" id="arnes_modal" name="arnes" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('arnes')">
+                                <small class="text-muted" id="stock_arnes_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="estado_arnes_modal" class="form-label">Estado Arnés</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_arnes_modal" name="arnes_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_arnes_modal" id="label_estado_arnes_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Eslinga -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-4">
+                                <label for="eslinga_modal" class="form-label">Eslinga</label>
+                                <input type="number" class="form-control cantidad-input" id="eslinga_modal" name="eslinga" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('eslinga')">
+                                <small class="text-muted" id="stock_eslinga_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="estado_eslinga_modal" class="form-label">Estado Eslinga</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_eslinga_modal" name="eslinga_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_eslinga_modal" id="label_estado_eslinga_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tie Off -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-4">
+                                <label for="tie_of_modal" class="form-label">Tie Off</label>
+                                <input type="number" class="form-control cantidad-input" id="tie_of_modal" name="tie_of" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('tie_of')">
+                                <small class="text-muted" id="stock_tie_of_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="estado_tie_of_modal" class="form-label">Estado Tie Off</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_tie_of_modal" name="tie_of_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_tie_of_modal" id="label_estado_tie_of_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mosquetón -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-4">
+                                <label for="mosqueton_modal" class="form-label">Mosquetón</label>
+                                <input type="number" class="form-control cantidad-input" id="mosqueton_modal" name="mosqueton" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('mosqueton')">
+                                <small class="text-muted" id="stock_mosqueton_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="estado_mosqueton_modal" class="form-label">Estado Mosquetón</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_mosqueton_modal" name="mosqueton_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_mosqueton_modal" id="label_estado_mosqueton_modal">
+                                        <i class="fas fa-check-circle me-1"></i>VALORADO
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pretales -->
+                        <div class="row mb-3 item-row">
+                            <div class="col-md-4">
+                                <label for="pretales_modal" class="form-label">Pretales</label>
+                                <input type="number" class="form-control cantidad-input" id="pretales_modal" name="pretales" min="0" max="10" placeholder="Cantidad" oninput="debouncedValidarStockDisponibleCambios('pretales')">
+                                <small class="text-muted" id="stock_pretales_modal">Stock: Cargando...</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="estado_pretales_modal" class="form-label">Estado Pretales</label>
+                                <div class="form-check form-switch mt-2">
+                                    <input class="form-check-input" type="checkbox" id="estado_pretales_modal" name="pretales_valorado" checked>
+                                    <label class="form-check-label text-success" for="estado_pretales_modal" id="label_estado_pretales_modal">
                                         <i class="fas fa-check-circle me-1"></i>VALORADO
                                     </label>
                                 </div>
@@ -2903,7 +3083,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // Verificar que al menos un elemento de dotación tenga cantidad
-        const campos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'chaqueta', 'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'];
+        const campos = ['pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'chaqueta', 'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas', 'arnes', 'eslinga', 'tie_of', 'mosqueton', 'pretales'];
         let tieneElementos = false;
         
         campos.forEach(campo => {
@@ -3701,7 +3881,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Lista de elementos con checkboxes de estado
     const elementos = [
         'pantalon', 'camiseta_gris', 'guerrera', 'camiseta_polo',
-        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'
+        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas',
+        'arnes', 'eslinga', 'tie_of', 'mosqueton', 'pretales'
     ];
     
     elementos.forEach(elemento => {
@@ -3828,7 +4009,13 @@ function actualizarIndicadoresStock() {
         'guantes_carnaza': 'Guantes Carnaza',
         'gafas': 'Gafas',
         'gorra': 'Gorra',
-        'casco': 'Casco'
+        'casco': 'Casco',
+        'botas': 'Botas',
+        'arnes': 'Arnés',
+        'eslinga': 'Eslinga',
+        'tie_of': 'Tie Off',
+        'mosqueton': 'Mosquetón',
+        'pretales': 'Pretales'
     };
     
     Object.keys(elementos).forEach(elemento => {
@@ -3877,7 +4064,13 @@ function validarStockDisponible(elemento) {
         'guantes_carnaza': 'Guantes Carnaza',
         'gafas': 'Gafas',
         'gorra': 'Gorra',
-        'casco': 'Casco'
+        'casco': 'Casco',
+        'botas': 'Botas',
+        'arnes': 'Arnés',
+        'eslinga': 'Eslinga',
+        'tie_of': 'Tie Off',
+        'mosqueton': 'Mosquetón',
+        'pretales': 'Pretales'
     };
     
     const nombreElemento = elementos[elemento];
@@ -3955,7 +4148,13 @@ function validarFormularioCompleto() {
         'guantes_carnaza': 'Guantes Carnaza',
         'gafas': 'Gafas',
         'gorra': 'Gorra',
-        'casco': 'Casco'
+        'casco': 'Casco',
+        'botas': 'Botas',
+        'arnes': 'Arnés',
+        'eslinga': 'Eslinga',
+        'tie_of': 'Tie Off',
+        'mosqueton': 'Mosquetón',
+        'pretales': 'Pretales'
     };
     
     let errores = [];
@@ -4034,8 +4233,8 @@ function inicializarModalCambios() {
 
 // Función para manejar el cambio de estado de los checkboxes de valoración en el modal
 function toggleEstadoValoradoCambios(elemento) {
-    const checkbox = document.getElementById(`modal_estado_${elemento}`);
-    const label = document.getElementById(`modal_label_estado_${elemento}`);
+    const checkbox = document.getElementById(`estado_${elemento}_modal`);
+    const label = document.getElementById(`label_estado_${elemento}_modal`);
     
     if (checkbox.checked) {
         label.innerHTML = '<i class="fas fa-check-circle me-1"></i>VALORADO';
@@ -4249,11 +4448,17 @@ function actualizarIndicadoresStockCambios() {
         'guantes_carnaza': 'Guantes Carnaza',
         'gafas': 'Gafas',
         'gorra': 'Gorra',
-        'casco': 'Casco'
+        'casco': 'Casco',
+        'botas': 'Botas',
+        'arnes': 'Arnés',
+        'eslinga': 'Eslinga',
+        'tie_of': 'Tie Off',
+        'mosqueton': 'Mosquetón',
+        'pretales': 'Pretales'
     };
     
     Object.keys(elementos).forEach(elemento => {
-        const stockElement = document.getElementById(`modal_stock_${elemento}`);
+        const stockElement = document.getElementById(`stock_${elemento}_modal`);
         if (stockElement && stockPorEstado[elemento]) {
             const stock = stockPorEstado[elemento];
             const valorado = stock.VALORADO || 0;
@@ -4271,9 +4476,9 @@ function actualizarIndicadoresStockCambios() {
 
 // Función para validar stock disponible en el modal con lógica inteligente
 function validarStockDisponibleCambios(elemento) {
-    const cantidadInput = document.getElementById(`modal_${elemento}`);
-    const estadoCheckbox = document.getElementById(`modal_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
-    const stockElement = document.getElementById(`modal_stock_${elemento}`);
+    const cantidadInput = document.getElementById(`${elemento}_modal`);
+    const estadoCheckbox = document.getElementById(`estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}_modal`);
+    const stockElement = document.getElementById(`stock_${elemento}_modal`);
     
     if (!cantidadInput || !estadoCheckbox || !stockElement) return;
     
@@ -4290,7 +4495,13 @@ function validarStockDisponibleCambios(elemento) {
         'guantes_carnaza': 'Guantes Carnaza',
         'gafas': 'Gafas',
         'gorra': 'Gorra',
-        'casco': 'Casco'
+        'casco': 'Casco',
+        'botas': 'Botas',
+        'arnes': 'Arnés',
+        'eslinga': 'Eslinga',
+        'tie_of': 'Tie Off',
+        'mosqueton': 'Mosquetón',
+        'pretales': 'Pretales'
     };
     
     const nombreElemento = elementos[elemento];
@@ -4346,14 +4557,20 @@ function validarFormularioCompletoCambios() {
         'guantes_carnaza': 'Guantes Carnaza',
         'gafas': 'Gafas',
         'gorra': 'Gorra',
-        'casco': 'Casco'
+        'casco': 'Casco',
+        'botas': 'Botas',
+        'arnes': 'Arnés',
+        'eslinga': 'Eslinga',
+        'tie_of': 'Tie Off',
+        'mosqueton': 'Mosquetón',
+        'pretales': 'Pretales'
     };
     
     let errores = [];
     
     Object.keys(elementos).forEach(elemento => {
         const cantidadInput = document.getElementById(`modal_${elemento}`);
-        const estadoCheckbox = document.getElementById(`modal_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
+        const estadoCheckbox = document.getElementById(`estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}_modal`);
         
         if (!cantidadInput || !estadoCheckbox) return;
         
@@ -4411,7 +4628,8 @@ function limpiarFormularioCambios() {
     // Limpiar todos los campos de elementos
     const elementos = [
         'pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'chaqueta',
-        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'
+        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas',
+        'arnes', 'eslinga', 'tie_of', 'mosqueton', 'pretales'
     ];
     
     elementos.forEach(elemento => {
@@ -4423,14 +4641,14 @@ function limpiarFormularioCambios() {
         }
         
         // Limpiar talla
-        const tallaInput = document.getElementById(`modal_talla_${elemento}`);
+        const tallaInput = document.getElementById(`${elemento}_talla_modal`);
         if (tallaInput) {
             tallaInput.value = '';
         }
         
         // Resetear estado de valoración
-        const estadoCheckbox = document.getElementById(`modal_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
-        const estadoLabel = document.getElementById(`modal_label_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
+        const estadoCheckbox = document.getElementById(`estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}_modal`);
+        const estadoLabel = document.getElementById(`label_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}_modal`);
         
         if (estadoCheckbox && estadoLabel) {
             estadoCheckbox.checked = false;
@@ -4439,7 +4657,7 @@ function limpiarFormularioCambios() {
         }
         
         // Limpiar indicadores de stock
-        const stockElement = document.getElementById(`modal_stock_${elemento}`);
+        const stockElement = document.getElementById(`stock_${elemento}_modal`);
         if (stockElement) {
             stockElement.innerHTML = '';
         }
@@ -4494,7 +4712,12 @@ function registrarCambioDotacion() {
         'gafas': 'Gafas',
         'gorra': 'Gorra',
         'casco': 'Casco',
-        'botas': 'Botas'
+        'botas': 'Botas',
+        'arnes': 'Arnés',
+        'eslinga': 'Eslinga',
+        'tie_of': 'Tie Off',
+        'mosqueton': 'Mosquetón',
+        'pretales': 'Pretales'
     };
     
     // Agregar elementos con cantidad > 0
@@ -4505,8 +4728,8 @@ function registrarCambioDotacion() {
         
         if (cantidad > 0) {
             hayElementos = true;
-            const estadoCheckbox = document.getElementById(`modal_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
-            const tallaInput = document.getElementById(`modal_talla_${elemento}`);
+            const estadoCheckbox = document.getElementById(`estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}_modal`);
+            const tallaInput = document.getElementById(`${elemento}_talla_modal`);
             
             formData.append('elementos[]', JSON.stringify({
                 nombre: elementos[elemento],
@@ -4563,11 +4786,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners para los checkboxes de estado del modal
     const elementosModal = [
         'pantalon', 'camiseta_gris', 'guerrera', 'camiseta_polo',
-        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas'
+        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas',
+        'arnes', 'eslinga', 'tie_of', 'mosqueton', 'pretales'
     ];
     
     elementosModal.forEach(elemento => {
-        const checkbox = document.getElementById(`modal_estado_${elemento}`);
+        const checkbox = document.getElementById(`estado_${elemento}_modal`);
         if (checkbox) {
             checkbox.addEventListener('change', function() {
                 toggleEstadoValoradoCambios(elemento);
@@ -4578,12 +4802,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners para validación de stock en tiempo real del modal
     const elementosValidacion = [
         'pantalon', 'camisetagris', 'guerrera', 'camisetapolo', 'chaqueta',
-        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco'
+        'guantes_nitrilo', 'guantes_carnaza', 'gafas', 'gorra', 'casco', 'botas',
+        'arnes', 'eslinga', 'tie_of', 'mosqueton', 'pretales'
     ];
     
     elementosValidacion.forEach(elemento => {
-        const cantidadInput = document.getElementById(`modal_${elemento}`);
-        const estadoCheckbox = document.getElementById(`modal_estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}`);
+        const cantidadInput = document.getElementById(`${elemento}_modal`);
+        const estadoCheckbox = document.getElementById(`estado_${elemento === 'camisetagris' ? 'camiseta_gris' : elemento === 'camisetapolo' ? 'camiseta_polo' : elemento}_modal`);
         
         if (cantidadInput) {
             cantidadInput.addEventListener('input', function() {

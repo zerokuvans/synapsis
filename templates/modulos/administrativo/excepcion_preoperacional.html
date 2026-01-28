@@ -47,13 +47,19 @@
                                     <td>{{ r.estado }}</td>
                                     <td>{{ r.novedad }}</td>
                                     <td>
-                                        <div class="form-check">
-                                            <input class="form-check-input exc-toggle" type="checkbox"
-                                                   {% if r.excluido %}checked{% endif %}
-                                                   data-cedula="{{ r.cedula }}"
-                                                   data-id="{{ r.id_codigo_consumidor }}"
-                                                   data-fecha="{{ fecha }}">
-                                            <label class="form-check-label">Excluir</label>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="form-check mb-0">
+                                                <input class="form-check-input exc-toggle" type="checkbox"
+                                                       {% if r.excluido %}checked{% endif %}
+                                                       data-cedula="{{ r.cedula }}"
+                                                       data-id="{{ r.id_codigo_consumidor }}"
+                                                       data-fecha="{{ fecha }}">
+                                                <label class="form-check-label">Excluir</label>
+                                            </div>
+                                            <div class="input-group input-group-sm" style="max-width: 210px;">
+                                                <span class="input-group-text">Hasta</span>
+                                                <input type="date" class="form-control exc-fecha-fin" value="{{ fecha }}">
+                                            </div>
                                             <span class="badge ms-2 excl-badge {% if r.excluido %}bg-danger{% else %}bg-success{% endif %}">
                                                 {% if r.excluido %}Excluido{% else %}Incluido{% endif %}
                                             </span>
@@ -93,6 +99,10 @@ document.addEventListener('DOMContentLoaded', function() {
         fecha: String(input.getAttribute('data-fecha') || '').trim(),
         checked: !!input.checked
       };
+      var finInput = input.closest('td').querySelector('.exc-fecha-fin');
+      if (finInput) {
+        payload.fecha_fin = String(finInput.value || '').trim();
+      }
       input.disabled = true;
       fetch('/administrativo/preoperacional/excepcion/toggle', {
         method: 'POST',
