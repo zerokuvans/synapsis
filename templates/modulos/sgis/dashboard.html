@@ -461,7 +461,21 @@ function showPermisoAlert(msg,cls){
   a.textContent=msg;
   a.style.display='block';
 }
+function validarPermisoTrabajo(){
+  var te=document.getElementById('trabajo_ejecutar');
+  if(!te || !String(te.value||'').trim()){ showPermisoAlert('Complete "Trabajo a ejecutar"','alert-warning'); return false; }
+  var dt=document.getElementById('descripcion_tarea');
+  if(!dt || !String(dt.value||'').trim()){ showPermisoAlert('Complete "Descripción de la tarea"','alert-warning'); return false; }
+  var hz=document.getElementById('herramienta');
+  if(!hz || !String(hz.value||'').trim()){ showPermisoAlert('Complete "Herramienta"','alert-warning'); return false; }
+  for(var i=0;i<TRI_FIELDS.length;i++){ if(!getTri(TRI_FIELDS[i])){ showPermisoAlert('Complete todas las selecciones C/NC/NA','alert-warning'); return false; } }
+  for(var j=0;j<YN_FIELDS.length;j++){ var el=document.getElementById(YN_FIELDS[j]); if(!el || !el.value){ showPermisoAlert('Complete todas las selecciones SI/NO','alert-warning'); return false; } }
+  for(var k=0;k<TEXT_FIELDS.length;k++){ var tx=document.getElementById(TEXT_FIELDS[k]); var v=String(tx?tx.value:'' ).trim(); if(!v){ showPermisoAlert('Complete todos los campos de texto','alert-warning'); return false; } }
+  for(var a=0;a<AP_FIELDS.length;a++){ var ap=document.getElementById(AP_FIELDS[a]); if(!ap || !ap.value){ showPermisoAlert('Seleccione APLICA/NO_APLICA en Espacios Confinados y Altura','alert-warning'); return false; } }
+  return true;
+}
 function guardarPermisoTrabajo(){
+  if(!validarPermisoTrabajo()){return}
   const body={
     sgis_permiso_trabajo_trabajo_ejecutar:document.getElementById('trabajo_ejecutar').value,
     sgis_permiso_trabajo_descripcion_tarea:document.getElementById('descripcion_tarea').value,
@@ -503,6 +517,12 @@ function toggleSeccionesAplica(){
   if(da){da.value=iso; da.readOnly=true}
   var acc=document.getElementById('collapseDocumentacion');
   if(acc){var cInst=new bootstrap.Collapse(acc,{toggle:false}); cInst.show()}
+  for(var j=1;j<=10;j++){ var rs=document.querySelectorAll('input[name="sgis_permiso_trabajo_historial_confinado_'+j+'"]'); for(var i=0;i<rs.length;i++){ rs[i].required=(cv==='APLICA'); } }
+  var c11=document.getElementById('sgis_permiso_trabajo_historial_confinado_11'); if(c11){ c11.required=(cv==='APLICA'); }
+  var h1=document.getElementById('sgis_permiso_trabajo_historial_altura_1'); if(h1){ h1.required=(av==='APLICA'); }
+  for(var k=2;k<=19;k++){ var ra=document.querySelectorAll('input[name="sgis_permiso_trabajo_historial_altura_'+k+'"]'); for(var i2=0;i2<ra.length;i2++){ ra[i2].required=(av==='APLICA'); } }
+  var a20=document.getElementById('sgis_permiso_trabajo_historial_altura_20'); if(a20){ a20.required=(av==='APLICA'); }
+  for(var k2=21;k2<=24;k2++){ var rb=document.querySelectorAll('input[name="sgis_permiso_trabajo_historial_altura_'+k2+'"]'); for(var i3=0;i3<rb.length;i3++){ rb[i3].required=(av==='APLICA'); } }
 }
 function hoyIso(){var t=new Date();return t.toISOString().slice(0,10)}
 function cargarHistorialesDelDia(){
@@ -527,6 +547,7 @@ function cargarHistorialesDelDia(){
 }
 function guardarHistorialConfinado(){
   if(!currentPermisoId){showPermisoAlert('Primero guarde el permiso semanal','alert-warning');return}
+  var c=document.getElementById('sgis_permiso_trabajo_confinado_aplica'); var cv=c?c.value:''; if(cv==='APLICA'){ for(var j=1;j<=10;j++){ if(!getTri('sgis_permiso_trabajo_historial_confinado_'+j)){ showPermisoAlert('Complete todos los campos de Espacios Confinados','alert-warning'); return; } } var el=document.getElementById('sgis_permiso_trabajo_historial_confinado_11'); if(!el || !el.value){ showPermisoAlert('Complete todos los campos de Espacios Confinados','alert-warning'); return; } }
   openFirmaModal(function(sig){
     var iso=hoyIso();
     var body={id_sgis_permiso_trabajo: currentPermisoId,
@@ -560,6 +581,7 @@ function guardarHistorialConfinado(){
 }
 function guardarHistorialAltura(){
   if(!currentPermisoId){showPermisoAlert('Primero guarde el permiso semanal','alert-warning');return}
+  var a=document.getElementById('sgis_permiso_trabajo_altura_aplica'); var av=a?a.value:''; if(av==='APLICA'){ var h1=document.getElementById('sgis_permiso_trabajo_historial_altura_1'); if(!h1 || !h1.value){ showPermisoAlert('Complete todos los campos de Trabajos en Altura','alert-warning'); return; } for(var j=2;j<=19;j++){ if(!getTri('sgis_permiso_trabajo_historial_altura_'+j)){ showPermisoAlert('Complete todos los campos de Trabajos en Altura','alert-warning'); return; } } var sel20=document.getElementById('sgis_permiso_trabajo_historial_altura_20'); if(!sel20 || !sel20.value){ showPermisoAlert('Complete todos los campos de Trabajos en Altura','alert-warning'); return; } for(var j2=21;j2<=24;j2++){ if(!getTri('sgis_permiso_trabajo_historial_altura_'+j2)){ showPermisoAlert('Complete todos los campos de Trabajos en Altura','alert-warning'); return; } } }
   openFirmaModal(function(sig){
     var iso=hoyIso();
     var body={id_sgis_permiso_trabajo: currentPermisoId,
