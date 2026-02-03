@@ -42,6 +42,32 @@
                             </tbody>
                         </table>
                     </div>
+                    <div class="d-flex justify-content-between align-items-center mt-3" id="maintenancePagination" style="display: none;">
+                        <div class="text-muted small" id="maintenancePageInfo"></div>
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0" id="maintenancePageList"></ul>
+                        </nav>
+                    </div>
+
+                    <div class="mt-4" id="indicadoresSection">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Indicadores Cronograma vs Mantenimientos</h5>
+                            <div class="d-flex gap-2 align-items-center">
+                                <select class="form-select form-select-sm" id="indicadoresPlaca" style="width: 180px">
+                                    <option value="">Todos los vehículos</option>
+                                </select>
+                                <select class="form-select form-select-sm" id="indicadoresPeriodo" style="width: 160px">
+                                    <option value="mensual">Mensual</option>
+                                    <option value="trimestral">Trimestral</option>
+                                    <option value="anual">Anual</option>
+                                </select>
+                                <input type="number" class="form-control form-control-sm" id="indicadoresAnio" style="width: 110px" min="2000" step="1" placeholder="Año">
+                                <button class="btn btn-sm btn-outline-success" id="indicadoresActualizar"><i class="fas fa-sync-alt"></i></button>
+                            </div>
+                        </div>
+                        <div class="row mb-3" id="indicadoresResumen" style="display:none;"></div>
+                        <div id="indicadoresContent" class="row g-3"></div>
+                    </div>
                     
                     <!-- Mensaje cuando no hay mantenimientos -->
                     <div id="noMaintenanceMessage" class="text-center py-5" style="display: none;">
@@ -217,6 +243,9 @@
 let currentMaintenanceId = null;
 let vehiclePlates = [];
 let maintenanceCategories = [];
+let allMaintenances = [];
+let pageSize = 10;
+let currentPage = 1;
 
 // Cargar datos al inicializar la página
 document.addEventListener('DOMContentLoaded', function() {
@@ -241,6 +270,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     } catch (e) {}
+    try {
+        initIndicadoresUI();
+        loadIndicadores();
+    } catch (e) {}
 });
 
 // Cargar lista de mantenimientos
@@ -254,7 +287,9 @@ function loadMaintenances() {
         })
         .then(data => {
             if (data.success) {
-                displayMaintenances(data.data);
+                allMaintenances = Array.isArray(data.data) ? data.data : [];
+                currentPage = 1;
+                renderMaintenancePage();
             } else {
                 showAlert('Error al cargar mantenimientos: ' + (data.message || 'Error desconocido'), 'danger');
             }
@@ -275,7 +310,9 @@ function loadMaintenanceById(id) {
         })
         .then(data => {
             if (data.success && data.data) {
-                displayMaintenances([data.data]);
+                allMaintenances = [data.data];
+                currentPage = 1;
+                renderMaintenancePage();
                 setTimeout(() => { try { viewMaintenance(data.data.id_mpa_mantenimientos); } catch (e) {} }, 0);
             } else {
                 displayMaintenances([]);
@@ -338,6 +375,64 @@ function displayMaintenances(maintenances) {
         </tr>
         `;
     }).join('');
+    renderPaginationUI();
+}
+
+function renderMaintenancePage() {
+    const total = allMaintenances.length;
+    if (total === 0) {
+        displayMaintenances([]);
+        const pag = document.getElementById('maintenancePagination');
+        if (pag) pag.style.display = 'none';
+        return;
+    }
+    const start = (currentPage - 1) * pageSize;
+    const end = Math.min(start + pageSize, total);
+    const slice = allMaintenances.slice(start, end);
+    displayMaintenances(slice);
+}
+
+function renderPaginationUI() {
+    const pag = document.getElementById('maintenancePagination');
+    const info = document.getElementById('maintenancePageInfo');
+    const list = document.getElementById('maintenancePageList');
+    if (!pag || !info || !list) return;
+    const total = allMaintenances.length;
+    const totalPages = Math.ceil(total / pageSize) || 1;
+    const start = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+    const end = Math.min(currentPage * pageSize, total);
+    info.textContent = `Mostrando ${start}–${end} de ${total}`;
+    pag.style.display = total > 0 ? '' : 'none';
+    list.innerHTML = '';
+
+    const addItem = (label, page, disabled = false, active = false) => {
+        const li = document.createElement('li');
+        li.className = `page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}`;
+        const a = document.createElement('a');
+        a.className = 'page-link';
+        a.href = '#';
+        a.textContent = label;
+        if (!disabled) {
+            a.addEventListener('click', (e) => { e.preventDefault(); setPage(page); });
+        }
+        li.appendChild(a);
+        list.appendChild(li);
+    };
+
+    addItem('«', Math.max(1, currentPage - 1), currentPage === 1);
+    const windowSize = 5;
+    const startPage = Math.max(1, currentPage - Math.floor(windowSize / 2));
+    const endPage = Math.min(totalPages, startPage + windowSize - 1);
+    for (let p = startPage; p <= endPage; p++) {
+        addItem(String(p), p, false, p === currentPage);
+    }
+    addItem('»', Math.min(totalPages, currentPage + 1), currentPage === totalPages);
+}
+
+function setPage(page) {
+    const totalPages = Math.ceil(allMaintenances.length / pageSize) || 1;
+    currentPage = Math.max(1, Math.min(totalPages, page));
+    renderMaintenancePage();
 }
 
 // Cargar lista de placas de vehículos
@@ -362,6 +457,11 @@ function loadVehiclePlates() {
                             data-km="${vehicle.ultimo_km_preoperacional ?? ''}"
                         >${vehicle.placa}</option>
                     `).join('');
+                const indPlaca = document.getElementById('indicadoresPlaca');
+                if (indPlaca) {
+                    indPlaca.innerHTML = '<option value="">Todos los vehículos</option>' +
+                        vehiclePlates.map(v => `<option value="${v.placa}">${v.placa}</option>`).join('');
+                }
             } else {
                 showAlert('Error al cargar placas: ' + (data.message || 'Error desconocido'), 'warning');
             }
@@ -821,6 +921,161 @@ function renderCompliance(subcats, tipoGeneral) {
         ${items}
       </div>
     `;
+}
+
+function initIndicadoresUI() {
+    const anioInput = document.getElementById('indicadoresAnio');
+    const periodoSel = document.getElementById('indicadoresPeriodo');
+    const placaSel = document.getElementById('indicadoresPlaca');
+    const btn = document.getElementById('indicadoresActualizar');
+    const now = new Date();
+    if (anioInput) anioInput.value = now.getFullYear();
+    if (btn) btn.addEventListener('click', () => loadIndicadores());
+    if (periodoSel) periodoSel.addEventListener('change', () => loadIndicadores());
+    if (placaSel) placaSel.addEventListener('change', () => loadIndicadores());
+}
+
+function loadIndicadores() {
+    const periodo = document.getElementById('indicadoresPeriodo')?.value || 'mensual';
+    const anio = parseInt(document.getElementById('indicadoresAnio')?.value || (new Date()).getFullYear(), 10);
+    const placa = document.getElementById('indicadoresPlaca')?.value || '';
+    const qs = new URLSearchParams({ period: periodo, year: String(anio) });
+    if (placa) qs.append('placa', placa);
+    fetch(`/api/mpa/cronograma/indicadores?${qs.toString()}`)
+        .then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+        })
+        .then(data => {
+            if (!data.success) throw new Error(data.message || 'Error');
+            renderIndicadores(periodo, data.data);
+        })
+        .catch(err => {
+            console.error(err);
+            showAlert('Error al cargar indicadores', 'danger');
+        });
+}
+
+function renderIndicadores(periodo, payload) {
+    const cont = document.getElementById('indicadoresContent');
+    const resumen = document.getElementById('indicadoresResumen');
+    if (!cont) return;
+    cont.innerHTML = '';
+    const res = payload?.resumen || null;
+    if (resumen) {
+        resumen.style.display = res ? '' : 'none';
+        if (res) {
+            const pct = res.cumplimiento == null ? '-' : `${res.cumplimiento.toFixed(1)}%`;
+            resumen.innerHTML = `
+                <div class="col-md-4">
+                    <div class="card border-success">
+                        <div class="card-body">
+                            <div class="text-muted small">Cumplimiento anual</div>
+                            <div class="h5 mb-2">${pct}</div>
+                            <div class="progress" style="height:6px">
+                                <div class="progress-bar bg-success" style="width:${res.cumplimiento ? res.cumplimiento : 0}%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="text-muted small">Programados</div>
+                            <div class="h5 mb-0">${res.programados_total}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="text-muted small">Realizados en mes correspondiente</div>
+                            <div class="h5 mb-0">${res.cumplen_en_mes_total}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+    if (periodo === 'mensual') {
+        const series = payload?.series || [];
+        cont.innerHTML = series.map(it => {
+            const mesNom = getMesNombre(it.mes);
+            const pct = it.cumplimiento == null ? 0 : it.cumplimiento;
+            const pctTxt = it.cumplimiento == null ? '-' : `${it.cumplimiento.toFixed(1)}%`;
+            return `
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <strong>${mesNom}</strong>
+                                <span class="badge ${pct >= 80 ? 'bg-success' : (pct >= 50 ? 'bg-warning text-dark' : 'bg-danger')}">${pctTxt}</span>
+                            </div>
+                            <div class="text-muted small">Programados: ${it.programados}</div>
+                            <div class="text-muted small">Realizados en mes: ${it.cumplen_en_mes}</div>
+                            <div class="progress mt-2" style="height:6px">
+                                <div class="progress-bar ${pct >= 80 ? 'bg-success' : (pct >= 50 ? 'bg-warning' : 'bg-danger')}" style="width:${pct}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } else if (periodo === 'trimestral') {
+        const series = payload?.series || [];
+        cont.innerHTML = series.map(it => {
+            const pct = it.cumplimiento == null ? 0 : it.cumplimiento;
+            const pctTxt = it.cumplimiento == null ? '-' : `${it.cumplimiento.toFixed(1)}%`;
+            return `
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <strong>${it.trimestre}</strong>
+                                <span class="badge ${pct >= 80 ? 'bg-success' : (pct >= 50 ? 'bg-warning text-dark' : 'bg-danger')}">${pctTxt}</span>
+                            </div>
+                            <div class="text-muted small">Programados: ${it.programados}</div>
+                            <div class="text-muted small">Realizados en trimestre: ${it.cumplen_en_mes}</div>
+                            <div class="progress mt-2" style="height:6px">
+                                <div class="progress-bar ${pct >= 80 ? 'bg-success' : (pct >= 50 ? 'bg-warning' : 'bg-danger')}" style="width:${pct}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } else if (periodo === 'anual') {
+        cont.innerHTML = `
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="text-muted small">Año</div>
+                                <div class="h5">${payload?.resumen?.anio || ''}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-muted small">Programados</div>
+                                <div class="h5">${payload?.resumen?.programados_total || 0}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-muted small">Realizados en mes correspondiente</div>
+                                <div class="h5">${payload?.resumen?.cumplen_en_mes_total || 0}</div>
+                            </div>
+                        </div>
+                        <div class="progress mt-3" style="height:8px">
+                            <div class="progress-bar bg-success" style="width:${payload?.resumen?.cumplimiento || 0}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function getMesNombre(m) {
+    const nombres = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return nombres[(m - 1) % 12];
 }
 </script>
 {% endblock %}

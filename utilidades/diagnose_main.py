@@ -2,6 +2,12 @@
 import sys
 import os
 
+# Asegurar que el directorio raíz del repositorio esté en el PYTHONPATH
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(CURRENT_DIR)
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
 print("=== Diagnóstico de main.py ===")
 
 try:
@@ -21,6 +27,13 @@ try:
             routes.append(str(rule))
         
         print(f"Total de rutas: {len(routes)}")
+
+        # Verificar ruta específica de cronograma indicadores
+        target_route = '/api/mpa/cronograma/indicadores'
+        print("\n=== Verificación de ruta /api/mpa/cronograma/indicadores ===")
+        found_target = any(r == target_route for r in routes)
+        status_target = "✓" if found_target else "✗"
+        print(f"{status_target} {target_route}")
         
         # Buscar rutas críticas
         critical_routes = ['/login', '/dashboard', '/mpa', '/lider', '/logistica/automotor']

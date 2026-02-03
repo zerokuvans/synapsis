@@ -11913,6 +11913,126 @@ def api_cronograma_historial(placa):
         except Exception:
             pass
 
+@app.route('/api/mpa/cronograma/indicadores', methods=['GET'])
+@login_required
+def api_cronograma_indicadores():
+    role = session.get('user_role') or getattr(current_user, 'role', None)
+    if role not in ['administrativo']:
+        return jsonify({'error': 'Sin permisos'}), 403
+    ensure_cronograma_table()
+    try:
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        from datetime import datetime
+        now = get_bogota_datetime()
+        per = (request.args.get('period') or 'mensual').strip().lower()
+        placa = (request.args.get('placa') or '').strip().upper()
+        try:
+            year = int(request.args.get('year') or now.year)
+        except Exception:
+            year = now.year
+        params_s = [year]
+        where_s = "WHERE c.fecha_proximo_mantenimiento IS NOT NULL AND YEAR(c.fecha_proximo_mantenimiento) = %s"
+        if placa:
+            where_s += " AND UPPER(TRIM(c.placa)) = %s"
+            params_s.append(placa)
+        cursor.execute(
+            f"""
+            SELECT c.placa, c.fecha_proximo_mantenimiento
+            FROM cronograma_mantenimientos c
+            {where_s}
+            """,
+            tuple(params_s)
+        )
+        sched_rows = cursor.fetchall() or []
+        params_m = [year]
+        where_m = "WHERE m.fecha_mantenimiento IS NOT NULL AND YEAR(m.fecha_mantenimiento) = %s"
+        if placa:
+            where_m += " AND UPPER(TRIM(m.placa)) = %s"
+            params_m.append(placa)
+        cursor.execute(
+            f"""
+            SELECT m.placa, m.fecha_mantenimiento
+            FROM mpa_mantenimientos m
+            {where_m}
+            """,
+            tuple(params_m)
+        )
+        mant_rows = cursor.fetchall() or []
+        mant_set = set()
+        for r in mant_rows:
+            try:
+                dt = r.get('fecha_mantenimiento')
+                if dt:
+                    mant_set.add((str(r.get('placa') or '').strip().upper(), dt.month))
+            except Exception:
+                pass
+        m_prog = {i: 0 for i in range(1, 13)}
+        m_comp = {i: 0 for i in range(1, 13)}
+        for r in sched_rows:
+            try:
+                dt = r.get('fecha_proximo_mantenimiento')
+                if dt and dt.year == year:
+                    m = dt.month
+                    m_prog[m] = m_prog.get(m, 0) + 1
+                    key = (str(r.get('placa') or '').strip().upper(), m)
+                    if key in mant_set:
+                        m_comp[m] = m_comp.get(m, 0) + 1
+            except Exception:
+                pass
+        meses_series = []
+        total_prog = 0
+        total_comp = 0
+        for m in range(1, 13):
+            p = int(m_prog.get(m, 0) or 0)
+            c = int(m_comp.get(m, 0) or 0)
+            total_prog += p
+            total_comp += c
+            pct = (c * 100.0 / p) if p > 0 else None
+            meses_series.append({'mes': m, 'programados': p, 'cumplen_en_mes': c, 'cumplimiento': pct})
+        q_map = {1: 'Q1', 2: 'Q1', 3: 'Q1', 4: 'Q2', 5: 'Q2', 6: 'Q2', 7: 'Q3', 8: 'Q3', 9: 'Q3', 10: 'Q4', 11: 'Q4', 12: 'Q4'}
+        q_prog = {'Q1': 0, 'Q2': 0, 'Q3': 0, 'Q4': 0}
+        q_comp = {'Q1': 0, 'Q2': 0, 'Q3': 0, 'Q4': 0}
+        for m in range(1, 13):
+            q = q_map[m]
+            q_prog[q] += int(m_prog.get(m, 0) or 0)
+            q_comp[q] += int(m_comp.get(m, 0) or 0)
+        trimestral_series = []
+        for q in ['Q1', 'Q2', 'Q3', 'Q4']:
+            p = q_prog[q]
+            c = q_comp[q]
+            pct = (c * 100.0 / p) if p > 0 else None
+            trimestral_series.append({'trimestre': q, 'programados': p, 'cumplen_en_mes': c, 'cumplimiento': pct})
+        anual_resumen = {
+            'programados_total': total_prog,
+            'cumplen_en_mes_total': total_comp,
+            'cumplimiento': (total_comp * 100.0 / total_prog) if total_prog > 0 else None,
+            'anio': year
+        }
+        data = {
+            'mensual': {'series': meses_series, 'resumen': anual_resumen},
+            'trimestral': {'series': trimestral_series, 'resumen': anual_resumen},
+            'anual': {'resumen': anual_resumen}
+        }
+        if per == 'mensual':
+            res = {'success': True, 'data': data['mensual']}
+        elif per == 'trimestral':
+            res = {'success': True, 'data': data['trimestral']}
+        elif per == 'anual':
+            res = {'success': True, 'data': data['anual']}
+        else:
+            res = {'success': True, 'data': data}
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cursor.close(); connection.close()
+        except Exception:
+            pass
+
 @app.route('/api/mpa/cronograma/alerts-my', methods=['GET'])
 @login_required
 def api_cronograma_alerts_my():

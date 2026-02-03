@@ -150,6 +150,7 @@ from app import api_simit_resultados, api_list_kitcarretera, api_get_kitcarreter
 from app import api_mpa_simit_consultar_playwright
 from app import api_mpa_simit_job_run, api_mpa_simit_job_status, api_mpa_simit_job_stop
 from app import api_mpa_simit_export
+from app import api_cronograma_indicadores
 
 # Importar solo la función de actualización por claves para SSTT desde app.py
 from app import api_sstt_vencimientos_cursos_update_by
@@ -229,6 +230,7 @@ app.route('/api/mpa/cronograma/<placa>', methods=['GET'])(api_cronograma_detalle
 app.route('/api/mpa/cronograma/<placa>/cumplir', methods=['POST'])(api_cronograma_cumplir)
 app.route('/api/mpa/cronograma/<placa>/historial', methods=['GET'])(api_cronograma_historial)
 app.route('/api/mpa/cronograma/alerts-my', methods=['GET'])(api_cronograma_alerts_my)
+app.route('/api/mpa/cronograma/indicadores', methods=['GET'])(api_cronograma_indicadores)
 app.route('/api/mpa/categorias-mantenimiento/<tipo_vehiculo>', methods=['GET'])(api_get_categorias_mantenimiento)
 app.route('/api/mpa/mantenimientos/upload-image', methods=['POST'])(api_upload_mantenimiento_image)
 app.route('/api/mpa/vehiculos/import-excel', methods=['POST'])(api_import_vehiculos_excel)
