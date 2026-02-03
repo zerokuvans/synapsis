@@ -23815,6 +23815,90 @@ def obtener_estado_vehiculos():
             'error': str(e)
         }), 500
 
+@app.route('/api/indicadores/cumplimiento_trimestral_anual')
+@login_required(role='administrativo')
+@cache.cached(query_string=True, timeout=60)
+def obtener_indicadores_trimestral_anual():
+    try:
+        ensure_indicator_indexes()
+        anio_param = request.args.get('anio')
+        try:
+            if anio_param and len(anio_param) == 4 and anio_param.isdigit():
+                anio = int(anio_param)
+            else:
+                anio = get_bogota_datetime().year
+        except Exception:
+            anio = get_bogota_datetime().year
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        query_asistencia = (
+            """
+            SELECT QUARTER(a.fecha_asistencia) AS trimestre, COUNT(*) AS total_asistencia
+            FROM asistencia a
+            JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            LEFT JOIN recurso_operativo ro ON ro.recurso_operativo_cedula = a.cedula
+            LEFT JOIN preoperacional_excepciones e ON e.activo = 1
+                AND DATE(a.fecha_asistencia) BETWEEN COALESCE(e.fecha_inicio, e.fecha) AND COALESCE(e.fecha_fin, e.fecha)
+                AND (e.cedula = a.cedula OR e.id_codigo_consumidor = ro.id_codigo_consumidor)
+            WHERE YEAR(a.fecha_asistencia) = %s
+              AND t.valor = '1'
+              AND e.id IS NULL
+              AND IFNULL(ro.excluido_preoperacional, 0) = 0
+            GROUP BY trimestre
+            ORDER BY trimestre
+            """
+        )
+        cursor.execute(query_asistencia, (anio,))
+        filas_asistencia = cursor.fetchall() or []
+        query_preop = (
+            """
+            SELECT QUARTER(p.fecha) AS trimestre, COUNT(*) AS total_preoperacional
+            FROM preoperacional p
+            INNER JOIN asistencia a ON p.id_codigo_consumidor = a.id_codigo_consumidor AND DATE(p.fecha) = DATE(a.fecha_asistencia)
+            INNER JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            LEFT JOIN preoperacional_excepciones e ON e.activo = 1
+                AND DATE(p.fecha) BETWEEN COALESCE(e.fecha_inicio, e.fecha) AND COALESCE(e.fecha_fin, e.fecha)
+                AND (e.id_codigo_consumidor = p.id_codigo_consumidor)
+            LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = p.id_codigo_consumidor
+            WHERE YEAR(p.fecha) = %s
+              AND t.valor = '1'
+              AND e.id IS NULL
+              AND IFNULL(ro.excluido_preoperacional, 0) = 0
+            GROUP BY trimestre
+            ORDER BY trimestre
+            """
+        )
+        cursor.execute(query_preop, (anio,))
+        filas_preop = cursor.fetchall() or []
+        mapa_asistencia = {int(r['trimestre']): int(r['total_asistencia']) for r in filas_asistencia if r.get('trimestre') is not None}
+        mapa_preop = {int(r['trimestre']): int(r['total_preoperacional']) for r in filas_preop if r.get('trimestre') is not None}
+        trimestral = []
+        total_asistencia = 0
+        total_preop = 0
+        for t in [1, 2, 3, 4]:
+            ta = mapa_asistencia.get(t, 0)
+            tp = mapa_preop.get(t, 0)
+            total_asistencia += ta
+            total_preop += tp
+            porcentaje = (tp * 100.0 / ta) if ta > 0 else 0.0
+            trimestral.append({
+                'trimestre': t,
+                'asistencia': ta,
+                'preoperacional': tp,
+                'porcentaje': porcentaje
+            })
+        anual = {
+            'total_asistencia': total_asistencia,
+            'total_preoperacional': total_preop,
+            'porcentaje': (total_preop * 100.0 / total_asistencia) if total_asistencia > 0 else 0.0
+        }
+        cursor.close()
+        connection.close()
+        return jsonify({'success': True, 'anio': anio, 'trimestral': trimestral, 'anual': anual})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 # APIs para Presupuesto
 @app.route('/api/lider/presupuesto', methods=['GET'])
 @login_required_lider_api()
