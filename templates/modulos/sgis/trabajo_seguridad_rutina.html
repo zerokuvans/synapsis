@@ -270,6 +270,30 @@ function validar(payload){
     Swal.fire('Error','Cuenta debe ser 6-8 dígitos numéricos','error');
     return false;
   }
+  if(!payload.actividad_asociada){
+    Swal.fire('Campos incompletos','Complete la actividad asociada','warning');
+    return false;
+  }
+  if(!payload.descripcion_tareas){
+    Swal.fire('Campos incompletos','Complete la descripción de tareas','warning');
+    return false;
+  }
+  if(!payload.riesgo){
+    Swal.fire('Campos incompletos','Seleccione un riesgo','warning');
+    return false;
+  }
+  if(!payload.peligro){
+    Swal.fire('Campos incompletos','Seleccione un peligro','warning');
+    return false;
+  }
+  if(!payload.consecuencia){
+    Swal.fire('Campos incompletos','Seleccione una consecuencia','warning');
+    return false;
+  }
+  if(!payload.controles){
+    Swal.fire('Campos incompletos','Seleccione un control','warning');
+    return false;
+  }
   for(let i=1;i<=17;i++){ const v = (payload['respuesta_'+i]||'').toUpperCase(); if(!v || !(['C','NC','N/A'].includes(v))){ Swal.fire('Campos incompletos','Responde todas las preguntas','warning'); return false; } }
   const anyNC = Array.from({length:17}).some((_,idx)=> (payload['respuesta_'+(idx+1)]||'').toUpperCase()==='NC');
   if(anyNC && !payload.observaciones){ Swal.fire('Observaciones requeridas','Registra observaciones para los hallazgos en NC','warning'); return false; }

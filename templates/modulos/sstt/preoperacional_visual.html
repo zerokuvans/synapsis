@@ -12,6 +12,15 @@
             Consulta respuestas del preoperacional por técnico y fecha.
           </div>
           <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label for="mesExport" class="form-label">Mes</label>
+              <input type="month" id="mesExport" class="form-control" />
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+              <button class="btn btn-success w-100" id="btnExportarMes"><i class="fas fa-file-csv me-2"></i>Exportar CSV del Mes</button>
+            </div>
+          </div>
+          <div class="row g-3 mb-3">
             <div class="col-md-6">
               <label for="buscarTecnico" class="form-label">Buscar técnico</label>
               <div class="input-group">
@@ -286,5 +295,14 @@ usarUltimos.addEventListener('change', () => cargarTecnicos(buscarTecnico.value.
 btnBuscarTecnico.addEventListener('click', () => cargarTecnicos(buscarTecnico.value.trim()));
 btnConsultar.addEventListener('click', consultar);
 btnConsultarUltimo.addEventListener('click', consultarUltimo);
+document.getElementById('btnExportarMes').addEventListener('click', () => {
+  const mes = document.getElementById('mesExport').value;
+  if(!mes){
+    Swal.fire('Selecciona un mes','Debes seleccionar un mes para exportar','warning');
+    return;
+  }
+  const url = `/api/sstt/preoperacional/export?mes=${encodeURIComponent(mes)}`;
+  window.location.href = url;
+});
 </script>
 {% endblock %}

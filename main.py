@@ -31650,6 +31650,111 @@ def api_sstt_tecnicos_con_preoperacional():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/sstt/preoperacional/export', methods=['GET'])
+@login_required()
+def api_sstt_preoperacional_export():
+    try:
+        mes = (request.args.get('mes') or '').strip()
+        import re as _re
+        if not mes or not _re.match(r'^\d{4}-\d{2}$', mes):
+            return jsonify({'success': False, 'message': 'Parámetro mes requerido (YYYY-MM)'}), 400
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT 
+                p.*,
+                r.nombre as nombre_tecnico,
+                r.cargo as cargo_tecnico,
+                r.recurso_operativo_cedula as cedula_tecnico
+            FROM preoperacional p
+            JOIN recurso_operativo r ON p.id_codigo_consumidor = r.id_codigo_consumidor
+            WHERE DATE_FORMAT(p.fecha, '%Y-%m') = %s
+            ORDER BY p.fecha ASC
+            """,
+            (mes,)
+        )
+        registros = cursor.fetchall()
+        cursor.close(); connection.close()
+        import io as _io
+        import csv as _csv
+        output = _io.StringIO()
+        writer = _csv.writer(output, delimiter=',', quotechar='"', quoting=_csv.QUOTE_ALL)
+        output.write('\ufeff')
+        writer.writerow([
+            'Fecha', 'Técnico', 'Cédula', 'Cargo', 'Centro de Trabajo', 'Ciudad', 'Supervisor',
+            'Vehículo Asistió', 'Tipo Vehículo', 'Placa', 'Modelo', 'Marca',
+            'Licencia Conducción', 'Vencimiento Licencia', 'Vencimiento SOAT',
+            'Vencimiento Tecnomecánica', 'Estado Espejos', 'Bocina/Pito',
+            'Frenos', 'Encendido', 'Batería', 'Amortiguadores', 'Llantas',
+            'Kilometraje', 'Luces Altas/Bajas', 'Direccionales',
+            'Elementos Prevención Casco', 'Casco Certificado', 'Casco Identificado',
+            'Estado Guantes', 'Estado Rodilleras', 'Coderas', 'Impermeable', 'Observaciones'
+        ])
+        for registro in registros:
+            try:
+                fecha_lic = registro.get('fecha_vencimiento_licencia')
+                fecha_soat = registro.get('fecha_vencimiento_soat')
+                fecha_tec = registro.get('fecha_vencimiento_tecnomecanica')
+                fl = fecha_lic.strftime('%Y-%m-%d') if hasattr(fecha_lic, 'strftime') else (fecha_lic or '')
+                fs = fecha_soat.strftime('%Y-%m-%d') if hasattr(fecha_soat, 'strftime') else (fecha_soat or '')
+                ft = fecha_tec.strftime('%Y-%m-%d') if hasattr(fecha_tec, 'strftime') else (fecha_tec or '')
+            except Exception:
+                fl = fs = ft = ''
+            try:
+                fdt = registro.get('fecha')
+                fecha_str = fdt.strftime('%Y-%m-%d %H:%M:%S') if hasattr(fdt, 'strftime') else (fdt or '')
+            except Exception:
+                fecha_str = ''
+            km = registro.get('kilometraje_actual') if 'kilometraje_actual' in registro else registro.get('kilometraje')
+            writer.writerow([
+                fecha_str,
+                registro.get('nombre_tecnico') or '',
+                registro.get('cedula_tecnico') or '',
+                registro.get('cargo_tecnico') or '',
+                registro.get('centro_de_trabajo') or '',
+                registro.get('ciudad') or '',
+                registro.get('supervisor') or '',
+                registro.get('vehiculo_asistio_operacion') or '',
+                registro.get('tipo_vehiculo') or '',
+                registro.get('placa_vehiculo') or '',
+                registro.get('modelo_vehiculo') or '',
+                registro.get('marca_vehiculo') or '',
+                registro.get('licencia_conduccion') or '',
+                fl,
+                fs,
+                ft,
+                registro.get('estado_espejos') or '',
+                registro.get('bocina_pito') or '',
+                registro.get('frenos') or '',
+                registro.get('encendido') or '',
+                registro.get('estado_bateria') or '',
+                registro.get('estado_amortiguadores') or '',
+                registro.get('estado_llantas') or '',
+                km or '',
+                registro.get('luces_altas_bajas') or '',
+                registro.get('direccionales_delanteras_traseras') or '',
+                registro.get('elementos_prevencion_seguridad_vial_casco') or '',
+                registro.get('casco_certificado') or '',
+                registro.get('casco_identificado') or '',
+                registro.get('estado_guantes') or registro.get('elementos_prevencion_seguridad_vial_guantes') or '',
+                registro.get('estado_rodilleras') or registro.get('elementos_prevencion_seguridad_vial_rodilleras') or '',
+                registro.get('elementos_prevencion_seguridad_vial_coderas') or '',
+                registro.get('impermeable') or registro.get('elementos_prevencion_seguridad_vial_impermeable') or '',
+                registro.get('observaciones') or ''
+            ])
+        output.seek(0)
+        return send_file(
+            _io.BytesIO(output.getvalue().encode('utf-8-sig')),
+            mimetype='text/csv; charset=utf-8-sig',
+            as_attachment=True,
+            download_name=f'preoperacional_{mes}.csv'
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/sstt/incidentes', methods=['GET', 'POST'])
 @login_required()
 def api_sstt_incidentes():
