@@ -226,6 +226,24 @@
     </div>
 </div>
 
+<!-- Modal detalle indicadores mensual -->
+<div class="modal fade" id="indicadoresDetalleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalle de mantenimientos programados vs realizados</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Contenido cargado dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+    </div>
+
 <div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content">
@@ -1009,7 +1027,7 @@ function renderIndicadores(periodo, payload) {
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <strong>${mesNom}</strong>
-                                <span class="badge ${pct >= 80 ? 'bg-success' : (pct >= 50 ? 'bg-warning text-dark' : 'bg-danger')}">${pctTxt}</span>
+                                <span class="badge ${pct >= 80 ? 'bg-success' : (pct >= 50 ? 'bg-warning text-dark' : 'bg-danger')} indicadores-mes-badge" data-mes="${it.mes}" data-programados="${it.programados}" data-realizados="${it.cumplen_en_mes}">${pctTxt}</span>
                             </div>
                             <div class="text-muted small">Programados: ${it.programados}</div>
                             <div class="text-muted small">Realizados en mes: ${it.cumplen_en_mes}</div>
@@ -1021,6 +1039,16 @@ function renderIndicadores(periodo, payload) {
                 </div>
             `;
         }).join('');
+        try {
+            document.querySelectorAll('.indicadores-mes-badge').forEach(function(el){
+                el.addEventListener('click', function(){
+                    const mes = parseInt(this.getAttribute('data-mes') || '0', 10);
+                    const prog = parseInt(this.getAttribute('data-programados') || '0', 10);
+                    const real = parseInt(this.getAttribute('data-realizados') || '0', 10);
+                    openIndicadoresDetalleMes(mes, prog, real);
+                });
+            });
+        } catch (e) {}
     } else if (periodo === 'trimestral') {
         const series = payload?.series || [];
         cont.innerHTML = series.map(it => {
@@ -1076,6 +1104,86 @@ function renderIndicadores(periodo, payload) {
 function getMesNombre(m) {
     const nombres = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     return nombres[(m - 1) % 12];
+}
+
+function openIndicadoresDetalleMes(mes, programados, realizados) {
+    const anio = parseInt(document.getElementById('indicadoresAnio')?.value || (new Date()).getFullYear(), 10);
+    const placa = document.getElementById('indicadoresPlaca')?.value || '';
+    const qs = new URLSearchParams({ year: String(anio), month: String(mes) });
+    if (placa) qs.append('placa', placa);
+    fetch(`/api/mpa/cronograma/indicadores/detalle?${qs.toString()}`)
+        .then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+        })
+        .then(data => {
+            if (!data.success) throw new Error(data.message || 'Error');
+            const detalle = data.data?.detalle || [];
+            const resumen = data.data?.resumen || {};
+            const totalP = resumen.programados ?? programados ?? 0;
+            const totalR = resumen.realizados_en_mes ?? realizados ?? 0;
+            const pct = resumen.cumplimiento != null ? resumen.cumplimiento : (totalP > 0 ? (totalR * 100.0 / totalP) : null);
+            const pctTxt = pct == null ? '-' : pct.toFixed(1) + '%';
+            const mesNom = getMesNombre(mes);
+            let rows = '';
+            if (!detalle.length) {
+                rows = '<tr><td colspan="6" class="text-center text-muted">No hay registros para este mes</td></tr>';
+            } else {
+                rows = detalle.map(function(it){
+                    return `
+                        <tr>
+                            <td><strong>${it.placa || ''}</strong></td>
+                            <td>${it.tecnico_nombre || ''}</td>
+                            <td>${it.tipo_vehiculo || ''}</td>
+                            <td>${it.programado_fecha || ''}</td>
+                            <td>${it.realizado_fecha || '-'}</td>
+                            <td>
+                                <span class="badge ${it.realizado_en_mes ? 'bg-success' : 'bg-danger'}">${it.estado || (it.realizado_en_mes ? 'OK' : 'Pendiente')}</span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+            const html = `
+                <div class="mb-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center">
+                        <h5 class="mb-1">${mesNom} ${anio}</h5>
+                        <div class="text-end">
+                            <div class="small text-muted">Programados: <strong>${totalP}</strong> | Realizados en mes: <strong>${totalR}</strong></div>
+                            <div class="small">Cumplimiento: <strong>${pctTxt}</strong></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Placa</th>
+                                <th>Técnico</th>
+                                <th>Tipo Vehículo</th>
+                                <th>Fecha Programada</th>
+                                <th>Fecha Mantenimiento</th>
+                                <th class="text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            let modalEl = document.getElementById('indicadoresDetalleModal');
+            if (!modalEl) return;
+            const body = modalEl.querySelector('.modal-body');
+            if (body) body.innerHTML = html;
+            const titleEl = modalEl.querySelector('.modal-title');
+            if (titleEl) titleEl.textContent = 'Detalle de mantenimientos programados vs realizados';
+            new bootstrap.Modal(modalEl).show();
+        })
+        .catch(function(err){
+            console.error(err);
+            showAlert('Error al cargar detalle de indicadores', 'danger');
+        });
 }
 </script>
 {% endblock %}

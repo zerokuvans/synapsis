@@ -12033,6 +12033,117 @@ def api_cronograma_indicadores():
         except Exception:
             pass
 
+@app.route('/api/mpa/cronograma/indicadores/detalle', methods=['GET'])
+@login_required
+def api_cronograma_indicadores_detalle():
+    role = session.get('user_role') or getattr(current_user, 'role', None)
+    if role not in ['administrativo']:
+        return jsonify({'error': 'Sin permisos'}), 403
+    ensure_cronograma_table()
+    try:
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        from datetime import datetime
+        now = get_bogota_datetime()
+        try:
+            year = int(request.args.get('year') or now.year)
+        except Exception:
+            year = now.year
+        try:
+            month = int(request.args.get('month') or now.month)
+        except Exception:
+            month = now.month
+        placa = (request.args.get('placa') or '').strip().upper()
+        params_s = [year, month]
+        where_s = "WHERE c.fecha_proximo_mantenimiento IS NOT NULL AND YEAR(c.fecha_proximo_mantenimiento) = %s AND MONTH(c.fecha_proximo_mantenimiento) = %s"
+        if placa:
+            where_s += " AND UPPER(TRIM(c.placa)) = %s"
+            params_s.append(placa)
+        cursor.execute(
+            f"""
+            SELECT c.placa, c.fecha_proximo_mantenimiento,
+                   v.tipo_vehiculo,
+                   ro.id_codigo_consumidor AS tecnico_id,
+                   ro.nombre AS tecnico_nombre
+            FROM cronograma_mantenimientos c
+            LEFT JOIN mpa_vehiculos v ON v.placa = c.placa
+            LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+            {where_s}
+            ORDER BY c.fecha_proximo_mantenimiento ASC, c.placa
+            """,
+            tuple(params_s)
+        )
+        sched_rows = cursor.fetchall() or []
+        params_m = [year, month]
+        where_m = "WHERE m.fecha_mantenimiento IS NOT NULL AND YEAR(m.fecha_mantenimiento) = %s AND MONTH(m.fecha_mantenimiento) = %s"
+        if placa:
+            where_m += " AND UPPER(TRIM(m.placa)) = %s"
+            params_m.append(placa)
+        cursor.execute(
+            f"""
+            SELECT m.placa, m.fecha_mantenimiento
+            FROM mpa_mantenimientos m
+            {where_m}
+            """,
+            tuple(params_m)
+        )
+        mant_rows = cursor.fetchall() or []
+        mant_map = {}
+        for r in mant_rows:
+            p = (r.get('placa') or '').strip().upper()
+            dt = r.get('fecha_mantenimiento')
+            if not p or not dt:
+                continue
+            mant_map.setdefault(p, []).append(dt)
+        detalle = []
+        for r in sched_rows:
+            p = (r.get('placa') or '').strip().upper()
+            fp = r.get('fecha_proximo_mantenimiento')
+            realizado = False
+            realizado_fecha = None
+            if p in mant_map:
+                try:
+                    # Elegir la primera fecha de mantenimiento del mes
+                    fechas = [d for d in mant_map[p] if d and d.year == year and d.month == month]
+                except Exception:
+                    fechas = mant_map[p]
+                if fechas:
+                    realizado = True
+                    try:
+                        realizado_fecha = fechas[0].strftime('%Y-%m-%d')
+                    except Exception:
+                        realizado_fecha = None
+            item = {
+                'placa': p,
+                'tecnico_id': r.get('tecnico_id'),
+                'tecnico_nombre': r.get('tecnico_nombre'),
+                'tipo_vehiculo': r.get('tipo_vehiculo'),
+                'programado_fecha': (fp.strftime('%Y-%m-%d') if fp else None),
+                'realizado_en_mes': bool(realizado),
+                'realizado_fecha': realizado_fecha,
+                'estado': 'OK' if realizado else 'Pendiente'
+            }
+            detalle.append(item)
+        total_prog = len(sched_rows)
+        total_ok = sum(1 for d in detalle if d.get('realizado_en_mes'))
+        resumen = {
+            'anio': year,
+            'mes': month,
+            'programados': total_prog,
+            'realizados_en_mes': total_ok,
+            'cumplimiento': (total_ok * 100.0 / total_prog) if total_prog > 0 else None
+        }
+        return jsonify({'success': True, 'data': {'detalle': detalle, 'resumen': resumen}})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cursor.close(); connection.close()
+        except Exception:
+            pass
+
 @app.route('/api/mpa/cronograma/alerts-my', methods=['GET'])
 @login_required
 def api_cronograma_alerts_my():
