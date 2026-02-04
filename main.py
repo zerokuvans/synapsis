@@ -152,6 +152,7 @@ from app import api_mpa_simit_job_run, api_mpa_simit_job_status, api_mpa_simit_j
 from app import api_mpa_simit_export
 from app import api_cronograma_indicadores
 from app import api_cronograma_indicadores_detalle
+from app import api_cronograma_indicadores_detalle_trimestre
 
 # Importar solo la función de actualización por claves para SSTT desde app.py
 from app import api_sstt_vencimientos_cursos_update_by
@@ -233,6 +234,7 @@ app.route('/api/mpa/cronograma/<placa>/historial', methods=['GET'])(api_cronogra
 app.route('/api/mpa/cronograma/alerts-my', methods=['GET'])(api_cronograma_alerts_my)
 app.route('/api/mpa/cronograma/indicadores', methods=['GET'])(api_cronograma_indicadores)
 app.route('/api/mpa/cronograma/indicadores/detalle', methods=['GET'])(api_cronograma_indicadores_detalle)
+app.route('/api/mpa/cronograma/indicadores/detalle-trimestre', methods=['GET'])(api_cronograma_indicadores_detalle_trimestre)
 app.route('/api/mpa/categorias-mantenimiento/<tipo_vehiculo>', methods=['GET'])(api_get_categorias_mantenimiento)
 app.route('/api/mpa/mantenimientos/upload-image', methods=['POST'])(api_upload_mantenimiento_image)
 app.route('/api/mpa/vehiculos/import-excel', methods=['POST'])(api_import_vehiculos_excel)
@@ -21166,11 +21168,15 @@ def obtener_supervisores_asistencia():
             ORDER BY nombre
         """)
         
-        supervisores = cursor.fetchall()
+        supervisores_rows = cursor.fetchall()
+        lista = [s['supervisor'] for s in supervisores_rows]
+        base = "CORTES CUERVO SANDRA CECILIA"
+        if base not in lista:
+            lista = [base] + lista
         
         return jsonify({
             'success': True,
-            'supervisores': [s['supervisor'] for s in supervisores]
+            'supervisores': lista
         })
         
     except Exception as e:
@@ -21192,15 +21198,28 @@ def obtener_tecnicos_asistencia():
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor(dictionary=True)
         if supervisor:
-            cursor.execute(
-                """
-                SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta, super
-                FROM recurso_operativo
-                WHERE super = %s AND estado = 'Activo' AND (carpeta IS NULL OR carpeta != 'SUPERVISORES')
-                ORDER BY nombre
-                """,
-                (supervisor,)
-            )
+            if supervisor.strip().upper() == "CORTES CUERVO SANDRA CECILIA":
+                cursor.execute(
+                    """
+                    SELECT DISTINCT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta, super
+                    FROM recurso_operativo
+                    WHERE estado = 'Activo' AND (
+                        UPPER(TRIM(super)) = %s OR UPPER(TRIM(carpeta)) IN ('SUPERVISOR','CONDUCTOR')
+                    )
+                    ORDER BY nombre
+                    """,
+                    (supervisor,)
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta, super
+                    FROM recurso_operativo
+                    WHERE super = %s AND estado = 'Activo' AND (carpeta IS NULL OR carpeta != 'SUPERVISORES')
+                    ORDER BY nombre
+                    """,
+                    (supervisor,)
+                )
         else:
             cursor.execute(
                 """

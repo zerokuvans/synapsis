@@ -1340,6 +1340,9 @@ def administrativo_asistencia():
             """)
             supervisores_result = cursor.fetchall()
             supervisores = [row['super'] for row in supervisores_result]
+            base = "CORTES CUERVO SANDRA CECILIA"
+            if base not in supervisores:
+                supervisores = [base] + supervisores
         else:
             # Si es supervisor, solo mostrar su propio nombre
             # Obtener el nombre del supervisor desde la base de datos
@@ -1567,12 +1570,22 @@ def obtener_tecnicos_por_supervisor():
         cursor = connection.cursor(dictionary=True)
         
         # Obtener técnicos del supervisor especificado
-        cursor.execute("""
-            SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta, super
-            FROM recurso_operativo
-            WHERE super = %s AND estado = 'Activo'
-            ORDER BY nombre
-        """, (supervisor,))
+        if supervisor.strip().upper() == "CORTES CUERVO SANDRA CECILIA":
+            cursor.execute("""
+                SELECT DISTINCT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta, super
+                FROM recurso_operativo
+                WHERE estado = 'Activo' AND (
+                    UPPER(TRIM(super)) = %s OR UPPER(TRIM(carpeta)) IN ('SUPERVISOR','CONDUCTOR')
+                )
+                ORDER BY nombre
+            """, (supervisor,))
+        else:
+            cursor.execute("""
+                SELECT id_codigo_consumidor, recurso_operativo_cedula, nombre, carpeta, super
+                FROM recurso_operativo
+                WHERE super = %s AND estado = 'Activo'
+                ORDER BY nombre
+            """, (supervisor,))
         
         tecnicos = cursor.fetchall()
         
@@ -1885,6 +1898,9 @@ def api_asistencia_supervisores():
             )
             rows = cursor.fetchall() or []
             supervisores = [r['super'] for r in rows]
+            base = "CORTES CUERVO SANDRA CECILIA"
+            if base not in supervisores:
+                supervisores = [base] + supervisores
         else:
             cursor.execute(
                 """
@@ -12133,6 +12149,135 @@ def api_cronograma_indicadores_detalle():
             'mes': month,
             'programados': total_prog,
             'realizados_en_mes': total_ok,
+            'cumplimiento': (total_ok * 100.0 / total_prog) if total_prog > 0 else None
+        }
+        return jsonify({'success': True, 'data': {'detalle': detalle, 'resumen': resumen}})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        try:
+            cursor.close(); connection.close()
+        except Exception:
+            pass
+
+@app.route('/api/mpa/cronograma/indicadores/detalle-trimestre', methods=['GET'])
+@login_required
+def api_cronograma_indicadores_detalle_trimestre():
+    role = session.get('user_role') or getattr(current_user, 'role', None)
+    if role not in ['administrativo']:
+        return jsonify({'error': 'Sin permisos'}), 403
+    ensure_cronograma_table()
+    try:
+        connection = get_db_connection()
+        if not connection:
+            return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        from datetime import datetime
+        now = get_bogota_datetime()
+        try:
+            year = int(request.args.get('year') or now.year)
+        except Exception:
+            year = now.year
+        q = (request.args.get('q') or '').strip().upper()
+        q_map = {
+            'Q1': (1, 2, 3),
+            'Q2': (4, 5, 6),
+            'Q3': (7, 8, 9),
+            'Q4': (10, 11, 12)
+        }
+        months = q_map.get(q)
+        if not months:
+            try:
+                m = int(request.args.get('month') or now.month)
+            except Exception:
+                m = now.month
+            if m in (1, 2, 3):
+                months = (1, 2, 3); q = 'Q1'
+            elif m in (4, 5, 6):
+                months = (4, 5, 6); q = 'Q2'
+            elif m in (7, 8, 9):
+                months = (7, 8, 9); q = 'Q3'
+            else:
+                months = (10, 11, 12); q = 'Q4'
+        placa = (request.args.get('placa') or '').strip().upper()
+        params_s = [year, months[0], months[1], months[2]]
+        where_s = "WHERE c.fecha_proximo_mantenimiento IS NOT NULL AND YEAR(c.fecha_proximo_mantenimiento) = %s AND MONTH(c.fecha_proximo_mantenimiento) IN (%s,%s,%s)"
+        if placa:
+            where_s += " AND UPPER(TRIM(c.placa)) = %s"
+            params_s.append(placa)
+        cursor.execute(
+            f"""
+            SELECT c.placa, c.fecha_proximo_mantenimiento,
+                   v.tipo_vehiculo,
+                   ro.id_codigo_consumidor AS tecnico_id,
+                   ro.nombre AS tecnico_nombre
+            FROM cronograma_mantenimientos c
+            LEFT JOIN mpa_vehiculos v ON v.placa = c.placa
+            LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+            {where_s}
+            ORDER BY c.fecha_proximo_mantenimiento ASC, c.placa
+            """,
+            tuple(params_s)
+        )
+        sched_rows = cursor.fetchall() or []
+        params_m = [year, months[0], months[1], months[2]]
+        where_m = "WHERE m.fecha_mantenimiento IS NOT NULL AND YEAR(m.fecha_mantenimiento) = %s AND MONTH(m.fecha_mantenimiento) IN (%s,%s,%s)"
+        if placa:
+            where_m += " AND UPPER(TRIM(m.placa)) = %s"
+            params_m.append(placa)
+        cursor.execute(
+            f"""
+            SELECT m.placa, m.fecha_mantenimiento
+            FROM mpa_mantenimientos m
+            {where_m}
+            """,
+            tuple(params_m)
+        )
+        mant_rows = cursor.fetchall() or []
+        mant_map = {}
+        for r in mant_rows:
+            p = (r.get('placa') or '').strip().upper()
+            dt = r.get('fecha_mantenimiento')
+            if not p or not dt:
+                continue
+            mant_map.setdefault(p, []).append(dt)
+        detalle = []
+        for r in sched_rows:
+            p = (r.get('placa') or '').strip().upper()
+            fp = r.get('fecha_proximo_mantenimiento')
+            programado_mes = fp.month if fp else None
+            realizado = False
+            realizado_fecha = None
+            if p in mant_map:
+                try:
+                    fechas = [d for d in mant_map[p] if d and d.year == year and d.month in months]
+                except Exception:
+                    fechas = mant_map[p]
+                if fechas:
+                    realizado = True
+                    try:
+                        realizado_fecha = fechas[0].strftime('%Y-%m-%d')
+                    except Exception:
+                        realizado_fecha = None
+            item = {
+                'placa': p,
+                'tecnico_id': r.get('tecnico_id'),
+                'tecnico_nombre': r.get('tecnico_nombre'),
+                'tipo_vehiculo': r.get('tipo_vehiculo'),
+                'programado_mes': programado_mes,
+                'programado_fecha': (fp.strftime('%Y-%m-%d') if fp else None),
+                'realizado_en_trimestre': bool(realizado),
+                'realizado_fecha': realizado_fecha,
+                'estado': 'OK' if realizado else 'Pendiente'
+            }
+            detalle.append(item)
+        total_prog = len(sched_rows)
+        total_ok = sum(1 for d in detalle if d.get('realizado_en_trimestre'))
+        resumen = {
+            'anio': year,
+            'trimestre': q,
+            'programados': total_prog,
+            'realizados_en_trimestre': total_ok,
             'cumplimiento': (total_ok * 100.0 / total_prog) if total_prog > 0 else None
         }
         return jsonify({'success': True, 'data': {'detalle': detalle, 'resumen': resumen}})

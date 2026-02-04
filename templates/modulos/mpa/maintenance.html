@@ -1060,7 +1060,7 @@ function renderIndicadores(periodo, payload) {
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <strong>${it.trimestre}</strong>
-                                <span class="badge ${pct >= 80 ? 'bg-success' : (pct >= 50 ? 'bg-warning text-dark' : 'bg-danger')}">${pctTxt}</span>
+                                <span class="badge ${pct >= 80 ? 'bg-success' : (pct >= 50 ? 'bg-warning text-dark' : 'bg-danger')} indicadores-tri-badge" data-q="${it.trimestre}" data-programados="${it.programados}" data-realizados="${it.cumplen_en_mes}">${pctTxt}</span>
                             </div>
                             <div class="text-muted small">Programados: ${it.programados}</div>
                             <div class="text-muted small">Realizados en trimestre: ${it.cumplen_en_mes}</div>
@@ -1072,6 +1072,16 @@ function renderIndicadores(periodo, payload) {
                 </div>
             `;
         }).join('');
+        try {
+            document.querySelectorAll('.indicadores-tri-badge').forEach(function(el){
+                el.addEventListener('click', function(){
+                    const q = String(this.getAttribute('data-q') || '').toUpperCase();
+                    const prog = parseInt(this.getAttribute('data-programados') || '0', 10);
+                    const real = parseInt(this.getAttribute('data-realizados') || '0', 10);
+                    openIndicadoresDetalleTrimestre(q, prog, real);
+                });
+            });
+        } catch (e) {}
     } else if (periodo === 'anual') {
         cont.innerHTML = `
             <div class="col-12">
@@ -1161,6 +1171,85 @@ function openIndicadoresDetalleMes(mes, programados, realizados) {
                                 <th>Placa</th>
                                 <th>Técnico</th>
                                 <th>Tipo Vehículo</th>
+                                <th>Fecha Programada</th>
+                                <th>Fecha Mantenimiento</th>
+                                <th class="text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            let modalEl = document.getElementById('indicadoresDetalleModal');
+            if (!modalEl) return;
+            const body = modalEl.querySelector('.modal-body');
+            if (body) body.innerHTML = html;
+            const titleEl = modalEl.querySelector('.modal-title');
+            if (titleEl) titleEl.textContent = 'Detalle de mantenimientos programados vs realizados';
+            new bootstrap.Modal(modalEl).show();
+        })
+        .catch(function(err){
+            console.error(err);
+            showAlert('Error al cargar detalle de indicadores', 'danger');
+        });
+}
+
+function openIndicadoresDetalleTrimestre(q, programados, realizados) {
+    const anio = parseInt(document.getElementById('indicadoresAnio')?.value || (new Date()).getFullYear(), 10);
+    const placa = document.getElementById('indicadoresPlaca')?.value || '';
+    const qs = new URLSearchParams({ year: String(anio), q: String(q) });
+    if (placa) qs.append('placa', placa);
+    fetch(`/api/mpa/cronograma/indicadores/detalle-trimestre?${qs.toString()}`)
+        .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+        .then(data => {
+            if (!data.success) throw new Error(data.message || 'Error');
+            const detalle = data.data?.detalle || [];
+            const resumen = data.data?.resumen || {};
+            const totalP = resumen.programados ?? programados ?? 0;
+            const totalR = resumen.realizados_en_trimestre ?? realizados ?? 0;
+            const pct = resumen.cumplimiento != null ? resumen.cumplimiento : (totalP > 0 ? (totalR * 100.0 / totalP) : null);
+            const pctTxt = pct == null ? '-' : pct.toFixed(1) + '%';
+            let rows = '';
+            if (!detalle.length) {
+                rows = '<tr><td colspan="7" class="text-center text-muted">No hay registros para este trimestre</td></tr>';
+            } else {
+                rows = detalle.map(function(it){
+                    const mesNom = it.programado_mes ? getMesNombre(it.programado_mes) : '';
+                    return `
+                        <tr>
+                            <td><strong>${it.placa || ''}</strong></td>
+                            <td>${it.tecnico_nombre || ''}</td>
+                            <td>${it.tipo_vehiculo || ''}</td>
+                            <td>${mesNom}</td>
+                            <td>${it.programado_fecha || ''}</td>
+                            <td>${it.realizado_fecha || '-'}</td>
+                            <td>
+                                <span class="badge ${it.realizado_en_trimestre ? 'bg-success' : 'bg-danger'}">${it.estado || (it.realizado_en_trimestre ? 'OK' : 'Pendiente')}</span>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+            const html = `
+                <div class="mb-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center">
+                        <h5 class="mb-1">${String(q)} ${anio}</h5>
+                        <div class="text-end">
+                            <div class="small text-muted">Programados: <strong>${totalP}</strong> | Realizados en trimestre: <strong>${totalR}</strong></div>
+                            <div class="small">Cumplimiento: <strong>${pctTxt}</strong></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Placa</th>
+                                <th>Técnico</th>
+                                <th>Tipo Vehículo</th>
+                                <th>Mes Programado</th>
                                 <th>Fecha Programada</th>
                                 <th>Fecha Mantenimiento</th>
                                 <th class="text-center">Estado</th>
