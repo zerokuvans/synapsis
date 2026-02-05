@@ -8489,6 +8489,22 @@ def api_list_inspecciones():
             return jsonify({'success': True, 'data': []})
         placa = (request.args.get('placa') or '').strip().upper()
         tecnico_id = (request.args.get('tecnico_id') or '').strip()
+        mes_raw = (request.args.get('mes') or '').strip()
+        desde_raw = (request.args.get('desde') or '').strip()
+        hasta_raw = (request.args.get('hasta') or '').strip()
+        if mes_raw and len(mes_raw) >= 7 and mes_raw[4] == '-':
+            try:
+                from datetime import datetime as _dt
+                y = int(mes_raw[:4])
+                m = int(mes_raw[5:7])
+                fm = _dt(y, m, 1)
+                nm = _dt(y + (1 if m == 12 else 0), 1 if m == 12 else m + 1, 1)
+                desde_raw = fm.strftime('%Y-%m-%d %H:%M:%S')
+                hasta_raw = nm.strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                pass
+        desde_raw = (request.args.get('desde') or '').strip()
+        hasta_raw = (request.args.get('hasta') or '').strip()
 
         cursor.execute("DESCRIBE mpa_inspeccion_vehiculo")
         cols_info = cursor.fetchall() or []
@@ -8506,6 +8522,7 @@ def api_list_inspecciones():
         posibles_tecnico_fk = ['id_codigo_consumidor','tecnico_id','tecnico','id_tecnico']
         col_tecnico_fk = next((c for c in posibles_tecnico_fk if c in col_names), None)
         col_nombre = 'nombre' if 'nombre' in col_names else None
+        col_fecha = 'fecha_inspeccion' if 'fecha_inspeccion' in col_names else None
 
         where = []
         params = []
@@ -8515,6 +8532,12 @@ def api_list_inspecciones():
         if col_tecnico_fk and tecnico_id:
             where.append(f"i.{col_tecnico_fk} = %s")
             params.append(tecnico_id)
+        if col_fecha and desde_raw:
+            where.append("i.fecha_inspeccion >= %s")
+            params.append(desde_raw)
+        if col_fecha and hasta_raw:
+            where.append("i.fecha_inspeccion < %s")
+            params.append(hasta_raw)
 
         if ro_exists and col_tecnico_fk:
             tecnico_select = f"COALESCE(ro.nombre, CAST(i.{col_tecnico_fk} AS CHAR)) AS tecnico_nombre"
@@ -8685,7 +8708,7 @@ def api_inspecciones_pendientes_mes():
         LEFT JOIN mpa_inspeccion_vehiculo i ON i.placa = v.placa AND i.fecha_inspeccion >= %s AND i.fecha_inspeccion < %s
         {joins}
         WHERE v.{tcol} IS NOT NULL AND i.placa IS NULL
-        ORDER BY tecnico_nombre, v.placa
+        ORDER BY RAND()
         LIMIT {limit}
         """
         cursor.execute(query, (fm, nm))

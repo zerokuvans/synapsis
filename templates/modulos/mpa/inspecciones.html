@@ -19,6 +19,10 @@
                 <option value="">Todos</option>
               </select>
             </div>
+            <div class="me-2" style="min-width:220px;">
+              <label for="filtroMes" class="form-label">Mes</label>
+              <input id="filtroMes" type="month" class="form-control">
+            </div>
             <div class="ms-auto d-flex gap-2">
               <button id="btnBuscar" class="btn btn-outline-dark"><i class="fas fa-search me-1"></i>Aplicar filtros</button>
               <button id="btnNuevaInspeccion" class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#modalInspeccion"><i class="fas fa-plus me-1"></i>Nueva inspección</button>
@@ -523,11 +527,28 @@ function renderTabla(){
 async function cargarInspecciones(){
   const placa = (document.getElementById('filtroPlaca').value || '').trim().toUpperCase()
   const tecnico_id = document.getElementById('filtroTecnico').value || ''
+  const mesVal = (document.getElementById('filtroMes') && document.getElementById('filtroMes').value) || ''
   let url = '/api/mpa/inspecciones'
   const qs = []
   if (placa) qs.push('placa='+encodeURIComponent(placa))
   if (tecnico_id) qs.push('tecnico_id='+encodeURIComponent(tecnico_id))
-  qs.push('limit=200')
+  let from, to
+  if (mesVal){
+    const p = mesVal.split('-')
+    const y = parseInt(p[0], 10)
+    const m = parseInt(p[1], 10)
+    from = new Date(y, m-1, 1)
+    to = new Date(m === 12 ? y+1 : y, m === 12 ? 0 : m, 1)
+  } else {
+    const now = new Date()
+    from = new Date(now.getFullYear(), now.getMonth(), 1)
+    to = new Date(now.getFullYear(), now.getMonth()+1, 1)
+  }
+  const y1 = from.getFullYear(); const m1 = String(from.getMonth()+1).padStart(2,'0'); const d1 = String(from.getDate()).padStart(2,'0')
+  const y2 = to.getFullYear(); const m2 = String(to.getMonth()+1).padStart(2,'0'); const d2 = String(to.getDate()).padStart(2,'0')
+  qs.push('desde='+encodeURIComponent(`${y1}-${m1}-${d1} 00:00:00`))
+  qs.push('hasta='+encodeURIComponent(`${y2}-${m2}-${d2} 00:00:00`))
+  qs.push('limit=100')
   if (qs.length) url += ('?'+qs.join('&'))
   const res = await fetch(url, { credentials: 'include' })
   const data = await res.json()
@@ -565,26 +586,19 @@ function renderPendientes(){
 }
 
 async function cargarPendientesMes(){
-  if (pendientesEndpointAvailable === null){
-    pendientesEndpointAvailable = readPendFlag()
-  }
-  if (pendientesEndpointAvailable === true){
-    try{
-      const res = await fetch('/api/mpa/inspecciones/pendientes-mes?limit=5', { credentials: 'include' })
-      if (res.ok){
-        const d = await res.json()
-        pendientes = (d && d.success) ? (d.data || []) : []
-        pendientesEndpointAvailable = true
-        writePendFlag(true)
-        renderPendientes()
-        return
-      }
-      pendientesEndpointAvailable = false
-      writePendFlag(false)
-    }catch(e){
-      pendientesEndpointAvailable = false
-      writePendFlag(false)
+  try{
+    const res = await fetch('/api/mpa/inspecciones/pendientes-mes?limit=5', { credentials: 'include' })
+    if (res.ok){
+      const d = await res.json()
+      pendientes = (d && d.success) ? (d.data || []) : []
+      pendientesEndpointAvailable = true
+      writePendFlag(true)
+      renderPendientes()
+      return
     }
+  }catch(e){
+    pendientesEndpointAvailable = false
+    writePendFlag(false)
   }
   try{
     const [rv, ri] = await Promise.all([
@@ -616,11 +630,10 @@ async function cargarPendientesMes(){
         list.push({ placa, tecnico_id: tid, tecnico_nombre: v.tecnico_nombre })
       }
     })
-    list.sort((a,b)=>{
-      const ta = String(a.tecnico_nombre||'')+String(a.placa||'')
-      const tb = String(b.tecnico_nombre||'')+String(b.placa||'')
-      return ta.localeCompare(tb)
-    })
+    for (let i=list.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1))
+      const tmp = list[i]; list[i] = list[j]; list[j] = tmp
+    }
     pendientes = list.slice(0,5)
     renderPendientes()
   }catch(e){
@@ -650,7 +663,26 @@ async function guardarInspeccion(){
       const inp = document.getElementById(id)
       if (inp) inp.value = ''
     })
-    await Promise.all([cargarInspecciones(), cargarPendientesMes()])
+    try{
+      const id = data.id_mpa_inspeccion_vehiculo
+      const r = await fetch(`/api/mpa/inspecciones/${id}`, { credentials: 'include' })
+      const d = await r.json()
+      if (d && d.success){
+        const rec = d.data || {}
+        inspecciones = [rec].concat(inspecciones)
+        renderTabla()
+        if (rec.placa && rec.id_codigo_consumidor){
+          pendientes = pendientes.filter(p => !(String(p.placa) === String(rec.placa) && String(p.tecnico_id) === String(rec.id_codigo_consumidor)))
+          renderPendientes()
+        } else {
+          await cargarPendientesMes()
+        }
+      } else {
+        await Promise.all([cargarInspecciones(), cargarPendientesMes()])
+      }
+    }catch(e){
+      await Promise.all([cargarInspecciones(), cargarPendientesMes()])
+    }
   } else {
     alert((data && data.error) || 'Error al crear la inspección')
   }
@@ -720,7 +752,14 @@ async function guardarFirma(){
   if (d && d.success){
     const modal = bootstrap.Modal.getInstance(document.getElementById('modalFirma'))
     modal && modal.hide()
-    await cargarInspecciones()
+    const id = String(firmaTarget.id)
+    const idx = inspecciones.findIndex(r => String(r.id_mpa_inspeccion_vehiculo) === id)
+    if (idx >= 0){
+      if (endpoint === 'firma-trabajador'){ inspecciones[idx].firma_trabajador = dataUrl } else { inspecciones[idx].firma_inspector = dataUrl }
+      renderTabla()
+    } else {
+      await cargarInspecciones()
+    }
   } else {
     alert((d && d.error) || 'Error al guardar la firma')
   }
@@ -851,6 +890,13 @@ function renderVerBM(r){
 
   document.addEventListener('DOMContentLoaded', async () => {
   renderBMFields()
+  const fm = document.getElementById('filtroMes')
+  if (fm && !fm.value){
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth()+1).padStart(2,'0')
+    fm.value = `${y}-${m}`
+  }
   await Promise.all([cargarTecnicos(), cargarInspecciones(), cargarPendientesMes()])
   document.getElementById('btnBuscar').addEventListener('click', cargarInspecciones)
   document.getElementById('btnGuardarInspeccion').addEventListener('click', guardarInspeccion)
