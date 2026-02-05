@@ -144,7 +144,7 @@ from app import api_list_tecnico_mecanica, api_get_tecnico_mecanica, api_create_
 from app import api_list_licencias_conducir, api_get_licencia_conducir, api_create_licencia_conducir, api_update_licencia_conducir, api_delete_licencia_conducir
 from app import api_import_vehiculos_excel, api_import_tecnico_mecanica_excel, api_import_soat_excel, api_import_licencias_excel
 from app import api_cronograma_alerts_my
-from app import api_list_inspecciones, api_get_inspeccion, api_create_inspeccion, api_inspecciones_firma_trabajador, api_inspecciones_firma_inspector, api_inspeccion_pdf, api_inspecciones_pendientes_mes
+from app import api_list_inspecciones, api_get_inspeccion, api_create_inspeccion, api_inspecciones_firma_trabajador, api_inspecciones_firma_inspector, api_inspeccion_pdf, api_inspecciones_pendientes_mes, api_inspecciones_resumen_mes
 from app import mpa_rutas, api_import_rutas_excel, api_rutas_tecnicos, api_rutas_por_tecnico, api_google_directions_route, api_riesgo_motos, api_riesgo_por_localidad, api_localidades, api_riesgo_importar, api_rutas_estados, api_riesgo_debug
 from app import api_simit_resultados, api_list_kitcarretera, api_get_kitcarretera, api_create_kitcarretera, api_kitcarretera_firma_trabajador, api_kitcarretera_firma_inspector
 from app import api_mpa_simit_consultar_playwright
@@ -259,6 +259,7 @@ app.route('/api/mpa/inspecciones/<int:inspeccion_id>/firma-trabajador', methods=
 app.route('/api/mpa/inspecciones/<int:inspeccion_id>/firma-inspector', methods=['PUT'])(api_inspecciones_firma_inspector)
 app.route('/api/mpa/inspecciones/<int:inspeccion_id>/pdf', methods=['GET'])(api_inspeccion_pdf)
 app.route('/api/mpa/inspecciones/pendientes-mes', methods=['GET'])(api_inspecciones_pendientes_mes)
+app.route('/api/mpa/inspecciones/resumen-mes', methods=['GET'])(api_inspecciones_resumen_mes)
 
 # Registrar rutas de la API de SOAT MPA
 app.route('/api/mpa/soat', methods=['GET'])(api_get_soat)

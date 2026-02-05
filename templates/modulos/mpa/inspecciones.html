@@ -29,6 +29,12 @@
             </div>
           </div>
 
+          <div class="mb-3" id="resumenMes">
+            <span class="badge bg-dark me-2" id="badgeHechas">Hechas: 0</span>
+            <span class="badge bg-warning text-dark me-2" id="badgeFaltantes">Faltantes: 0</span>
+            <span class="badge bg-success" id="badgeCumplimiento">Cumplimiento: 0%</span>
+          </div>
+
           <div class="row">
             <div class="col-12 mb-3">
               <div class="card sticky-top" style="top: 8px; z-index: 10;">
@@ -554,6 +560,7 @@ async function cargarInspecciones(){
   const data = await res.json()
   inspecciones = (data && data.success) ? (data.data || []) : []
   renderTabla()
+  await cargarResumenMes()
 }
 
 function renderPendientes(){
@@ -601,6 +608,13 @@ async function cargarPendientesMes(){
     writePendFlag(false)
   }
   try{
+    let activeIds = new Set()
+    try{
+      const rt = await fetch('/api/mpa/tecnicos', { credentials: 'include' })
+      const dt = await rt.json()
+      const tecs = (dt && dt.success) ? (dt.data || []) : []
+      tecs.forEach(t => { const id = t.id_codigo_consumidor; if (id!==undefined && id!==null) activeIds.add(String(id)) })
+    }catch(_){ }
     const [rv, ri] = await Promise.all([
       fetch('/api/mpa/vehiculos', { credentials: 'include' }),
       fetch('/api/mpa/inspecciones', { credentials: 'include' })
@@ -623,9 +637,10 @@ async function cargarPendientesMes(){
     })
     const list = []
     vehs.forEach(v => {
-      const tid = v.tecnico_asignado
+      const tid = String(v.tecnico_asignado||'').trim()
       const placa = v.placa
       if (!tid || !placa) return
+      if (activeIds.size>0 && !activeIds.has(tid)) return
       if (!placasInsMes.has(String(placa))){
         list.push({ placa, tecnico_id: tid, tecnico_nombre: v.tecnico_nombre })
       }
@@ -683,6 +698,7 @@ async function guardarInspeccion(){
     }catch(e){
       await Promise.all([cargarInspecciones(), cargarPendientesMes()])
     }
+    await cargarResumenMes()
   } else {
     alert((data && data.error) || 'Error al crear la inspección')
   }
@@ -760,8 +776,101 @@ async function guardarFirma(){
     } else {
       await cargarInspecciones()
     }
+    await cargarResumenMes()
   } else {
     alert((d && d.error) || 'Error al guardar la firma')
+  }
+}
+
+async function cargarResumenMes(){
+  const fm = document.getElementById('filtroMes')
+  const mesVal = (fm && fm.value) || ''
+  const tecnico_id = document.getElementById('filtroTecnico').value || ''
+  const qs = []
+  if (mesVal) qs.push('mes='+encodeURIComponent(mesVal))
+  if (tecnico_id) qs.push('tecnico_id='+encodeURIComponent(tecnico_id))
+  let url = '/api/mpa/inspecciones/resumen-mes'
+  if (qs.length) url += ('?'+qs.join('&'))
+  try{
+    const res = await fetch(url, { credentials: 'include' })
+    const d = await res.json()
+    const data = (d && d.success) ? (d.data || {}) : {}
+    const hechasEl = document.getElementById('badgeHechas')
+    const faltEl = document.getElementById('badgeFaltantes')
+    const cumEl = document.getElementById('badgeCumplimiento')
+    if (hechasEl) hechasEl.textContent = `Hechas: ${data.inspecciones || 0}`
+    if (faltEl) faltEl.textContent = `Faltantes: ${data.faltantes || 0}`
+    const pct = typeof data.cumplimiento === 'number' ? data.cumplimiento : 0
+    if (cumEl) cumEl.textContent = `Cumplimiento: ${pct}%`
+  }catch(e){
+    try{
+      let activeIds = new Set()
+      try{
+        const rt = await fetch('/api/mpa/tecnicos', { credentials: 'include' })
+        const dt = await rt.json()
+        const tecs = (dt && dt.success) ? (dt.data || []) : []
+        tecs.forEach(t => { const id = t.id_codigo_consumidor; if (id!==undefined && id!==null) activeIds.add(String(id)) })
+      }catch(_){}
+      
+      
+      
+      
+      // Fallback local
+      let from, to
+      if (mesVal){
+        const p = mesVal.split('-')
+        const y = parseInt(p[0], 10)
+        const m = parseInt(p[1], 10)
+        from = new Date(y, m-1, 1)
+        to = new Date(m === 12 ? y+1 : y, m === 12 ? 0 : m, 1)
+      } else {
+        const now = new Date()
+        from = new Date(now.getFullYear(), now.getMonth(), 1)
+        to = new Date(now.getFullYear(), now.getMonth()+1, 1)
+      }
+      const y1 = from.getFullYear(); const m1 = String(from.getMonth()+1).padStart(2,'0'); const d1 = String(from.getDate()).padStart(2,'0')
+      const y2 = to.getFullYear(); const m2 = String(to.getMonth()+1).padStart(2,'0'); const d2 = String(to.getDate()).padStart(2,'0')
+      const qsi = [`desde=${encodeURIComponent(`${y1}-${m1}-${d1} 00:00:00`)}`, `hasta=${encodeURIComponent(`${y2}-${m2}-${d2} 00:00:00`)}`, 'limit=1000']
+      if (tecnico_id) qsi.push('tecnico_id='+encodeURIComponent(tecnico_id))
+      const vehUrl = tecnico_id ? (`/api/mpa/vehiculos?tecnico=${encodeURIComponent(tecnico_id)}`) : '/api/mpa/vehiculos'
+      const [rv, ri] = await Promise.all([
+        fetch(vehUrl, { credentials: 'include' }),
+        fetch('/api/mpa/inspecciones?'+qsi.join('&'), { credentials: 'include' })
+      ])
+      const dv = await rv.json(); const di = await ri.json()
+      const vehs = (dv && dv.success) ? (dv.data || dv.vehiculos || []) : []
+      const ins = (di && di.success) ? (di.data || []) : []
+      const asignados = vehs.filter(v => {
+        const tid = String(v.tecnico_asignado||'').trim()
+        if (!tid) return false
+        if (activeIds.size>0) return activeIds.has(tid)
+        return true
+      }).map(v => String(v.placa||'').trim().toUpperCase())
+      const setAsignados = new Set(asignados)
+      const placasInsMes = new Set()
+      ins.forEach(r => {
+        const placa = String(r.placa||'').trim().toUpperCase()
+        if (placa){ placasInsMes.add(placa) }
+      })
+      let realizadas = 0
+      setAsignados.forEach(p => { if (placasInsMes.has(p)) realizadas++ })
+      const total = setAsignados.size
+      const faltantes = Math.max(0, total - realizadas)
+      const pct = total ? Math.round((realizadas*1000.0)/total)/10.0 : 0
+      const hechasEl = document.getElementById('badgeHechas')
+      const faltEl = document.getElementById('badgeFaltantes')
+      const cumEl = document.getElementById('badgeCumplimiento')
+      if (hechasEl) hechasEl.textContent = `Hechas: ${realizadas}`
+      if (faltEl) faltEl.textContent = `Faltantes: ${faltantes}`
+      if (cumEl) cumEl.textContent = `Cumplimiento: ${pct}%`
+    }catch(err){
+      const hechasEl = document.getElementById('badgeHechas')
+      const faltEl = document.getElementById('badgeFaltantes')
+      const cumEl = document.getElementById('badgeCumplimiento')
+      if (hechasEl) hechasEl.textContent = `Hechas: 0`
+      if (faltEl) faltEl.textContent = `Faltantes: 0`
+      if (cumEl) cumEl.textContent = `Cumplimiento: 0%`
+    }
   }
 }
 
@@ -897,7 +1006,7 @@ function renderVerBM(r){
     const m = String(now.getMonth()+1).padStart(2,'0')
     fm.value = `${y}-${m}`
   }
-  await Promise.all([cargarTecnicos(), cargarInspecciones(), cargarPendientesMes()])
+  await Promise.all([cargarTecnicos(), cargarInspecciones(), cargarPendientesMes(), cargarResumenMes()])
   document.getElementById('btnBuscar').addEventListener('click', cargarInspecciones)
   document.getElementById('btnGuardarInspeccion').addEventListener('click', guardarInspeccion)
   initFirmaCanvas()

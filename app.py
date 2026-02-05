@@ -8702,18 +8702,210 @@ def api_inspecciones_pendientes_mes():
         joins = ""
         if ro_exists:
             joins = f"LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = v.{tcol}"
+        extra_where = " AND ro.estado = 'Activo'" if ro_exists else ""
         query = f"""
         SELECT v.placa, v.{tcol} AS tecnico_id, {('COALESCE(ro.nombre, CAST(v.' + tcol + ' AS CHAR))' if ro_exists else 'CAST(v.' + tcol + ' AS CHAR)')} AS tecnico_nombre
         FROM mpa_vehiculos v
-        LEFT JOIN mpa_inspeccion_vehiculo i ON i.placa = v.placa AND i.fecha_inspeccion >= %s AND i.fecha_inspeccion < %s
+        LEFT JOIN mpa_inspeccion_vehiculo i ON UPPER(TRIM(i.placa)) = UPPER(TRIM(v.placa)) AND i.fecha_inspeccion >= %s AND i.fecha_inspeccion < %s
         {joins}
-        WHERE v.{tcol} IS NOT NULL AND i.placa IS NULL
+        WHERE v.{tcol} IS NOT NULL AND i.placa IS NULL{extra_where}
         ORDER BY RAND()
         LIMIT {limit}
         """
         cursor.execute(query, (fm, nm))
         rows = cursor.fetchall() or []
         return jsonify({'success': True, 'data': rows})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+        if 'connection' in locals() and connection and connection.is_connected():
+            connection.close()
+
+@app.route('/api/mpa/inspecciones/resumen-mes', methods=['GET'])
+@login_required
+def api_inspecciones_resumen_mes():
+    if not current_user.has_role('administrativo'):
+        return jsonify({'error': 'Sin permisos'}), 403
+    try:
+        ensure_mpa_indexes()
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        # Validar estructuras
+        cursor.execute("DESCRIBE mpa_vehiculos")
+        v_cols = set()
+        for ci in cursor.fetchall() or []:
+            try:
+                v_cols.add(ci.get('Field') or ci.get('field') or ci[0])
+            except Exception:
+                pass
+        if 'placa' not in v_cols:
+            return jsonify({'success': True, 'data': {'inspecciones': 0, 'faltantes': 0, 'total': 0, 'cumplimiento': 0.0}})
+        tcol = None
+        for c in ('tecnico_asignado','id_codigo_consumidor','tecnico','id_tecnico'):
+            if c in v_cols:
+                tcol = c; break
+        if not tcol:
+            return jsonify({'success': True, 'data': {'inspecciones': 0, 'faltantes': 0, 'total': 0, 'cumplimiento': 0.0}})
+        cursor.execute("DESCRIBE mpa_inspeccion_vehiculo")
+        i_cols = set()
+        for ci in cursor.fetchall() or []:
+            try:
+                i_cols.add(ci.get('Field') or ci.get('field') or ci[0])
+            except Exception:
+                pass
+        if 'placa' not in i_cols or 'fecha_inspeccion' not in i_cols:
+            return jsonify({'success': True, 'data': {'inspecciones': 0, 'faltantes': 0, 'total': 0, 'cumplimiento': 0.0}})
+        cursor.execute("SHOW TABLES LIKE 'recurso_operativo'")
+        ro_exists = cursor.fetchone() is not None
+        # Rango de fechas
+        mes_raw = (request.args.get('mes') or '').strip()
+        desde_raw = (request.args.get('desde') or '').strip()
+        hasta_raw = (request.args.get('hasta') or '').strip()
+        if mes_raw and len(mes_raw) >= 7 and mes_raw[4] == '-':
+            try:
+                from datetime import datetime as _dt
+                y = int(mes_raw[:4]); m = int(mes_raw[5:7])
+                fm = _dt(y, m, 1)
+                nm = _dt(y + (1 if m == 12 else 0), 1 if m == 12 else m + 1, 1)
+                desde_raw = fm.strftime('%Y-%m-%d %H:%M:%S')
+                hasta_raw = nm.strftime('%Y-%m-%d %H:%M:%S')
+            except Exception:
+                pass
+        if not (desde_raw and hasta_raw):
+            now = get_bogota_datetime()
+            from datetime import datetime as _dt
+            fm = _dt(now.year, now.month, 1)
+            nm = _dt(now.year + (1 if now.month == 12 else 0), 1 if now.month == 12 else now.month + 1, 1)
+            desde_raw = fm.strftime('%Y-%m-%d %H:%M:%S')
+            hasta_raw = nm.strftime('%Y-%m-%d %H:%M:%S')
+        # Filtros opcionales
+        tecnico_id = (request.args.get('tecnico_id') or '').strip()
+        # Total vehículos asignados
+        if tecnico_id:
+            if ro_exists:
+                cursor.execute(
+                    f"SELECT COUNT(DISTINCT v.placa) AS c FROM mpa_vehiculos v LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = v.{tcol} WHERE v.{tcol} = %s AND ro.estado = 'Activo'",
+                    (tecnico_id,)
+                )
+            else:
+                cursor.execute(f"SELECT COUNT(DISTINCT v.placa) AS c FROM mpa_vehiculos v WHERE v.{tcol} = %s", (tecnico_id,))
+        else:
+            if ro_exists:
+                cursor.execute(
+                    f"SELECT COUNT(DISTINCT v.placa) AS c FROM mpa_vehiculos v LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = v.{tcol} WHERE v.{tcol} IS NOT NULL AND ro.estado = 'Activo'"
+                )
+            else:
+                cursor.execute(f"SELECT COUNT(DISTINCT v.placa) AS c FROM mpa_vehiculos v WHERE v.{tcol} IS NOT NULL")
+        total = (cursor.fetchone() or {}).get('c') or 0
+        if tecnico_id:
+            if ro_exists:
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(DISTINCT v.placa) AS c
+                    FROM mpa_vehiculos v
+                    INNER JOIN recurso_operativo ro ON ro.id_codigo_consumidor = v.{tcol}
+                    INNER JOIN mpa_inspeccion_vehiculo i
+                      ON UPPER(TRIM(i.placa)) = UPPER(TRIM(v.placa)) AND i.fecha_inspeccion >= %s AND i.fecha_inspeccion < %s
+                    WHERE v.{tcol} = %s AND ro.estado = 'Activo'
+                    """,
+                    (desde_raw, hasta_raw, tecnico_id)
+                )
+            else:
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(DISTINCT v.placa) AS c
+                    FROM mpa_vehiculos v
+                    INNER JOIN mpa_inspeccion_vehiculo i
+                      ON UPPER(TRIM(i.placa)) = UPPER(TRIM(v.placa)) AND i.fecha_inspeccion >= %s AND i.fecha_inspeccion < %s
+                    WHERE v.{tcol} = %s
+                    """,
+                    (desde_raw, hasta_raw, tecnico_id)
+                )
+        else:
+            if ro_exists:
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(DISTINCT v.placa) AS c
+                    FROM mpa_vehiculos v
+                    INNER JOIN recurso_operativo ro ON ro.id_codigo_consumidor = v.{tcol}
+                    INNER JOIN mpa_inspeccion_vehiculo i
+                      ON UPPER(TRIM(i.placa)) = UPPER(TRIM(v.placa)) AND i.fecha_inspeccion >= %s AND i.fecha_inspeccion < %s
+                    WHERE v.{tcol} IS NOT NULL AND ro.estado = 'Activo'
+                    """,
+                    (desde_raw, hasta_raw)
+                )
+            else:
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(DISTINCT v.placa) AS c
+                    FROM mpa_vehiculos v
+                    INNER JOIN mpa_inspeccion_vehiculo i
+                      ON UPPER(TRIM(i.placa)) = UPPER(TRIM(v.placa)) AND i.fecha_inspeccion >= %s AND i.fecha_inspeccion < %s
+                    WHERE v.{tcol} IS NOT NULL
+                    """,
+                    (desde_raw, hasta_raw)
+                )
+        realizadas = (cursor.fetchone() or {}).get('c') or 0
+        if tecnico_id:
+            if ro_exists:
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(DISTINCT v.placa) AS c
+                    FROM mpa_vehiculos v
+                    LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = v.{tcol}
+                    LEFT JOIN mpa_inspeccion_vehiculo i
+                      ON UPPER(TRIM(i.placa)) = UPPER(TRIM(v.placa)) AND i.fecha_inspeccion >= %s AND i.fecha_inspeccion < %s
+                    WHERE v.{tcol} = %s AND ro.estado = 'Activo' AND i.placa IS NULL
+                    """,
+                    (desde_raw, hasta_raw, tecnico_id)
+                )
+            else:
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(DISTINCT v.placa) AS c
+                    FROM mpa_vehiculos v
+                    LEFT JOIN mpa_inspeccion_vehiculo i
+                      ON UPPER(TRIM(i.placa)) = UPPER(TRIM(v.placa)) AND i.fecha_inspeccion >= %s AND i.fecha_inspeccion < %s
+                    WHERE v.{tcol} = %s AND i.placa IS NULL
+                    """,
+                    (desde_raw, hasta_raw, tecnico_id)
+                )
+        else:
+            if ro_exists:
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(DISTINCT v.placa) AS c
+                    FROM mpa_vehiculos v
+                    LEFT JOIN recurso_operativo ro ON ro.id_codigo_consumidor = v.{tcol}
+                    LEFT JOIN mpa_inspeccion_vehiculo i
+                      ON UPPER(TRIM(i.placa)) = UPPER(TRIM(v.placa)) AND i.fecha_inspeccion >= %s AND i.fecha_inspeccion < %s
+                    WHERE v.{tcol} IS NOT NULL AND ro.estado = 'Activo' AND i.placa IS NULL
+                    """,
+                    (desde_raw, hasta_raw)
+                )
+            else:
+                cursor.execute(
+                    f"""
+                    SELECT COUNT(DISTINCT v.placa) AS c
+                    FROM mpa_vehiculos v
+                    LEFT JOIN mpa_inspeccion_vehiculo i
+                      ON UPPER(TRIM(i.placa)) = UPPER(TRIM(v.placa)) AND i.fecha_inspeccion >= %s AND i.fecha_inspeccion < %s
+                    WHERE v.{tcol} IS NOT NULL AND i.placa IS NULL
+                    """,
+                    (desde_raw, hasta_raw)
+                )
+        faltantes = (cursor.fetchone() or {}).get('c') or 0
+        cumplimiento = float(0.0 if int(total) == 0 else round(100.0 * float(realizadas) / float(total), 1))
+        return jsonify({'success': True, 'data': {
+            'inspecciones': int(realizadas),
+            'faltantes': int(faltantes),
+            'total': int(total),
+            'cumplimiento': cumplimiento
+        }})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
     finally:
