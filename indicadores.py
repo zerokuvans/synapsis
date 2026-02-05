@@ -94,16 +94,34 @@ def calcular_indicadores_cumplimiento(fecha=None):
                 'mensaje': f'No hay datos para la fecha {fecha}'
             }
         
-        # Consulta para obtener asistencia válida por supervisor
+        # Consulta para obtener asistencia válida por supervisor con filtros adicionales
         try:
-            query_asistencia = """
+            allowed_carpeta = [
+                'ABACK','APOCAMIONETA','ARGHFC','AUX','AUXCAM','AUXMOTO',
+                'BACK ARGHFC','BACK AUX','BACK BROW','BACK FTTHI','BACK HFCI','BACK MTFTTH',
+                'BROW','DX','FTTHI','FTTHPOST','HFCI','MTFTTH','POST'
+            ]
+            allowed_upper = [str(s or '').upper().strip() for s in allowed_carpeta]
+            placeholders_allowed = ','.join(['%s'] * len(allowed_upper))
+            excluded_carpeta = ['0','I.ARL','D/F','LM','LL','SUS','PER','VAC','DFAM','RM','RN','I.MED']
+            exc_upper = [str(s or '').upper().strip() for s in excluded_carpeta]
+            placeholders_exc = ','.join(['%s'] * len(exc_upper))
+            query_asistencia = f"""
                 SELECT a.super as supervisor, COUNT(*) as total_asistencia 
                 FROM asistencia a 
-                JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
-                WHERE DATE(a.fecha_asistencia) = %s AND t.valor = '1'
+                WHERE DATE(a.fecha_asistencia) = %s
+                  AND (
+                        EXISTS (
+                            SELECT 1 FROM tipificacion_asistencia t 
+                            WHERE TRIM(UPPER(t.codigo_tipificacion)) = TRIM(UPPER(COALESCE(a.carpeta_dia,'')))
+                              AND t.valor = '1'
+                        )
+                     OR UPPER(TRIM(COALESCE(a.carpeta_dia,''))) IN ({placeholders_allowed})
+                  )
+                  AND UPPER(TRIM(COALESCE(a.carpeta_dia,''))) NOT IN ({placeholders_exc})
                 GROUP BY a.super
             """
-            cursor.execute(query_asistencia, (fecha,))
+            cursor.execute(query_asistencia, (fecha,) + tuple(allowed_upper) + tuple(exc_upper))
             asistencia_por_supervisor = {row['supervisor']: row['total_asistencia'] for row in cursor.fetchall()}
         except Exception as e:
             print(f"Error en consulta de asistencia: {e}")

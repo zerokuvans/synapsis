@@ -138,7 +138,15 @@ function renderSupervisorCard(item){
   const body = document.createElement('div'); body.className = 'card-body';
   const head = document.createElement('div'); head.className = 'd-flex justify-content-between align-items-center mb-2';
   const h6 = document.createElement('h6'); h6.className = 'mb-0'; h6.textContent = item.supervisor;
-  const gen = document.createElement('span'); gen.className = 'badge bg-success'; gen.textContent = `${item.porcentaje_general}%`;
+  const gen = document.createElement('span'); gen.className = 'badge bg-success';
+  let prom = item.porcentaje_promedio_metricas;
+  if(!Number.isFinite(prom)){
+    const lista = [item.porcentaje_tsr, item.porcentaje_permiso, item.porcentaje_caidas, item.porcentaje_epp];
+    if(item.escaleras_aplica){ lista.push(item.porcentaje_escaleras); }
+    const nums = lista.filter(v=>Number.isFinite(v)).map(v=>Number(v));
+    prom = nums.length ? Math.round(nums.reduce((a,b)=>a+b,0)/nums.length) : 0;
+  }
+  gen.textContent = `${prom}%`;
   head.appendChild(h6); head.appendChild(gen);
   const table = document.createElement('table'); table.className = 'table table-sm';
   const tbody = document.createElement('tbody');
@@ -146,10 +154,18 @@ function renderSupervisorCard(item){
     ['Análisis de Trabajo Seguro Rutinario', item.porcentaje_tsr],
     ['Permiso de Trabajo', item.porcentaje_permiso],
     ['Pre-operacional Caídas', item.porcentaje_caidas],
-    ['Pre-operacional EPP', item.porcentaje_epp],
-    ['Pre-operacional Escaleras', item.porcentaje_escaleras]
+    ['Pre-operacional EPP', item.porcentaje_epp]
   ];
   rows.forEach(r=>{ const tr=document.createElement('tr'); const td1=document.createElement('td'); td1.textContent=r[0]; const td2=document.createElement('td'); td2.className='text-end'; td2.textContent = `${r[1]}%`; tr.appendChild(td1); tr.appendChild(td2); tbody.appendChild(tr); });
+  const trEsc = document.createElement('tr');
+  const tdEsc1 = document.createElement('td'); tdEsc1.textContent = 'Pre-operacional Escaleras';
+  const tdEsc2 = document.createElement('td'); tdEsc2.className = 'text-end';
+  if(item.escaleras_aplica && Number.isFinite(item.porcentaje_escaleras)){
+    tdEsc2.textContent = `${item.porcentaje_escaleras}%`;
+  } else {
+    tdEsc2.textContent = 'No aplica';
+  }
+  trEsc.appendChild(tdEsc1); trEsc.appendChild(tdEsc2); tbody.appendChild(trEsc);
   table.appendChild(tbody);
   body.appendChild(head); body.appendChild(table);
   card.appendChild(body); col.appendChild(card);
