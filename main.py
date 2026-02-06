@@ -6491,6 +6491,7 @@ def api_analistas_actividad_cierre():
         ensure_col('fecha_franja_cierre_ciclo', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `fecha_franja_cierre_ciclo` DATE NULL")
         ensure_col('franja_cierre_ciclo', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `franja_cierre_ciclo` TEXT NULL")
         ensure_col('alerta_cierre_ciclo', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `alerta_cierre_ciclo` TEXT NULL")
+        ensure_col('analista', "ALTER TABLE `operaciones_actividades_diarias` ADD COLUMN `analista` VARCHAR(255) NULL")
         try:
             cur.execute(
                 """
@@ -6532,6 +6533,7 @@ def api_analistas_actividad_cierre():
         col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
         col_act_id = pick(['actividad_id','id_actividad','id_actividad_diaria'])
         col_final = pick(['estado_final','finalizado','final'])
+        col_analista = pick(['analista','analista_nombre','nombre_analista'])
         if not col_ot or not col_cuenta:
             return jsonify({'success': False, 'error': 'Columnas OT/Cuenta no detectadas'}), 200
         where = []
@@ -6671,6 +6673,16 @@ def api_analistas_actividad_cierre():
             set_parts.append("`alerta_cierre_ciclo`=NULL")
         # Marcar finalizado al concluir
         set_parts.append("`estado_final`=1")
+        # Guardar analista (nombre de quien realiza la gestión)
+        try:
+            analista_nombre = (session.get('user_name') or '').strip()
+        except Exception:
+            analista_nombre = ''
+        if analista_nombre:
+            if not col_analista:
+                col_analista = 'analista'
+            set_parts.append(f"`{col_analista}`=%s")
+            set_vals.append(analista_nombre)
         expired_cond = ''
         if col_final:
             expired_cond = f" AND (`{col_final}` IS NULL OR CAST(`{col_final}` AS SIGNED) <> 2)"
