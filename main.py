@@ -301,6 +301,7 @@ def api_sgis_debug_urlmap():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+
 @app.route('/debug/urlmap', methods=['GET'])
 def debug_urlmap_general():
     try:
@@ -1345,6 +1346,8 @@ def api_analistas_actividades_diarias_calidad_detalle():
         col_ext = pick(['external_id','id_tecnico','id_codigo_consumidor','cedula','recurso_operativo_cedula'], approx=['external_id','exetrnal_id','idexterno','id_externo','cedula'])
         col_estado = pick(['estado'])
         col_cierre = pick(['cierre_ciclo'])
+        col_analista_act = pick(['analista'])
+        col_analista_act = pick(['analista'])
         if not col_ot or not col_cuenta or not col_fecha or not col_ext:
             return jsonify({'success': True, 'items': []})
         c.execute(
@@ -1408,24 +1411,51 @@ def api_analistas_actividades_diarias_calidad_detalle():
                 pref = base_date.strftime('%Y-%m-')
                 filtro_mes_sql = f" AND o.`{col_fecha}` LIKE %s"
                 mes_params.append(pref + '%')
-            sql_det = (
-                "SELECT oc.cedula, oc.carpeta, oc.tecnico_nombre AS tecnico, oc.ot, oc.cuenta, oc.agenda, oc.fecha, oc.causa "
-                "FROM operaciones_calidad oc "
-                "WHERE oc.periodo_year = %s AND oc.periodo_month = %s "
-                "AND EXISTS (SELECT 1 FROM operaciones_actividades_diarias o "
-                "WHERE CAST(o.`" + col_ext + "` AS CHAR) IN (" + placeholders + ") " + filtro_mes_sql +
-                " AND o.`" + col_cuenta + "` IS NOT NULL"
-                " AND CAST(o.`" + col_cuenta + "` AS CHAR) <> ''"
-                " AND o.`" + col_cuenta + "` REGEXP '^[0-9]+'"
-                " AND CAST(o.`" + col_cuenta + "` AS SIGNED) > 0"
-                " AND CHAR_LENGTH(CAST(o.`" + col_cuenta + "` AS CHAR)) >= 6"
-                " AND LOWER(TRIM(o.`" + col_estado + "`)) = 'completado'"
-                " AND CAST(o.`" + col_cierre + "` AS SIGNED) = 1"
-                " AND oc.ot = CAST(o.`" + col_ot + "` AS CHAR)"
-                ")"
-            )
-            c3 = connection.cursor(dictionary=True)
-            c3.execute(sql_det, (month_year, month_month) + tuple(cedulas) + tuple(mes_params))
+            # Construir filtro adicional de analista si la columna existe en actividades
+            analista_clausula_sel = ""
+            analista_param = []
+            analista_match_clausula = ""
+            if col_analista_act:
+                analista_clausula_sel = (
+                    " AND (CAST(o.`" + col_ext + "` AS CHAR) IN (" + placeholders + ") "
+                    " OR LOWER(TRIM(o.`" + col_analista_act + "`)) COLLATE " + coll + " = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE " + coll + ")"
+                )
+                analista_param = [user_name]
+                analista_match_clausula = (
+                    " AND LOWER(TRIM(o.`" + col_analista_act + "`)) COLLATE " + coll + " = LOWER(TRIM(oc.analista)) COLLATE " + coll
+                    + ")"
+                )
+            if col_analista_act:
+                sql_det = (
+                    "SELECT oc.cedula, oc.carpeta, oc.tecnico_nombre AS tecnico, oc.ot, oc.cuenta, oc.agenda, oc.fecha, oc.causa "
+                    "FROM operaciones_calidad oc "
+                    "WHERE oc.periodo_year = %s AND oc.periodo_month = %s "
+                    "AND EXISTS (SELECT 1 FROM operaciones_actividades_diarias o "
+                    "WHERE LOWER(TRIM(o.`" + col_analista_act + "`)) COLLATE " + coll + " = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE " + coll +
+                    filtro_mes_sql +
+                    " AND o.`" + col_cuenta + "` IS NOT NULL"
+                    " AND CAST(o.`" + col_cuenta + "` AS CHAR) <> ''"
+                    " AND o.`" + col_cuenta + "` REGEXP '^[0-9]+'"
+                    " AND CAST(o.`" + col_cuenta + "` AS SIGNED) > 0"
+                    " AND CHAR_LENGTH(CAST(o.`" + col_cuenta + "` AS CHAR)) >= 6"
+                    " AND LOWER(TRIM(o.`" + col_estado + "`)) = 'completado'"
+                    " AND CAST(o.`" + col_cierre + "` AS SIGNED) = 1"
+                    " AND oc.ot = CAST(o.`" + col_ot + "` AS CHAR)"
+                    " AND CAST(oc.cedula AS CHAR) = CAST(o.`" + col_ext + "` AS CHAR)"
+                    " AND LOWER(TRIM(oc.analista)) COLLATE " + coll + " = LOWER(TRIM(o.`" + col_analista_act + "`)) COLLATE " + coll +
+                    ")"
+                )
+                c3 = connection.cursor(dictionary=True)
+                c3.execute(sql_det, (month_year, month_month, user_name) + tuple(mes_params))
+            else:
+                sql_det = (
+                    "SELECT oc.cedula, oc.carpeta, oc.tecnico_nombre AS tecnico, oc.ot, oc.cuenta, oc.agenda, oc.fecha, oc.causa "
+                    "FROM operaciones_calidad oc "
+                    "WHERE oc.periodo_year = %s AND oc.periodo_month = %s "
+                    f"AND LOWER(TRIM(oc.analista)) COLLATE {coll} = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE {coll} "
+                )
+                c3 = connection.cursor(dictionary=True)
+                c3.execute(sql_det, (month_year, month_month, user_name))
             items = c3.fetchall() or []
             c3.close()
         c.close()
@@ -5581,6 +5611,7 @@ def api_analistas_actividades_diarias_resumen():
         col_tip_super_2 = pick(['tip_super_2','tipificacion_super_2'])
         col_cierre_super = pick(['cierre_super','estado_super'])
         col_fecha_gestion_super = pick(['fecha_gestion_super','fecha_super'])
+        col_analista_act = pick(['analista','analista_nombre','nombre_analista'], approx=['analista'])
         if not col_ot or not col_cuenta or not col_fecha or not col_ext:
             return jsonify({'success': False, 'resumen': {'completado': {'cantidad': 0, 'gestionada': 0}, 'no_completado': {'cantidad': 0, 'gestionada': 0}}}), 200
         cursor.execute(
@@ -5633,6 +5664,45 @@ def api_analistas_actividades_diarias_resumen():
         m_cancel_total = 0
         m_cancel_gest = 0
         cc_gestionada = 0
+        # Preparar filtro mensual independientemente de si hay cédulas
+        base_date = None
+        try:
+            base_date = datetime.strptime(fecha_norm or '', '%Y-%m-%d') if fecha_norm else None
+        except Exception:
+            base_date = None
+        if base_date is None:
+            try:
+                now_str = datetime.now(TIMEZONE).strftime('%Y-%m-%d')
+                base_date = datetime.strptime(now_str, '%Y-%m-%d')
+            except Exception:
+                base_date = datetime.now()
+        month_start = base_date.replace(day=1).strftime('%Y-%m-%d')
+        import calendar as _cal
+        last_day = _cal.monthrange(base_date.year, base_date.month)[1]
+        month_end = base_date.replace(day=last_day).strftime('%Y-%m-%d')
+        filtro_mes_sql = ''
+        mes_params = []
+        try:
+            cdt = connection.cursor()
+            cdt.execute(
+                """
+                SELECT DATA_TYPE FROM information_schema.columns
+                WHERE table_schema=%s AND table_name='operaciones_actividades_diarias' AND column_name=%s
+                """,
+                (db_config.get('database'), col_fecha)
+            )
+            rowt = cdt.fetchone()
+            tipo_fecha2 = str(rowt[0]).lower() if rowt else None
+            cdt.close()
+        except Exception:
+            tipo_fecha2 = None
+        if tipo_fecha2 in ('datetime','timestamp','date'):
+            filtro_mes_sql = f" AND DATE(o.`{col_fecha}`) BETWEEN %s AND %s"
+            mes_params.extend([month_start, month_end])
+        else:
+            pref = base_date.strftime('%Y-%m-')
+            filtro_mes_sql = f" AND o.`{col_fecha}` LIKE %s"
+            mes_params.append(pref + '%')
         if cedulas and col_estado:
             placeholders = ','.join(['%s'] * len(cedulas))
             final_cond = ''
@@ -5673,48 +5743,7 @@ def api_analistas_actividades_diarias_resumen():
                 cancel_gest = cancel_gest or 0
             c2.close()
 
-            # Cálculo mensual acumulado
-            # Determinar mes base usando fecha_norm o fecha actual
-            base_date = None
-            try:
-                base_date = datetime.strptime(fecha_norm or '', '%Y-%m-%d') if fecha_norm else None
-            except Exception:
-                base_date = None
-            if base_date is None:
-                try:
-                    now_str = datetime.now(TIMEZONE).strftime('%Y-%m-%d')
-                    base_date = datetime.strptime(now_str, '%Y-%m-%d')
-                except Exception:
-                    base_date = datetime.now()
-            month_start = base_date.replace(day=1).strftime('%Y-%m-%d')
-            import calendar as _cal
-            last_day = _cal.monthrange(base_date.year, base_date.month)[1]
-            month_end = base_date.replace(day=last_day).strftime('%Y-%m-%d')
-            # Detectar tipo de columna fecha para filtrar por mes
-            filtro_mes_sql = ''
-            mes_params = []
-            try:
-                cursor = connection.cursor()
-                cursor.execute(
-                    """
-                    SELECT DATA_TYPE FROM information_schema.columns
-                    WHERE table_schema=%s AND table_name='operaciones_actividades_diarias' AND column_name=%s
-                    """,
-                    (db_config.get('database'), col_fecha)
-                )
-                rowt = cursor.fetchone()
-                tipo_fecha2 = str(rowt[0]).lower() if rowt else None
-                cursor.close()
-            except Exception:
-                tipo_fecha2 = None
-            if tipo_fecha2 in ('datetime','timestamp','date'):
-                filtro_mes_sql = f" AND DATE(o.`{col_fecha}`) BETWEEN %s AND %s"
-                mes_params.extend([month_start, month_end])
-            else:
-                # Asumir formato textual 'YYYY-MM-...'
-                pref = base_date.strftime('%Y-%m-')
-                filtro_mes_sql = f" AND o.`{col_fecha}` LIKE %s"
-                mes_params.append(pref + '%')
+            # Cálculo mensual acumulado (usa filtro_mes_sql preparado arriba)
             sqlm = f"""
                 SELECT
                   SUM(CASE WHEN LOWER(TRIM(o.`{col_estado}`)) = 'completado' THEN 1 ELSE 0 END) AS comp_total,
@@ -5749,46 +5778,235 @@ def api_analistas_actividades_diarias_resumen():
                 m_cancel_total = 0
                 m_cancel_gest = 0
             c3.close()
-            if col_cierre:
-                sql_cc = f"""
-                    SELECT COUNT(*)
-                    FROM operaciones_actividades_diarias o
-                    WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_mes_sql}
-                      AND o.`{col_cuenta}` IS NOT NULL
-                      AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
-                      AND o.`{col_cuenta}` REGEXP '^[0-9]+'
-                      AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
-                      AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
-                      AND LOWER(TRIM(o.`{col_estado}`)) = 'completado'
-                      AND CAST(o.`{col_cierre}` AS SIGNED) = 1
-                """
-                c4 = connection.cursor()
-                c4.execute(sql_cc, tuple(cedulas) + tuple(mes_params))
-                rrc = c4.fetchone()
-                try:
+        # Cierre de ciclo mensual y calidad (soportar analista sin técnicos)
+        cc_ots_mes = 0
+        cc_calidad_mes = 0
+        cc_calidad_pct = 0.0
+        cc_calidades_aplicadas = 0
+        if col_ot and col_cierre:
+            try:
+                if col_analista_act:
+                    sql_cc = f"""
+                        SELECT COUNT(DISTINCT CAST(o.`{col_ot}` AS CHAR))
+                        FROM operaciones_actividades_diarias o
+                        WHERE LOWER(TRIM(o.`{col_analista_act}`)) COLLATE {coll} = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE {coll} {filtro_mes_sql}
+                          AND o.`{col_cuenta}` IS NOT NULL
+                          AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
+                          AND o.`{col_cuenta}` REGEXP '^[0-9]+'
+                          AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
+                          AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
+                          AND LOWER(TRIM(o.`{col_estado}`)) = 'completado'
+                          AND CAST(o.`{col_cierre}` AS SIGNED) = 1
+                    """
+                    params_cc = [user_name] + list(mes_params)
+                elif cedulas:
+                    placeholders_m = ','.join(['%s'] * len(cedulas))
+                    sql_cc = f"""
+                        SELECT COUNT(DISTINCT CAST(o.`{col_ot}` AS CHAR))
+                        FROM operaciones_actividades_diarias o
+                        WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders_m}) {filtro_mes_sql}
+                          AND o.`{col_cuenta}` IS NOT NULL
+                          AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
+                          AND o.`{col_cuenta}` REGEXP '^[0-9]+'
+                          AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
+                          AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
+                          AND LOWER(TRIM(o.`{col_estado}`)) = 'completado'
+                          AND CAST(o.`{col_cierre}` AS SIGNED) = 1
+                    """
+                    params_cc = list(cedulas) + list(mes_params)
+                else:
+                    sql_cc = None
+                    params_cc = []
+                if sql_cc:
+                    c4 = connection.cursor()
+                    c4.execute(sql_cc, tuple(params_cc))
+                    rrc = c4.fetchone()
                     cc_gestionada = int(rrc[0] or 0)
-                except Exception:
-                    cc_gestionada = 0
-                c4.close()
+                    c4.close()
+            except Exception:
+                cc_gestionada = 0
+            try:
+                if col_analista_act:
+                    sql_ots = f"""
+                        SELECT COUNT(DISTINCT CAST(o.`{col_ot}` AS CHAR))
+                        FROM operaciones_actividades_diarias o
+                        WHERE LOWER(TRIM(o.`{col_analista_act}`)) COLLATE {coll} = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE {coll} {filtro_mes_sql}
+                          AND o.`{col_cuenta}` IS NOT NULL
+                          AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
+                          AND o.`{col_cuenta}` REGEXP '^[0-9]+'
+                          AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
+                          AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
+                          AND LOWER(TRIM(o.`{col_estado}`)) = 'completado'
+                          AND CAST(o.`{col_cierre}` AS SIGNED) = 1
+                    """
+                    params_ots = [user_name] + list(mes_params)
+                elif cedulas:
+                    placeholders_m = ','.join(['%s'] * len(cedulas))
+                    sql_ots = f"""
+                        SELECT COUNT(DISTINCT CAST(o.`{col_ot}` AS CHAR))
+                        FROM operaciones_actividades_diarias o
+                        WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders_m}) {filtro_mes_sql}
+                          AND o.`{col_cuenta}` IS NOT NULL
+                          AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
+                          AND o.`{col_cuenta}` REGEXP '^[0-9]+'
+                          AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
+                          AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
+                          AND LOWER(TRIM(o.`{col_estado}`)) = 'completado'
+                          AND CAST(o.`{col_cierre}` AS SIGNED) = 1
+                    """
+                    params_ots = list(cedulas) + list(mes_params)
+                else:
+                    sql_ots = None
+                    params_ots = []
+                if sql_ots:
+                    c5 = connection.cursor()
+                    c5.execute(sql_ots, tuple(params_ots))
+                    r_ots = c5.fetchone()
+                    cc_ots_mes = int(r_ots[0] or 0)
+                    c5.close()
+            except Exception:
+                cc_ots_mes = 0
+            try:
+                if col_analista_act:
+                    sql_cal = (
+                        "SELECT COUNT(DISTINCT CAST(o.`" + col_ot + "` AS CHAR)) "
+                        "FROM operaciones_actividades_diarias o "
+                        "WHERE LOWER(TRIM(o.`" + col_analista_act + "`)) COLLATE " + coll + " = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE " + coll + " " + filtro_mes_sql +
+                        " AND o.`" + col_cuenta + "` IS NOT NULL"
+                        " AND CAST(o.`" + col_cuenta + "` AS CHAR) <> ''"
+                        " AND o.`" + col_cuenta + "` REGEXP '^[0-9]+'"
+                        " AND CAST(o.`" + col_cuenta + "` AS SIGNED) > 0"
+                        " AND CHAR_LENGTH(CAST(o.`" + col_cuenta + "` AS CHAR)) >= 6"
+                        " AND LOWER(TRIM(o.`" + col_estado + "`)) = 'completado'"
+                        " AND CAST(o.`" + col_cierre + "` AS SIGNED) = 1"
+                        " AND EXISTS (SELECT 1 FROM operaciones_calidad oc "
+                        "WHERE oc.ot = CAST(o.`" + col_ot + "` AS CHAR) AND oc.periodo_year = %s AND oc.periodo_month = %s "
+                        + (f" AND LOWER(TRIM(oc.analista)) COLLATE {coll} = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE {coll}" ) +
+                        " AND CAST(oc.cedula AS CHAR) = CAST(o.`" + col_ext + "` AS CHAR) )"
+                    )
+                    params_cal = [user_name] + list(mes_params) + [base_date.year, base_date.month, user_name]
+                elif cedulas:
+                    placeholders_m = ','.join(['%s'] * len(cedulas))
+                    sql_cal = (
+                        "SELECT COUNT(DISTINCT CAST(o.`" + col_ot + "` AS CHAR)) "
+                        "FROM operaciones_actividades_diarias o "
+                        "WHERE CAST(o.`" + col_ext + "` AS CHAR) IN (" + placeholders_m + ") " + filtro_mes_sql +
+                        " AND o.`" + col_cuenta + "` IS NOT NULL"
+                        " AND CAST(o.`" + col_cuenta + "` AS CHAR) <> ''"
+                        " AND o.`" + col_cuenta + "` REGEXP '^[0-9]+'"
+                        " AND CAST(o.`" + col_cuenta + "` AS SIGNED) > 0"
+                        " AND CHAR_LENGTH(CAST(o.`" + col_cuenta + "` AS CHAR)) >= 6"
+                        " AND LOWER(TRIM(o.`" + col_estado + "`)) = 'completado'"
+                        " AND CAST(o.`" + col_cierre + "` AS SIGNED) = 1"
+                        " AND EXISTS (SELECT 1 FROM operaciones_calidad oc "
+                        "WHERE oc.ot = CAST(o.`" + col_ot + "` AS CHAR) AND oc.periodo_year = %s AND oc.periodo_month = %s "
+                        + (f" AND LOWER(TRIM(oc.analista)) COLLATE {coll} = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE {coll}" ) +
+                        " AND CAST(oc.cedula AS CHAR) = CAST(o.`" + col_ext + "` AS CHAR) )"
+                    )
+                    params_cal = list(cedulas) + list(mes_params) + [base_date.year, base_date.month, user_name]
+                else:
+                    sql_cal = None
+                    params_cal = []
+                if sql_cal:
+                    c6 = connection.cursor()
+                    c6.execute(sql_cal, tuple(params_cal))
+                    r_cal = c6.fetchone()
+                    cc_calidad_mes = int(r_cal[0] or 0)
+                    c6.close()
+            except Exception:
+                cc_calidad_mes = 0
+            try:
+                if col_analista_act:
+                    sql_cal_apl = (
+                        "SELECT COUNT(*) "
+                        "FROM operaciones_calidad oc "
+                        "WHERE oc.periodo_year = %s AND oc.periodo_month = %s "
+                        "AND LOWER(TRIM(oc.analista)) COLLATE " + coll + " = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE " + coll +
+                        " AND EXISTS (SELECT 1 FROM operaciones_actividades_diarias o "
+                        "WHERE LOWER(TRIM(o.`" + col_analista_act + "`)) COLLATE " + coll + " = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE " + coll + " " + filtro_mes_sql +
+                        " AND o.`" + col_cuenta + "` IS NOT NULL"
+                        " AND CAST(o.`" + col_cuenta + "` AS CHAR) <> ''"
+                        " AND o.`" + col_cuenta + "` REGEXP '^[0-9]+'"
+                        " AND CAST(o.`" + col_cuenta + "` AS SIGNED) > 0"
+                        " AND CHAR_LENGTH(CAST(o.`" + col_cuenta + "` AS CHAR)) >= 6"
+                        " AND LOWER(TRIM(o.`" + col_estado + "`)) = 'completado'"
+                        " AND CAST(o.`" + col_cierre + "` AS SIGNED) = 1"
+                        " AND oc.ot = CAST(o.`" + col_ot + "` AS CHAR)"
+                        " AND CAST(oc.cedula AS CHAR) = CAST(o.`" + col_ext + "` AS CHAR)"
+                        ")"
+                    )
+                    params_apl = [base_date.year, base_date.month, user_name, user_name] + list(mes_params)
+                elif cedulas:
+                    placeholders_m = ','.join(['%s'] * len(cedulas))
+                    sql_cal_apl = (
+                        "SELECT COUNT(*) "
+                        "FROM operaciones_calidad oc "
+                        "WHERE oc.periodo_year = %s AND oc.periodo_month = %s "
+                        "AND LOWER(TRIM(oc.analista)) COLLATE " + coll + " = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE " + coll +
+                        " AND EXISTS (SELECT 1 FROM operaciones_actividades_diarias o "
+                        "WHERE CAST(o.`" + col_ext + "` AS CHAR) IN (" + placeholders_m + ") " + filtro_mes_sql +
+                        " AND o.`" + col_cuenta + "` IS NOT NULL"
+                        " AND CAST(o.`" + col_cuenta + "` AS CHAR) <> ''"
+                        " AND o.`" + col_cuenta + "` REGEXP '^[0-9]+'"
+                        " AND CAST(o.`" + col_cuenta + "` AS SIGNED) > 0"
+                        " AND CHAR_LENGTH(CAST(o.`" + col_cuenta + "` AS CHAR)) >= 6"
+                        " AND LOWER(TRIM(o.`" + col_estado + "`)) = 'completado'"
+                        " AND CAST(o.`" + col_cierre + "` AS SIGNED) = 1"
+                        " AND oc.ot = CAST(o.`" + col_ot + "` AS CHAR)"
+                        " AND CAST(oc.cedula AS CHAR) = CAST(o.`" + col_ext + "` AS CHAR)"
+                        ")"
+                    )
+                    params_apl = [base_date.year, base_date.month, user_name] + list(cedulas) + list(mes_params)
+                else:
+                    sql_cal_apl = None
+                    params_apl = []
+                if sql_cal_apl:
+                    c7 = connection.cursor()
+                    c7.execute(sql_cal_apl, tuple(params_apl))
+                    r_apl = c7.fetchone()
+                    cc_calidades_aplicadas = int(r_apl[0] or 0)
+                    c7.close()
+            except Exception:
+                cc_calidades_aplicadas = 0
+            try:
+                cc_calidad_pct = round((100.0 - (cc_calidad_mes / cc_ots_mes * 100.0)), 1) if cc_ots_mes > 0 else 0.0
+            except Exception:
+                cc_calidad_pct = 0.0
 
             cc_ots_mes = 0
             cc_calidad_mes = 0
             cc_calidad_pct = 0.0
             if col_ot and col_cierre:
-                sql_ots = f"""
-                    SELECT COUNT(DISTINCT CAST(o.`{col_ot}` AS CHAR))
-                    FROM operaciones_actividades_diarias o
-                    WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_mes_sql}
-                      AND o.`{col_cuenta}` IS NOT NULL
-                      AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
-                      AND o.`{col_cuenta}` REGEXP '^[0-9]+'
-                      AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
-                      AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
-                      AND LOWER(TRIM(o.`{col_estado}`)) = 'completado'
-                      AND CAST(o.`{col_cierre}` AS SIGNED) = 1
-                """
+                if col_analista_act:
+                    sql_ots = f"""
+                        SELECT COUNT(DISTINCT CAST(o.`{col_ot}` AS CHAR))
+                        FROM operaciones_actividades_diarias o
+                        WHERE LOWER(TRIM(o.`{col_analista_act}`)) COLLATE {coll} = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE {coll} {filtro_mes_sql}
+                          AND o.`{col_cuenta}` IS NOT NULL
+                          AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
+                          AND o.`{col_cuenta}` REGEXP '^[0-9]+'
+                          AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
+                          AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
+                          AND LOWER(TRIM(o.`{col_estado}`)) = 'completado'
+                          AND CAST(o.`{col_cierre}` AS SIGNED) = 1
+                    """
+                    params_ots = [user_name] + list(mes_params)
+                else:
+                    sql_ots = f"""
+                        SELECT COUNT(DISTINCT CAST(o.`{col_ot}` AS CHAR))
+                        FROM operaciones_actividades_diarias o
+                        WHERE CAST(o.`{col_ext}` AS CHAR) IN ({placeholders}) {filtro_mes_sql}
+                          AND o.`{col_cuenta}` IS NOT NULL
+                          AND CAST(o.`{col_cuenta}` AS CHAR) <> ''
+                          AND o.`{col_cuenta}` REGEXP '^[0-9]+'
+                          AND CAST(o.`{col_cuenta}` AS SIGNED) > 0
+                          AND CHAR_LENGTH(CAST(o.`{col_cuenta}` AS CHAR)) >= 6
+                          AND LOWER(TRIM(o.`{col_estado}`)) = 'completado'
+                          AND CAST(o.`{col_cierre}` AS SIGNED) = 1
+                    """
+                    params_ots = list(cedulas) + list(mes_params)
                 c5 = connection.cursor()
-                c5.execute(sql_ots, tuple(cedulas) + tuple(mes_params))
+                c5.execute(sql_ots, tuple(params_ots))
                 r_ots = c5.fetchone()
                 try:
                     cc_ots_mes = int(r_ots[0] or 0)
@@ -5796,22 +6014,44 @@ def api_analistas_actividades_diarias_resumen():
                     cc_ots_mes = 0
                 c5.close()
 
-                sql_cal = (
-                    "SELECT COUNT(DISTINCT CAST(o.`" + col_ot + "` AS CHAR)) "
-                    "FROM operaciones_actividades_diarias o "
-                    "WHERE CAST(o.`" + col_ext + "` AS CHAR) IN (" + placeholders + ") " + filtro_mes_sql +
-                    " AND o.`" + col_cuenta + "` IS NOT NULL"
-                    " AND CAST(o.`" + col_cuenta + "` AS CHAR) <> ''"
-                    " AND o.`" + col_cuenta + "` REGEXP '^[0-9]+'"
-                    " AND CAST(o.`" + col_cuenta + "` AS SIGNED) > 0"
-                    " AND CHAR_LENGTH(CAST(o.`" + col_cuenta + "` AS CHAR)) >= 6"
-                    " AND LOWER(TRIM(o.`" + col_estado + "`)) = 'completado'"
-                    " AND CAST(o.`" + col_cierre + "` AS SIGNED) = 1"
-                    " AND EXISTS (SELECT 1 FROM operaciones_calidad oc "
-                    "WHERE oc.ot = CAST(o.`" + col_ot + "` AS CHAR) AND oc.periodo_year = %s AND oc.periodo_month = %s)"
-                )
+                if col_analista_act:
+                    sql_cal = (
+                        "SELECT COUNT(DISTINCT CAST(o.`" + col_ot + "` AS CHAR)) "
+                        "FROM operaciones_actividades_diarias o "
+                        "WHERE LOWER(TRIM(o.`" + col_analista_act + "`)) COLLATE " + coll + " = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE " + coll + " " + filtro_mes_sql +
+                        " AND o.`" + col_cuenta + "` IS NOT NULL"
+                        " AND CAST(o.`" + col_cuenta + "` AS CHAR) <> ''"
+                        " AND o.`" + col_cuenta + "` REGEXP '^[0-9]+'"
+                        " AND CAST(o.`" + col_cuenta + "` AS SIGNED) > 0"
+                        " AND CHAR_LENGTH(CAST(o.`" + col_cuenta + "` AS CHAR)) >= 6"
+                        " AND LOWER(TRIM(o.`" + col_estado + "`)) = 'completado'"
+                        " AND CAST(o.`" + col_cierre + "` AS SIGNED) = 1"
+                        " AND EXISTS (SELECT 1 FROM operaciones_calidad oc "
+                        "WHERE oc.ot = CAST(o.`" + col_ot + "` AS CHAR) AND oc.periodo_year = %s AND oc.periodo_month = %s "
+                        + (f" AND LOWER(TRIM(oc.analista)) COLLATE {coll} = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE {coll}" ) +
+                        " AND CAST(oc.cedula AS CHAR) = CAST(o.`" + col_ext + "` AS CHAR) )"
+                    )
+                    params_cal = [user_name] + list(mes_params) + [base_date.year, base_date.month, user_name]
+                else:
+                    sql_cal = (
+                        "SELECT COUNT(DISTINCT CAST(o.`" + col_ot + "` AS CHAR)) "
+                        "FROM operaciones_actividades_diarias o "
+                        "WHERE CAST(o.`" + col_ext + "` AS CHAR) IN (" + placeholders + ") " + filtro_mes_sql +
+                        " AND o.`" + col_cuenta + "` IS NOT NULL"
+                        " AND CAST(o.`" + col_cuenta + "` AS CHAR) <> ''"
+                        " AND o.`" + col_cuenta + "` REGEXP '^[0-9]+'"
+                        " AND CAST(o.`" + col_cuenta + "` AS SIGNED) > 0"
+                        " AND CHAR_LENGTH(CAST(o.`" + col_cuenta + "` AS CHAR)) >= 6"
+                        " AND LOWER(TRIM(o.`" + col_estado + "`)) = 'completado'"
+                        " AND CAST(o.`" + col_cierre + "` AS SIGNED) = 1"
+                        " AND EXISTS (SELECT 1 FROM operaciones_calidad oc "
+                        "WHERE oc.ot = CAST(o.`" + col_ot + "` AS CHAR) AND oc.periodo_year = %s AND oc.periodo_month = %s "
+                        + (f" AND LOWER(TRIM(oc.analista)) COLLATE {coll} = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE {coll}" ) +
+                        " AND CAST(oc.cedula AS CHAR) = CAST(o.`" + col_ext + "` AS CHAR) )"
+                    )
+                    params_cal = list(cedulas) + list(mes_params) + [base_date.year, base_date.month, user_name]
                 c6 = connection.cursor()
-                c6.execute(sql_cal, tuple(cedulas) + tuple(mes_params) + (base_date.year, base_date.month))
+                c6.execute(sql_cal, tuple(params_cal))
                 r_cal = c6.fetchone()
                 try:
                     cc_calidad_mes = int(r_cal[0] or 0)
@@ -5824,24 +6064,48 @@ def api_analistas_actividades_diarias_resumen():
                     cc_calidad_pct = 0.0
 
                 cc_calidades_aplicadas = 0
-                sql_cal_apl = (
-                    "SELECT COUNT(*) "
-                    "FROM operaciones_calidad oc "
-                    "WHERE oc.periodo_year = %s AND oc.periodo_month = %s "
-                    "AND EXISTS (SELECT 1 FROM operaciones_actividades_diarias o "
-                    "WHERE CAST(o.`" + col_ext + "` AS CHAR) IN (" + placeholders + ") " + filtro_mes_sql +
-                    " AND o.`" + col_cuenta + "` IS NOT NULL"
-                    " AND CAST(o.`" + col_cuenta + "` AS CHAR) <> ''"
-                    " AND o.`" + col_cuenta + "` REGEXP '^[0-9]+'"
-                    " AND CAST(o.`" + col_cuenta + "` AS SIGNED) > 0"
-                    " AND CHAR_LENGTH(CAST(o.`" + col_cuenta + "` AS CHAR)) >= 6"
-                    " AND LOWER(TRIM(o.`" + col_estado + "`)) = 'completado'"
-                    " AND CAST(o.`" + col_cierre + "` AS SIGNED) = 1"
-                    " AND oc.ot = CAST(o.`" + col_ot + "` AS CHAR)"
-                    ")"
-                )
+                if col_analista_act:
+                    sql_cal_apl = (
+                        "SELECT COUNT(*) "
+                        "FROM operaciones_calidad oc "
+                        "WHERE oc.periodo_year = %s AND oc.periodo_month = %s "
+                        "AND LOWER(TRIM(oc.analista)) COLLATE " + coll + " = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE " + coll +
+                        " AND EXISTS (SELECT 1 FROM operaciones_actividades_diarias o "
+                        "WHERE LOWER(TRIM(o.`" + col_analista_act + "`)) COLLATE " + coll + " = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE " + coll + " " + filtro_mes_sql +
+                        " AND o.`" + col_cuenta + "` IS NOT NULL"
+                        " AND CAST(o.`" + col_cuenta + "` AS CHAR) <> ''"
+                        " AND o.`" + col_cuenta + "` REGEXP '^[0-9]+'"
+                        " AND CAST(o.`" + col_cuenta + "` AS SIGNED) > 0"
+                        " AND CHAR_LENGTH(CAST(o.`" + col_cuenta + "` AS CHAR)) >= 6"
+                        " AND LOWER(TRIM(o.`" + col_estado + "`)) = 'completado'"
+                        " AND CAST(o.`" + col_cierre + "` AS SIGNED) = 1"
+                        " AND oc.ot = CAST(o.`" + col_ot + "` AS CHAR)"
+                        " AND CAST(oc.cedula AS CHAR) = CAST(o.`" + col_ext + "` AS CHAR)"
+                        ")"
+                    )
+                    params_apl = [base_date.year, base_date.month, user_name, user_name] + list(mes_params)
+                else:
+                    sql_cal_apl = (
+                        "SELECT COUNT(*) "
+                        "FROM operaciones_calidad oc "
+                        "WHERE oc.periodo_year = %s AND oc.periodo_month = %s "
+                        "AND LOWER(TRIM(oc.analista)) COLLATE " + coll + " = LOWER(TRIM(CAST(%s AS CHAR))) COLLATE " + coll +
+                        " AND EXISTS (SELECT 1 FROM operaciones_actividades_diarias o "
+                        "WHERE CAST(o.`" + col_ext + "` AS CHAR) IN (" + placeholders + ") " + filtro_mes_sql +
+                        " AND o.`" + col_cuenta + "` IS NOT NULL"
+                        " AND CAST(o.`" + col_cuenta + "` AS CHAR) <> ''"
+                        " AND o.`" + col_cuenta + "` REGEXP '^[0-9]+'"
+                        " AND CAST(o.`" + col_cuenta + "` AS SIGNED) > 0"
+                        " AND CHAR_LENGTH(CAST(o.`" + col_cuenta + "` AS CHAR)) >= 6"
+                        " AND LOWER(TRIM(o.`" + col_estado + "`)) = 'completado'"
+                        " AND CAST(o.`" + col_cierre + "` AS SIGNED) = 1"
+                        " AND oc.ot = CAST(o.`" + col_ot + "` AS CHAR)"
+                        " AND CAST(oc.cedula AS CHAR) = CAST(o.`" + col_ext + "` AS CHAR)"
+                        ")"
+                    )
+                    params_apl = [base_date.year, base_date.month, user_name] + list(cedulas) + list(mes_params)
                 c7 = connection.cursor()
-                c7.execute(sql_cal_apl, (base_date.year, base_date.month) + tuple(cedulas) + tuple(mes_params))
+                c7.execute(sql_cal_apl, tuple(params_apl))
                 r_apl = c7.fetchone()
                 try:
                     cc_calidades_aplicadas = int(r_apl[0] or 0)
@@ -20141,7 +20405,7 @@ def api_operativo_inicio_asistencia():
             SELECT 
                 a.cedula,
                 a.tecnico,
-                a.carpeta,
+                COALESCE(ro_id.carpeta, ro_ced.carpeta, a.carpeta) AS carpeta,
                 a.super,
                 a.carpeta_dia,
                 COALESCE(t.nombre_tipificacion, a.carpeta_dia) AS carpeta_dia_nombre,
@@ -20152,6 +20416,8 @@ def api_operativo_inicio_asistencia():
                 a.novedad
             FROM asistencia a
             LEFT JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+            LEFT JOIN recurso_operativo ro_id ON ro_id.id_codigo_consumidor = a.id_codigo_consumidor AND ro_id.estado = 'Activo'
+            LEFT JOIN recurso_operativo ro_ced ON ro_ced.recurso_operativo_cedula = a.cedula AND ro_ced.estado = 'Activo'
             LEFT JOIN presupuesto_carpeta pc ON t.nombre_tipificacion = pc.presupuesto_carpeta
             WHERE a.super = %s AND DATE(a.fecha_asistencia) = %s
             AND a.id_asistencia = (
@@ -20173,7 +20439,7 @@ def api_operativo_inicio_asistencia():
                 SELECT 
                     a.cedula,
                     a.tecnico,
-                    a.carpeta,
+                    COALESCE(ro_id.carpeta, ro_ced.carpeta, a.carpeta) AS carpeta,
                     a.super,
                     a.carpeta_dia,
                     COALESCE(t.nombre_tipificacion, a.carpeta_dia) AS carpeta_dia_nombre,
@@ -20184,6 +20450,8 @@ def api_operativo_inicio_asistencia():
                     a.novedad
                 FROM asistencia a
                 LEFT JOIN tipificacion_asistencia t ON a.carpeta_dia = t.codigo_tipificacion
+                LEFT JOIN recurso_operativo ro_id ON ro_id.id_codigo_consumidor = a.id_codigo_consumidor AND ro_id.estado = 'Activo'
+                LEFT JOIN recurso_operativo ro_ced ON ro_ced.recurso_operativo_cedula = a.cedula AND ro_ced.estado = 'Activo'
                 LEFT JOIN presupuesto_carpeta pc ON t.nombre_tipificacion = pc.presupuesto_carpeta
                 WHERE DATE(a.fecha_asistencia) = %s
                 AND a.id_asistencia = (
@@ -32545,7 +32813,7 @@ def api_sgis_reportes_tecnicos_mes():
         ]
         allowed_upper = [str(s or '').upper().strip() for s in allowed_carpeta]
         placeholders_allowed = ','.join(['%s'] * len(allowed_upper))
-        excluded_carpeta = ['0','I.ARL','D/F','LM','LL','SUS','PER','VAC','DFAM','RM','RN','I.MED']
+        excluded_carpeta = ['0','I.ARL','D/F','LM','LL','SUS','PER','VAC','DFAM','RM','RN','CP','I.MED']
         exc_upper = [str(s or '').upper().strip() for s in excluded_carpeta]
         placeholders_exc = ','.join(['%s'] * len(exc_upper))
         query = f"""

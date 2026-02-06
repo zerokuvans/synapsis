@@ -12173,7 +12173,9 @@ def api_cronograma_indicadores():
             f"""
             SELECT c.placa, c.fecha_proximo_mantenimiento
             FROM cronograma_mantenimientos c
-            {where_s}
+            LEFT JOIN mpa_vehiculos v ON v.placa = c.placa
+            LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+            {where_s} AND ro.estado = 'Activo'
             """,
             tuple(params_s)
         )
@@ -12187,7 +12189,9 @@ def api_cronograma_indicadores():
             f"""
             SELECT m.placa, m.fecha_mantenimiento
             FROM mpa_mantenimientos m
-            {where_m}
+            LEFT JOIN mpa_vehiculos v ON v.placa = m.placa
+            LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+            {where_m} AND ro.estado = 'Activo'
             """,
             tuple(params_m)
         )
@@ -12301,7 +12305,7 @@ def api_cronograma_indicadores_detalle():
             FROM cronograma_mantenimientos c
             LEFT JOIN mpa_vehiculos v ON v.placa = c.placa
             LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
-            {where_s}
+            {where_s} AND ro.estado = 'Activo'
             ORDER BY c.fecha_proximo_mantenimiento ASC, c.placa
             """,
             tuple(params_s)
@@ -12316,7 +12320,9 @@ def api_cronograma_indicadores_detalle():
             f"""
             SELECT m.placa, m.fecha_mantenimiento
             FROM mpa_mantenimientos m
-            {where_m}
+            LEFT JOIN mpa_vehiculos v ON v.placa = m.placa
+            LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+            {where_m} AND ro.estado = 'Activo'
             """,
             tuple(params_m)
         )
@@ -12429,7 +12435,7 @@ def api_cronograma_indicadores_detalle_trimestre():
             FROM cronograma_mantenimientos c
             LEFT JOIN mpa_vehiculos v ON v.placa = c.placa
             LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
-            {where_s}
+            {where_s} AND ro.estado = 'Activo'
             ORDER BY c.fecha_proximo_mantenimiento ASC, c.placa
             """,
             tuple(params_s)
@@ -12444,7 +12450,9 @@ def api_cronograma_indicadores_detalle_trimestre():
             f"""
             SELECT m.placa, m.fecha_mantenimiento
             FROM mpa_mantenimientos m
-            {where_m}
+            LEFT JOIN mpa_vehiculos v ON v.placa = m.placa
+            LEFT JOIN recurso_operativo ro ON v.tecnico_asignado = ro.id_codigo_consumidor
+            {where_m} AND ro.estado = 'Activo'
             """,
             tuple(params_m)
         )

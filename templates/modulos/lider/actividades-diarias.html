@@ -19,7 +19,7 @@
               <div id="accCierre" class="accordion-collapse collapse show" aria-labelledby="accCierreHeader" data-bs-parent="#accordionAnalistas">
                 <div class="accordion-body">
                   <div id="analistasMetricCards" class="row g-3 mt-2">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                       <div class="card h-100">
                         <div class="card-body">
                           <h6 class="text-muted mb-1">Meta mensual</h6>
@@ -47,20 +47,24 @@
                           <h6 class="text-muted mb-1">Calidad cierre de ciclo</h6>
                           <div class="d-flex align-items-baseline gap-2">
                             <span class="fs-3 fw-bold" id="cardCalidadPct">0%</span>
-                            <span class="badge bg-secondary" id="cardCalidadBase">sobre 0 cierres</span>
+                            
                           </div>
                           <div class="mt-2">
+                            <div>
+                              <span class="badge bg-secondary" id="cardCalidadBase">sobre 0 cierres</span>
+                            </div>
                             <span class="badge bg-info" id="cardCalidadesAplicadas" style="cursor:pointer">calidades aplicadas: 0</span>
                           </div>
                         </div>
                       </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                       <div class="card h-100">
                         <div class="card-body">
                           <h6 class="text-muted mb-1">Reconocimiento</h6>
                           <div class="d-flex align-items-center justify-content-start">
                             <img id="cardMonedaImg" src="" alt="Reconocimiento" style="height:96px; display:none;" />
+                            <div id="cardReconLista" class="ms-3" style="display:none;"></div>
                           </div>
                         </div>
                       </div>
@@ -136,8 +140,9 @@
                           <h6 class="text-muted mb-1">Reconocimiento</h6>
                           <div class="d-flex align-items-center justify-content-start">
                             <img id="cardEfectReconImg" src="" alt="Reconocimiento" style="height:96px; display:none;" />
+                            <div id="efectReconLista" class="ms-3" style="display:none;"></div>
                           </div>
-                          <div class="mt-2" id="efectReconLista"></div>
+                          
                         </div>
                       </div>
                     </div>
@@ -212,8 +217,9 @@
                           <h6 class="text-muted mb-1">Reconocimiento</h6>
                           <div class="d-flex align-items-center justify-content-start">
                             <img id="cardPresReconImg" src="" alt="Reconocimiento" style="height:96px; display:none;" />
+                            <div id="presReconLista" class="ms-3" style="display:none;"></div>
                           </div>
-                          <div class="mt-2" id="presReconLista"></div>
+                          
                         </div>
                       </div>
                     </div>
@@ -744,9 +750,10 @@ async function renderResumen(){
             else if(p >= 90){ coin = '100pesos'; }
             const periodoSel = (document.getElementById('filtroFecha')?.value || '').slice(0,7);
             const analistaSel = (document.getElementById('filtroAnalista')?.value || '').trim();
-            const final = persistMaxCoin('analistas', periodoSel, analistaSel, 'cierre', coin);
             monedaImg.style.display = 'inline-block';
-            monedaImg.src = `/static/moneda/${final}.png`;
+            monedaImg.src = `/static/moneda/${coin}.png`;
+            const l = document.getElementById('cardReconLista');
+            if(l){ await loadReconTiers(l, analistaSel, periodoSel, 'cierre', p); }
           }
         }
         cont.innerHTML = `
@@ -807,6 +814,9 @@ async function renderResumen(){
       <div class="badge bg-warning p-2">Cierre Ciclo (día): <span class="fw-bold">${ccGestDia}</span></div>
     `;
   }
+  const pComp = comp ? (compGest * 100) / comp : 0;
+  const pNComp = ncomp ? (ncompGest * 100) / ncomp : 0;
+  const pCanc = canc ? (cancGest * 100) / canc : 0;
   cont.innerHTML = `
     <table class="table table-sm table-bordered mb-0">
       <thead class="table-primary">
@@ -882,7 +892,7 @@ async function renderEfectividad(){
     await setReconByTabla(img, analista, periodo, 'efectividad', eff);
   }
       const list = document.getElementById('efectReconLista');
-      if(list){ list.innerHTML = ''; list.style.display = 'none'; }
+      if(list){ await loadReconTiers(list, analista, periodo, 'efectividad', avgKPI); }
     }
   }catch(_){ }
 }
@@ -959,7 +969,7 @@ async function renderPresupuesto(){
     await setReconByTabla(img, analista, periodo, 'presupuesto', cumpl);
   }
       const list = document.getElementById('presReconLista');
-      if(list){ list.innerHTML = ''; list.style.display = 'none'; }
+      if(list){ await loadReconTiers(list, analista, periodo, 'presupuesto', cumpl); }
     }
   }catch(_){ }
 }
@@ -1061,24 +1071,8 @@ function formatOT(v){
 
 async function getReconMoneda(analista, periodo, seccion, valor){
   try{
-    const path = (window.location && window.location.pathname) ? window.location.pathname : '';
-    const isAnalistasView = path.includes('/analistas/');
     const v = Number(valor||0);
     const sec = String(seccion||'').toLowerCase();
-    if(isAnalistasView){
-      if(sec === 'cierre'){
-        if(v >= 96) return '400pesos';
-        if(v >= 94) return '300pesos';
-        if(v >= 92) return '200pesos';
-        if(v >= 90) return '100pesos';
-        return '0pesos';
-      } else {
-        if(v >= 94) return '300pesos';
-        if(v >= 92) return '200pesos';
-        if(v >= 90) return '100pesos';
-        return '0pesos';
-      }
-    }
     let url = '/api/administrativo/porcentajes-analistas';
     const qs = [];
     if(periodo) qs.push(`periodo=${encodeURIComponent(periodo)}`);
@@ -1132,10 +1126,67 @@ async function setReconByTabla(imgEl, analista, periodo, seccion, valor){
   if(!imgEl) return;
   const m = await getReconMoneda(analista, periodo, seccion, valor);
   const moneda = m || '0pesos';
-  const final = persistMaxCoin('analistas', periodo, analista, seccion, moneda);
-  const src = `/static/moneda/${final}.png`;
+  const src = `/static/moneda/${moneda}.png`;
   imgEl.style.display = 'inline-block';
   imgEl.src = src;
+}
+
+async function loadReconTiers(listEl, analista, periodo, seccion, valor){
+  try{
+    if(!listEl) return;
+    const sec = String(seccion||'').toLowerCase();
+    let tiers = [];
+    if(sec === 'cierre'){
+      tiers = [
+        { pct: 90, coin: '100pesos' },
+        { pct: 92, coin: '200pesos' },
+        { pct: 94, coin: '300pesos' },
+        { pct: 96, coin: '400pesos' },
+      ];
+    }else{
+      try{
+        let url = '/api/administrativo/porcentajes-analistas';
+        const qs = [];
+        if(periodo) qs.push(`periodo=${encodeURIComponent(periodo)}`);
+        if(analista) qs.push(`analista=${encodeURIComponent(analista)}`);
+        if(seccion) qs.push(`seccion=${encodeURIComponent(seccion)}`);
+        if(qs.length) url += `?${qs.join('&')}`;
+        const res = await fetch(url, { credentials:'include' });
+        if(res.ok){
+          const data = await res.json();
+          const items = Array.isArray(data.items) ? data.items : [];
+          items.sort((a,b)=> Number(a.porcentaje||0) - Number(b.porcentaje||0));
+          tiers = items.map(it => ({ pct: Number(it.porcentaje||0), coin: String(it.moneda||'').trim() }));
+        }
+      }catch(_){
+        tiers = [
+          { pct: 90, coin: '100pesos' },
+          { pct: 92, coin: '200pesos' },
+          { pct: 94, coin: '300pesos' },
+        ];
+      }
+    }
+    const v = Number(valor||0);
+    const capCoin = (m)=>{ return (sec !== 'cierre' && coinRank(m) > 300) ? '300pesos' : m; };
+    const html = tiers.map(t => {
+      const active = v >= t.pct;
+      const coin = capCoin(t.coin);
+      const rank = coinRank(coin);
+      const badge = active ? 'bg-success' : 'bg-secondary';
+      const iconSrc = `/static/moneda/${coin}.png`;
+      return `
+        <div class="d-flex align-items-center mb-1">
+          <span class="badge ${badge} me-2">≥ ${t.pct.toFixed ? t.pct.toFixed(2) : t.pct}%</span>
+          <img src="${iconSrc}" alt="${rank} pesos" style="height:24px;" class="me-1">
+          <small>${rank} pesos</small>
+        </div>
+      `;
+    }).join('');
+    listEl.innerHTML = html;
+    listEl.style.display = 'block';
+  }catch(_){
+    if(listEl){ listEl.style.display = 'none'; }
+  }
 }
 
 function debeBloquearGestion(fechaRaw){
