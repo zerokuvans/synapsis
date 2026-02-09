@@ -1866,6 +1866,7 @@ def api_grupos_codigos_facturacion():
         if connection is None:
             return jsonify({'error': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor()
+        curdict = connection.cursor(dictionary=True)
 
         tecnologia = request.args.get('tecnologia', '').strip()
         agrupacion = request.args.get('agrupacion', '').strip()
@@ -4100,6 +4101,8 @@ def api_lider_cargar_calidad():
     col_garantia = pick(['garantia','garantía'])
     col_causa = pick(['causa','motivo'])
     col_lider = pick(['lider','líder','supervisor'])
+    col_super_file = pick(['super','supervisor'])
+    col_analista_file = pick(['analista'])
     col_agenda = pick(['agenda','franja'])
     col_fecha = pick(['fecha','fecha_actividad','fecha_asignacion','fecha_orden'])
     col_cedula = pick(['cedula','documento','recurso_operativo_cedula','id_codigo_consumidor'])
@@ -4122,6 +4125,12 @@ def api_lider_cargar_calidad():
             return pd.to_datetime(val).date()
         except Exception:
             return None
+
+    def to_str(v):
+        try:
+            return None if pd.isna(v) else str(v)
+        except Exception:
+            return None if v is None else str(v)
 
     try:
         connection = get_db_connection()
@@ -4247,6 +4256,16 @@ def api_lider_cargar_calidad():
                 except Exception:
                     pass
 
+            # Si el archivo trae columnas de super/analista, priorizarlas
+            super_file_val = None if col_super_file is None else df.iloc[r][col_super_file]
+            analista_file_val = None if col_analista_file is None else df.iloc[r][col_analista_file]
+            super_from_file = to_str(super_file_val)
+            analista_from_file = to_str(analista_file_val)
+            if super_from_file:
+                super_v = super_from_file
+            if analista_from_file:
+                analista_v = analista_from_file
+
             ot_str = None if pd.isna(ot_v) else str(ot_v).strip()
             if ot_str:
                 cursor.execute(
@@ -4304,6 +4323,18 @@ def api_lider_cargar_calidad():
                         )
                     )
                     inserted += 1
+
+                # Actualizar recurso_operativo si el archivo provee super/analista
+                if cedula_v and (super_from_file or analista_from_file):
+                    try:
+                        cur_up = connection.cursor()
+                        cur_up.execute(
+                            "UPDATE recurso_operativo SET super = COALESCE(%s, super), analista = COALESCE(%s, analista) WHERE recurso_operativo_cedula = %s",
+                            (super_from_file, analista_from_file, cedula_v)
+                        )
+                        cur_up.close()
+                    except Exception:
+                        pass
             else:
                 cursor.execute(
                     """
@@ -4394,6 +4425,8 @@ def api_lider_cargar_facturacion():
     col_vehiculo = pick(['vehiculo'])
     col_cedula = pick(['cedula','documento','recurso_operativo_cedula'])
     col_dias = pick(['dias'])
+    col_super_file = pick(['super','supervisor'])
+    col_analista_file = pick(['analista'])
 
     required = [col_cedula]
     if any(c is None for c in required):
@@ -4573,6 +4606,16 @@ def api_lider_cargar_facturacion():
             carpeta_v = to_str(carpeta_v)
             cargo_v = to_str(cargo_v)
 
+            # Priorizar valores del archivo si existen
+            super_file_val = None if col_super_file is None else df.iloc[r][col_super_file]
+            analista_file_val = None if col_analista_file is None else df.iloc[r][col_analista_file]
+            super_from_file = to_str(super_file_val)
+            analista_from_file = to_str(analista_file_val)
+            if super_from_file:
+                super_v = super_from_file
+            if analista_from_file:
+                analista_v = analista_from_file
+
             v_deberiair = None
             v_puntos = to_dec(None if col_puntos is None else df.iloc[r][col_puntos])
             v_nivel = to_str(None if col_nivel is None else df.iloc[r][col_nivel])
@@ -4630,6 +4673,18 @@ def api_lider_cargar_facturacion():
                     (p_year, p_month, cedula_v, t_nombre, v_deberiair, v_puntos, v_nivel, v_mediaot, v_oks, v_abiertas, v_fact_pdte, v_fact_sinsubir, v_vehiculo, super_v, analista_v, v_dias)
                 )
                 inserted += 1
+
+            # Actualizar recurso_operativo si el archivo provee super/analista
+            if cedula_v and (super_from_file or analista_from_file):
+                try:
+                    cur_up = connection.cursor()
+                    cur_up.execute(
+                        "UPDATE recurso_operativo SET super = COALESCE(%s, super), analista = COALESCE(%s, analista) WHERE recurso_operativo_cedula = %s",
+                        (super_from_file, analista_from_file, cedula_v)
+                    )
+                    cur_up.close()
+                except Exception:
+                    pass
 
         connection.commit()
         try:
@@ -4833,6 +4888,8 @@ def api_lider_cargar_efectividad():
     col_kpi = pick(['kpi'])
     col_agenda = pick(['agenda'])
     col_ok = pick(['ok'])
+    col_super_file = pick(['super','supervisor'])
+    col_analista_file = pick(['analista'])
     col_cedula = pick(['cedula','documento','recurso_operativo_cedula'])
 
     required = [col_cedula]
@@ -5027,6 +5084,16 @@ def api_lider_cargar_efectividad():
             super_v = to_str(super_v)
             analista_v = to_str(analista_v)
 
+            # Priorizar valores del archivo si existen
+            super_file_val = None if col_super_file is None else df.iloc[r][col_super_file]
+            analista_file_val = None if col_analista_file is None else df.iloc[r][col_analista_file]
+            super_from_file = to_str(super_file_val)
+            analista_from_file = to_str(analista_file_val)
+            if super_from_file:
+                super_v = super_from_file
+            if analista_from_file:
+                analista_v = analista_from_file
+
             v_razon = to_str(None if col_razon is None else df.iloc[r][col_razon])
             v_kpi = to_dec(None if col_kpi is None else df.iloc[r][col_kpi])
             v_agenda = to_str(None if col_agenda is None else df.iloc[r][col_agenda])
@@ -5049,6 +5116,18 @@ def api_lider_cargar_efectividad():
                     (p_year, p_month, cedula_v, t_nombre, carpeta_v, super_v, analista_v, v_razon, v_kpi, v_agenda, v_ok)
                 )
                 inserted += 1
+
+            # Actualizar recurso_operativo si el archivo provee super/analista
+            if cedula_v and (super_from_file or analista_from_file):
+                try:
+                    cur_up = connection.cursor()
+                    cur_up.execute(
+                        "UPDATE recurso_operativo SET super = COALESCE(%s, super), analista = COALESCE(%s, analista) WHERE recurso_operativo_cedula = %s",
+                        (super_from_file, analista_from_file, cedula_v)
+                    )
+                    cur_up.close()
+                except Exception:
+                    pass
 
         connection.commit()
         try:
@@ -19462,19 +19541,38 @@ def guardar_asistencias():
         
         # Insertar cada asistencia
         for asistencia in data['asistencias']:
+            eventos_val = None
+            valor_val = None
+            codigo = (asistencia.get('carpeta_dia') or '').strip()
+            if codigo:
+                curdict.execute(
+                    "SELECT nombre_tipificacion FROM tipificacion_asistencia WHERE codigo_tipificacion = %s LIMIT 1",
+                    (codigo,)
+                )
+                tip = curdict.fetchone()
+                if tip and tip.get('nombre_tipificacion'):
+                    curdict.execute(
+                        "SELECT presupuesto_eventos, presupuesto_diario FROM presupuesto_carpeta WHERE presupuesto_carpeta = %s LIMIT 1",
+                        (tip['nombre_tipificacion'],)
+                    )
+                    pres = curdict.fetchone()
+                    if pres:
+                        eventos_val = pres.get('presupuesto_eventos')
+                        valor_val = pres.get('presupuesto_diario')
             cursor.execute("""
                 INSERT INTO asistencia (
-                    cedula, tecnico, carpeta_dia, carpeta, super, 
-                    id_codigo_consumidor
-                ) VALUES (%s, %s, %s, %s, %s, %s)
+                    cedula, tecnico, carpeta_dia, carpeta, super,
+                    id_codigo_consumidor, eventos, valor
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 asistencia['cedula'],
                 asistencia['tecnico'],
                 asistencia['carpeta_dia'],
-                asistencia['carpeta'],
+                asistencia.get('carpeta', ''),
                 asistencia['super'],
                 asistencia['id_codigo_consumidor'],
-                
+                eventos_val,
+                valor_val
             ))
         
         connection.commit()
@@ -19485,6 +19583,8 @@ def guardar_asistencias():
     finally:
         if cursor:
             cursor.close()
+        if 'curdict' in locals() and curdict:
+            curdict.close()
         if connection and connection.is_connected():
             connection.close()
 
@@ -20910,6 +21010,8 @@ def consultar_asistencia():
                         super,
                         fecha_asistencia,
                         id_codigo_consumidor,
+                        eventos,
+                        valor,
                         hora_inicio,
                         estado,
                         novedad
@@ -20960,6 +21062,8 @@ def consultar_asistencia():
                     super,
                     fecha_asistencia,
                     id_codigo_consumidor,
+                    eventos,
+                    valor,
                     hora_inicio,
                     estado,
                     novedad
@@ -21265,6 +21369,7 @@ def actualizar_asistencia():
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
             
         cursor = connection.cursor()
+        curdict = connection.cursor(dictionary=True)
         
         # Obtener la fecha del registro de asistencia
         cursor.execute("""
@@ -21303,6 +21408,66 @@ def actualizar_asistencia():
             }), 400
         
         # Actualizar el registro
+        # Calcular eventos y valor según carpeta_dia/carpeta
+        new_eventos = None
+        new_valor = None
+        codigo = (data.get('carpeta_dia') or '').strip()
+        nombre = (data.get('carpeta') or '').strip()
+        try:
+            if codigo:
+                curdict.execute(
+                    "SELECT nombre_tipificacion FROM tipificacion_asistencia WHERE codigo_tipificacion = %s LIMIT 1",
+                    (codigo,)
+                )
+                tip = curdict.fetchone()
+                if tip and tip.get('nombre_tipificacion'):
+                    curdict.execute(
+                        "SELECT presupuesto_eventos, presupuesto_diario FROM presupuesto_carpeta WHERE presupuesto_carpeta = %s LIMIT 1",
+                        (tip['nombre_tipificacion'],)
+                    )
+                    pres = curdict.fetchone()
+                    if pres:
+                        new_eventos = pres.get('presupuesto_eventos')
+                        new_valor = pres.get('presupuesto_diario')
+            elif nombre:
+                curdict.execute(
+                    "SELECT presupuesto_eventos, presupuesto_diario FROM presupuesto_carpeta WHERE presupuesto_carpeta = %s LIMIT 1",
+                    (nombre,)
+                )
+                pres = curdict.fetchone()
+                if pres:
+                    new_eventos = pres.get('presupuesto_eventos')
+                    new_valor = pres.get('presupuesto_diario')
+                else:
+                    curdict.execute(
+                        "SELECT codigo_tipificacion FROM tipificacion_asistencia WHERE nombre_tipificacion = %s LIMIT 1",
+                        (nombre,)
+                    )
+                    tip2 = curdict.fetchone()
+                    if tip2:
+                        curdict.execute(
+                            "SELECT presupuesto_eventos, presupuesto_diario FROM presupuesto_carpeta WHERE presupuesto_carpeta = %s LIMIT 1",
+                            (nombre,)
+                        )
+                        pres2 = curdict.fetchone()
+                        if pres2:
+                            new_eventos = pres2.get('presupuesto_eventos')
+                            new_valor = pres2.get('presupuesto_diario')
+        except Exception:
+            pass
+
+        # Si no se pudo calcular, conservar los valores actuales
+        if new_eventos is None or new_valor is None:
+            curdict.execute(
+                "SELECT eventos, valor FROM asistencia WHERE id_asistencia = %s",
+                (data.get('id_asistencia'),)
+            )
+            curvals = curdict.fetchone() or {}
+            if new_eventos is None:
+                new_eventos = curvals.get('eventos')
+            if new_valor is None:
+                new_valor = curvals.get('valor')
+
         cursor.execute("""
             UPDATE asistencia 
             SET 
@@ -21311,7 +21476,9 @@ def actualizar_asistencia():
                 carpeta_dia = %s,
                 carpeta = %s,
                 super = %s,
-                id_codigo_consumidor = %s
+                id_codigo_consumidor = %s,
+                eventos = %s,
+                valor = %s
             WHERE id_asistencia = %s
         """, (
             data.get('cedula', ''),
@@ -21320,6 +21487,8 @@ def actualizar_asistencia():
             data.get('carpeta', ''),
             data.get('super', ''),
             data.get('id_codigo_consumidor', 0),
+            new_eventos,
+            new_valor,
             data.get('id_asistencia')
         ))
         
@@ -21340,6 +21509,8 @@ def actualizar_asistencia():
     finally:
         if 'cursor' in locals() and cursor:
             cursor.close()
+        if 'curdict' in locals() and curdict:
+            curdict.close()
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 

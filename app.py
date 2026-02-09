@@ -1772,23 +1772,41 @@ def guardar_asistencia_administrativa():
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'})
             
         cursor = connection.cursor()
+        cursor_dict = connection.cursor(dictionary=True)
         
         # Insertar cada asistencia
         asistencias_guardadas = 0
         for asistencia in data['asistencias']:
             try:
+                eventos_val = None
+                valor_val = None
+                codigo = asistencia.get('carpeta_dia')
+                if codigo:
+                    cursor_dict.execute("SELECT nombre_tipificacion FROM tipificacion_asistencia WHERE codigo_tipificacion = %s LIMIT 1", (codigo,))
+                    tip = cursor_dict.fetchone()
+                    if tip and tip.get('nombre_tipificacion'):
+                        cursor_dict.execute(
+                            "SELECT presupuesto_eventos, presupuesto_diario FROM presupuesto_carpeta WHERE presupuesto_carpeta = %s LIMIT 1",
+                            (tip['nombre_tipificacion'],)
+                        )
+                        pres = cursor_dict.fetchone()
+                        if pres:
+                            eventos_val = pres.get('presupuesto_eventos')
+                            valor_val = pres.get('presupuesto_diario')
                 cursor.execute("""
                     INSERT INTO asistencia (
-                        cedula, tecnico, carpeta_dia, carpeta, super, 
-                        id_codigo_consumidor, fecha_asistencia
-                    ) VALUES (%s, %s, %s, %s, %s, %s, NOW())
+                        cedula, tecnico, carpeta_dia, carpeta, super,
+                        id_codigo_consumidor, fecha_asistencia, eventos, valor
+                    ) VALUES (%s, %s, %s, %s, %s, %s, NOW(), %s, %s)
                 """, (
                     asistencia['cedula'],
                     asistencia['tecnico'],
                     asistencia['carpeta_dia'],
                     asistencia.get('carpeta', ''),
                     asistencia['super'],
-                    asistencia['id_codigo_consumidor']
+                    asistencia['id_codigo_consumidor'],
+                    eventos_val,
+                    valor_val
                 ))
                 asistencias_guardadas += 1
             except mysql.connector.Error as e:
@@ -1814,6 +1832,8 @@ def guardar_asistencia_administrativa():
     finally:
         if 'cursor' in locals() and cursor:
             cursor.close()
+        if 'cursor_dict' in locals() and cursor_dict:
+            cursor_dict.close()
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
@@ -1936,6 +1956,7 @@ def api_asistencia_actualizar():
         if connection is None:
             return jsonify({'success': False, 'message': 'Error de conexión a la base de datos'}), 500
         cursor = connection.cursor(dictionary=True)
+        cursor2 = connection.cursor(dictionary=True)
         cursor.execute(
             "SELECT fecha_asistencia FROM asistencia WHERE id_asistencia = %s",
             (ida,)
@@ -1959,6 +1980,58 @@ def api_asistencia_actualizar():
             if v is not None:
                 set_parts.append(f"{k} = %s")
                 params.append(v)
+        if data.get('carpeta_dia') is not None:
+            codigo = data.get('carpeta_dia')
+            eventos_val = None
+            valor_val = None
+            if codigo:
+                cursor2.execute("SELECT nombre_tipificacion FROM tipificacion_asistencia WHERE codigo_tipificacion = %s LIMIT 1", (codigo,))
+                tip = cursor2.fetchone()
+                if tip and tip.get('nombre_tipificacion'):
+                    cursor2.execute(
+                        "SELECT presupuesto_eventos, presupuesto_diario FROM presupuesto_carpeta WHERE presupuesto_carpeta = %s LIMIT 1",
+                        (tip['nombre_tipificacion'],)
+                    )
+                    pres = cursor2.fetchone()
+                    if pres:
+                        eventos_val = pres.get('presupuesto_eventos')
+                        valor_val = pres.get('presupuesto_diario')
+            set_parts.append("eventos = %s")
+            params.append(eventos_val)
+            set_parts.append("valor = %s")
+            params.append(valor_val)
+        elif data.get('carpeta') is not None:
+            nombre = data.get('carpeta')
+            eventos_val = None
+            valor_val = None
+            if nombre:
+                cursor2.execute(
+                    "SELECT presupuesto_eventos, presupuesto_diario FROM presupuesto_carpeta WHERE presupuesto_carpeta = %s LIMIT 1",
+                    (nombre,)
+                )
+                pres = cursor2.fetchone()
+                if pres:
+                    eventos_val = pres.get('presupuesto_eventos')
+                    valor_val = pres.get('presupuesto_diario')
+                else:
+                    cursor2.execute(
+                        "SELECT codigo_tipificacion FROM tipificacion_asistencia WHERE nombre_tipificacion = %s LIMIT 1",
+                        (nombre,)
+                    )
+                    tip2 = cursor2.fetchone()
+                    if tip2 and tip2.get('codigo_tipificacion'):
+                        cursor2.execute(
+                            "SELECT presupuesto_eventos, presupuesto_diario FROM presupuesto_carpeta WHERE presupuesto_carpeta = %s LIMIT 1",
+                            (nombre,)
+                        )
+                        pres2 = cursor2.fetchone()
+                        if pres2:
+                            eventos_val = pres2.get('presupuesto_eventos')
+                            valor_val = pres2.get('presupuesto_diario')
+            set_parts.append("eventos = %s")
+            params.append(eventos_val)
+            set_parts.append("valor = %s")
+            params.append(valor_val)
         if not set_parts:
             return jsonify({'success': False, 'message': 'Sin cambios'}), 400
         params.append(ida)
@@ -1978,6 +2051,8 @@ def api_asistencia_actualizar():
     finally:
         if 'cursor' in locals() and cursor:
             cursor.close()
+        if 'cursor2' in locals() and cursor2:
+            cursor2.close()
         if 'connection' in locals() and connection and connection.is_connected():
             connection.close()
 
