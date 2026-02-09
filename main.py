@@ -4256,7 +4256,6 @@ def api_lider_cargar_calidad():
                 except Exception:
                     pass
 
-            # Si el archivo trae columnas de super/analista, priorizarlas
             super_file_val = None if col_super_file is None else df.iloc[r][col_super_file]
             analista_file_val = None if col_analista_file is None else df.iloc[r][col_analista_file]
             super_from_file = to_str(super_file_val)
@@ -4324,17 +4323,6 @@ def api_lider_cargar_calidad():
                     )
                     inserted += 1
 
-                # Actualizar recurso_operativo si el archivo provee super/analista
-                if cedula_v and (super_from_file or analista_from_file):
-                    try:
-                        cur_up = connection.cursor()
-                        cur_up.execute(
-                            "UPDATE recurso_operativo SET super = COALESCE(%s, super), analista = COALESCE(%s, analista) WHERE recurso_operativo_cedula = %s",
-                            (super_from_file, analista_from_file, cedula_v)
-                        )
-                        cur_up.close()
-                    except Exception:
-                        pass
             else:
                 cursor.execute(
                     """
@@ -4606,7 +4594,6 @@ def api_lider_cargar_facturacion():
             carpeta_v = to_str(carpeta_v)
             cargo_v = to_str(cargo_v)
 
-            # Priorizar valores del archivo si existen
             super_file_val = None if col_super_file is None else df.iloc[r][col_super_file]
             analista_file_val = None if col_analista_file is None else df.iloc[r][col_analista_file]
             super_from_file = to_str(super_file_val)
@@ -4674,17 +4661,6 @@ def api_lider_cargar_facturacion():
                 )
                 inserted += 1
 
-            # Actualizar recurso_operativo si el archivo provee super/analista
-            if cedula_v and (super_from_file or analista_from_file):
-                try:
-                    cur_up = connection.cursor()
-                    cur_up.execute(
-                        "UPDATE recurso_operativo SET super = COALESCE(%s, super), analista = COALESCE(%s, analista) WHERE recurso_operativo_cedula = %s",
-                        (super_from_file, analista_from_file, cedula_v)
-                    )
-                    cur_up.close()
-                except Exception:
-                    pass
 
         connection.commit()
         try:
@@ -5084,7 +5060,6 @@ def api_lider_cargar_efectividad():
             super_v = to_str(super_v)
             analista_v = to_str(analista_v)
 
-            # Priorizar valores del archivo si existen
             super_file_val = None if col_super_file is None else df.iloc[r][col_super_file]
             analista_file_val = None if col_analista_file is None else df.iloc[r][col_analista_file]
             super_from_file = to_str(super_file_val)
@@ -5117,17 +5092,6 @@ def api_lider_cargar_efectividad():
                 )
                 inserted += 1
 
-            # Actualizar recurso_operativo si el archivo provee super/analista
-            if cedula_v and (super_from_file or analista_from_file):
-                try:
-                    cur_up = connection.cursor()
-                    cur_up.execute(
-                        "UPDATE recurso_operativo SET super = COALESCE(%s, super), analista = COALESCE(%s, analista) WHERE recurso_operativo_cedula = %s",
-                        (super_from_file, analista_from_file, cedula_v)
-                    )
-                    cur_up.close()
-                except Exception:
-                    pass
 
         connection.commit()
         try:
