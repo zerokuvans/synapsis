@@ -152,10 +152,11 @@ function cargarTecnicos(){
       if(d && d.success && Array.isArray(d.data)){
         d.data.forEach(t=>{
           const tr = document.createElement('tr');
+          const pct = Number(typeof t.porcentaje_escaleras === 'number' ? t.porcentaje_escaleras : (t.porcentaje_escaleras || 0));
           tr.innerHTML = `
             <td>${t.nombre || ''}</td>
             <td>${t.cedula || ''}</td>
-            <td>${(typeof t.porcentaje_escaleras === 'number' ? t.porcentaje_escaleras : (t.porcentaje_escaleras || 0))}% (${t.escaleras_dias || 0}/${t.asistencia_dias || 0})</td>
+            <td>${pct}% (${t.escaleras_dias || 0}/${t.asistencia_dias || 0})</td>
             <td>
               <button class="btn btn-outline-secondary btn-sm" data-cedula="${t.cedula}" data-nombre="${t.nombre}">
                 <i class="fas fa-stairs me-1"></i>Preoperacional

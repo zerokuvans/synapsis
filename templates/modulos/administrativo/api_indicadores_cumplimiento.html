@@ -576,7 +576,9 @@ function mostrarDatos(indicadores) {
             sumaPorcentajes += parseFloat(item.porcentaje_cumplimiento || 0);
         });
         
-        const promedioCumplimiento = sumaPorcentajes / totalSupervisores;
+        const promedioCumplimiento = totalAsistencias > 0 
+            ? (totalPreoperacionales * 100) / totalAsistencias 
+            : 0;
         
         // Actualizar resumen
         document.getElementById('total-supervisores').textContent = totalSupervisores;

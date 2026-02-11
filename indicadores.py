@@ -103,7 +103,7 @@ def calcular_indicadores_cumplimiento(fecha=None):
             ]
             allowed_upper = [str(s or '').upper().strip() for s in allowed_carpeta]
             placeholders_allowed = ','.join(['%s'] * len(allowed_upper))
-            excluded_carpeta = ['0','I.ARL','D/F','LM','LL','SUS','PER','VAC','DFAM','RM','RN','I.MED']
+            excluded_carpeta = ['0','I.ARL','D/F','LM','LL','SUS','PER','VAC','DFAM','RM','RN','CP','I.MED']
             exc_upper = [str(s or '').upper().strip() for s in excluded_carpeta]
             placeholders_exc = ','.join(['%s'] * len(exc_upper))
             query_asistencia = f"""

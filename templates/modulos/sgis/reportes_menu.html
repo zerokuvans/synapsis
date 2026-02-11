@@ -144,9 +144,9 @@ function renderSupervisorCard(item){
     const lista = [item.porcentaje_tsr, item.porcentaje_permiso, item.porcentaje_caidas, item.porcentaje_epp];
     if(item.escaleras_aplica){ lista.push(item.porcentaje_escaleras); }
     const nums = lista.filter(v=>Number.isFinite(v)).map(v=>Number(v));
-    prom = nums.length ? Math.round(nums.reduce((a,b)=>a+b,0)/nums.length) : 0;
+    prom = nums.length ? (nums.reduce((a,b)=>a+b,0)/nums.length) : 0;
   }
-  gen.textContent = `${prom}%`;
+  gen.textContent = `${Math.round(Number(prom) || 0)}%`;
   head.appendChild(h6); head.appendChild(gen);
   const table = document.createElement('table'); table.className = 'table table-sm';
   const tbody = document.createElement('tbody');
@@ -156,12 +156,12 @@ function renderSupervisorCard(item){
     ['Pre-operacional Caídas', item.porcentaje_caidas],
     ['Pre-operacional EPP', item.porcentaje_epp]
   ];
-  rows.forEach(r=>{ const tr=document.createElement('tr'); const td1=document.createElement('td'); td1.textContent=r[0]; const td2=document.createElement('td'); td2.className='text-end'; td2.textContent = `${r[1]}%`; tr.appendChild(td1); tr.appendChild(td2); tbody.appendChild(tr); });
+  rows.forEach(r=>{ const tr=document.createElement('tr'); const td1=document.createElement('td'); td1.textContent=r[0]; const td2=document.createElement('td'); td2.className='text-end'; td2.textContent = `${Math.round(Number(r[1]||0))}%`; tr.appendChild(td1); tr.appendChild(td2); tbody.appendChild(tr); });
   const trEsc = document.createElement('tr');
   const tdEsc1 = document.createElement('td'); tdEsc1.textContent = 'Pre-operacional Escaleras';
   const tdEsc2 = document.createElement('td'); tdEsc2.className = 'text-end';
   if(item.escaleras_aplica && Number.isFinite(item.porcentaje_escaleras)){
-    tdEsc2.textContent = `${item.porcentaje_escaleras}%`;
+    tdEsc2.textContent = `${Math.round(Number(item.porcentaje_escaleras||0))}%`;
   } else {
     tdEsc2.textContent = 'No aplica';
   }
