@@ -32951,59 +32951,56 @@ def api_sgis_reportes_tecnicos_mes():
         excluded_carpeta = ['0','I.ARL','D/F','LM','LL','SUS','PER','VAC','DFAM','RM','RN','CP','I.MED']
         exc_upper = [str(s or '').upper().strip() for s in excluded_carpeta]
         placeholders_exc = ','.join(['%s'] * len(exc_upper))
-        query = f"""
-            SELECT a.cedula, COALESCE(a.tecnico, r.nombre) AS tecnico
-            FROM asistencia a
-            LEFT JOIN recurso_operativo r ON r.recurso_operativo_cedula = a.cedula
-            WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s
-              AND (
-                    EXISTS (
-                        SELECT 1 FROM tipificacion_asistencia t
-                        WHERE TRIM(UPPER(t.codigo_tipificacion)) = TRIM(UPPER(COALESCE(a.carpeta_dia,'')))
-                          AND t.valor = '1'
-                    )
-                 OR UPPER(TRIM(COALESCE(a.carpeta_dia,''))) IN ({placeholders_allowed})
-              )
-              AND UPPER(TRIM(COALESCE(a.carpeta_dia,''))) NOT IN ({placeholders_exc})
-        """
-        params = [inicio, fin] + allowed_upper + exc_upper
+        filas = []
         if supervisor:
-            query += " AND TRIM(a.super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci"
-            params.append(supervisor)
-        query += " GROUP BY a.cedula, tecnico ORDER BY tecnico"
-        cursor.execute(query, tuple(params))
-        filas = cursor.fetchall()
-        if str(ur or '').strip().lower() != 'administrativo' and (not filas or len(filas) == 0):
-            try:
-                cursor.execute(
-                    """
-                    SELECT recurso_operativo_cedula AS cedula, nombre AS tecnico
-                    FROM recurso_operativo
-                    WHERE estado = 'Activo'
-                      AND (carpeta IS NULL OR carpeta <> 'SUPERVISORES')
-                      AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci
-                    ORDER BY nombre
-                    """,
-                    (supervisor,)
-                )
-                filas = cursor.fetchall()
-                if not filas:
-                    sup_prefix = ' '.join(str(supervisor or '').strip().split()[:2])
-                    if sup_prefix:
-                        cursor.execute(
-                            """
-                            SELECT recurso_operativo_cedula AS cedula, nombre AS tecnico
-                            FROM recurso_operativo
-                            WHERE estado = 'Activo'
-                              AND (carpeta IS NULL OR carpeta <> 'SUPERVISORES')
-                              AND TRIM(super) COLLATE utf8mb4_general_ci LIKE CONCAT('%', TRIM(%s), '%')
-                            ORDER BY nombre
-                            """,
-                            (sup_prefix,)
+            cursor.execute(
+                """
+                SELECT recurso_operativo_cedula AS cedula, nombre AS tecnico
+                FROM recurso_operativo
+                WHERE estado = 'Activo'
+                  AND (carpeta IS NULL OR carpeta <> 'SUPERVISORES')
+                  AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci
+                ORDER BY nombre
+                """,
+                (supervisor,)
+            )
+            filas = cursor.fetchall()
+            if not filas:
+                sup_prefix = ' '.join(str(supervisor or '').strip().split()[:2])
+                if sup_prefix:
+                    cursor.execute(
+                        """
+                        SELECT recurso_operativo_cedula AS cedula, nombre AS tecnico
+                        FROM recurso_operativo
+                        WHERE estado = 'Activo'
+                          AND (carpeta IS NULL OR carpeta <> 'SUPERVISORES')
+                          AND TRIM(super) COLLATE utf8mb4_general_ci LIKE CONCAT('%', TRIM(%s), '%')
+                        ORDER BY nombre
+                        """,
+                        (sup_prefix,)
+                    )
+                    filas = cursor.fetchall()
+        else:
+            query = f"""
+                SELECT a.cedula, COALESCE(a.tecnico, r.nombre) AS tecnico
+                FROM asistencia a
+                LEFT JOIN recurso_operativo r ON r.recurso_operativo_cedula = a.cedula
+                WHERE DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                  AND (
+                        EXISTS (
+                            SELECT 1 FROM tipificacion_asistencia t
+                            WHERE TRIM(UPPER(t.codigo_tipificacion)) = TRIM(UPPER(COALESCE(a.carpeta_dia,'')))
+                              AND t.valor = '1'
                         )
-                        filas = cursor.fetchall()
-            except Exception:
-                filas = []
+                     OR UPPER(TRIM(COALESCE(a.carpeta_dia,''))) IN ({placeholders_allowed})
+                  )
+                  AND UPPER(TRIM(COALESCE(a.carpeta_dia,''))) NOT IN ({placeholders_exc})
+                GROUP BY a.cedula, tecnico
+                ORDER BY tecnico
+            """
+            params = [inicio, fin] + allowed_upper + exc_upper
+            cursor.execute(query, tuple(params))
+            filas = cursor.fetchall()
         data = []
         for f in filas:
             ced = f.get('cedula')
