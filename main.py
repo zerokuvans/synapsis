@@ -32790,6 +32790,234 @@ def api_sgis_preoperacional_epp():
             except Exception:
                 pass
 
+@app.route('/api/sgis/indicadores/supervisores/validacion-cargos', methods=['GET'])
+@login_required_api(role=['administrativo','operativo'])
+def api_sgis_indicadores_supervisores_validacion_cargos():
+    try:
+        mes = request.args.get('mes')
+        supervisor = request.args.get('supervisor')
+        if mes:
+            try:
+                inicio = datetime.strptime(mes + '-01', '%Y-%m-%d').date()
+            except ValueError:
+                inicio = get_bogota_datetime().date().replace(day=1)
+        else:
+            inicio = get_bogota_datetime().date().replace(day=1)
+        if inicio.month == 12:
+            fin = inicio.replace(year=inicio.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            fin = inicio.replace(month=inicio.month + 1, day=1) - timedelta(days=1)
+        connection = get_db_connection()
+        if connection is None:
+            return jsonify({'success': False, 'error': 'Error de conexión a la base de datos'}), 500
+        cursor = connection.cursor(dictionary=True)
+        allowed_carpeta = [
+            'ABACK','APOCAMIONETA','ARGHFC','AUX','AUXCAM','AUXMOTO',
+            'BACK ARGHFC','BACK AUX','BACK BROW','BACK FTTHI','BACK HFCI','BACK MTFTTH',
+            'BROW','DX','FTTHI','FTTHPOST','HFCI','MTFTTH','POST'
+        ]
+        allowed_upper = [str(s or '').upper().strip() for s in allowed_carpeta]
+        placeholders_allowed = ','.join(['%s'] * len(allowed_upper))
+        excluded_carpeta = ['0','I.ARL','D/F','LM','LL','SUS','PER','VAC','DFAM','RM','RN','CP','I.MED']
+        exc_upper = [str(s or '').upper().strip() for s in excluded_carpeta]
+        placeholders_exc = ','.join(['%s'] * len(exc_upper))
+        if not supervisor:
+            ur = (session.get('user_role') or '').strip().lower()
+            if ur != 'administrativo':
+                cursor.execute("SELECT nombre, cargo, super FROM recurso_operativo WHERE recurso_operativo_cedula = %s", (session.get('user_cedula'),))
+                ro_u = cursor.fetchone() or {}
+                cargo_u = (ro_u.get('cargo') or '').strip().upper()
+                nombre_u = (ro_u.get('nombre') or '').strip()
+                super_u = (ro_u.get('super') or '').strip()
+                supervisor = nombre_u if cargo_u == 'SUPERVISORES' else super_u
+        sup_norm = (supervisor or '').strip().upper()
+        incluye_conductores_globales = (sup_norm == 'CORTES CUERVO SANDRA CECILIA')
+        if incluye_conductores_globales:
+            cursor.execute(
+                """
+                SELECT recurso_operativo_cedula AS cedula, nombre, UPPER(TRIM(cargo)) AS cargo, UPPER(TRIM(carpeta)) AS carpeta, id_codigo_consumidor AS idc, TRIM(super) AS super
+                FROM recurso_operativo
+                WHERE estado = 'Activo'
+                  AND (carpeta IS NULL OR UPPER(TRIM(carpeta)) <> 'SUPERVISORES')
+                  AND (
+                       UPPER(TRIM(super)) = UPPER(TRIM(%s))
+                    OR UPPER(TRIM(cargo)) IN ('CONDUCTOR','TECNICO CONDUCTOR')
+                  )
+                ORDER BY nombre
+                """,
+                (supervisor,)
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT recurso_operativo_cedula AS cedula, nombre, UPPER(TRIM(cargo)) AS cargo, UPPER(TRIM(carpeta)) AS carpeta, id_codigo_consumidor AS idc, TRIM(super) AS super
+                FROM recurso_operativo
+                WHERE estado = 'Activo'
+                  AND (carpeta IS NULL OR UPPER(TRIM(carpeta)) <> 'SUPERVISORES')
+                  AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci
+                ORDER BY nombre
+                """,
+                (supervisor,)
+            )
+        rows = cursor.fetchall() or []
+        evaluados_epp = []
+        evaluados_caidas = []
+        evaluados_escaleras = []
+        evaluados_tsr = []
+        evaluados_permiso = []
+        for r in rows:
+            ced = r.get('cedula')
+            nom = r.get('nombre')
+            cargo_u = (r.get('cargo') or '').strip().upper()
+            carpeta_u = (r.get('carpeta') or '').strip().upper()
+            idc = r.get('idc')
+            super_r = (r.get('super') or '').strip()
+            cursor.execute(
+                f"""
+                SELECT DISTINCT DATE(a.fecha_asistencia) AS dia
+                FROM asistencia a
+                LEFT JOIN recurso_operativo ro ON ro.recurso_operativo_cedula = a.cedula
+                LEFT JOIN preoperacional_excepciones e ON e.activo = 1
+                  AND DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                  AND (e.cedula = a.cedula OR e.id_codigo_consumidor = ro.id_codigo_consumidor)
+                WHERE a.cedula = %s AND DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                  AND (
+                        EXISTS (
+                            SELECT 1 FROM tipificacion_asistencia t
+                            WHERE TRIM(UPPER(t.codigo_tipificacion)) = TRIM(UPPER(COALESCE(a.carpeta_dia,'')))
+                              AND t.valor = '1'
+                        )
+                     OR UPPER(TRIM(COALESCE(a.carpeta_dia,''))) IN ({placeholders_allowed})
+                  )
+                  AND UPPER(TRIM(COALESCE(a.carpeta_dia,''))) NOT IN ({placeholders_exc})
+                  AND e.id IS NULL
+                  AND IFNULL(ro.excluido_preoperacional, 0) = 0
+                ORDER BY dia
+                """,
+                (inicio, fin, ced, inicio, fin) + tuple(allowed_upper) + tuple(exc_upper)
+            )
+            dias = [x.get('dia') for x in (cursor.fetchall() or []) if x.get('dia')]
+            total_dias = len(dias)
+            if total_dias == 0:
+                continue
+            dias_set = set(dias)
+            epp_ok = True
+            caidas_ok_den = ('AUXILIAR' not in carpeta_u)
+            esc_ok_den = (('CONDUCTOR' in cargo_u) or (cargo_u == 'TECNICO CONDUCTOR'))
+            tsr_ok = True
+            permiso_ok = False
+            cursor.execute(
+                """
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sgis_permiso_trabajo'
+                """
+            )
+            table_cols = {x['COLUMN_NAME'] if isinstance(x, dict) else x[0] for x in cursor.fetchall() or []}
+            filtro_parts = []
+            filtro_params = []
+            if 'id_codigo_consumidor' in table_cols and idc:
+                filtro_parts.append('p.id_codigo_consumidor = %s')
+                filtro_params.append(idc)
+            if 'recurso_operativo_cedula' in table_cols:
+                filtro_parts.append('p.recurso_operativo_cedula = %s')
+                filtro_params.append(ced)
+            if 'cedula' in table_cols:
+                filtro_parts.append('p.cedula = %s')
+                filtro_params.append(ced)
+            filtro_usuario = ' OR '.join(filtro_parts)
+            if filtro_usuario:
+                hist_all = set()
+                sql_hc = (
+                    "SELECT DISTINCT DATE(h.sgis_permiso_trabajo_historial_confinado_fecha) AS dia "
+                    "FROM sgis_permiso_trabajo_historial_semanal_confinado h "
+                    "JOIN sgis_permiso_trabajo p ON p.id_sgis_permiso_trabajo = h.id_sgis_permiso_trabajo "
+                    "WHERE DATE(h.sgis_permiso_trabajo_historial_confinado_fecha) BETWEEN %s AND %s "
+                    f"AND ({filtro_usuario})"
+                )
+                cursor.execute(sql_hc, (inicio, fin) + tuple(filtro_params))
+                for x in cursor.fetchall() or []:
+                    di = x.get('dia')
+                    if di:
+                        hist_all.add(di)
+                sql_ha = (
+                    "SELECT DISTINCT DATE(h.sgis_permiso_trabajo_historial_altura_fecha) AS dia "
+                    "FROM sgis_permiso_trabajo_historial_semanal_altura h "
+                    "JOIN sgis_permiso_trabajo p ON p.id_sgis_permiso_trabajo = h.id_sgis_permiso_trabajo "
+                    "WHERE DATE(h.sgis_permiso_trabajo_historial_altura_fecha) BETWEEN %s AND %s "
+                    f"AND ({filtro_usuario})"
+                )
+                cursor.execute(sql_ha, (inicio, fin) + tuple(filtro_params))
+                for x in cursor.fetchall() or []:
+                    di = x.get('dia')
+                    if di:
+                        hist_all.add(di)
+                sql_p = (
+                    "SELECT p.sgis_permiso_trabajo_fecha_emision AS emision, p.sgis_permiso_trabajo_fecha_finalizacion AS fin_sem "
+                    "FROM sgis_permiso_trabajo p "
+                    f"WHERE ({filtro_usuario}) AND p.sgis_permiso_trabajo_fecha_emision <= %s AND p.sgis_permiso_trabajo_fecha_finalizacion >= %s"
+                )
+                cursor.execute(sql_p, tuple(filtro_params) + (fin, inicio))
+                rows_p = cursor.fetchall() or []
+                permiso_set = set()
+                for rp in rows_p:
+                    e = rp.get('emision')
+                    f = rp.get('fin_sem')
+                    if isinstance(e, datetime):
+                        e = e.date()
+                    if isinstance(f, datetime):
+                        f = f.date()
+                    semana_tiene_hist = any((hd and e and f and e <= hd <= f) for hd in hist_all)
+                    if semana_tiene_hist:
+                        for d in dias_set:
+                            if d and e and f and e <= d <= f:
+                                permiso_set.add(d)
+                permiso_ok = len(dias_set.intersection(permiso_set)) > 0
+            tec_info = {'cedula': ced, 'nombre': nom, 'cargo': cargo_u, 'carpeta': carpeta_u, 'super': super_r}
+            if epp_ok:
+                evaluados_epp.append(tec_info)
+            if caidas_ok_den:
+                evaluados_caidas.append(tec_info)
+            if esc_ok_den:
+                evaluados_escaleras.append(tec_info)
+            if tsr_ok:
+                evaluados_tsr.append(tec_info)
+            if permiso_ok:
+                evaluados_permiso.append(tec_info)
+        return jsonify({
+            'success': True,
+            'mes': inicio.strftime('%Y-%m'),
+            'supervisor': supervisor,
+            'incluye_conductores_globales': incluye_conductores_globales,
+            'totales': {
+                'epp': len(evaluados_epp),
+                'caidas_den': len(evaluados_caidas),
+                'escaleras_den': len(evaluados_escaleras),
+                'tsr': len(evaluados_tsr),
+                'permiso': len(evaluados_permiso)
+            },
+            'evaluados': {
+                'epp': evaluados_epp,
+                'caidas_den': evaluados_caidas,
+                'escaleras_den': evaluados_escaleras,
+                'tsr': evaluados_tsr,
+                'permiso': evaluados_permiso
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'cursor' in locals():
+            try:
+                cursor.close()
+            except Exception:
+                pass
+        if 'connection' in locals() and connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
+
 @app.route('/api/sgis/reportes/tsr-firmar-supervisor', methods=['POST'])
 @login_required_api(role=['administrativo','operativo'])
 def api_sgis_reportes_tsr_firmar_supervisor():
@@ -33069,6 +33297,30 @@ def api_sgis_reportes_tecnicos_mes():
             total_dias = len(dias)
             if total_dias > 0:
                 dias_set = set(dias)
+                dias_escaleras = []
+                try:
+                    cursor.execute(
+                        f"""
+                        SELECT DISTINCT DATE(a.fecha_asistencia) AS dia
+                        FROM asistencia a
+                        WHERE a.cedula = %s AND DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                          AND (
+                                EXISTS (
+                                    SELECT 1 FROM tipificacion_asistencia t
+                                    WHERE TRIM(UPPER(t.codigo_tipificacion)) = TRIM(UPPER(COALESCE(a.carpeta_dia,'')))
+                                      AND t.valor = '1'
+                                )
+                             OR UPPER(TRIM(COALESCE(a.carpeta_dia,''))) IN ({placeholders_allowed})
+                          )
+                          AND UPPER(TRIM(COALESCE(a.carpeta_dia,''))) NOT IN ({placeholders_exc})
+                        ORDER BY dia
+                        """,
+                        (ced, inicio, fin) + tuple(allowed_upper) + tuple(exc_upper)
+                    )
+                    dias_escaleras = [r.get('dia') for r in (cursor.fetchall() or []) if r.get('dia')]
+                except Exception:
+                    dias_escaleras = []
+                dias_set_escaleras = set(dias_escaleras)
                 epp_set = set()
                 caidas_set = set()
                 escaleras_set = set()
@@ -33151,10 +33403,15 @@ def api_sgis_reportes_tecnicos_mes():
                             """
                             SELECT DISTINCT COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) AS dia
                             FROM sgis_pre_escaleras
-                            WHERE (cedula = %s OR recurso_operativo_cedula = %s)
+                            WHERE (
+                                   (cedula = %s OR recurso_operativo_cedula = %s)
+                                OR id_codigo_consumidor IN (
+                                     SELECT id_codigo_consumidor FROM recurso_operativo WHERE recurso_operativo_cedula = %s
+                                   )
+                              )
                               AND COALESCE(fecha_dia, DATE(fecha), DATE(fecha_registro)) BETWEEN %s AND %s
                             """,
-                            (ced, ced, inicio, fin)
+                            (ced, ced, ced, inicio, fin)
                         )
                     esc_rows = cursor.fetchall() or []
                     for r in esc_rows:
@@ -33369,11 +33626,13 @@ def api_sgis_indicadores_supervisores():
             FROM recurso_operativo
             WHERE estado = 'Activo'
               AND TRIM(super) IS NOT NULL AND TRIM(super) <> ''
-              AND UPPER(TRIM(super)) <> 'CORTES CUERVO SANDRA CECILIA'
-            ORDER BY supervisor
+            ORDER BY TRIM(super)
             """
         )
         sups = [r.get('supervisor') for r in (cursor.fetchall() or []) if r.get('supervisor')]
+        base_lider = 'CORTES CUERVO SANDRA CECILIA'
+        if base_lider not in [str(s or '') for s in sups]:
+            sups = [base_lider] + sups
         try:
             ur = (session.get('user_role') or '').strip().lower()
             if ur != 'administrativo':
@@ -33389,17 +33648,33 @@ def api_sgis_indicadores_supervisores():
             pass
         resultados = []
         for sup in sups:
-            cursor.execute(
-                """
-                SELECT recurso_operativo_cedula AS cedula
-                FROM recurso_operativo
-                WHERE estado = 'Activo'
-                  AND (carpeta IS NULL OR carpeta <> 'SUPERVISORES')
-                  AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci
-                ORDER BY nombre
-                """,
-                (sup,)
-            )
+            if str(sup or '').strip().upper() == 'CORTES CUERVO SANDRA CECILIA':
+                cursor.execute(
+                    """
+                    SELECT DISTINCT recurso_operativo_cedula AS cedula
+                    FROM recurso_operativo
+                    WHERE estado = 'Activo'
+                      AND (carpeta IS NULL OR UPPER(TRIM(carpeta)) <> 'SUPERVISORES')
+                      AND (
+                           UPPER(TRIM(super)) = UPPER(TRIM(%s))
+                        OR UPPER(TRIM(cargo)) IN ('CONDUCTOR','TECNICO CONDUCTOR')
+                      )
+                    ORDER BY recurso_operativo_cedula
+                    """,
+                    (sup,)
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT recurso_operativo_cedula AS cedula
+                    FROM recurso_operativo
+                    WHERE estado = 'Activo'
+                      AND (carpeta IS NULL OR carpeta <> 'SUPERVISORES')
+                      AND TRIM(super) COLLATE utf8mb4_general_ci = TRIM(%s) COLLATE utf8mb4_general_ci
+                    ORDER BY nombre
+                    """,
+                    (sup,)
+                )
             tecnicos = [r.get('cedula') for r in (cursor.fetchall() or []) if r.get('cedula')]
             tot_dias = 0
             tot_epp = 0
@@ -33421,6 +33696,8 @@ def api_sgis_indicadores_supervisores():
                     idc = ro.get('id_codigo_consumidor')
                     cargo_u = (ro.get('cargo') or '').strip().upper()
                     carpeta_u = (ro.get('carpeta') or '').strip().upper()
+                    if ('CONDUCTOR' in cargo_u) or (cargo_u == 'TECNICO CONDUCTOR'):
+                        has_conductor = True
                 except Exception:
                     idc = None
                     cargo_u = ''
@@ -33455,9 +33732,55 @@ def api_sgis_indicadores_supervisores():
                 except Exception:
                     dias = []
                 total_dias = len(dias)
-                if total_dias == 0:
-                    continue
+                dias_escaleras = []
+                try:
+                    cursor.execute(
+                        f"""
+                        SELECT DISTINCT DATE(a.fecha_asistencia) AS dia
+                        FROM asistencia a
+                        WHERE a.cedula = %s AND DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                          AND (
+                                EXISTS (
+                                    SELECT 1 FROM tipificacion_asistencia t
+                                    WHERE TRIM(UPPER(t.codigo_tipificacion)) = TRIM(UPPER(COALESCE(a.carpeta_dia,'')))
+                                      AND t.valor = '1'
+                                )
+                             OR UPPER(TRIM(COALESCE(a.carpeta_dia,''))) IN ({placeholders_allowed})
+                          )
+                          AND UPPER(TRIM(COALESCE(a.carpeta_dia,''))) NOT IN ({placeholders_exc})
+                        ORDER BY dia
+                        """,
+                        (ced, inicio, fin) + tuple(allowed_upper) + tuple(exc_upper)
+                    )
+                    dias_escaleras = [r.get('dia') for r in (cursor.fetchall() or []) if r.get('dia')]
+                except Exception:
+                    dias_escaleras = []
+                dias_set_escaleras = set(dias_escaleras)
                 dias_set = set(dias)
+                dias_escaleras = []
+                try:
+                    cursor.execute(
+                        f"""
+                        SELECT DISTINCT DATE(a.fecha_asistencia) AS dia
+                        FROM asistencia a
+                        WHERE a.cedula = %s AND DATE(a.fecha_asistencia) BETWEEN %s AND %s
+                          AND (
+                                EXISTS (
+                                    SELECT 1 FROM tipificacion_asistencia t
+                                    WHERE TRIM(UPPER(t.codigo_tipificacion)) = TRIM(UPPER(COALESCE(a.carpeta_dia,'')))
+                                      AND t.valor = '1'
+                                )
+                             OR UPPER(TRIM(COALESCE(a.carpeta_dia,''))) IN ({placeholders_allowed})
+                          )
+                          AND UPPER(TRIM(COALESCE(a.carpeta_dia,''))) NOT IN ({placeholders_exc})
+                        ORDER BY dia
+                        """,
+                        (ced, inicio, fin) + tuple(allowed_upper) + tuple(exc_upper)
+                    )
+                    dias_escaleras = [r.get('dia') for r in (cursor.fetchall() or []) if r.get('dia')]
+                except Exception:
+                    dias_escaleras = []
+                dias_set_escaleras = set(dias_escaleras)
                 epp_set = set()
                 caidas_set = set()
                 esc_set = set()
@@ -33643,11 +33966,11 @@ def api_sgis_indicadores_supervisores():
                 tot_dias += total_dias
                 tot_epp += len(dias_set.intersection(epp_set))
                 tot_caidas += min(len(caidas_set), total_dias)
-                tot_escaleras += len(dias_set.intersection(esc_set))
+                tot_escaleras += min(len(esc_set), len(dias_set_escaleras))
                 tot_tsr += len(dias_set.intersection(tsr_set))
                 tot_permiso += len(dias_set.intersection(permiso_set))
                 if ('CONDUCTOR' in cargo_u) or (cargo_u == 'TECNICO CONDUCTOR'):
-                    tot_dias_escaleras += total_dias
+                    tot_dias_escaleras += len(dias_set_escaleras)
                 if total_dias > 0 and ('AUXILIAR' not in carpeta_u):
                     pct_c = min(len(caidas_set), total_dias) / float(total_dias)
                     sum_pct_caidas += pct_c
@@ -33664,19 +33987,30 @@ def api_sgis_indicadores_supervisores():
                         comp += 1
                 tot_completos += comp
             if tot_dias == 0:
-                continue
-            metricas_aplicables = 5 if has_conductor else 4
-            suma_metricas_dias = tot_epp + tot_caidas + (tot_escaleras if has_conductor else 0) + tot_tsr + tot_permiso
-            pct_general = int(round((suma_metricas_dias * 100.0) / (tot_dias * metricas_aplicables)))
+                pass
+            sup_upper = (str(sup or '').strip().upper())
+            if sup_upper == 'CORTES CUERVO SANDRA CECILIA':
+                metricas_aplicables = 2 if tot_dias_escaleras > 0 else 1
+                suma_metricas_dias = tot_epp + (tot_escaleras if tot_dias_escaleras > 0 else 0)
+            else:
+                metricas_aplicables = 5 if tot_dias_escaleras > 0 else 4
+                suma_metricas_dias = tot_epp + tot_caidas + (tot_escaleras if tot_dias_escaleras > 0 else 0) + tot_tsr + tot_permiso
+            pct_general = int(round((suma_metricas_dias * 100.0) / ((tot_dias if tot_dias > 0 else 1) * (metricas_aplicables if metricas_aplicables > 0 else 1))))
             pct_tsr = int(round((tot_tsr * 100.0) / (tot_dias if tot_dias > 0 else 1)))
             pct_permiso = int(round((tot_permiso * 100.0) / (tot_dias if tot_dias > 0 else 1)))
             pct_caidas = int(round((tot_caidas * 100.0) / (tot_dias_caidas if tot_dias_caidas > 0 else 1)))
             pct_epp = int(round((tot_epp * 100.0) / (tot_dias if tot_dias > 0 else 1)))
-            pct_escaleras = int(round((tot_escaleras * 100.0) / (tot_dias_escaleras if tot_dias_escaleras > 0 else 1))) if has_conductor else None
-            if has_conductor:
-                promedio_metricas = int(round((pct_tsr + pct_permiso + pct_caidas + pct_epp + (pct_escaleras or 0)) / 5.0))
+            pct_escaleras = int(round((tot_escaleras * 100.0) / (tot_dias_escaleras if tot_dias_escaleras > 0 else 1))) if tot_dias_escaleras > 0 else None
+            if sup_upper == 'CORTES CUERVO SANDRA CECILIA':
+                if tot_dias_escaleras > 0 and pct_escaleras is not None:
+                    promedio_metricas = int(round((pct_epp + pct_escaleras) / 2.0))
+                else:
+                    promedio_metricas = pct_epp
             else:
-                promedio_metricas = int(round((pct_tsr + pct_permiso + pct_caidas + pct_epp) / 4.0))
+                if tot_dias_escaleras > 0:
+                    promedio_metricas = int(round((pct_tsr + pct_permiso + pct_caidas + pct_epp + (pct_escaleras or 0)) / 5.0))
+                else:
+                    promedio_metricas = int(round((pct_tsr + pct_permiso + pct_caidas + pct_epp) / 4.0))
             res = {
                 'supervisor': sup,
                 'mes': inicio.strftime('%Y-%m'),
@@ -33688,7 +34022,7 @@ def api_sgis_indicadores_supervisores():
                 'porcentaje_epp': pct_epp,
                 'porcentaje_escaleras': pct_escaleras,
                 'porcentaje_promedio_metricas': promedio_metricas,
-                'escaleras_aplica': has_conductor
+                'escaleras_aplica': (tot_dias_escaleras > 0)
             }
             resultados.append(res)
         return jsonify({'success': True, 'mes': inicio.strftime('%Y-%m'), 'supervisores': resultados})
@@ -33975,7 +34309,14 @@ def api_sgis_indicadores_supervisores_debug():
                 tot_dias_caidas += total_dias
         metricas_aplicables = 5 if tot_dias_escaleras > 0 else 4
         suma_metricas_dias = tot_epp + tot_caidas + (tot_escaleras if tot_dias_escaleras > 0 else 0) + tot_tsr + tot_permiso
-        pct_general = int(round((suma_metricas_dias * 100.0) / (tot_dias * metricas_aplicables if tot_dias > 0 else 1)))
+        sup_upper = (str(supervisor or '').strip().upper())
+        if sup_upper == 'CORTES CUERVO SANDRA CECILIA':
+            metricas_aplicables = 2 if tot_dias_escaleras > 0 else 1
+            suma_metricas_dias = tot_epp + (tot_escaleras if tot_dias_escaleras > 0 else 0)
+        else:
+            metricas_aplicables = 5 if tot_dias_escaleras > 0 else 4
+            suma_metricas_dias = tot_epp + tot_caidas + (tot_escaleras if tot_dias_escaleras > 0 else 0) + tot_tsr + tot_permiso
+        pct_general = int(round((suma_metricas_dias * 100.0) / (tot_dias * (metricas_aplicables if metricas_aplicables > 0 else 1) if tot_dias > 0 else 1)))
         pct_escaleras = int(round((tot_escaleras * 100.0) / (tot_dias_escaleras if tot_dias_escaleras > 0 else 1)))
         pct_epp = int(round((tot_epp * 100.0) / (tot_dias if tot_dias > 0 else 1)))
         pct_tsr = int(round((tot_tsr * 100.0) / (tot_dias if tot_dias > 0 else 1)))
@@ -33990,7 +34331,10 @@ def api_sgis_indicadores_supervisores_debug():
             tot_dias_caidas = 0
         pct_caidas = int(round((tot_caidas * 100.0) / (tot_dias_caidas if tot_dias_caidas > 0 else 1)))
         pct_caidas_avg = int(round(((sum_pct_caidas * 100.0) / (n_tecnicos_caidas if n_tecnicos_caidas > 0 else 1))))
-        promedio_metricas = int(round((pct_tsr + pct_permiso + pct_caidas + pct_epp + (pct_escaleras or 0)) / (5.0 if tot_dias_escaleras > 0 else 4.0)))
+        if sup_upper == 'CORTES CUERVO SANDRA CECILIA':
+            promedio_metricas = int(round(((pct_epp + (pct_escaleras or 0)) / (2.0 if pct_escaleras is not None else 1.0))))
+        else:
+            promedio_metricas = int(round((pct_tsr + pct_permiso + pct_caidas + pct_epp + (pct_escaleras or 0)) / (5.0 if tot_dias_escaleras > 0 else 4.0)))
         return jsonify({
             'success': True,
             'mes': inicio.strftime('%Y-%m'),
@@ -34654,7 +34998,14 @@ def api_sgis_indicadores_supervisores_detalle():
                 'escaleras': pct_escaleras,
                 'tsr': pct_tsr,
                 'permiso': pct_permiso,
-                'promedio_metricas': promedio_metricas
+                'promedio_metricas': promedio_metricas,
+                'aplica': {
+                    'epp': True,
+                    'escaleras': (sup_upper == 'CORTES CUERVO SANDRA CECILIA' and pct_escaleras is not None) or (tot_dias_escaleras > 0),
+                    'caidas': (sup_upper != 'CORTES CUERVO SANDRA CECILIA'),
+                    'tsr': (sup_upper != 'CORTES CUERVO SANDRA CECILIA'),
+                    'permiso': (sup_upper != 'CORTES CUERVO SANDRA CECILIA')
+                }
             },
             'tecnicos': detalle
         })

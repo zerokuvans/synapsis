@@ -151,12 +151,21 @@ function renderSupervisorCard(item){
   const table = document.createElement('table'); table.className = 'table table-sm';
   const tbody = document.createElement('tbody');
   const rows = [
-    ['Análisis de Trabajo Seguro Rutinario', item.porcentaje_tsr],
-    ['Permiso de Trabajo', item.porcentaje_permiso],
-    ['Pre-operacional Caídas', item.porcentaje_caidas],
-    ['Pre-operacional EPP', item.porcentaje_epp]
+    ['Análisis de Trabajo Seguro Rutinario', item.porcentaje_tsr, 'tsr'],
+    ['Permiso de Trabajo', item.porcentaje_permiso, 'permiso'],
+    ['Pre-operacional Caídas', item.porcentaje_caidas, 'caidas'],
+    ['Pre-operacional EPP', item.porcentaje_epp, 'epp']
   ];
-  rows.forEach(r=>{ const tr=document.createElement('tr'); const td1=document.createElement('td'); td1.textContent=r[0]; const td2=document.createElement('td'); td2.className='text-end'; td2.textContent = `${Math.round(Number(r[1]||0))}%`; tr.appendChild(td1); tr.appendChild(td2); tbody.appendChild(tr); });
+  const supUpper = String(item.supervisor || '').trim().toUpperCase();
+  rows.forEach(r=>{ 
+    const tr=document.createElement('tr'); 
+    const td1=document.createElement('td'); td1.textContent=r[0]; 
+    const td2=document.createElement('td'); td2.className='text-end'; 
+    const key = r[2];
+    const aplica = !(supUpper === 'CORTES CUERVO SANDRA CECILIA' && (key === 'tsr' || key === 'permiso' || key === 'caidas'));
+    td2.textContent = aplica ? `${Math.round(Number(r[1]||0))}%` : 'No aplica'; 
+    tr.appendChild(td1); tr.appendChild(td2); tbody.appendChild(tr); 
+  });
   const trEsc = document.createElement('tr');
   const tdEsc1 = document.createElement('td'); tdEsc1.textContent = 'Pre-operacional Escaleras';
   const tdEsc2 = document.createElement('td'); tdEsc2.className = 'text-end';
